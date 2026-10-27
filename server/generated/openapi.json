@@ -46352,7 +46352,7 @@
                             "wss_url": {
                                 "type": "string",
                                 "format": "uri",
-                                "pattern": "^wss://[^/?#@]+:[0-9]+/collaboration$"
+                                "pattern": "^wss?://[^/?#@]+:[0-9]+/collaboration$"
                             }
                         },
                         "required": [
@@ -47530,7 +47530,7 @@
                             "wss_url": {
                                 "type": "string",
                                 "format": "uri",
-                                "pattern": "^wss://[^/?#@]+:[0-9]+/collaboration$"
+                                "pattern": "^wss?://[^/?#@]+:[0-9]+/collaboration$"
                             }
                         },
                         "required": [

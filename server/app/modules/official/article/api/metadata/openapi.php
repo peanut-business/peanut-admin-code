@@ -161,7 +161,7 @@ $bodyTransport = $bodyObject([
     'document_id' => $bodyId, 'mode' => ['type' => 'string', 'enum' => ['write']], 'protocol' => ['type' => 'integer', 'enum' => [2]],
     'owner' => $bodyOwner, 'authorization_revision' => $bodyHash, 'document_name' => ['type' => 'string'],
     'article_id' => $bodyId, 'owner_revision' => $bodyHash, 'capabilities' => $schemaRef('DocumentContentCapabilities'),
-    'wss_url' => ['type' => 'string', 'format' => 'uri', 'pattern' => '^wss://[^/?#@]+:[0-9]+/collaboration$'],
+    'wss_url' => ['type' => 'string', 'format' => 'uri', 'pattern' => '^wss?://[^/?#@]+:[0-9]+/collaboration$'],
 ], ['document_id', 'mode', 'protocol', 'owner', 'authorization_revision', 'document_name', 'article_id', 'owner_revision', 'capabilities', 'wss_url']);
 $bodyOperation = $bodyObject([
     'article_id' => $bodyId, 'request_id' => $bodyKey, 'document_id' => $bodyId,

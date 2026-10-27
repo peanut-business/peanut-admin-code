@@ -9,6 +9,7 @@ ACTION="${1:-status}"
 PHP_CORE_DIR=""
 WEB_CORE_DIR=""
 BACKEND_ENV=""
+CLIENT="all"
 
 die() { printf 'core-dev: %s\n' "$*" >&2; exit 1; }
 usage() {
@@ -18,14 +19,17 @@ Usage: scripts/core-dev {select|install|status|link|link-status|php-status|php-p
   --php-core-dir /absolute/peanut-admin-core-php
   --web-core-dir /absolute/peanut-admin-core-web
   [--backend-env /absolute/server/.env.development]
+  [--client web,platform|pc|uniapp|all]
 
-select persists this explicit choice in the application's ignored .local/core-dev.json.
+select persists this choice in the application's ignored .local/core-dev.json.
+Missing source paths reuse the saved choice, then host.json core.php/core.web on select.
 Following commands reuse that choice; command-line paths override it for that call.
 Development always uses both explicitly selected local Core checkouts.
 install/link activate source links; status/link-status verify those links.
 Local Web exports use dist/, compiled by the existing TypeScript toolchain.
 First select the checkouts and run install/link to prepare source dependencies.
-Then run the existing pnpm run watch once in the selected Web Core root.
+Use the prepared Core tool scope for the existing Web Core watch (see development docs).
+--client limits Web install/link/status to the listed clients; default: all.
 Start clients separately with native npm run dev / npm run dev:h5 commands;
 they consume the prepared links and do not start Core watchers or read this choice.
 Do not re-link or rebuild for each edit; stop affected clients and Core watch
@@ -40,10 +44,12 @@ while [[ $# -gt 0 ]]; do
     --php-core-dir) [[ $# -ge 2 ]] || die 'missing PHP Core path'; PHP_CORE_DIR="$2"; shift 2 ;;
     --web-core-dir) [[ $# -ge 2 ]] || die 'missing Web Core path'; WEB_CORE_DIR="$2"; shift 2 ;;
     --backend-env) [[ $# -ge 2 ]] || die 'missing environment path'; BACKEND_ENV="$2"; shift 2 ;;
+    --client) [[ $# -ge 2 ]] || die 'missing client selection'; CLIENT="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) die "unknown argument: $1" ;;
   esac
 done
+[[ "$CLIENT" == all || "$CLIENT" =~ ^(web|platform|pc|uniapp)(,(web|platform|pc|uniapp))*$ ]] || die 'unsupported client selection'
 ROOT_DIR="$(CDPATH= cd -- "$ROOT_DIR" && pwd -P)"
 [[ -f "$ROOT_DIR/server/composer.json" && -x "$ROOT_DIR/scripts/local-core-composer" ]] || die 'application checkout is invalid'
 selection_file="$ROOT_DIR/.local/core-dev.json"
@@ -64,6 +70,20 @@ NODE
   [[ -n "$PHP_CORE_DIR" ]] || PHP_CORE_DIR="$(printf '%s\n' "$selection" | sed -n '1p')"
   [[ -n "$WEB_CORE_DIR" ]] || WEB_CORE_DIR="$(printf '%s\n' "$selection" | sed -n '2p')"
   [[ -n "$BACKEND_ENV" ]] || BACKEND_ENV="$(printf '%s\n' "$selection" | sed -n '3p')"
+fi
+if [[ "$ACTION" == select && ( -z "$PHP_CORE_DIR" || -z "$WEB_CORE_DIR" ) && -f "$ROOT_DIR/.local/toolchain/host.json" ]]; then
+  configured="$(node - "$ROOT_DIR/.local/toolchain/host.json" <<'NODE'
+const fs = require('node:fs');
+const host = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+for (const key of ['php', 'web']) {
+  const value = host.core?.[key] ?? '';
+  if (typeof value !== 'string' || (value && !value.startsWith('/')) || /[\x00-\x1f\x7f]/.test(value)) throw new Error(`Invalid configured Core path: ${key}`);
+  console.log(value);
+}
+NODE
+)" || die 'configured Core paths are invalid; supply explicit source paths'
+  [[ -n "$PHP_CORE_DIR" ]] || PHP_CORE_DIR="$(printf '%s\n' "$configured" | sed -n '1p')"
+  [[ -n "$WEB_CORE_DIR" ]] || WEB_CORE_DIR="$(printf '%s\n' "$configured" | sed -n '2p')"
 fi
 [[ "$PHP_CORE_DIR" == /* && "$WEB_CORE_DIR" == /* ]] || die 'both absolute Core checkout paths are required'
 PHP_CORE_DIR="$(CDPATH= cd -- "$PHP_CORE_DIR" && pwd -P)"
@@ -95,13 +115,13 @@ NODE
   install|link)
     [[ "$BACKEND_ENV" == /* ]] || die 'install requires --backend-env'
     "$ROOT_DIR/scripts/local-core-composer" install --core-dir "$PHP_CORE_DIR" --backend-env "$BACKEND_ENV"
-    "$ROOT_DIR/scripts/local-core-web" link --core-dir "$WEB_CORE_DIR"
+    "$ROOT_DIR/scripts/local-core-web" link --core-dir "$WEB_CORE_DIR" --client "$CLIENT"
     ;;
   status|link-status|php-status)
     php_link="$ROOT_DIR/server/vendor/peanut-admin/core"
     [[ -L "$php_link" && "$(realpath "$php_link")" == "$PHP_CORE_DIR" ]] \
       || die 'installed PHP Core does not link to the selected checkout'
-    [[ "$ACTION" == php-status ]] || "$ROOT_DIR/scripts/local-core-web" link-status --core-dir "$WEB_CORE_DIR"
+    [[ "$ACTION" == php-status ]] || "$ROOT_DIR/scripts/local-core-web" link-status --core-dir "$WEB_CORE_DIR" --client "$CLIENT"
     ;;
   *) usage >&2; die "unsupported action: $ACTION" ;;
 esac

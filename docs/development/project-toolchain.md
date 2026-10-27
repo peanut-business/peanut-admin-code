@@ -10,6 +10,8 @@
 
 Core 的 prepared 指纹绑定 Code state root、该 Core 的 host scope、规范化的 manifest/toolchain 内容摘要、实际命令文件身份及登记观察项，不绑定临时 Core 副本的绝对源码路径。相同 Core scope 与相同声明内容可以复用 prepared 入口；PHP/Web scope相互独立，manifest 或工具身份变化会产生新的指纹。
 
+本地联合开发的源码选择由 `.local/core-dev.json` 独立保存；首次 `scripts/core-dev select` 可复用 host 中已明确选择的 Core 绝对路径，已有源码选择优先，显式 `--php-core-dir/--web-core-dir` 可覆盖本次选择。`peanut config` 不回写已有源码选择。`core-dev install/link --client web,platform` 只链接所列 Web 客户端，一次安装并构建所选 Web Core；默认仍为四端。Web Core 安装/构建和 PHP Core Composer 操作分别使用本 Code 的 Web/PHP scope，通过 `project-env exec` 调用登记的 pnpm/Composer，不借 Corepack 或固定的应用 Composer wrapper 更换工具。scope 未准备时先显式 config；安装/构建不会隐式 prepare 或安装工具。既有 Core watch 同样通过 Web scope 执行，完整命令见[当前开发生命周期](current-code-lifecycle.md#9-应用生成安装与升级)。
+
 ## 使用
 
 使用已安装的 CLI，在选定 Code 根执行 `peanut config`，预览并确认已安装工具和路径；环境、路径和声明不变时，之后生成 ST/MT 模板只需 `peanut release`。CLI 内部调用 `project-env` 和原生模板生产者，不要求每次手动 prepare/install/hash。需要本地 Core 随模板携带时显式选择 `--with-local-core`。

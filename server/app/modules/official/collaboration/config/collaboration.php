@@ -10,14 +10,15 @@ if (!is_string($secret) || ($secret !== '' && (strlen($secret) < 32 || strlen($s
 
 return [
     'enabled' => env('COLLABORATION_ENABLED', 'disabled') === 'enabled',
+    'environment' => env('APP_ENV', 'production'),
     // Stable deployment identity, never a hostname or a client-provided Room name.
     'instance_id' => env('COLLABORATION_INSTANCE_ID', ''),
     'service_instance_id' => env('COLLABORATION_SERVICE_INSTANCE_ID', ''),
     'key_id' => env('COLLABORATION_SERVICE_KEY_ID', ''),
     'secret' => $secret,
-    // Registered HTTPS service ingress. E1 managed loader supplies it; no loopback/TLS fallback.
+    // Explicit HTTP origins are development-only; HTTPS always verifies the configured CA.
     'control_origin' => env('COLLABORATION_CONTROL_ORIGIN', ''),
-    // Public TLS ingress used by authorized browser transports.
+    // The historical key also carries an explicit ws:// URL in development.
     'public_wss_url' => env('COLLABORATION_PUBLIC_WSS_URL', ''),
     'ca_bundle_file' => env('COLLABORATION_CA_FILE', '') === 'private/collaboration/service/ca.pem'
         ? dirname(__DIR__, 5) . '/private/collaboration/service/ca.pem' : '',

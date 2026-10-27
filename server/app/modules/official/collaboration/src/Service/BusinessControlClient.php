@@ -56,17 +56,18 @@ final readonly class BusinessControlClient
             throw new \LogicException('COLLABORATION_CONTROL_TRANSACTION_DENIED');
         }
         $c = $this->configuration;
-        $caBundleFile = $c['ca_bundle_file'] ?? null;
-        if (!is_string($caBundleFile) || $caBundleFile !== dirname(__DIR__, 6) . '/private/collaboration/service/ca.pem') {
-            throw new \DomainException('COLLABORATION_CA_REFERENCE_INVALID');
-        }
-        if (!is_file($caBundleFile) || is_link($caBundleFile) || preg_match('/^[a-f0-9]{64}$/D', $c['ca_sha256'] ?? '') !== 1
-            || !hash_equals($c['ca_sha256'], hash_file('sha256', $caBundleFile))) {
-            throw new \DomainException('COLLABORATION_CA_REFERENCE_CHANGED');
-        }
         $origin = $c['control_origin'] ?? '';
         $url = is_string($origin) ? parse_url($origin) : false;
-        if (($c['enabled'] ?? null) !== true || !$url || ($url['scheme'] ?? '') !== 'https'
+        $developmentHttp = ($c['environment'] ?? null) === 'development' && ($url['scheme'] ?? null) === 'http';
+        $caBundleFile = $developmentHttp ? null : ($c['ca_bundle_file'] ?? null);
+        if (!$developmentHttp && (!is_string($caBundleFile) || $caBundleFile !== dirname(__DIR__, 6) . '/private/collaboration/service/ca.pem')) {
+            throw new \DomainException('COLLABORATION_CA_REFERENCE_INVALID');
+        }
+        if (!$developmentHttp && (!is_file($caBundleFile) || is_link($caBundleFile) || preg_match('/^[a-f0-9]{64}$/D', $c['ca_sha256'] ?? '') !== 1
+            || !hash_equals($c['ca_sha256'], hash_file('sha256', $caBundleFile)))) {
+            throw new \DomainException('COLLABORATION_CA_REFERENCE_CHANGED');
+        }
+        if (($c['enabled'] ?? null) !== true || !$url || !(($url['scheme'] ?? '') === 'https' || $developmentHttp)
             || !isset($url['host']) || isset($url['user']) || isset($url['pass']) || isset($url['query']) || isset($url['fragment'])
             || !in_array($url['path'] ?? '', ['', '/'], true)
             || !is_string($c['secret'] ?? null) || strlen($c['secret']) < 32
@@ -95,6 +96,7 @@ final readonly class BusinessControlClient
             false,
             caBundleFile: $caBundleFile,
             directConnection: true,
+            allowDevelopmentHttp: $developmentHttp,
         ));
         $h = array_change_key_case($response->headers, CASE_LOWER);
         $time = $h['x-collaboration-timestamp'] ?? '';

@@ -36,7 +36,7 @@
         },
         {
             "path": "server/app/modules/official/article/api/metadata/openapi.php",
-            "sha256": "7cb75f66908af1735721ebd1031503d253300475eefa8f0ad2522ae7ffff3fbc"
+            "sha256": "a69d5a9a0f7f81159f097d33e9421f96fa702fe45397e7bb613fbd344d4c1a9d"
         },
         {
             "path": "server/app/modules/official/article/route/app.php",
@@ -44,7 +44,7 @@
         },
         {
             "path": "server/app/modules/official/collaboration/api/metadata/openapi.php",
-            "sha256": "5cd42044bef2dd041a8e2a72e0fe22872eb03a3088bfc7d947ff6fd22bf6ad08"
+            "sha256": "653f75da0fea3895f79a21a90fffb8f56b9e90b94fdcfe7552c32835cae49574"
         },
         {
             "path": "server/app/modules/official/collaboration/route/app.php",

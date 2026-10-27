@@ -404,8 +404,8 @@ function demoMultiMain(): int
     if (env('PEANUT_DEMO_MODE', false) !== 'enabled') {
         throw new RuntimeException('PEANUT_DEMO_MODE=enabled is required');
     }
-    $target = demoMultiRequired('PEANUT_DEPLOYMENT_TARGET');
-    $resource = demoMultiRequired('PEANUT_DATABASE_RESOURCE_ID');
+    $target = requiredMaintenanceEnvironment('PEANUT_DEPLOYMENT_TARGET');
+    $resource = requiredMaintenanceEnvironment('PEANUT_DATABASE_RESOURCE_ID');
     $allowed = [
         'production-candidate' => 'peanut-admin-production-candidate-mysql84',
         'local-multi-tenant-demo' => 'peanut-admin-mysql84-local-multi-tenant-demo',

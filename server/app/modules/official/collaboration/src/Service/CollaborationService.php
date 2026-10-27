@@ -591,11 +591,13 @@ final readonly class CollaborationService implements \PeanutAdmin\Modules\Collab
         $value = $this->configuration['public_wss_url'] ?? null;
         $url = is_string($value) ? parse_url($value) : false;
         if (!is_array($url) || array_diff(array_keys($url), ['scheme', 'host', 'port', 'path']) !== []
-            || ($url['scheme'] ?? null) !== 'wss' || ($url['path'] ?? null) !== '/collaboration'
+            || !(($url['scheme'] ?? null) === 'wss'
+                || (($this->configuration['environment'] ?? null) === 'development' && ($url['scheme'] ?? null) === 'ws'))
+            || ($url['path'] ?? null) !== '/collaboration'
             || !is_string($url['host'] ?? null) || strlen($url['host']) > 253
             || preg_match('/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/D', $url['host']) !== 1
             || !is_int($url['port'] ?? null) || $url['port'] < 1024 || $url['port'] > 65535
-            || $value !== 'wss://' . $url['host'] . ':' . $url['port'] . '/collaboration') {
+            || $value !== $url['scheme'] . '://' . $url['host'] . ':' . $url['port'] . '/collaboration') {
             throw new ApiProblem('COLLAB_UNAVAILABLE', 503, '公开协作传输配置尚未核定');
         }
         return $value;

@@ -692,7 +692,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "59cca84c068a82b4de79d98ba78fb58b25850e2e4488ea6821a202f4465a82c5"
+            "source_sha256": "c2600a1ad2e66af9ecb092e8fbea66230a05d076994f7557018f693ad7cede00"
         },
         {
             "path": "docs/architecture/events-and-tasks.md",
@@ -859,7 +859,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "79577710b9d5757ee55992aa0e4d56c95267d99aadd97ce6c739e5c1e32dbffe"
+            "source_sha256": "5e2b09948f9e687b09816f21ae8b8e5171ef630c773cb8bcbe4d898d24bb8923"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -928,7 +928,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "29ba647fd2283ee99e78d9ad94b0c5f3a63f7ad6ee97845bf0897d223c801568"
+            "source_sha256": "d5cee67786ac7cdf24ce13c9fcd5798dbe058bd9cc45d2ada7a14b2297ae016b"
         },
         {
             "path": "docs/development/standard.md",
@@ -1090,7 +1090,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0f4353facc4234c1b1c9d0910eb07f3eb519316b08e13597008835d271aff834"
+            "source_sha256": "646692d85110f5866eb6569028bec047654c792b2c5a8afa8718af482f4becce"
         },
         {
             "path": "docs/public/module-development.md",
@@ -3259,7 +3259,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5fcfb4f5de28c3c19a359f08be27a7379d7a133a344539cfb44ecb4c9fecb69a"
+            "source_sha256": "0172f89d12cd90fd1294e951c3a94e7d85e2e97951c2d0f60065f465c6dee821"
         },
         {
             "path": "scripts/core-qualification-runner",
@@ -3394,7 +3394,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c24a916db8b7fea80de9a102f519927882aceb3bf9a334f9d021f96ad9a8d48b"
+            "source_sha256": "6b3c578fc6b66c35c4358dba40dab7776799d5dbf6c8c6e2aabfec4cb5fcca18"
         },
         {
             "path": "scripts/local-core-links.mjs",
@@ -3422,7 +3422,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "03398b757312027a6b6953e4a00c7212db0b7cae9503ee471ed7399c07285d1d"
+            "source_sha256": "0f088b0c97ebd370a52d935c36de583c861d9b73f1b1f9249f6410ae82077279"
         },
         {
             "path": "scripts/migrate-installation-state",
@@ -3450,7 +3450,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a70708b093078727fadb33fc6346da4f7eb60ff479f7b1b889304fe735914b7e"
+            "source_sha256": "3552223586a6eb8e80d148d0e2a865981d816c692a3e7e6ac662c3fbdbd3de65"
         },
         {
             "path": "scripts/ops-module-worker",
@@ -3477,7 +3477,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7b3f9af7181e11dbc33986da156113b82a38db8697dd7804d7f479c93d905039"
+            "source_sha256": "8ccd20169eae55a73dc44e5b51fdf0ae8abd6b803e66fb339ad6b351ccff00ae"
         },
         {
             "path": "scripts/ops-upgrade-worker",
@@ -3624,7 +3624,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d7d36810a90b92cd0871cddc90150c027c7d951e12a24195b4d4fe7b7f298016"
+            "source_sha256": "84787a41b3dda34f57fefb2221109807cc42e3e16686da7ab2463899abb158b9"
         },
         {
             "path": "scripts/project-resource-lease",
@@ -3680,7 +3680,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5ea83b0f289c8043552ed92a7e5e3b3f3e11bda2623067cb73669a09c3a526ce"
+            "source_sha256": "f72b7b449d8f00cc7be111126e36af3d6cbdc1f3cee4f874bb8959977aa4e498"
         },
         {
             "path": "scripts/publish-github-release",
@@ -4924,7 +4924,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "048d93eaf7550dd8bb3a8b8ac6bbc1156f03e0d48e4bde86c2355c02d0ede891"
+            "source_sha256": "0780f33dc3e3f5d4b074ebe96d1be0a78f97a90c3868f7724b16c6be7693890c"
         },
         {
             "path": "server/.gitignore",
@@ -6730,7 +6730,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0d84a25e15d26e8f728aad7c94fef9fa94896dc147876a872d2d1b23768a6182"
+            "source_sha256": "6a94caa8a3c8ef19bc7f89c157e8f8c4100c61779102669121d3c2f4a12a3cfa"
         },
         {
             "path": "server/app/command/OpsModuleRequest.php",
@@ -6772,7 +6772,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "03701f087c307003ba451c723a45a88a4df3832b3b8af929edbf0a54308b24b0"
+            "source_sha256": "4b3607802ca23acfe7e2b6a3296fcf32b9e13bf985c457b83389562fb41c2297"
         },
         {
             "path": "server/app/command/OpsUpgradeTask.php",
@@ -9059,7 +9059,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bafb5913066160d9aff000214996b5db37930230dc82dea49c00a3890f84a421"
+            "source_sha256": "45e61f408e748653fa35da5bcce9a2f778d03226456faf337008a34f68d687f1"
         },
         {
             "path": "server/app/common/services/installation/InstallationExecutionHost.php",
@@ -9144,7 +9144,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "aaa75a88ff3bb8fb58673ae89c3fc788fb8759d12dad2bb80e7ce9b65162304a"
+            "source_sha256": "6f3305820b14dff3fa1334192a9b5df8be0fcab1c789aa8685a4d440bf1ea714"
         },
         {
             "path": "server/app/common/services/upgrade/SourceSharedCredentialRecovery.php",
@@ -9158,7 +9158,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "84cb7233f9fca1df5ee20b44ef3472157a159258072b50f0b8048dfe3449f505"
+            "source_sha256": "78691038763b60d87a8e3afa6967549e110661936091a4ad3365daa3cc16a54c"
         },
         {
             "path": "server/app/common/support/ExportPageInfo.php",
@@ -9452,7 +9452,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8426ac5f2e20f6f4ae7adadca9377ac783ce96ca165a3b6d41ba326031cd6561"
+            "source_sha256": "9e59335bf15918e467506c4e36e582bc04b8d5f134065cc9eaafe98b84da1db6"
         },
         {
             "path": "server/app/common/value/http/OutboundHttpResponse.php",
@@ -10433,7 +10433,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7cb75f66908af1735721ebd1031503d253300475eefa8f0ad2522ae7ffff3fbc"
+            "source_sha256": "a69d5a9a0f7f81159f097d33e9421f96fa702fe45397e7bb613fbd344d4c1a9d"
         },
         {
             "path": "server/app/modules/official/article/composer.json",
@@ -10839,7 +10839,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "88149b719b21df9633db3fdbce2676028ef8895e7040d0bba5bd77b1ae419901"
+            "source_sha256": "cd4560ab8c64a80cf47cb1bcace760443f518969e8430609307617025c822638"
         },
         {
             "path": "server/app/modules/official/collaboration/api/metadata/openapi.php",
@@ -10853,7 +10853,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5cd42044bef2dd041a8e2a72e0fe22872eb03a3088bfc7d947ff6fd22bf6ad08"
+            "source_sha256": "653f75da0fea3895f79a21a90fffb8f56b9e90b94fdcfe7552c32835cae49574"
         },
         {
             "path": "server/app/modules/official/collaboration/composer.json",
@@ -10881,7 +10881,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c84318d1eafe9dd028a268c7d324e7ada26acba62ec4d0f48399bd36005fbee8"
+            "source_sha256": "a15c2725474bff8538654948fd59367bba46eb460c61ebf5f005bb5048f340e4"
         },
         {
             "path": "server/app/modules/official/collaboration/module.json",
@@ -10965,7 +10965,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4306c3b39b4519c90494d0952ba6847f30a13ef28927ef373b899010a3b4e38c"
+            "source_sha256": "5176c94bef79bc193307ff7d06ee2c599ff04b502a6dccb81cddef8c56424c09"
         },
         {
             "path": "server/app/modules/official/collaboration/src/Controller/InternalController.php",
@@ -11161,7 +11161,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0409ba9a7c4ecc803ef63ad067f30465e035396ecd743dfc0f950e13d9670ad2"
+            "source_sha256": "36c1773071673ee03caa0ff417ef620832dc9fc883e9c89a59537a7dc605c8b3"
         },
         {
             "path": "server/app/modules/official/collaboration/src/Service/BusinessControlClient.php",
@@ -11175,7 +11175,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f45c510d793425bd2b577e1b5b670d9e63d371c2e2968bc6a1c315071f23db25"
+            "source_sha256": "b3b727214cc582a210027143a153dfe5c0553462594f910ce59b95cebfd2a428"
         },
         {
             "path": "server/app/modules/official/collaboration/src/Service/CollaborationService.php",
@@ -11189,7 +11189,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "136704bd993ce6f8e8e496b0af37d0e6f4eefc251b8df27acf33c80ae7015f91"
+            "source_sha256": "9e1af5aca948e66e7952b6e8d2c9a57890beba253b946feeecf78958a17f80e3"
         },
         {
             "path": "server/app/modules/official/collaboration/src/Service/NativeCollaborationProvider.php",
@@ -25268,7 +25268,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "18a56d59a705689fde32e3bfac9c80d59a0bad4b4e7c609f4ab9af8f3555c3d8"
+            "source_sha256": "06c990b8d04b249ebe0137d7e30c6a4e882544831e5179b651116e0cf4eb6b52"
         },
         {
             "path": "server/app/platform/value/ops/PlatformUpgradeTarget.php",
@@ -25296,7 +25296,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a02608b3e4759ed2685de7aca265c06a1aa70bdcab870751ac0cb39a1ec3732c"
+            "source_sha256": "9fafd9e82192404a714581e7495a4fdd853de818638ff260550561922b51bc11"
         },
         {
             "path": "server/app/platform/value/plugin/ModuleFrontendLayout.php",
@@ -25800,7 +25800,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2982554f749117a5b2416eba0aba1c90db3e7347dd01f2d6fc0e42ea8b6fbec2"
+            "source_sha256": "c079bdb1c93fa7dd8998d20c0c29491cbba93b42788f861afd86e98c7ac6b3c7"
         },
         {
             "path": "server/database/install.php",
@@ -25842,7 +25842,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3bc96e81dff092f2581a38096d6a2dbb83e4d198666074a4383b41349a8c84bc"
+            "source_sha256": "46fb024f2cca89e0e9c32aba8039e351a7b56b77277899cfbf107bd2d52f6261"
         },
         {
             "path": "server/database/schema/baseline-data.sql",
@@ -25939,7 +25939,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5290938b188489d7d69b6c0191349d49e6a1514d41fdbff723e0f896da70b760"
+            "source_sha256": "206aa8442f859f0ce390cf0d6d2336f813eda820218fd346d8b1a2e9e94b1705"
         },
         {
             "path": "server/docker/Dockerfile",
@@ -25967,7 +25967,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f470f110d09ccb72b8ce95680a1f2c5581d147a56708ddfbe05370ff5de3ba03"
+            "source_sha256": "4c477460f24c03eec7c744df5c4dc25d70344f03f2dadd1552ccb910f418c7ba"
+        },
+        {
+            "path": "server/docker/compose.collaboration-development.yaml",
+            "target": "server/docker/compose.collaboration-development.yaml",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "6c9ae4e887198807582955e8772340cb476a2dddfc157f2b0df5c67d0a564f80"
         },
         {
             "path": "server/docker/compose.collaboration.yaml",
@@ -26068,6 +26082,20 @@
             "source_sha256": "24a84ed39c82c71ceb36ff36367162f2f0c58125152766b0436f75310a6e7f31"
         },
         {
+            "path": "server/docker/conf/nginx.collaboration-development.conf.template",
+            "target": "server/docker/conf/nginx.collaboration-development.conf.template",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "eb4a4ce971a230d3f827e8f1b84e72a21e51ff5103fbdd19d2b4deba519572a9"
+        },
+        {
             "path": "server/docker/conf/nginx.collaboration.conf.template",
             "target": "server/docker/conf/nginx.collaboration.conf.template",
             "classification": "managed",
@@ -26163,7 +26191,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6807683f2a94490c669af18fbe23e01b99b352960e8d0a58f2bfdd6be28ac539"
+            "source_sha256": "e2c276d819678e157cc099491c706f1432849d567ce08d12de9c0ad7dd7a8a35"
         },
         {
             "path": "server/docker/scripts/configure-runtime.py",
@@ -26414,7 +26442,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81efb96ab7f6c2972d2de71dcd790346cb544498f9ff138ca253806dcf9bcbff"
+            "source_sha256": "e9859e6236360c279c33d9f66b662b3f71f83866c89e43ea0203867b7541eb3b"
         },
         {
             "path": "server/generated/openapi.json",
@@ -26428,7 +26456,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "36c2b20edc2f3c38b88f7def57807ce707b59f7bb5cb8bf5026c943545876a51"
+            "source_sha256": "5f2d174fc1b0b4cfaf3e5dd4095791ea4037af1cef1be1adb5fdc85ee1bdf2ee"
         },
         {
             "path": "server/private/storage/.gitkeep",
@@ -34257,7 +34285,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fe7e43ad7facb613ce56d8a0bae5bea6f138dd6de7a6406948ec03eb3f06033d"
+            "source_sha256": "aa3c99bd37ec9fbfd9c6c9dcc54a837ce39da594f552cabebccf12ef44883ffa"
         },
         {
             "path": "web/src/modules/official-article/views/list/ArticleBodyHistory.vue",
@@ -34579,7 +34607,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7668bea1707d54facf8bd69f205b8b3c7975501ac0802b11fae7df6cc37dc673"
+            "source_sha256": "7a53231d9f97a05c72ac6af46311a6ad2b99720d6c184ed276b640322e4ee2f2"
         },
         {
             "path": "web/src/modules/official-document/components/DocumentSurface.vue",
@@ -34593,7 +34621,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "07a966722b6ce365a50da70564fd9895d0b5e885c4bcf4fe7dd19a16425cf925"
+            "source_sha256": "8183a9a1325e5cf3cd70077bc46c3176ea27c660e6e1df0bd9c81c8920152b1b"
         },
         {
             "path": "web/src/modules/official-document/components/DocumentViewer.vue",
@@ -36637,7 +36665,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "329451bf5b252ee05528fd5f046dbbb74dac853542b5d8c7741f43d30a8c6b34"
+            "source_sha256": "ad9a28cc95368d5307d3084ba7dc7c42c56814862d922bcfdf72512be957bbcf"
         },
         {
             "path": "web/src/modules/official-rich-text/src/collaboration/tracker.ts",
@@ -38024,6 +38052,20 @@
                 "full"
             ],
             "source_sha256": "0af6c5030d50321f607be22cd1bc790082f61220d6e1146ea9502a24c0b3c784"
+        },
+        {
+            "path": "web/src/utils/random-uuid.ts",
+            "target": "web/src/utils/random-uuid.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2cbe862a2cd9e9f8f40f23e04223bb912ec170079a94d950d563612c33eeaafc"
         },
         {
             "path": "web/src/utils/route-listener.ts",
