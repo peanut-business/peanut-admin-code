@@ -27,6 +27,10 @@ Compose/Node uses its own single-quoted encoding. JSON escape sequences are not
 used to encode PHP secrets. The publisher reads these known flat formats and
 rejects ambiguous hand-edited inline comments or Compose interpolation/double-quote escapes
 rather than treating its own parse as proof of the runtime's value.
+The current Compose encoding also rejects values ending in an odd number of
+backslashes before publishing service, ingress or PHP configuration. This
+includes the secret and preserved advanced service settings; no value is
+rewritten to make it encodable.
 The required `websocket_scheme` selects `wss` or, only for development, `ws`.
 Both internal origins must use the matching `https` or `http` scheme; there is
 no automatic downgrade or certificate-verification bypass.
