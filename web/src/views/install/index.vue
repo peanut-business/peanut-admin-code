@@ -34,27 +34,24 @@
       </section>
       <section v-else-if="stage === 2">
         <h2>实例配置</h2>
-        <p>已有配置只读保留；连接与凭据来自本实例登记资源。</p>
+        <p>已有配置只读保留；填写本实例实际使用的数据库连接。</p>
         <el-input v-model="form.setupToken" type="password" show-password placeholder="Setup Token" autocomplete="off" />
         <template v-if="!configuration?.configured">
-          <el-select v-model="configurationInput.deployment_target" :disabled="!!configuration?.deployment_binding"><el-option v-for="target in configuration?.deployment_targets || []" :key="target" :label="target" :value="target" /></el-select>
-          <el-select v-model="configurationInput.database_source" :disabled="!!configuration?.deployment_binding">
-            <el-option label="内置数据库" value="bundled" /><el-option label="已登记的数据库" value="registered" />
+          <el-select v-model="configurationInput.app_env" placeholder="APP_ENV">
+            <el-option v-for="environment in configuration?.app_environments || []" :key="environment" :label="environment" :value="environment" />
           </el-select>
-          <el-input v-if="configurationInput.database_source === 'bundled'" v-model="configurationInput.database_name" :disabled="!!configuration?.deployment_binding" placeholder="本实例数据库名（可自动生成）" />
-          <template v-else>
-            <el-select v-model="configurationInput.database_resource_id" :disabled="!!configuration?.deployment_binding" placeholder="选择本实例已登记的数据库">
-              <el-option v-for="resource in configuration?.database_resources || []" :key="resource.resource_id" :label="resource.database_name" :value="resource.resource_id" />
-            </el-select>
-            <el-select v-model="configurationInput.database_consumer" :disabled="!!configuration?.deployment_binding" placeholder="应用连接方式">
-              <el-option v-for="endpoint in selectedDatabase?.endpoints || []" :key="endpoint.consumer" :label="`${endpoint.consumer === 'host' ? '主机' : '容器'}：${endpoint.host}:${endpoint.port}`" :value="endpoint.consumer" />
-            </el-select>
+          <el-select v-model="configurationInput.database_source">
+            <el-option label="内置数据库" value="bundled" /><el-option label="已有数据库" value="existing" />
+          </el-select>
+          <el-input v-model="configurationInput.database_name" :placeholder="configurationInput.database_source === 'bundled' ? '本实例数据库名（可自动生成）' : '已有数据库名'" />
+          <template v-if="configurationInput.database_source === 'existing'">
+            <el-input v-model="configurationInput.database_host" placeholder="数据库主机" />
+            <el-input-number v-model="configurationInput.database_port" :min="1" :max="65535" placeholder="数据库端口" />
             <el-input v-model="configurationInput.database_user" placeholder="已有普通数据库账号" autocomplete="off" />
             <el-input v-model="configurationInput.database_password" type="password" show-password placeholder="数据库密码" autocomplete="off" />
             <p>仅保存配置，不创建数据库或修改账号权限；下一步检查真实连接。</p>
           </template>
           <el-input v-model="configurationInput.platform_hosts" placeholder="Platform Hosts（多租户）" />
-          <el-input v-model="configurationInput.tenant_admin_hosts" placeholder="Tenant Admin Hosts（多租户）" />
           <el-button :loading="refreshing" :disabled="!form.setupToken.trim() || !canSaveConfiguration" @click="saveConfiguration">保存配置</el-button>
         </template>
         <p v-if="configuration?.state === 'pending'">配置待实例正常发布，请重新读取确认，不重复提交。</p>
@@ -335,9 +332,8 @@
   const canSaveConfiguration = ref(false);
   const databaseReport = ref<InstallationStatus | null>(null);
   const canRecheckDatabase = ref(false);
-  const configurationInput = reactive({ deployment_target: 'local-production-preview', database_name: '', platform_hosts: '', tenant_admin_hosts: '',
-    database_source: 'bundled' as 'bundled' | 'registered', database_resource_id: '', database_consumer: 'host' as 'host' | 'container', database_user: '', database_password: '' });
-  const selectedDatabase = computed(() => configuration.value?.database_resources?.find(resource => resource.resource_id === configurationInput.database_resource_id));
+  const configurationInput = reactive({ app_env: 'production' as 'development' | 'production', database_name: '', platform_hosts: '',
+    database_source: 'bundled' as 'bundled' | 'existing', database_host: '', database_port: 3306, database_user: '', database_password: '' });
   const databaseReady = computed(() => databaseReport.value?.state === 'uninstalled' && databaseReport.value.safe_retry === true && databaseReport.value.permissions_verified === true);
   async function installationStep(name: string, action: () => Promise<void>) {
     if (refreshing.value) return;
@@ -353,8 +349,9 @@
     configuration.value = null; canSaveConfiguration.value = false;
     await installationStep('configuration', async () => {
       configuration.value = await getInstallConfiguration();
-      const binding = configuration.value.deployment_binding;
-      if (binding) Object.assign(configurationInput, binding);
+      if (!configuration.value.app_environments?.includes(configurationInput.app_env)) {
+        configurationInput.app_env = configuration.value.app_environments?.[0] || 'production';
+      }
       canSaveConfiguration.value = configuration.value.state === 'unconfigured'; stage.value = 2;
     });
   }
@@ -362,10 +359,9 @@
     if (!canSaveConfiguration.value || refreshing.value) return;
     canSaveConfiguration.value = false; configuration.value = null;
     await installationStep('configuration', async () => {
-      const { database_resource_id, database_consumer, database_user, database_password, ...common } = configurationInput;
+      const { database_host, database_port, database_user, database_password, ...common } = configurationInput;
       await configureInstall(form.setupToken, { ...common,
-        database_name: common.database_source === 'registered' ? '' : common.database_name,
-        ...(common.database_source === 'registered' ? { database_resource_id, database_consumer, database_user, database_password } : {}) });
+        ...(common.database_source === 'existing' ? { database_host, database_port, database_user, database_password } : {}) });
       configurationInput.database_password = '';
       configuration.value = await getInstallConfiguration();
     });

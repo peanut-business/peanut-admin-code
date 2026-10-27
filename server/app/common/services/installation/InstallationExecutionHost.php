@@ -86,12 +86,7 @@ final class InstallationExecutionHost
             if (!is_string($database) || $database === '') {
                 throw new RuntimeException('INSTALL_DATABASE_IDENTITY_UNKNOWN');
             }
-            $registered = \loadConfig($this->serverRoot);
-            $actualConfig = $connection->getConfig();
-            if ($database !== $registered['DB_NAME']
-                || ($actualConfig['database'] ?? null) !== $registered['DB_NAME']
-                || ($actualConfig['hostname'] ?? null) !== $registered['DB_HOST']
-                || (string) ($actualConfig['hostport'] ?? '') !== (string) $registered['DB_PORT']) {
+            if ($database !== $connection->getConfig('database')) {
                 throw new RuntimeException('INSTALL_DATABASE_CONNECTION_MISMATCH');
             }
             $required = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'ALTER', 'DROP', 'INDEX', 'REFERENCES', 'CREATE TEMPORARY TABLES'];

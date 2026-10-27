@@ -27,10 +27,10 @@ def configure(docker_root, php_image, project=None, http_bind=None, http_port=No
         raise ValueError("unsupported runtime configuration template")
     values = {key: data[key] for key in keys - {"schema_version", "protocol"}}
     values["PHP_IMAGE"] = php_image
-    if database_source not in ('bundled', 'registered'):
+    if database_source not in ('bundled', 'existing'):
         raise ValueError('invalid database source')
-    if database_source == 'registered' and mysql_host_port is not None:
-        raise ValueError('registered database uses its APP registry endpoint, not a local MySQL port')
+    if database_source == 'existing' and mysql_host_port is not None:
+        raise ValueError('existing database uses its configured connection, not a local MySQL port')
     for key, value in (("COMPOSE_PROJECT_NAME", project), ("HTTP_BIND", http_bind),
                        ("HTTP_PORT", http_port), ("MYSQL_HOST_PORT", mysql_host_port)):
         if value is not None:
@@ -70,7 +70,7 @@ def configure(docker_root, php_image, project=None, http_bind=None, http_port=No
     if installed.is_symlink() or (installed.exists() and any(installed.iterdir())):
         raise ValueError("installation state already exists; refuse initial configuration")
     order = ("COMPOSE_PROJECT_NAME", "HTTP_BIND", "HTTP_PORT", "MYSQL_HOST_PORT", "PHP_IMAGE", "NGINX_IMAGE", "MYSQL_IMAGE")
-    if database_source == 'registered':
+    if database_source == 'existing':
         order = tuple(key for key in order if key not in ('MYSQL_HOST_PORT', 'MYSQL_IMAGE'))
     payload = "# Generated from the public template. Private Docker orchestration configuration.\n"
     payload += "".join(key + "=" + str(values[key]) + "\n" for key in order)
@@ -104,7 +104,7 @@ def main():
     parser.add_argument("--http-bind")
     parser.add_argument("--http-port", type=int)
     parser.add_argument("--mysql-host-port", type=int)
-    parser.add_argument("--database-source", choices=('bundled', 'registered'), default='bundled')
+    parser.add_argument("--database-source", choices=('bundled', 'existing'), default='bundled')
     args = parser.parse_args()
     print(json.dumps(configure(args.docker_root, args.php_image, args.project, args.http_bind,
                                args.http_port, args.mysql_host_port, args.database_source)))

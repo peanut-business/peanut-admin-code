@@ -6,7 +6,7 @@
 
 普通运行配置使用 `server/.env` 与 ThinkPHP 原生 `PHP_ENV_NAME`，不再使用PHP自定义文件选择器。Compose的 `PEANUT_SERVER_ENV_FILE` 如仍用于选择挂载源，仅属于编排输入，不传给PHP作为配置加载入口。
 
-数据库安装、seed、迁移维护和固定资格仍消费资源门禁输入，不能因移出日常 `.env.example` 就省略：`PEANUT_DEPLOYMENT_TARGET` 必须匹配APP_ENV和登记环境；`PEANUT_DATABASE_CONSUMER` 选择登记endpoint（未指定时使用该target的默认consumer）；`PEANUT_DATABASE_ENDPOINT_ID` 是可选精确断言；`PEANUT_RESOURCE_LEASE_PROOF` 与 `P0E_HOST_LEASE_PROOF` 按原操作门禁提供实际租约。它们由已有资源选择或安装配置入口产生，具体值取本应用登记，维护者仅在明确提供 `PEANUT_RESOURCE_REGISTRY` 进程输入时读取维护登记；不从示例猜测地址、身份或凭据。运行仍要求 `PEANUT_DATABASE_RESOURCE_ID`，本轮未解耦它与命名空间的关系。
+seed、受控迁移维护和固定资格仍消费资源门禁输入：`PEANUT_DATABASE_RESOURCE_ID` 选择已登记数据库；`PEANUT_DEPLOYMENT_TARGET` 必须匹配APP_ENV和登记环境；`PEANUT_DATABASE_CONSUMER` 选择登记endpoint（未指定时使用该target的默认consumer）；`PEANUT_DATABASE_ENDPOINT_ID` 是可选精确断言；`PEANUT_RESOURCE_LEASE_PROOF` 与 `P0E_HOST_LEASE_PROOF` 按原操作门禁提供实际租约。具体值由维护命令的资源选择提供；维护者仅在明确提供 `PEANUT_RESOURCE_REGISTRY` 进程输入时读取维护登记，不从示例猜测地址、身份或凭据。普通运行和首次安装直接使用 ThinkPHP 默认连接；安装配置器不再生成这些维护环境项或私有资源登记。
 
 这些字段是现有受控维护操作的输入，不是普通日常配置的通用必填表；缺失时仅相应受控操作明确拒绝，不能用空默认值、私有配置loader或备用库替代门禁。一次性身份文件只在安装/明确的demo输入入口读取，不进入全局Env。
 

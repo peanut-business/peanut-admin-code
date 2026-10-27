@@ -45452,62 +45452,14 @@
                     "application": {
                         "$ref": "#/components/schemas/InstallationApplicationIdentity"
                     },
-                    "deployment_targets": {
+                    "app_environments": {
                         "type": "array",
                         "items": {
-                            "type": "string"
-                        }
-                    },
-                    "database_resources": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "required": [
-                                "resource_id",
-                                "database_name",
-                                "environments",
-                                "endpoints"
-                            ],
-                            "properties": {
-                                "resource_id": {
-                                    "type": "string"
-                                },
-                                "database_name": {
-                                    "type": "string"
-                                },
-                                "environments": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "string"
-                                    }
-                                },
-                                "endpoints": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object",
-                                        "required": [
-                                            "consumer",
-                                            "host",
-                                            "port"
-                                        ],
-                                        "properties": {
-                                            "consumer": {
-                                                "type": "string",
-                                                "enum": [
-                                                    "host",
-                                                    "container"
-                                                ]
-                                            },
-                                            "host": {
-                                                "type": "string"
-                                            },
-                                            "port": {
-                                                "type": "integer"
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            "type": "string",
+                            "enum": [
+                                "development",
+                                "production"
+                            ]
                         }
                     }
                 }
@@ -45516,24 +45468,21 @@
                 "type": "object",
                 "additionalProperties": false,
                 "required": [
-                    "deployment_target"
+                    "app_env"
                 ],
                 "properties": {
-                    "deployment_target": {
+                    "app_env": {
                         "type": "string",
                         "enum": [
-                            "local-development",
-                            "local-production-preview",
-                            "local-multi-tenant-demo",
-                            "production",
-                            "production-candidate"
+                            "development",
+                            "production"
                         ]
                     },
                     "database_source": {
                         "type": "string",
                         "enum": [
                             "bundled",
-                            "registered"
+                            "existing"
                         ],
                         "default": "bundled"
                     },
@@ -45541,16 +45490,15 @@
                         "type": "string",
                         "pattern": "^[A-Za-z0-9_]{0,64}$"
                     },
-                    "database_resource_id": {
+                    "database_host": {
                         "type": "string",
-                        "description": "registered 来源必须选择当前 APP 自有登记中的唯一数据库。"
+                        "description": "已有数据库主机。"
                     },
-                    "database_consumer": {
-                        "type": "string",
-                        "enum": [
-                            "host",
-                            "container"
-                        ]
+                    "database_port": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 65535,
+                        "default": 3306
                     },
                     "database_user": {
                         "type": "string",
@@ -45563,12 +45511,9 @@
                     },
                     "platform_hosts": {
                         "type": "string"
-                    },
-                    "tenant_admin_hosts": {
-                        "type": "string"
                     }
                 },
-                "description": "bundled 生成内置数据库账号；registered 选择 APP 自有登记端点并使用已有普通账号。仅发布私有配置，不连接、建库或授权；实际权限由后续 PDO 检查。多租户必须提供 Platform/Tenant Admin Host。"
+                "description": "bundled 生成内置数据库账号；existing 使用普通主机、端口、库名和已有账号。仅发布私有配置，不连接、建库或授权；实际权限由后续 PDO 检查。多租户必须提供 Platform Host。"
             },
             "InstallationConfigureResult": {
                 "type": "object",
@@ -45578,8 +45523,7 @@
                     "code",
                     "restart_required",
                     "application",
-                    "deployment_target",
-                    "database_resource_id",
+                    "app_env",
                     "database_name"
                 ],
                 "properties": {
@@ -45603,10 +45547,7 @@
                     "application": {
                         "$ref": "#/components/schemas/InstallationApplicationIdentity"
                     },
-                    "deployment_target": {
-                        "type": "string"
-                    },
-                    "database_resource_id": {
+                    "app_env": {
                         "type": "string"
                     },
                     "database_name": {

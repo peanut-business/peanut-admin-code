@@ -96,7 +96,7 @@ if [ -e .env ] || [ -e private/resources/project-resources.json ] || [ -e privat
     configured=1
 fi
 if { [ -e private/resources/configuration.lock ] || [ -L private/resources/configuration.lock ]; } &&
-    { [ ! -f .env ] || [ ! -f private/resources/project-resources.json ] || [ ! -f private/resources/configuration.json ]; }; then
+    { [ ! -f .env ] || [ ! -f private/resources/configuration.json ]; }; then
     blocked=1
 fi
 
@@ -128,7 +128,7 @@ fi
 if [ "${installed:-0}" -eq 1 ]; then
     [ "${blocked:-0}" -ne 1 ] &&
         [ -f private/installation/installed.json ] && [ ! -L private/installation/installed.json ] &&
-        [ -f .env ] && [ -f private/resources/project-resources.json ] || {
+        [ -f .env ] || {
         echo 'installed instance is incomplete' >&2; exit 1;
     }
     if grep -Eq '^PEANUT_INSTALLATION_MODE=guided$' .env && [ ! -f private/resources/configuration.json ]; then
@@ -136,7 +136,7 @@ if [ "${installed:-0}" -eq 1 ]; then
     fi
 elif [ "${blocked:-0}" -eq 1 ] || {
     [ "${configured:-0}" -eq 1 ] &&
-    { [ ! -f .env ] || [ ! -f private/resources/project-resources.json ] || [ ! -f private/resources/configuration.json ]; }; }; then
+    { [ ! -f .env ] || [ ! -f private/resources/configuration.json ]; }; }; then
     echo 'partial or legacy installation state blocks permission preparation' >&2
     exit 1
 fi

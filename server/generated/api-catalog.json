@@ -16,7 +16,7 @@
         },
         {
             "path": "server/app/api/metadata/application/installation.php",
-            "sha256": "9fb1e9e17f6d98a7717430c25c2654266f7de9d463a003c0e8da0d416f191163"
+            "sha256": "7060b8c3e456a6b1507155ea116f1bf7f27047c10fdf072a49eedd6df6f19e67"
         },
         {
             "path": "server/app/api/metadata/application/platform.php",

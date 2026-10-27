@@ -61,30 +61,16 @@ export interface InstallationConfiguration {
   code: string;
   configured: boolean;
   application: { edition: string; name: string };
-  deployment_targets?: string[];
-  deployment_binding?: {
-    deployment_target: string;
-    database_source: 'bundled' | 'registered';
-    database_resource_id: string;
-    database_consumer: 'container';
-    database_name: string;
-  } | null;
-  database_resources?: Array<{
-    resource_id: string;
-    database_name: string;
-    environments: string[];
-    endpoints: Array<{ consumer: 'host' | 'container'; host: string; port: number }>;
-  }>;
+  app_environments?: Array<'development' | 'production'>;
 }
 
 export interface InstallationConfigurationInput {
-  deployment_target: string;
+  app_env: 'development' | 'production';
   database_name: string;
   platform_hosts: string;
-  tenant_admin_hosts: string;
-  database_source?: 'bundled' | 'registered';
-  database_resource_id?: string;
-  database_consumer?: 'host' | 'container';
+  database_source?: 'bundled' | 'existing';
+  database_host?: string;
+  database_port?: number;
   database_user?: string;
   database_password?: string;
 }
@@ -200,23 +186,8 @@ function assertInstallationConfiguration(value: unknown): asserts value is Insta
     || !['unconfigured', 'configured', 'blocked', 'pending', 'installed'].includes(value.state) || typeof value.code !== 'string'
     || typeof value.configured !== 'boolean' || !isRecord(value.application)
     || typeof value.application.edition !== 'string' || typeof value.application.name !== 'string'
-    || (value.deployment_binding !== undefined && value.deployment_binding !== null
-      && (!isRecord(value.deployment_binding)
-        || typeof value.deployment_binding.deployment_target !== 'string'
-        || (value.deployment_binding.database_source !== 'bundled' && value.deployment_binding.database_source !== 'registered')
-        || typeof value.deployment_binding.database_resource_id !== 'string'
-        || value.deployment_binding.database_consumer !== 'container'
-        || typeof value.deployment_binding.database_name !== 'string'))
-    || (value.deployment_targets !== undefined && (!Array.isArray(value.deployment_targets)
-      || !value.deployment_targets.every((target) => typeof target === 'string')))
-    || (value.database_resources !== undefined && (!Array.isArray(value.database_resources)
-      || !value.database_resources.every((resource) => isRecord(resource)
-        && typeof resource.resource_id === 'string' && typeof resource.database_name === 'string'
-        && Array.isArray(resource.environments) && resource.environments.every((target) => typeof target === 'string')
-        && Array.isArray(resource.endpoints) && resource.endpoints.every((endpoint) => isRecord(endpoint)
-          && (endpoint.consumer === 'host' || endpoint.consumer === 'container')
-          && typeof endpoint.host === 'string' && typeof endpoint.port === 'number'
-          && Number.isInteger(endpoint.port) && endpoint.port > 0 && endpoint.port <= 65535))))) {
+    || (value.app_environments !== undefined && (!Array.isArray(value.app_environments)
+      || !value.app_environments.every((environment) => environment === 'development' || environment === 'production')))) {
     throw new Error('Installation configuration returned an invalid payload.');
   }
 }

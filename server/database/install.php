@@ -33,7 +33,7 @@ if ($installerIsDirect && in_array('--preflight', $installerArguments, true)) {
  * Peanut Admin fresh-database installer.
  *
  * Run from the repository root or server directory after configuring the
- * registered database in server/.env or a native PHP_ENV_NAME sibling:
+ * database connection in server/.env or a native PHP_ENV_NAME sibling:
  *
  *     php server/database/install.php
  */
@@ -61,21 +61,6 @@ try {
     fwrite(STDERR, '安装失败：INSTALL_EXECUTION_FAILED' . PHP_EOL);
     emitUnavailableInstallStatus();
     exit(1);
-}
-
-function loadConfig(string $serverDir): array
-{
-    $hostLeaseProof = env('P0E_HOST_LEASE_PROOF', false);
-    $config = guardedDatabaseConfig(
-        $hostLeaseProof === false || trim($hostLeaseProof) === '' ? null : $hostLeaseProof,
-    );
-    return [
-        'DB_HOST' => $config['host'],
-        'DB_PORT' => $config['port'],
-        'DB_NAME' => $config['database'],
-        'DB_USER' => $config['user'],
-        'DB_PASS' => $config['password'],
-    ];
 }
 
 function initialAdminPassword(string $serverDir): string
@@ -567,22 +552,16 @@ function applicationReleaseVersions(string $serverDir): array
 function installationDatabaseState(string $serverDir): array
 {
     loadCoreRuntime($serverDir);
-    $config = loadConfig($serverDir);
-    $pdo = new PDO(
-        sprintf(
-            'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
-            $config['DB_HOST'],
-            $config['DB_PORT'],
-            $config['DB_NAME'],
-        ),
-        $config['DB_USER'],
-        $config['DB_PASS'],
-        [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-        ],
-    );
+    ensureThinkPhpApplication($serverDir);
+    $connection = \think\facade\Db::connect();
+    $connection->query('SELECT 1', [], true);
+    $pdo = $connection->getPdo();
+    if (!$pdo instanceof PDO || $pdo->inTransaction()) {
+        throw new RuntimeException('INSTALL_NATIVE_MASTER_REQUIRED');
+    }
+    if ($pdo->query('SELECT DATABASE()')->fetchColumn() !== $connection->getConfig('database')) {
+        throw new RuntimeException('INSTALL_NATIVE_DATABASE_IDENTITY_CHANGED');
+    }
     $tableCount = (int) $pdo->query(
         'SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()',
     )->fetchColumn();
@@ -699,16 +678,12 @@ function installFreshDatabase(string $serverDir, array $input): array
     ensureThinkPhpApplication($serverDir);
     $tenantBootstrap = installationTenantBootstrapContract($serverDir);
     $credentials = normalizeInstallationCredentials($input);
-    $config = loadConfig($serverDir);
-    $database = $config['DB_NAME'];
+    $connection = \think\facade\Db::connect();
+    $database = $connection->getConfig('database');
     if (!preg_match('/^[A-Za-z0-9_]+$/D', $database)) {
         throw new RuntimeException('DB_NAME 只能包含字母、数字和下划线');
     }
 
-    $connection = \think\facade\Db::connect();
-    foreach (['hostname' => 'DB_HOST', 'hostport' => 'DB_PORT', 'database' => 'DB_NAME', 'username' => 'DB_USER', 'password' => 'DB_PASS'] as $key => $inputKey) {
-        if ((string) $connection->getConfig($key) !== (string) $config[$inputKey]) { throw new RuntimeException('INSTALL_NATIVE_DATABASE_CONFIG_CONFLICT'); }
-    }
     if ($connection->getConfig('prefix') !== 'pa_' || (int) $connection->getConfig('deploy') !== 0
         || $connection->getConfig('break_reconnect') !== false) { throw new RuntimeException('INSTALL_NATIVE_DATABASE_CONFIG_CONFLICT'); }
     $connection->query('SELECT 1', [], true);

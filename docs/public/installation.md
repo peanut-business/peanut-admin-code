@@ -18,9 +18,11 @@ server/.env存后端配置，包括DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASS；Thi
 
 ## 2. 数据库与资源
 
-APP拥有自己的数据库、域名、端口、存储及服务登记，不回退维护者环境。database_source=bundled使用实例MySQL；registered使用已获准外部数据库，通过原生配置与compose.registered-database.yaml只启动PHP/Nginx。实例选择和凭据由原生配置发布器处理，不能修改不可变发行投影绕过身份验证。
+普通安装与运行使用 ThinkPHP 数据库连接配置。安装首配的 `app_env` 写入既有 `APP_ENV`；`database_source=bundled` 使用实例 MySQL，`existing` 直接填写主机、端口、库名、普通账号和密码。已有数据库不由安装配置器创建或修改账号权限。Compose 使用已有数据库时通过 `compose.registered-database.yaml` 只启动 PHP/Nginx；来源选择保存在私有配置回执中。
 
-当前运行的缓存、会话和锁命名空间仍要求非空 `PEANUT_DATABASE_RESOURCE_ID`，使用本实例真实资源ID；它的后续职责调整尚未完成。DB_NAME、DB_USER、DB_PASS没有可连接的默认值，缺失或空值明确拒绝；host/port/type/charset/prefix使用config中的固定默认值，容器连接须按实际服务覆盖host。
+缓存、会话和日志的运行标识由 `APP_ENV` 与默认连接的类型、主机、端口、库名和表前缀稳定派生，不包含账号、密码、目录或维护资源 ID。改变这些配置会使既有缓存和会话失效。MySQL 业务锁使用真实 schema 和表前缀，同库同表通过不同连接地址访问仍互斥。DB_NAME、DB_USER、DB_PASS没有可连接的默认值，缺失或空值明确拒绝；host/port/type/charset/prefix使用config中的固定默认值，容器连接须按实际服务覆盖host。
+
+多租户首配只要求 `PLATFORM_HOSTS` 标识平台入口；租户站点入口在数据库中绑定。资源登记、endpoint、consumer 和租约证明属于需要它们的维护命令准入，普通运行与首次安装不强制填写维护资源身份。
 
 操作前核实际目标、连接、权限、空库和安装身份。未知数据、已有 APP 库或 partial 库不得清空。开发源码、内部候选和正式实例身份不同，开发模式不能带入生产；具体身份适配尚未完成时停止相应安装路径，不手改清单或回执。
 

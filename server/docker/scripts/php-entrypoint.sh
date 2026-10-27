@@ -97,19 +97,16 @@ write_bootstrap_env() {
     version=$(release_field version)
     case "$edition" in standalone|multi-tenant) ;; *) echo "server release edition is invalid" >&2; exit 1 ;; esac
     bootstrap_environment=production
-    bootstrap_target=production
     # release_field already strictly verified the runtime declaration above.
     if [ -e "$SERVER_ROOT/.peanut/development-runtime.json" ] || [ -L "$SERVER_ROOT/.peanut/development-runtime.json" ]; then
         bootstrap_environment=development
-        bootstrap_target=local-development
     fi
     tmp="$SERVER_ROOT/.env.bootstrap.tmp-$$"
     umask 077
     {
         printf 'APP_ENV=%s\nAPP_DEBUG=false\n' "$bootstrap_environment"
-        printf 'DEPLOYMENT_MODE=%s\nPEANUT_DEPLOYMENT_TARGET=%s\n' "$edition" "$bootstrap_target"
+        printf 'DEPLOYMENT_MODE=%s\n' "$edition"
         printf 'PEANUT_INSTALLATION_MODE=guided\nPEANUT_INSTALLATION_SETUP_TOKEN=%s\n' "$token"
-        printf 'PEANUT_DATABASE_RESOURCE_ID=bootstrap-unconfigured\nPEANUT_DATABASE_ENDPOINT_ID=bootstrap-unconfigured\nPEANUT_DATABASE_CONSUMER=container\n'
         printf 'DB_DRIVER=mysql\nDB_TYPE=mysql\nDB_HOST=127.0.0.1\nDB_PORT=3306\nDB_NAME=bootstrap_unconfigured\nDB_USER=bootstrap\nDB_PASS=bootstrap_not_used\nDB_CHARSET=utf8mb4\nDB_PREFIX=pa_\n'
         printf 'JWT_SECRET=%s\nTENANT_IDENTIFIER_HMAC_KEY=%s\nPLATFORM_IDENTIFIER_HMAC_KEY=%s\n' "$(secret)" "$(secret)" "$(secret)"
         printf 'PEANUT_STORAGE_CREDENTIAL_MASTER_KEY=%s\nASYNC_SIGNING_KEY=%s\n' "$(secret)" "$(secret)"
@@ -214,25 +211,27 @@ fi
 installation_mode=$(sed -n 's/^PEANUT_INSTALLATION_MODE=//p' "$FINAL_ENV" | tail -n 1)
 case "$installation_mode" in
   guided)
-    database_source=$(sed -n 's/^PEANUT_DATABASE_SOURCE=//p' "$FINAL_ENV" | tail -n 1)
+    database_source=$(php -r '
+      $path = "private/resources/configuration.json";
+      if (!is_file($path) || is_link($path)) exit(2);
+      $configuration = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+      echo $configuration["database_source"] ?? "";
+    ')
     case "$database_source" in
       bundled)
         if [ ! -f private/resources/database-provisioned.json ]; then
             php docker/scripts/provision-database.php --server-root="$SERVER_ROOT" --docker-env="$DOCKER_ENV"
         fi ;;
-      registered) : ;; # The existing account/database is checked by the real application PDO.
-      *) echo "database source must be bundled or registered" >&2; exit 1 ;;
+      existing) : ;; # The existing account/database is checked by the real application PDO.
+      *) echo "database source must be bundled or existing" >&2; exit 1 ;;
     esac
     write_installing_env
     export PHP_ENV_NAME=installing
-    php database/environment-guard.php --wait=60
     run_monitored_fpm installing
     ;;
   automatic)
     export PHP_ENV_NAME=''
-    php database/environment-guard.php --wait=60
     php database/install.php --skip-if-installed
-    php database/environment-guard.php --current
     run_monitored_fpm installed
     ;;
   *) echo "PEANUT_INSTALLATION_MODE must be guided or automatic" >&2; exit 1 ;;
