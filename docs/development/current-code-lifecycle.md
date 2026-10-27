@@ -130,7 +130,7 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 端口由各客户端配置；维护者填写自己登记的实际端口。Docker 对外端口仍由 Docker 编排配置管理，不替换宿主客户端配置。文档站使用自己的原生 VitePress 命令及启动参数；`DOCS_PORT` 是编排监听选项。`PHP_PORT`、网关/HTTP/Redis 端口属于其服务，不进入浏览器配置。开发 API 通过同源路径代理到明确上游，代理保留原始 Host；不设置固定租户 Host，不在浏览器 JavaScript 中设置 Host。生产也使用同域名下的 API/资源路径，浏览器 API 前缀留空；UniApp 小程序/App 的绝对后端地址按实际终端另行配置。`VITE_` 和公开 runtime 字段会交付客户端，不能存放秘密。
 
-`.local` 按真实消费者保留：`toolchain/` 是本机工具绑定、缓存与 shim，`core-dev.json` 是已选择的 Core 源码，`core-links/` 是正在使用的链接写保护，均不属于普通清理目标。开发配置使用 `server/.env` 和各端自己的 `.env`；旧 `local-stack`、`local-php-runtime`、`local-multi-tenant-demo` 与其环境探针已退出开发入口，不再生成共享 `stack.env`、同步数据库配置、隐式安装依赖或代启全部服务。可选 Docker 开发编排与网关文件保留，由使用者明确选择 Compose 文件和私有 `--env-file`；生产编排按 `server/docker/README.md`。
+`.local` 按真实消费者保留：`toolchain/` 是本机工具绑定、缓存与 shim，`core-dev.json` 是已选择的 Core 源码，`core-links/` 是正在使用的链接写保护，均不属于普通清理目标。开发配置使用 `server/.env` 和各端自己的 `.env`；旧 `local-stack`、`local-php-runtime`、`local-multi-tenant-demo` 与其环境探针已退出开发入口，不再生成共享 `stack.env`、同步数据库配置、隐式安装依赖或代启全部服务。可选 Docker 开发编排与网关文件保留，由使用者明确选择 Compose 文件和私有 `--env-file`；`deploy/local-stack.env.example` 只提供开发编排覆盖值，`CHOKIDAR_USEPOLLING` 默认启用，生产 HTTP 端口在 `server/docker/.env` 中配置；生产编排按 `server/docker/README.md`。
 
 清理本地残留时逐对象核 owner、活跃进程、直接引用和恢复用途。已终态且能重建的临时输出或字节相同的重复副本可删除；有效配置先保全并核完整摘要。安装身份、凭据、数据库/上传备份、FAIL/UNKNOWN 现场、冻结候选、未知 owner 和活跃 PID/shim 保留，不清空整个 `.local`，不把旧证据批量改名为永久备份。旧自动化对已退役入口的引用按当前开发期测试政策保留，另行授权测试时再按最终设计处理。
 
