@@ -115,7 +115,19 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 开发联调明确选择本地 PHP/Web Core：PHP 使用真实 Composer path link，普通 PHP 源码修改直接由开发消费者读取，不以逐次提交、固定包、发布或重新封装 development-runtime 为前提；依赖声明、路径或配置合同变化才刷新相应原生依赖/服务登记。Web Core 保留 dist 导出，维护者在所选 Core 工作区单独运行原生 `pnpm run watch`，只启动一个编译写者；客户端启动不再托管 Core 编译器。开发链接与候选、正式 APP 的固定依赖分别使用，不把维护者目录或活链接放进交付 APP。
 
-维护者首次在无消费者、所选 Core 无编译写者的窗口执行 `scripts/core-dev select --php-core-dir /absolute/php-core --web-core-dir /absolute/web-core --backend-env /absolute/server/.env`，再执行 `scripts/core-dev install`。选择保存在当前工程忽略的 `.local/core-dev.json`，不含凭据；绝对路径由维护者明确指定，不推断相邻仓或私有 Project。`select` 只保存选择，`install` 才通过原生 Composer path 和现有 Web 链接入口激活依赖，初次生成 Web dist；两步均不连接或迁移数据库。`scripts/core-dev status` 核实际链接。切换 Core 或刷新依赖前重新核运行消费者和 Core 写者，不能替换在途候选现场。
+维护者首次在无消费者、所选 Core 无编译写者的窗口执行 `scripts/core-dev select --php-core-dir /absolute/php-core --web-core-dir /absolute/web-core --backend-env /absolute/server/.env`，再执行 `scripts/core-dev install --client web,platform`。`--client` 接受逗号分隔的 `web`、`platform`、`pc`、`uniapp`，省略时为 `all`；`install/link/status/link-status` 只处理所选 Web 客户端，PHP 仍使用所选本地 Core。多个客户端共用一次 Web Core 依赖安装和构建，客户端自身依赖须事先按各端原生锁准备。选择保存在当前工程忽略的 `.local/core-dev.json`，不含凭据；显式源码路径优先，其次复用已保存的源码选择。首次 `select` 缺少源码路径时，可复用 `peanut config` 已明确保存在 `.local/toolchain/host.json` 的 `core.php/core.web` 绝对路径，不推断相邻仓或私有 Project。host 的 Core 路径服务工具配置和本地发行输入，`core-dev.json` 服务源码联调；二者不互相回写，后续 config 不会改变已有源码选择。`select` 只保存选择，`install` 才通过原生 Composer path 和现有 Web 链接入口激活依赖，初次生成 Web dist；两步均不连接或迁移数据库。`scripts/core-dev status --client web,platform` 核实际链接。切换 Core 或刷新依赖前重新核运行消费者和 Core 写者，不能替换在途候选现场。
+
+Core 安装和构建复用当前 Code 的 `project-env` 独立 PHP/Web scope，工具来自 `peanut config` 已准备的 `.local/toolchain/cores/php|web/host.json`。入口不再以 Corepack 选择或下载 pnpm，也不固定调用应用的 Composer wrapper；缺少 scope、工具或 prepared 状态时明确失败，先显式配置准备。所选 Core manifest 的要求仍由 `project-env` 核对。源码选择可独立于发行 Core 路径，但更换来源或工具要求后需重新核对对应 scope 的配置与准备状态。
+
+从 Code 根使用已准备的 Web Core 工具启动现有 watch（只启动一个）：
+
+```sh
+code_root="$PWD"
+web_core="$(scripts/core-dev web-path)"
+cd "$web_core"
+python3 "$code_root/scripts/project-env" --root "$web_core" --state-root "$code_root" \
+  --host "$code_root/.local/toolchain/cores/web/host.json" exec -- pnpm run watch
+```
 
 选择生效后，PHP 普通源码无需重新安装。`local-core-composer` 和 Core 选择配置共用本工程 `.local/core-links/php` 临界区，依赖/配置写入在持有记录时核原生 PID 与 canonical router 进程，运行中明确拒绝切换。OPcache、常驻 worker 或已加载类仍须由其 owner 按原运行合同刷新/重启，脚本不替别人重启服务。在已选 Web Core 根单独运行 `pnpm run watch`；它先构建，再持续编译各包，通过 Core 已有的 `scripts/local-core-writer.mjs` 保护输出写集。多客户端共享这一个编译写者，各自用原生开发入口读取已链接的 dist，不为每个客户端再获取同一 Core writer。Core 根与包级原生 build/watch 共用原记录，嵌套命令只复用活祖先进程凭据。安装、切换链接或刷新依赖前，先由实际 owner 关闭相关客户端和 Core watch；现有安装/选择入口仍保护 `.local/core-links/<client>/owner.json` 与 Core writer，不能在原生客户端运行期间手工换链接。这些入口保护正常工具调用，不承诺拦截任意手工链接写入、裸包管理器操作或绕入口启动的进程。异常强杀留下记录时先核 PID、实际进程和 Core 路径，由原 owner 确认空闲后清理该记录，不把别人的编译器停掉。
 

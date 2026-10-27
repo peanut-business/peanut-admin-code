@@ -12,7 +12,6 @@ LOCAL_COMPOSER="$LOCAL_COMPOSER_DIR/composer.json"
 LOCAL_LOCK="$LOCAL_COMPOSER_DIR/composer.lock"
 CORE_DIR=""
 BACKEND_ENV=""
-COMPOSER_BIN="$ROOT_DIR/scripts/project-composer"
 ACTION="${1:-install}"
 [ $# -gt 0 ] && shift
 
@@ -46,7 +45,6 @@ if [[ "$ACTION" != manifest ]]; then
         *) die 'backend environment must be .env or .env.<name>' ;;
     esac
 fi
-command -v "$COMPOSER_BIN" >/dev/null 2>&1 || die "Composer is unavailable: $COMPOSER_BIN"
 CORE_DIR="$(CDPATH= cd -- "$CORE_DIR" && pwd)"
 if [[ -f "$CORE_DIR/composer.json" ]]; then
     CORE_PACKAGE_DIR="$CORE_DIR"
@@ -55,6 +53,12 @@ elif [[ -f "$CORE_DIR/packages/php/composer.json" ]]; then
 else
     die "core checkout not found: expected $CORE_DIR/composer.json or $CORE_DIR/packages/php/composer.json"
 fi
+case "$ACTION" in
+    install|update|refresh|autoload)
+        [[ -f "$ROOT_DIR/.local/toolchain/cores/php/host.json" ]] \
+            || die 'PHP Core tool scope is missing; run peanut config for this checkout first'
+        ;;
+esac
 if [[ "$ACTION" != services && "$ACTION" != services-check ]]; then
     mkdir -p "$LOCAL_COMPOSER_DIR"
 fi
@@ -118,7 +122,8 @@ run_composer() {
     printf 'COMPOSER=%s\nPHP_ENV_NAME=%s\n' "$LOCAL_COMPOSER" "$native_env_name" > "$tool_environment"
     local status=0
     "$ROOT_DIR/scripts/run-with-environment-file" --env-file "$tool_environment" -- \
-        "$COMPOSER_BIN" --working-dir="$SERVER_DIR" \
+        python3 "$ROOT_DIR/scripts/project-env" --root "$CORE_PACKAGE_DIR" --state-root "$ROOT_DIR" \
+        --host "$ROOT_DIR/.local/toolchain/cores/php/host.json" exec -- composer --working-dir="$SERVER_DIR" \
         --no-interaction \
         "$@" || status=$?
     rm -f "$tool_environment"
