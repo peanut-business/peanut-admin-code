@@ -93,7 +93,9 @@ def configure(docker_root, php_image, project=None, http_bind=None, http_port=No
         # Leave an existing or partially persisted configuration for diagnosis.
         raise
     return {"status": "created", "path": str(target), "project": values["COMPOSE_PROJECT_NAME"],
-            "database_source": database_source}
+            "database_source": database_source,
+            "start_command": [str(docker_root / "scripts/start.sh"),
+                              *(['-f', 'compose.registered-database.yaml'] if database_source == 'existing' else [])]}
 
 
 def main():
@@ -104,7 +106,8 @@ def main():
     parser.add_argument("--http-bind")
     parser.add_argument("--http-port", type=int)
     parser.add_argument("--mysql-host-port", type=int)
-    parser.add_argument("--database-source", choices=('bundled', 'existing'), default='bundled')
+    parser.add_argument("--database-source", choices=('bundled', 'existing'), default='bundled',
+                        help='existing first startup requires start.sh -f compose.registered-database.yaml; see start_command in the result')
     args = parser.parse_args()
     print(json.dumps(configure(args.docker_root, args.php_image, args.project, args.http_bind,
                                args.http_port, args.mysql_host_port, args.database_source)))

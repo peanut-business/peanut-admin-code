@@ -8,29 +8,25 @@ pre{white-space:pre-wrap;background:#f6f6f6;padding:14px;border-radius:8px}.warn
 </style></head><body>
 <h1>Peanut Admin 首次安装</h1>
 <nav id="steps">协议 → 环境探针 → 配置 → 数据库复查 → 执行 → 完成登录</nav>
-<section id="agreement"><h2>1. 使用协议</h2><p>本项目按 Apache License 2.0 提供，请阅读项目 LICENSE。首次安装将向已登记的空数据库写入结构、账号和模块，并保存完成回执。不会自动清库、覆盖身份或重放部分失败。</p><label><input id="agree" type="checkbox" style="width:auto">我已阅读协议并确认安装范围</label><button id="environment" disabled>同意并检查环境</button></section>
+<section id="agreement"><h2>1. 使用协议</h2><p>本项目按 Apache License 2.0 提供，请阅读项目 LICENSE。首次安装将向本实例选定的空数据库写入结构、账号和模块，并保存完成回执。不会自动清库、覆盖身份或重放部分失败。</p><label><input id="agree" type="checkbox" style="width:auto">我已阅读协议并确认安装范围</label><button id="environment" disabled>同意并检查环境</button></section>
 <section id="environmentPanel" hidden><h2>2. 环境探针</h2><pre id="environmentResult"></pre><button id="environmentRetry">重新检查</button><button id="configurationNext" disabled>继续配置</button></section>
-<p class="warn">Setup Token 只用于本次首次配置和安装。内置数据库生成业务账号；已登记数据库使用已有普通账号。MySQL root 密码不会进入应用配置。</p>
+<p class="warn">Setup Token 只用于本次首次配置和安装。内置数据库生成业务账号；已有数据库使用普通连接参数和已有普通账号。MySQL root 密码不会进入应用配置。</p>
 <label for="token">Setup Token</label><input id="token" type="password" autocomplete="off">
 <fieldset id="configurationPanel" hidden><legend>3. 实例配置</legend>
-<label>部署环境</label><select id="deploymentTarget">
-<option value="local-development">本机开发</option>
-<option value="local-multi-tenant-demo">本机多租户开发</option>
-<option value="local-production-preview">本机生产预览</option>
-<option value="production-candidate">非生产线上候选</option>
+<label>运行环境（APP_ENV）</label><select id="appEnv">
 <option value="production">正式生产</option>
+<option value="development">开发</option>
 </select>
-<label>数据库来源</label><select id="databaseSource"><option value="bundled">内置数据库</option><option value="registered">已登记的数据库</option></select>
-<div id="bundledDatabaseFields"><label>数据库名（可留空自动生成）</label><input id="databaseName" autocomplete="off" pattern="[A-Za-z0-9_]+"></div>
-<div id="registeredDatabaseFields" hidden>
-<label>本实例登记数据库</label><select id="databaseResource"><option value="">请选择</option></select>
-<label>应用连接方式</label><select id="databaseConsumer"></select>
+<label>数据库来源</label><select id="databaseSource"><option value="bundled">内置数据库</option><option value="existing">已有数据库</option></select>
+<label>数据库名（内置数据库可留空自动生成）</label><input id="databaseName" autocomplete="off" pattern="[A-Za-z0-9_]+">
+<div id="existingDatabaseFields" hidden>
+<label>数据库主机</label><input id="databaseHost" autocomplete="off">
+<label>数据库端口</label><input id="databasePort" type="number" min="1" max="65535" value="3306">
 <label>已有普通账号</label><input id="databaseUser" autocomplete="off">
 <label>数据库密码</label><input id="databasePassword" type="password" autocomplete="off">
 <p>仅保存配置，不创建数据库或修改账号权限；下一步检查真实连接。</p>
 </div>
 <label>Platform Hosts（多租户必填，逗号分隔）</label><input id="platformHosts" autocomplete="off" placeholder="platform.example.com">
-<label>Tenant Admin Hosts（多租户必填，逗号分隔）</label><input id="tenantAdminHosts" autocomplete="off" placeholder="admin.example.com">
 <button id="configure" type="button">保存实例配置</button>
 <button id="configurationRefresh" type="button">重新读取配置</button>
 <button id="database" type="button" disabled>数据库连接与权限复查</button>
@@ -53,26 +49,14 @@ const $=id=>document.getElementById(id)
 const status=$('status')
 const headers=()=>({'Content-Type':'application/json','Authorization':'Bearer '+$('token').value})
 let configuration=null, installation=null, databaseReady=false, executing=false
-function databaseEndpoints(){
- const selected=configuration?.database_resources?.find(resource=>resource.resource_id===$('databaseResource').value)
- $('databaseConsumer').replaceChildren()
- for(const endpoint of selected?.endpoints||[]){const option=document.createElement('option');option.value=endpoint.consumer;option.textContent=`${endpoint.consumer==='host'?'主机':'容器'}：${endpoint.host}:${endpoint.port}`;$('databaseConsumer').append(option)}
-}
-$('databaseSource').addEventListener('change',()=>{const registered=$('databaseSource').value==='registered';$('bundledDatabaseFields').hidden=registered;$('registeredDatabaseFields').hidden=!registered})
-$('databaseResource').addEventListener('change',databaseEndpoints)
+$('databaseSource').addEventListener('change',()=>{$('existingDatabaseFields').hidden=$('databaseSource').value!=='existing'})
 function show(id){for(const panel of ['agreement','environmentPanel','configurationPanel','databasePanel','executionPanel','completePanel'])$(panel).hidden=panel!==id}
 function failure(error,stage){const detail=error?.diagnostic||{category:'unknown',stage,reason:'REQUEST_FAILED',remedy:'恢复连接后重新读取状态；不要重复执行。',writes:{outcome:'unknown'},safe_retry:false};status.textContent=JSON.stringify(detail,null,2);return detail}
 const record=value=>value!==null&&typeof value==='object'&&!Array.isArray(value)
 function configurationResponse(value){
  if(!record(value)||!['unconfigured','configured','blocked','pending','installed'].includes(value.state)||typeof value.code!=='string'||typeof value.configured!=='boolean'
   ||!record(value.application)||typeof value.application.edition!=='string'||typeof value.application.name!=='string'
-  ||(value.deployment_targets!==undefined&&(!Array.isArray(value.deployment_targets)||!value.deployment_targets.every(target=>typeof target==='string')))
-  ||(value.database_resources!==undefined&&(!Array.isArray(value.database_resources)||!value.database_resources.every(resource=>record(resource)
-   &&typeof resource.resource_id==='string'&&typeof resource.database_name==='string'
-   &&Array.isArray(resource.environments)&&resource.environments.every(target=>typeof target==='string')
-   &&Array.isArray(resource.endpoints)&&resource.endpoints.every(endpoint=>record(endpoint)
-    &&['host','container'].includes(endpoint.consumer)&&typeof endpoint.host==='string'
-    &&Number.isInteger(endpoint.port)&&endpoint.port>0&&endpoint.port<=65535))))){throw new Error('配置响应无效，请重新读取状态')}
+  ||(value.app_environments!==undefined&&(!Array.isArray(value.app_environments)||!value.app_environments.every(environment=>['development','production'].includes(environment))))){throw new Error('配置响应无效，请重新读取状态')}
  return value
 }
 async function jsonRequest(url,options={}){
@@ -87,10 +71,10 @@ async function refresh(){
  try{
   configuration=configurationResponse(await jsonRequest('/installapi/configuration'))
   if(!configuration.configured){
-   const previous=$('databaseResource').value
-   $('databaseResource').replaceChildren(new Option('请选择',''))
-   for(const resource of configuration.database_resources||[])$('databaseResource').append(new Option(resource.database_name,resource.resource_id))
-   $('databaseResource').value=previous;databaseEndpoints()
+   const previous=$('appEnv').value
+   $('appEnv').replaceChildren()
+   for(const environment of configuration.app_environments||[])$('appEnv').append(new Option(environment,environment))
+   if(configuration.app_environments?.includes(previous))$('appEnv').value=previous
   }else $('databasePassword').value=''
   installation=null
   if(configuration.configured){
@@ -120,13 +104,12 @@ $('configure').addEventListener('click',async()=>{
  $('configure').disabled=true;$('database').disabled=true;configuration=null
  try{
   const body={
-   deployment_target:$('deploymentTarget').value,
+   app_env:$('appEnv').value,
    database_source:$('databaseSource').value,
-   database_name:$('databaseSource').value==='bundled'?$('databaseName').value:'',
-   platform_hosts:$('platformHosts').value,
-   tenant_admin_hosts:$('tenantAdminHosts').value
+   database_name:$('databaseName').value,
+   platform_hosts:$('platformHosts').value
   }
-  if(body.database_source==='registered')Object.assign(body,{database_resource_id:$('databaseResource').value,database_consumer:$('databaseConsumer').value,database_user:$('databaseUser').value,database_password:$('databasePassword').value})
+  if(body.database_source==='existing')Object.assign(body,{database_host:$('databaseHost').value,database_port:Number($('databasePort').value),database_user:$('databaseUser').value,database_password:$('databasePassword').value})
   status.textContent=JSON.stringify(await jsonRequest('/installapi/configure',{method:'POST',headers:headers(),body:JSON.stringify(body)}),null,2)
   $('databasePassword').value=''
   await refresh()
