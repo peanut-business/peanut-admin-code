@@ -8,6 +8,8 @@
 
 生产首次安装从产品已定版 `main` 的固定提交取得源码，在全新空目录、空库准备依赖、适用前端构建和生产配置，启动后走同一安装页面向导。程序更新入口及运行验收边界见[交付合同](application-release.md#5-执行入口与失败边界)。
 
+生成 APP 的网页首次配置支持 `development` 与 `production`，使用有效 Setup Token；来源身份由 `.peanut/application-manifest.json` 与 `release-versions.json` 校验，Edition、版本及两份声明的摘要绑定到私有配置回执。Docker 中网页只提交 pending 输入，原生入口关闭流量并停止 PHP 后重新核对身份和 token，再由 owner 发布配置。已有配置、安装身份和部分失败继续阻止重复首次配置。带 `development-runtime.json` 的开发运行布局与内部候选仍只允许 `development`，不能用于生产。
+
 ## 1. 准备独立实例
 
 核对所采用产品的程序身份、后端插件锁及 `server/composer.lock`。客户端按各自 manifest 和锁准备，构建结果与后端来自同一固定来源；浏览器资源沿实际入口装配到 `server/public/{admin,platform,pc,mobile}`，当前 PC 使用 SPA。不能将旧 server-only 包已携带静态文件的条件套用于 Git 源码首装。
