@@ -64,6 +64,7 @@
   import { encodeStateAsUpdate } from 'yjs';
   import { useUserStore } from '@/store';
   import { getSessionSnapshot } from '@/utils/auth';
+  import { randomUuid } from '@/utils/random-uuid';
   import ContentEditor from '@/modules/official-content-tools/src/ContentEditor.vue';
   import ContentViewer from '@/modules/official-content-tools/src/ContentViewer.vue';
   import createRegistry from '@/modules/official-content-tools/src/contributions';
@@ -575,7 +576,7 @@
         structured,
       ]);
       if (attempt?.input !== input)
-        attempt = { input, requestId: crypto.randomUUID() };
+        attempt = { input, requestId: randomUuid() };
       const response = await saveSoloDocument(
         data.document_id,
         data.state_seq,
