@@ -89,7 +89,7 @@ final readonly class ApplicationReleaseVersions
             throw new RuntimeException('APPLICATION_RELEASE_VERSIONS_PRODUCT_CORE_MISMATCH');
         }
         if ($v3) {
-            self::assertV3Dependencies($values['core_php'], $values['core_web'], dirname($path));
+            self::assertV3Dependencies($values['core_php'], $values['core_web']);
             if ($values['source_product_version'] !== $values['scaffold_template']) {
                 throw new RuntimeException('APPLICATION_RELEASE_VERSIONS_PRODUCT_TEMPLATE_MISMATCH');
             }
@@ -169,7 +169,8 @@ final readonly class ApplicationReleaseVersions
         return $this->values;
     }
 
-    private static function assertV3Dependencies(mixed $php, mixed $web, string $root): void
+    /** Runtime declarations remain valid after build inputs have left the PHP view. */
+    private static function assertV3Dependencies(mixed $php, mixed $web): void
     {
         require_once dirname(__DIR__, 2) . '/infrastructure/scaffold/ReleaseDependencyIdentity.php';
         ReleaseDependencyIdentity::validate(
@@ -178,6 +179,5 @@ final readonly class ApplicationReleaseVersions
             'APPLICATION_RELEASE_VERSIONS_CORE_PHP_INVALID',
             'APPLICATION_RELEASE_VERSIONS_CORE_WEB_INVALID',
         );
-        ReleaseDependencyIdentity::verifyArchives($root, $web, 'APPLICATION_RELEASE_VERSIONS_CORE_WEB_ARCHIVE_INVALID');
     }
 }

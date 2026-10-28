@@ -1,67 +1,70 @@
 # 产品 Git 交付与生产更新
 
-本页是产品定版、首次部署和原目录更新的现行合同。产品源码归自己的 Git：`dev` 开发，经人工审核后合入 `main` 并打对应 tag，生产采用已核定的 `main` 提交。脚手架模板仍用于 CLI `create` / `upgrade`；B 部署包、`peanut package` 和 `release/apps` 已退出日常生产流程。
+产品源码归自己的 Git：dev 开发，定版环节在开发／发行机器准备前端静态文件，经审核合入 main 并创建对应 tag，生产采用该固定 Git 提交。产品、脚手架、Core 和 CLI 版本独立；模板用于 create/upgrade，生产不直接吸收模板，不使用 B 包或另传前端压缩包。
 
-现行更新入口是产品自己的 `scripts/deploy-update.sh --target=<完整commit>`，按下文选择后台和执行环境。入口在原 Git main 目录 ff-only 更新、按变化构建后台、执行原生迁移及清缓存；真实环境的采用、访问和业务验收仍须分别确认。
-## 1. 定版和来源
+## 1. 产品定版与前端准备
 
-产品保留独立版本、Edition、上游模板 baseline 和自己的业务定制。吸收脚手架变化使用 CLI 的三方升级，不以 Git 合并上游或重新创建产品代替。完成产品开发和相应验证后，再按授权审核 `dev` → `main` 及 tag；提交、定版、正式发行和生产采用分别记录。
+前端构建属于第 4 步的发版准备，运行在有 Node 和原生包管理器的开发／发行机器。先将本次源码、产品版本声明、Edition 和锁文件确定，再在该 APP 根目录执行现有入口：
 
-生产记录产品仓库、精确 commit/tag、版本、Edition 和依赖锁。只读仓库授权由主机秘密机制提供，不进入仓库、URL 或日志。不能从开发分支日期、tag 存在或 CI 构建成功推断该组合已通过发行资格。
+```sh
+scripts/deploy-update.sh --prepare-release --version=<声明中的产品版本>
+```
 
-## 2. 程序与实例数据边界
+版本参数只核对 APP 声明，不改版本；省略时采用当前声明，不写死版本或部署目录。准备动作读取 APP 原有身份与依赖声明，验证构建所消费的 Web 归档和 PHP 锁／本地归档，按 web 的 pnpm 锁安装并构建 admin；multi-tenant 另按 platform 的 npm 锁安装并构建平台后台。Admin 显式使用 standalone/multi-tenant mode，API 保持同源。PC/H5 后置，保留其源码与既有产物。
+
+输出是普通 HTML、JS、CSS 等文件：`server/public/admin`，以及 MT 的 `server/public/platform`。这两个目录作为产品 Git 的受管发行内容；准备动作只清对应静态目录，拒绝链接、特殊类型或仍被忽略的目标。它不启动业务、安装数据库、修改 main/tag 或自动提交。
+
+审阅构建差异并把静态目录与同一版本的源码、manifest/lock 一起提交；MT 同时提交平台目录。例如：
+
+```sh
+git add -- server/public/admin
+# MT 另执行：
+git add -- server/public/platform
+```
+
+其他源码及版本文件按本批精确写集提交，不批量暂存无关改动。完成必要业务确认及 main/tag 审核后，固定最终提交；构建成功不等于公开发行、完整资格或生产采用成功。Node、npm、pnpm、前端源码编译均不属于生产步骤。
+
+## 2. Git 与实例数据边界
 
 | 对象 | 管理方式 |
 | --- | --- |
-| 后端、前端源码、默认配置、迁移、脚本及依赖 manifest/lock | 产品 Git 跟踪，按已审核提交更新 |
-| vendor、node_modules、构建产物 | 按实际锁和原生构建入口准备，遵守产品忽略规则，不擅自提交产物 |
-| `.env`、凭据、证书、仓库授权 | 未跟踪且忽略，由实例 owner 安全提供 |
-| uploads、DB/卷、安装身份及防重装标记 | 未跟踪且忽略，普通程序更新保留 |
-| runtime、日志、缓存和队列运行数据 | 未跟踪且忽略，只执行本次变化必要的缓存/进程操作 |
+| 后端及前端源码、迁移、脚本、默认配置、依赖 manifest/lock | 产品 Git 跟踪 |
+| 发版构建的 admin、MT platform 静态文件 | 与对应源码一起提交，生产由 Git 原样采用 |
+| vendor、node_modules、开发构建缓存 | 实例或开发依赖，不提交 |
+| .env、凭据、证书、仓库授权 | 实例秘密，未跟踪且忽略 |
+| uploads、DB/卷、安装身份、防重装标记及运行数据 | 原位保留，程序更新不覆盖 |
 
-添加 `.gitignore` 不会取消已跟踪文件。实施前必须核真实追踪状态与差异；不能用 `reset --hard`、`clean`、无边界目录覆盖或删安装锁消除冲突。退役程序由明确受管差异处理，不删除上传和未知文件。
+只读仓库授权由目标环境秘密机制提供，不进入 Git、URL 或日志。忽略规则不等于已跟踪秘密自动退出 Git。禁止 reset --hard、clean、清库、删安装锁或无边界目录覆盖解决冲突。
 
-## 3. 生产首次部署
+## 3. 生产首次安装
 
-1. 核产品、固定目录、独立生产库、定版提交和有效恢复条件；首次安装要求全新空目录、空库。既有或 partial 实例不能按新建处理。
-2. 取得产品 `main` 的已审核提交，记录实际来源；不在生产隐式吸收脚手架升级。
-3. 按实际原生锁准备 PHP/客户端依赖和必要前端构建，配置生产环境及登记资源。沿用已有包管理器，不用无锁的安装替换固定依赖。
-4. 通过产品原生服务入口启动并走[安装页面向导](installation.md)，完成安装、访问和本次业务确认，保留安装身份及防重装保护。
+1. 核产品固定 main/tag、全新空源码目录与空库。已有或 partial 实例按其实际状态处理，不借首装重建数据。
+2. 从产品 Git 获取定版提交，确认已跟踪的 admin/index.html 及适用 platform/index.html，连同静态资源完整到位。生产不安装前端依赖、不构建前端。
+3. 准备生产配置、固定 PHP 依赖和运行环境。挂载式 Docker 的 `server/docker/scripts/start.sh -p <实例项目名>` 复用原生 prepare-vendor：新完整 APP 的 vendor 缺失时按原 Composer 锁准备、检查并封印；已完成且有效则复用，已有损坏 vendor 或 installed 实例不在线覆盖。固定 PHP/Nginx 镜像、配置和原 Compose 项目沿该实例登记采用。
+4. 启动 PHP/public，通过[安装页面向导](installation.md)完成安装和真实后台访问。保留当次安装身份与防重装保护。
 
-生产可能需要前端构建，不能沿用旧 server-only 包“服务器无需构建”的假设。依赖、静态资源、程序和 schema 必须对应同一采用版本。
+依赖安装边界仍校验 PHP ZIP 的来源、内容摘要、锁和已安装包。原始 Web TGZ 在发行机器构建时校验；PHP owner 启动和 HTTP 安装预检不要求挂载 Web TGZ，也不重新读取 PHP ZIP。运行声明仍校验版本、Edition、来源，安装预检仍比对 Composer manifest、锁、已装包版本／来源／本地 dist 元数据及迁移服务。不要通过临时挂载、伪造身份或删校验推进安装。
 
 ## 4. 已有生产原目录更新
 
-固定当前实例和目标 `main` 提交 → 审阅受管差异并准备真实有效恢复材料 → 按实际影响停写、排空 → 原目录更新程序 → 锁变化时更新对应依赖 → 前端变化时构建受影响客户端 → 执行尚未应用的迁移 → 必要缓存/进程更新 → 确认访问与本次业务。
+固定产品 main 提交 → 审阅程序及受管静态差异、核恢复边界 → 按实际影响排空／停写 → 原目录 Git 更新 → 按变化准备 PHP 依赖 → 执行尚未应用的迁移 → 必要缓存／进程采用 → 真实后台及本次业务确认。
 
-无变化的层不重复处理。首次安装、迁移和上游源码升级是不同动作；不重新初始化数据库、改写已应用迁移历史或重置管理员。未知结果先对账，不重复副作用。
-
-代码回退不等于数据恢复；旧代码必须与当前 schema 兼容。开放写入后不能自动回灌旧数据库覆盖新业务数据。失败时保留实际效果、原计划和 journal，按明确恢复边界处理。
+静态文件由同一个 Git 提交更新；无生产前端构建或额外静态包。配置、秘密、上传、安装身份和业务数据保持原位，不重放 seed，不改已应用迁移历史。代码回退不等于数据恢复；开放写入后不自动回灌旧库覆盖新数据。
 
 ## 5. 执行入口与失败边界
 
-完成前述目标及恢复准备后，在产品根运行：
+完成目标、恢复和维护窗口核对后，在生产 APP 根执行：
 
 ```sh
-scripts/deploy-update.sh --target=<已审核的完整main提交>
+scripts/deploy-update.sh --target=<审核main的完整提交>
+# 挂载式 Docker 实例：
+scripts/deploy-update.sh --target=<审核main的完整提交> --compose-project=<原实例项目名>
 ```
 
-宿主 PHP 部署在调用前自行完成停写和进程管理。挂载式 Docker 实例显式选择其原 Compose 项目：
+入口要求真实产品根、main、无受管修改，fetch 后目标仍等于审核的 origin/main，只允许 ff-only 及相同 Edition；目标须已包含该 Edition 的受管后台入口。pending 绑定旧／新提交、Edition 和原 Compose 项目。生产分支只采用 Git 静态文件，不调用 Node、npm 或 pnpm。
 
-```sh
-scripts/deploy-update.sh --target=<已审核的完整main提交> --compose-project=<该实例原项目名>
-```
+Docker 模式复用原生 Compose 参数及适用 overlay、原 vendor receipt，正常停 nginx/php，在同一 php 服务的 owner 工作目录和网络执行原生 module:compile、migrate:run、clear --cache，再复用 start.sh 恢复。MySQL/卷保留；其他业务写者由 owner 预先排空。宿主 PHP 模式的停写和进程采用由调用者管理。
 
-脚本要求实际根、main 和无已跟踪修改；fetch 后目标必须仍等于 origin/main，漂移即拒绝；只做 ff-only，不允许改变实例 Edition。固定 pending 同时保存旧/新提交、Edition、后台选择和 Compose 项目，失败后须以相同参数接续并先核实际效果。
+已安装 Docker 实例的 Composer 输入变化仍明确拒绝，发生在程序采用／停服前；该维护能力未实现时，不借 start/prepared、伪造身份或手工 seal 绕过。无锁变化且 vendor 有效才复用。宿主模式仍按锁以 no-scripts/no-plugins 准备并执行现有 service discovery/vendor publish。
 
-默认后台选择取 APP Edition：standalone 为 admin，multi-tenant 为 admin,platform；可显式传 `--clients=admin` 或 `--clients=admin,platform`，standalone 不允许平台后台。仅构建受影响的已选后台，插件装配或 Core Web 变化也只影响所选范围。PC/H5 源码和已有产物保留，本入口不更新它们；需要更新时另按该产品已审核的客户端范围安排。
-
-Admin 沿现有 `pnpm run build` 并显式指定 `--mode standalone` 或 `--mode multi-tenant`，平台沿现有 `npm run build`。输出直接采用到该 APP `server/public/admin`、`server/public/platform`，与挂载式 Nginx 的 HTTP 根一致。脚本拒绝链接或已跟踪的静态目标，Vite 只清空对应后台产物目录。依赖缺失或相关 manifest/lock/Core Web 变化时，才按各工程原有锁安装。构建包含工程既有类型检查，不额外运行测试。
-
-Docker 模式复用该实例 `configure-collaboration.py` 的原生 Compose 参数（包括适用 overlay），核配置及原有 vendor receipt，停止其 nginx/php 后更新程序。ThinkPHP 命令通过同一 php 服务的 owner 工作目录和 Compose 网络执行，不用宿主 PHP 猜测容器数据库地址；完成后复用 `start.sh -p <原项目名>` 恢复 nginx/php，重新建立只读 HTTP 上下文。其他应用写者须由部署 owner 在调用前排空，MySQL 数据卷保持原位。脚本不执行安装或 seed。
-
-当前 Docker 模式尚不支持已安装 source APP 的锁依赖更新：检测到 `server/composer.json` 或 `server/composer.lock` 差异即在 Git 采用前拒绝。原生 `prepare-vendor.sh start` 拒绝修复 installed vendor，`prepared` 要求其正式暂存身份；不得伪造身份、借该模式或手工 seal 绕过。仅在锁无变化且原 vendor receipt 有效时复用依赖；无效时停止相关更新，由对应原生维护能力闭合后再采用。宿主模式仍按锁以 no-scripts/no-plugins 准备 Composer，并执行现有 service discovery/vendor publish 入口。
-
-脚本失败保留 pending 和已发生的效果，Docker 流量可能仍处于停止状态。禁止盲重发、reset 或自动恢复旧库；下一次处理先核当前程序、依赖、静态构建、迁移和进程状态。恢复后仍需确认真实后台访问和本次业务，脚本成功不代表该验收完成。
-
-旧 package-release、deploy-release、server/docker/scripts/update.sh 及其归档更新链已经退役。独立模板生产和源码三方升级继续存在，生产更新不重新生成产品、安装账号或初始化数据。进程更新、维护窗口、真实备份/恢复及业务确认按本次实际环境执行。本文不授予生产、main/tag、资金或破坏性数据操作权限。
+失败保留 pending 与实际效果，先对账程序、PHP 依赖、静态文件、迁移和进程，不盲重发或自动恢复旧库。脚本成功不替代真实业务确认。本文不授予 main/tag、公开发布、生产、资金或破坏性数据操作权限。

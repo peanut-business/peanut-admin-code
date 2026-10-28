@@ -46,13 +46,25 @@ if [ "$mode" = prepared ]; then
 fi
 docker image inspect "$php_image" >/dev/null
 work=$server
+staging=''
 if [ "$mode" = start ]; then
-    runtime="$server/runtime"
-    [ -d "$runtime" ] && [ ! -L "$runtime" ] || { echo 'runtime staging root is unsafe' >&2; exit 1; }
-    staging="$runtime/vendor-stage-$$"
-    mkdir -m 700 -- "$staging"
-    work="$staging/server"
-    python3 "$script_dir/vendor-state.py" stage --server "$server" --destination "$work"
+    # A fresh full APP already owns its source tree. Only dependencies are installed here.
+    # Existing or damaged vendor and installed instances still require maintenance.
+    if [ -f "$server/../.peanut/application-manifest.json" ] && [ ! -L "$server/../.peanut" ] \
+        && [ ! -L "$server/../.peanut/application-manifest.json" ] \
+        && [ -f "$server/../release-versions.json" ] && [ ! -L "$server/../release-versions.json" ] \
+        && [ ! -e "$server/.peanut/release-identity.json" ] && [ ! -L "$server/.peanut/release-identity.json" ]; then
+        [ ! -e "$server/vendor" ] && [ ! -L "$server/vendor" ] || {
+            echo 'source APP vendor is present but invalid; repair requires stopped-writer maintenance' >&2; exit 1;
+        }
+    else
+        runtime="$server/runtime"
+        [ -d "$runtime" ] && [ ! -L "$runtime" ] || { echo 'runtime staging root is unsafe' >&2; exit 1; }
+        staging="$runtime/vendor-stage-$$"
+        mkdir -m 700 -- "$staging"
+        work="$staging/server"
+        python3 "$script_dir/vendor-state.py" stage --server "$server" --destination "$work"
+    fi
 else
     [ ! -L "$server/vendor" ] || { echo 'prepared vendor is unsafe' >&2; exit 1; }
     if [ -d "$server/vendor" ]; then
@@ -98,7 +110,7 @@ if [ -f "$work/.vendor-inputs.json" ] || [ -L "$work/.vendor-inputs.json" ]; the
 python3 "$script_dir/vendor-state.py" seal --server "$work" "$@"
 python3 "$script_dir/vendor-state.py" check --server "$work" "$@"
 
-if [ "$mode" = start ]; then
+if [ -n "$staging" ]; then
     old="$runtime/vendor-previous-$$"
     if [ -e "$server/vendor" ] || [ -L "$server/vendor" ]; then
         [ -d "$server/vendor" ] && [ ! -L "$server/vendor" ] || { echo 'existing vendor is unsafe' >&2; exit 1; }

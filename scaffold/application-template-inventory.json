@@ -184,7 +184,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0a53ce5756bc365bcd20b7bc996dcd6048eed1b3ea17b4cde5f9a9fbbca2de0a"
+            "source_sha256": "d3974486deb74c18ccf66c48d05fd06663e804b0e357808b6c25198216309bf2"
         },
         {
             "path": ".peanut/recipes/scaffold-ci/baseline/files/.github/workflows/scaffold-release.yml",
@@ -1048,7 +1048,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "79b123c411bcc9482cc18686b70585d6772de9cd156b85d04cdd3289764f4985"
+            "source_sha256": "a73002f9600f4d7d165f23e73263930bea7cf72ae9de0aae7f105b7109e664c7"
         },
         {
             "path": "docs/public/api-and-sdk.md",
@@ -1076,7 +1076,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "446ff7879f11f85a24512f0eda522361734b8b20d3245447c580d7e065f3ddaf"
+            "source_sha256": "7d34ddbcd5198a72a7390ea8ec81045b4da4e2391c7a71d3780375ea9c3453df"
         },
         {
             "path": "docs/public/installation.md",
@@ -1090,7 +1090,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a5e204263aa538c78fa0aea078304286408fb63a3a3de1b6162054a21e4ac0a8"
+            "source_sha256": "4a80ab4c626fc13b6abf556819d1e977adb9c4307ac6dc6eda82a06943ec0970"
         },
         {
             "path": "docs/public/module-development.md",
@@ -3312,7 +3312,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "898318a31d11e5039daf487c95f607db2f78a014eb3cd08f864e687dd0401e5e"
+            "source_sha256": "29b7eccc1da4c70f870134fa119d347745d51ec46377fd4b9cafa8a85efceb2b"
         },
         {
             "path": "scripts/export-release-database",
@@ -9100,7 +9100,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8854c9a12771a669483d569b32f4c6a798a485a57b97670dd04b4a163c0432e6"
+            "source_sha256": "bbbeac442fdd4b2a71e05be3bf069acd6f2cca4d4d0ffe9b9f9a716ac7530557"
         },
         {
             "path": "server/app/common/services/notice/NoticeChannelService.php",
@@ -9493,7 +9493,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "93ecc039fef18f7ce33c54360c9b99c9d7fe9cd9d1a1e1e342264bf2ebc757bd"
+            "source_sha256": "a901c7c56cb47984f61118e3edf77321bab0c9b739dc681a40aa2f23f9740dd8"
         },
         {
             "path": "server/app/common/value/installation/ApplicationSourceIdentity.php",
@@ -26274,7 +26274,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7782815ca48af03017af7acd39188f6191951bd41f193f9b7338c9cf38f6c947"
+            "source_sha256": "0ef197872be7bce8ddb7211366588aea2cab2767a86daf7698bb327ddce46471"
         },
         {
             "path": "server/docker/scripts/provision-database.php",

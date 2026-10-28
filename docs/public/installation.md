@@ -6,13 +6,13 @@
 
 产品源码首次创建按[产品开发流程](README.md#产品开发与定版)执行：目标源码目录和产品数据库必须是新建空对象，使用 Peanut CLI `create` 生成项目。它不安装依赖、不建库、不启动服务，也不初始化产品 Git。随后按锁准备依赖、开发环境及必要构建，启动并通过安装页面向导安装，确认访问后同步自己的产品仓库，在 `dev` 继续开发。既有产品在原目录和专库上继续，不默认重建。
 
-生产首次安装从产品已定版 `main` 的固定提交取得源码，在全新空目录、空库准备依赖、适用前端构建和生产配置，启动后走同一安装页面向导。程序更新入口及运行验收边界见[交付合同](application-release.md#5-执行入口与失败边界)。
+生产首次安装从产品已定版 `main` 的固定提交取得程序和已受管的后台静态文件，在全新空目录、空库准备 PHP 锁定依赖和生产配置，启动后走同一安装页面向导。前端在开发／发行机器的定版环节构建并随 Git 提交；生产不需要 Node、npm、pnpm 或前端压缩包。正式准备／更新命令见[交付合同](application-release.md#1-产品定版与前端准备)。
 
 生成 APP 的网页首次配置支持 `development` 与 `production`，使用有效 Setup Token；来源身份由 `.peanut/application-manifest.json` 与 `release-versions.json` 校验，Edition、版本及两份声明的摘要绑定到私有配置回执。Docker 中网页只提交 pending 输入，原生入口关闭流量并停止 PHP 后重新核对身份和 token，再由 owner 发布配置。非 Docker 部署由同一 PHP 用户写入和读取首配私有文件，源码目录可以由独立部署用户持有。已有配置、安装身份和部分失败继续阻止重复首次配置。带 `development-runtime.json` 的开发运行布局与内部候选仍只允许 `development`，不能用于生产。
 
 ## 1. 准备独立实例
 
-核对所采用产品的程序身份、后端插件锁及 `server/composer.lock`。客户端按各自 manifest 和锁准备，构建结果与后端来自同一固定来源；浏览器资源沿实际入口装配到 `server/public/{admin,platform,pc,mobile}`，当前 PC 使用 SPA。不能将旧 server-only 包已携带静态文件的条件套用于 Git 源码首装。
+核对产品程序身份、后端插件锁、`server/composer.lock` 和受管的 `server/public/admin`、MT `server/public/platform`。这些普通 HTML/JS/CSS 已在发版机器按锁构建，与后端属于同一个固定 Git 提交；生产只由 Nginx/public 提供。PC/H5 后置。
 
 按该版本准备Docker Compose、Python、OpenSSL、shell和固定PHP/Nginx镜像。PHP及扩展须满足Composer锁。Compose挂载实例源码、vendor、配置与持久目录；普通更新不构建应用镜像，环境变化另行准备和验证。
 
@@ -52,7 +52,7 @@ php server/database/install.php --status
 
 仅preflight明确ready才执行。一次性0600文件提供ADMIN_INITIAL_EMAIL/ADMIN_INITIAL_PASSWORD；多租户还需独立PLATFORM_INITIAL_EMAIL/PLATFORM_INITIAL_PASSWORD。安装器直接将其解析为一次性身份输入，不同步到全局环境。成功核对后销毁一次性文件，不保存或输出秘密。
 
-依赖按 `server/composer.lock` 准备。已有原生安装入口处理首次 vendor 缺失时，会在独立目录安装并完成 service discovery/vendor publish 和平台校验后采用；失败不改原 vendor 或启动业务。这项组件能力不代替 Git 首装链的依赖和构建接通。已安装实例 vendor 损坏走停写维护，不在线覆盖。
+依赖按 `server/composer.lock` 准备。原生 prepare-vendor 在全新完整 APP 尚无 vendor 时，校验其声明／PHP归档并直接准备依赖，再完成 service discovery/vendor publish、平台检查及原生 seal；其他正式 prepared/server 输入仍按其既有边界处理。失败不启动业务；已有无效 vendor 或 installed 实例不通过首次准备覆盖，须按实际效果走停写维护。PHP owner 启动及 HTTP 安装预检不重新读取原始 Web TGZ 或 PHP ZIP，仍核版本来源和已装包与锁的一致性，不把缺少构建输入等同于已装依赖损坏。
 
 ## 4. 完成、重复安装和失败
 

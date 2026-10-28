@@ -10,21 +10,56 @@ main() {
   target=''
   clients=''
   compose_project='-'
+  prepare_release=false
+  version=''
   for argument in "$@"; do
     case "$argument" in
       --target=*) target="${argument#*=}" ;;
-      --clients=*) clients="${argument#*=}" ;;
       --compose-project=*) compose_project="${argument#*=}" ;;
-      *) fail 'usage: scripts/deploy-update.sh [--target=<commit>] [--clients=admin|admin,platform] [--compose-project=<project>]' ;;
+      --prepare-release) prepare_release=true ;;
+      --version=*) version="${argument#*=}" ;;
+      *) fail 'usage: scripts/deploy-update.sh --prepare-release [--version=<app-version>] | --target=<commit> [--compose-project=<project>]' ;;
     esac
   done
   [[ -z "$target" || "$target" =~ ^[a-f0-9]{40}$ ]] || fail 'target must be a full commit hash'
   [[ "$compose_project" == - || "$compose_project" =~ ^[a-z0-9][a-z0-9_-]{0,62}$ ]] || fail 'invalid Compose project'
   edition="$(python3 -c 'import json; print(json.load(open(".peanut/application-manifest.json"))["application"]["edition"])')"
-  case "$edition" in standalone) clients="${clients:-admin}" ;; multi-tenant) clients="${clients:-admin,platform}" ;; *) fail 'invalid application Edition' ;; esac
-  [[ "$clients" == admin || "$clients" == admin,platform ]] || fail 'select admin or admin,platform; PC/H5 updates require their own reviewed scope'
-  [[ "$edition" == multi-tenant || "$clients" == admin ]] || fail 'standalone has no platform client'
+  case "$edition" in standalone) clients=admin ;; multi-tenant) clients=admin,platform ;; *) fail 'invalid application Edition' ;; esac
   [[ "$(git rev-parse --show-toplevel)" == "$ROOT" ]] || fail 'run from the product Git checkout'
+  if $prepare_release; then
+    [[ -z "$target" && "$compose_project" == - ]] || fail 'release preparation runs on the development/release machine'
+    declared_version="$(python3 -c 'import json; print(json.load(open(".peanut/application-manifest.json"))["application"]["version"])')"
+    [[ -z "$version" || "$version" == "$declared_version" ]] || fail 'version differs from the product declaration'
+    # Raw archives are build inputs. PHP runtime identity readers do not consume them.
+    php <<'PHP'
+<?php
+require 'server/vendor/autoload.php';
+app\common\value\installation\ApplicationSourceIdentity::loadGeneratedApp(getcwd() . '/server');
+$versions = app\common\value\installation\ApplicationReleaseVersions::load('release-versions.json')->toArray();
+app\common\infrastructure\scaffold\ReleaseDependencyIdentity::verifyArchives(
+    getcwd(), $versions['core_web'], 'APPLICATION_RELEASE_CORE_WEB_ARCHIVE_INVALID',
+);
+PHP
+    python3 - "$ROOT/server" <<'PY'
+import importlib.util, pathlib, sys
+sys.dont_write_bytecode = True
+server = pathlib.Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location('native_vendor', server / 'docker/scripts/vendor-state.py')
+module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+module.check_lock(server)
+PY
+    static_target admin
+    (cd web && pnpm install --frozen-lockfile --prod=false && NODE_ENV=production VITE_API_BASE_URL='' pnpm run build --mode "$edition" --outDir ../server/public/admin --emptyOutDir)
+    if [[ "$clients" == admin,platform ]]; then
+      static_target platform
+      (cd platform && npm ci --include=dev && NODE_ENV=production VITE_API_BASE_URL='' npm run build -- --outDir ../server/public/platform --emptyOutDir)
+    fi
+    printf '[deploy-update] Prepared %s %s static files; review and commit server/public/admin' "$declared_version" "$edition"
+    [[ "$clients" != admin,platform ]] || printf ' and server/public/platform'
+    printf ' with the product source before main/tag review.\n'
+    return
+  fi
+  [[ -z "$version" ]] || fail '--version belongs to --prepare-release'
   [[ "$(git branch --show-current)" == main ]] || fail 'the product checkout must be on main'
   [[ -z "$(git status --porcelain --untracked-files=no)" ]] || fail 'tracked files have uncommitted changes'
 
@@ -53,6 +88,11 @@ main() {
   changed="$(git diff --name-only "$old_head" "$new_head")"
   target_edition="$(git show "$new_head:.peanut/application-manifest.json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["application"]["edition"])')"
   [[ "$target_edition" == "$edition" ]] || fail 'an update cannot change the installed Edition'
+  static_clients=(admin)
+  if [[ "$edition" == multi-tenant ]]; then static_clients+=(platform); fi
+  for client in "${static_clients[@]}"; do
+    git cat-file -e "$new_head:server/public/$client/index.html" || fail 'target has no committed backend static entry; prepare the product release first'
+  done
 
   compose=()
   if [[ "$compose_project" != - ]]; then
@@ -83,26 +123,6 @@ PY
     composer install --working-dir=server --no-dev --no-scripts --no-plugins --no-interaction --prefer-dist
     php server/docker/scripts/prepare-vendor.php
   fi
-  composition_changed=false
-  if grep -Eq '^(plugins/|plugins\.lock$|server/app/modules/[^/]+/[^/]+/module\.json$)' <<<"$changed"; then
-    composition_changed=true
-  fi
-  if $composition_changed || grep -Eq '^(web/|pnpm-lock.yaml$|packages/core-web/)' <<<"$changed"; then
-    static_target admin
-    if [[ ! -d web/node_modules ]] || grep -Eq '^web/(package.json|pnpm-lock.yaml)$|^packages/core-web/' <<<"$changed"; then
-      (cd web && pnpm install --frozen-lockfile)
-    fi
-    (cd web && pnpm run build --mode "$edition" --outDir ../server/public/admin --emptyOutDir)
-  fi
-  if [[ "$clients" == admin,platform ]]; then
-    if $composition_changed || grep -Eq '^(platform/|packages/core-web/)' <<<"$changed"; then
-      static_target platform
-      if [[ ! -d platform/node_modules ]] || grep -Eq '^platform/(package.json|package-lock.json)$|^packages/core-web/' <<<"$changed"; then
-        (cd platform && npm ci)
-      fi
-      (cd platform && npm run build -- --outDir ../server/public/platform --emptyOutDir)
-    fi
-  fi
   backend module:compile
   backend migrate:run
   backend clear --cache
@@ -122,7 +142,9 @@ static_target() {
   local destination="server/public/$1"
   [[ ! -L server && ! -L server/public && ! -L "$destination" ]] || fail 'static destination must not be linked'
   [[ ! -e "$destination" || -d "$destination" ]] || fail 'static destination is not a directory'
-  [[ -z "$(git ls-files -- "$destination")" ]] || fail 'static destination contains tracked files'
+  if git check-ignore --quiet --no-index -- "$destination/index.html"; then
+    fail 'remove the backend static directory ignore rule before preparing a Git release'
+  fi
 }
 
 # Parse the whole operation before Git updates this script's own tracked file.

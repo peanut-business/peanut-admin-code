@@ -268,19 +268,14 @@ final class InstallationPreflightHost
                 $localCore = ApplicationReleaseVersions::load($root . '/release-versions.json')->toArray()['core_php'];
                 if ($localCore['source_type'] !== 'local') { return $blocked(); }
                 ReleaseDependencyIdentity::phpComposerReference($package, $localCore, 'Composer Core identity invalid');
-                $archive = $root;
-                foreach (explode('/', 'packages/core-php/peanut-admin-core-' . $localCore['resolved_version'] . '.zip') as $part) {
-                    $archive .= '/' . $part;
-                    if (is_link($archive)) { return $blocked(); }
-                }
-                if (!is_file($archive) || !is_readable($archive)) { return $blocked(); }
-                ReleaseDependencyIdentity::verifyPhpArchiveBytes($package, (string) file_get_contents($archive), 'Composer Core archive invalid');
             }
             $identity = static function (array $package) use ($localCore): array {
                 $name = $package['name'] ?? null;
                 $version = $package['version'] ?? null;
                 if ($name === 'peanut-admin/core' && $localCore !== null) {
-                    return [$name, $version, ReleaseDependencyIdentity::phpComposerReference($package, $localCore, 'Composer Core identity invalid')];
+                    $reference = ReleaseDependencyIdentity::phpComposerReference($package, $localCore, 'Composer Core identity invalid');
+                    // Compare the installed distribution with the lock; its ZIP was verified when prepared.
+                    return [$name, $version, [$reference, $package['dist']['type'], $package['dist']['url'], $package['dist']['shasum']]];
                 }
                 $source = $package['source']['reference'] ?? null;
                 $dist = $package['dist']['reference'] ?? null;

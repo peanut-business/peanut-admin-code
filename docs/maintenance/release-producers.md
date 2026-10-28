@@ -127,3 +127,5 @@ python3 scripts/prepare-product-release-candidate \
 ## 产品交付
 
 产品程序由自己的 Git main 提交交付，首次安装和已有目录更新分别遵守[产品 Git 交付](../public/application-release.md)。旧 server-only APP 包、固定 Git 包准备器和归档更新器已退役，不再运行其构建脚本。源码模板发行与 CLI create/upgrade 保留原生产合同，不能把删除历史 scaffold/releases 当作正式渠道重新发行或覆盖既有版本的授权。
+
+完整 APP 在产品定版环节调用现有 `scripts/deploy-update.sh --prepare-release --version=<产品声明版本>`，按锁构建 admin 及 MT platform 并提交 `server/public` 对应两目录；生产从 Git 消费普通静态文件，不再次安装前端依赖或构建。该动作属于产品第4步发版准备，不移入 CLI 模板打包：模板仍交付源码，`source_snapshot.excluded_paths` 继续排除开发机器已有的 public 静态输出，防止将一个 APP/Edition 的产物混入其他模板。生成 APP 自己的 Git 发行才跟踪其静态文件。原始 Core 归档校验保留在模板、升级解包和依赖准备边界，普通 PHP 版本声明读取与 HTTP 安装预检只读声明及已安装依赖。
