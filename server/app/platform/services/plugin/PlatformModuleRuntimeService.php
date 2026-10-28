@@ -33,7 +33,7 @@ final readonly class PlatformModuleRuntimeService
     /** @return array{items:list<array<string,mixed>>,total:int} */
     public function modules(int $page, int $pageSize, ?string $moduleKey): array
     {
-        $descriptors = (new PluginLockResolver($this->serverRoot, (string) ($this->moduleConfig['plugin_lock'] ?? '../plugins.lock')))->all();
+        $descriptors = PluginLockResolver::forRuntime($this->serverRoot, (string) ($this->moduleConfig['plugin_lock'] ?? '../plugins.lock'))->all();
         $details = [];
         $dependents = [];
         foreach ($descriptors as $descriptor) {
@@ -215,7 +215,7 @@ final readonly class PlatformModuleRuntimeService
                     return;
                 }
                 ModuleLifecyclePolicy::assertNoActiveBusinessDependents(
-                    new PluginLockResolver(
+                    PluginLockResolver::forRuntime(
                         $this->serverRoot,
                         (string) ($this->moduleConfig['plugin_lock'] ?? '../plugins.lock'),
                     ),
@@ -268,7 +268,7 @@ final readonly class PlatformModuleRuntimeService
         if (!is_string($packageKey) || $packageKey === '') {
             throw new PluginLifecycleException('PLUGIN_NOT_INSTALLED', 'Module package is not installed.');
         }
-        $descriptor = (new PluginLockResolver(
+        $descriptor = (PluginLockResolver::forRuntime(
             $this->serverRoot,
             (string) ($this->moduleConfig['plugin_lock'] ?? '../plugins.lock'),
         ))->require($packageKey);

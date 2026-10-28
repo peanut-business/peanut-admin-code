@@ -39,6 +39,7 @@ $versions = app\common\value\installation\ApplicationReleaseVersions::load('rele
 app\common\infrastructure\scaffold\ReleaseDependencyIdentity::verifyArchives(
     getcwd(), $versions['core_web'], 'APPLICATION_RELEASE_CORE_WEB_ARCHIVE_INVALID',
 );
+(new app\platform\infrastructure\plugin\PluginLockResolver(getcwd() . '/server', '../plugins.lock'))->all();
 PHP
     python3 - "$ROOT/server" <<'PY'
 import importlib.util, pathlib, sys

@@ -22,7 +22,14 @@ final class PluginLockResolver
     public function __construct(
         private readonly string $serverRoot,
         private readonly string $lockPath,
+        private readonly bool $sourceFiles = true,
     ) {}
+
+    /** Runtime admits locked declarations and PHP files; frontend source is a build input. */
+    public static function forRuntime(string $serverRoot, string $lockPath): self
+    {
+        return new self($serverRoot, $lockPath, false);
+    }
 
     /**
      * Resolve the full application graph for CLI source-upgrade operations only.
@@ -199,10 +206,14 @@ final class PluginLockResolver
                 $frontendRoots,
                 $projectRoot,
             );
-            $this->verifySource(
-                $source,
-                [...array_values($moduleRoots), ...array_values($frontendRoots)],
-            );
+            // A full-source digest also includes frontend files. Only source operations can
+            // reproduce it; the existing backend projection can still be verified in full.
+            if ($this->sourceFiles || $serverProjection) {
+                $this->verifySource(
+                    $source,
+                    [...array_values($moduleRoots), ...array_values($frontendRoots)],
+                );
+            }
             $plugins[$key] = new PluginDescriptor(
                 $key,
                 $version,
@@ -396,8 +407,11 @@ final class PluginLockResolver
             throw new PluginLifecycleException('PLUGIN_IDENTITY_INVALID', 'Composer identity coverage is incomplete.');
         }
 
-        $npmFiles = $this->packageFiles($frontendRoots, 'package.json');
+        $npmFiles = $this->sourceFiles ? $this->packageFiles($frontendRoots, 'package.json') : [];
         foreach ($npm as $identity) {
+            if (!$this->sourceFiles) {
+                continue;
+            }
             $path = $this->matchingPackageFile(
                 $npmFiles,
                 (string) $identity['name'],
@@ -410,24 +424,26 @@ final class PluginLockResolver
                 throw new PluginLifecycleException('PLUGIN_ARTIFACT_MISMATCH', 'npm package identity digest differs.');
             }
         }
-        if (count($npm) !== count($npmFiles)) {
+        if ($this->sourceFiles && count($npm) !== count($npmFiles)) {
             throw new PluginLifecycleException('PLUGIN_IDENTITY_INVALID', 'npm identity coverage is incomplete.');
         }
 
         foreach ($frontend as $identity) {
-            $path = $this->absolutePathWithin(
-                (string) $identity['entry'],
-                $projectRoot,
-                $projectRoot,
-                'PLUGIN_IDENTITY_INVALID',
-            );
-            if (!$this->belongsToModuleRoot($path, $frontendRoots)) {
-                throw new PluginLifecycleException(
+            if ($this->sourceFiles) {
+                $path = $this->absolutePathWithin(
+                    (string) $identity['entry'],
+                    $projectRoot,
+                    $projectRoot,
                     'PLUGIN_IDENTITY_INVALID',
-                    'Frontend contribution is outside the Plugin Module roots.',
                 );
+                if (!$this->belongsToModuleRoot($path, $frontendRoots)) {
+                    throw new PluginLifecycleException(
+                        'PLUGIN_IDENTITY_INVALID',
+                        'Frontend contribution is outside the Plugin Module roots.',
+                    );
+                }
+                $this->assertFileDigest($path, (string) $identity['sha256'], 'frontend');
             }
-            $this->assertFileDigest($path, (string) $identity['sha256'], 'frontend');
             $packageMatched = false;
             foreach ($npm as $npmIdentity) {
                 if ($npmIdentity['name'] === $identity['package']
@@ -468,12 +484,14 @@ final class PluginLockResolver
             if ($matchedModule === null) {
                 throw new PluginLifecycleException('PLUGIN_IDENTITY_INVALID', 'Frontend contribution is not key-derived from a Plugin Module.');
             }
-            $roots[$clientKey . ':' . $matchedModule] = $this->absolutePathWithin(
-                $relativeRoot,
-                $projectRoot,
-                $projectRoot . '/' . $clientRoot,
-                'PLUGIN_PATH_UNAVAILABLE',
-            );
+            if ($this->sourceFiles) {
+                $roots[$clientKey . ':' . $matchedModule] = $this->absolutePathWithin(
+                    $relativeRoot,
+                    $projectRoot,
+                    $projectRoot . '/' . $clientRoot,
+                    'PLUGIN_PATH_UNAVAILABLE',
+                );
+            }
         }
         ksort($roots, SORT_STRING);
         return $roots;

@@ -208,7 +208,7 @@ final class PluginRuntimeGovernanceService
     /** @return array{package_key:string,package_manifest_digest:string,descriptor:PluginDescriptor,affected_modules:list<array<string,mixed>>}|null */
     private function lockedScope(string $moduleOrPackageKey): ?array
     {
-        $resolver = new PluginLockResolver(
+        $resolver = PluginLockResolver::forRuntime(
             $this->serverRoot,
             (string) ($this->moduleConfig['plugin_lock'] ?? 'plugins.lock'),
         );
@@ -360,7 +360,7 @@ final class PluginRuntimeGovernanceService
         }
 
         $dependents = ModuleLifecyclePolicy::activeBusinessDependents(
-            new PluginLockResolver(
+            PluginLockResolver::forRuntime(
                 $this->serverRoot,
                 (string) ($this->moduleConfig['plugin_lock'] ?? 'plugins.lock'),
             ),

@@ -86,9 +86,9 @@ final readonly class VerifiedServerDeployment
             throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_MISMATCH');
         }
         $plugins = [];
-        foreach ((new \app\platform\infrastructure\plugin\PluginLockResolver(
+        foreach (\app\platform\infrastructure\plugin\PluginLockResolver::forRuntime(
             $root, (string) $app->config->get('modules.plugin_lock'),
-        ))->all() as $key => $plugin) {
+        )->all() as $key => $plugin) {
             $plugins[$key] = (array) $plugin;
             $plugins[$key]['moduleRoots'] = array_map(static fn(string $path): string => self::relative($root, $path), $plugin->moduleRoots);
         }

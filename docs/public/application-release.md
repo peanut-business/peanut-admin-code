@@ -43,7 +43,7 @@ git add -- server/public/platform
 3. 准备生产配置、固定 PHP 依赖和运行环境。挂载式 Docker 的 `server/docker/scripts/start.sh -p <实例项目名>` 复用原生 prepare-vendor：新完整 APP 的 vendor 缺失时按原 Composer 锁准备、检查并封印；已完成且有效则复用，已有损坏 vendor 或 installed 实例不在线覆盖。固定 PHP/Nginx 镜像、配置和原 Compose 项目沿该实例登记采用。
 4. 启动 PHP/public，通过[安装页面向导](installation.md)完成安装和真实后台访问。保留当次安装身份与防重装保护。
 
-依赖安装边界仍校验 PHP ZIP 的来源、内容摘要、锁和已安装包。原始 Web TGZ 在发行机器构建时校验；PHP owner 启动和 HTTP 安装预检不要求挂载 Web TGZ，也不重新读取 PHP ZIP。运行声明仍校验版本、Edition、来源，安装预检仍比对 Composer manifest、锁、已装包版本／来源／本地 dist 元数据及迁移服务。不要通过临时挂载、伪造身份或删校验推进安装。
+依赖安装边界仍校验 PHP ZIP 的来源、内容摘要、锁和已安装包。原始 Web TGZ 在发行机器构建时校验；PHP owner 启动和 HTTP 安装预检不要求挂载 Web TGZ，也不重新读取 PHP ZIP。运行声明仍校验版本、Edition、来源，安装预检仍比对 Composer manifest、锁、已装包版本／来源／本地 dist 元数据及迁移服务。模块启动与部署准入从同一锁核对后端声明及 PHP 包，不读取 web/platform 源码；源码创建、升级和包采用继续执行完整源码校验，详见[模块入口](module-development.md)。不要通过临时挂载、伪造身份或删校验推进安装。
 
 ## 4. 已有生产原目录更新
 

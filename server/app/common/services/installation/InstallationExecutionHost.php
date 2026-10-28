@@ -552,6 +552,7 @@ final class InstallationExecutionHost
             $config,
             $this->catalogs,
             $registry,
+            \app\platform\infrastructure\plugin\PluginLockResolver::forRuntime($this->serverRoot, (string) $config['plugin_lock']),
         );
         $lifecycle = $governance->pluginLifecycle();
         $operations = [];

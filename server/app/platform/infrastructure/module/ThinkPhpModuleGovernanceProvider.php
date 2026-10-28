@@ -19,7 +19,6 @@ use app\platform\composition\plugin\PluginModuleRegistryFactory;
 final class ThinkPhpModuleGovernanceProvider implements ModuleGovernanceProvider
 {
     private PluginModuleRegistryFactory $registryFactory;
-    private ?PluginLockResolver $lockResolver = null;
     private ?DeployedTenantModuleRegistry $registryInstance = null;
     private ?ModuleQualificationQuery $qualificationInstance = null;
 
@@ -29,6 +28,7 @@ final class ThinkPhpModuleGovernanceProvider implements ModuleGovernanceProvider
         private readonly array $moduleConfig,
         private readonly ModuleCatalogApplier $catalogs,
         private readonly ?\PeanutAdmin\Kernel\Module\CompiledModuleRegistry $applicationRegistry = null,
+        private ?PluginLockResolver $lockResolver = null,
     ) {
         $this->registryFactory = new PluginModuleRegistryFactory($serverRoot, $applicationRegistry);
     }

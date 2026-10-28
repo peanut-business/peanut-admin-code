@@ -6,6 +6,7 @@ namespace app\command;
 
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
 use app\platform\exception\plugin\PluginLifecycleException;
+use app\platform\infrastructure\plugin\PluginLockResolver;
 use think\console\Output;
 use think\facade\Config;
 
@@ -22,6 +23,7 @@ trait PluginCommandSupport
             $serverRoot,
             $config,
             $this->moduleCatalogs(),
+            lockResolver: PluginLockResolver::forRuntime($serverRoot, (string) ($config['plugin_lock'] ?? '')),
         ))->pluginLifecycle();
     }
 

@@ -8,6 +8,7 @@ use app\common\composition\ModuleComposition;
 use app\common\services\audit\AuditContractHost;
 use app\platform\services\module\ProductTenantModuleProfileService;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
+use app\platform\infrastructure\plugin\PluginLockResolver;
 use PeanutAdmin\Kernel\Module\ModuleException;
 use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
 use app\common\execution\ModuleContextualCommand;
@@ -36,6 +37,7 @@ final class TenantModuleProfile extends ModuleContextualCommand
                 dirname(__DIR__, 2),
                 $config,
                 $this->moduleCatalogs(),
+                lockResolver: PluginLockResolver::forRuntime(dirname(__DIR__, 2), (string) ($config['plugin_lock'] ?? '')),
             );
             $result = (new ProductTenantModuleProfileService(
                 app(ModuleRuntimeRepository::class),

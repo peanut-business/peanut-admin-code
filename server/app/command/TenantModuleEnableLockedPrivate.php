@@ -41,7 +41,12 @@ final class TenantModuleEnableLockedPrivate extends ModuleContextualCommand
                 throw new ModuleException('MODULE_REGISTRY_UNAVAILABLE', 'Explicit Plugin lock configuration is required.');
             }
             $root = dirname(__DIR__, 2);
-            $governance = new ThinkPhpModuleGovernanceProvider($root, $config, $this->moduleCatalogs());
+            $governance = new ThinkPhpModuleGovernanceProvider(
+                $root,
+                $config,
+                $this->moduleCatalogs(),
+                lockResolver: PluginLockResolver::forRuntime($root, (string) $config['plugin_lock']),
+            );
             $service = new ProductTenantModuleProfileService(
                 app(ModuleRuntimeRepository::class),
                 $governance,
@@ -49,7 +54,7 @@ final class TenantModuleEnableLockedPrivate extends ModuleContextualCommand
                 $this->getApp()->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
                 $this->getApp()->make(ModuleComposition::class),
             );
-            $result = $service->applyAdditionalInstallationSelection($input->getOption('module'), $mode, new PluginLockResolver($root, $config['plugin_lock']));
+            $result = $service->applyAdditionalInstallationSelection($input->getOption('module'), $mode, PluginLockResolver::forRuntime($root, $config['plugin_lock']));
             $output->writeln(json_encode($result + ['rbac_granted' => false], JSON_THROW_ON_ERROR));
             return 0;
         } catch (ModuleException|PluginLifecycleException $exception) {

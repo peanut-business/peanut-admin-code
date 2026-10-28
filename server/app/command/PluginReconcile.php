@@ -57,7 +57,7 @@ final class PluginReconcile extends ModuleContextualCommand
                 if ($lockPath === '') {
                     throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Plugin lock path is not configured.');
                 }
-                $resolver = new PluginLockResolver(dirname(__DIR__, 2), $lockPath);
+                $resolver = PluginLockResolver::forRuntime(dirname(__DIR__, 2), $lockPath);
                 $officialKeys = array_values(array_filter(
                     array_keys($resolver->all()),
                     static fn(string $key): bool => str_starts_with($key, 'official.'),
@@ -111,7 +111,7 @@ final class PluginReconcile extends ModuleContextualCommand
             if ($lock === '') {
                 throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Plugin lock path is not configured.');
             }
-            $resolver = new PluginLockResolver(dirname(__DIR__, 2), $lock);
+            $resolver = PluginLockResolver::forRuntime(dirname(__DIR__, 2), $lock);
             $official = array_values(array_filter(array_keys($resolver->all()),
                 static fn(string $key): bool => str_starts_with($key, 'official.')));
             $selection = $this->releasePluginSelection($resolver->all(), $official);

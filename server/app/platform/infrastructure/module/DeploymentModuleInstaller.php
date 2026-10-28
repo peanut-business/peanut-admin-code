@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace app\platform\infrastructure\module;
 
+use app\platform\infrastructure\plugin\PluginLockResolver;
+
 use app\platform\infrastructure\plugin\ModuleCatalogApplier;
 use PeanutAdmin\Kernel\Module\ManifestDocument;
 use PeanutAdmin\Kernel\Module\ModuleException;
@@ -51,6 +53,7 @@ final readonly class DeploymentModuleInstaller
             $this->serverRoot,
             $deploymentConfig,
             $this->catalogs,
+            lockResolver: PluginLockResolver::forRuntime($this->serverRoot, (string) ($deploymentConfig['plugin_lock'] ?? '')),
         ))->registry();
     }
 }

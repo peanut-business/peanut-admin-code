@@ -506,6 +506,7 @@ class AppService extends Service
                 $this->moduleConfiguration(),
                 $this->app->make(ModuleCatalogApplier::class),
                 $this->app->make(CompiledModuleRegistry::class),
+                PluginLockResolver::forRuntime(dirname(__DIR__), (string) $this->moduleConfiguration()['plugin_lock']),
             ));
         $this->app->bind(ModuleQualificationQuery::class, fn(): ModuleQualificationQuery => $this->app
             ->make(ThinkPhpModuleGovernanceProvider::class)
@@ -748,7 +749,7 @@ class AppService extends Service
                 ? $this->app->make(\app\common\infrastructure\installation\VerifiedServerDeployment::class)->registry()
                 : $factory->fromCompiled($config);
         } else {
-            $resolver = new PluginLockResolver($serverRoot, $lockPath);
+            $resolver = PluginLockResolver::forRuntime($serverRoot, $lockPath);
             $registry = $factory->fromPluginLock($resolver, $config, false);
             if (PHP_SAPI === 'cli' && in_array((new \think\console\Input())->getFirstArgument(), ['run', 'module:compile'], true)
                 && !file_exists($releasePath) && !is_link($releasePath) && !$developmentReadonly) {
