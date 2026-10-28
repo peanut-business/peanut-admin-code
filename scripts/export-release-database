@@ -1,0 +1,215 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// Maintainer-only release companion. SQL never enters the template producer.
+function releaseBackupPath(string $path, bool $directory = false): string
+{
+    if ($path === '' || $path[0] !== '/' || preg_match('/[\x00-\x1f\x7f]/', $path)
+        || str_contains($path, '//') || preg_match('#/(?:\.|\.\.)(?:/|$)#', $path)
+        || ($path !== '/' && str_ends_with($path, '/'))) {
+        throw new RuntimeException('PATH_INVALID');
+    }
+    $cursor = '';
+    foreach (explode('/', substr($path, 1)) as $part) {
+        $cursor .= '/' . $part;
+        $stat = file_exists($cursor) || is_link($cursor) ? lstat($cursor) : false;
+        if ($stat !== false && (is_link($cursor) || ($cursor !== $path && !is_dir($cursor)))) {
+            throw new RuntimeException('PATH_UNSAFE');
+        }
+    }
+    if ($directory && !is_dir($path) && !mkdir($path, 0700, true)) {
+        throw new RuntimeException('DIRECTORY_FAILED');
+    }
+    return $path;
+}
+
+function releaseBackupFile(string $path): void
+{
+    $stat = file_exists($path) || is_link($path) ? lstat($path) : false;
+    if ($stat === false) { return; }
+    if (!is_file($path) || is_link($path) || $stat['nlink'] !== 1
+        || $stat['uid'] !== posix_geteuid() || ($stat['mode'] & 0777) !== 0600) {
+        throw new RuntimeException('FILE_UNSAFE');
+    }
+}
+
+function exportReleaseDatabase(array $arguments): array
+{
+    $options = [];
+    foreach ($arguments as $argument) {
+        if (!preg_match('/^--(registry|resource-id|output|backups|release-output)=(.+)$/D', $argument, $match)
+            || isset($options[$match[1]])) { throw new RuntimeException('ARGUMENTS_INVALID'); }
+        $options[$match[1]] = $match[2];
+    }
+    if (count($options) !== 5) { throw new RuntimeException('ARGUMENTS_INVALID'); }
+    $root = (string) realpath(dirname(__DIR__));
+    $output = releaseBackupPath($options['output']);
+    $registryPath = releaseBackupPath($options['registry']);
+    $backupRoot = releaseBackupPath($options['backups']);
+    $releaseRoot = releaseBackupPath($options['release-output']);
+    foreach ([$output, $registryPath, $backupRoot] as $path) {
+        foreach ([$root, $releaseRoot] as $excluded) {
+            if ($path === $excluded || str_starts_with($path, $excluded . '/')) {
+                throw new RuntimeException('OUTPUT_SOURCE_OR_ARTIFACT_CONFLICT');
+            }
+        }
+    }
+    if (!str_ends_with($output, '.sql') || in_array($registryPath, [$output, $output . '.json'], true)
+        || !is_file($registryPath) || is_link($registryPath)) { throw new RuntimeException('OUTPUT_INVALID'); }
+    putenv('PEANUT_RESOURCE_REGISTRY=' . $registryPath);
+    putenv('PEANUT_DATABASE_RESOURCE_ID=' . $options['resource-id']);
+    putenv('PEANUT_DEPLOYMENT_TARGET=local-development');
+    putenv('PEANUT_DATABASE_CONSUMER=host');
+    require_once $root . '/server/database/environment-guard.php';
+    $configuration = guardedDatabaseConfig();
+    $registry = projectResourceRegistry($registrySha256);
+    $database = registeredDatabase($registry, $configuration['resource_id']);
+    if (($registry['authority']['role'] ?? null) !== 'maintainer'
+        || ($database['lease_policy']['mode'] ?? null) !== 'schema'
+        || !isset($database['lease_policy']['shared_access'])) { throw new RuntimeException('DEVELOPMENT_SCHEMA_POLICY_REQUIRED'); }
+    $proof = requiredMaintenanceEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
+    $metadata = activeLeaseMetadata($proof, time(), $database['lease_gate']);
+    $resources = activeLeaseResources($proof);
+    $schema = $database['lease_policy']['physical_endpoint'] . '/' . $configuration['database'];
+    $access = array_filter($resources['mysql-access'] ?? [], static function (string $value) use ($schema): bool {
+        $entry = json_decode($value, true, 32, JSON_THROW_ON_ERROR);
+        return ($entry['schema'] ?? null) === $schema && ($entry['operation'] ?? null) === 'exclusive'
+            && ($entry['complete'] ?? null) === true && ($entry['tables'] ?? null) === [];
+    });
+    // A full logical dump observes every table and stored object, including future tables.
+    if (count($access) !== 1) { throw new RuntimeException('EXCLUSIVE_SCHEMA_LEASE_REQUIRED'); }
+    foreach ([dirname($output), $backupRoot . '/database/release'] as $directory) {
+        if (!in_array($directory, $resources['output-dir'] ?? [], true)) {
+            throw new RuntimeException('OUTPUT_DIRECTORY_LEASE_REQUIRED');
+        }
+    }
+    $containers = [];
+    foreach ($database['lease_policy']['server_resources'] as $resource) {
+        if (str_starts_with($resource, 'docker-container=')) { $containers[] = substr($resource, 17); }
+    }
+    $management = $database['physical_host']['management_endpoints'] ?? [];
+    if (count($containers) !== 1 || !preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/D', $containers[0])
+        || !is_array($management) || $management === []) { throw new RuntimeException('MANAGEMENT_REGISTRATION_REQUIRED'); }
+    foreach ($management as $endpoint) {
+        if (!is_array($endpoint) || !is_string($endpoint['ssh_alias'] ?? null)
+            || !preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]*$/D', $endpoint['ssh_alias'])
+            || !is_string($endpoint['host'] ?? null) || filter_var($endpoint['host'], FILTER_VALIDATE_IP) === false
+            || !is_int($endpoint['port'] ?? null) || $endpoint['port'] < 1 || $endpoint['port'] > 65535) {
+            throw new RuntimeException('MANAGEMENT_REGISTRATION_INVALID');
+        }
+    }
+    $pdo = new PDO('mysql:host=' . $configuration['host'] . ';port=' . $configuration['port']
+        . ';dbname=' . $configuration['database'] . ';charset=utf8mb4', $configuration['user'], $configuration['password'],
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 10]);
+    $identity = $pdo->query('SELECT @@server_uuid AS server_uuid,DATABASE() AS database_name,VERSION() AS server_version')->fetch(PDO::FETCH_ASSOC);
+    if ($identity['database_name'] !== $configuration['database']
+        || !preg_match('/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/Di', $identity['server_uuid'])
+        || ($database['server_uuid'] ?? null) !== $identity['server_uuid']) { throw new RuntimeException('DATABASE_IDENTITY_MISMATCH'); }
+    releaseBackupPath(dirname($output), true);
+    if ((fileperms(dirname($output)) & 0777) !== 0700 || fileowner(dirname($output)) !== posix_geteuid()) {
+        throw new RuntimeException('OUTPUT_DIRECTORY_MUST_BE_PRIVATE');
+    }
+    releaseBackupFile($output);
+    releaseBackupFile($output . '.json');
+    $temporary = $output . '.partial-' . bin2hex(random_bytes(8));
+    $errorPath = $temporary . '.stderr';
+    $receiptPath = $temporary . '.json';
+    $stream = fopen($temporary, 'x+b');
+    if (!is_resource($stream) || !chmod($temporary, 0600)) { throw new RuntimeException('STAGING_FAILED'); }
+    $stderr = fopen($errorPath, 'x+b');
+    if (!is_resource($stderr) || !chmod($errorPath, 0600)) {
+        if (is_resource($stderr)) { fclose($stderr); }
+        fclose($stream);
+        unlink($temporary);
+        if (is_file($errorPath)) { unlink($errorPath); }
+        throw new RuntimeException('STAGING_FAILED');
+    }
+    try {
+        // Probe the registered management addresses without starting a dump. Never retry a started export.
+        $selected = null;
+        foreach ($management as $endpoint) {
+            $ssh = ['ssh', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'ConnectTimeout=10',
+                '-o', 'HostName=' . $endpoint['host'], '-p', (string) $endpoint['port'], $endpoint['ssh_alias']];
+            $process = proc_open([...$ssh, 'true'], [0 => ['file', '/dev/null', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => $stderr], $pipes);
+            if (is_resource($process) && proc_close($process) === 0) { $selected = $endpoint; break; }
+        }
+        if ($selected === null) { throw new RuntimeException('REGISTERED_SSH_UNREACHABLE'); }
+        $remote = <<<'SH'
+set -eu
+container=$1
+schema=$2
+expected_uuid=$3
+exec /usr/local/bin/docker exec "$container" /bin/sh -ceu '
+    export MYSQL_PWD="$MYSQL_ROOT_PASSWORD"
+    unset MYSQL_ROOT_PASSWORD
+    uuid=$(mysql --protocol=SOCKET --user=root --database="$1" --batch --raw --skip-column-names --execute="SELECT @@server_uuid")
+    test "$uuid" = "$2"
+    exec mysqldump --protocol=SOCKET --user=root --single-transaction --routines --triggers --events --hex-blob --set-gtid-purged=OFF --no-tablespaces --comments --dump-date "$1"
+' -- "$schema" "$expected_uuid"
+SH;
+        $remoteCommand = '/bin/sh -s -- ' . implode(' ', array_map('escapeshellarg', [$containers[0], $configuration['database'], $identity['server_uuid']]));
+        $process = proc_open([...$ssh, $remoteCommand], [0 => ['pipe', 'r'], 1 => $stream, 2 => $stderr], $pipes);
+        if (!is_resource($process)) { throw new RuntimeException('EXPORT_START_FAILED'); }
+        fwrite($pipes[0], $remote); fclose($pipes[0]);
+        $exit = proc_close($process);
+        fflush($stream); fsync($stream);
+        if ($exit !== 0) { throw new RuntimeException('NATIVE_EXPORT_FAILED_EXIT_' . $exit); }
+        $size = fstat($stream)['size'];
+        fseek($stream, max(0, $size - 4096));
+        $tail = stream_get_contents($stream);
+        if (!is_string($tail) || !preg_match('/-- Dump completed on [^\r\n]+\s*\z/', $tail, $footer)) {
+            throw new RuntimeException('NATIVE_EXPORT_FOOTER_MISSING');
+        }
+        // Recheck current native permission and the registry before adopting the file.
+        guardedDatabaseConfig();
+        projectResourceRegistry($currentRegistrySha);
+        if ($registrySha256 !== $currentRegistrySha) { throw new RuntimeException('REGISTRY_CHANGED'); }
+        $previous = null;
+        if (file_exists($output)) {
+            releaseBackupFile($output);
+            $recovery = releaseBackupPath($backupRoot . '/database/release/' . gmdate('Ymd\THis\Z') . '-' . bin2hex(random_bytes(6)), true);
+            $previous = $recovery . '/previous.sql';
+            if (!copy($output, $previous) || !chmod($previous, 0600)
+                || hash_file('sha256', $output) !== hash_file('sha256', $previous)) { throw new RuntimeException('PREVIOUS_SNAPSHOT_BACKUP_FAILED'); }
+            if (is_file($output . '.json') && (!copy($output . '.json', $previous . '.json') || !chmod($previous . '.json', 0600))) {
+                throw new RuntimeException('PREVIOUS_RECEIPT_BACKUP_FAILED');
+            }
+        }
+        $receipt = ['protocol' => 'peanut.release-database-backup.v1', 'created_at' => gmdate('c'),
+            'resource_id' => $configuration['resource_id'], 'endpoint_id' => $configuration['endpoint_id'],
+            'registry_sha256' => $registrySha256, 'database' => $configuration['database'],
+            'server_uuid' => $identity['server_uuid'], 'server_version' => $identity['server_version'],
+            'management_host' => $selected['host'], 'container' => $containers[0],
+            'source_commit' => $metadata['candidate'], 'source_tree' => leaseGit(['-C', $root, 'rev-parse', 'HEAD^{tree}']),
+            'source_modified' => leaseGit(['-C', $root, 'status', '--porcelain=v1', '--untracked-files=normal']) !== '',
+            'lease' => $metadata['lease'], 'owner' => $metadata['owner'], 'output' => $output,
+            'bytes' => $size, 'sha256' => hash_file('sha256', $temporary), 'native_exit_code' => $exit,
+            'native_footer' => trim($footer[0]), 'previous_snapshot' => $previous];
+        require_once $root . '/scripts/scaffold-runtime/ScaffoldSourceIdentity.php';
+        $receipt['source_identity'] = \app\common\value\scaffold\ScaffoldSourceIdentity::local($root);
+        $receipt['native_options'] = ['--single-transaction', '--routines', '--triggers', '--events', '--hex-blob',
+            '--set-gtid-purged=OFF', '--no-tablespaces', '--comments', '--dump-date'];
+        if (file_put_contents($receiptPath, json_encode($receipt, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n") === false
+            || !chmod($receiptPath, 0600)) { throw new RuntimeException('RECEIPT_WRITE_FAILED'); }
+        fclose($stream); $stream = null;
+        if (!rename($temporary, $output) || !rename($receiptPath, $output . '.json')) { throw new RuntimeException('ADOPTION_FAILED'); }
+        return $receipt;
+    } finally {
+        if (is_resource($stream)) { fclose($stream); }
+        fclose($stderr);
+        foreach ([$temporary, $errorPath, $receiptPath] as $path) { if (is_file($path)) { unlink($path); } }
+    }
+}
+
+umask(0077);
+try {
+    $receipt = exportReleaseDatabase(array_slice($_SERVER['argv'], 1));
+    echo json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), PHP_EOL;
+} catch (Throwable $exception) {
+    // Native diagnostics may contain SQL, usernames or environment values; never forward them.
+    $code = preg_match('/^[A-Z][A-Z0-9_]+$/D', $exception->getMessage()) ? $exception->getMessage() : 'EXPORT_REJECTED';
+    fwrite(STDERR, 'release database backup: ' . $code . PHP_EOL);
+    exit(1);
+}

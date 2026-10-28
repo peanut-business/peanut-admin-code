@@ -230,6 +230,7 @@
         "scripts/create-app",
         "scripts/build-application-template-inventory",
         "scripts/build-scaffold-release",
+        "scripts/export-release-database",
         "scripts/package-scaffold-template.py",
         "scripts/check-test-integrity",
         "scripts/generate-all-modules-packaging-evidence",

@@ -32,6 +32,12 @@ Peanut CLI 的 `peanut config [--path <project-root>] [--yes]` 会发现已安�
 
 入口会创建工具入口，不是新的隔离系统或包管理器。命令本身仍具有调用者权限；选择已信任的配置和程序。不要用此入口绕过资源、测试、发布或部署授权。Peanut CLI 是独立安装的全局工具；这里的 project-env 只负责为当前项目选择登记工具环境，并在对应 Node bin 已安装 `peanut` 时调用它，不再在 Peanut Admin 内复制业务 CLI。
 
+## 可选制包数据库备份
+
+维护者可用 `peanut config --release-database-registry <绝对登记文件> --release-database-resource <稳定ID> --release-database-sql <绝对SQL文件>` 保存可选 `release_database_backup`（`registry`、`resource_id`、`output`），默认关闭；`--no-release-database-backup` 清除选择。三个字段不含凭据，只写本机 `.local/toolchain/host.json`，不随源码或模板交付。SQL 和登记必须位于 Code 外，SQL 还须位于发行输出之外。完整数据库可能含秘密，Git 备份应选私有仓库，工具不执行 Git 上传。
+
+启用时 `peanut release` 在输入准备和双 Edition 制包前调用一次 `scripts/export-release-database`，失败即停止。该入口只接受本机开发维护登记、当前 candidate 的原生 active lease 及整库 exclusive mysql-access；进程传入 `PEANUT_RESOURCE_LEASE_PROOF`，lease 还须覆盖 SQL 父目录和 `<paths.backups>/database/release` 的 `output-dir`。数据库连接仍由本机应用环境加载并核对登记，维护选项不写 `.env`。导出按登记的 SSH 管理地址及容器执行原生 mysqldump；严格 known-host 校验，容器 root 密码仅在远端容器内展开。输出目录必须属于当前用户且为 0700，SQL/receipt 为 0600；成功核原生退出码和完整 footer，再把旧 SQL/receipt 保全至 backups 后原子替换最新 SQL。旁边 `.sql.json` 记录 registry/资源、UUID、源码、租约、native 参数、摘要及恢复位置。完整dump与用于首次安装的结构/必要初始数据源分别管理，导出不会改写安装 SQL。模板生成器及其 `--check` 不导出数据库。
+
 ## 速度与缓存
 
 同一登记、工具文件身份、关联配置和关键进程环境不变时，exec 复用 prepare 的版本检查结果，不在每个命令前扫描全机或安装依赖。修改项目要求、本机路径、被观察 PHP 配置等后，需要显式 prepare。`watch_paths` 可登记 PHP ini 文件和扫描目录；不读取或打印其内容。一次 prepare 不代替完整产品资格。
