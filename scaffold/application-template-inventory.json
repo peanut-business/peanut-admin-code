@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.0.9",
+    "template_version": "5.0.10",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -185,45 +185,6 @@
                 "full"
             ],
             "source_sha256": "0a53ce5756bc365bcd20b7bc996dcd6048eed1b3ea17b4cde5f9a9fbbca2de0a"
-        },
-        {
-            "path": ".peanut/recipes/scaffold-ci/baseline/files/.github/workflows/scaffold-release.yml",
-            "target": ".peanut/recipes/scaffold-ci/baseline/files/.github/workflows/scaffold-release.yml",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": ".peanut/recipes/scaffold-ci/manifest.json",
-            "target": ".peanut/recipes/scaffold-ci/manifest.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": ".peanut/recipes/scaffold-ci/source-manifest.json",
-            "target": ".peanut/recipes/scaffold-ci/source-manifest.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
         },
         {
             "path": ".prettierrc.cjs",
@@ -1076,7 +1037,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "492c94f177f9f9f54ac878d57cb2320c23f0805f74db898e39f5ee992abf0c5e"
+            "source_sha256": "446ff7879f11f85a24512f0eda522361734b8b20d3245447c580d7e065f3ddaf"
         },
         {
             "path": "docs/public/installation.md",
@@ -1340,7 +1301,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fa1005472f18ab98faeeb5859400ce087480b38674d4f6730d5279c405baa67d"
+            "source_sha256": "d1e3df0318cde5eedf2caae175451ee672c0f9143418b675c8b0ffbe25db0910"
         },
         {
             "path": "pc/package.json",
@@ -1353,7 +1314,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "77cc11552c2ca917f71b7383fe16ba6f9d82efb57a4d83b25668f76e1bbc9ad6"
+            "source_sha256": "c5164ceef5f9bb4bb9ca1e4b67543e89db8f6c5294f0d4f26917a81844089734"
         },
         {
             "path": "pc/pages/about.vue",
@@ -1877,7 +1838,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "acc55772e993b8855fa16a4c4bdad99e1bd710835a36fee3f96c8a357388d75c"
+            "source_sha256": "dc4f81d02079db5e2e987b2b4bf355c36f046ef2498dd5a661ca0beeae5b1891"
         },
         {
             "path": "platform/package.json",
@@ -1891,7 +1852,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "77b39c98eca27592a8cb2d45e78367e056cee1bd8fac523c5a1d9fee9583bd28"
+            "source_sha256": "fbab16f8911087a60ca60c8b41e76c6bde95f6fc8bdee35842344297ffb38b2b"
         },
         {
             "path": "platform/scripts/check-governance-types.mjs",
@@ -3312,7 +3273,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7c5bc7cf5b6d5a7762ad662126c5181832cbc2e5fe6fcf2dcfffa06b5503aedf"
+            "source_sha256": "898318a31d11e5039daf487c95f607db2f78a014eb3cd08f864e687dd0401e5e"
         },
         {
             "path": "scripts/export-release-database",
@@ -26472,20 +26433,6 @@
             "source_sha256": "5f2d174fc1b0b4cfaf3e5dd4095791ea4037af1cef1be1adb5fdc85ee1bdf2ee"
         },
         {
-            "path": "server/private/storage/.gitkeep",
-            "target": "server/private/storage/.gitkeep",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-        },
-        {
             "path": "server/public/.htaccess",
             "target": "server/public/.htaccess",
             "classification": "managed",
@@ -26694,20 +26641,6 @@
                 "full"
             ],
             "source_sha256": "5c89a8a9c5af258d02d0bfd3582c75963bea53baa1f5f5132662b80020a63452"
-        },
-        {
-            "path": "server/public/storage/.gitkeep",
-            "target": "server/public/storage/.gitkeep",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         },
         {
             "path": "server/resources/module-scaffold/backend/ModuleProvider.php.stub",
@@ -26960,20 +26893,6 @@
                 "full"
             ],
             "source_sha256": "12cb620e2cd09bcb7b8300076f9a4a65bd10c098bde06a01130df45f0ed07b4d"
-        },
-        {
-            "path": "server/runtime/.gitkeep",
-            "target": "server/runtime/.gitkeep",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         },
         {
             "path": "server/tests/Ablation/DataIsolationAblationTest.php",
@@ -31798,7 +31717,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "155c84a4775c769e09880984afb3feb454d894aa15dd307e376670711e97c66e"
+            "source_sha256": "234f05312ce642de534a5ce9039dbc473a4006a86aa5f1bcbfe6e2c82477a97e"
         },
         {
             "path": "uniapp/package.json",
@@ -31811,7 +31730,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a571286e5c300f25a7411f7a5a8cae52fde4a990929ee39d34064273b98af27f"
+            "source_sha256": "7f8826a1cb11a60c49a4196b74296136fee6c626c51c9234ff3158ea04b355dc"
         },
         {
             "path": "uniapp/packages/pages/404/404.vue",
@@ -32685,19 +32604,6 @@
             "source_sha256": "d8f5aca67d668176abf5693a4d9a250e9b7cfc72de4d4857d68da2d93e7511a3"
         },
         {
-            "path": "web/.claude/launch.json",
-            "target": "web/.claude/launch.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "web/.env.example",
             "target": "web/.env.example",
             "classification": "managed",
@@ -32710,34 +32616,6 @@
                 "full"
             ],
             "source_sha256": "5d4f827e3a7ccb342aa984d48defdf4e67766051ab60ec00d0be1655ec947d23"
-        },
-        {
-            "path": "web/.env.multi-tenant",
-            "target": "web/.env.multi-tenant",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "dbff70bc4107d30bf47886559e6d3f3490c34766496622b53d3187d9489ae274"
-        },
-        {
-            "path": "web/.env.standalone",
-            "target": "web/.env.standalone",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "2f6c3b1a5e12eaa9ea4f14ea9bb48c03c0d9a9a463d9bb1ece4c50a66b9e5ae6"
         },
         {
             "path": "web/.eslintignore",
@@ -32975,7 +32853,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5e9a38d8f5486a6e6a385eee2457b474b4d7c1db1f5a355c8cda9f20486eed59"
+            "source_sha256": "34c1b0f4bd28e6340dd85939799229a7a24b326172ef284450a7b2db37bf4ef6"
         },
         {
             "path": "web/pnpm-lock.yaml",
@@ -38274,7 +38152,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2844ba7a6531d35c47a694831391451f552cdb4092e738400b977cf14af72872"
+            "source_sha256": "684a1dadacd3e769ba6a211cb2db8411e39f3e58015bbb55377fe75a54184c78"
         },
         {
             "path": "web/src/views/dashboard/workplace/locale/en-US.ts",
@@ -38288,7 +38166,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ee73d716d872b7195982592296652e27bb9c0d39121ebb7ef0180023cc77c33f"
+            "source_sha256": "4ce4d12e122be723fdbfee64aeb8cbe52b810c2c9670f8262774247fd493bd56"
         },
         {
             "path": "web/src/views/dashboard/workplace/locale/zh-CN.ts",
@@ -38302,7 +38180,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a9522c4f28a93f58fd7821cc73bb7d18003a7b578fba401717720a1f37a8b5b9"
+            "source_sha256": "c85054b90e12365847a8b88c1129c7351c59da896712d774fb2cb6eaf61dafca"
         },
         {
             "path": "web/src/views/decoration/mobile/index.vue",
