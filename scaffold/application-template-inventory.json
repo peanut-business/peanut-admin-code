@@ -928,7 +928,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d5cee67786ac7cdf24ce13c9fcd5798dbe058bd9cc45d2ada7a14b2297ae016b"
+            "source_sha256": "b5c9f5bf6c2e24be5624a697b7cb501184a8ae84a3f5c09aef04889d58aa6e84"
         },
         {
             "path": "docs/development/standard.md",
@@ -3315,6 +3315,19 @@
             "source_sha256": "7c5bc7cf5b6d5a7762ad662126c5181832cbc2e5fe6fcf2dcfffa06b5503aedf"
         },
         {
+            "path": "scripts/export-release-database",
+            "target": "scripts/export-release-database",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "scripts/format-source.mjs",
             "target": "scripts/format-source.mjs",
             "classification": "managed",
@@ -3914,7 +3927,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3170f5a46033cfdc4b4849b20f386e2b6568b9aa72e4f6b85b4aee17d05ee286"
+            "source_sha256": "90837a354bfa88d12226233ea1fc958a306fded4dae66a3b29e7ef23a2f478ba"
         },
         {
             "path": "scripts/scaffold-upgrade",
