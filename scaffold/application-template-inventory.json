@@ -1090,7 +1090,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0a47d1200e57a9cd86a26557e393aa3b0e0a0776c682e29a29e0c4785eaa7f1a"
+            "source_sha256": "01558af7bd98b6d082b71cc7c9c0e5803bcad48607e299736159f7300a0e9b2f"
         },
         {
             "path": "docs/public/module-development.md",
@@ -26651,7 +26651,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ff3654a7d1b943a7eb072d11f6e523d38a0aceb7e3c38e3e10253573bf5fcf77"
+            "source_sha256": "141dc61d041e6177630c72881027c4777a55ccc6a471f46c7df2073bd098f8b7"
         },
         {
             "path": "server/public/robots.txt",
@@ -38386,7 +38386,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "13fa1f44b252d2908cb12916b7cf72c8c2c6c68360573c32a8d16c236396f5e9"
+            "source_sha256": "e836d3a41856f4c6ff58998615d54e32949e74c8bcb801a1daf609141b4b36e7"
         },
         {
             "path": "web/src/views/install/locale/en-US.ts",
