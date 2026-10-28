@@ -13,6 +13,7 @@ $application = \think\Container::getInstance();
 if (!$application instanceof \think\App) {
     $application = new \think\App(dirname(__DIR__));
 }
+require_once $application->getThinkPath() . 'helper.php';
 if (!$application->initialized()) {
     $application->loadEnv((string) $application->env->get('env_name', ''));
 }

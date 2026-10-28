@@ -25800,7 +25800,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c079bdb1c93fa7dd8998d20c0c29491cbba93b42788f861afd86e98c7ac6b3c7"
+            "source_sha256": "6ef5270b1a4bfd300aabf5f34e37605cb110b26b8be3522fbb15e670a85d1f7a"
         },
         {
             "path": "server/database/install.php",
@@ -25828,7 +25828,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "72499532c578b9e23bf2acbef78027fae414135c19e7d73a21b4daa66e61855a"
+            "source_sha256": "2452fee7ddcf8c48aeb1238d3e319a40d63ae08770ac28af37c773128b1eb2bf"
         },
         {
             "path": "server/database/resource-registry.php",
@@ -25870,7 +25870,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e4fb637155cd2eb9dcb5ac2761846be981fb8d07bd038429145bf296d30d3b84"
+            "source_sha256": "3796867ba1cf2aeec17afee1e8c0db8d4829c2274bcf771048306c75e93a9a97"
         },
         {
             "path": "server/database/seed-demo-data.php",
