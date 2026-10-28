@@ -187,6 +187,45 @@
             "source_sha256": "0a53ce5756bc365bcd20b7bc996dcd6048eed1b3ea17b4cde5f9a9fbbca2de0a"
         },
         {
+            "path": ".peanut/recipes/scaffold-ci/baseline/files/.github/workflows/scaffold-release.yml",
+            "target": ".peanut/recipes/scaffold-ci/baseline/files/.github/workflows/scaffold-release.yml",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": ".peanut/recipes/scaffold-ci/manifest.json",
+            "target": ".peanut/recipes/scaffold-ci/manifest.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": ".peanut/recipes/scaffold-ci/source-manifest.json",
+            "target": ".peanut/recipes/scaffold-ci/source-manifest.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": ".prettierrc.cjs",
             "target": ".prettierrc.cjs",
             "classification": "managed",
@@ -26433,6 +26472,20 @@
             "source_sha256": "5f2d174fc1b0b4cfaf3e5dd4095791ea4037af1cef1be1adb5fdc85ee1bdf2ee"
         },
         {
+            "path": "server/private/storage/.gitkeep",
+            "target": "server/private/storage/.gitkeep",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
             "path": "server/public/.htaccess",
             "target": "server/public/.htaccess",
             "classification": "managed",
@@ -26641,6 +26694,20 @@
                 "full"
             ],
             "source_sha256": "5c89a8a9c5af258d02d0bfd3582c75963bea53baa1f5f5132662b80020a63452"
+        },
+        {
+            "path": "server/public/storage/.gitkeep",
+            "target": "server/public/storage/.gitkeep",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         },
         {
             "path": "server/resources/module-scaffold/backend/ModuleProvider.php.stub",
@@ -26893,6 +26960,20 @@
                 "full"
             ],
             "source_sha256": "12cb620e2cd09bcb7b8300076f9a4a65bd10c098bde06a01130df45f0ed07b4d"
+        },
+        {
+            "path": "server/runtime/.gitkeep",
+            "target": "server/runtime/.gitkeep",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         },
         {
             "path": "server/tests/Ablation/DataIsolationAblationTest.php",
@@ -32604,6 +32685,19 @@
             "source_sha256": "d8f5aca67d668176abf5693a4d9a250e9b7cfc72de4d4857d68da2d93e7511a3"
         },
         {
+            "path": "web/.claude/launch.json",
+            "target": "web/.claude/launch.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "web/.env.example",
             "target": "web/.env.example",
             "classification": "managed",
@@ -32616,6 +32710,34 @@
                 "full"
             ],
             "source_sha256": "5d4f827e3a7ccb342aa984d48defdf4e67766051ab60ec00d0be1655ec947d23"
+        },
+        {
+            "path": "web/.env.multi-tenant",
+            "target": "web/.env.multi-tenant",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "dbff70bc4107d30bf47886559e6d3f3490c34766496622b53d3187d9489ae274"
+        },
+        {
+            "path": "web/.env.standalone",
+            "target": "web/.env.standalone",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2f6c3b1a5e12eaa9ea4f14ea9bb48c03c0d9a9a463d9bb1ece4c50a66b9e5ae6"
         },
         {
             "path": "web/.eslintignore",
