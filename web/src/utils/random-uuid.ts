@@ -1,8 +1,8 @@
 /** UUIDv4 without the secure-context requirement of crypto.randomUUID(). */
-export function randomUuid(): string {
+export default function randomUuid(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  bytes[6] = (bytes[6] % 16) + 64;
+  bytes[8] = (bytes[8] % 64) + 128;
   const hex = Array.from(bytes, (byte) =>
     byte.toString(16).padStart(2, '0')
   ).join('');

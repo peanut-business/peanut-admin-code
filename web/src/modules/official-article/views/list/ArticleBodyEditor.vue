@@ -105,7 +105,7 @@
   } from 'vue';
   import { useUserStore } from '@/store';
   import { getSessionSnapshot } from '@/utils/auth';
-  import { randomUuid } from '@/utils/random-uuid';
+  import randomUuid from '@/utils/random-uuid';
   import DocumentEditor from '@/modules/official-document/components/DocumentEditor.vue';
   import parseCapabilities from '@/modules/official-content-tools/src/capabilities';
   import {

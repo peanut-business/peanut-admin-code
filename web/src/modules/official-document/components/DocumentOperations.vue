@@ -90,7 +90,7 @@
   import axios from 'axios';
   import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
   import { getSessionSnapshot } from '@/utils/auth';
-  import { randomUuid } from '@/utils/random-uuid';
+  import randomUuid from '@/utils/random-uuid';
   import type { CommittedProof } from '@/modules/official-rich-text/src/collaboration/provider';
   import {
     DocumentOperationRejection,

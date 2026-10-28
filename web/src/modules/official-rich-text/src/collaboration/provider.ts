@@ -3,7 +3,7 @@ import {
   HocuspocusProviderWebsocket,
 } from '@hocuspocus/provider';
 import * as Y from 'yjs';
-import { randomUuid } from '@/utils/random-uuid';
+import randomUuid from '@/utils/random-uuid';
 import {
   LocalEditTracker,
   coversSnapshot,

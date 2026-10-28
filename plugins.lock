@@ -190,7 +190,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "6d01bce643a473b28c81f6005bbcfd752f51f695bc5824be2a577ff720f80979"
+                "sha256": "7b9300e00ecee58e7cec1e2133857f3ca6bca18c609f128a7365e9c76577516f"
             },
             "trust": {
                 "channel": "bundled",
@@ -278,7 +278,7 @@
                 }
             ],
             "manifest": "plugins/official.article/plugin.json",
-            "manifest_sha256": "2ab92fb510714255336db1edb06db64bdd67866367f5b994ca9a86e2591aa194"
+            "manifest_sha256": "5a1e90a2b5c90486edf1a6b7a8720bceb1935558bab51ace3c29b302a04f5a95"
         },
         {
             "key": "official.collaboration",
@@ -455,7 +455,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "0f6ac220b2a8b72d842afdd959afe883412226cd1192e44eef8dc34bf1d30ba7"
+                "sha256": "c10772ecb9f67cff0bab7071f1b1a374871857a45d3e8ad7332f00bfe3a17bd0"
             },
             "trust": {
                 "channel": "bundled",
@@ -547,7 +547,7 @@
                 }
             ],
             "manifest": "plugins/official.document/plugin.json",
-            "manifest_sha256": "d003791fcec343b94f209b8b9cc2e5df476c6e22837cead66ef59480c67bd71a"
+            "manifest_sha256": "e76c4329372edd2ea51608dd9562c6d82fdb05e1540c25d14f2442ffc6a6af51"
         },
         {
             "key": "official.file",
@@ -1488,7 +1488,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "bd4796916124e29ceb9bfcf68be64366411d6ba8ab5b51ddf040539f855e7f26"
+                "sha256": "67c5f22a72c6eb54d6b1a9f117d77e26eab41909d9891842b8ee9269057af6eb"
             },
             "trust": {
                 "channel": "bundled",
@@ -1572,7 +1572,7 @@
                 }
             ],
             "manifest": "plugins/official.rich-text/plugin.json",
-            "manifest_sha256": "d4accb851125503670ad0839d5eae8b317c1546a4a1d9953f8403802223b0454"
+            "manifest_sha256": "1b36f9ab3f4074018c44570d8bd8fc56a5427ef9c2f688c26aa959fca109ad62"
         },
         {
             "key": "official.settings",

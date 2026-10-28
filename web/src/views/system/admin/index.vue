@@ -248,9 +248,7 @@
           <DepartmentPicker
             v-model="form.dept_id"
             :key="departmentPickerRevision"
-            multiple
-            clearable
-            :placeholder="$t('systemAdmin.field.dept.placeholder')"
+            :root-label="$t('systemAdmin.field.dept.unassigned')"
           />
         </el-form-item>
 
@@ -566,12 +564,14 @@
   const formRef = ref<FormInstance>();
   const avatarPreview = ref('');
 
-  const defaultForm = (): AdminForm => ({
+  type AdminEditorForm = Omit<AdminForm, 'dept_id'> & { dept_id: number };
+
+  const defaultForm = (): AdminEditorForm => ({
     id: undefined,
     account: '',
     name: '',
     avatar: '',
-    dept_id: [],
+    dept_id: 0,
     jobs_id: [],
     role_id: [],
     password: '',
@@ -580,7 +580,7 @@
     multipoint_login: 1,
     root: 0,
   });
-  const form = reactive<AdminForm>(defaultForm());
+  const form = reactive<AdminEditorForm>(defaultForm());
   const avatarUrl = computed(() => avatarPreview.value || form.avatar);
 
   const rules = computed(() => ({
@@ -676,7 +676,7 @@
     ],
   }));
 
-  const resetForm = (patch: Partial<AdminForm> = {}) => {
+  const resetForm = (patch: Partial<AdminEditorForm> = {}) => {
     Object.assign(form, defaultForm(), patch);
     avatarPreview.value = patch.avatar || '';
     nextTick(() => formRef.value?.clearValidate());
@@ -700,7 +700,7 @@
       account: data.account,
       name: data.name,
       avatar: data.avatar,
-      dept_id: data.dept_id || [],
+      dept_id: data.dept_id[0] ?? 0,
       jobs_id: data.jobs_id || [],
       role_id: data.role_id || [],
       password: '',
@@ -726,7 +726,7 @@
     try {
       const payload: AdminForm = {
         ...form,
-        dept_id: [...form.dept_id],
+        dept_id: form.dept_id === 0 ? [] : [form.dept_id],
         jobs_id: [...form.jobs_id],
         role_id: [...form.role_id],
       };
