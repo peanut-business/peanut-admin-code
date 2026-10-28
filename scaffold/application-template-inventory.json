@@ -25883,7 +25883,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3796867ba1cf2aeec17afee1e8c0db8d4829c2274bcf771048306c75e93a9a97"
+            "source_sha256": "1d425d279c0b86bae07c956e4672a643b70b0308b1c280cf15d6213583ce0f1f"
         },
         {
             "path": "server/database/seed-demo-data.php",
