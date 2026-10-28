@@ -224,8 +224,12 @@ final readonly class VerifiedServerDeployment
             }
             self::assertProtectedPath($root, substr($file['path'], strlen('server/')), $httpMount);
         }
+        // Framework extension directories need not exist in a source application.
+        // Existing objects, including broken links, still require the full protection check.
+        $optionalDirectories = $source ? ['.peanut', 'bootstrap', 'extend'] : ['bootstrap', 'extend'];
         foreach (['app', 'config', 'database', '.peanut', 'resources', 'vendor', 'route', 'bootstrap', 'extend'] as $directory) {
-            if ($source && $directory === '.peanut' && !file_exists($root . '/.peanut')) {
+            if (in_array($directory, $optionalDirectories, true)
+                && !file_exists($root . '/' . $directory) && !is_link($root . '/' . $directory)) {
                 continue;
             }
             self::assertProtectedPath($root, $directory, $httpMount);
