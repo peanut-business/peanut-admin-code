@@ -26232,7 +26232,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4a67141c82cfad52cf79e76f8029ba6103bc0e58d6de0631539395d659658e84"
+            "source_sha256": "ddecf4b6f66271c467574f95277140a1cee6d13f1f41c5c59f0552bea26e99f1"
         },
         {
             "path": "server/docker/scripts/prepare-install-permissions.sh",

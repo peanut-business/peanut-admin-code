@@ -138,7 +138,12 @@ run_monitored_fpm() {
         chmod 0644 "$HTTP_CHROOT/etc/$file"
     done
     case "$phase" in bootstrap) http_env=bootstrap ;; installing) http_env=installing ;; installed) http_env= ;; *) exit 1 ;; esac
-    printf '[www]\nenv[PHP_ENV_NAME] = "%s"\n' "$http_env" > /usr/local/etc/php-fpm.d/zzz-peanut-runtime.conf
+    {
+        printf '[www]\n'
+        if [ -n "$http_env" ]; then
+            printf 'env[PHP_ENV_NAME] = "%s"\n' "$http_env"
+        fi
+    } > /usr/local/etc/php-fpm.d/zzz-peanut-runtime.conf
     chmod 0600 /usr/local/etc/php-fpm.d/zzz-peanut-runtime.conf
     php-fpm -F &
     fpm_pid=$!
