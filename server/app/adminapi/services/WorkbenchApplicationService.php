@@ -18,6 +18,7 @@ class WorkbenchApplicationService
         private readonly string $projectVersion,
         private readonly string $projectBased,
         private readonly array $defaultImages,
+        private readonly bool $demoMode,
     ) {}
 
     public function index(TenantContext $context): array
@@ -25,6 +26,7 @@ class WorkbenchApplicationService
         $website = $this->website->get($context);
         return [
             'version' => $this->versionInfo($context, $website),
+            'statistics_state' => $this->demoMode ? 'demo' : 'unavailable',
             'today'   => self::today(),
             'menu'    => self::menu($context),
             'visitor' => self::visitor(),
@@ -52,14 +54,14 @@ class WorkbenchApplicationService
     {
         return [
             'time'           => date('Y-m-d H:i:s'),
-            'today_sales'    => 100,
-            'total_sales'    => 1000,
-            'today_visitor'  => 10,
-            'total_visitor'  => 100,
-            'today_new_user' => 30,
-            'total_new_user' => 3000,
-            'order_num'      => 12,
-            'order_sum'      => 255,
+            'today_sales'    => $this->demoMode ? 100 : 0,
+            'total_sales'    => $this->demoMode ? 1000 : 0,
+            'today_visitor'  => $this->demoMode ? 10 : 0,
+            'total_visitor'  => $this->demoMode ? 100 : 0,
+            'today_new_user' => $this->demoMode ? 30 : 0,
+            'total_new_user' => $this->demoMode ? 3000 : 0,
+            'order_num'      => $this->demoMode ? 12 : 0,
+            'order_sum'      => $this->demoMode ? 255 : 0,
         ];
     }
 
@@ -105,6 +107,9 @@ class WorkbenchApplicationService
 
     public function visitor(): array
     {
+        if (!$this->demoMode) {
+            return ['date' => [], 'list' => []];
+        }
         $date = [];
         $data = [];
         for ($i = 0; $i < 15; $i++) {
@@ -121,6 +126,9 @@ class WorkbenchApplicationService
 
     public function sale(): array
     {
+        if (!$this->demoMode) {
+            return ['date' => [], 'list' => []];
+        }
         $date = [];
         $data = [];
         for ($i = 0; $i < 7; $i++) {

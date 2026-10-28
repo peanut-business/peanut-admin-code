@@ -649,6 +649,7 @@ class AppService extends Service
             (string) Config::get('project.version', ''),
             (string) Config::get('project.based', ''),
             (array) Config::get('project.default_image', []),
+            (bool) Config::get('peanut.demo.enabled', false),
         ));
         $this->app->bind(ConfigApplicationService::class, fn(): ConfigApplicationService => new ConfigApplicationService(
             $this->app->make(\PeanutAdmin\Modules\Settings\Contract\TenantApplicationSettings::class),

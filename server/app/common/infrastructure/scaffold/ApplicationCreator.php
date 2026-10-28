@@ -873,9 +873,6 @@ final class ApplicationCreator
                 $content = str_replace($source, $value, $content);
             }
         }
-        if ($path === 'server/app/adminapi/application/WorkbenchApplicationService.php') {
-            $content = preg_replace("/'(today_sales|total_sales|today_visitor|total_visitor|today_new_user|total_new_user|order_num|order_sum)' => [0-9]+,/", "'$1' => 0,", $content) ?? $content;
-        }
         if ($path === 'uniapp/src/pages/as_us/as_us.vue') {
             $content = $this->replaceVersionLiteral($content, $parameters['APPLICATION_VERSION'], $path);
         }

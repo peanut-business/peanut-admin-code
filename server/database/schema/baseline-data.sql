@@ -1,3 +1,5 @@
+-- Versioned system defaults only; never replace this file with an instance dump.
+-- Tenant identities and callback keys are supplied/generated for this installation.
 -- Menu bootstrap keys derive from (type, perms, paths, name), then converge to canonical identities.
 INSERT INTO `pa_system_dict_type` (`code`, `name`, `remark`)
 VALUES
@@ -88,13 +90,6 @@ WHERE NOT EXISTS (
   SELECT 1 FROM `pa_crontab` WHERE `command` = 'refund:reconcile'
 );
 
-INSERT IGNORE INTO `pa_notice_scene`
-  (`id`,`code`,`name`,`description`,`recipient`,`variables`,`sms_template_id`,`sms_content`,`sms_status`,`create_time`,`update_time`,`tenant_id`) VALUES
-  (1,'login_code','登录验证码','用户使用手机号验证码登录','用户',JSON_ARRAY('code'),'','您的登录验证码是${code}，五分钟内有效。',0,0,0,@pa_default_tenant_id),
-  (2,'bind_mobile','绑定手机验证码','用户首次绑定手机号','用户',JSON_ARRAY('code'),'','您的绑定手机验证码是${code}，五分钟内有效。',0,0,0,@pa_default_tenant_id),
-  (3,'change_mobile','变更手机验证码','用户更换已绑定手机号','用户',JSON_ARRAY('code'),'','您的变更手机验证码是${code}，五分钟内有效。',0,0,0,@pa_default_tenant_id),
-  (4,'reset_password','找回密码验证码','用户通过手机号重置密码','用户',JSON_ARRAY('code'),'','您的找回密码验证码是${code}，五分钟内有效。',0,0,0,@pa_default_tenant_id);
-
 INSERT INTO `pa_notice_scene`
   (`code`,`name`,`description`,`recipient`,`variables`,`sms_template_id`,`sms_content`,`sms_status`,`create_time`,`update_time`,`tenant_id`)
 SELECT 'login_code', '登录验证码', '用户使用手机号验证码登录', '用户', JSON_ARRAY('code'), '', '您的登录验证码是${code}，五分钟内有效。', 0, 0, 0, @pa_default_tenant_id
@@ -114,14 +109,6 @@ INSERT INTO `pa_notice_scene`
   (`code`,`name`,`description`,`recipient`,`variables`,`sms_template_id`,`sms_content`,`sms_status`,`create_time`,`update_time`,`tenant_id`)
 SELECT 'reset_password', '找回密码验证码', '用户通过手机号重置密码', '用户', JSON_ARRAY('code'), '', '您的找回密码验证码是${code}，五分钟内有效。', 0, 0, 0, @pa_default_tenant_id
 WHERE NOT EXISTS (SELECT 1 FROM `pa_notice_scene` WHERE `code` = 'reset_password');
-
-INSERT INTO `pa_crontab`
-    (`name`,`type`,`command`,`params`,`status`,`expression`,`error`,`last_time`,`time`,`max_time`,`sort`,`remark`,`create_time`,`update_time`,`tenant_id`)
-SELECT '退款状态收敛', 1, 'refund:reconcile', '', 1, '* * * * *', '', 0, 0, 0, 100,
-       '查询支付渠道并收敛充值退款最终状态', 0, 0, @pa_default_tenant_id
-WHERE NOT EXISTS (
-    SELECT 1 FROM `pa_crontab` WHERE `command` = 'refund:reconcile'
-);
 
 INSERT INTO `pa_crontab`
   (`name`,`type`,`command`,`params`,`status`,`expression`,`error`,`last_time`,`time`,`max_time`,`sort`,`remark`,`create_time`,`update_time`,`tenant_id`)

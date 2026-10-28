@@ -6,7 +6,11 @@ declare(strict_types=1);
 require __DIR__ . '/install.php';
 require __DIR__ . '/../vendor/autoload.php';
 
-use think\App;
+use app\common\execution\ExecutionContextStore;
+use app\common\execution\SystemExecutionContext;
+use PeanutAdmin\Kernel\Context\TenantSystemContext;
+use PeanutAdmin\Modules\Settings\Contract\TenantSettingsCommands;
+use PeanutAdmin\Modules\Settings\Contract\TenantSettingsQuery;
 use think\facade\Db;
 
 /** @return array{categories:list<string>,articles:list<array<string,mixed>>,tags:list<string>,members:list<array<string,mixed>>} */
@@ -53,10 +57,10 @@ function demoPlan(): array
             ],
             [
                 'category' => '更新日志',
-                'title' => '2.0.0 fresh baseline 说明',
-                'desc' => '记录当前开发候选的原生身份与空库安装边界。',
+                'title' => '新实例安装说明',
+                'desc' => '说明空库首次安装与原目录更新的不同入口。',
                 'abstract' => 'Peanut Admin Demo content',
-                'content' => '<p>Peanut Admin 2.0.0 从 canonical Schema 空库安装，不接管 1.x 数据库。</p>',
+                'content' => '<p>新实例通过安装向导初始化空库；已有实例按当前版本的更新合同执行尚未应用的迁移，不重放首次安装。</p>',
                 'click_virtual' => 64,
                 'sort' => 50,
             ],
@@ -115,8 +119,8 @@ try {
         throw new RuntimeException('PEANUT_DEMO_MODE=enabled is required');
     }
     $input = installationProcessInput();
-    $tenantId = (int) ($input['PEANUT_DEMO_TENANT_ID'] ?? env('PEANUT_DEMO_TENANT_ID', ''));
-    if ($tenantId < 1) {
+    $tenantId = filter_var($input['PEANUT_DEMO_TENANT_ID'] ?? env('PEANUT_DEMO_TENANT_ID', ''), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    if ($tenantId === false) {
         throw new RuntimeException('PEANUT_DEMO_TENANT_ID must be a positive integer');
     }
     $docsUrl = trim(requiredEnvironment('PEANUT_DEMO_DOCS_URL'));
@@ -125,13 +129,20 @@ try {
     }
 
     $config = guardedDatabaseConfig();
-    (new App(dirname(__DIR__)))->initialize();
+    $app = ensureThinkPhpApplication(dirname(__DIR__));
     if (Db::name('tenant')->where('id', $tenantId)->where('status', 'active')->value('id') === null) {
         throw new RuntimeException("active tenant {$tenantId} is not registered");
     }
 
     $now = time();
-    Db::transaction(function () use ($plan, $tenantId, $docsUrl, $now): void {
+    $context = new TenantSystemContext($tenantId, 'demo-seed', 'demo.seed-business-data', 'demo-' . bin2hex(random_bytes(16)));
+    $settingsQuery = $app->make(TenantSettingsQuery::class);
+    $settingsCommands = $app->make(TenantSettingsCommands::class);
+    $app->make(ExecutionContextStore::class)->run(new SystemExecutionContext($context), fn() => Db::transaction(function () use ($plan, $tenantId, $docsUrl, $now, $context, $settingsQuery, $settingsCommands): void {
+        $website = $settingsQuery->get($context, 'website');
+        if ($website->revision < 1) {
+            throw new RuntimeException('the target tenant requires initialized website settings');
+        }
         $categoryIds = [];
         foreach ($plan['categories'] as $sort => $name) {
             $category = Db::name('article_cate')->where('tenant_id', $tenantId)
@@ -241,23 +252,8 @@ try {
             ]);
         }
 
-        $configId = Db::name('config')->where('type', 'website')->where('name', 'official_url')
-            ->lock(true)->value('id');
-        if ($configId === null) {
-            Db::name('config')->insert([
-                'type' => 'website',
-                'name' => 'official_url',
-                'value' => $docsUrl,
-                'create_time' => $now,
-                'update_time' => $now,
-            ]);
-        } else {
-            Db::name('config')->where('id', (int) $configId)->update([
-                'value' => $docsUrl,
-                'update_time' => $now,
-            ]);
-        }
-    });
+        $settingsCommands->replace($context, 'website', array_replace($website->document, ['official_url' => $docsUrl]));
+    }));
 
     echo json_encode([
         'status' => 'applied', 'environment' => $config['environment'], 'resource_id' => $config['resource_id'],

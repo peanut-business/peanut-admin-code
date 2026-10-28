@@ -44,6 +44,7 @@ export interface SupportItem {
 }
 
 export interface WorkbenchData {
+  statistics_state: 'demo' | 'unavailable';
   version: VersionInfo;
   today: TodayMetrics;
   menu: Shortcut[];

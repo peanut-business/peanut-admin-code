@@ -2,6 +2,7 @@
   <div class="container">
     <div v-loading="loading" class="workplace-loading">
       <el-alert
+        v-if="workbench.statistics_state === 'demo'"
         class="demo-data-alert"
         type="warning"
         :title="$t('workplace.demoData.notice')"
@@ -58,13 +59,20 @@
             <template #header>
               <el-space>
                 <span>{{ $t('workplace.today.title') }}</span>
-                <span class="updated-at">
+                <span
+                  v-if="workbench.statistics_state === 'demo'"
+                  class="updated-at"
+                >
                   {{ $t('workplace.today.updatedAt')
                   }}{{ workbench.today.time }}
                 </span>
               </el-space>
             </template>
-            <el-row :gutter="16" class="metrics-grid">
+            <el-row
+              v-if="workbench.statistics_state === 'demo'"
+              :gutter="16"
+              class="metrics-grid"
+            >
               <el-col
                 v-for="metric in metrics"
                 :key="metric.key"
@@ -81,6 +89,11 @@
                 </div>
               </el-col>
             </el-row>
+            <el-empty
+              v-else
+              class="workplace-empty"
+              :description="$t('workplace.statistics.unavailable')"
+            />
           </el-card>
         </el-col>
 
@@ -198,6 +211,7 @@
   const { t } = useI18n();
   const loading = ref(true);
   const workbench = reactive<WorkbenchData>({
+    statistics_state: 'unavailable',
     version: {
       version: '',
       website: '',
