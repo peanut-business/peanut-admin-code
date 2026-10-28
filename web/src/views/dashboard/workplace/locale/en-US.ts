@@ -1,5 +1,6 @@
 export default {
   'menu.dashboard.workplace': 'Workplace',
+  'workplace.refresh': 'Refresh workplace',
   'workplace.statistics.unavailable':
     'Business statistics are not connected yet',
   'workplace.demoData.notice':

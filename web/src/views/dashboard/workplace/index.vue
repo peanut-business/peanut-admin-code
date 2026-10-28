@@ -1,5 +1,10 @@
 <template>
   <div class="container">
+    <div class="workplace-actions">
+      <el-button :loading="loading" :disabled="loading" @click="fetchWorkbench">
+        {{ $t('workplace.refresh') }}
+      </el-button>
+    </div>
     <div v-loading="loading" class="workplace-loading">
       <el-alert
         v-if="workbench.statistics_state === 'demo'"
@@ -388,6 +393,12 @@
 <style scoped lang="less">
   .container {
     padding: 20px;
+  }
+
+  .workplace-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 16px;
   }
 
   .scaffold-upgrade-demo-card {
