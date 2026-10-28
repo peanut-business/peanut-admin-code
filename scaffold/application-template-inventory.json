@@ -8161,7 +8161,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81e44bcfdf9fd04655e5c13172679a6d2c026e41386a7daf346d294a66027b82"
+            "source_sha256": "bfc44568ecbb789a3ac7fac9a30affaf1c61ac37f050f715602886d4c7718058"
         },
         {
             "path": "server/app/common/infrastructure/installation/VerifiedServerDeployment.php",
@@ -8175,7 +8175,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "216ec0c9f87b0bef1021c5e9e614f738c074c023653a581be3ee89be9b1134c3"
+            "source_sha256": "1bfa5a3bf2a005e5fe892ebaa3e808bdcbe91f45da61a2b44d348f484ef98db0"
         },
         {
             "path": "server/app/common/infrastructure/member/MemberApiTenantContextResolver.php",

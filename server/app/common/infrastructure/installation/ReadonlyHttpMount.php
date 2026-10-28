@@ -236,15 +236,21 @@ final readonly class ReadonlyHttpMount
     }
 
     /** Only tracked declarations cross the APP/server boundary; no Git or secrets mount. */
-    public static function assertSourceInputs(string $root): void
+    public static function assertSourceInputs(string $root, ?self $httpMount = null): void
     {
-        $mounts = self::mounts((string) file_get_contents('/proc/self/mountinfo'));
+        $worker = self::active($root);
+        if ($worker && ($httpMount === null || $httpMount->root !== $root)) {
+            throw new RuntimeException('HTTP_MOUNT_CONTEXT_MISMATCH');
+        }
+        // The owner proves kernel mounts before publishing admission. Chrooted
+        // workers have no /proc and must already hold the authenticated readonly context.
+        $mounts = $worker ? [] : self::mounts((string) file_get_contents('/proc/self/mountinfo'));
         $parent = rtrim(dirname($root), '/');
         foreach (self::SOURCE_INPUTS as $relative) {
             $path = $parent . '/' . $relative;
             $stat = @lstat($path);
             if (!is_array($stat) || is_link($path) || !is_file($path) || $stat['nlink'] !== 1
-                || !self::effective($mounts, $path)['readonly']) {
+                || ($worker ? is_writable($path) : !self::effective($mounts, $path)['readonly'])) {
                 throw new RuntimeException('HTTP_SOURCE_INPUT_NOT_READONLY');
             }
             if ($root === '/run/peanut-owner/server') {

@@ -274,7 +274,7 @@ final readonly class VerifiedServerDeployment
             'program_authority' => $httpMount !== null ? ['boundary' => 'native-readonly-http']
                 : ['boundary' => 'unix-dac', 'deployment_owner' => fileowner($root), 'root_mode' => fileperms($root) & 07777]];
         if ($source) {
-            ReadonlyHttpMount::assertSourceInputs($root);
+            ReadonlyHttpMount::assertSourceInputs($root, $httpMount);
             $binding['identity'] = ApplicationSourceIdentity::sourceDigest($root);
             $binding['lock'] = hash('sha256', self::bytes(dirname($root) . '/plugins.lock'));
         }
