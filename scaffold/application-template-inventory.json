@@ -25393,7 +25393,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a8b6884fca6ccf236c5466a233e854d89c0d703e5ad1215e619d24c991b8b52b"
+            "source_sha256": "74a155a254743572be44f897106ca495522ad3a9f04aa05e8ad79763db97753b"
         },
         {
             "path": "server/composer.lock",
@@ -31553,7 +31553,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "44c28fe825a76ef3b01dbdd75921a97ebe283a8c406647761d55f7003fc4f441"
+            "source_sha256": "9feb94125b023ef546c16aeaef8c8b683e5026f4256af13cc7dd885d54a6adb3"
         },
         {
             "path": "server/view/README.md",

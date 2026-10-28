@@ -23,4 +23,13 @@ if ((new \think\console\Input())->getFirstArgument() === 'module:create') {
 }
 
 // 应用初始化
-(new App())->console->run();
+$app = new App();
+try {
+    $app->console->run();
+} catch (Throwable $exception) {
+    // Console construction initializes the application before run() can catch failures.
+    $handler = $app->make(\think\exception\Handle::class);
+    $handler->report($exception);
+    $handler->renderForConsole(new \think\console\Output(), $exception);
+    exit(1);
+}
