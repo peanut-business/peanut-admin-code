@@ -1090,7 +1090,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "01558af7bd98b6d082b71cc7c9c0e5803bcad48607e299736159f7300a0e9b2f"
+            "source_sha256": "a5e204263aa538c78fa0aea078304286408fb63a3a3de1b6162054a21e4ac0a8"
         },
         {
             "path": "docs/public/module-development.md",
@@ -26651,7 +26651,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "141dc61d041e6177630c72881027c4777a55ccc6a471f46c7df2073bd098f8b7"
+            "source_sha256": "a161996b1cb471b2b9a9e1e7e6e2ea839c6520767d04b5df909fc11c0ed81d46"
         },
         {
             "path": "server/public/robots.txt",

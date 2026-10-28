@@ -1400,15 +1400,28 @@
             ><div class="complete-icon" aria-hidden="true">✓</div
             ><p class="eyebrow">READY TO GO</p
             ><h1 id="completeTitle">一切就绪，欢迎使用。</h1
-            ><p class="intro"
+            ><p class="intro" id="completeIntro"
               >你的应用已完成初始化。现在可以使用刚刚创建的管理员账号，开始配置和使用管理后台。</p
-            ><a class="button primary" href="/admin/login"
+            ><a
+              class="button primary"
+              id="adminCompleteLink"
+              href="/admin/login"
               >进入管理后台 <span aria-hidden="true">→</span></a
             ><div class="complete-note"
               ><strong>接下来可以做什么？</strong
-              ><p>完善应用信息，按需启用功能模块，并邀请团队成员。</p
-              ><p id="platformCompleteNote" hidden
-                >平台管理员请通过配置的平台域名进入平台管理后台。</p
+              ><p id="adminCompleteNote"
+                >完善应用信息，按需启用功能模块，并邀请团队成员。</p
+              ><div id="platformCompleteNote" hidden
+                ><p
+                  >1. 使用安装时创建的平台管理员账号，在已配置的平台访问地址打开
+                  /platform/。请保留部署时的实际协议与端口。</p
+                ><p
+                  >2. 在“租户运营 → 入口域名与客户端”选择初始 default
+                  租户，填写已指向此应用的租户域名，客户端选择“管理端网页”（admin-web），填写变更原因并启用绑定。租户域名须与平台域名分开。</p
+                ><p
+                  >3. 在绑定的租户访问地址打开
+                  /admin/login，使用安装时创建的应用管理员账号登录。</p
+                ></div
               ><p class="help"
                 >安装入口已锁定，已有数据与管理员身份会被保留。</p
               ></div
@@ -1603,6 +1616,14 @@
         $('platformHostsField').hidden = !multiTenant;
         $('platformAccount').hidden = !multiTenant;
         $('platformCompleteNote').hidden = !multiTenant;
+        $('adminCompleteLink').hidden = multiTenant;
+        $('adminCompleteNote').hidden = multiTenant;
+        $('completeTitle').textContent = multiTenant
+          ? '初始化完成，请配置租户入口。'
+          : '一切就绪，欢迎使用。';
+        $('completeIntro').textContent = multiTenant
+          ? '平台和应用管理员账号已创建。请先登录平台，为初始租户绑定管理域名，再进入租户管理后台。'
+          : '你的应用已完成初始化。现在可以使用刚刚创建的管理员账号，开始配置和使用管理后台。';
         for (const id of ['platformHosts', 'platformEmail', 'platformPassword'])
           $(id).required = multiTenant;
       }
