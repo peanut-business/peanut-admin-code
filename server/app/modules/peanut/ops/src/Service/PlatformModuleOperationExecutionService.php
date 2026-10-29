@@ -81,6 +81,9 @@ final readonly class PlatformModuleOperationExecutionService
                 'source_commit' => $runtime['commit'],
                 'source_tree' => $runtime['tree'],
             ];
+            if ($local) {
+                $payload['application_root'] = $this->requests->applicationRoot();
+            }
             $row = $this->tasks
                 ->dispatchModuleOperation($context, $payload, $idempotencyKey);
             Db::name('ops_module_request')->where('request_key', $requestKey)->where('state', 'prepared')

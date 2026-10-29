@@ -13,11 +13,9 @@ use app\platform\services\plugin\PluginPackageArchiveService;
 use think\facade\Config;
 use think\facade\Db;
 
-/** Creates immutable, registry-bound requests before Platform submission. */
+/** Creates immutable Module requests before Platform submission. */
 final readonly class DeploymentModuleRequestService implements DeploymentModuleRequests
 {
-    public const LOCAL_WORKER_TYPE = 'application-local native CLI Module worker';
-
     /** @param array<string,mixed> $moduleConfig @param array<string,string> $trustedKeys */
     public function __construct(
         private string $projectRoot,
@@ -142,6 +140,9 @@ final readonly class DeploymentModuleRequestService implements DeploymentModuleR
             'confirm_plan' => $packageOperation ? null : $preview['plan'],
             'confirm_plan_sha256' => $packageOperation ? null : $preview['plan_digest'],
         ];
+        if ($this->isLocal($document)) {
+            $document['application_root'] = $this->applicationRoot();
+        }
         if ($submissionDigest !== null) {
             $document['submission_digest'] = $submissionDigest;
         }
@@ -149,8 +150,9 @@ final readonly class DeploymentModuleRequestService implements DeploymentModuleR
         $requestKey = 'modreq_' . substr($requestSha, 0, 32);
         $document['request_key'] = $requestKey;
         $document['request_sha256'] = $requestSha;
-        $json = $this->canonicalJson($document) . "\n";
-        $this->writeRequestManifest($resource, $requestKey, $json);
+        if (!$this->isLocal($document)) {
+            $this->writeRequestManifest($resource, $requestKey, $this->canonicalJson($document) . "\n");
+        }
 
         Db::name('ops_module_request')->duplicate(['request_key'])->insert([
             'request_key' => $requestKey,
@@ -171,21 +173,20 @@ final readonly class DeploymentModuleRequestService implements DeploymentModuleR
         return $document;
     }
 
-    /** Persist an HTTP upload in the configured application's registered inbox before queuing it. */
+    /** Persist an HTTP upload in this application's runtime before queuing it. */
     public function prepareUpload(string $operation, string $path, string $sha256, ?string $keyId, string $submissionDigest): array
     {
         if (!in_array($operation, ['install', 'update'], true)) {
             throw new \RuntimeException('OPS_MODULE_OPERATION_INVALID');
         }
-        [$delivery, $target] = $this->localResourceIds();
-        $resource = $this->deliveryResource($delivery, $target);
+        $resource = $this->deliveryResource('', '');
         $this->archiveSha($operation, $sha256);
         if (!is_file($path) || is_link($path) || !hash_equals($sha256, (string) hash_file('sha256', $path))) {
             throw new \RuntimeException('OPS_MODULE_ARCHIVE_IDENTITY_INVALID');
         }
         $directory = (string) ($resource['package_directory'] ?? '');
         $destination = $directory . '/' . $sha256 . '.tar';
-        if (!is_dir($directory) || is_link($directory)) {
+        if (is_link($directory) || (!is_dir($directory) && !mkdir($directory, 0700, true))) {
             throw new \RuntimeException('OPS_MODULE_REQUEST_DIRECTORY_INVALID');
         }
         if (file_exists($destination) || is_link($destination)) {
@@ -205,33 +206,26 @@ final readonly class DeploymentModuleRequestService implements DeploymentModuleR
         } finally {
             $archive->cleanup($package);
         }
-        return $this->prepare($delivery, $target, $operation, $packageKey, $sha256, $keyId, null, $submissionDigest);
+        return $this->prepare('', '', $operation, $packageKey, $sha256, $keyId, null, $submissionDigest);
     }
 
-    /** @return array{string,string} */
-    public function localResourceIds(): array
+    public function assertLocalWorker(): void
     {
-        $delivery = (string) ($this->moduleConfig['delivery_resource_id'] ?? '');
-        $target = (string) ($this->moduleConfig['delivery_target_resource_id'] ?? '');
-        if (Config::get('peanut.environment') !== 'development' || $delivery === '' || $target === ''
+        if (Config::get('peanut.environment') !== 'development'
             || file_exists($this->projectRoot . '/server/.peanut/release-identity.json')) {
             throw new \RuntimeException('OPS_MODULE_LOCAL_WORKER_UNAVAILABLE');
         }
-        return [$delivery, $target];
     }
 
-    /** @return array{string,string} */
-    public function localWorker(): array
+    public function applicationRoot(): string
     {
-        $ids = $this->localResourceIds();
-        $this->deliveryResource(...$ids);
-        return $ids;
+        return $this->projectRoot;
     }
 
     public function isLocal(array $request): bool
     {
-        $resource = $this->deliveryResource((string) $request['delivery_resource_id'], (string) $request['target_resource_id']);
-        return ($resource['service_type'] ?? null) === self::LOCAL_WORKER_TYPE;
+        return $request['environment'] === 'development'
+            && $request['delivery_resource_id'] === '' && $request['target_resource_id'] === '';
     }
 
     /** @return array<string,string> */
@@ -261,6 +255,12 @@ final readonly class DeploymentModuleRequestService implements DeploymentModuleR
             (string) $row['delivery_resource_id'],
             (string) $row['target_resource_id'],
         );
+        if ($this->isLocal($row)) {
+            if ($row['archive_sha256'] !== null) {
+                $this->archivePath($resource, (string) $row['archive_sha256']);
+            }
+            return $row;
+        }
         $path = $this->requestManifestPath($resource, $requestKey);
         $json = file_get_contents($path);
         if (!is_string($json)) {
@@ -324,35 +324,19 @@ final readonly class DeploymentModuleRequestService implements DeploymentModuleR
     /** @return array<string,mixed> */
     private function deliveryResource(string $deliveryResourceId, string $targetResourceId): array
     {
-        // Local application delivery never inherits a maintainer/private registry from the process environment.
-        $local = $deliveryResourceId !== '' && $deliveryResourceId === ($this->moduleConfig['delivery_resource_id'] ?? null);
-        $registryPath = $local ? $this->projectRoot . '/resources/project-resources.json'
-            : ($this->registryPath ?? (getenv('PEANUT_RESOURCE_REGISTRY') ?: $this->projectRoot . '/resources/project-resources.json'));
+        if ($deliveryResourceId === '' && $targetResourceId === '') {
+            $this->assertLocalWorker();
+            return ['environments' => ['development'],
+                'package_directory' => $this->projectRoot . '/server/runtime/module-packages'];
+        }
+        $registryPath = $this->registryPath ?? (getenv('PEANUT_RESOURCE_REGISTRY') ?: $this->projectRoot . '/resources/project-resources.json');
         if ($registryPath[0] !== '/' || !is_file($registryPath) || is_link($registryPath)) {
             throw new \RuntimeException('OPS_MODULE_RESOURCE_REGISTRY_PATH_INVALID');
         }
         $registry = json_decode((string) file_get_contents($registryPath), true, 512, JSON_THROW_ON_ERROR);
-        if ($local && ($registry['authority']['role'] ?? null) !== 'application') {
-            throw new \RuntimeException('OPS_MODULE_APPLICATION_REGISTRY_REQUIRED');
-        }
         $resource = $this->resource($registry, $deliveryResourceId);
         $target = $this->resource($registry, $targetResourceId);
-        if ($local) {
-            [$delivery, $targetId] = $this->localResourceIds();
-            if ($deliveryResourceId !== $delivery || $targetResourceId !== $targetId
-                || ($resource['service_type'] ?? null) !== self::LOCAL_WORKER_TYPE
-                || $this->singleEnvironment($resource['environments'] ?? null) !== 'development'
-                || $this->singleEnvironment($target['environments'] ?? null) !== 'development') {
-                throw new \RuntimeException('OPS_MODULE_RESOURCE_BOUNDARY_INVALID');
-            }
-            foreach (['package_directory', 'request_directory'] as $field) {
-                $path = (string) ($resource[$field] ?? '');
-                if (!str_starts_with($path, $this->projectRoot . '/.local/') || realpath($path) !== $path) {
-                    throw new \RuntimeException('OPS_MODULE_RESOURCE_BOUNDARY_INVALID');
-                }
-            }
-        }
-        if ((!$local && ($resource['service_type'] ?? null) !== 'operator-triggered repository CLI worker over registered SSH deployment transport')
+        if (($resource['service_type'] ?? null) !== 'operator-triggered repository CLI worker over registered SSH deployment transport'
             || ($resource['deployment_resource_id'] ?? null) !== $targetResourceId
             || ($resource['deployment_root'] ?? null) !== ($target['deployment_root'] ?? null)
             || realpath($this->projectRoot) !== realpath((string) $resource['deployment_root'])

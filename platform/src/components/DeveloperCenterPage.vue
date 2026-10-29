@@ -81,7 +81,7 @@
           {{ packageTask.current_step }}</p
         >
         <p v-if="packageTask.status === 'queued'"
-          >任务已排队，等待当前应用已登记的执行器处理。</p
+          >任务已排队，等待当前应用的模块任务处理。</p
         >
         <p v-if="packageTask.status === 'succeeded'"
           >依赖、模块生命周期及当前支持的客户端采用已完成。</p

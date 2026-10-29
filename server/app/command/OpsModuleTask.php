@@ -51,20 +51,11 @@ final class OpsModuleTask extends ContextualCommand
             $action = trim((string) $input->getArgument('action'));
             if ($action === 'work') {
                 $app = $this->getApp();
-                $registry = getenv('PEANUT_RESOURCE_REGISTRY');
-                if ($registry !== false && trim($registry) !== ''
-                    && $registry !== dirname(__DIR__, 3) . '/resources/project-resources.json') {
-                    throw new \RuntimeException('OPS_MODULE_APPLICATION_REGISTRY_REQUIRED');
-                }
                 $guard = InstanceToolAccessGuard::fromConfiguredValue($app->config->get('deployment.mode'));
                 if (!$input->getOption('once') || !$guard->allowsCliDevelopmentMaintenance(
                     $app->config->get('peanut.environment'), $app->isDebug(), $this->executionContext(),
                     $this->getName(), $this->establishedInstanceContext())) {
                     throw new \RuntimeException('OPS_MODULE_LOCAL_WORKER_UNAVAILABLE');
-                }
-                require_once dirname(__DIR__, 2) . '/database/environment-guard.php';
-                if (!\registeredMysqlConnectionMatches(\guardedDatabaseConfig())) {
-                    throw new \RuntimeException('OPS_MODULE_APPLICATION_CONNECTION_MISMATCH');
                 }
             }
             $result = match ($action) {

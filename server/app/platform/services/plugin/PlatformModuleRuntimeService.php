@@ -218,7 +218,7 @@ final readonly class PlatformModuleRuntimeService
             return $this->moduleOperations->submit($context, (string) $request['request_key'], $idempotencyKey);
         } catch (\RuntimeException $exception) {
             if (preg_match('/^OPS_MODULE_[A-Z0-9_]+$/D', $exception->getMessage()) === 1) {
-                throw new PluginLifecycleException($exception->getMessage(), 'The registered Module delivery worker is unavailable or rejected this package.');
+                throw new PluginLifecycleException($exception->getMessage(), 'The Module worker is unavailable or rejected this package.');
             }
             throw $exception;
         }

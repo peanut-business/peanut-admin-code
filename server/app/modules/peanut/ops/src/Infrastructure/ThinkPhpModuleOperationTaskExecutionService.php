@@ -125,8 +125,10 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService implements Modu
     /** @return array<string,mixed>|null */
     private function claimTask(bool $local): ?array
     {
-        $ids = $local ? $this->requests->localWorker() : null;
-        return $this->transaction(function () use ($local, $ids): ?array {
+        if ($local) {
+            $this->requests->assertLocalWorker();
+        }
+        return $this->transaction(function () use ($local): ?array {
             $this->failStaleRunningTasks();
             $query = Db::name('ops_task')->alias('task')
                 ->join('ops_module_request request', "request.request_key=JSON_UNQUOTE(JSON_EXTRACT(task.payload_json, '$.request_key'))")
@@ -135,8 +137,9 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService implements Modu
                 ->where('task.status', 'queued')->where('task.available_at', '<=', Db::raw('UTC_TIMESTAMP(3)'))
                 ->field('task.*')->order('task.id')->lock(true);
             if ($local) {
-                $query->where('request.environment', 'development')->where('request.delivery_resource_id', $ids[0])
-                    ->where('request.target_resource_id', $ids[1]);
+                $query->where('request.environment', 'development')->where('request.delivery_resource_id', '')
+                    ->where('request.target_resource_id', '')
+                    ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(task.payload_json, '$.application_root')) = ?", [$this->requests->applicationRoot()]);
             } else {
                 $query->where('request.environment', '<>', 'development');
             }
@@ -718,6 +721,10 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService implements Modu
             'request_key', 'request_sha256', 'signature_key_id', 'source_commit',
             'source_tree', 'target_resource_id',
         ];
+        if (is_array($payload) && $this->requests->isLocal($payload)) {
+            $expected[] = 'application_root';
+            sort($expected, SORT_STRING);
+        }
         $keys = is_array($payload) ? array_keys($payload) : [];
         sort($keys, SORT_STRING);
         if ($keys !== $expected) {

@@ -109,7 +109,7 @@ final readonly class ThinkPhpOpsTaskDispatcher implements OpsTaskDispatcher
             $idempotencyDigest,
             $requestDigest,
             $payload['environment'] === 'development'
-                ? 'ops.module.execute.development.' . hash('sha256', $payload['target_resource_id'])
+                ? 'ops.module.execute.development.' . hash('sha256', $payload['application_root'])
                 : PlatformModuleOperationExecutionService::CONCURRENCY_KEY,
             1,
             'platform.ops.module.submitted',
