@@ -28,6 +28,8 @@ peanut module pack <vendor.module> --output=<absolute-release-path>/<name>.tar
 
 源码 HTTP 请求只读取已编译模块注册表，不逐请求校验插件目录、编译声明或扫描 PHP 源码边界。`peanut module compile` 在 CLI 中校验锁定声明和后端模块并写入 ThinkPHP 原生 File 缓存，不运行迁移或访问业务数据库；缓存只含模块声明，不含租户、用户或权限快照。`think run` 启动前自动生成，直接使用 `php -S` 的调用方须先执行该命令。`peanut module lock --write` 同步刷新编译结果；锁文件、依赖身份或编译配置改变后，其他采用入口须重新执行 `peanut module compile`。缺失或输入不匹配时 HTTP 返回 503，不在请求中自动重编译。编译结果位于 `runtime/module-registry`，普通业务缓存清理不删除它；清空整个 runtime 后须重新编译。正式部署继续使用既有 VerifiedServerDeployment 发布/读取流程。
 
+Identity 升级若变更核心权限目录，升级完成后须在新的 CLI 进程执行 `peanut module sync --module=peanut.identity`，再执行 `peanut module compile`。PHP 已加载的类不能在同一进程内由新源码替换；升级进程中的目录同步可能仍读取旧权限目录。新进程同步通过原有目录生产和租户 owner 授权链采用新定义，不直接补写权限或角色授予数据。
+
 后端启动、安装和已锁模块治理使用同一解析器的 `forRuntime()`，仍核验锁结构、manifest 摘要与声明一致性、模块 key/路径/命名空间归属、PHP 包身份和后端模块合同；前端贡献保留声明及 npm 归属核对，不读取 web/platform 源码或 Node。完整源码的 canonical 摘要包含前端文件，只在源码创建、升级、锁生成及包采用等源码操作校验；普通构造解析器和 `forSourceUpgrade()` 保留完整文件核验，后端投影仍校验自身完整内容。不要为后端运行补挂前端目录，也不要将运行期模块编译当作前端构建或完整源码资格。
 
 生成产品的 HTTP 版本展示只读取 development-runtime 的版本声明，不借展示入口重新校验整个源码与 vendor。该版本值不能作为安装、升级或部署准入证明；这些维护入口继续校验完整身份。配置了 `project.version` 时不再读取默认版本。
