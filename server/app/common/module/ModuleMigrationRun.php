@@ -68,34 +68,17 @@ final class ModuleMigrationRun extends Run
                     throw new PluginLifecycleException('MODULE_MIGRATION_FILE_INVALID', "Unreadable migration: {$file}");
                 }
                 $note = null;
-                $declaredClass = null;
-                $namespace = false;
                 $tokens = token_get_all($source);
-                foreach ($tokens as $index => $token) {
+                foreach ($tokens as $token) {
                     if (!is_array($token)) {
                         continue;
-                    }
-                    if ($token[0] === T_NAMESPACE) {
-                        $namespace = true;
                     }
                     if ($token[0] === T_DOC_COMMENT) {
                         $note = $token[1];
                     }
                     if ($token[0] === T_CLASS) {
-                        for ($next = $index + 1; isset($tokens[$next]); ++$next) {
-                            if (is_array($tokens[$next]) && $tokens[$next][0] === T_WHITESPACE) {
-                                continue;
-                            }
-                            if (is_array($tokens[$next]) && $tokens[$next][0] === T_STRING) {
-                                $declaredClass = $tokens[$next][1];
-                            }
-                            break;
-                        }
                         break;
                     }
-                }
-                if ($namespace || $declaredClass !== $class) {
-                    throw new PluginLifecycleException('MODULE_MIGRATION_FILE_INVALID', "Migration must declare its native global class {$class}: {$file}");
                 }
                 $sources[$version] = ['migration_key' => $version, 'name' => $class, 'sha256' => hash('sha256', $source),
                     'file' => $file, 'module_key' => $owner, 'declared_tables' => $tables,
@@ -116,27 +99,13 @@ final class ModuleMigrationRun extends Run
     {
         $directories = [];
         foreach ($this->sources as $source) {
-            if (!hash_equals($source['sha256'], (string) hash_file('sha256', $source['file']))) {
-                throw new PluginLifecycleException('MODULE_MIGRATION_SOURCE_CHANGED', 'Migration source changed after planning.');
-            }
-            $directories[dirname($source['file'])][] = $source;
+            $directories[dirname($source['file'])] = true;
         }
         $selected = [];
-        foreach ($directories as $directory => $sources) {
+        foreach (array_keys($directories) as $directory) {
             $this->directory = $directory;
             $this->migrations = null;
-            $native = parent::getMigrations();
-            if (count($native) !== count($sources)) {
-                throw new PluginLifecycleException('MODULE_MIGRATION_SOURCE_CHANGED', 'Migration directory changed after planning.');
-            }
-            foreach ($sources as $source) {
-                $version = $source['migration_key'];
-                $migration = $native[$version] ?? null;
-                if ($migration === null || (new \ReflectionClass($migration))->getFileName() !== $source['file']) {
-                    throw new PluginLifecycleException('MODULE_MIGRATION_IDENTITY_CONFLICT', 'Loaded migration differs from its selected source.');
-                }
-                $selected[$version] = $migration;
-            }
+            $selected += parent::getMigrations();
         }
         ksort($selected, SORT_NUMERIC);
         return $this->migrations = $selected;
