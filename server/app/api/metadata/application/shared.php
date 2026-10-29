@@ -47,7 +47,7 @@ $articleDetailProperties = [
 
 return [
     'paths' => [
-        '/api/index/index' => ['get' => $operation(
+        '/api/index/index' => ['x-peanut-required-modules' => ['peanut.article'], 'get' => $operation(
             'getApplicationHome',
             'Application',
             [
@@ -72,12 +72,12 @@ return [
             ],
             [$query('type', ['type' => 'string', 'enum' => ['privacy', 'service']], false)],
         )],
-        '/api/login/logout' => ['post' => $operation(
+        '/api/login/logout' => ['x-peanut-required-modules' => ['peanut.member'], 'post' => $operation(
             'logoutMemberSession',
             'Auth',
             ['200' => $emptySuccess, '401' => $applicationError],
         )],
-        '/api/article/cate' => ['get' => $operation(
+        '/api/article/cate' => ['x-peanut-required-modules' => ['peanut.article'], 'get' => $operation(
             'listPublicArticleCategories',
             'Article',
             [
@@ -128,7 +128,7 @@ return [
                 '403' => $applicationError,
             ],
         )],
-        '/api/pc/index' => ['get' => $operation(
+        '/api/pc/index' => ['x-peanut-required-modules' => ['peanut.article'], 'get' => $operation(
             'getPcHome',
             'Article',
             [
@@ -136,7 +136,7 @@ return [
                 '403' => $applicationError,
             ],
         )],
-        '/api/pc/infoCenter' => ['get' => $operation(
+        '/api/pc/infoCenter' => ['x-peanut-required-modules' => ['peanut.article'], 'get' => $operation(
             'getPcInformationCenter',
             'Article',
             [
@@ -144,7 +144,7 @@ return [
                 '403' => $applicationError,
             ],
         )],
-        '/api/pc/articleDetail' => ['get' => $operation(
+        '/api/pc/articleDetail' => ['x-peanut-required-modules' => ['peanut.article'], 'get' => $operation(
             'getPcArticleDetail',
             'Article',
             [
@@ -161,7 +161,7 @@ return [
                 $query('source', ['type' => 'string', 'enum' => ['default', 'all', 'new', 'hot'], 'default' => 'default']),
             ],
         )],
-        '/api/article/addCollect' => ['post' => $operation(
+        '/api/article/addCollect' => ['x-peanut-required-modules' => ['peanut.article', 'peanut.member'], 'post' => $operation(
             'addArticleCollection',
             'Article',
             [
@@ -174,7 +174,7 @@ return [
             requestBody: $jsonBody($ref('ApplicationArticleCollectionRequest')),
             errors: ['ARTICLE_NOT_FOUND'],
         )],
-        '/api/article/cancelCollect' => ['post' => $operation(
+        '/api/article/cancelCollect' => ['x-peanut-required-modules' => ['peanut.article', 'peanut.member'], 'post' => $operation(
             'cancelArticleCollection',
             'Article',
             [
@@ -185,7 +185,7 @@ return [
             ],
             requestBody: $jsonBody($ref('ApplicationArticleCollectionRequest')),
         )],
-        '/api/article/collect' => ['get' => $operation(
+        '/api/article/collect' => ['x-peanut-required-modules' => ['peanut.article', 'peanut.member'], 'get' => $operation(
             'listArticleCollections',
             'Article',
             [

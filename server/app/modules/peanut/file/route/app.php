@@ -57,9 +57,11 @@ if (($peanutRouteApplication ?? null) === 'adminapi') {
 
 if (($peanutRouteApplication ?? null) === 'api') {
     Route::get('storage/delivery', [ApiStorageController::class, 'delivery']);
-    Route::post('upload/image', [ApiUploadController::class, 'image'])
-        ->middleware(CheckTokenMiddleware::class)
-        ->middleware(OfficialModuleMiddleware::class, 'peanut.file', 'http.member-upload');
+    if (isset($peanutRouteModules['peanut.member'])) {
+        Route::post('upload/image', [ApiUploadController::class, 'image'])
+            ->middleware(CheckTokenMiddleware::class)
+            ->middleware(OfficialModuleMiddleware::class, 'peanut.file', 'http.member-upload');
+    }
 }
 
 if (($peanutRouteApplication ?? null) === 'platform') {

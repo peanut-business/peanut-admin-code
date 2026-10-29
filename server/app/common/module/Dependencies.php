@@ -202,7 +202,7 @@ final readonly class Dependencies
     private function adoptFrontend(array $clients): array
     {
         if ($clients === []) { return []; }
-        if (array_diff($clients, ['web', 'pc', 'uniapp']) !== []) {
+        if (array_diff($clients, ['web', 'platform', 'pc', 'uniapp']) !== []) {
             throw new PluginPackageException('MODULE_FRONTEND_ADOPTION_REQUIRED', 'The required client has no Module contribution reader.',
                 details: ['pending_actions' => ['frontend_module_assembly', 'frontend_build', 'frontend_adoption']]);
         }
@@ -220,6 +220,7 @@ final readonly class Dependencies
             }
             [$key, $command, $entry] = match ($client) {
                 'web' => ['admin-web', ['pnpm', 'run', 'build', '--mode', $edition, '--outDir', '../server/public/admin', '--emptyOutDir'], 'server/public/admin/index.html'],
+                'platform' => ['platform-web', ['npm', 'run', 'build', '--', '--outDir', '../server/public/platform', '--emptyOutDir'], 'server/public/platform/index.html'],
                 'pc' => ['pc-web', ['npm', 'run', 'build'], 'pc/.output/server/index.mjs'],
                 'uniapp' => ['uniapp', ['npm', 'run', 'build:h5'], 'uniapp/dist/build/h5/index.html'],
             };

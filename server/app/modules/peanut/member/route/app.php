@@ -44,7 +44,7 @@ Route::post('login/register', [ApiLoginController::class, 'register'])
     ->middleware(PublicTenantModuleMiddleware::class, 'peanut.member.public-auth', 'peanut.member', 'member.register');
 Route::post('login/account', [ApiLoginController::class, 'account'])
     ->middleware(PublicTenantModuleMiddleware::class, 'peanut.member.public-auth', 'peanut.member', 'member.login');
-if (app()->bound(\PeanutAdmin\Modules\Notification\Contract\VerificationCodeCommands::class)) {
+if (isset($peanutRouteModules['peanut.notification'])) {
     foreach ([
         ['login/mobile', 'mobile', 'notice.verification.verify', 'http.mobile-login'],
         ['login/resetPassword', 'resetPassword', 'notice.verification.verify', 'http.reset-password'],
@@ -55,12 +55,12 @@ if (app()->bound(\PeanutAdmin\Modules\Notification\Contract\VerificationCodeComm
     }
 }
 
-Route::group(function (): void {
+Route::group(function () use ($peanutRouteModules): void {
     Route::get('user/center', [ApiUserController::class, 'center']);
     Route::get('user/info', [ApiUserController::class, 'info']);
     Route::post('user/setInfo', [ApiUserController::class, 'setInfo']);
     Route::post('user/changePassword', [ApiUserController::class, 'changePassword']);
-    if (app()->bound(\PeanutAdmin\Modules\Notification\Contract\VerificationCodeCommands::class)) {
+    if (isset($peanutRouteModules['peanut.notification'])) {
         Route::post('user/bindMobile', [ApiUserController::class, 'bindMobile']);
     }
     Route::get('account_log/lists', [ApiAccountLogController::class, 'lists']);

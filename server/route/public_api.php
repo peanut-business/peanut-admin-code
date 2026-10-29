@@ -16,7 +16,7 @@ use think\facade\Route;
 if (($peanutRouteApplication ?? null) !== 'api') {
     return;
 }
-$selectedModules = array_column(array_map(static fn($manifest) => $manifest->data, app(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry::class)->modules), 'key');
+$selectedModules = array_keys($peanutRouteModules);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 用户端 API（/api/user/ 和 /api/  命名空间）

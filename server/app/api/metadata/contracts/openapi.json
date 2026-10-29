@@ -98,6 +98,7 @@
       }
     },
     "/api/article/lists": {
+      "x-peanut-required-modules": ["peanut.article"],
       "get": {
         "tags": [
           "Article"
@@ -160,6 +161,7 @@
       }
     },
     "/api/article/detail": {
+      "x-peanut-required-modules": ["peanut.article"],
       "get": {
         "tags": [
           "Article"
@@ -413,6 +415,7 @@
       }
     },
         "/api/sms/sendCode": {
+      "x-peanut-required-modules": ["peanut.notification"],
       "post": {
         "tags": [
           "Notice"
@@ -500,6 +503,7 @@
       }
     },
     "/adminapi/peanut.import-export.configuration.export": {
+      "x-peanut-required-modules": ["peanut.import-export"],
       "get": {
         "tags": [
           "ImportExport"
@@ -534,6 +538,7 @@
       }
     },
     "/adminapi/peanut.import-export.configuration.dry-run": {
+      "x-peanut-required-modules": ["peanut.import-export"],
       "post": {
         "tags": [
           "ImportExport"
@@ -584,6 +589,7 @@
       }
     },
     "/adminapi/peanut.import-export.configuration.apply": {
+      "x-peanut-required-modules": ["peanut.import-export"],
       "post": {
         "tags": [
           "ImportExport"

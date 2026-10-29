@@ -304,6 +304,9 @@
             }
         },
         "/api/article/lists": {
+            "x-peanut-required-modules": [
+                "peanut.article"
+            ],
             "get": {
                 "tags": [
                     "Article"
@@ -375,7 +378,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/public_api.php",
-                        "line": 39
+                        "line": 45
                     }
                 },
                 "x-peanut-permissions": [
@@ -391,6 +394,9 @@
             }
         },
         "/api/article/detail": {
+            "x-peanut-required-modules": [
+                "peanut.article"
+            ],
             "get": {
                 "tags": [
                     "Article"
@@ -440,7 +446,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/public_api.php",
-                        "line": 41
+                        "line": 47
                     }
                 },
                 "x-peanut-permissions": [
@@ -729,6 +735,9 @@
             }
         },
         "/api/sms/sendCode": {
+            "x-peanut-required-modules": [
+                "peanut.notification"
+            ],
             "post": {
                 "tags": [
                     "Notice"
@@ -880,6 +889,9 @@
             }
         },
         "/adminapi/peanut.import-export.configuration.export": {
+            "x-peanut-required-modules": [
+                "peanut.import-export"
+            ],
             "get": {
                 "tags": [
                     "ImportExport"
@@ -936,6 +948,9 @@
             }
         },
         "/adminapi/peanut.import-export.configuration.dry-run": {
+            "x-peanut-required-modules": [
+                "peanut.import-export"
+            ],
             "post": {
                 "tags": [
                     "ImportExport"
@@ -1008,6 +1023,9 @@
             }
         },
         "/adminapi/peanut.import-export.configuration.apply": {
+            "x-peanut-required-modules": [
+                "peanut.import-export"
+            ],
             "post": {
                 "tags": [
                     "ImportExport"
@@ -2325,6 +2343,9 @@
             }
         },
         "/api/index/index": {
+            "x-peanut-required-modules": [
+                "peanut.article"
+            ],
             "get": {
                 "tags": [
                     "Application"
@@ -2378,7 +2399,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/public_api.php",
-                        "line": 26
+                        "line": 28
                     }
                 },
                 "x-peanut-permissions": [
@@ -2447,7 +2468,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/public_api.php",
-                        "line": 28
+                        "line": 31
                     }
                 },
                 "x-peanut-permissions": [
@@ -2529,7 +2550,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/public_api.php",
-                        "line": 30
+                        "line": 33
                     }
                 },
                 "x-peanut-permissions": [
@@ -2545,6 +2566,9 @@
             }
         },
         "/api/login/logout": {
+            "x-peanut-required-modules": [
+                "peanut.member"
+            ],
             "post": {
                 "tags": [
                     "Auth"
@@ -2606,13 +2630,16 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/public_api.php",
-                        "line": 34
+                        "line": 38
                     }
                 },
                 "x-peanut-permissions": []
             }
         },
         "/api/article/cate": {
+            "x-peanut-required-modules": [
+                "peanut.article"
+            ],
             "get": {
                 "tags": [
                     "Article"
@@ -2669,7 +2696,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/public_api.php",
-                        "line": 37
+                        "line": 43
                     }
                 },
                 "x-peanut-permissions": [
@@ -2738,7 +2765,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/public_api.php",
-                        "line": 44
+                        "line": 51
                     }
                 },
                 "x-peanut-permissions": [
@@ -2828,7 +2855,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/public_api.php",
-                        "line": 48
+                        "line": 55
                     }
                 },
                 "x-peanut-permissions": [
@@ -2897,7 +2924,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/public_api.php",
-                        "line": 50
+                        "line": 57
                     }
                 },
                 "x-peanut-permissions": [
@@ -2966,7 +2993,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/public_api.php",
-                        "line": 52
+                        "line": 59
                     }
                 },
                 "x-peanut-permissions": [
@@ -3035,7 +3062,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/public_api.php",
-                        "line": 56
+                        "line": 63
                     }
                 },
                 "x-peanut-permissions": [
@@ -3051,6 +3078,9 @@
             }
         },
         "/api/pc/index": {
+            "x-peanut-required-modules": [
+                "peanut.article"
+            ],
             "get": {
                 "tags": [
                     "Article"
@@ -3104,7 +3134,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/public_api.php",
-                        "line": 58
+                        "line": 66
                     }
                 },
                 "x-peanut-permissions": [
@@ -3120,6 +3150,9 @@
             }
         },
         "/api/pc/infoCenter": {
+            "x-peanut-required-modules": [
+                "peanut.article"
+            ],
             "get": {
                 "tags": [
                     "Article"
@@ -3176,7 +3209,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/public_api.php",
-                        "line": 60
+                        "line": 68
                     }
                 },
                 "x-peanut-permissions": [
@@ -3192,6 +3225,9 @@
             }
         },
         "/api/pc/articleDetail": {
+            "x-peanut-required-modules": [
+                "peanut.article"
+            ],
             "get": {
                 "tags": [
                     "Article"
@@ -3279,7 +3315,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/public_api.php",
-                        "line": 62
+                        "line": 70
                     }
                 },
                 "x-peanut-permissions": [
@@ -3295,6 +3331,10 @@
             }
         },
         "/api/article/addCollect": {
+            "x-peanut-required-modules": [
+                "peanut.article",
+                "peanut.member"
+            ],
             "post": {
                 "tags": [
                     "Article"
@@ -3378,7 +3418,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/public_api.php",
-                        "line": 68
+                        "line": 78
                     }
                 },
                 "x-peanut-permissions": [
@@ -3390,6 +3430,10 @@
             }
         },
         "/api/article/cancelCollect": {
+            "x-peanut-required-modules": [
+                "peanut.article",
+                "peanut.member"
+            ],
             "post": {
                 "tags": [
                     "Article"
@@ -3467,7 +3511,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/public_api.php",
-                        "line": 69
+                        "line": 79
                     }
                 },
                 "x-peanut-permissions": [
@@ -3479,6 +3523,10 @@
             }
         },
         "/api/article/collect": {
+            "x-peanut-required-modules": [
+                "peanut.article",
+                "peanut.member"
+            ],
             "get": {
                 "tags": [
                     "Article"
@@ -3549,7 +3597,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/public_api.php",
-                        "line": 70
+                        "line": 80
                     }
                 },
                 "x-peanut-permissions": [
@@ -10947,7 +10995,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 180
+                        "line": 181
                     }
                 },
                 "x-peanut-permissions": [
@@ -10956,7 +11004,10 @@
                         "key": "decoration/mobile/article"
                     }
                 ]
-            }
+            },
+            "x-peanut-required-modules": [
+                "peanut.article"
+            ]
         },
         "/adminapi/decoration/tabbar/detail": {
             "get": {
@@ -23764,7 +23815,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/peanut/file/route/app.php",
-                        "line": 66
+                        "line": 68
                     }
                 },
                 "x-peanut-permissions": [
@@ -23868,7 +23919,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/peanut/file/route/app.php",
-                        "line": 69
+                        "line": 71
                     }
                 },
                 "x-peanut-permissions": [
@@ -23966,7 +24017,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/peanut/file/route/app.php",
-                        "line": 72
+                        "line": 74
                     }
                 },
                 "x-peanut-permissions": [
@@ -24070,7 +24121,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/peanut/file/route/app.php",
-                        "line": 75
+                        "line": 77
                     }
                 },
                 "x-peanut-permissions": [
@@ -24168,7 +24219,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/peanut/file/route/app.php",
-                        "line": 78
+                        "line": 80
                     }
                 },
                 "x-peanut-permissions": [
@@ -24266,7 +24317,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/peanut/file/route/app.php",
-                        "line": 81
+                        "line": 83
                     }
                 },
                 "x-peanut-permissions": [
@@ -25435,6 +25486,9 @@
             }
         },
         "/api/upload/image": {
+            "x-peanut-required-modules": [
+                "peanut.member"
+            ],
             "post": {
                 "tags": [
                     "File"
@@ -25503,7 +25557,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/peanut/file/route/app.php",
-                        "line": 60
+                        "line": 61
                     }
                 },
                 "x-peanut-permissions": [
@@ -28896,6 +28950,9 @@
             }
         },
         "/api/login/mobile": {
+            "x-peanut-required-modules": [
+                "peanut.notification"
+            ],
             "post": {
                 "tags": [
                     "Member"
@@ -28953,7 +29010,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/peanut/member/route/app.php",
-                        "line": 51
+                        "line": 52
                     }
                 },
                 "x-peanut-permissions": [
@@ -28973,6 +29030,9 @@
             }
         },
         "/api/login/resetPassword": {
+            "x-peanut-required-modules": [
+                "peanut.notification"
+            ],
             "post": {
                 "tags": [
                     "Member"
@@ -29032,7 +29092,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/peanut/member/route/app.php",
-                        "line": 51
+                        "line": 52
                     }
                 },
                 "x-peanut-permissions": [
@@ -29097,7 +29157,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/peanut/member/route/app.php",
-                        "line": 57
+                        "line": 59
                     }
                 },
                 "x-peanut-permissions": [
@@ -29154,7 +29214,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/peanut/member/route/app.php",
-                        "line": 58
+                        "line": 60
                     }
                 },
                 "x-peanut-permissions": [
@@ -29230,7 +29290,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/peanut/member/route/app.php",
-                        "line": 59
+                        "line": 61
                     }
                 },
                 "x-peanut-permissions": [
@@ -29300,7 +29360,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/peanut/member/route/app.php",
-                        "line": 60
+                        "line": 62
                     }
                 },
                 "x-peanut-permissions": [
@@ -29312,6 +29372,9 @@
             }
         },
         "/api/user/bindMobile": {
+            "x-peanut-required-modules": [
+                "peanut.notification"
+            ],
             "post": {
                 "tags": [
                     "Member"
@@ -29375,7 +29438,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/peanut/member/route/app.php",
-                        "line": 61
+                        "line": 64
                     }
                 },
                 "x-peanut-permissions": [
@@ -29436,7 +29499,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/peanut/member/route/app.php",
-                        "line": 62
+                        "line": 66
                     }
                 },
                 "x-peanut-permissions": [

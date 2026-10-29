@@ -67,8 +67,8 @@ if (!$checkOnly && $projectRoot !== null) {
 require_once $repositoryRoot . '/server/route/registry_source.php';
 
 try {
-    $contract = loadContract($repositoryRoot);
     $inventory = peanut_route_endpoint_inventory($repositoryRoot . '/server');
+    $contract = loadContract($repositoryRoot, $inventory['modules']);
     $routes = indexRoutes($inventory['endpoints']);
     $contract = applyRouteMetadata($contract, $routes);
     validateContract($contract, $routes);
@@ -133,7 +133,7 @@ try {
 }
 
 /** @return array<string,mixed> */
-function loadContract(string $repositoryRoot): array
+function loadContract(string $repositoryRoot, array $modules): array
 {
     $source = $repositoryRoot . '/server/app/api/metadata/contracts/openapi.json';
     $contract = json_decode((string) file_get_contents($source), true, 512, JSON_THROW_ON_ERROR);
@@ -160,8 +160,25 @@ function loadContract(string $repositoryRoot): array
     foreach (hostMetadataFiles($repositoryRoot) as $fragmentPath) {
         $contract = mergeContractFragment($contract, $fragmentPath, true);
     }
-    foreach (glob($repositoryRoot . '/server/app/modules/*/*/api/metadata/openapi.php') ?: [] as $fragmentPath) {
-        $contract = mergeContractFragment($contract, $fragmentPath, false);
+    foreach ($modules as $root) {
+        $fragmentPath = $repositoryRoot . '/' . $root . '/api/metadata/openapi.php';
+        if (is_file($fragmentPath)) {
+            $contract = mergeContractFragment($contract, $fragmentPath, false);
+        }
+    }
+    foreach ($contract['paths'] as $path => $pathItem) {
+        $required = $pathItem['x-peanut-required-modules'] ?? [];
+        if (!is_array($required) || !array_is_list($required)) {
+            throw new RuntimeException('OpenAPI required Modules must be a list: ' . $path);
+        }
+        foreach ($required as $moduleKey) {
+            if (!is_string($moduleKey) || preg_match('/^[a-z][a-z0-9_-]*\.[a-z][a-z0-9_.-]*$/D', $moduleKey) !== 1) {
+                throw new RuntimeException('OpenAPI required Module key is invalid: ' . $path);
+            }
+        }
+        if (array_diff($required, array_keys($modules)) !== []) {
+            unset($contract['paths'][$path]);
+        }
     }
     return $contract;
 }
@@ -718,6 +735,7 @@ function catalogInputs(string $repositoryRoot, array $inventory): array
 {
     $paths = [
         'release-versions.json' => true,
+        'plugins.lock' => true,
         'server/app/api/metadata/contracts/openapi.json' => true,
         'server/app/api/metadata/application/common.php' => true,
         'server/config/admin_api_access.php' => true,
@@ -729,8 +747,11 @@ function catalogInputs(string $repositoryRoot, array $inventory): array
     foreach ($inventory['endpoints'] as $endpoint) {
         $paths[(string) $endpoint['source']] = true;
     }
-    foreach (glob($repositoryRoot . '/server/app/modules/*/*/api/metadata/openapi.php') ?: [] as $absolutePath) {
-        $paths[substr($absolutePath, strlen($repositoryRoot) + 1)] = true;
+    foreach ($inventory['modules'] as $root) {
+        $relativePath = $root . '/api/metadata/openapi.php';
+        if (is_file($repositoryRoot . '/' . $relativePath)) {
+            $paths[$relativePath] = true;
+        }
     }
     ksort($paths, SORT_STRING);
 

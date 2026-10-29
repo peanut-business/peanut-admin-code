@@ -864,4 +864,5 @@ $overrides = [
     )],
 ];
 
+$paths['/adminapi/decoration/mobile/article']['x-peanut-required-modules'] = ['peanut.article'];
 return ['paths' => $paths, 'overrides' => $overrides, 'components' => ['schemas' => $schemas]];

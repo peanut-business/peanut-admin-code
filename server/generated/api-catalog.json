@@ -3,12 +3,16 @@
     "openapi_version": "3.0.3",
     "inputs": [
         {
+            "path": "plugins.lock",
+            "sha256": "65151f794c0cbc6bc894aa877e35c2e804931c291cd0d9b6dc4de54296d19ba3"
+        },
+        {
             "path": "release-versions.json",
             "sha256": "512014155c8e379ba31acf6ba6ea7173673677a575b6d4c2092ec1d3a88f7a18"
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
-            "sha256": "c47205001bf6fbbee60c12974b87ed10bff4ec4c4be7ff93d4cb626e6832f80a"
+            "sha256": "77b3e0387fa9b70e2b9f9cda11326d96fce0ac4df37a14b1b5ec6d9f38ca5db2"
         },
         {
             "path": "server/app/api/metadata/application/common.php",
@@ -24,15 +28,11 @@
         },
         {
             "path": "server/app/api/metadata/application/shared.php",
-            "sha256": "63747d18dc1450b2b10cdac2b4f2262303b08d25e2561ab00fdcacc5ad40b23a"
+            "sha256": "4b26d794ab4355b1fdcf64c7370f2ef34b7eea83b3000dc544abf74873a53919"
         },
         {
             "path": "server/app/api/metadata/contracts/openapi.json",
-            "sha256": "d93f1bf1ae69800dc6827aef98c14bf38d5f62835f40a4eed73478f2a1924332"
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/route/app.php",
-            "sha256": "a75ab8ee6c324fce9b9a1b0cc83e3a3bee7270798b4ab8e4f3378ef39bf5e0fb"
+            "sha256": "0ce824a4450aa1371a1d47085117da4f62c6548dc0c4fb364dc7507c8427d434"
         },
         {
             "path": "server/app/modules/peanut/article/api/metadata/openapi.php",
@@ -60,11 +60,11 @@
         },
         {
             "path": "server/app/modules/peanut/file/api/metadata/openapi.php",
-            "sha256": "edba8b10ace36a3d49a6eaed9b4776f6e7880d43d97d4893e3df6476982b0290"
+            "sha256": "b1eb773f382154c8cfacbc160ba2bebe0a9fd50ca50bb13bee2d98ca916a0276"
         },
         {
             "path": "server/app/modules/peanut/file/route/app.php",
-            "sha256": "52f57641c9a42af6b9dd63d9c991b0a336ff1930b5c73063f1468279e256cd18"
+            "sha256": "4d6e34503eef95d131b7b5ac0bb8e5151041187aa158bc2ced30a959fe17c3ed"
         },
         {
             "path": "server/app/modules/peanut/import_export/api/metadata/openapi.php",
@@ -84,11 +84,11 @@
         },
         {
             "path": "server/app/modules/peanut/member/api/metadata/openapi.php",
-            "sha256": "c65480f3db64f96b2a3277c63afca03669022992b36863d6b4c48acd999d5c06"
+            "sha256": "b2010e17e9d2d265ebcb249d08111cbf03b0b9b40eed9efee7e3c29bb67bb507"
         },
         {
             "path": "server/app/modules/peanut/member/route/app.php",
-            "sha256": "d946d2a25442973ee79922abd4b5f819b382084ec6757a06377a630cc7eea51e"
+            "sha256": "d49b1097a1e1fa46325325501360b81eb98e7dbb8bbc903dea8d55e2e6478650"
         },
         {
             "path": "server/app/modules/peanut/notification/api/metadata/openapi.php",
@@ -164,7 +164,7 @@
         },
         {
             "path": "server/route/admin.php",
-            "sha256": "40df86f5a7a18fef5f3246b1ca5e8098afb06e817077f1efbcfdef6ef83aa75e"
+            "sha256": "c528b5373467f8de8c37f6bc03e96c179f99955f9b14c309cbdd58ae15aa2e31"
         },
         {
             "path": "server/route/app.php",
@@ -176,11 +176,11 @@
         },
         {
             "path": "server/route/public_api.php",
-            "sha256": "4ad2df5e0e9e18e14dd336c5ce4667833b5713ca5967b78d450f43e6d68ca320"
+            "sha256": "32809e787f14f61d6ca6ae05539ba2624f731c7b13fbcb750a57a4aefefb8fa8"
         },
         {
             "path": "server/route/registry_source.php",
-            "sha256": "ab4e6c4018be950f75298b4b9e20bf241950213be4aa72f067f6f951397ea33d"
+            "sha256": "51364ea70ed4cf57e3673030118bf159328c72297182d43853f75cfb2457e77d"
         },
         {
             "path": "server/route/tenant.php",
@@ -196,27 +196,27 @@
         ]
     },
     "summary": {
-        "route_count": 441,
+        "route_count": 433,
         "generated_api_operations": 405,
-        "route_only_operations": 36,
+        "route_only_operations": 28,
         "complete_operations": 405,
         "partial_operations": 0,
-        "runtime_routes": 441,
+        "runtime_routes": 433,
         "documented_operations": 405,
-        "undocumented_routes": 36,
-        "automatic_route_metadata": 441,
-        "requires_owner_contract": 36,
-        "owners": 20,
+        "undocumented_routes": 28,
+        "automatic_route_metadata": 433,
+        "requires_owner_contract": 28,
+        "owners": 19,
         "runtime_inventory": {
-            "total": 441,
+            "total": 433,
             "methods": {
                 "DELETE": 4,
-                "GET": 193,
-                "POST": 236,
-                "PUT": 8
+                "GET": 190,
+                "POST": 233,
+                "PUT": 6
             },
             "applications": {
-                "adminapi": 318,
+                "adminapi": 310,
                 "api": 47,
                 "installation": 9,
                 "platform": 67
@@ -226,7 +226,6 @@
                 "application:api": 18,
                 "application:installation": 9,
                 "application:platform": 61,
-                "module:fixture.workflow-business": 8,
                 "module:peanut.article": 27,
                 "module:peanut.collaboration": 11,
                 "module:peanut.document": 12,
@@ -251,7 +250,6 @@
         "application:api": 18,
         "application:installation": 9,
         "application:platform": 61,
-        "module:fixture.workflow-business": 8,
         "module:peanut.article": 27,
         "module:peanut.collaboration": 11,
         "module:peanut.document": 12,
@@ -269,48 +267,6 @@
         "module:peanut.workflow": 30
     },
     "documentation_gaps": [
-        {
-            "method": "GET",
-            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects",
-            "owner": {
-                "type": "module",
-                "key": "fixture.workflow-business"
-            },
-            "source": {
-                "file": "server/app/modules/fixture/workflow_business/route/app.php",
-                "line": 18
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/fixture/workflow_business/api/metadata/openapi.php"
-        },
-        {
-            "method": "GET",
-            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}",
-            "owner": {
-                "type": "module",
-                "key": "fixture.workflow-business"
-            },
-            "source": {
-                "file": "server/app/modules/fixture/workflow_business/route/app.php",
-                "line": 19
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/fixture/workflow_business/api/metadata/openapi.php"
-        },
-        {
-            "method": "GET",
-            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}/collaboration",
-            "owner": {
-                "type": "module",
-                "key": "fixture.workflow-business"
-            },
-            "source": {
-                "file": "server/app/modules/fixture/workflow_business/route/app.php",
-                "line": 24
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/fixture/workflow_business/api/metadata/openapi.php"
-        },
         {
             "method": "GET",
             "path": "/adminapi/api/v1/workflow/definitions",
@@ -422,48 +378,6 @@
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": null
-        },
-        {
-            "method": "POST",
-            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects",
-            "owner": {
-                "type": "module",
-                "key": "fixture.workflow-business"
-            },
-            "source": {
-                "file": "server/app/modules/fixture/workflow_business/route/app.php",
-                "line": 20
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/fixture/workflow_business/api/metadata/openapi.php"
-        },
-        {
-            "method": "POST",
-            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}/collaboration",
-            "owner": {
-                "type": "module",
-                "key": "fixture.workflow-business"
-            },
-            "source": {
-                "file": "server/app/modules/fixture/workflow_business/route/app.php",
-                "line": 25
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/fixture/workflow_business/api/metadata/openapi.php"
-        },
-        {
-            "method": "POST",
-            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}/confirm",
-            "owner": {
-                "type": "module",
-                "key": "fixture.workflow-business"
-            },
-            "source": {
-                "file": "server/app/modules/fixture/workflow_business/route/app.php",
-                "line": 22
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/fixture/workflow_business/api/metadata/openapi.php"
         },
         {
             "method": "POST",
@@ -730,34 +644,6 @@
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": null
-        },
-        {
-            "method": "PUT",
-            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}",
-            "owner": {
-                "type": "module",
-                "key": "fixture.workflow-business"
-            },
-            "source": {
-                "file": "server/app/modules/fixture/workflow_business/route/app.php",
-                "line": 21
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/fixture/workflow_business/api/metadata/openapi.php"
-        },
-        {
-            "method": "PUT",
-            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}/form",
-            "owner": {
-                "type": "module",
-                "key": "fixture.workflow-business"
-            },
-            "source": {
-                "file": "server/app/modules/fixture/workflow_business/route/app.php",
-                "line": 23
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/fixture/workflow_business/api/metadata/openapi.php"
         },
         {
             "method": "PUT",
@@ -1590,237 +1476,6 @@
                     "source"
                 ],
                 "requires_owner_contract": []
-            }
-        },
-        {
-            "method": "GET",
-            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects",
-            "runtime_path": "/adminapi/api/v1/fixture/workflow-business/:scene/objects",
-            "application": "adminapi",
-            "owner": {
-                "type": "module",
-                "key": "fixture.workflow-business"
-            },
-            "controller": "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Controller\\WorkflowBusinessController",
-            "action": "index",
-            "auth": {
-                "mode": "tenant_permission",
-                "exception_registration": null
-            },
-            "permissions": [
-                {
-                    "kind": "module_capability",
-                    "key": "fixture.workflow-business"
-                },
-                {
-                    "kind": "tenant_action",
-                    "key": "fixture.workflow-business.read"
-                }
-            ],
-            "errors": [
-                401,
-                403
-            ],
-            "middleware": [
-                {
-                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
-                    "arguments": []
-                },
-                {
-                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
-                    "arguments": [
-                        "fixture.workflow-business",
-                        "http.admin"
-                    ]
-                },
-                {
-                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
-                    "arguments": []
-                },
-                {
-                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
-                    "arguments": []
-                }
-            ],
-            "source": {
-                "file": "server/app/modules/fixture/workflow_business/route/app.php",
-                "line": 18
-            },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
-            "documentation": {
-                "status": "route_only",
-                "automatic_metadata": [
-                    "route",
-                    "owner",
-                    "controller",
-                    "middleware",
-                    "auth",
-                    "permissions",
-                    "source"
-                ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
-            }
-        },
-        {
-            "method": "GET",
-            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}",
-            "runtime_path": "/adminapi/api/v1/fixture/workflow-business/:scene/objects/:objectKey",
-            "application": "adminapi",
-            "owner": {
-                "type": "module",
-                "key": "fixture.workflow-business"
-            },
-            "controller": "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Controller\\WorkflowBusinessController",
-            "action": "detail",
-            "auth": {
-                "mode": "tenant_permission",
-                "exception_registration": null
-            },
-            "permissions": [
-                {
-                    "kind": "module_capability",
-                    "key": "fixture.workflow-business"
-                },
-                {
-                    "kind": "tenant_action",
-                    "key": "fixture.workflow-business.read"
-                }
-            ],
-            "errors": [
-                401,
-                403
-            ],
-            "middleware": [
-                {
-                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
-                    "arguments": []
-                },
-                {
-                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
-                    "arguments": [
-                        "fixture.workflow-business",
-                        "http.admin"
-                    ]
-                },
-                {
-                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
-                    "arguments": []
-                },
-                {
-                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
-                    "arguments": []
-                }
-            ],
-            "source": {
-                "file": "server/app/modules/fixture/workflow_business/route/app.php",
-                "line": 19
-            },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
-            "documentation": {
-                "status": "route_only",
-                "automatic_metadata": [
-                    "route",
-                    "owner",
-                    "controller",
-                    "middleware",
-                    "auth",
-                    "permissions",
-                    "source"
-                ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
-            }
-        },
-        {
-            "method": "GET",
-            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}/collaboration",
-            "runtime_path": "/adminapi/api/v1/fixture/workflow-business/:scene/objects/:objectKey/collaboration",
-            "application": "adminapi",
-            "owner": {
-                "type": "module",
-                "key": "fixture.workflow-business"
-            },
-            "controller": "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Controller\\WorkflowBusinessController",
-            "action": "collaboration",
-            "auth": {
-                "mode": "tenant_permission",
-                "exception_registration": null
-            },
-            "permissions": [
-                {
-                    "kind": "module_capability",
-                    "key": "fixture.workflow-business"
-                },
-                {
-                    "kind": "tenant_action",
-                    "key": "fixture.workflow-business.read"
-                }
-            ],
-            "errors": [
-                401,
-                403
-            ],
-            "middleware": [
-                {
-                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
-                    "arguments": []
-                },
-                {
-                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
-                    "arguments": [
-                        "fixture.workflow-business",
-                        "http.admin"
-                    ]
-                },
-                {
-                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
-                    "arguments": []
-                },
-                {
-                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
-                    "arguments": []
-                }
-            ],
-            "source": {
-                "file": "server/app/modules/fixture/workflow_business/route/app.php",
-                "line": 24
-            },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
-            "documentation": {
-                "status": "route_only",
-                "automatic_metadata": [
-                    "route",
-                    "owner",
-                    "controller",
-                    "middleware",
-                    "auth",
-                    "permissions",
-                    "source"
-                ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
             }
         },
         {
@@ -3975,7 +3630,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 180
+                "line": 181
             },
             "documented": true,
             "openapi_operation_id": "listDecorationArticleOptions",
@@ -10743,7 +10398,7 @@
             ],
             "source": {
                 "file": "server/app/modules/peanut/member/route/app.php",
-                "line": 62
+                "line": 66
             },
             "documented": true,
             "openapi_operation_id": "listCurrentMemberBalanceLogs",
@@ -10806,7 +10461,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 37
+                "line": 43
             },
             "documented": true,
             "openapi_operation_id": "listPublicArticleCategories",
@@ -10869,7 +10524,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 70
+                "line": 80
             },
             "documented": true,
             "openapi_operation_id": "listArticleCollections",
@@ -10932,7 +10587,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 41
+                "line": 47
             },
             "documented": true,
             "openapi_operation_id": "articleDetail",
@@ -10995,7 +10650,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 39
+                "line": 45
             },
             "documented": true,
             "openapi_operation_id": "listArticles",
@@ -11058,7 +10713,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 48
+                "line": 55
             },
             "documented": true,
             "openapi_operation_id": "getPublicMobileDecorationPage",
@@ -11120,7 +10775,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 52
+                "line": 59
             },
             "documented": true,
             "openapi_operation_id": "getPublicPcDecorationPage",
@@ -11182,7 +10837,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 50
+                "line": 57
             },
             "documented": true,
             "openapi_operation_id": "getVisibleDecorationTabbar",
@@ -11244,7 +10899,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 28
+                "line": 31
             },
             "documented": true,
             "openapi_operation_id": "getApplicationPublicConfig",
@@ -11306,7 +10961,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 26
+                "line": 28
             },
             "documented": true,
             "openapi_operation_id": "getApplicationHome",
@@ -11368,7 +11023,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 30
+                "line": 33
             },
             "documented": true,
             "openapi_operation_id": "getApplicationPolicy",
@@ -11516,7 +11171,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 62
+                "line": 70
             },
             "documented": true,
             "openapi_operation_id": "getPcArticleDetail",
@@ -11578,7 +11233,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 56
+                "line": 63
             },
             "documented": true,
             "openapi_operation_id": "getPcPublicConfig",
@@ -11640,7 +11295,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 58
+                "line": 66
             },
             "documented": true,
             "openapi_operation_id": "getPcHome",
@@ -11702,7 +11357,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 60
+                "line": 68
             },
             "documented": true,
             "openapi_operation_id": "getPcInformationCenter",
@@ -11958,7 +11613,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 44
+                "line": 51
             },
             "documented": true,
             "openapi_operation_id": "listPublicHotSearches",
@@ -12067,7 +11722,7 @@
             ],
             "source": {
                 "file": "server/app/modules/peanut/member/route/app.php",
-                "line": 57
+                "line": 59
             },
             "documented": true,
             "openapi_operation_id": "getMemberCenter",
@@ -12131,7 +11786,7 @@
             ],
             "source": {
                 "file": "server/app/modules/peanut/member/route/app.php",
-                "line": 58
+                "line": 60
             },
             "documented": true,
             "openapi_operation_id": "getMemberProfile",
@@ -12669,7 +12324,7 @@
             ],
             "source": {
                 "file": "server/app/modules/peanut/file/route/app.php",
-                "line": 66
+                "line": 68
             },
             "documented": true,
             "openapi_operation_id": "getStorageConfiguration",
@@ -14781,237 +14436,6 @@
                     "source"
                 ],
                 "requires_owner_contract": []
-            }
-        },
-        {
-            "method": "POST",
-            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects",
-            "runtime_path": "/adminapi/api/v1/fixture/workflow-business/:scene/objects",
-            "application": "adminapi",
-            "owner": {
-                "type": "module",
-                "key": "fixture.workflow-business"
-            },
-            "controller": "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Controller\\WorkflowBusinessController",
-            "action": "create",
-            "auth": {
-                "mode": "tenant_permission",
-                "exception_registration": null
-            },
-            "permissions": [
-                {
-                    "kind": "module_capability",
-                    "key": "fixture.workflow-business"
-                },
-                {
-                    "kind": "tenant_action",
-                    "key": "fixture.workflow-business.create"
-                }
-            ],
-            "errors": [
-                401,
-                403
-            ],
-            "middleware": [
-                {
-                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
-                    "arguments": []
-                },
-                {
-                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
-                    "arguments": [
-                        "fixture.workflow-business",
-                        "http.admin"
-                    ]
-                },
-                {
-                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
-                    "arguments": []
-                },
-                {
-                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
-                    "arguments": []
-                }
-            ],
-            "source": {
-                "file": "server/app/modules/fixture/workflow_business/route/app.php",
-                "line": 20
-            },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
-            "documentation": {
-                "status": "route_only",
-                "automatic_metadata": [
-                    "route",
-                    "owner",
-                    "controller",
-                    "middleware",
-                    "auth",
-                    "permissions",
-                    "source"
-                ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
-            }
-        },
-        {
-            "method": "POST",
-            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}/collaboration",
-            "runtime_path": "/adminapi/api/v1/fixture/workflow-business/:scene/objects/:objectKey/collaboration",
-            "application": "adminapi",
-            "owner": {
-                "type": "module",
-                "key": "fixture.workflow-business"
-            },
-            "controller": "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Controller\\WorkflowBusinessController",
-            "action": "appendCollaboration",
-            "auth": {
-                "mode": "tenant_permission",
-                "exception_registration": null
-            },
-            "permissions": [
-                {
-                    "kind": "module_capability",
-                    "key": "fixture.workflow-business"
-                },
-                {
-                    "kind": "tenant_action",
-                    "key": "fixture.workflow-business.collaborate"
-                }
-            ],
-            "errors": [
-                401,
-                403
-            ],
-            "middleware": [
-                {
-                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
-                    "arguments": []
-                },
-                {
-                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
-                    "arguments": [
-                        "fixture.workflow-business",
-                        "http.admin"
-                    ]
-                },
-                {
-                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
-                    "arguments": []
-                },
-                {
-                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
-                    "arguments": []
-                }
-            ],
-            "source": {
-                "file": "server/app/modules/fixture/workflow_business/route/app.php",
-                "line": 25
-            },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
-            "documentation": {
-                "status": "route_only",
-                "automatic_metadata": [
-                    "route",
-                    "owner",
-                    "controller",
-                    "middleware",
-                    "auth",
-                    "permissions",
-                    "source"
-                ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
-            }
-        },
-        {
-            "method": "POST",
-            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}/confirm",
-            "runtime_path": "/adminapi/api/v1/fixture/workflow-business/:scene/objects/:objectKey/confirm",
-            "application": "adminapi",
-            "owner": {
-                "type": "module",
-                "key": "fixture.workflow-business"
-            },
-            "controller": "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Controller\\WorkflowBusinessController",
-            "action": "confirm",
-            "auth": {
-                "mode": "tenant_permission",
-                "exception_registration": null
-            },
-            "permissions": [
-                {
-                    "kind": "module_capability",
-                    "key": "fixture.workflow-business"
-                },
-                {
-                    "kind": "tenant_action",
-                    "key": "fixture.workflow-business.confirm"
-                }
-            ],
-            "errors": [
-                401,
-                403
-            ],
-            "middleware": [
-                {
-                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
-                    "arguments": []
-                },
-                {
-                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
-                    "arguments": [
-                        "fixture.workflow-business",
-                        "http.admin"
-                    ]
-                },
-                {
-                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
-                    "arguments": []
-                },
-                {
-                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
-                    "arguments": []
-                }
-            ],
-            "source": {
-                "file": "server/app/modules/fixture/workflow_business/route/app.php",
-                "line": 22
-            },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
-            "documentation": {
-                "status": "route_only",
-                "automatic_metadata": [
-                    "route",
-                    "owner",
-                    "controller",
-                    "middleware",
-                    "auth",
-                    "permissions",
-                    "source"
-                ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
             }
         },
         {
@@ -26410,7 +25834,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 68
+                "line": 78
             },
             "documented": true,
             "openapi_operation_id": "addArticleCollection",
@@ -26473,7 +25897,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 69
+                "line": 79
             },
             "documented": true,
             "openapi_operation_id": "cancelArticleCollection",
@@ -26587,7 +26011,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 34
+                "line": 38
             },
             "documented": true,
             "openapi_operation_id": "logoutMemberSession",
@@ -26662,7 +26086,7 @@
             ],
             "source": {
                 "file": "server/app/modules/peanut/member/route/app.php",
-                "line": 51
+                "line": 52
             },
             "documented": true,
             "openapi_operation_id": "loginMemberWithMobileCode",
@@ -26803,7 +26227,7 @@
             ],
             "source": {
                 "file": "server/app/modules/peanut/member/route/app.php",
-                "line": 51
+                "line": 52
             },
             "documented": true,
             "openapi_operation_id": "resetMemberPassword",
@@ -27436,7 +26860,7 @@
             ],
             "source": {
                 "file": "server/app/modules/peanut/file/route/app.php",
-                "line": 60
+                "line": 61
             },
             "documented": true,
             "openapi_operation_id": "uploadMemberImage",
@@ -27501,7 +26925,7 @@
             ],
             "source": {
                 "file": "server/app/modules/peanut/member/route/app.php",
-                "line": 61
+                "line": 64
             },
             "documented": true,
             "openapi_operation_id": "bindMemberMobile",
@@ -27565,7 +26989,7 @@
             ],
             "source": {
                 "file": "server/app/modules/peanut/member/route/app.php",
-                "line": 60
+                "line": 62
             },
             "documented": true,
             "openapi_operation_id": "changeMemberPassword",
@@ -27630,7 +27054,7 @@
             ],
             "source": {
                 "file": "server/app/modules/peanut/member/route/app.php",
-                "line": 59
+                "line": 61
             },
             "documented": true,
             "openapi_operation_id": "updateMemberProfileField",
@@ -27836,7 +27260,7 @@
             ],
             "source": {
                 "file": "server/app/modules/peanut/file/route/app.php",
-                "line": 69
+                "line": 71
             },
             "documented": true,
             "openapi_operation_id": "createStorageAccount",
@@ -27901,7 +27325,7 @@
             ],
             "source": {
                 "file": "server/app/modules/peanut/file/route/app.php",
-                "line": 72
+                "line": 74
             },
             "documented": true,
             "openapi_operation_id": "updateStorageAccount",
@@ -27966,7 +27390,7 @@
             ],
             "source": {
                 "file": "server/app/modules/peanut/file/route/app.php",
-                "line": 81
+                "line": 83
             },
             "documented": true,
             "openapi_operation_id": "setStorageRoute",
@@ -28031,7 +27455,7 @@
             ],
             "source": {
                 "file": "server/app/modules/peanut/file/route/app.php",
-                "line": 75
+                "line": 77
             },
             "documented": true,
             "openapi_operation_id": "createStorageSpace",
@@ -28096,7 +27520,7 @@
             ],
             "source": {
                 "file": "server/app/modules/peanut/file/route/app.php",
-                "line": 78
+                "line": 80
             },
             "documented": true,
             "openapi_operation_id": "updateStorageSpace",
@@ -30303,160 +29727,6 @@
                     "source"
                 ],
                 "requires_owner_contract": []
-            }
-        },
-        {
-            "method": "PUT",
-            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}",
-            "runtime_path": "/adminapi/api/v1/fixture/workflow-business/:scene/objects/:objectKey",
-            "application": "adminapi",
-            "owner": {
-                "type": "module",
-                "key": "fixture.workflow-business"
-            },
-            "controller": "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Controller\\WorkflowBusinessController",
-            "action": "update",
-            "auth": {
-                "mode": "tenant_permission",
-                "exception_registration": null
-            },
-            "permissions": [
-                {
-                    "kind": "module_capability",
-                    "key": "fixture.workflow-business"
-                },
-                {
-                    "kind": "tenant_action",
-                    "key": "fixture.workflow-business.update"
-                }
-            ],
-            "errors": [
-                401,
-                403
-            ],
-            "middleware": [
-                {
-                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
-                    "arguments": []
-                },
-                {
-                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
-                    "arguments": [
-                        "fixture.workflow-business",
-                        "http.admin"
-                    ]
-                },
-                {
-                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
-                    "arguments": []
-                },
-                {
-                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
-                    "arguments": []
-                }
-            ],
-            "source": {
-                "file": "server/app/modules/fixture/workflow_business/route/app.php",
-                "line": 21
-            },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
-            "documentation": {
-                "status": "route_only",
-                "automatic_metadata": [
-                    "route",
-                    "owner",
-                    "controller",
-                    "middleware",
-                    "auth",
-                    "permissions",
-                    "source"
-                ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
-            }
-        },
-        {
-            "method": "PUT",
-            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}/form",
-            "runtime_path": "/adminapi/api/v1/fixture/workflow-business/:scene/objects/:objectKey/form",
-            "application": "adminapi",
-            "owner": {
-                "type": "module",
-                "key": "fixture.workflow-business"
-            },
-            "controller": "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Controller\\WorkflowBusinessController",
-            "action": "saveForm",
-            "auth": {
-                "mode": "tenant_permission",
-                "exception_registration": null
-            },
-            "permissions": [
-                {
-                    "kind": "module_capability",
-                    "key": "fixture.workflow-business"
-                },
-                {
-                    "kind": "tenant_action",
-                    "key": "fixture.workflow-business.complete"
-                }
-            ],
-            "errors": [
-                401,
-                403
-            ],
-            "middleware": [
-                {
-                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
-                    "arguments": []
-                },
-                {
-                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
-                    "arguments": [
-                        "fixture.workflow-business",
-                        "http.admin"
-                    ]
-                },
-                {
-                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
-                    "arguments": []
-                },
-                {
-                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
-                    "arguments": []
-                }
-            ],
-            "source": {
-                "file": "server/app/modules/fixture/workflow_business/route/app.php",
-                "line": 23
-            },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
-            "documentation": {
-                "status": "route_only",
-                "automatic_metadata": [
-                    "route",
-                    "owner",
-                    "controller",
-                    "middleware",
-                    "auth",
-                    "permissions",
-                    "source"
-                ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
             }
         },
         {

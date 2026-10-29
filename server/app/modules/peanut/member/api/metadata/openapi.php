@@ -212,7 +212,7 @@ return [
             errors: ['MEMBER_CREDENTIALS_REQUIRED', 'MEMBER_LOGIN_WAY_DISABLED'],
             statuses: [400, 401, 403],
         )],
-        '/api/login/mobile' => ['post' => $operation(
+        '/api/login/mobile' => ['x-peanut-required-modules' => ['peanut.notification'], 'post' => $operation(
             'loginMemberWithMobileCode',
             '会员手机验证码登录',
             'MemberLoginResponse',
@@ -224,7 +224,7 @@ return [
             ],
             statuses: [400, 403, 429],
         )],
-        '/api/login/resetPassword' => ['post' => $operation(
+        '/api/login/resetPassword' => ['x-peanut-required-modules' => ['peanut.notification'], 'post' => $operation(
             'resetMemberPassword',
             '通过手机验证码重置会员密码',
             'MemberMutationResponse',
@@ -265,7 +265,7 @@ return [
             errors: ['MEMBER_PASSWORD_CHANGE_INVALID'],
             statuses: [400, 403],
         )],
-        '/api/user/bindMobile' => ['post' => $operation(
+        '/api/user/bindMobile' => ['x-peanut-required-modules' => ['peanut.notification'], 'post' => $operation(
             'bindMemberMobile',
             '绑定或变更会员手机',
             'MemberMutationResponse',

@@ -552,7 +552,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "0d06376622a3d1664ce2c60679baf368a558f2eeea108fbd814186c463b3622a"
+                "sha256": "3eef888d485b1e5b8076391840f28642f573de7d9347ae464ad072599692cb6e"
             },
             "trust": {
                 "channel": "bundled",
@@ -636,7 +636,7 @@
                 }
             ],
             "manifest": "plugins/peanut.file/plugin.json",
-            "manifest_sha256": "8672e0657043647f114e449b15dc1f8a6eb9443b5d43624ca7ba7b62bfd9386d"
+            "manifest_sha256": "1551d1b5a7127823cb0d066ba5d5e363d2c5d68d2ed5e85a18fc635434c3160a"
         },
         {
             "key": "peanut.identity",
@@ -905,7 +905,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "68c0f685311f3eb6c7162733d812ebbbff110239b5a2803f60ac7cc1561c8637"
+                "sha256": "b73d9613b40113955bf0cf4142b626c06850b4aa12ee263aede2812f217af8c8"
             },
             "trust": {
                 "channel": "bundled",
@@ -1017,7 +1017,7 @@
                 }
             ],
             "manifest": "plugins/peanut.member/plugin.json",
-            "manifest_sha256": "dbbbd9b241ab6f7cfcec877af7f01edf7e02770b287c31a144b330c79d835289"
+            "manifest_sha256": "c37a95082ccd7765f578cb117d160c1077906a4fedc9f3435f1c828d8d1050dd"
         },
         {
             "key": "peanut.notification",

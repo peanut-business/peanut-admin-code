@@ -267,6 +267,7 @@ function peanut_route_endpoint_inventory(string $serverRoot): array
 
     $moduleNamespaces = [];
     $moduleSources = [];
+    $declaredModules = [];
     foreach (glob($resolvedRoot . '/app/modules/*/*/module.json') ?: [] as $manifestPath) {
         $manifest = json_decode((string) file_get_contents($manifestPath), true, 32, JSON_THROW_ON_ERROR);
         $moduleKey = $manifest['key'] ?? null;
@@ -289,6 +290,33 @@ function peanut_route_endpoint_inventory(string $serverRoot): array
         $relative = substr(dirname($manifestPath), strlen($resolvedRoot . '/app/modules/'));
         $moduleNamespaces[$namespace] = $moduleKey;
         $moduleSources['server/app/modules/' . $relative . '/'] = $moduleKey;
+        $declaredModules[$moduleKey] = dirname($manifestPath);
+    }
+
+    // Static collection uses the source application's locked selection without booting ThinkPHP.
+    $lockPath = dirname($resolvedRoot) . '/plugins.lock';
+    if (!is_file($lockPath) || is_link($lockPath)) {
+        throw new RuntimeException('Route inventory Plugin lock is unavailable: ' . $lockPath);
+    }
+    $lock = json_decode((string) file_get_contents($lockPath), true, 64, JSON_THROW_ON_ERROR);
+    if (($lock['schema_version'] ?? null) !== 1 || !is_array($lock['plugins'] ?? null)) {
+        throw new RuntimeException('Route inventory Plugin lock is invalid: ' . $lockPath);
+    }
+    $peanutRouteModules = [];
+    foreach ($lock['plugins'] as $plugin) {
+        if (!is_array($plugin['modules'] ?? null)) {
+            throw new RuntimeException('Route inventory Plugin Module selection is invalid.');
+        }
+        foreach ($plugin['modules'] as $module) {
+            $key = $module['key'] ?? null;
+            $root = $module['root'] ?? null;
+            if (!is_string($key) || !is_string($root) || isset($peanutRouteModules[$key])
+                || !isset($declaredModules[$key])
+                || realpath(dirname($resolvedRoot) . '/' . $root) !== $declaredModules[$key]) {
+                throw new RuntimeException('Route inventory locked Module does not match its declaration.');
+            }
+            $peanutRouteModules[$key] = $declaredModules[$key];
+        }
     }
 
     PeanutRouteInventoryRoute::reset($resolvedRoot);
@@ -359,6 +387,10 @@ function peanut_route_endpoint_inventory(string $serverRoot): array
 
     return [
         'schema_version' => 1,
+        'modules' => array_map(
+            static fn(string $root): string => 'server/' . substr($root, strlen($resolvedRoot) + 1),
+            $peanutRouteModules,
+        ),
         'summary' => [
             'total' => count($endpoints),
             'methods' => $methods,

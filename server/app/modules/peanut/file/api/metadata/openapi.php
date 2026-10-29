@@ -242,7 +242,7 @@ return [
             'responses' => ['200' => $uploadResponse, '400' => $typedError, '401' => $typedError, '403' => $typedError],
             'x-peanut-errors' => ['UPLOAD_FILE_REQUIRED'],
         ]],
-        '/api/upload/image' => ['post' => [
+        '/api/upload/image' => ['x-peanut-required-modules' => ['peanut.member'], 'post' => [
             'tags' => ['File'], 'operationId' => 'uploadMemberImage',
             'requestBody' => $uploadBody,
             'responses' => ['200' => $uploadResponse, '400' => $typedError, '401' => $typedError, '403' => $typedError],

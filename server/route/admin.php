@@ -39,7 +39,7 @@ Route::group(function () {
 })->middleware(LoginMiddleware::class);
 
 // ─── 管理后台完整 API（Login → Auth 两层中间件） ─────────────────────────────
-Route::group(function () {
+Route::group(function () use ($peanutRouteModules) {
     Route::get('login/info', [LoginController::class, 'info']);
 
     // 工作台
@@ -177,7 +177,7 @@ Route::group(function () {
     Route::get('decoration/pc/page/lists', [DecorationPageController::class, 'pcLists']);
     Route::get('decoration/pc/page/detail', [DecorationPageController::class, 'pcDetail']);
     Route::post('decoration/pc/page/save', [DecorationPageController::class, 'pcSave']);
-    if (app()->bound(\PeanutAdmin\Modules\Article\Contract\ArticleQueries::class)) {
+    if (isset($peanutRouteModules['peanut.article'])) {
         Route::get('decoration/mobile/article', [DecorationPageController::class, 'article']);
     }
 
