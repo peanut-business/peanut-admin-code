@@ -2242,7 +2242,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "65f362963180c23656418627bbad53ea1e7c870fed8932370c0685b91ff58353"
+            "source_sha256": "d61b1650351b4cef9f22f215ef94bf2ec7e9486fb3959ea2faf6108cc219954d"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2323,7 +2323,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b58549515a0cc5f9bbca5c608f0bcb5ef13e6ce7ba4e7f6185c48285cb98ad85"
+            "source_sha256": "7e7ddf3e1178ab7ab062679400a33ec2eb213bb421cb290d20868be9e3621fba"
         },
         {
             "path": "plugins/peanut.integration/plugin.json",
@@ -11217,7 +11217,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c25767cafb76f91f8578dcb17d090dd07c2905341085d43a00bc07ffb0230775"
+            "source_sha256": "43c82d8b464f1afebfc98924ef665786298eaf25f3beab6f7b4e29a200a59989"
         },
         {
             "path": "server/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php",
@@ -11245,7 +11245,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "117269de5f8e73adacec82783abf6f4e1db3ef8d1390a8a5ff7ca0522385a6c6"
+            "source_sha256": "efd627ffb4b2a14e3fe635341f24f71631c90739c9d66e9b63d2efc0245b3c0b"
         },
         {
             "path": "server/app/modules/peanut/identity/src/Audit/AuditService.php",
@@ -11637,7 +11637,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "27d9cc32f22226eec4a7367338bb8ce0cf43335fe57e058c7cc57334b0279283"
+            "source_sha256": "21696c933896c5fb5ae2caaf84ced491375ad7d3e3ec6700083d34435e9972aa"
         },
         {
             "path": "server/app/modules/peanut/identity/src/Authorization/CorePermissionCatalogSynchronizer.php",
@@ -18657,7 +18657,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "79dfe87245333adf2c2ee8cc3512c601ca59f8f7c7d2e98645b6397353f458e2"
+            "source_sha256": "65d54f2fd49efd2e906da8dd27e1b7c612d452dfc9794a39c3b0e984ffab6786"
         },
         {
             "path": "server/composer.lock",
@@ -18671,7 +18671,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "193568d9972a0ff424bdf3f5747bf72f0e91fa14d6ab9a4d0e3e35c2913e0378"
+            "source_sha256": "b4f9bd0595f1e126353bd97724d2d051eea093f973558e1eca8ae61c57d2b1db"
         },
         {
             "path": "server/config/admin_api_access.php",
