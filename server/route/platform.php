@@ -24,6 +24,12 @@ if (($peanutRouteApplication ?? null) !== 'platform') {
 }
 
 // Instance-local platform control plane. It never shares admin sessions, RBAC or routes.
+Route::get('permission/menus', [\app\platform\controller\PermissionApiController::class, 'menus'])
+    ->completeMatch()->middleware(PlatformLoginMiddleware::class)
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.read');
+Route::put('permission/menus/binding', [\app\platform\controller\PermissionApiController::class, 'replaceMenuBinding'])
+    ->completeMatch()->middleware(PlatformLoginMiddleware::class)
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.api.manage');
 Route::get('permission/bundles', [\app\platform\controller\PermissionApiController::class, 'bundles'])
     ->completeMatch()->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.read');

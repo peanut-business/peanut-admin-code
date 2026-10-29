@@ -40,10 +40,23 @@ $params = [
 $keyParam = [$query('permission_key', ['type' => 'string', 'minLength' => 1, 'maxLength' => 160], true)];
 $responses = static fn(array $data): array => ['200' => $success($data), '401' => $error, '403' => $error, '404' => $error, '422' => $error];
 $paths = [];
+$menuBinding = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['menu_key', 'parent_key', 'type', 'name', 'page_path', 'action_key', 'permission_key', 'default_permission_key', 'revision'],
+    'properties' => ['menu_key' => ['type' => 'string'], 'parent_key' => ['type' => 'string', 'nullable' => true],
+        'type' => ['type' => 'string', 'enum' => ['C', 'A']], 'name' => ['type' => 'string'],
+        'page_path' => ['type' => 'string'], 'action_key' => ['type' => 'string'], 'permission_key' => ['type' => 'string'],
+        'default_permission_key' => ['type' => 'string', 'nullable' => true], 'revision' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$']]];
 $add = static function (array &$paths, string $method, string $path, array $operation): void {
     $paths[$path][strtolower($method)] = $operation;
 };
 $add($paths, 'GET', '/platformapi/permission/bundles', $operation('listPermissionBundles', 'PermissionBundles', $responses($page($ref('PermissionBundle'))), $params));
+$add($paths, 'GET', '/platformapi/permission/menus', $operation('listMenuPermissionBindings', 'PermissionBundles', $responses(['type' => 'object', 'additionalProperties' => false,
+    'required' => ['items', 'total'], 'properties' => ['items' => ['type' => 'array', 'items' => $menuBinding], 'total' => ['type' => 'integer']]])));
+$add($paths, 'PUT', '/platformapi/permission/menus/binding', $operation('replaceMenuPermissionBinding', 'PermissionBundles', $responses($menuBinding) + ['409' => $error, '412' => $error, '428' => $error],
+    requestBody: $jsonBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['menu_key', 'permission_key', 'action_key', 'expected_revision'],
+        'properties' => ['menu_key' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 160],
+            'permission_key' => ['type' => 'string', 'nullable' => true, 'maxLength' => 160], 'action_key' => ['type' => 'string', 'nullable' => true, 'maxLength' => 200],
+            'expected_revision' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$']]])));
 $nameSchema = ['type' => 'string', 'minLength' => 1, 'maxLength' => 160];
 $keySchema = ['type' => 'string', 'minLength' => 1, 'maxLength' => 100];
 $revisionSchema = ['oneOf' => [['type' => 'integer', 'minimum' => 1], ['type' => 'string', 'pattern' => '^[1-9][0-9]{0,17}$']]];

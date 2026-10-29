@@ -735,7 +735,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b78c7b9c8692b049ea1203627380245fa507fabae28cb664101a70da489d0220"
+            "source_sha256": "f21690b4227019f5e374fc56040df220c631f3c9ab175d14c40914fe145f3b70"
         },
         {
             "path": "docs/architecture/module-development-delivery.md",
@@ -874,7 +874,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e958356fc983ca5026d5acba7722c4bbb7e9e52d8236a67660c8a9864c7dbf25"
+            "source_sha256": "a12073af34332d6dc703285c6e1997ae20984442b75a07c60e5d9363532143bc"
         },
         {
             "path": "docs/development/p0e-tool-identity.md",
@@ -1049,7 +1049,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "78d6e3fb333c1c99a3bf310308af93bc8a6c9dd980be43bdeae13a775cc6f895"
+            "source_sha256": "bd0e8ad3ea6bf4852433d31831d746a1339f6a53a2b180f9aec80c6605939a86"
         },
         {
             "path": "docs/public/application-release.md",
@@ -1752,7 +1752,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8fb64a984fb1b1ad2e289cb78c06cacc2e956ab7377f6cf34063257bd838b096"
+            "source_sha256": "fcca3c6dad4f42b5886c67d16cff736f325d8c0e21c214e582f2892ee951720b"
         },
         {
             "path": "platform/src/api/platform.ts",
@@ -1766,7 +1766,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4910f98f11ab42cf5b5ccab11d59d08db6ad5f51f4a55d702697fc6feee109ec"
+            "source_sha256": "091ba7537166a3ccbb96d5856ab5b931027c3276e173217ffa5307b047163257"
         },
         {
             "path": "platform/src/components/DeveloperCenterPage.vue",
@@ -1794,7 +1794,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "068db88bb7e7264c5dce205d8b17628e58cc985ac74e38ae0e560beb7628ae9c"
+            "source_sha256": "0a7d2fc9d7a9b77742bfc1188d829b54505e3f9a76840fe23856489d014fe329"
         },
         {
             "path": "platform/src/components/ProviderQualificationCard.vue",
@@ -2270,7 +2270,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d4147aae6e469ae24bd4ba944416dd06414044b384308df8b8fc52eb02c956a0"
+            "source_sha256": "e7bdd289c93f42acefe3a9864622976f41803e1d06ca02548e7171bbd1f5e953"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2351,7 +2351,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "18d0d4864529eb893a2ef39e4388d141632cdb8d4b835bc3442cb88d743c4085"
+            "source_sha256": "77b04757d13dd8631047198a7773b36d2c8797105ea833d7087f574ffa08d7cd"
         },
         {
             "path": "plugins/peanut.integration/plugin.json",
@@ -5848,7 +5848,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c81762c64aa78c432fbef9532151ae9c2dfe47a5aae0b525bcbfa76701cfccb6"
+            "source_sha256": "0da677707b206d0679e0457730ed3c450c51897016cceb7018b296cdced47619"
         },
         {
             "path": "server/app/api/metadata/application/platform.php",
@@ -12715,7 +12715,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "491cf96d1b11f8ce6af2c974305b0cdcf7360c63d440e16193747f56c84d8404"
+            "source_sha256": "f28621261448b6001db9a8b9d8d029d2fdec8acc6c9dc2da371496008646a81b"
         },
         {
             "path": "server/app/modules/peanut/identity/src/Menu/MenuCatalogSynchronizer.php",
@@ -17565,7 +17565,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "72a738d0ee2e3cb9f687d079c058a1f812db30459e86701b9083703d6a9f4fec"
+            "source_sha256": "cc3b4e801ef7f0e47184d2216de20daa05e3e1cd57c343022bca86054c334022"
         },
         {
             "path": "server/app/platform/controller/PlatformAccessController.php",
@@ -18447,7 +18447,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "91323c5bcb4e01b50d6de36cb69ba92edbe1dd34552168edb2715bc72b43825b"
+            "source_sha256": "65da652812ad07cf4d7ff50c8f96f14fadf3083fbd7664a6d4ec7f471e00c128"
         },
         {
             "path": "server/app/platform/services/plugin/PluginLifecycleService.php",
@@ -19887,7 +19887,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "84874f9320a60b727e7adc092a2b1fb079bcb830b85fb888f659bac17fb9d123"
+            "source_sha256": "ab15204edf81696d38d22c6d4a3cb5e2953353be9a71fb80d1dc402096d40912"
         },
         {
             "path": "server/generated/openapi.json",
@@ -19901,7 +19901,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f865436a13ecd58ed8bec591617bebf8c729e02b3f37c182ed5ca09d6ede46e1"
+            "source_sha256": "5f8d06dea27fdd2f3ef98852d35679f2ca9b995d9db61d3904d37b2dc1e456e1"
         },
         {
             "path": "server/module",
@@ -22323,7 +22323,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "70f2eac6db84ff152990c56f0a61bc6c917ced1d6fb3865330b8aa6c93c28467"
+            "source_sha256": "91f23dd15b796a32fb008c71924fb709746a378b99084bd41182a239fc457fde"
         },
         {
             "path": "server/route/public_api.php",
@@ -29003,7 +29003,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ee67b9e84e4e53ffea0ed30d3ab0f809f69fac8be1082a5196d74ef14d359e6a"
+            "source_sha256": "1591059df88f29e3a7d09f9cf5926a01f8ec0aad90fe7caa9b75646c4e4acd1a"
         },
         {
             "path": "web/src/hooks/chart-option.ts",

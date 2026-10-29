@@ -8,6 +8,7 @@ use PeanutAdmin\Modules\Identity\Authorization\ApiPermissionCatalog;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
+use PeanutAdmin\Modules\Identity\Menu\MenuAdministrationService;
 use think\facade\Db;
 
 /** @property-read ApiPermissionCatalog $catalog @property-read AuditService $audit */
@@ -15,6 +16,37 @@ final class PermissionApiController extends BasePlatformController
 {
     protected string $catalogClass = ApiPermissionCatalog::class;
     protected string $auditClass = AuditService::class;
+    protected string $menusClass = MenuAdministrationService::class;
+
+    public function menus()
+    {
+        $this->fields($this->request->get(), []);
+        $items = $this->menus->permissionBindings();
+        return $this->data(['items' => $items, 'total' => count($items)]);
+    }
+
+    public function replaceMenuBinding()
+    {
+        $input = $this->fields($this->request->put(), ['menu_key', 'permission_key', 'action_key', 'expected_revision']);
+        if (!array_key_exists('expected_revision', $input)) {
+            throw AdminAccessException::preconditionRequired();
+        }
+        if (!array_key_exists('permission_key', $input) || !array_key_exists('action_key', $input)
+            || !is_string($input['menu_key'] ?? null) || $input['menu_key'] === '' || strlen($input['menu_key']) > 160
+            || !is_string($input['expected_revision']) || preg_match('/^[a-f0-9]{64}$/D', $input['expected_revision']) !== 1
+            || ($input['permission_key'] !== null && (!is_string($input['permission_key']) || $input['permission_key'] === '' || strlen($input['permission_key']) > 160))
+            || ($input['action_key'] !== null && (!is_string($input['action_key']) || trim($input['action_key']) !== $input['action_key'] || strlen($input['action_key']) > 200))) {
+            throw AdminAccessException::invalid('MENU_BINDING_INVALID', 'A menu identity, permission, action and revision are required.');
+        }
+        $context = $this->platformContext?->core ?? throw new \DomainException('PLATFORM_CONTEXT_REQUIRED');
+        return $this->data(Db::transaction(function () use ($input, $context): array {
+            $result = $this->menus->replacePermissionBinding($input['menu_key'], $input['permission_key'], $input['action_key'],
+                $input['expected_revision'], app(\app\common\contract\module\ModuleQualificationQuery::class));
+            $this->audit->platform($context->operatorId, $context->accountId, $context->requestId,
+                'permission.menu.replaced', 'platform.permission.api.manage', targetType: 'menu', targetId: $input['menu_key'], before: $result['before'], after: $result['after']);
+            return $result['after'];
+        }));
+    }
 
     public function bundles()
     {

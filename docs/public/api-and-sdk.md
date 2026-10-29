@@ -59,6 +59,21 @@ API 所属模块仍独立校验安装及当前租户开通，跨模块引用不�
 
 为保留当前界面的管理修复入口，`GET /platformapi/permission/bundles`、`POST /platformapi/permission/bundles`、`PUT /platformapi/permission/bundles`、`GET /platformapi/permission/apis`、`GET /platformapi/permission/apis/bindings`、`PUT /platformapi/permission/apis/bindings` 各自必须保留至少一个有效平台权限包关联。若关联替换或自建包退役将移除其中任一 API 的最后一个有效关联，整笔修改回滚并返回 409 `API_MANAGEMENT_RECOVERY_REQUIRED`。该限制只针对上述六个精确方法与路径；普通权限包仍可保存空集合。
 
+## 实例菜单与按钮引用
+
+MT 平台在既有权限面板维护已有租户菜单与按钮的权限引用，读取要求 `platform.permission.read`，保存要求 `platform.permission.api.manage` 并记录平台审计。租户不能修改实例全局配置；原管理端完整菜单编辑仍限 ST。该入口不提供菜单 CRUD，不修改页面路径、父级、组件、源码默认定义或模块身份。
+
+| 入口 | 合同 |
+| --- | --- |
+| `GET /platformapi/permission/menus` | 无查询参数，返回 `{items,total}`；每项含 `menu_key/parent_key/type/name/page_path/action_key/permission_key/default_permission_key/revision`，`type` 为 `C` 或 `A` |
+| `PUT /platformapi/permission/menus/binding` | 使用 `menu_key`、`permission_key: string\|null`、`action_key: string\|null`、`expected_revision` 保存并返回更新后的单项 |
+
+`permission_key` 是当前有效引用，`default_permission_key` 是源码默认或旧菜单已登记默认，无法确认时为 null。显式选择同域启用的已有包（system/module/custom），模块包还须属于已安装模块；`permission_key=null` 恢复默认，默认未知时返回 409 `MENU_DEFAULT_PERMISSION_UNKNOWN`，不会猜测或清空授权。菜单只使用一个有效包，实例引用替代默认门槛；角色授权、API 前置权限、模块开通及数据范围仍各自核验。
+
+`C` 页面保存时 `action_key` 必须为 null；`A` 按钮须有父页面和非空动作标识，空标识可首次填写，已有标识不能改。列表中 `C.action_key` 为空串，`A.page_path` 来自其父页面。动作标识须与页面代码一致；同页同动作引用不同包返回 409 `ACTION_PERMISSION_BINDING_CONFLICT`。
+
+`revision` 是当前投影行的 SHA-256 字符串，客户端按不透明值原样传入 `expected_revision`，不把它当整数或包修订。缺少修订返回 428，失配返回 412，不自动读取新值重试；字段类型、动作约束或权限包候选不合法返回 400 `MENU_BINDING_INVALID`。这两个菜单入口不在上节六个 API 的最后有效关联保护范围内，其映射仍可由既有 API 关联入口修复。
+
 ## 部门目录分页合同
 
 `GET /adminapi/dept/lists`、`/all`、`/leaderDept` 返回 `{lists, ancestors, count, pageNo, pageSize, hasMore}`，替代原全量数组合同；旧调用缺少明确模式或分页参数返回400，所有自带页面与生成类型同步使用此合同。权限仍为原 `core.department.read`，目录结构不授予成员或业务数据权限，负责人姓名不会自动解析为成员绑定。

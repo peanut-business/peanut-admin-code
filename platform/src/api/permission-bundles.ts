@@ -24,6 +24,18 @@ export interface PermissionApi {
   prerequisite_permission_keys: string[];
 }
 
+export interface PermissionMenuBinding {
+  menu_key: string;
+  parent_key: string | null;
+  type: 'C' | 'A';
+  name: string;
+  page_path: string;
+  action_key: string;
+  permission_key: string;
+  default_permission_key: string | null;
+  revision: string;
+}
+
 function record(value: unknown): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value))
     throw new Error('权限目录响应格式异常');
@@ -77,6 +89,27 @@ export function readPermissionApi(value: unknown): PermissionApi {
     status: string(row.status),
     default_permission_keys: strings(row.default_permission_keys),
     prerequisite_permission_keys: strings(row.prerequisite_permission_keys),
+  };
+}
+
+export function readPermissionMenuBinding(
+  value: unknown
+): PermissionMenuBinding {
+  const row = record(value);
+  if (row.type !== 'C' && row.type !== 'A') throw new Error('菜单引用类型异常');
+  return {
+    menu_key: string(row.menu_key),
+    parent_key: row.parent_key === null ? null : string(row.parent_key),
+    type: row.type,
+    name: string(row.name),
+    page_path: string(row.page_path),
+    action_key: string(row.action_key),
+    permission_key: string(row.permission_key),
+    default_permission_key:
+      row.default_permission_key === null
+        ? null
+        : string(row.default_permission_key),
+    revision: string(row.revision),
   };
 }
 

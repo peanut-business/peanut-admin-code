@@ -2633,6 +2633,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platformapi/permission/menus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMenuPermissionBindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/permission/menus/binding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["replaceMenuPermissionBinding"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platformapi/permission/apis": {
         parameters: {
             query?: never;
@@ -12364,6 +12396,101 @@ export interface operations {
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listMenuPermissionBindings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            items: {
+                                menu_key: string;
+                                parent_key: string | null;
+                                /** @enum {string} */
+                                type: "C" | "A";
+                                name: string;
+                                page_path: string;
+                                action_key: string;
+                                permission_key: string;
+                                default_permission_key: string | null;
+                                revision: string;
+                            }[];
+                            total: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    replaceMenuPermissionBinding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    menu_key: string;
+                    permission_key: string | null;
+                    action_key: string | null;
+                    expected_revision: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            menu_key: string;
+                            parent_key: string | null;
+                            /** @enum {string} */
+                            type: "C" | "A";
+                            name: string;
+                            page_path: string;
+                            action_key: string;
+                            permission_key: string;
+                            default_permission_key: string | null;
+                            revision: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            412: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            428: components["responses"]["ErrorResponse"];
         };
     };
     listRegisteredApis: {

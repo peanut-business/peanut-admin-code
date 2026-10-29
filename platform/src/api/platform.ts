@@ -2,6 +2,7 @@ import axios from 'axios';
 import {
   readPermissionApi,
   readPermissionBundle,
+  readPermissionMenuBinding,
   readPermissionPage,
   type PermissionAudience,
 } from './permission-bundles';
@@ -751,6 +752,22 @@ export function hasPlatformSession(): boolean {
 }
 
 export const api = {
+  permissionMenus: async () =>
+    readPermissionPage(
+      await unwrap<unknown>(client.get('/platformapi/permission/menus')),
+      readPermissionMenuBinding
+    ),
+  replacePermissionMenuBinding: async (data: {
+    menu_key: string;
+    permission_key: string | null;
+    action_key: string | null;
+    expected_revision: string;
+  }) =>
+    readPermissionMenuBinding(
+      await unwrap<unknown>(
+        client.put('/platformapi/permission/menus/binding', data)
+      )
+    ),
   createPermissionBundle: async (data: {
     key: string;
     name: string;

@@ -182,6 +182,145 @@
         >
       </template>
     </el-dialog>
+    <section v-if="audience === 'tenant'">
+      <el-divider />
+      <h3>租户菜单与按钮引用</h3>
+      <p
+        >选择已有权限包作为菜单或按钮的访问条件；角色授权和 API
+        关联分别保存。页面及已有动作标识保持原身份。</p
+      >
+      <el-space wrap>
+        <el-input
+          v-model="menuSearch"
+          placeholder="搜索名称、页面或动作"
+          clearable
+        />
+        <el-button
+          :loading="menuLoading"
+          :disabled="saving || loading"
+          @click="loadMenuBindings(generation)"
+          >刷新引用</el-button
+        >
+      </el-space>
+      <el-alert
+        v-if="menuError"
+        :title="menuError"
+        type="error"
+        :closable="false"
+      />
+      <el-table
+        v-loading="menuLoading"
+        :data="visibleMenuBindings"
+        row-key="menu_key"
+        empty-text="暂无菜单或按钮"
+      >
+        <el-table-column prop="name" label="名称" />
+        <el-table-column label="类型" width="80"
+          ><template #default="{ row }">{{
+            row.type === 'A' ? '按钮' : '菜单'
+          }}</template></el-table-column
+        >
+        <el-table-column prop="page_path" label="所属页面" />
+        <el-table-column prop="action_key" label="动作标识" />
+        <el-table-column prop="permission_key" label="当前权限包" />
+        <el-table-column v-if="canManage" label="操作" width="100"
+          ><template #default="{ row }"
+            ><el-button
+              link
+              :disabled="
+                saving || loading || menuLoading || !!error || !!menuError
+              "
+              @click="openMenuBinding(row)"
+              >编辑引用</el-button
+            ></template
+          ></el-table-column
+        >
+      </el-table>
+    </section>
+    <el-dialog
+      v-model="menuVisible"
+      title="菜单与按钮权限包引用"
+      width="620px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="!saving"
+      :show-close="!saving"
+    >
+      <el-form v-if="selectedMenu" label-position="top">
+        <el-form-item label="菜单 / 按钮"
+          ><el-input
+            :model-value="`${selectedMenu.name}（${selectedMenu.menu_key}）`"
+            disabled
+        /></el-form-item>
+        <el-form-item label="所属页面"
+          ><el-input :model-value="selectedMenu.page_path" disabled
+        /></el-form-item>
+        <el-form-item v-if="selectedMenu.type === 'A'" label="页面动作标识">
+          <el-input
+            v-model="menuActionKey"
+            :disabled="saving || !!selectedMenu.action_key"
+            maxlength="160"
+            placeholder="与页面 v-permission 的动作标识一致，如 role/add"
+          />
+          <p
+            >已有动作标识不可修改；尚未配置的按钮可填写一次。动作仅在所属页面使用。</p
+          >
+        </el-form-item>
+        <el-form-item label="引用权限包">
+          <el-select
+            v-model="menuPermissionKey"
+            :disabled="saving"
+            :clearable="selectedMenu.default_permission_key !== null"
+            filterable
+            placeholder="留空恢复源默认权限包"
+            style="width: 100%"
+          >
+            <el-option
+              v-if="
+                menuPermissionKey &&
+                !activeTenantBundles.some(
+                  (item) => item.key === menuPermissionKey
+                )
+              "
+              :value="menuPermissionKey"
+              :label="`${menuPermissionKey}（当前引用，已不可选）`"
+              disabled
+            />
+            <el-option
+              v-for="bundle in activeTenantBundles"
+              :key="bundle.key"
+              :value="bundle.key"
+              :label="`${bundle.name}（${bundle.key}）`"
+            />
+          </el-select>
+          <p
+            >源默认：{{
+              selectedMenu.default_permission_key === null
+                ? '未登记，不能恢复'
+                : selectedMenu.default_permission_key || '无需权限包'
+            }}。清空并保存后恢复源默认。</p
+          >
+        </el-form-item>
+      </el-form>
+      <el-alert
+        v-if="menuSaveError"
+        :title="menuSaveError"
+        type="error"
+        :closable="false"
+      />
+      <template #footer>
+        <el-button :disabled="saving" @click="menuVisible = false"
+          >关闭</el-button
+        >
+        <el-button
+          v-if="canManage"
+          type="primary"
+          :loading="saving"
+          :disabled="!canSaveMenuBinding"
+          @click="saveMenuBinding"
+          >保存引用</el-button
+        >
+      </template>
+    </el-dialog>
   </el-card>
 </template>
 
@@ -193,6 +332,7 @@
     PermissionApi,
     PermissionAudience,
     PermissionBundle,
+    PermissionMenuBinding,
   } from '../api/permission-bundles';
 
   const props = defineProps<{ canManage: boolean }>();
@@ -221,6 +361,15 @@
       bundle.source
     ]);
   const selection = ref<string[]>([]);
+  const menuBindings = ref<PermissionMenuBinding[]>([]);
+  const menuLoading = ref(false);
+  const menuError = ref('');
+  const menuSearch = ref('');
+  const menuVisible = ref(false);
+  const selectedMenu = ref<PermissionMenuBinding | null>(null);
+  const menuPermissionKey = ref('');
+  const menuActionKey = ref('');
+  const menuSaveError = ref('');
   let generation = 0;
   let detailGeneration = 0;
   const message = (cause: unknown) =>
@@ -239,6 +388,36 @@
         .includes(apiSearch.value.toLowerCase().trim())
     )
   );
+  const activeTenantBundles = computed(() =>
+    bundles.value.filter(
+      (item) => item.audience === 'tenant' && item.status === 'active'
+    )
+  );
+  const visibleMenuBindings = computed(() =>
+    menuBindings.value.filter((item) =>
+      `${item.name} ${item.page_path} ${item.action_key} ${item.permission_key}`
+        .toLowerCase()
+        .includes(menuSearch.value.toLowerCase().trim())
+    )
+  );
+  const canSaveMenuBinding = computed(() => {
+    const row = selectedMenu.value;
+    return (
+      !!row &&
+      props.canManage &&
+      !saving.value &&
+      !menuSaveError.value &&
+      !menuLoading.value &&
+      !menuError.value &&
+      !error.value &&
+      (row.type !== 'A' || (!!row.page_path && !!menuActionKey.value.trim())) &&
+      (menuPermissionKey.value
+        ? activeTenantBundles.value.some(
+            (item) => item.key === menuPermissionKey.value
+          )
+        : row.default_permission_key !== null)
+    );
+  });
   const bindable = (item: PermissionApi) =>
     item.access_mode === `${audience.value}_permission` &&
     (item.status === 'active' || selected.value?.api_ids.includes(item.id));
@@ -264,11 +443,16 @@
     visible.value = false;
     editing.value = false;
     selected.value = null;
+    menuVisible.value = false;
+    menuBindings.value = [];
+    menuError.value = '';
     bundles.value = [];
     apis.value = [];
     error.value = '';
     loading.value = true;
     const scope = audience.value;
+    const menuRequest =
+      scope === 'tenant' ? loadMenuBindings(request) : Promise.resolve();
     try {
       const [bundleRows, apiRows] = await Promise.all([
         readAll((page) => api.permissionBundles(scope, page)),
@@ -285,7 +469,68 @@
     } catch (cause) {
       if (request === generation) error.value = message(cause);
     } finally {
+      await menuRequest;
       if (request === generation) loading.value = false;
+    }
+  }
+
+  async function loadMenuBindings(request: number) {
+    menuVisible.value = false;
+    selectedMenu.value = null;
+    menuError.value = '';
+    menuLoading.value = true;
+    try {
+      const result = await api.permissionMenus();
+      if (request !== generation || audience.value !== 'tenant') return;
+      if (result.total !== result.items.length)
+        throw new Error('菜单引用未完整加载');
+      menuBindings.value = result.items;
+    } catch (cause) {
+      if (request === generation) {
+        menuBindings.value = [];
+        menuError.value = message(cause);
+      }
+    } finally {
+      if (request === generation) menuLoading.value = false;
+    }
+  }
+
+  function openMenuBinding(row: PermissionMenuBinding) {
+    selectedMenu.value = row;
+    menuPermissionKey.value = row.permission_key;
+    menuActionKey.value = row.action_key;
+    menuSaveError.value = '';
+    menuVisible.value = true;
+  }
+
+  async function saveMenuBinding() {
+    if (!canSaveMenuBinding.value || !selectedMenu.value) return;
+    const selected = selectedMenu.value;
+    saving.value = true;
+    try {
+      const row = await api.replacePermissionMenuBinding({
+        menu_key: selected.menu_key,
+        permission_key: menuPermissionKey.value || null,
+        action_key:
+          selected.type === 'A'
+            ? selected.action_key || menuActionKey.value.trim()
+            : null,
+        expected_revision: selected.revision,
+      });
+      if (row.menu_key !== selected.menu_key)
+        throw new Error('菜单引用响应目标不一致');
+      menuBindings.value = menuBindings.value.map((item) =>
+        item.menu_key === row.menu_key ? row : item
+      );
+      menuVisible.value = false;
+      ElMessage.success('菜单与按钮引用已保存');
+    } catch (cause) {
+      menuSaveError.value = `${message(
+        cause
+      )}。请关闭并刷新引用，核对最新状态后再操作。`;
+      menuError.value = menuSaveError.value;
+    } finally {
+      saving.value = false;
     }
   }
 
