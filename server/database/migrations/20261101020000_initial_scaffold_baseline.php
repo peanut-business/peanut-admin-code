@@ -7,7 +7,7 @@ use Phinx\Db\Adapter\WrapperInterface;
 use Phinx\Migration\IrreversibleMigrationException;
 use think\migration\Migrator;
 
-final class InitialBaseline extends Migrator
+final class InitialScaffoldBaseline extends Migrator
 {
     public function up(): void
     {
@@ -16,7 +16,7 @@ final class InitialBaseline extends Migrator
             $adapter = $adapter->getAdapter();
         }
         if (!$adapter instanceof PdoAdapter) {
-            throw new RuntimeException('InitialBaseline requires the native PDO adapter.');
+            throw new RuntimeException('InitialScaffoldBaseline requires the native PDO adapter.');
         }
         $sql = file_get_contents(__DIR__ . '/../schema/baseline-schema.sql');
         if (!is_string($sql) || $sql === '') {
@@ -43,33 +43,10 @@ final class InitialBaseline extends Migrator
                 throw new RuntimeException('INITIAL_SCHEMA_MISMATCH: ' . $table);
             }
         }
-        // Validate every existing table before executing any missing table DDL. Existing rows and legacy ledgers stay intact.
-        if ($pending === []) {
-            return;
-        }
-        $sql = implode("\n\n", $pending);
-        $foreignKeys = (int) $pdo->query('SELECT @@SESSION.FOREIGN_KEY_CHECKS')->fetchColumn();
-        $emulated = (bool) $pdo->getAttribute(PDO::ATTR_EMULATE_PREPARES);
-        $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
-        try {
-            // Product tables include mutual and forward references; restore the caller's session setting.
-            $this->execute('SET FOREIGN_KEY_CHECKS = 0');
-            $statement = $this->query($sql);
-            try {
-                do {
-                    if ($statement->columnCount() > 0) {
-                        $statement->fetchAll(PDO::FETCH_ASSOC);
-                    }
-                } while ($statement->nextRowset());
-            } finally {
-                $statement->closeCursor();
-            }
-        } finally {
-            try {
-                $this->execute('SET FOREIGN_KEY_CHECKS = ' . $foreignKeys);
-            } finally {
-                $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, $emulated);
-            }
+        // Module migrations run first. Check every existing definition before creating
+        // the Host tables in their dependency order with native foreign-key checks.
+        foreach ($pending as $definition) {
+            $this->execute($definition);
         }
     }
 

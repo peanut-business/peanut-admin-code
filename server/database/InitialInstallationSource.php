@@ -28,6 +28,14 @@ final class InitialInstallationSource
         $selected = [];
         foreach ($definitions as $definition) {
             if (in_array($definition[1], self::HOST_TABLES, true)) {
+                preg_match_all('/\bREFERENCES\s+`([^`]+)`/i', $definition[0], $references);
+                foreach ($references[1] as $referencedTable) {
+                    if (!isset($tables[$referencedTable])) {
+                        throw new RuntimeException(
+                            'INSTALL_INITIAL_DEPENDENCY_MISSING: ' . $definition[1] . ' requires ' . $referencedTable,
+                        );
+                    }
+                }
                 $selected[] = $definition[0];
             }
         }
@@ -36,9 +44,8 @@ final class InitialInstallationSource
         }
 
         $data = self::read($serverRoot . '/database/schema/baseline-data.sql');
-        // Frozen data also contains historical business/menu conversions. Fresh installs
-        // use defaults only; current catalogs are synchronized from their actual owners.
-        $data = explode('-- peanut-baseline-catalog-boundary', $data, 2)[0];
+        // Current defaults are projected to the selected Modules; their owners
+        // synchronize permission and menu catalogs after dynamic identity setup.
         preg_match_all('/^INSERT\b.*?;(?=\r?\n|$)/ms', $data, $statements);
         $defaults = [];
         foreach ($statements[0] as $statement) {

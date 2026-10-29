@@ -766,8 +766,8 @@ def prepare_local_core_snapshot(root: Path, core_inputs_path: Path, tool_root: P
         if source.is_symlink() or not source.is_file() or sha256(source) != row["sha256"]:
             fail("local Core archive bytes differ from the receipt")
         target = ROOT / relative
-        if target.exists() or target.is_symlink():
-            fail(f"Core archive output already exists in source snapshot: {relative}")
+        if target.is_symlink() or (target.exists() and not target.is_file()):
+            fail(f"Core archive output is not a regular snapshot file: {relative}")
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
         target.chmod(0o644)
@@ -1026,6 +1026,7 @@ def prepare_release_workspace(workspace: Path, output_root: Path, local_core: bo
     run(['composer', 'install', f'--working-dir={snapshot_root / "server"}', '--no-scripts', '--no-plugins',
          '--no-interaction', '--no-progress', '--prefer-dist'])
     run(['pnpm', '--dir', str(snapshot_root / 'web'), 'install', '--frozen-lockfile', '--ignore-scripts'])
+    run([npm_command(), 'ci', '--prefix', str(snapshot_root / 'uniapp'), '--ignore-scripts'])
     run(['php', str(snapshot_root / 'scripts/generate-api-contracts.php')])
     run(['php', str(snapshot_root / 'scripts/build-application-template-inventory'), '--local'])
 
