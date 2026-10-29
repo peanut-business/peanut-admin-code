@@ -4,6 +4,8 @@
 
 ## 数据库维护输入
 
+普通开发、启动和原生迁移不要求自写租约或候选证明；共享开发库仍核对实际部署目标、登记 endpoint、数据库名和应用凭据。`PEANUT_RESOURCE_LEASE_PROOF` 仅供固定资格、恢复等原有专用合同使用。
+
 普通运行配置使用 `server/.env` 与 ThinkPHP 原生 `PHP_ENV_NAME`，不再使用PHP自定义文件选择器。Compose的 `PEANUT_SERVER_ENV_FILE` 如仍用于选择挂载源，仅属于编排输入，不传给PHP作为配置加载入口。
 
 seed、受控迁移维护和固定资格的资源选择使用独立进程输入，不从普通 `.env` 或 ThinkPHP Env 读取：`PEANUT_DATABASE_RESOURCE_ID` 选择已登记数据库；`PEANUT_DEPLOYMENT_TARGET` 必须匹配APP_ENV和登记环境；`PEANUT_DATABASE_CONSUMER` 明确选择登记endpoint；`PEANUT_DATABASE_ENDPOINT_ID` 是可选精确断言；`PEANUT_RESOURCE_LEASE_PROOF` 提供原操作要求的真实租约。先通过 `scripts/project-resource-registry database-env --resource-id=<已登记ID> --deployment-target=<已登记target> --consumer=<host或container>` 读取非秘密选择；该命令输出target、resource/endpoint/consumer及登记地址，不读取密码、不授予租约、不修改应用配置。只将维护选择传入相应命令进程，实际DB连接继续由原生应用配置加载并逐项匹配登记，不把全部输出追加到 `.env`。固定库的登记/选择检查可用同一工具的 `validate` 加相同三参数；它只证明该数据库范围，不证明健康或租约。维护者仅在明确提供绝对 `PEANUT_RESOURCE_REGISTRY` 进程输入时读取维护登记，不自动寻找Project，不从示例猜测地址、身份或凭据。普通运行和首次安装直接使用 ThinkPHP 默认连接；安装配置器不生成这些维护环境项或私有资源登记。

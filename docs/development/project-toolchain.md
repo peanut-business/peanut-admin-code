@@ -36,7 +36,7 @@ Peanut CLI 的 `peanut config [--path <project-root>] [--yes]` 会发现已安�
 
 维护者可用 `peanut config --release-database-registry <绝对登记文件> --release-database-resource <稳定ID> --release-database-sql <绝对SQL文件>` 保存可选 `release_database_backup`（`registry`、`resource_id`、`output`），默认关闭；`--no-release-database-backup` 清除选择。三个字段不含凭据，只写本机 `.local/toolchain/host.json`，不随源码或模板交付。SQL 和登记必须位于 Code 外，SQL 还须位于发行输出之外。完整数据库可能含秘密，Git 备份应选私有仓库，工具不执行 Git 上传。
 
-启用时 `peanut release` 在输入准备和双 Edition 制包前调用一次 `scripts/export-release-database`，失败即停止。该入口只接受本机开发维护登记、当前 candidate 的原生 active lease 及整库 exclusive mysql-access；进程传入 `PEANUT_RESOURCE_LEASE_PROOF`，lease 还须覆盖 SQL 父目录和 `<paths.backups>/database/release` 的 `output-dir`。数据库连接仍由本机应用环境加载并核对登记，维护选项不写 `.env`。导出按登记的 SSH 管理地址及容器执行原生 mysqldump；严格 known-host 校验，容器 root 密码仅在远端容器内展开。输出目录必须属于当前用户且为 0700，SQL/receipt 为 0600；成功核原生退出码和完整 footer，再把旧 SQL/receipt 保全至 backups 后原子替换最新 SQL。旁边 `.sql.json` 记录 registry/资源、UUID、源码、租约、native 参数、摘要及恢复位置。完整dump与用于首次安装的结构/必要初始数据源分别管理，导出不会改写安装 SQL。模板生成器及其 `--check` 不导出数据库。
+启用时 `peanut release` 在输入准备和双 Edition 制包前调用一次 `scripts/export-release-database`，失败即停止。该入口只接受本机开发维护登记；数据库连接由本机应用环境加载并核对登记，维护选项不写 `.env`。导出按登记的 SSH 管理地址及容器执行原生 mysqldump，通过 `--single-transaction` 取得事务快照；严格 known-host 校验，容器 root 密码仅在远端容器内展开。输出目录必须属于当前用户且为 0700，SQL/receipt 为 0600；成功核原生退出码和完整 footer，再把旧 SQL/receipt 保全至 backups 后原子替换最新 SQL。旁边 `.sql.json` 记录 registry/资源、UUID、源码快照身份、native 参数、摘要及恢复位置。完整dump与用于首次安装的结构/必要初始数据源分别管理，导出不会改写安装 SQL。模板生成器及其 `--check` 不导出数据库。
 
 ## 速度与缓存
 

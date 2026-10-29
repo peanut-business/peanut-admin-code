@@ -66,25 +66,7 @@ function exportReleaseDatabase(array $arguments): array
     $configuration = guardedDatabaseConfig();
     $registry = projectResourceRegistry($registrySha256);
     $database = registeredDatabase($registry, $configuration['resource_id']);
-    if (($registry['authority']['role'] ?? null) !== 'maintainer'
-        || ($database['lease_policy']['mode'] ?? null) !== 'schema'
-        || !isset($database['lease_policy']['shared_access'])) { throw new RuntimeException('DEVELOPMENT_SCHEMA_POLICY_REQUIRED'); }
-    $proof = requiredMaintenanceEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
-    $metadata = activeLeaseMetadata($proof, time(), $database['lease_gate']);
-    $resources = activeLeaseResources($proof);
-    $schema = $database['lease_policy']['physical_endpoint'] . '/' . $configuration['database'];
-    $access = array_filter($resources['mysql-access'] ?? [], static function (string $value) use ($schema): bool {
-        $entry = json_decode($value, true, 32, JSON_THROW_ON_ERROR);
-        return ($entry['schema'] ?? null) === $schema && ($entry['operation'] ?? null) === 'exclusive'
-            && ($entry['complete'] ?? null) === true && ($entry['tables'] ?? null) === [];
-    });
-    // A full logical dump observes every table and stored object, including future tables.
-    if (count($access) !== 1) { throw new RuntimeException('EXCLUSIVE_SCHEMA_LEASE_REQUIRED'); }
-    foreach ([dirname($output), $backupRoot . '/database/release'] as $directory) {
-        if (!in_array($directory, $resources['output-dir'] ?? [], true)) {
-            throw new RuntimeException('OUTPUT_DIRECTORY_LEASE_REQUIRED');
-        }
-    }
+    if (($registry['authority']['role'] ?? null) !== 'maintainer') { throw new RuntimeException('MAINTAINER_REGISTRY_REQUIRED'); }
     $containers = [];
     foreach ($database['lease_policy']['server_resources'] as $resource) {
         if (str_starts_with($resource, 'docker-container=')) { $containers[] = substr($resource, 17); }
@@ -182,9 +164,7 @@ SH;
             'registry_sha256' => $registrySha256, 'database' => $configuration['database'],
             'server_uuid' => $identity['server_uuid'], 'server_version' => $identity['server_version'],
             'management_host' => $selected['host'], 'container' => $containers[0],
-            'source_commit' => $metadata['candidate'], 'source_tree' => leaseGit(['-C', $root, 'rev-parse', 'HEAD^{tree}']),
-            'source_modified' => leaseGit(['-C', $root, 'status', '--porcelain=v1', '--untracked-files=normal']) !== '',
-            'lease' => $metadata['lease'], 'owner' => $metadata['owner'], 'output' => $output,
+            'output' => $output,
             'bytes' => $size, 'sha256' => hash_file('sha256', $temporary), 'native_exit_code' => $exit,
             'native_footer' => trim($footer[0]), 'previous_snapshot' => $previous];
         require_once $root . '/scripts/scaffold-runtime/ScaffoldSourceIdentity.php';
