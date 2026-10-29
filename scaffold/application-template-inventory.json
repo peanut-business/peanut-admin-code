@@ -2270,7 +2270,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e7bdd289c93f42acefe3a9864622976f41803e1d06ca02548e7171bbd1f5e953"
+            "source_sha256": "61d6f8c51d3beb2b4524e053cec840b5868e234afc63cfc13592ac110038a7bc"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2351,7 +2351,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "77b04757d13dd8631047198a7773b36d2c8797105ea833d7087f574ffa08d7cd"
+            "source_sha256": "3b891bc8d4a5671eeda4835007bb731e2a077dcdef7376091fcd429105996160"
         },
         {
             "path": "plugins/peanut.integration/plugin.json",
@@ -11749,7 +11749,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "46f4e15f660e95e693c872896cd45f1361b77e1d6415e9b9ece589b21c51b452"
+            "source_sha256": "823cd300baadece86b94cd46f5cdd95e0916a0e288bab8b69efc038917daa2c8"
         },
         {
             "path": "server/app/modules/peanut/identity/src/Authorization/CorePermissionCatalog.php",
@@ -18041,7 +18041,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "69c472462104bca05378bed9876341d5b8b08c7e69fd8ffb0cdd75b897522259"
+            "source_sha256": "bbdf28a3e74bda56118a3bbd98eda466bbb80e42613895cb60ce6b764dae0a1a"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/ModuleUninstallPlanCodec.php",
@@ -19887,7 +19887,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ab15204edf81696d38d22c6d4a3cb5e2953353be9a71fb80d1dc402096d40912"
+            "source_sha256": "6e210c4b14810c75a02a005af267c303b8d68a4d99f60ba1cd6167afa26e12ca"
         },
         {
             "path": "server/generated/openapi.json",

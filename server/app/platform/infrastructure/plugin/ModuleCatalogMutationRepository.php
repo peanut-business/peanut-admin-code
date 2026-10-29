@@ -29,7 +29,7 @@ final readonly class ModuleCatalogMutationRepository
         $keys = array_values(array_diff(array_unique([
             ...$this->identity->activeModuleKeys(),
             ...$this->settings->activeModuleKeys(),
-        ]), ['core', 'platform']));
+        ]), CatalogLifecycleService::NON_MODULE_OWNERS));
         sort($keys, SORT_STRING);
         return $keys;
     }

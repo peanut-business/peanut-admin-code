@@ -15,6 +15,9 @@ use think\facade\Db;
  */
 final readonly class CatalogLifecycleService
 {
+    /** Owners reserved for the platform, host and instance, not Module lifecycle. */
+    public const NON_MODULE_OWNERS = ['core', 'platform', 'peanut.admin', 'instance.tenant', 'instance.platform', 'member', 'installation'];
+
     /**
      * 已授权部署清单的首次登记；重复只接受相同且活动的身份，不能借重装覆盖版本或复活停用项。
      * 目录应用仍由宿主编排；本方法参与其外层事务，不开放任意字段更新或表选择。
@@ -239,7 +242,7 @@ final readonly class CatalogLifecycleService
         $keys = [];
         foreach (['pa_permission', 'pa_protected_resource', 'pa_target_type', 'pa_data_condition_definition', 'pa_menu_definition'] as $table) {
             foreach (Db::table($table)->where('status', 'active')->distinct(true)->order('module_key')->column('module_key') as $key) {
-                if (!in_array((string) $key, ['core', 'platform'], true)) {
+                if (!in_array((string) $key, self::NON_MODULE_OWNERS, true)) {
                     $keys[(string) $key] = true;
                 }
             }
