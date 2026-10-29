@@ -1026,6 +1026,7 @@ def prepare_release_workspace(workspace: Path, output_root: Path, local_core: bo
     run(['composer', 'install', f'--working-dir={snapshot_root / "server"}', '--no-scripts', '--no-plugins',
          '--no-interaction', '--no-progress', '--prefer-dist'])
     run(['pnpm', '--dir', str(snapshot_root / 'web'), 'install', '--frozen-lockfile', '--ignore-scripts'])
+    run([npm_command(), 'ci', '--prefix', str(snapshot_root / 'uniapp'), '--ignore-scripts'])
     run(['php', str(snapshot_root / 'scripts/generate-api-contracts.php')])
     run(['php', str(snapshot_root / 'scripts/build-application-template-inventory'), '--local'])
 
