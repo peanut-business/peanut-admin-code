@@ -3550,7 +3550,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "72e039ae2ad8b0cca61446fd16a6e1f535baf0aead25227ecda526fde803dd21"
+            "source_sha256": "351e2003fe61a7fee7bee128a5cd8c96c111b9af659e3f751df3c8dfa9a1d210"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",

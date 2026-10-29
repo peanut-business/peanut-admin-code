@@ -2810,7 +2810,15 @@ final class ScaffoldUpgradeRunner
             if (!is_dir($source) || is_link($source)) {
                 throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_PATH_INVALID');
             }
-            $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($source, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST);
+            $iterator = new \RecursiveIteratorIterator(new \RecursiveCallbackFilterIterator(
+                new \RecursiveDirectoryIterator($source, \FilesystemIterator::SKIP_DOTS),
+                static function (\SplFileInfo $entry): bool {
+                    if ($entry->isLink()) {
+                        throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_PATH_INVALID');
+                    }
+                    return !$entry->isDir() || !in_array(strtolower($entry->getFilename()), PluginArtifactWriter::EXCLUDED_SOURCE_DIRECTORIES, true);
+                },
+            ), \RecursiveIteratorIterator::SELF_FIRST);
             foreach ($iterator as $entry) {
                 if ($entry->isLink() || (!$entry->isDir() && !$entry->isFile())) {
                     throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_PATH_INVALID');
@@ -2825,7 +2833,7 @@ final class ScaffoldUpgradeRunner
         return $files;
     }
 
-    /** Reject every link and copy exact customer bytes/modes into the ephemeral projection. */
+    /** Copy canonical customer source bytes/modes, excluding the existing dependency/cache directories. */
     private function copyPluginProjectionPath(string $root, string $stage, string $relative): void
     {
         $source = ScaffoldPathGuard::projectPath($root, $relative);
@@ -2841,7 +2849,15 @@ final class ScaffoldUpgradeRunner
         if (!is_dir($source) || is_link($source)) {
             throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_PATH_INVALID');
         }
-        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($source, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST);
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveCallbackFilterIterator(
+            new \RecursiveDirectoryIterator($source, \FilesystemIterator::SKIP_DOTS),
+            static function (\SplFileInfo $entry): bool {
+                if ($entry->isLink()) {
+                    throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_PATH_INVALID');
+                }
+                return !$entry->isDir() || !in_array(strtolower($entry->getFilename()), PluginArtifactWriter::EXCLUDED_SOURCE_DIRECTORIES, true);
+            },
+        ), \RecursiveIteratorIterator::SELF_FIRST);
         foreach ($iterator as $entry) {
             if ($entry->isLink() || (!$entry->isDir() && !$entry->isFile())) {
                 throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_PATH_INVALID');
