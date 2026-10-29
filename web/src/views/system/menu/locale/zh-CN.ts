@@ -1,4 +1,14 @@
 export default {
+  'systemMenu.field.perms.default': '源默认权限包',
+  'systemMenu.field.perms.managed.placeholder':
+    '选择已有权限包，清空恢复源默认',
+  'systemMenu.field.perms.managed.hint':
+    '可引用同一安全域内启用的已有权限包；清空后恢复系统或模块声明的默认权限包。仅调整此菜单的访问条件，不改变角色授权或 API 关联。',
+  'systemMenu.field.action': '页面动作标识',
+  'systemMenu.field.action.placeholder':
+    '如 role/add，与页面 v-permission 的动作标识一致',
+  'systemMenu.field.action.hint':
+    '按钮须直属页面菜单；仅在该父页面将此动作关联到所选权限包，不改变其他页面或角色授权。',
   'systemMenu.field.perms.hint':
     '引用独立权限包；多个菜单或按钮可复用同一权限包，修改菜单不授予角色权限。',
   'systemMenu.field.perms.error': '权限包目录未完整加载，请重新打开窗口',

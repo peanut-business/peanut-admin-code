@@ -37,21 +37,27 @@ OpenAPI JSON 可交给支持 OpenAPI 3.0.3 的阅读器构建可读页面；发�
 
 ## 独立权限包与 API 关联
 
-权限包沿用系统和模块声明的稳定权限 key；菜单、按钮引用 key，角色通过既有 `permission_keys` 授权。API 自动登记来自同一生成目录，身份 `api_id` 由 HTTP 方法、规范化路径模板及应用入口生成，与权限包或菜单无关。权限包和 API 为多对多，定义及授权边界见[身份与授权](../architecture/identity-organization-access.md#3-部门岗位角色和数据范围)。
+Identity 统一管理系统、模块及实例自建权限包，`source` 分别为 `system`、`module`、`custom`。菜单、按钮各引用一个稳定权限 key，角色通过既有 `permission_keys` 授予同一 tenant/platform 安全域内可用的包。API 自动登记来自同一生成目录，身份 `api_id` 由 HTTP 方法、规范化路径模板及应用入口生成，与权限包或菜单无关。权限包和 API 为多对多，定义及授权边界见[身份与授权](../architecture/identity-organization-access.md#3-部门岗位角色和数据范围)。
 
 | 入口 | 合同 |
 | --- | --- |
-| `GET /platformapi/permission/bundles` | `audience=tenant\|platform`、`page_no`、`page_size`、`search`；返回权限包 `key/name/module_key/audience/status/revision/configured/api_ids` |
-| `GET /platformapi/permission/apis` | 同上，另可按 `status=active\|retired` 过滤；返回 API `id/method/path/audience/module_key/access_mode/status/default_permission_keys/prerequisite_permission_keys` |
+| `GET /platformapi/permission/bundles` | `audience=tenant\|platform`、`page_no`、`page_size`、`search`；返回权限包 `key/name/module_key/source/audience/status/revision/configured/api_ids` |
+| `POST /platformapi/permission/bundles` | 使用 `key`、`name`、`audience` 创建实例自建包，初始 `status=active` |
+| `PUT /platformapi/permission/bundles` | 使用 `permission_key`、`name`、`status=active\|retired`、`expected_revision` 修改实例自建包；不修改 key 或受众 |
+| `GET /platformapi/permission/apis` | `audience=tenant\|platform`、`page_no`、`page_size`、`search`，另可按 `status=active\|retired` 过滤；返回 API `id/method/path/audience/module_key/access_mode/status/default_permission_keys/prerequisite_permission_keys` |
 | `GET /platformapi/permission/apis/bindings` | 按 `permission_key` 读取一个权限包的完整关联及修订 |
 | `PUT /platformapi/permission/apis/bindings` | 使用 `permission_key`、`expected_revision`、`api_ids` 原子替换关联；空数组明确清空，受下述管理入口约束 |
 | `GET /adminapi/permission/bundles/apis` | 租户按 `permission_key` 只读查看其可用权限包的关联 |
 
-平台读取要求 `platform.permission.read`，修改要求 `platform.permission.api.manage`；租户读取要求 `core.permission.read`。列表返回 `items/total/page_no/page_size`。关联保存缺少修订返回 428、修订冲突返回 412，不自动重试；只能新增同受众、活动且受保护 API 的关联，公开或仅认证入口不能通过此接口改为权限入口。已关联的退役 API 可保留展示或显式移除，不能作为新增候选。保存后的 `configured=true` 表示实例已接管该权限包的 API 关联，后续同步保留其选择；源码权限包定义和角色授权仍分别维护。
+平台读取要求 `platform.permission.read`，创建、定义编辑和关联修改要求 `platform.permission.api.manage`；租户读取要求 `core.permission.read`。列表返回 `items/total/page_no/page_size`，权限包详情同样返回 `source`。`tenant` 受众的自建包 key 使用 `custom.` 前缀，`platform` 受众使用 `platform.custom.` 前缀，前缀后须有标识；完整 key 以小写字母开头，仅含小写字母、数字、点、下划线及连字符，最多100字符，不能与已有 key 重复。系统及模块包定义只读，自建定义不由模块同步覆盖；租户授权已有包，不开放租户自建入口。
+
+定义编辑与关联保存都携带权限包修订，缺少修订返回 428、修订冲突返回 412，不自动重试；角色授权使用其独立修订。只能新增同受众、活动且受保护 API 的关联，公开或仅认证入口不能通过此接口改为权限入口。已关联的退役 API 可保留展示或显式移除，不能作为新增候选。保存后的 `configured=true` 表示实例已接管该权限包的 API 关联，后续同步保留其选择；包定义和角色授权仍分别维护。
 
 API 的 `prerequisite_permission_keys` 始终返回字符串数组，无前置权限时为空；它由源码声明，关联选择器展示但不能修改。多个关联权限包之间按任一满足判断主要动作，前置权限则必须全部满足，即使重新关联也保留原有同时授权要求。源码路由的 `peanut_permission` 标记主要动作，不能将同一路由的其他必需权限并入任一满足的默认关联。
 
-为保留当前界面的关联修复入口，`GET /platformapi/permission/bundles`、`GET /platformapi/permission/apis`、`GET /platformapi/permission/apis/bindings`、`PUT /platformapi/permission/apis/bindings` 各自必须保留至少一个有效平台权限包关联。若保存将移除其中任一 API 的最后一个关联，整笔替换回滚并返回 409 `API_MANAGEMENT_RECOVERY_REQUIRED`。该限制只针对上述四个精确方法与路径；普通权限包仍可保存空集合。
+API 所属模块仍独立校验安装及当前租户开通，跨模块引用不会绕过它。受管菜单可引用同域有效的已有权限包（system/module/custom），实例引用仅替代源码默认菜单门槛，清空恢复默认，不与默认包叠加，也不改变 API 的源码前置权限；存储及同步见[菜单定制](../development/menu-navigation.md)。`GET /adminapi/user/info` 的 `action_bindings` 是 `{page_path, action_key, permission_key}` 列表，包含已配置但当前用户未获授权的项，不限权限包来源。它来自页面下 `A` 类型按钮的动作配置，前端按当前 `page_path` 与真实权限包授权判断；API 关联本身不把 `default_permission_keys` 自动授给用户，也不产生页面动作映射。
+
+为保留当前界面的管理修复入口，`GET /platformapi/permission/bundles`、`POST /platformapi/permission/bundles`、`PUT /platformapi/permission/bundles`、`GET /platformapi/permission/apis`、`GET /platformapi/permission/apis/bindings`、`PUT /platformapi/permission/apis/bindings` 各自必须保留至少一个有效平台权限包关联。若关联替换或自建包退役将移除其中任一 API 的最后一个有效关联，整笔修改回滚并返回 409 `API_MANAGEMENT_RECOVERY_REQUIRED`。该限制只针对上述六个精确方法与路径；普通权限包仍可保存空集合。
 
 ## 部门目录分页合同
 

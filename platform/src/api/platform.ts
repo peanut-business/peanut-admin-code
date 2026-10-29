@@ -751,6 +751,25 @@ export function hasPlatformSession(): boolean {
 }
 
 export const api = {
+  createPermissionBundle: async (data: {
+    key: string;
+    name: string;
+    audience: PermissionAudience;
+  }) =>
+    readPermissionBundle(
+      await unwrap<unknown>(
+        client.post('/platformapi/permission/bundles', data)
+      )
+    ),
+  updatePermissionBundle: async (data: {
+    permission_key: string;
+    name: string;
+    status: 'active' | 'retired';
+    expected_revision: string;
+  }) =>
+    readPermissionBundle(
+      await unwrap<unknown>(client.put('/platformapi/permission/bundles', data))
+    ),
   permissionBundles: async (audience: PermissionAudience, page: number) =>
     readPermissionPage(
       await unwrap<unknown>(

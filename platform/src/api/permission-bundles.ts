@@ -9,6 +9,7 @@ export interface PermissionBundle {
   revision: string;
   api_ids: string[];
   configured: boolean;
+  source: 'system' | 'module' | 'custom';
 }
 
 export interface PermissionApi {
@@ -49,6 +50,8 @@ function audience(value: unknown): PermissionAudience {
 export function readPermissionBundle(value: unknown): PermissionBundle {
   const row = record(value);
   if (typeof row.configured !== 'boolean') throw new Error('权限绑定状态异常');
+  if (!['system', 'module', 'custom'].includes(string(row.source)))
+    throw new Error('权限包来源异常');
   return {
     key: string(row.key),
     name: string(row.name),
@@ -58,6 +61,7 @@ export function readPermissionBundle(value: unknown): PermissionBundle {
     revision: string(row.revision),
     api_ids: strings(row.api_ids),
     configured: row.configured,
+    source: row.source as PermissionBundle['source'],
   };
 }
 

@@ -153,13 +153,28 @@
         <el-form-item
           v-if="form.type !== 'M'"
           prop="paths"
-          :label="$t('systemMenu.field.paths')"
+          :label="
+            $t(
+              form.type === 'A'
+                ? 'systemMenu.field.action'
+                : 'systemMenu.field.paths'
+            )
+          "
         >
           <el-input
             v-model="form.paths"
             :disabled="form.managed"
-            :placeholder="$t('systemMenu.field.paths.placeholder')"
+            :placeholder="
+              $t(
+                form.type === 'A'
+                  ? 'systemMenu.field.action.placeholder'
+                  : 'systemMenu.field.paths.placeholder'
+              )
+            "
           />
+          <p v-if="form.type === 'A'">{{
+            $t('systemMenu.field.action.hint')
+          }}</p>
         </el-form-item>
         <el-form-item
           v-if="form.type === 'C'"
@@ -175,12 +190,29 @@
         <el-form-item prop="perms" :label="$t('systemMenu.field.perms')">
           <el-select
             v-model="form.perms"
-            :disabled="form.managed"
+            :disabled="permissionLoading || !!permissionError"
             :loading="permissionLoading"
             filterable
             clearable
-            :placeholder="$t('systemMenu.field.perms.placeholder')"
+            :placeholder="
+              $t(
+                form.managed
+                  ? 'systemMenu.field.perms.managed.placeholder'
+                  : 'systemMenu.field.perms.placeholder'
+              )
+            "
           >
+            <el-option
+              v-if="
+                form.managed &&
+                form.perms &&
+                !permissionOptions.some((item) => item.key === form.perms)
+              "
+              :value="form.perms"
+              :label="`${$t('systemMenu.field.perms.default')}（${
+                form.perms
+              }）`"
+            />
             <el-option
               v-for="permission in permissionOptions"
               :key="permission.key"
@@ -188,7 +220,13 @@
               :label="`${permission.name}（${permission.key}）`"
             />
           </el-select>
-          <p>{{ $t('systemMenu.field.perms.hint') }}</p>
+          <p>{{
+            $t(
+              form.managed
+                ? 'systemMenu.field.perms.managed.hint'
+                : 'systemMenu.field.perms.hint'
+            )
+          }}</p>
           <el-alert
             v-if="permissionError"
             :title="permissionError"
@@ -215,7 +253,7 @@
         <el-button
           type="primary"
           :loading="submitLoading"
-          :disabled="!form.managed && (permissionLoading || !!permissionError)"
+          :disabled="permissionLoading || !!permissionError"
           @click="handleSubmit"
           >保存</el-button
         >
@@ -275,6 +313,16 @@
   }
 
   const parentTree = computed<MenuParentOption[]>(() => {
+    if (form.type === 'A') {
+      const pages = (nodes: MenuRecord[]): MenuParentOption[] =>
+        nodes.flatMap((node) => [
+          ...(node.type === 'C'
+            ? [{ menu_key: node.menu_key, name: node.name, children: [] }]
+            : []),
+          ...pages(node.children || []),
+        ]);
+      return pages(renderData.value);
+    }
     const strip = (nodes: MenuRecord[]): MenuParentOption[] =>
       nodes
         .filter(
@@ -398,18 +446,17 @@
     isEdit.value = true;
     resetForm({ ...record, children: undefined });
     modalVisible.value = true;
-    if (!record.managed) loadPermissions();
+    loadPermissions();
   };
 
   const handleSubmit = async () => {
-    if (!form.managed && (permissionLoading.value || permissionError.value))
-      return;
+    if (permissionLoading.value || permissionError.value) return;
     const valid = await formRef.value?.validate().catch(() => false);
     if (!valid) return;
     submitLoading.value = true;
     try {
       if (isEdit.value) {
-        await editMenu(form);
+        await editMenu({ ...form, perms: form.perms || '' });
       } else {
         await addMenu(form);
       }

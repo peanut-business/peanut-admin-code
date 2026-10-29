@@ -64,6 +64,10 @@ export default function mapServerMenu(
         path: normalizePath(menu.paths || staticRoute.path),
         meta: {
           ...staticRoute.meta,
+          requiredPermissions:
+            menu.required_permission ||
+            menu.perms ||
+            staticRoute.meta?.requiredPermissions,
           icon: menu.icon || staticRoute.meta?.icon,
           title: menu.name || staticRoute.meta?.title,
           hideInMenu:

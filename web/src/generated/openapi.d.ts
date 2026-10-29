@@ -2625,8 +2625,8 @@ export interface paths {
             cookie?: never;
         };
         get: operations["listPermissionBundles"];
-        put?: never;
-        post?: never;
+        put: operations["updatePermissionBundle"];
+        post: operations["createPermissionBundle"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4461,6 +4461,11 @@ export interface components {
             roles: components["schemas"]["StringList"];
             menu: components["schemas"]["AdminMenuNode"][];
             permissions: components["schemas"]["StringList"];
+            action_bindings: {
+                page_path: string;
+                action_key: string;
+                permission_key: string;
+            }[];
             tenantName: string;
             website: components["schemas"]["WebsiteConfig"];
             canSwitchTenant: boolean;
@@ -5505,6 +5510,8 @@ export interface components {
             key: string;
             name: string;
             module_key: string;
+            /** @enum {string} */
+            source: "system" | "module" | "custom";
             /** @enum {string} */
             audience: "tenant" | "platform";
             /** @enum {string} */
@@ -12275,6 +12282,87 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updatePermissionBundle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    permission_key: string;
+                    name: string;
+                    /** @enum {string} */
+                    status: "active" | "retired";
+                    expected_revision: number | string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PermissionBundle"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            412: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            428: components["responses"]["ErrorResponse"];
+        };
+    };
+    createPermissionBundle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    key: string;
+                    name: string;
+                    /** @enum {string} */
+                    audience: "tenant" | "platform";
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PermissionBundle"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };

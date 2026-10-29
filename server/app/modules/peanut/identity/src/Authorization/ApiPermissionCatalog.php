@@ -157,7 +157,15 @@ final class ApiPermissionCatalog
         }
         $total = (int) (clone $query)->count();
         $rows = $query->order('module_key,key')->limit($page->offset(), $page->pageSize)->select()->toArray();
-        return ['items' => array_map(fn(array $row): array => $this->bundleRow($row), $rows), 'total' => $total];
+        $ids = array_column($rows, 'id');
+        $configs = $ids === [] ? [] : array_column(Db::name('permission_api_config')->whereIn('permission_id', $ids)->select()->toArray(), null, 'permission_id');
+        $bindings = [];
+        if ($ids !== []) {
+            foreach (Db::name('permission_api')->whereIn('permission_id', $ids)->order('api_id')->select()->toArray() as $binding) {
+                $bindings[$binding['permission_id']][] = $binding['api_id'];
+            }
+        }
+        return ['items' => array_map(fn(array $row): array => $this->bundleRow($row, $configs[$row['id']] ?? [], $bindings[$row['id']] ?? []), $rows), 'total' => $total];
     }
 
     public function apis(PageRequest $page, string $audience, string $search, string $status): array
@@ -201,6 +209,8 @@ final class ApiPermissionCatalog
                         ]);
                     })->whereOr(function ($write): void {
                         $write->where('method', 'PUT')->where('path', '/platformapi/permission/apis/bindings');
+                    })->whereOr(function ($write): void {
+                        $write->whereIn('method', ['POST', 'PUT'])->where('path', '/platformapi/permission/bundles');
                     });
                 })->order('id')->lock(true)->select()->toArray();
             $permission = Db::name('permission')->where('key', $key)->lock(true)->find();
@@ -247,12 +257,77 @@ final class ApiPermissionCatalog
         });
     }
 
-    private function bundleRow(array $row): array
+    public function createCustom(string $key, string $name, string $audience): array
     {
-        $config = Db::name('permission_api_config')->where('permission_id', $row['id'])->find();
+        $prefix = $audience === 'platform' ? 'platform.custom.' : 'custom.';
+        if (!str_starts_with($key, $prefix) || preg_match('/^[a-z][a-z0-9._-]{1,99}$/D', $key) !== 1 || strlen($key) <= strlen($prefix)) {
+            throw AdminAccessException::invalid('API_INPUT_INVALID', 'Custom permission keys must use the reserved custom namespace.');
+        }
+        if (Db::name('permission')->where('key', $key)->find() !== null) {
+            throw AdminAccessException::conflict('PERMISSION_KEY_EXISTS', 'The permission key already exists.');
+        }
+        $now = gmdate('Y-m-d H:i:s');
+        Db::name('permission')->insert(['key' => $key, 'module_key' => 'instance.' . $audience,
+            'type' => 'api', 'name' => $name, 'risk_level' => 'normal', 'status' => 'active',
+            'manifest_version' => 'instance', 'created_at' => $now, 'updated_at' => $now]);
+        return $this->bundle($key);
+    }
+
+    public function updateCustom(string $key, string $name, string $status, int $revision): array
+    {
+        $row = Db::name('permission')->where('key', $key)->lock(true)->find();
+        if ($row === null) {
+            throw AdminAccessException::notFound();
+        }
+        if (!in_array($row['module_key'], ['instance.tenant', 'instance.platform'], true)) {
+            throw AdminAccessException::invalid('PERMISSION_NOT_CUSTOM', 'Only custom bundles can be edited.');
+        }
+        $current = $this->bundleRow($row);
+        if ((int) $current['revision'] !== $revision) {
+            throw AdminAccessException::revisionMismatch();
+        }
+        $now = gmdate('Y-m-d H:i:s');
+        Db::name('permission')->where('id', $row['id'])->update(['name' => $name, 'status' => $status,
+            'retired_at' => $status === 'retired' ? $now : null, 'updated_at' => $now]);
+        Db::name('permission_api_config')->duplicate(['revision' => $revision + 1, 'updated_at' => $now])->insert([
+            'permission_id' => $row['id'], 'revision' => $revision + 1, 'configured' => 1, 'updated_at' => $now,
+        ]);
+        if ($row['status'] !== $status) {
+            $roleIds = Db::name('platform_role_permission')->where('permission_id', $row['id'])->column('platform_role_id');
+            if ($roleIds !== []) {
+                Db::name('platform_role')->whereIn('id', $roleIds)->inc('revision')->update(['updated_at' => $now]);
+            }
+            $tenantIds = Db::name('role_permission')->where('permission_id', $row['id'])->distinct(true)->column('tenant_id');
+            if ($tenantIds !== []) {
+                Db::name('tenant')->whereIn('id', $tenantIds)->inc('authorization_revision')->inc('revision')->update(['updated_at' => $now]);
+            }
+        }
+        if ($status === 'retired') {
+            $this->assertManagementRecovery();
+        }
+        return $this->bundle($key);
+    }
+
+    private function assertManagementRecovery(): void
+    {
+        $apis = Db::name('api_endpoint')->where('audience', 'platform')->where('status', 'active')
+            ->whereIn('path', ['/platformapi/permission/bundles', '/platformapi/permission/apis', '/platformapi/permission/apis/bindings'])
+            ->lock(true)->select()->toArray();
+        foreach ($apis as $api) {
+            if ($this->permissionKeys($api, true) === []) {
+                throw AdminAccessException::conflict('API_MANAGEMENT_RECOVERY_REQUIRED', 'Keep an active platform bundle bound to the management routes.');
+            }
+        }
+    }
+
+    private function bundleRow(array $row, ?array $config = null, ?array $apiIds = null): array
+    {
+        $config ??= Db::name('permission_api_config')->where('permission_id', $row['id'])->find();
+        $apiIds ??= array_values(Db::name('permission_api')->where('permission_id', $row['id'])->order('api_id')->column('api_id'));
         return ['key' => $row['key'], 'name' => $row['name'], 'module_key' => $row['module_key'],
+            'source' => str_starts_with($row['module_key'], 'instance.') ? 'custom' : (in_array($row['module_key'], ['core', 'peanut.admin', 'platform'], true) ? 'system' : 'module'),
             'audience' => self::permissionAudience($row), 'status' => $row['status'],
             'revision' => (string) ($config['revision'] ?? 1), 'configured' => (bool) ($config['configured'] ?? false),
-            'api_ids' => array_values(Db::name('permission_api')->where('permission_id', $row['id'])->order('api_id')->column('api_id'))];
+            'api_ids' => $apiIds];
     }
 }

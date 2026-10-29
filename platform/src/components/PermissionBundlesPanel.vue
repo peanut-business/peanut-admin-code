@@ -2,8 +2,8 @@
   <el-card>
     <template #header>独立权限包与 API 关联</template>
     <p
-      >权限包由模块声明，可被多个菜单、按钮及客户端复用。此处配置实例级 API
-      关联；角色授权单独保存。</p
+      >可创建权限包，或复用系统与模块声明的权限包；菜单和按钮引用权限包，API
+      关联及角色授权分别保存。</p
     >
     <el-space wrap>
       <el-select
@@ -18,6 +18,13 @@
       <el-input v-model="search" placeholder="搜索权限包" clearable />
       <el-button :loading="loading" :disabled="saving" @click="load"
         >刷新</el-button
+      >
+      <el-button
+        v-if="canManage"
+        type="primary"
+        :disabled="saving || loading || !!error"
+        @click="create"
+        >创建权限包</el-button
       >
     </el-space>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
@@ -38,17 +45,78 @@
       >
       <el-table-column label="来源" width="130"
         ><template #default="{ row }">{{
-          row.configured ? '实例配置' : '模块默认'
+          sourceLabel(row)
         }}</template></el-table-column
       >
-      <el-table-column label="操作" width="100"
+      <el-table-column label="操作" width="180"
         ><template #default="{ row }"
           ><el-button link :disabled="saving" @click="open(row)"
             >查看关联</el-button
+          ><el-button
+            v-if="canManage && row.source === 'custom'"
+            link
+            :disabled="saving"
+            @click="edit(row)"
+            >编辑</el-button
           ></template
         ></el-table-column
       >
     </el-table>
+    <el-dialog
+      v-model="editing"
+      :title="editingBundle ? '编辑自建权限包' : '创建权限包'"
+      width="520px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="!saving"
+      :show-close="!saving"
+    >
+      <el-form label-position="top">
+        <el-form-item label="标识"
+          ><el-input
+            v-model="definition.key"
+            :disabled="!!editingBundle || saving"
+            :placeholder="
+              audience === 'platform'
+                ? '如 platform.custom.orders，创建后不可修改'
+                : '如 custom.orders，创建后不可修改'
+            "
+            maxlength="100"
+        /></el-form-item>
+        <el-form-item label="名称"
+          ><el-input
+            v-model="definition.name"
+            :disabled="saving"
+            maxlength="120"
+        /></el-form-item>
+        <el-form-item label="安全域"
+          ><el-input
+            :model-value="audience === 'tenant' ? '租户业务权限' : '平台权限'"
+            disabled
+        /></el-form-item>
+        <el-form-item v-if="editingBundle" label="状态"
+          ><el-select v-model="definition.status" :disabled="saving"
+            ><el-option label="启用" value="active" /><el-option
+              label="停用"
+              value="retired" /></el-select
+        ></el-form-item>
+      </el-form>
+      <el-alert
+        v-if="definitionError"
+        :title="definitionError"
+        type="error"
+        :closable="false"
+      />
+      <template #footer
+        ><el-button :disabled="saving" @click="editing = false">取消</el-button
+        ><el-button
+          type="primary"
+          :loading="saving"
+          :disabled="!definition.key.trim() || !definition.name.trim()"
+          @click="saveDefinition"
+          >保存</el-button
+        ></template
+      >
+    </el-dialog>
     <el-dialog
       v-model="visible"
       title="权限包关联 API"
@@ -140,6 +208,18 @@
   const apiSearch = ref('');
   const visible = ref(false);
   const selected = ref<PermissionBundle | null>(null);
+  const editing = ref(false);
+  const editingBundle = ref<PermissionBundle | null>(null);
+  const definition = ref({
+    key: '',
+    name: '',
+    status: 'active' as 'active' | 'retired',
+  });
+  const definitionError = ref('');
+  const sourceLabel = (bundle: PermissionBundle) =>
+    ({ system: '系统内置', module: '模块声明', custom: '后台自建' }[
+      bundle.source
+    ]);
   const selection = ref<string[]>([]);
   let generation = 0;
   let detailGeneration = 0;
@@ -182,6 +262,7 @@
     const request = ++generation;
     detailGeneration += 1;
     visible.value = false;
+    editing.value = false;
     selected.value = null;
     bundles.value = [];
     apis.value = [];
@@ -205,6 +286,63 @@
       if (request === generation) error.value = message(cause);
     } finally {
       if (request === generation) loading.value = false;
+    }
+  }
+
+  function create() {
+    editingBundle.value = null;
+    definition.value = { key: '', name: '', status: 'active' };
+    definitionError.value = '';
+    editing.value = true;
+  }
+
+  function edit(bundle: PermissionBundle) {
+    editingBundle.value = bundle;
+    definition.value = {
+      key: bundle.key,
+      name: bundle.name,
+      status: bundle.status === 'active' ? 'active' : 'retired',
+    };
+    definitionError.value = '';
+    editing.value = true;
+  }
+
+  async function saveDefinition() {
+    if (
+      !props.canManage ||
+      saving.value ||
+      !definition.value.key.trim() ||
+      !definition.value.name.trim()
+    )
+      return;
+    saving.value = true;
+    definitionError.value = '';
+    try {
+      const bundle = editingBundle.value;
+      const row = bundle
+        ? await api.updatePermissionBundle({
+            permission_key: bundle.key,
+            name: definition.value.name.trim(),
+            status: definition.value.status,
+            expected_revision: bundle.revision,
+          })
+        : await api.createPermissionBundle({
+            key: definition.value.key.trim(),
+            name: definition.value.name.trim(),
+            audience: audience.value,
+          });
+      if (row.audience !== audience.value || (bundle && row.key !== bundle.key))
+        throw new Error('权限包响应目标不一致');
+      bundles.value = [
+        ...bundles.value.filter((item) => item.key !== row.key),
+        row,
+      ];
+      editing.value = false;
+      ElMessage.success('权限包已保存');
+    } catch (cause) {
+      definitionError.value = message(cause);
+    } finally {
+      saving.value = false;
     }
   }
 

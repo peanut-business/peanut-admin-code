@@ -58,7 +58,7 @@ final readonly class PlatformDirectoryQueries
     public function permissions(PlatformContext $context, PageRequest $page): array
     {
         $this->authorization->assertAllowed($context, 'platform.permission.read');
-        $query = Db::name('permission')->where('module_key', 'platform');
+        $query = Db::name('permission')->whereIn('module_key', ['platform', 'instance.platform']);
         return $this->paginate((clone $query)
             ->field('id,key,module_key,type,name,description,risk_level,status,manifest_version,created_at,updated_at,retired_at')
             ->order('id'), $page, (int) $query->count());

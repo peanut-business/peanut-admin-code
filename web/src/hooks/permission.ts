@@ -3,6 +3,7 @@ import { useAppStore, useUserStore } from '@/store';
 import { REDIRECT_ROUTE_NAME } from '@/router/constants';
 import { permissionEvaluator } from '@/core/runtime';
 import { evaluateRequiredPermissions } from '@peanut-admin/vue';
+import router from '@/router';
 
 const nonemptyString = (value: unknown): value is string =>
   typeof value === 'string' && value.trim() !== '';
@@ -34,18 +35,40 @@ export function hasPermission(
   if (!permissionRequirement(requiredPermissions)) return false;
   const permissions = grantedPermissions ?? useUserStore().permissions;
   if (!stringList(permissions)) return false;
+  if (grantedPermissions === undefined) {
+    const bindings = useUserStore().action_bindings.filter(
+      (item) => item.page_path === router.currentRoute.value.path
+    );
+    const required = Array.isArray(requiredPermissions)
+      ? requiredPermissions
+      : [requiredPermissions];
+    return required.some((key) => {
+      const matches = bindings.filter((item) => item.action_key === key);
+      const binding = matches[0];
+      if (
+        matches.some((item) => item.permission_key !== binding.permission_key)
+      )
+        return false;
+      return evaluateRequiredPermissions(
+        binding ? binding.permission_key : key,
+        permissions,
+        permissionEvaluator
+      );
+    });
+  }
   return evaluateRequiredPermissions(
     requiredPermissions,
     permissions,
     permissionEvaluator
   );
 }
-function hasRouteName(
+function matchingRoutes(
   routes: RouteRecordRaw[],
   routeName: string,
   tenantModuleKey?: string
-): boolean {
+): RouteRecordRaw[] {
   const pending = [...routes];
+  const matches: RouteRecordRaw[] = [];
   while (pending.length) {
     const route = pending.shift();
     if (
@@ -55,10 +78,10 @@ function hasRouteName(
       (tenantModuleKey === undefined ||
         route.meta?.tenantModuleKey === tenantModuleKey)
     )
-      return true;
+      matches.push(route);
     if (route?.children?.length) pending.push(...route.children);
   }
-  return false;
+  return matches;
 }
 export default function usePermission() {
   const userStore = useUserStore();
@@ -75,11 +98,6 @@ export default function usePermission() {
       (!moduleKey(tenant) || !permissionRequirement(required))
     )
       return false;
-    if (
-      required !== undefined &&
-      (!permissionRequirement(required) || !hasPermission(required))
-    )
-      return false;
     if (appStore.menuFromServer) {
       const routeName = String(route.name || '');
       if (routeName === REDIRECT_ROUTE_NAME || routeName === 'redirectWrapper')
@@ -88,12 +106,20 @@ export default function usePermission() {
       const authorizedName =
         route.meta.hideInMenu && active !== undefined ? active : routeName;
       if (!nonemptyString(authorizedName)) return false;
-      return hasRouteName(
+      return matchingRoutes(
         appStore.appAsyncMenus,
         authorizedName,
         moduleKey(tenant) ? tenant : undefined
-      );
+      ).some((menu) => {
+        const gate = menu.meta?.requiredPermissions;
+        return gate === undefined || hasPermission(gate, userStore.permissions);
+      });
     }
+    if (
+      required !== undefined &&
+      !hasPermission(required, userStore.permissions)
+    )
+      return false;
     const { roles } = route.meta;
     return (
       roles === undefined ||

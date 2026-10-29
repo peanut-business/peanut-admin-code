@@ -40,6 +40,55 @@ final class PermissionApiController extends BasePlatformController
         return $this->data($this->catalog->bundle($this->key($input['permission_key'] ?? null)));
     }
 
+    public function create()
+    {
+        $input = $this->fields($this->request->post(), ['key', 'name', 'audience']);
+        $key = $this->key($input['key'] ?? null);
+        $name = $this->name($input['name'] ?? null);
+        $audience = $input['audience'] ?? null;
+        if (!in_array($audience, ['tenant', 'platform'], true)) {
+            throw AdminAccessException::invalid('API_INPUT_INVALID', 'A valid audience is required.');
+        }
+        $context = $this->platformContext?->core ?? throw new \DomainException('PLATFORM_CONTEXT_REQUIRED');
+        return $this->data(Db::transaction(function () use ($key, $name, $audience, $context): array {
+            $after = $this->catalog->createCustom($key, $name, $audience);
+            $this->audit->platform($context->operatorId, $context->accountId, $context->requestId,
+                'permission.created', 'platform.permission.api.manage', targetType: 'permission', targetId: $key, after: $after);
+            return $after;
+        }));
+    }
+
+    public function update()
+    {
+        $input = $this->fields($this->request->put(), ['permission_key', 'name', 'status', 'expected_revision']);
+        if (!isset($input['expected_revision'])) {
+            throw AdminAccessException::preconditionRequired();
+        }
+        $key = $this->key($input['permission_key'] ?? null);
+        $name = $this->name($input['name'] ?? null);
+        $status = $input['status'] ?? null;
+        if (!in_array($status, ['active', 'retired'], true)) {
+            throw AdminAccessException::invalid('API_INPUT_INVALID', 'A valid status is required.');
+        }
+        $revision = $this->positive($input['expected_revision']);
+        $context = $this->platformContext?->core ?? throw new \DomainException('PLATFORM_CONTEXT_REQUIRED');
+        return $this->data(Db::transaction(function () use ($key, $name, $status, $revision, $context): array {
+            $before = $this->catalog->bundle($key);
+            $after = $this->catalog->updateCustom($key, $name, $status, $revision);
+            $this->audit->platform($context->operatorId, $context->accountId, $context->requestId,
+                'permission.updated', 'platform.permission.api.manage', targetType: 'permission', targetId: $key, before: $before, after: $after);
+            return $after;
+        }));
+    }
+
+    private function name(mixed $name): string
+    {
+        if (!is_string($name) || trim($name) === '' || mb_strlen($name) > 160) {
+            throw AdminAccessException::invalid('API_INPUT_INVALID', 'A bounded name is required.');
+        }
+        return trim($name);
+    }
+
     public function replace()
     {
         $input = $this->fields($this->request->put(), ['permission_key', 'expected_revision', 'api_ids']);

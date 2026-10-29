@@ -109,7 +109,7 @@ $schemas = [
     ],
     'AdminInfo' => [
         'type' => 'object', 'additionalProperties' => false,
-        'required' => ['id', 'username', 'nickname', 'name', 'avatar', 'role', 'root', 'roles', 'menu', 'permissions', 'tenantName', 'website', 'canSwitchTenant', 'demoMode'],
+        'required' => ['id', 'username', 'nickname', 'name', 'avatar', 'role', 'root', 'roles', 'menu', 'permissions', 'action_bindings', 'tenantName', 'website', 'canSwitchTenant', 'demoMode'],
         'properties' => [
             'id' => ['oneOf' => [['type' => 'integer'], ['type' => 'string']]],
             'username' => ['type' => 'string'], 'nickname' => ['type' => 'string'],
@@ -119,6 +119,10 @@ $schemas = [
             'roles' => $ref('StringList'),
             'menu' => ['type' => 'array', 'items' => $ref('AdminMenuNode')],
             'permissions' => $ref('StringList'),
+            'action_bindings' => ['type' => 'array', 'items' => ['type' => 'object', 'additionalProperties' => false,
+                'required' => ['page_path', 'action_key', 'permission_key'], 'properties' => [
+                    'page_path' => ['type' => 'string'], 'action_key' => ['type' => 'string'], 'permission_key' => ['type' => 'string'],
+                ]]],
             'tenantName' => ['type' => 'string'],
             'website' => $ref('WebsiteConfig'),
             'canSwitchTenant' => ['type' => 'boolean'],

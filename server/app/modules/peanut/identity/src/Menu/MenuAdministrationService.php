@@ -14,7 +14,8 @@ final class MenuAdministrationService
     public function records(string $scope = 'tenant'): array
     {
         return MenuDefinition::alias('menu')->leftJoin('permission p', 'p.id=menu.required_permission_id')
-            ->where('menu.scope', $scope)->field('menu.*,p.key AS required_permission')
+            ->leftJoin('permission custom', 'custom.id=menu.instance_permission_id')
+            ->where('menu.scope', $scope)->field('menu.*,p.key AS required_permission,custom.key AS instance_permission')
             ->order('menu.sort_order')->order('menu.key')->select()->toArray();
     }
 
@@ -46,7 +47,18 @@ final class MenuAdministrationService
                 'is_show' => (int) ($presentation['is_show'] ?? 1),
                 'is_cache' => (int) ($presentation['is_cache'] ?? 0),
                 'is_disable' => (int) ($presentation['is_disable'] ?? 0),
+                'instance_permission_id' => $presentation['instance_permission_id'] ?? null,
             ]);
         });
+    }
+
+    public function updateInstancePermission(string $key, ?int $permissionId): void
+    {
+        MenuDefinition::where('key', $key)->where('scope', 'tenant')->update(['instance_permission_id' => $permissionId]);
+    }
+
+    public function updateStatus(string $key, int $disabled): void
+    {
+        MenuDefinition::where('key', $key)->where('scope', 'tenant')->update(['is_disable' => $disabled]);
     }
 }

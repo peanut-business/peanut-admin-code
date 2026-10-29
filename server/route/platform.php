@@ -27,6 +27,12 @@ if (($peanutRouteApplication ?? null) !== 'platform') {
 Route::get('permission/bundles', [\app\platform\controller\PermissionApiController::class, 'bundles'])
     ->completeMatch()->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.read');
+Route::post('permission/bundles', [\app\platform\controller\PermissionApiController::class, 'create'])
+    ->completeMatch()->middleware(PlatformLoginMiddleware::class)
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.api.manage');
+Route::put('permission/bundles', [\app\platform\controller\PermissionApiController::class, 'update'])
+    ->completeMatch()->middleware(PlatformLoginMiddleware::class)
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.api.manage');
 Route::get('permission/apis/bindings', [\app\platform\controller\PermissionApiController::class, 'detail'])
     ->completeMatch()->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.read');

@@ -151,13 +151,15 @@ final class ThinkPhpMenuCatalogRepository implements \PeanutAdmin\Kernel\Menu\Me
     {
         $rows = MenuDefinitionRecord::alias('menu')
             ->leftJoin('permission permission', 'permission.id = menu.required_permission_id')
+            ->leftJoin('permission instance_permission', 'instance_permission.id = menu.instance_permission_id')
             ->where('menu.scope', $scope)
             ->where('menu.status', 'active')
             ->field([
                 'menu.key', 'menu.module_key', 'menu.scope', 'menu.parent_key', 'menu.type', 'menu.name',
                 'menu.route_name', 'menu.route_path', 'menu.component_key', 'menu.icon', 'menu.sort_order',
-                'permission.key' => 'required_permission', 'menu.client_keys_json',
+                'menu.client_keys_json',
             ])
+            ->fieldRaw('COALESCE(instance_permission.`key`, permission.`key`) AS required_permission')
             ->order('menu.sort_order')
             ->order('menu.key')
             ->select()

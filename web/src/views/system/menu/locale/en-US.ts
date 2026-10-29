@@ -1,4 +1,14 @@
 export default {
+  'systemMenu.field.perms.default': 'Source default permission bundle',
+  'systemMenu.field.perms.managed.placeholder':
+    'Select an existing bundle, or clear to restore the source default',
+  'systemMenu.field.perms.managed.hint':
+    'Select an active bundle in the same audience. Clearing restores the system or module default. This changes this menu access condition; role grants and API bindings remain separate.',
+  'systemMenu.field.action': 'Page action key',
+  'systemMenu.field.action.placeholder':
+    'For example role/add, matching the page v-permission action',
+  'systemMenu.field.action.hint':
+    'A button must belong directly to a page menu. This binds the action to the selected bundle on that page only; role grants remain separate.',
   'systemMenu.field.perms.hint':
     'Reference an independent permission bundle. Menus and buttons can reuse the same bundle; editing navigation never grants role permissions.',
   'systemMenu.field.perms.error':

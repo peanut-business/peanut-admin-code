@@ -8,7 +8,6 @@ use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
 use app\common\execution\CurrentExecutionContext;
 use app\platform\context\PlatformOperatorContext;
 use app\platform\services\PlatformOperatorSessionService;
-use PeanutAdmin\Kernel\Authorization\AuthorizationException;
 use PeanutAdmin\Modules\Identity\Authorization\ApiPermissionCatalog;
 use app\common\services\authorization\EndpointPermissionGrant;
 use app\common\contract\module\ModuleQualificationQuery;
@@ -22,7 +21,6 @@ final class PlatformPermissionMiddleware
         private readonly ApiPermissionCatalog $apis,
         private readonly EndpointPermissionGrant $grant,
         private readonly ModuleQualificationQuery $modules,
-        private readonly \PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator $roles,
     ) {}
 
     public function handle($request, \Closure $next, string $permission)
@@ -49,24 +47,11 @@ final class PlatformPermissionMiddleware
         if (!in_array($permission, [...$primary, ...$prerequisites], true)) {
             throw \app\common\http\ApiProblem::fromEnvelope('Platform route permission metadata changed; synchronize the catalogue.', null, 40300);
         }
-        try {
-            foreach ($prerequisites as $required) {
-                // Source prerequisites retain their independent AND semantics.
-                $this->roles->assertAllowed($context->core, $required);
-            }
-        } catch (AuthorizationException) {
+        $permissions = $this->sessions->permissionKeys($context);
+        if (array_diff($prerequisites, $permissions) !== []) {
             throw \app\common\http\ApiProblem::fromEnvelope('Platform prerequisite permission is required.', null, 40300);
         }
-        $allowed = false;
-        foreach ($this->apis->permissionKeys($endpoint) as $key) {
-            try {
-                $this->sessions->assertAllowed($context, $key);
-                $allowed = true;
-                break;
-            } catch (AuthorizationException) {
-                // ANY associated bundle may admit this registered endpoint.
-            }
-        }
+        $allowed = array_intersect($this->apis->permissionKeys($endpoint), $permissions) !== [];
         if (!$allowed) {
             throw \app\common\http\ApiProblem::fromEnvelope('Platform permission is required.', null, 40300);
         }

@@ -104,11 +104,20 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
             || !$this->validContext($context, $principal)) {
             return PermissionDecision::deny($endpoint['path'], 'INVALID_TENANT_ADMIN_CONTEXT');
         }
+        $prerequisites = json_decode($endpoint['prerequisite_permission_keys'], true, 32, JSON_THROW_ON_ERROR);
+        $registered = $this->moduleAdmin->registeredPermissionSubset($context->tenantId, [...$keys, ...$prerequisites]);
+        $owned = $principal->root ? [] : $this->moduleAdmin->basePermissions($context);
+        foreach ($prerequisites as $required) {
+            if (in_array($required, InstanceControlPlanePolicy::tenantAdminPermissions(), true)
+                || !$this->permissionPolicy->canAccess($principal->root, $required, $registered, $owned)) {
+                return PermissionDecision::deny($endpoint['path'], 'API_PREREQUISITE_NOT_GRANTED');
+            }
+        }
         foreach ($keys as $key) {
-            $decision = $this->permissionDecision($context, $principal, $key);
-            if ($decision->allowed) {
+            if (!in_array($key, InstanceControlPlanePolicy::tenantAdminPermissions(), true)
+                && $this->permissionPolicy->canAccess($principal->root, $key, $registered, $owned)) {
                 $this->endpointGrant->record($context, $endpoint);
-                return $decision;
+                return PermissionDecision::allow($key);
             }
         }
         return PermissionDecision::deny($endpoint['path'], 'API_PERMISSION_NOT_GRANTED');
@@ -152,7 +161,35 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
             permissions: $admin->root
                 ? $native['registered_permissions']
                 : array_values(array_unique($permissions)),
+            actionBindings: $this->actionBindings($tenantContext),
         );
+    }
+
+    private function actionBindings(TenantContext $context): array
+    {
+        $rows = SystemMenu::order('id')->select()->toArray();
+        $managed = array_fill_keys($this->moduleAdmin->managedMenuKeys(), true);
+        $pages = array_column($this->moduleAdmin->assignableMenuRecords($context->tenantId), null, 'menu_key');
+        foreach ($rows as $row) {
+            if ($row['type'] === 'C' && !isset($managed[$row['menu_key']]) && (int) $row['is_disable'] === 0) {
+                $pages[$row['menu_key']] = $row;
+            }
+        }
+        $byId = array_column($rows, null, 'id');
+        $bindings = [];
+        foreach ($rows as $row) {
+            if ($row['type'] !== 'A' || $row['perms'] === '' || $row['paths'] === '') {
+                continue;
+            }
+            $parentKey = $row['parent_key'] ?: ($byId[(int) $row['pid']]['menu_key'] ?? null);
+            $page = $pages[$parentKey] ?? null;
+            if ($page === null || $page['type'] !== 'C' || $page['paths'] === '') {
+                continue;
+            }
+            $identity = $page['paths'] . "\0" . $row['paths'];
+            $bindings[$identity . "\0" . $row['perms']] = ['page_path' => $page['paths'], 'action_key' => $row['paths'], 'permission_key' => $row['perms']];
+        }
+        return array_values($bindings);
     }
 
     public function menusForAdminId(TenantContext $tenantContext, int $memberId): array

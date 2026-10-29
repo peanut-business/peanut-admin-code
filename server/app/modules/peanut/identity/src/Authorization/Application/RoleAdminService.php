@@ -267,7 +267,7 @@ final readonly class RoleAdminService
 
         return Permission::where('status', 'active')
             // Application permissions are shipped by the host, not tenant-enabled Modules.
-            ->whereNotLike('key', 'platform.%')->whereIn('module_key', array_values(array_unique(['core', 'peanut.admin', ...$modules])));
+            ->whereNotLike('key', 'platform.%')->whereIn('module_key', array_values(array_unique(['core', 'peanut.admin', 'instance.tenant', ...$modules])));
     }
 
     /** @param list<array<string, mixed>> $rows

@@ -7,9 +7,10 @@ extract($m, EXTR_SKIP);
 
 $strings = ['type' => 'array', 'items' => ['type' => 'string']];
 $bundle = ['type' => 'object', 'additionalProperties' => false,
-    'required' => ['key', 'name', 'module_key', 'audience', 'status', 'revision', 'configured', 'api_ids'],
+    'required' => ['key', 'name', 'module_key', 'source', 'audience', 'status', 'revision', 'configured', 'api_ids'],
     'properties' => [
         'key' => ['type' => 'string'], 'name' => ['type' => 'string'], 'module_key' => ['type' => 'string'],
+        'source' => ['type' => 'string', 'enum' => ['system', 'module', 'custom']],
         'audience' => ['type' => 'string', 'enum' => ['tenant', 'platform']],
         'status' => ['type' => 'string', 'enum' => ['active', 'retired']],
         'revision' => ['type' => 'string', 'pattern' => '^[1-9][0-9]*$'],
@@ -43,6 +44,17 @@ $add = static function (array &$paths, string $method, string $path, array $oper
     $paths[$path][strtolower($method)] = $operation;
 };
 $add($paths, 'GET', '/platformapi/permission/bundles', $operation('listPermissionBundles', 'PermissionBundles', $responses($page($ref('PermissionBundle'))), $params));
+$nameSchema = ['type' => 'string', 'minLength' => 1, 'maxLength' => 160];
+$keySchema = ['type' => 'string', 'minLength' => 1, 'maxLength' => 100];
+$revisionSchema = ['oneOf' => [['type' => 'integer', 'minimum' => 1], ['type' => 'string', 'pattern' => '^[1-9][0-9]{0,17}$']]];
+$add($paths, 'POST', '/platformapi/permission/bundles', $operation('createPermissionBundle', 'PermissionBundles', $responses($ref('PermissionBundle')) + ['409' => $error],
+    requestBody: $jsonBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['key', 'name', 'audience'], 'properties' => [
+        'key' => $keySchema, 'name' => $nameSchema, 'audience' => ['type' => 'string', 'enum' => ['tenant', 'platform']],
+    ]])));
+$add($paths, 'PUT', '/platformapi/permission/bundles', $operation('updatePermissionBundle', 'PermissionBundles', $responses($ref('PermissionBundle')) + ['409' => $error, '412' => $error, '428' => $error],
+    requestBody: $jsonBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['permission_key', 'name', 'status', 'expected_revision'], 'properties' => [
+        'permission_key' => $keySchema, 'name' => $nameSchema, 'status' => ['type' => 'string', 'enum' => ['active', 'retired']], 'expected_revision' => $revisionSchema,
+    ]])));
 $add($paths, 'GET', '/platformapi/permission/apis', $operation('listRegisteredApis', 'PermissionBundles', $responses($page($ref('RegisteredPermissionApi'))), [...$params, $query('status', ['type' => 'string', 'enum' => ['active', 'retired']])]));
 $add($paths, 'GET', '/platformapi/permission/apis/bindings', $operation('getPermissionApiBindings', 'PermissionBundles', $responses($ref('PermissionBundle')), $keyParam));
 $add($paths, 'PUT', '/platformapi/permission/apis/bindings', $operation('replacePermissionApiBindings', 'PermissionBundles',
