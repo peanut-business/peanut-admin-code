@@ -1151,7 +1151,7 @@
     createOpsConsoleRuntime,
     OpsConsolePage,
     opsConsoleRuntimeKey,
-  } from './modules/official-ops/contribution';
+  } from './modules/peanut-ops/contribution';
   import {
     api,
     createPlatformOpsTransport,

@@ -32,7 +32,7 @@ final readonly class ModuleComposition
         $providerClasses = [];
         $providers = [];
         $selected = array_column(array_map(static fn($manifest) => $manifest->data, $registry->modules), 'key');
-        $taskSelected = in_array('official.task', $selected, true);
+        $taskSelected = in_array('peanut.task', $selected, true);
         $workflowSelected = in_array('peanut.workflow', $selected, true);
         $taskWorkers = [];
         $fileDocumentPolicy = null;
@@ -83,7 +83,7 @@ final readonly class ModuleComposition
             }
             if ($provider instanceof FileDocumentReferenceContributor) {
                 $policy = $provider->fileDocumentReferencePolicy();
-                if ($moduleKey !== 'official.document' || $fileDocumentPolicy !== null
+                if ($moduleKey !== 'peanut.document' || $fileDocumentPolicy !== null
                     || !is_a($policy, FileDocumentReferencePolicy::class, true)) {
                     throw new ModuleException('MODULE_FILE_REFERENCE_POLICY_INVALID', 'Invalid Document resource policy contribution.');
                 }
@@ -91,7 +91,7 @@ final readonly class ModuleComposition
             }
             if ($provider instanceof \PeanutAdmin\Modules\Document\Contract\DocumentAcceptedWriteContributor) {
                 $accepted = $provider->acceptedWriteProvider();
-                if ($moduleKey !== 'official.collaboration' || $documentAcceptedProvider !== null
+                if ($moduleKey !== 'peanut.collaboration' || $documentAcceptedProvider !== null
                     || !is_a($accepted, \PeanutAdmin\Modules\Document\Contract\DocumentAcceptedWriteProvider::class, true)) {
                     throw new ModuleException('MODULE_DOCUMENT_ACCEPTED_PROVIDER_INVALID', 'Invalid accepted Document write contribution.');
                 }
@@ -108,7 +108,7 @@ final readonly class ModuleComposition
         }
 
         $contentRegistry = null;
-        if (isset($selectedModuleKeys['official.content-tools'])) {
+        if (isset($selectedModuleKeys['peanut.content-tools'])) {
             $contentRegistry = ContentToolRegistry::withBuiltins();
             usort($contentAdapters, static fn(SurfaceAdapterRegistration $a, SurfaceAdapterRegistration $b): int => strcmp($a->id, $b->id));
             foreach ($contentAdapters as $registration) {
@@ -138,7 +138,7 @@ final readonly class ModuleComposition
                 return $scenarios;
             };
         }
-        if (isset($selectedModuleKeys['official.notification'])) {
+        if (isset($selectedModuleKeys['peanut.notification'])) {
             if (isset($bindings[\PeanutAdmin\Modules\Notification\Contract\NotificationProducerRegistry::class])) {
                 throw new ModuleException('MODULE_BINDING_CONFLICT', 'Notification producer registry belongs to the composition root.');
             }
@@ -155,7 +155,7 @@ final readonly class ModuleComposition
             };
         }
         // This optional Task capability is loaded only for the compiled two-module selection.
-        if ($taskSelected && isset($selectedModuleKeys['official.collaboration'])) {
+        if ($taskSelected && isset($selectedModuleKeys['peanut.collaboration'])) {
             $provider = $providers[\PeanutAdmin\Modules\Collaboration\ModuleProvider::class] ?? null;
             if (!$provider instanceof \PeanutAdmin\Modules\Collaboration\ModuleProvider) {
                 throw new ModuleException('MODULE_TASK_WORKER_INVALID', 'Collaboration worker provider is invalid.');
@@ -199,7 +199,7 @@ final readonly class ModuleComposition
             $this->app->instance($providerClass, $provider);
         }
         // Only the selected Workflow + File composition supplies the default source snapshot.
-        if ($workflowSelected && isset($selectedModuleKeys['official.file'])
+        if ($workflowSelected && isset($selectedModuleKeys['peanut.file'])
             && !$this->app->bound(\PeanutAdmin\Modules\Workflow\Adapter\WorkflowAttachmentResolver::class)) {
             $this->app->bind(\PeanutAdmin\Modules\Workflow\Adapter\WorkflowAttachmentResolver::class, \PeanutAdmin\Modules\Workflow\Integration\FileWorkflowAttachmentResolver::class);
         }
@@ -219,13 +219,13 @@ final readonly class ModuleComposition
                 }
             }
         }
-        if ($taskSelected && isset($selectedModuleKeys['official.collaboration'])) {
+        if ($taskSelected && isset($selectedModuleKeys['peanut.collaboration'])) {
             foreach ($providers[\PeanutAdmin\Modules\Collaboration\ModuleProvider::class]->taskWorkerDefinitions() as $definition) {
                 if (!is_string($definition) || !is_a($definition, TaskWorkerDefinition::class, true)
                     || !is_a($definition, TaskWorkerContributor::class, true)) {
                     throw new ModuleException('MODULE_TASK_WORKER_INVALID', 'Collaboration worker contribution is invalid.');
                 }
-                $taskWorkers[] = ['module_key' => 'official.collaboration', 'definition' => $definition];
+                $taskWorkers[] = ['module_key' => 'peanut.collaboration', 'definition' => $definition];
             }
         }
         $taskRegistry = new TaskWorkerDefinitionRegistry($taskWorkers);

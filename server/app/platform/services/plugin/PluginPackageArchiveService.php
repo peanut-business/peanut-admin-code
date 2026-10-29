@@ -12,7 +12,7 @@ use app\platform\infrastructure\plugin\DeterministicTarArchive;
 use app\platform\infrastructure\plugin\PluginArtifactWriter;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\infrastructure\plugin\VerifiedPluginPackage;
-use app\platform\validation\plugin\ModulePackagePreflight;
+use app\common\module\PackageCheck;
 use Opis\JsonSchema\Errors\ErrorFormatter;
 use Opis\JsonSchema\Validator;
 use PeanutAdmin\Kernel\Module\ModuleKey;
@@ -33,7 +33,7 @@ final class PluginPackageArchiveService
      */
     public function packModule(string $moduleKey, string $outputPath, ?array $signer = null): array
     {
-        $inspection = (new ModulePackagePreflight($this->projectRoot()))->inspect($moduleKey);
+        $inspection = (new PackageCheck($this->projectRoot()))->inspect($moduleKey);
         return $this->pack($moduleKey, $inspection['version'], [$moduleKey], $outputPath, $signer);
     }
 
@@ -48,7 +48,7 @@ final class PluginPackageArchiveService
      */
     public function previewModule(string $moduleKey): array
     {
-        $inspection = (new ModulePackagePreflight($this->projectRoot()))->inspect($moduleKey);
+        $inspection = (new PackageCheck($this->projectRoot()))->inspect($moduleKey);
         $built = $this->packageEntries($moduleKey, $inspection['version'], [$moduleKey]);
         $files = [];
         $totalBytes = 0;
@@ -160,7 +160,7 @@ final class PluginPackageArchiveService
             }
             $modules = [];
             $ownedTables = [];
-            $preflight = new ModulePackagePreflight($stageRoot);
+            $preflight = new PackageCheck($stageRoot);
             foreach ($manifest['modules'] ?? [] as $module) {
                 if (!is_array($module) || !is_string($module['key'] ?? null) || !is_string($module['root'] ?? null)) {
                     throw new PluginPackageException('MODULE_PACKAGE_MANIFEST_INVALID', 'Plugin Module entry is invalid.');
@@ -311,7 +311,7 @@ final class PluginPackageArchiveService
             throw new PluginPackageException('MODULE_PACKAGE_BUNDLE_IDENTITY_INVALID', 'Bundle key must not impersonate a member Module.');
         }
 
-        $preflight = new ModulePackagePreflight($this->projectRoot());
+        $preflight = new PackageCheck($this->projectRoot());
         $modules = [];
         $moduleSpecs = [];
         $availableVersions = [];
@@ -529,15 +529,35 @@ final class PluginPackageArchiveService
     /** @param array<string,array{source?:string,contents?:string}> $entries */
     private function collectFiles(string $relativeRoot, array &$entries): void
     {
-        $absoluteRoot = $this->projectRoot() . '/' . $relativeRoot;
+        $projectRoot = realpath($this->projectRoot());
+        if ($projectRoot === false) {
+            throw new PluginPackageException('MODULE_PACKAGE_SOURCE_INVALID', 'Module package project root is unavailable.');
+        }
+        $absoluteRoot = $projectRoot . '/' . $relativeRoot;
+        if (realpath($absoluteRoot) !== $absoluteRoot || !is_dir($absoluteRoot)
+            || !str_starts_with($absoluteRoot, $projectRoot . '/')) {
+            throw new PluginPackageException('MODULE_PACKAGE_SOURCE_INVALID', 'Module package source root is not an ordinary project directory.');
+        }
+        $excludedDirectories = [
+            'vendor', 'node_modules', '.cache', '.vite', '.nuxt', '.output', '.next', '.turbo', '.parcel-cache',
+            'coverage', 'tmp', 'temp', 'unpackage',
+        ];
         $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($absoluteRoot, \FilesystemIterator::SKIP_DOTS),
+            new \RecursiveCallbackFilterIterator(
+                new \RecursiveDirectoryIterator($absoluteRoot, \FilesystemIterator::SKIP_DOTS),
+                static function (\SplFileInfo $file) use ($excludedDirectories): bool {
+                    if ($file->isLink()) {
+                        throw new PluginPackageException('MODULE_PACKAGE_SOURCE_INVALID', 'Module package source contains a link.');
+                    }
+                    return !$file->isDir() || !in_array(strtolower($file->getFilename()), $excludedDirectories, true);
+                },
+            ),
         );
         foreach ($iterator as $file) {
             if ($file->isLink() || !$file->isFile()) {
                 throw new PluginPackageException('MODULE_PACKAGE_SOURCE_INVALID', 'Module package source contains an unsupported member.');
             }
-            $relative = ltrim(substr($file->getPathname(), strlen($this->projectRoot())), '/');
+            $relative = ltrim(substr($file->getPathname(), strlen($projectRoot)), '/');
             $this->assertPublishableSourcePath($relative);
             if (isset($entries[$relative])) {
                 throw new PluginPackageException('MODULE_PACKAGE_DUPLICATE_PATH', 'Module package source path is duplicated.');
@@ -551,8 +571,7 @@ final class PluginPackageArchiveService
         $segments = array_map('strtolower', explode('/', $relative));
         $basename = (string) end($segments);
         $forbiddenDirectories = [
-            '.cache', '.git', '.hg', '.idea', '.local', '.svn', '.vscode',
-            'build', 'coverage', 'dist', 'node_modules', 'tmp', 'vendor',
+            '.git', '.hg', '.idea', '.local', '.svn', '.vscode',
         ];
         foreach (array_slice($segments, 0, -1) as $segment) {
             if (in_array($segment, $forbiddenDirectories, true)) {

@@ -38,7 +38,7 @@ module.exports = {
   },
   overrides: [
     {
-      files: ['src/modules/official-rich-text/tests/**/*.ts'],
+      files: ['src/modules/peanut-rich-text/tests/**/*.ts'],
       settings: {
         'import/resolver': {
           typescript: {

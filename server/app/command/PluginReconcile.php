@@ -8,7 +8,7 @@ use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\exception\plugin\PluginPackageException;
 use app\platform\composition\plugin\ModuleDefinitionRegistryFactory;
 use app\platform\infrastructure\plugin\PluginLockResolver;
-use app\platform\validation\plugin\ModulePackagePreflight;
+use app\common\module\PackageCheck;
 use app\common\execution\ModuleContextualCommand;
 use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use think\console\Input;
@@ -60,7 +60,7 @@ final class PluginReconcile extends ModuleContextualCommand
                 $resolver = PluginLockResolver::forRuntime(dirname(__DIR__, 2), $lockPath);
                 $officialKeys = array_values(array_filter(
                     array_keys($resolver->all()),
-                    static fn(string $key): bool => str_starts_with($key, 'official.'),
+                    static fn(string $key): bool => str_starts_with($key, 'peanut.'),
                 ));
                 $selection = $releaseLocked
                     ? $this->releasePluginSelection($resolver->all(), $officialKeys)
@@ -113,7 +113,7 @@ final class PluginReconcile extends ModuleContextualCommand
             }
             $resolver = PluginLockResolver::forRuntime(dirname(__DIR__, 2), $lock);
             $official = array_values(array_filter(array_keys($resolver->all()),
-                static fn(string $key): bool => str_starts_with($key, 'official.')));
+                static fn(string $key): bool => str_starts_with($key, 'peanut.')));
             $selection = $this->releasePluginSelection($resolver->all(), $official);
             $this->dependencyOrderedPlugins($resolver, $selection['reconcile'], $config);
             $packages = [];
@@ -176,7 +176,7 @@ final class PluginReconcile extends ModuleContextualCommand
             $packages[$key] = ['version' => $locked[$key]->version, 'dependencies' => array_values($dependencies)];
         }
         try {
-            return (new ModulePackagePreflight($server))->dependencyOrder($packages, []);
+            return (new PackageCheck($server))->dependencyOrder($packages, []);
         } catch (PluginPackageException $exception) {
             throw new PluginLifecycleException($exception->errorCode, $exception->getMessage());
         }

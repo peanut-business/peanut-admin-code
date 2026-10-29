@@ -29,6 +29,24 @@ final class PlatformModuleLifecycleController extends BasePlatformController
 
     public function install()
     {
+        return $this->packageOperation('install');
+    }
+
+    public function update()
+    {
+        return $this->packageOperation('update');
+    }
+
+    public function task(string $task_key)
+    {
+        if ($this->platformContext === null) {
+            throw new PluginLifecycleException('MODULE_CONTEXT_INVALID', 'A validated Platform session is required.');
+        }
+        return $this->data($this->moduleRuntime->task($this->platformContext->core, $task_key));
+    }
+
+    private function packageOperation(string $operation)
+    {
         $uploaded = $this->request->file('package');
         $expected = strtolower(trim((string) $this->request->post('expected_sha256', '')));
         $keyId = trim((string) $this->request->post('signature_key_id', ''));
@@ -37,11 +55,15 @@ final class PlatformModuleLifecycleController extends BasePlatformController
             || preg_match('/^[a-f0-9]{64}$/D', $expected) !== 1) {
             throw new PluginPackageException('MODULE_PACKAGE_REQUEST_INVALID', 'Module package request is invalid.');
         }
-        return $this->data($this->moduleRuntime->install(
-            $uploaded->getPathname(),
-            $expected,
-            $keyId === '' ? null : $keyId,
-        ));
+        if ($this->platformContext === null) {
+            throw new PluginLifecycleException('MODULE_CONTEXT_INVALID', 'A validated Platform session is required.');
+        }
+        $arguments = [$uploaded->getPathname(), $expected, $keyId === '' ? null : $keyId];
+        $context = $this->platformContext->core;
+        $idempotency = trim((string) $this->request->header('Idempotency-Key', ''));
+        return $this->data($operation === 'install'
+            ? $this->moduleRuntime->install(...[...$arguments, $context, $idempotency])
+            : $this->moduleRuntime->update(...[...$arguments, false, $context, $idempotency]));
     }
 
     public function create()

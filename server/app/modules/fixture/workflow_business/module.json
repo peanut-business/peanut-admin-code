@@ -10,19 +10,19 @@
   "web_package": "@peanut-admin/fixture-workflow-business",
   "dependencies": [
     {
-      "module_key": "official.identity",
-      "version": "4.0.0-rc.30"
+      "module_key": "peanut.identity",
+      "version": "4.0.0-rc.31"
     },
     {
       "module_key": "peanut.artifact-revision",
-      "version": "4.0.0-rc.30"
+      "version": "4.0.0-rc.31"
     },
     {
       "module_key": "peanut.workflow",
-      "version": "4.0.0-rc.33"
+      "version": "4.0.0-rc.34"
     },
     {
-      "module_key": "official.task",
+      "module_key": "peanut.task",
       "version": "^1.0"
     }
   ],
@@ -59,13 +59,16 @@
     "enableable": true,
     "disable_behavior": "reject_new_operations",
     "requires": [
-      "official.identity",
+      "peanut.identity",
       "peanut.artifact-revision",
       "peanut.workflow",
-      "official.task"
+      "peanut.task"
     ]
   },
   "optional_dependencies": [
-    {"module_key": "official.notification", "version": "^1.0"}
+    {
+      "module_key": "peanut.notification",
+      "version": "^1.0"
+    }
   ]
 }

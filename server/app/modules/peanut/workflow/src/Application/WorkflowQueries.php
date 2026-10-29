@@ -120,7 +120,7 @@ final readonly class WorkflowQueries
             }
         }
         $blocker = null;
-        if ($this->allowed($c, $graph, $row['subject_key'], $graph->data['subject_read_operation'], ['peanut.workflow.diagnostics.read']) && $this->permissions !== null && $this->permissions->decide($c->tenantContext, $this->permissions->principal($c->tenantContext), 'official.task.jobs.read')->allowed) {
+        if ($this->allowed($c, $graph, $row['subject_key'], $graph->data['subject_read_operation'], ['peanut.workflow.diagnostics.read']) && $this->permissions !== null && $this->permissions->decide($c->tenantContext, $this->permissions->principal($c->tenantContext), 'peanut.task.jobs.read')->allowed) {
             $actions[] = 'diagnostics';
         }
         if ($row['status'] === 'blocked') {
@@ -381,7 +381,7 @@ final readonly class WorkflowQueries
     }
     private function taskManagementAllowed(AuthorizedOperationContext $c): bool
     {
-        return $this->permissions !== null && $this->permissions->decide($c->tenantContext, $this->permissions->principal($c->tenantContext), 'official.task.jobs.manage')->allowed;
+        return $this->permissions !== null && $this->permissions->decide($c->tenantContext, $this->permissions->principal($c->tenantContext), 'peanut.task.jobs.manage')->allowed;
     }
     private function definitionContext(AuthorizedOperationContext $c): void
     {

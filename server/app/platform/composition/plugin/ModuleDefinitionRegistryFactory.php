@@ -70,7 +70,7 @@ final readonly class ModuleDefinitionRegistryFactory
         $record = $this->runtimeStore()->get($this->runtimeKey($deploymentConfig));
         if (!is_array($record) || !($record['registry'] ?? null) instanceof CompiledModuleRegistry
             || !is_array($record['plugins'] ?? null)) {
-            throw new ModuleException('MODULE_REGISTRY_NOT_COMPILED', 'Run php think module:compile before serving application source.');
+            throw new ModuleException('MODULE_REGISTRY_NOT_COMPILED', 'Run peanut module compile before serving application source.');
         }
         return $record;
     }
@@ -173,6 +173,7 @@ final readonly class ModuleDefinitionRegistryFactory
         );
         $moduleRoots = [];
         foreach ($documents as $document) {
+            \app\common\module\PackageCheck::assertEdition($document->root, (string) \think\facade\Config::get('deployment.mode', ''));
             $moduleKey = $document->data['key'] ?? null;
             if (!is_string($moduleKey) || isset($moduleRoots[$moduleKey])) {
                 throw new ModuleException('MODULE_REGISTRY_CONFLICT', 'Module namespace owner is missing or duplicated.');
@@ -223,11 +224,11 @@ final readonly class ModuleDefinitionRegistryFactory
     {
         $technical = [...array_diff(ModuleSchema::tableNames(), ['pa_module_migration']), ...IdempotencySchema::tableNames()];
         $transferredTechnicalOwners = [
-            'official.identity' => ['pa_menu_definition', 'pa_module_installation'],
+            'peanut.identity' => ['pa_menu_definition', 'pa_module_installation'],
         ];
         $owners = [];
-        foreach (['official.identity' => 'identity', 'official.ops' => 'ops'] as $key => $directory) {
-            $path = $this->serverRoot . '/app/modules/official/' . $directory . '/module.json';
+        foreach (['peanut.identity' => 'identity', 'peanut.ops' => 'ops'] as $key => $directory) {
+            $path = $this->serverRoot . '/app/modules/peanut/' . $directory . '/module.json';
             $manifest = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
             if (!is_array($manifest) || ($manifest['key'] ?? null) !== $key
                 || ($manifest['lifecycle']['protected'] ?? false) !== true) {

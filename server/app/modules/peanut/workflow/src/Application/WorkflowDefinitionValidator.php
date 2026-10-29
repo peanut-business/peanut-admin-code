@@ -29,7 +29,7 @@ final readonly class WorkflowDefinitionValidator
                 throw WorkflowException::unsupported('workflow.service_task');
             }
             try {
-                $this->modules->assertAvailable(\PeanutAdmin\Kernel\Tenancy\TenantScope::fromTrustedContext($context->tenantContext->tenantId, 'workflow'), 'official.task', new \DateTimeImmutable('now', new \DateTimeZone('UTC')), true);
+                $this->modules->assertAvailable(\PeanutAdmin\Kernel\Tenancy\TenantScope::fromTrustedContext($context->tenantContext->tenantId, 'workflow'), 'peanut.task', new \DateTimeImmutable('now', new \DateTimeZone('UTC')), true);
             } catch (\PeanutAdmin\Kernel\Module\ModuleException) {
                 throw WorkflowException::unsupported('workflow.service_task');
             }
@@ -37,7 +37,7 @@ final readonly class WorkflowDefinitionValidator
         if (in_array('workflow.notification', $graph->data['required_capabilities'], true)) {
             if ($this->producers === null || $this->tasks === null || !is_string($scenario['notification']['producer_key'] ?? null)) { throw WorkflowException::unsupported('workflow.notification'); }
             try {
-                foreach (['official.notification', 'official.task'] as $moduleKey) {
+                foreach (['peanut.notification', 'peanut.task'] as $moduleKey) {
                     $this->modules->assertAvailable(\PeanutAdmin\Kernel\Tenancy\TenantScope::fromTrustedContext($context->tenantContext->tenantId, 'workflow'), $moduleKey, new \DateTimeImmutable('now', new \DateTimeZone('UTC')), true);
                 }
                 $producer = $this->producers->require($scenario['notification']['producer_key']);

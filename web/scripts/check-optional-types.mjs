@@ -7,14 +7,14 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(resolve(root, '../tools/quality/package.json'));
 const ts = require('typescript');
 const areas = [
-  'official-file/optional-runtime',
-  'official-import-export/optional-runtime',
-  'official-notification/optional-runtime',
-  'official-task/optional-runtime',
-  'official-reference-codes/runtime',
-  'official-settings/runtime',
-  'official-content-tools',
-  'official-rich-text',
+  'peanut-file/optional-runtime',
+  'peanut-import-export/optional-runtime',
+  'peanut-notification/optional-runtime',
+  'peanut-task/optional-runtime',
+  'peanut-reference-codes/runtime',
+  'peanut-settings/runtime',
+  'peanut-content-tools',
+  'peanut-rich-text',
 ];
 const vueExtension = [
   {
@@ -83,7 +83,7 @@ let testCount = 0;
 for (const area of areas) {
   const directory = resolve(root, `src/modules/${area}`);
   const productionFiles = files(resolve(directory, 'src'));
-  if (area === 'official-rich-text')
+  if (area === 'peanut-rich-text')
     productionFiles.push(
       ...files(resolve(directory, 'components')),
       resolve(directory, 'contribution.ts')

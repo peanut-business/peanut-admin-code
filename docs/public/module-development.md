@@ -4,20 +4,25 @@
 
 模块包至少应声明负责人、版本、依赖、兼容产品范围、迁移、权限、菜单与客户端贡献。安装前核验可信来源、许可、归档摘要及逐文件清单。当前实现允许可信外部SHA-256作为来源证明；签名是另一个可选的可信证明分支，不要求每个模块作者配置私钥。没有可信摘要或有效签名时拒绝。PHP模块在应用进程内运行，不是安全沙箱；普通租户不能上传任意PHP、Shell、类名或路径执行。
 
-模块自己的 `composer.json` 依赖也必须与目标应用相容；宿主的 Composer 安装成功，不代表其未参与依赖解析的模块声明已经验证。源码联合开发可沿用当前开发 Core，发行构建则需在隔离副本中同步宿主和模块的实际发布依赖，再用原生包管理器验证。源码接收返回的 `manual_dependencies` 是需要处理的依赖清单，不是已经安装或通过兼容性验证的回执。
+模块自己的 `composer.json` 依赖也必须与目标应用相容；宿主的 Composer 安装成功，不代表其未参与依赖解析的模块声明已经验证。源码联合开发可沿用当前开发 Core，发行构建则需在隔离副本中同步宿主和模块的实际发布依赖，再用原生包管理器验证。源码接收返回 `source_declarations`、`dependencies_installed=false` 和后续待办，只表示源码已采用。完整安装/升级共用原生依赖执行：Composer 将模块作为 path 包参与宿主求解，模块开发依赖由原生开发 metapackage 参与；Web 使用 pnpm workspace，其余端使用 npm workspace，保留各依赖类别。原生失败阻止整体可用并保留原因、退出码及恢复状态。
+
+打包收集模块后端及已声明客户端的完整源码与资源，包括生成的 API 声明；递归前跳过 `vendor`、`node_modules`、`.cache`、`.vite`、`.nuxt`、`.output`、`.next`、`.turbo`、`.parcel-cache`、`coverage`、`tmp`、`temp` 和 `unpackage` 目录。普通 `build`、`dist` 目录可能被源码、包入口或资源引用，因此保留。作者无需为打包删除本地依赖；路径越界、符号链接、环境配置和凭据仍拒绝交付。
+
+
+模块适用 Edition 声明在已有 `composer.json` 的 `extra.peanut.editions`，值为 `multi-tenant` 或 `standalone` 的非空列表，不新增另一份清单。本轮官方模块只声明 `multi-tenant`，ST 后补；检查、采用、安装及运行按宿主 Edition 拒绝不匹配或缺声明。模块版本与 Composer 版本保持同一来源，模块各自独立升版。
 
 ## 可用的开发与交付入口
 
-以下命令在完整产品应用的 `server/` 内执行。先在 APP 根运行 `scripts/project-composer prepare`，再用 `scripts/project-composer install --working-dir=server --no-scripts` 按应用的 Composer lock 安装依赖；源码生成不执行需要运行环境的 Composer hooks。`php think module:create` 是仅生成源码的入口，不要求 `.env`、数据库或已安装实例，也不启动运行服务。它使用 ThinkPHP 原生参数解析和同一个模块生成器，默认仅生成后端骨架；有管理端贡献时显式选择 `--client=admin-web`。`php think module:create --help` 可在配置运行环境前查看参数。检查、打包、安装等其他命令仍使用应用自己的运行环境和模块信任配置。命令存在不表示模块业务、迁移或客户端已验收。
+以下命令在完整产品应用的 `server/` 内执行。先在 APP 根运行 `scripts/project-composer prepare`，再用 `scripts/project-composer install --working-dir=server --no-scripts` 按应用的 Composer lock 安装依赖；源码生成不执行需要运行环境的 Composer hooks。`peanut module create` 是仅生成源码的入口，不要求 `.env`、数据库或已安装实例，也不启动运行服务。它使用 ThinkPHP 原生参数解析和同一个模块生成器，默认仅生成后端骨架；有管理端贡献时显式选择 `--client=admin-web`。`peanut module create --help` 可在配置运行环境前查看参数。检查、打包、安装等其他命令仍使用应用自己的运行环境和模块信任配置。命令存在不表示模块业务、迁移或客户端已验收。
 
 ```sh
-php think module:create <vendor.module> --vendor=<vendor>
-php think module:check <vendor.module>
-php think module:compile
-php think module:pack <vendor.module> --output=<absolute-release-path>/<name>.tar
+peanut module create <vendor.module> --vendor=<vendor>
+peanut module check <vendor.module>
+peanut module compile
+peanut module pack <vendor.module> --output=<absolute-release-path>/<name>.tar
 ```
 
-源码 HTTP 请求只读取已编译模块注册表，不逐请求校验插件目录、编译声明或扫描 PHP 源码边界。`module:compile` 在 CLI 中校验锁定声明和后端模块并写入 ThinkPHP 原生 File 缓存，不运行迁移或访问业务数据库；缓存只含模块声明，不含租户、用户或权限快照。`think run` 启动前自动生成，直接使用 `php -S` 的调用方须先执行该命令。`plugin:lock --write` 同步刷新编译结果；锁文件、依赖身份或编译配置改变后，其他采用入口须重新执行 `module:compile`。缺失或输入不匹配时 HTTP 返回 503，不在请求中自动重编译。编译结果位于 `runtime/module-registry`，普通业务缓存清理不删除它；清空整个 runtime 后须重新编译。正式部署继续使用既有 VerifiedServerDeployment 发布/读取流程。
+源码 HTTP 请求只读取已编译模块注册表，不逐请求校验插件目录、编译声明或扫描 PHP 源码边界。`peanut module compile` 在 CLI 中校验锁定声明和后端模块并写入 ThinkPHP 原生 File 缓存，不运行迁移或访问业务数据库；缓存只含模块声明，不含租户、用户或权限快照。`think run` 启动前自动生成，直接使用 `php -S` 的调用方须先执行该命令。`peanut module lock --write` 同步刷新编译结果；锁文件、依赖身份或编译配置改变后，其他采用入口须重新执行 `peanut module compile`。缺失或输入不匹配时 HTTP 返回 503，不在请求中自动重编译。编译结果位于 `runtime/module-registry`，普通业务缓存清理不删除它；清空整个 runtime 后须重新编译。正式部署继续使用既有 VerifiedServerDeployment 发布/读取流程。
 
 后端启动、安装和已锁模块治理使用同一解析器的 `forRuntime()`，仍核验锁结构、manifest 摘要与声明一致性、模块 key/路径/命名空间归属、PHP 包身份和后端模块合同；前端贡献保留声明及 npm 归属核对，不读取 web/platform 源码或 Node。完整源码的 canonical 摘要包含前端文件，只在源码创建、升级、锁生成及包采用等源码操作校验；普通构造解析器和 `forSourceUpgrade()` 保留完整文件核验，后端投影仍校验自身完整内容。不要为后端运行补挂前端目录，也不要将运行期模块编译当作前端构建或完整源码资格。
 
@@ -25,7 +30,7 @@ php think module:pack <vendor.module> --output=<absolute-release-path>/<name>.ta
 
 普通平台、租户 access token 认证从主库无锁读取当前会话及身份状态，不为正常读取锁住租户、账号和会话行。失效会话的撤销先在事务中加锁复核；刷新、登出、切换租户等写操作及既有事务内的认证继续使用加锁路径。租户后台 Login 与 Auth 中间件通过 ThinkPHP Request 内部存储传递一次已装载的身份，权限中间件消费后清除；身份不进入跨请求缓存。业务用例的 `decide()` 和授权操作仍重新核对当前身份，不复用这一中间件传递记录。
 
-包作者通过可信渠道交付archive和SHA-256，不能把未知包旁自行计算的摘要当作可信来源。`module:install-package <archive> --sha256=<trusted-64-hex>`是已知Standalone / multi-tenant实例的本地开发或调试Runtime安装入口；它不创建租户、开通TenantModule或授予RBAC。确需签名时，打包同时提供`--signing-key-id`和`--signing-secret-key-file`，安装可显式要求`--signature-key-id`；既有签名不被无条件忽略。生产模块交付仍走该版本支持的受控入口，不允许普通租户自行上传和运行PHP。
+包作者通过可信渠道交付archive和SHA-256，不能把未知包旁自行计算的摘要当作可信来源。`peanut module install <archive> --sha256=<trusted-64-hex>`是已知Standalone / multi-tenant实例的本地开发或调试Runtime安装入口；它不创建租户、开通TenantModule或授予RBAC。确需签名时，打包同时提供`--signing-key-id`和`--signing-secret-key-file`，安装可显式要求`--signature-key-id`；既有签名不被无条件忽略。生产模块交付仍走该版本支持的受控入口，不允许普通租户自行上传和运行PHP。
 
 租户开通与成员授权各有独立入口。Standalone 部署 owner 对已安装且锁定的私有模块，可用 `php think tenant-module:enable-locked-private --module=<vendor.module>` 显式加入默认租户；该命令不授予 RBAC。平台路由提供受 `platform.tenant.module.manage` 权限保护的 `POST tenants/modules/enable` / `disable`，用于受支持的租户模块管理。成员权限沿应用的角色、成员管理入口办理，并核对实际权限键及租户 Scope；平台 `operators/roles/replace` 是平台操作员角色入口，不等同租户成员授权。当前没有已核实的“安装包后自动为任意租户开通并给所有成员授权”的单一命令，因此不得把安装成功当作可用授权回执。
 
@@ -63,4 +68,4 @@ protected const CRUD_WRITABLE_FIELDS = [
 
 ## 数据库结构交付
 
-模块声明自有表继续使用 module.json 的 database.owned_tables。数据库变更随应用版本放入唯一 `server/database/migrations`，用官方 `migrate:create` 生成 PHP；模块制品不再携带 backend.migrations 或私有 SQL 目录。模块安装/升级运行应用 pending 迁移，再核全部声明表，缺表明确拒绝。接收带新表模块前，应用开发者必须审阅并交付对应原生迁移；只提升模块目录不构成结构交付。卸载保留全局版本历史，purge 后若要重装表，需新增明确恢复结构的应用迁移，不能删除原生版本行来重放初始基线。
+模块声明自有表继续使用 module.json 的 database.owned_tables。模块可通过 `backend.migrations: "database/migrations"` 声明自身原生 PHP 迁移目录；共享包检查校验声明及目录存在，归档保留迁移源码。这不表示安装/升级已经执行该目录：当前生命周期仍运行应用 `server/database/migrations` 的 pending 迁移，再核全部声明表，缺表明确拒绝。接收带新表模块前，应用开发者仍须审阅并交付当前运行入口能执行的原生迁移；只提升模块目录不构成结构交付。卸载保留全局版本历史，purge 后若要重装表，需新增明确恢复结构的应用迁移，不能删除原生版本行来重放初始基线。

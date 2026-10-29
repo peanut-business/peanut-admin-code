@@ -151,7 +151,7 @@
         "server/app/platform/exception/plugin/PluginPackageException.php",
         "server/app/platform/value/plugin/ModuleFrontendLayout.php",
         "server/app/platform/infrastructure/plugin/PluginArtifactWriter.php",
-        "server/app/platform/validation/plugin/ModulePackagePreflight.php",
+        "server/app/common/module/PackageCheck.php",
         "server/app/platform/composition/plugin/PluginModuleRegistryFactory.php",
         "server/app/platform/composition/plugin/ModuleDefinitionRegistryFactory.php",
         "server/app/platform/policy/plugin/ModuleLifecyclePolicy.php",
@@ -163,7 +163,7 @@
         "scripts/deploy-update.sh"
       ],
       "prefixes": [
-        "server/app/modules/official/"
+        "server/app/modules/peanut/"
       ]
     },
     "retained_paths": [
@@ -377,25 +377,25 @@
     "adapters": {
       "framework-adapter": [
         "server/app/common/policy/permission/RegisteredAdminPermissionPolicy.php",
-        "server/app/modules/official/reference_codes/src/Infrastructure/ThinkPhpTenantDictionaryProvider.php",
-        "server/app/modules/official/reference_codes/src/Infrastructure/ThinkPhpSystemDictionaryProvider.php",
-        "server/app/modules/official/task/src/Service/CrontabSchedulerService.php",
-        "server/app/modules/official/settings/src/Infrastructure/TenantSettingWebsiteStore.php",
-        "server/app/modules/official/import_export/src/Infrastructure/File/AppFileMediaGateway.php",
+        "server/app/modules/peanut/reference_codes/src/Infrastructure/ThinkPhpTenantDictionaryProvider.php",
+        "server/app/modules/peanut/reference_codes/src/Infrastructure/ThinkPhpSystemDictionaryProvider.php",
+        "server/app/modules/peanut/task/src/Service/CrontabSchedulerService.php",
+        "server/app/modules/peanut/settings/src/Infrastructure/TenantSettingWebsiteStore.php",
+        "server/app/modules/peanut/import_export/src/Infrastructure/File/AppFileMediaGateway.php",
         "server/app/common/infrastructure/notice/ApplicationNoticeSmsSender.php",
         "server/app/common/services/notice/NoticeChannelService.php",
         "server/app/common/context/notice/NoticeTenantContext.php",
-        "server/app/modules/official/notification/src/Service/VerificationCodeService.php"
+        "server/app/modules/peanut/notification/src/Service/VerificationCodeService.php"
       ],
       "application-provider": [
-        "server/app/modules/official/settings/src/Infrastructure/BrandDefaults.php",
-        "server/app/modules/official/settings/src/Service/WebsiteConfigService.php",
+        "server/app/modules/peanut/settings/src/Infrastructure/BrandDefaults.php",
+        "server/app/modules/peanut/settings/src/Service/WebsiteConfigService.php",
         "server/app/common/infrastructure/crontab/CrontabTenantLock.php",
         "server/app/common/infrastructure/export/OperationLogExportProvider.php",
         "server/app/common/contract/notice/sms/SmsDriver.php",
         "server/app/common/infrastructure/notice/sms/AliyunSms.php",
         "server/app/common/infrastructure/notice/sms/TencentSms.php",
-        "server/app/modules/official/oauth/src/Service/OAuthBrowserCallbackService.php",
+        "server/app/modules/peanut/oauth/src/Service/OAuthBrowserCallbackService.php",
         "server/app/common/infrastructure/oauth/WechatOAuthTransport.php",
         "web/src/core/tenant-session.ts",
         "web/src/core/runtime.ts"

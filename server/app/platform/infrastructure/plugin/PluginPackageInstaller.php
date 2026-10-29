@@ -80,6 +80,9 @@ final class PluginPackageInstaller
                 $signatureKeyId,
                 $availableVersions,
             );
+            foreach ($package->modules as $module) {
+                \app\common\module\PackageCheck::assertEdition($module['manifest']->root, (string) Config::get('deployment.mode', ''));
+            }
             // Verify the untrusted archive first, but do not mutate source/lock until the application schema exists.
             $this->assertApplicationInstalled();
             if ($operation === 'update') {

@@ -44,7 +44,7 @@ final class ModuleUpdatePackage extends ModuleContextualCommand
                 ] + ($exception instanceof PluginPackageException ? $exception->details : []),
                 JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
             ));
-            return 1;
+            return $exception->getCode() > 0 && $exception->getCode() < 256 ? $exception->getCode() : 1;
         } catch (\Throwable) {
             $output->writeln('{"code":"MODULE_PACKAGE_UPDATE_FAILED","reason":"Package update failed.","remediation":"Inspect the restricted operator log and keep the current recovery state."}');
             return 1;
@@ -54,7 +54,7 @@ final class ModuleUpdatePackage extends ModuleContextualCommand
     private function remediation(string $code): string
     {
         return match ($code) {
-            'PLUGIN_DOWNGRADE_REJECTED' => 'Build and sign a version higher than the installed Package.',
+            'PLUGIN_DOWNGRADE_REJECTED' => 'Build a version higher than the installed Package and review its fixed content digest.',
             'PACKAGE_VERSION_IDENTITY_CONFLICT' => 'Publish changed contents under a higher immutable version.',
             'PLUGIN_UPDATE_SCOPE_CHANGED' => 'Keep the existing Bundle member set; deliver membership changes as a separately approved lifecycle decision.',
             'PACKAGE_UPDATE_RECOVERY_REQUIRED' => 'Keep maintenance active and use the returned recovery pointer with a verified paired backup.',

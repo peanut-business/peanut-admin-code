@@ -439,7 +439,7 @@
     passwordWithinPolicy,
     type PasswordPolicy,
   } from '@/api/password-policy';
-  import { uploadFile, type FileRecord } from '@/modules/official-file/api';
+  import { uploadFile, type FileRecord } from '@/modules/peanut-file/api';
   import { getRoleAll } from '@/api/system/role';
   import { getJobsAll } from '@/api/system/jobs';
   import {

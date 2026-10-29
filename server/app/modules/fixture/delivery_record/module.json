@@ -19,7 +19,9 @@
     "entry": "web/src/modules/fixture-delivery-record/contribution.ts"
   },
   "database": {
-    "owned_tables": ["pa_fixture_delivery_record"]
+    "owned_tables": [
+      "pa_fixture_delivery_record"
+    ]
   },
   "contracts": {
     "exports": [

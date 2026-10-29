@@ -84,7 +84,7 @@ class DecorationPageApplicationService
     public function articleOptions(TenantContext $context, int $limit): array
     {
         try {
-            $this->modules->assertHttp('official.article', 'http.admin');
+            $this->modules->assertHttp('peanut.article', 'http.admin');
         } catch (ModuleException) {
             return [];
         }

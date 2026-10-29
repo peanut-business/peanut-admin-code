@@ -12,5 +12,12 @@
     "psr-4": {
       "PeanutAdmin\\Fixtures\\DeliveryRecord\\": "src/"
     }
+  },
+  "extra": {
+    "peanut": {
+      "editions": [
+        "multi-tenant"
+      ]
+    }
   }
 }

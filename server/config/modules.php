@@ -26,4 +26,7 @@ return [
     'kernel_version' => (string) env('PEANUT_MODULE_KERNEL_VERSION', '1.0.0'),
     'registered_client_keys' => ['admin-web', 'platform-web', 'pc-web', 'uniapp'],
     'tenant_hooks' => [],
+    // Development Module jobs use only the application's own registered local worker and target.
+    'delivery_resource_id' => (string) env('PEANUT_MODULE_DELIVERY_RESOURCE_ID', ''),
+    'delivery_target_resource_id' => (string) env('PEANUT_MODULE_DELIVERY_TARGET_RESOURCE_ID', ''),
 ];

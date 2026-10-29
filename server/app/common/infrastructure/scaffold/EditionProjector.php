@@ -19,9 +19,9 @@ final class EditionProjector
         foreach ($files as $file) {
             $path = $file['path'];
             $workflow = str_starts_with($path, 'server/app/modules/peanut/workflow/') || str_starts_with($path, 'web/src/modules/peanut-workflow/') || str_starts_with($path, 'plugins/peanut.workflow/')
-                || str_starts_with($path, 'server/app/modules/official/article/src/Integration/Workflow/')
-                || str_starts_with($path, 'server/app/modules/official/article/resources/workflows/') || str_starts_with($path, 'web/src/modules/official-article/workflow/')
-                || str_starts_with($path, 'web/src/modules/official-article/views/review/');
+                || str_starts_with($path, 'server/app/modules/peanut/article/src/Integration/Workflow/')
+                || str_starts_with($path, 'server/app/modules/peanut/article/resources/workflows/') || str_starts_with($path, 'web/src/modules/peanut-article/workflow/')
+                || str_starts_with($path, 'web/src/modules/peanut-article/views/review/');
             $design = str_starts_with($path, 'web/src/modules/peanut-workflow/designer/')
                 || in_array($path, ['server/app/modules/peanut/workflow/route/design.php', 'server/app/modules/peanut/workflow/src/Controller/WorkflowDefinitionController.php', 'server/app/modules/peanut/workflow/src/Application/WorkflowDefinitionService.php', 'server/app/modules/peanut/workflow/src/Http/WorkflowJsonProjection.php'], true);
             $absolute = $stage . '/' . $path;

@@ -23,7 +23,7 @@ try {
 } catch (Throwable $exception) {
     if ($exception instanceof \PeanutAdmin\Kernel\Module\ModuleException
         && $exception->errorCode === 'MODULE_REGISTRY_NOT_COMPILED') {
-        error_log('HTTP Module registry unavailable: run php think module:compile');
+        error_log('HTTP Module registry unavailable: run peanut module compile');
         http_response_code(503);
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-store');

@@ -87,6 +87,13 @@ Route::post('instance-tools/modules/install', [PlatformModuleLifecycleController
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.module.install')
     ->middleware(PlatformInstanceToolMiddleware::class);
+Route::post('instance-tools/modules/update', [PlatformModuleLifecycleController::class, 'update'])
+    ->middleware(PlatformLoginMiddleware::class)
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.module.update')
+    ->middleware(PlatformInstanceToolMiddleware::class);
+Route::get('instance-tools/modules/tasks/:task_key', [PlatformModuleLifecycleController::class, 'task'])
+    ->middleware(PlatformLoginMiddleware::class)
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.module.read');
 Route::post('instance-tools/modules/uninstall', [PlatformModuleLifecycleController::class, 'uninstall'])
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.module.uninstall')

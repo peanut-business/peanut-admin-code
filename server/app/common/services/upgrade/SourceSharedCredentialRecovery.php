@@ -141,7 +141,7 @@ final readonly class SourceSharedCredentialRecovery
 
     private function adoptedIdentity(): array
     {
-        $plan = $this->app->make(ThinkPhpModuleGovernanceProvider::class)->pluginLifecycle()->reconcilePlan('official.identity');
+        $plan = $this->app->make(ThinkPhpModuleGovernanceProvider::class)->pluginLifecycle()->reconcilePlan('peanut.identity');
         return $this->adoptedIdentityPlan($plan);
     }
 
@@ -149,7 +149,7 @@ final readonly class SourceSharedCredentialRecovery
     {
         if (($plan['action'] ?? null) !== 'planned_unchanged' || ($plan['may_apply'] ?? null) !== true
             || ($plan['planning_complete'] ?? null) !== true || ($plan['application_prerequisites'] ?? null) !== []
-            || ($plan['key'] ?? null) !== 'official.identity' || !is_string($plan['version'] ?? null) || $plan['version'] === ''
+            || ($plan['key'] ?? null) !== 'peanut.identity' || !is_string($plan['version'] ?? null) || $plan['version'] === ''
             || ($plan['from_version'] ?? null) !== $plan['version'] || !is_string($plan['source'] ?? null) || $plan['source'] === ''
             || !is_array($plan['modules'] ?? null) || !array_is_list($plan['modules']) || count($plan['modules']) !== 1) {
             self::fail('CURRENT_IDENTITY_ADOPTION_REQUIRED');
@@ -158,7 +158,7 @@ final readonly class SourceSharedCredentialRecovery
             if (!is_string($plan[$field] ?? null) || preg_match('/\A[a-f0-9]{64}\z/D', $plan[$field]) !== 1) { self::fail('CURRENT_IDENTITY_ADOPTION_REQUIRED'); }
         }
         $module = $plan['modules'][0];
-        if (($module['module_key'] ?? null) !== 'official.identity' || ($module['may_apply'] ?? null) !== true
+        if (($module['module_key'] ?? null) !== 'peanut.identity' || ($module['may_apply'] ?? null) !== true
             || ($module['planning_complete'] ?? null) !== true || ($module['application_prerequisites'] ?? []) !== []
             || !is_string($module['manifest_sha256'] ?? null) || preg_match('/\A[a-f0-9]{64}\z/D', $module['manifest_sha256']) !== 1
             || !is_array($module['migrations'] ?? null) || !array_is_list($module['migrations']) || $module['migrations'] === []) {
@@ -167,7 +167,7 @@ final readonly class SourceSharedCredentialRecovery
         $seen = [];
         foreach ($module['migrations'] as $migration) {
             $key = $migration['migration_key'] ?? null;
-            if (!is_string($key) || !str_starts_with($key, 'official.identity:') || isset($seen[$key])
+            if (!is_string($key) || !str_starts_with($key, 'peanut.identity:') || isset($seen[$key])
                 || ($migration['disposition'] ?? null) !== 'already_applied' || ($migration['ledger_status'] ?? null) !== 'applied'
                 || !is_string($migration['sha256'] ?? null) || preg_match('/\A[a-f0-9]{64}\z/D', $migration['sha256']) !== 1) {
                 self::fail('CURRENT_IDENTITY_ADOPTION_REQUIRED');

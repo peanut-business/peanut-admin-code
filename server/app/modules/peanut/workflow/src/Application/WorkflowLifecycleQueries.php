@@ -20,7 +20,7 @@ final readonly class WorkflowLifecycleQueries
     public function assertTaskAvailable(int $tenantId, bool $lock = false): void
     {
         try {
-            $this->availability->assertAvailable(\PeanutAdmin\Kernel\Tenancy\TenantScope::fromTrustedContext($tenantId, 'workflow'), 'official.task', new \DateTimeImmutable('now', new \DateTimeZone('UTC')), $lock);
+            $this->availability->assertAvailable(\PeanutAdmin\Kernel\Tenancy\TenantScope::fromTrustedContext($tenantId, 'workflow'), 'peanut.task', new \DateTimeImmutable('now', new \DateTimeZone('UTC')), $lock);
         } catch (\PeanutAdmin\Kernel\Module\ModuleException) {
             throw WorkflowException::providerUnavailable();
         }

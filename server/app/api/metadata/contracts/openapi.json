@@ -199,7 +199,7 @@
         ]
       }
     },
-    "/adminapi/official.file.upload.file": {
+    "/adminapi/peanut.file.upload.file": {
       "post": {
         "tags": [
           "File"
@@ -329,7 +329,7 @@
         }
       }
     },
-    "/adminapi/official.file.list": {
+    "/adminapi/peanut.file.list": {
       "get": {
         "tags": [
           "File"
@@ -499,7 +499,7 @@
         }
       }
     },
-    "/adminapi/official.import-export.configuration.export": {
+    "/adminapi/peanut.import-export.configuration.export": {
       "get": {
         "tags": [
           "ImportExport"
@@ -533,7 +533,7 @@
         }
       }
     },
-    "/adminapi/official.import-export.configuration.dry-run": {
+    "/adminapi/peanut.import-export.configuration.dry-run": {
       "post": {
         "tags": [
           "ImportExport"
@@ -583,7 +583,7 @@
         ]
       }
     },
-    "/adminapi/official.import-export.configuration.apply": {
+    "/adminapi/peanut.import-export.configuration.apply": {
       "post": {
         "tags": [
           "ImportExport"

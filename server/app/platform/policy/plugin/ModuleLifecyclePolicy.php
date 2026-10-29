@@ -51,6 +51,25 @@ final class ModuleLifecyclePolicy
         array $moduleKeys,
         TenantModuleStateQueries $installationStates = new TenantModuleStateQueries(),
     ): array {
+        return self::businessDependents($resolver, $moduleKeys, $installationStates, true);
+    }
+
+    /** Includes disabled and failed installations until their package has actually been removed. @param list<string> $moduleKeys @return list<string> */
+    public static function installedBusinessDependents(
+        PluginLockResolver $resolver,
+        array $moduleKeys,
+        TenantModuleStateQueries $installationStates,
+    ): array {
+        return self::businessDependents($resolver, $moduleKeys, $installationStates, false);
+    }
+
+    /** @param list<string> $moduleKeys @return list<string> */
+    private static function businessDependents(
+        PluginLockResolver $resolver,
+        array $moduleKeys,
+        TenantModuleStateQueries $installationStates,
+        bool $activeOnly,
+    ): array {
         $targets = array_fill_keys($moduleKeys, true);
         $dependents = [];
         foreach ($resolver->all() as $descriptor) {
@@ -64,7 +83,9 @@ final class ModuleLifecyclePolicy
                     if (!is_string($dependencyKey) || !isset($targets[$dependencyKey])) {
                         continue;
                     }
-                    if ($installationStates->activeInstallationCount([$dependentKey]) !== 0) {
+                    if ($activeOnly
+                        ? $installationStates->activeInstallationCount([$dependentKey]) !== 0
+                        : $installationStates->installedPackageModuleCount([$dependentKey]) !== 0) {
                         $dependents[] = $dependentKey . '->' . $dependencyKey;
                     }
                 }

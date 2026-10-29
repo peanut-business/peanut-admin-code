@@ -7,6 +7,9 @@ return [
     'password' => [],
     // 稳定 override key => 实现 AdminPermissionPolicy 的应用类。
     'overrides' => [],
+    // module_key => [setting_key => value]; DB deployment/tenant/target values take precedence.
+    // Use env() for deployment secrets; keep real credentials out of Module packages.
+    'settings' => [],
     'environment' => env('APP_ENV', 'production'),
     'demo' => [
         'enabled' => env('PEANUT_DEMO_MODE', 'disabled') === 'enabled',

@@ -33,7 +33,7 @@ final readonly class OfficialAccountApplicationService
         );
         $this->executionContexts->run(
             new SystemExecutionContext($resolution->context),
-            fn() => $this->modules->assertExternalCallback('official.oauth'),
+            fn() => $this->modules->assertExternalCallback('peanut.oauth'),
         );
     }
 
@@ -51,7 +51,7 @@ final readonly class OfficialAccountApplicationService
         return $this->executionContexts->run(
             new SystemExecutionContext($resolution->context),
             function () use ($resolution, $rawBody): string {
-                $this->modules->assertExternalCallback('official.oauth');
+                $this->modules->assertExternalCallback('peanut.oauth');
                 return $this->officialAccount->handlePlain($resolution->context, $rawBody);
             },
         );

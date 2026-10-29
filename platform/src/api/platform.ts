@@ -4,7 +4,7 @@ import type {
   MaintenanceScheduleInput,
   OpsConsoleTransport,
   OpsTransportResult,
-} from '../modules/official-ops/contribution';
+} from '../modules/peanut-ops/contribution';
 
 interface Envelope<T> {
   code: number;
@@ -15,6 +15,27 @@ interface Envelope<T> {
 export interface Page<T> {
   lists: T[];
   count: number;
+}
+
+export interface RuntimeModuleStatus {
+  module_key: string;
+  version: string;
+  status: string;
+  tenant_enabled_count: number;
+  dependencies: unknown[];
+  optional_dependencies: unknown[];
+  pending_actions: string[];
+}
+
+export interface ModuleOperationTask {
+  task_key: string;
+  status: string;
+  current_step: string;
+  operation: string;
+  package_key: string;
+  last_error_code: string | null;
+  result: Record<string, unknown> | null;
+  recovery_pointer: Record<string, unknown> | null;
 }
 
 export interface Session {
@@ -1033,6 +1054,79 @@ export const api = {
         params: moduleKey ? { module_key: moduleKey } : {},
       })
     ),
+  submitModulePackage: (
+    operation: 'install' | 'update',
+    form: FormData,
+    idempotencyKey: string
+  ) =>
+    unwrap<ModuleOperationTask>(
+      client.post(`/platformapi/instance-tools/modules/${operation}`, form, {
+        headers: { 'Idempotency-Key': idempotencyKey },
+      })
+    ),
+  moduleOperationTask: (taskKey: string) =>
+    unwrap<ModuleOperationTask>(
+      client.get(
+        `/platformapi/instance-tools/modules/tasks/${encodeURIComponent(
+          taskKey
+        )}`
+      )
+    ),
+  async runtimeModules(
+    moduleKey = '',
+    page = 1
+  ): Promise<Page<RuntimeModuleStatus>> {
+    const result = await unwrap<unknown>(
+      client.get('/platformapi/instance-tools/modules', {
+        params: { module_key: moduleKey, page, page_size: 20 },
+      })
+    );
+    if (
+      !result ||
+      typeof result !== 'object' ||
+      !('lists' in result) ||
+      !Array.isArray(result.lists) ||
+      !('count' in result) ||
+      typeof result.count !== 'number'
+    ) {
+      throw new Error('Invalid Module installation response');
+    }
+    const lists = result.lists.map((item: unknown): RuntimeModuleStatus => {
+      if (
+        !item ||
+        typeof item !== 'object' ||
+        !('module_key' in item) ||
+        typeof item.module_key !== 'string' ||
+        !('version' in item) ||
+        typeof item.version !== 'string' ||
+        !('status' in item) ||
+        typeof item.status !== 'string' ||
+        !('tenant_enabled_count' in item) ||
+        typeof item.tenant_enabled_count !== 'number' ||
+        !('dependencies' in item) ||
+        !Array.isArray(item.dependencies) ||
+        !('optional_dependencies' in item) ||
+        !Array.isArray(item.optional_dependencies) ||
+        !('pending_actions' in item) ||
+        !Array.isArray(item.pending_actions) ||
+        !item.pending_actions.every(
+          (value: unknown): value is string => typeof value === 'string'
+        )
+      ) {
+        throw new Error('Invalid Module installation row');
+      }
+      return {
+        module_key: item.module_key,
+        version: item.version,
+        status: item.status,
+        tenant_enabled_count: item.tenant_enabled_count,
+        dependencies: item.dependencies,
+        optional_dependencies: item.optional_dependencies,
+        pending_actions: item.pending_actions,
+      };
+    });
+    return { lists, count: result.count };
+  },
   async downloadDiagnostics(
     windowMinutes: 60 | 360 | 1440 = 60
   ): Promise<DiagnosticDownload> {

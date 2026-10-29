@@ -94,6 +94,15 @@ final class ApiProblemMapper
                 $exception->status,
                 'Operations request was rejected.',
             ))->withHeaders(['Cache-Control' => 'no-store']),
+            $exception instanceof PluginPackageException
+                && (str_starts_with($exception->errorCode, 'MODULE_DEPENDENC')
+                    || in_array($exception->errorCode, ['MODULE_REQUIRED_DEPENDENCY_UNAVAILABLE',
+                        'MODULE_DEVELOPMENT_DEPENDENCY_UNSATISFIED', 'MODULE_WORKSPACE_CONFIGURATION_REQUIRED'], true)) => new ApiProblem(
+                    $exception->errorCode,
+                    $this->moduleLifecycleStatus($exception->errorCode),
+                    $exception->getMessage(),
+                    $exception->details,
+                ),
             $exception instanceof PluginLifecycleException
                 || $exception instanceof PluginPackageException
                 || $exception instanceof ModuleScaffoldException => new ApiProblem(

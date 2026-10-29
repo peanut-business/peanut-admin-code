@@ -39,10 +39,10 @@
   const router = useRouter();
   // Exact optional local modules: a Workflow-only application has no File/Content Tools imports.
   const contentTools = import.meta.glob(
-    '/src/modules/official-content-tools/src/{ContentViewer.vue,contributions.ts,capabilities.ts}'
+    '/src/modules/peanut-content-tools/src/{ContentViewer.vue,contributions.ts,capabilities.ts}'
   );
   const fileTools = import.meta.glob(
-    '/src/modules/official-file/optional-runtime/src/contentCallbacks.ts'
+    '/src/modules/peanut-file/optional-runtime/src/contentCallbacks.ts'
   );
   const attachmentBusy = ref(false);
   const attachmentSurface = shallowRef<{
@@ -176,12 +176,12 @@
       if (!valid()) return;
       if (operation === 'manage') {
         // This operates on the current File object, never a fabricated historical FileRecord.
-        await router.push({ name: 'official.file.assets' });
+        await router.push({ name: 'peanut.file.assets' });
         return;
       }
       const callbacksLoader =
         fileTools[
-          '/src/modules/official-file/optional-runtime/src/contentCallbacks.ts'
+          '/src/modules/peanut-file/optional-runtime/src/contentCallbacks.ts'
         ];
       if (!callbacksLoader) throw new Error('当前应用未安装 File 内容访问能力');
       const callbackModule = (await callbacksLoader()) as {
@@ -196,7 +196,7 @@
       if (operation === 'preview') {
         const parser =
           contentTools[
-            '/src/modules/official-content-tools/src/capabilities.ts'
+            '/src/modules/peanut-content-tools/src/capabilities.ts'
           ];
         if (!parser) throw new Error('当前应用未安装内容工具');
         const capabilityModule = (await parser()) as {
@@ -237,11 +237,11 @@
       }
       const viewerLoader =
         contentTools[
-          '/src/modules/official-content-tools/src/ContentViewer.vue'
+          '/src/modules/peanut-content-tools/src/ContentViewer.vue'
         ];
       const registryLoader =
         contentTools[
-          '/src/modules/official-content-tools/src/contributions.ts'
+          '/src/modules/peanut-content-tools/src/contributions.ts'
         ];
       if (!viewerLoader || !registryLoader)
         throw new Error('当前应用未安装内容查看器');

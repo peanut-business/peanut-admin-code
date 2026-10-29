@@ -68,7 +68,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.upload.file": {
+    "/adminapi/peanut.file.upload.file": {
         parameters: {
             query?: never;
             header?: never;
@@ -101,7 +101,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.list": {
+    "/adminapi/peanut.file.list": {
         parameters: {
             query?: never;
             header?: never;
@@ -150,7 +150,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.import-export.configuration.export": {
+    "/adminapi/peanut.import-export.configuration.export": {
         parameters: {
             query?: never;
             header?: never;
@@ -167,7 +167,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.import-export.configuration.dry-run": {
+    "/adminapi/peanut.import-export.configuration.dry-run": {
         parameters: {
             query?: never;
             header?: never;
@@ -184,7 +184,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.import-export.configuration.apply": {
+    "/adminapi/peanut.import-export.configuration.apply": {
         parameters: {
             query?: never;
             header?: never;
@@ -3028,7 +3028,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.document.editor": {
+    "/adminapi/peanut.article.document.editor": {
         parameters: {
             query?: never;
             header?: never;
@@ -3045,7 +3045,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.document.transport": {
+    "/adminapi/peanut.article.document.transport": {
         parameters: {
             query?: never;
             header?: never;
@@ -3062,7 +3062,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.document.save": {
+    "/adminapi/peanut.article.document.save": {
         parameters: {
             query?: never;
             header?: never;
@@ -3079,7 +3079,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.document.operation": {
+    "/adminapi/peanut.article.document.operation": {
         parameters: {
             query?: never;
             header?: never;
@@ -3096,7 +3096,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.document": {
+    "/adminapi/peanut.article.document": {
         parameters: {
             query?: never;
             header?: never;
@@ -3112,7 +3112,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.category.list": {
+    "/adminapi/peanut.article.category.list": {
         parameters: {
             query?: never;
             header?: never;
@@ -3129,7 +3129,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.category.all": {
+    "/adminapi/peanut.article.category.all": {
         parameters: {
             query?: never;
             header?: never;
@@ -3146,7 +3146,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.category.detail": {
+    "/adminapi/peanut.article.category.detail": {
         parameters: {
             query?: never;
             header?: never;
@@ -3163,7 +3163,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.category.add": {
+    "/adminapi/peanut.article.category.add": {
         parameters: {
             query?: never;
             header?: never;
@@ -3180,7 +3180,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.category.edit": {
+    "/adminapi/peanut.article.category.edit": {
         parameters: {
             query?: never;
             header?: never;
@@ -3197,7 +3197,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.category.delete": {
+    "/adminapi/peanut.article.category.delete": {
         parameters: {
             query?: never;
             header?: never;
@@ -3214,7 +3214,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.category.update-status": {
+    "/adminapi/peanut.article.category.update-status": {
         parameters: {
             query?: never;
             header?: never;
@@ -3231,7 +3231,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.category.recycle.list": {
+    "/adminapi/peanut.article.category.recycle.list": {
         parameters: {
             query?: never;
             header?: never;
@@ -3248,7 +3248,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.category.recycle.detail": {
+    "/adminapi/peanut.article.category.recycle.detail": {
         parameters: {
             query?: never;
             header?: never;
@@ -3265,7 +3265,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.category.restore": {
+    "/adminapi/peanut.article.category.restore": {
         parameters: {
             query?: never;
             header?: never;
@@ -3282,7 +3282,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.category.force-delete": {
+    "/adminapi/peanut.article.category.force-delete": {
         parameters: {
             query?: never;
             header?: never;
@@ -3299,7 +3299,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.list": {
+    "/adminapi/peanut.article.list": {
         parameters: {
             query?: never;
             header?: never;
@@ -3316,7 +3316,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.detail": {
+    "/adminapi/peanut.article.detail": {
         parameters: {
             query?: never;
             header?: never;
@@ -3333,7 +3333,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.add": {
+    "/adminapi/peanut.article.add": {
         parameters: {
             query?: never;
             header?: never;
@@ -3350,7 +3350,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.edit": {
+    "/adminapi/peanut.article.edit": {
         parameters: {
             query?: never;
             header?: never;
@@ -3367,7 +3367,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.delete": {
+    "/adminapi/peanut.article.delete": {
         parameters: {
             query?: never;
             header?: never;
@@ -3384,7 +3384,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.update-status": {
+    "/adminapi/peanut.article.update-status": {
         parameters: {
             query?: never;
             header?: never;
@@ -3401,7 +3401,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.recycle.list": {
+    "/adminapi/peanut.article.recycle.list": {
         parameters: {
             query?: never;
             header?: never;
@@ -3418,7 +3418,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.recycle.detail": {
+    "/adminapi/peanut.article.recycle.detail": {
         parameters: {
             query?: never;
             header?: never;
@@ -3435,7 +3435,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.restore": {
+    "/adminapi/peanut.article.restore": {
         parameters: {
             query?: never;
             header?: never;
@@ -3452,7 +3452,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.force-delete": {
+    "/adminapi/peanut.article.force-delete": {
         parameters: {
             query?: never;
             header?: never;
@@ -3469,7 +3469,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.collaboration.transport": {
+    "/adminapi/peanut.collaboration.transport": {
         parameters: {
             query?: never;
             header?: never;
@@ -3655,7 +3655,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.document.target": {
+    "/adminapi/peanut.document.target": {
         parameters: {
             query?: never;
             header?: never;
@@ -3671,7 +3671,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.document.target.cancel": {
+    "/adminapi/peanut.document.target.cancel": {
         parameters: {
             query?: never;
             header?: never;
@@ -3687,7 +3687,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.document.operation": {
+    "/adminapi/peanut.document.operation": {
         parameters: {
             query?: never;
             header?: never;
@@ -3703,7 +3703,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.document.detail": {
+    "/adminapi/peanut.document.detail": {
         parameters: {
             query?: never;
             header?: never;
@@ -3719,7 +3719,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.document.versions": {
+    "/adminapi/peanut.document.versions": {
         parameters: {
             query?: never;
             header?: never;
@@ -3735,7 +3735,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.document.capabilities": {
+    "/adminapi/peanut.document.capabilities": {
         parameters: {
             query?: never;
             header?: never;
@@ -3751,7 +3751,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.document.solo.save": {
+    "/adminapi/peanut.document.solo.save": {
         parameters: {
             query?: never;
             header?: never;
@@ -3767,7 +3767,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.document.resource.bind": {
+    "/adminapi/peanut.document.resource.bind": {
         parameters: {
             query?: never;
             header?: never;
@@ -3783,7 +3783,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.document.version.create": {
+    "/adminapi/peanut.document.version.create": {
         parameters: {
             query?: never;
             header?: never;
@@ -3799,7 +3799,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.document.version.restore": {
+    "/adminapi/peanut.document.version.restore": {
         parameters: {
             query?: never;
             header?: never;
@@ -3815,7 +3815,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.document.archive": {
+    "/adminapi/peanut.document.archive": {
         parameters: {
             query?: never;
             header?: never;
@@ -3831,7 +3831,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.document.restore": {
+    "/adminapi/peanut.document.restore": {
         parameters: {
             query?: never;
             header?: never;
@@ -4016,7 +4016,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.snapshot.pending": {
+    "/adminapi/peanut.file.snapshot.pending": {
         parameters: {
             query?: never;
             header?: never;
@@ -4032,7 +4032,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.snapshot.recover": {
+    "/adminapi/peanut.file.snapshot.recover": {
         parameters: {
             query?: never;
             header?: never;
@@ -4080,7 +4080,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.upload.image": {
+    "/adminapi/peanut.file.upload.image": {
         parameters: {
             query?: never;
             header?: never;
@@ -4096,7 +4096,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.upload.video": {
+    "/adminapi/peanut.file.upload.video": {
         parameters: {
             query?: never;
             header?: never;
@@ -4128,7 +4128,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.move": {
+    "/adminapi/peanut.file.move": {
         parameters: {
             query?: never;
             header?: never;
@@ -4144,7 +4144,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.rename": {
+    "/adminapi/peanut.file.rename": {
         parameters: {
             query?: never;
             header?: never;
@@ -4160,7 +4160,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.delete": {
+    "/adminapi/peanut.file.delete": {
         parameters: {
             query?: never;
             header?: never;
@@ -4176,7 +4176,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.category.list": {
+    "/adminapi/peanut.file.category.list": {
         parameters: {
             query?: never;
             header?: never;
@@ -4192,7 +4192,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.category.add": {
+    "/adminapi/peanut.file.category.add": {
         parameters: {
             query?: never;
             header?: never;
@@ -4208,7 +4208,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.category.edit": {
+    "/adminapi/peanut.file.category.edit": {
         parameters: {
             query?: never;
             header?: never;
@@ -4224,7 +4224,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.category.delete": {
+    "/adminapi/peanut.file.category.delete": {
         parameters: {
             query?: never;
             header?: never;
@@ -4240,7 +4240,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.import-export.operation-log.export": {
+    "/adminapi/peanut.import-export.operation-log.export": {
         parameters: {
             query?: never;
             header?: never;
@@ -4256,7 +4256,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.import-export.operation.status": {
+    "/adminapi/peanut.import-export.operation.status": {
         parameters: {
             query?: never;
             header?: never;
@@ -4272,7 +4272,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.import-export.result.download": {
+    "/adminapi/peanut.import-export.result.download": {
         parameters: {
             query?: never;
             header?: never;
@@ -4528,7 +4528,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.member.list": {
+    "/adminapi/peanut.member.list": {
         parameters: {
             query?: never;
             header?: never;
@@ -4545,7 +4545,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.member.detail": {
+    "/adminapi/peanut.member.detail": {
         parameters: {
             query?: never;
             header?: never;
@@ -4562,7 +4562,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.member.add": {
+    "/adminapi/peanut.member.add": {
         parameters: {
             query?: never;
             header?: never;
@@ -4579,7 +4579,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.member.edit": {
+    "/adminapi/peanut.member.edit": {
         parameters: {
             query?: never;
             header?: never;
@@ -4596,7 +4596,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.member.update-status": {
+    "/adminapi/peanut.member.update-status": {
         parameters: {
             query?: never;
             header?: never;
@@ -4613,7 +4613,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.member.balance.adjust": {
+    "/adminapi/peanut.member.balance.adjust": {
         parameters: {
             query?: never;
             header?: never;
@@ -4630,7 +4630,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.member.tag.add": {
+    "/adminapi/peanut.member.tag.add": {
         parameters: {
             query?: never;
             header?: never;
@@ -4647,7 +4647,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.member.tag.list": {
+    "/adminapi/peanut.member.tag.list": {
         parameters: {
             query?: never;
             header?: never;
@@ -4664,7 +4664,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.member.tag.edit": {
+    "/adminapi/peanut.member.tag.edit": {
         parameters: {
             query?: never;
             header?: never;
@@ -4681,7 +4681,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.member.tag.delete": {
+    "/adminapi/peanut.member.tag.delete": {
         parameters: {
             query?: never;
             header?: never;
@@ -4698,7 +4698,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.member.account-log.list": {
+    "/adminapi/peanut.member.account-log.list": {
         parameters: {
             query?: never;
             header?: never;
@@ -4715,7 +4715,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.member.account-log.change-types": {
+    "/adminapi/peanut.member.account-log.change-types": {
         parameters: {
             query?: never;
             header?: never;
@@ -4902,7 +4902,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.notification.channel.detail": {
+    "/adminapi/peanut.notification.channel.detail": {
         parameters: {
             query?: never;
             header?: never;
@@ -4918,7 +4918,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.notification.channel.save": {
+    "/adminapi/peanut.notification.channel.save": {
         parameters: {
             query?: never;
             header?: never;
@@ -4934,7 +4934,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.notification.scene.list": {
+    "/adminapi/peanut.notification.scene.list": {
         parameters: {
             query?: never;
             header?: never;
@@ -4950,7 +4950,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.notification.scene.detail": {
+    "/adminapi/peanut.notification.scene.detail": {
         parameters: {
             query?: never;
             header?: never;
@@ -4966,7 +4966,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.notification.scene.save": {
+    "/adminapi/peanut.notification.scene.save": {
         parameters: {
             query?: never;
             header?: never;
@@ -4982,7 +4982,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.notification.log.list": {
+    "/adminapi/peanut.notification.log.list": {
         parameters: {
             query?: never;
             header?: never;
@@ -4998,7 +4998,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.notification.log.detail": {
+    "/adminapi/peanut.notification.log.detail": {
         parameters: {
             query?: never;
             header?: never;
@@ -5062,7 +5062,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.oauth.web-page.config": {
+    "/adminapi/peanut.oauth.web-page.config": {
         parameters: {
             query?: never;
             header?: never;
@@ -5079,7 +5079,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.oauth.web-page.save": {
+    "/adminapi/peanut.oauth.web-page.save": {
         parameters: {
             query?: never;
             header?: never;
@@ -5096,7 +5096,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.oauth.mini-program.config": {
+    "/adminapi/peanut.oauth.mini-program.config": {
         parameters: {
             query?: never;
             header?: never;
@@ -5113,7 +5113,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.oauth.mini-program.save": {
+    "/adminapi/peanut.oauth.mini-program.save": {
         parameters: {
             query?: never;
             header?: never;
@@ -5130,7 +5130,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.oauth.official-account.config": {
+    "/adminapi/peanut.oauth.official-account.config": {
         parameters: {
             query?: never;
             header?: never;
@@ -5147,7 +5147,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.oauth.official-account.save": {
+    "/adminapi/peanut.oauth.official-account.save": {
         parameters: {
             query?: never;
             header?: never;
@@ -5164,7 +5164,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.oauth.official-account.menu.detail": {
+    "/adminapi/peanut.oauth.official-account.menu.detail": {
         parameters: {
             query?: never;
             header?: never;
@@ -5181,7 +5181,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.oauth.official-account.menu.save": {
+    "/adminapi/peanut.oauth.official-account.menu.save": {
         parameters: {
             query?: never;
             header?: never;
@@ -5198,7 +5198,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.oauth.official-account.menu.publish": {
+    "/adminapi/peanut.oauth.official-account.menu.publish": {
         parameters: {
             query?: never;
             header?: never;
@@ -5215,7 +5215,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.oauth.official-account.reply.list": {
+    "/adminapi/peanut.oauth.official-account.reply.list": {
         parameters: {
             query?: never;
             header?: never;
@@ -5232,7 +5232,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.oauth.official-account.reply.detail": {
+    "/adminapi/peanut.oauth.official-account.reply.detail": {
         parameters: {
             query?: never;
             header?: never;
@@ -5249,7 +5249,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.oauth.official-account.reply.add": {
+    "/adminapi/peanut.oauth.official-account.reply.add": {
         parameters: {
             query?: never;
             header?: never;
@@ -5266,7 +5266,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.oauth.official-account.reply.edit": {
+    "/adminapi/peanut.oauth.official-account.reply.edit": {
         parameters: {
             query?: never;
             header?: never;
@@ -5283,7 +5283,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.oauth.official-account.reply.delete": {
+    "/adminapi/peanut.oauth.official-account.reply.delete": {
         parameters: {
             query?: never;
             header?: never;
@@ -5300,7 +5300,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.oauth.official-account.reply.update-status": {
+    "/adminapi/peanut.oauth.official-account.reply.update-status": {
         parameters: {
             query?: never;
             header?: never;
@@ -5317,7 +5317,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.oauth.open-platform.config": {
+    "/adminapi/peanut.oauth.open-platform.config": {
         parameters: {
             query?: never;
             header?: never;
@@ -5334,7 +5334,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.oauth.open-platform.save": {
+    "/adminapi/peanut.oauth.open-platform.save": {
         parameters: {
             query?: never;
             header?: never;
@@ -5488,7 +5488,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.payment.settings.detail": {
+    "/adminapi/peanut.payment.settings.detail": {
         parameters: {
             query?: never;
             header?: never;
@@ -5505,7 +5505,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.payment.settings.save": {
+    "/adminapi/peanut.payment.settings.save": {
         parameters: {
             query?: never;
             header?: never;
@@ -5522,7 +5522,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.payment.recharge-settings.detail": {
+    "/adminapi/peanut.payment.recharge-settings.detail": {
         parameters: {
             query?: never;
             header?: never;
@@ -5539,7 +5539,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.payment.recharge-settings.save": {
+    "/adminapi/peanut.payment.recharge-settings.save": {
         parameters: {
             query?: never;
             header?: never;
@@ -5556,7 +5556,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.payment.recharge.list": {
+    "/adminapi/peanut.payment.recharge.list": {
         parameters: {
             query?: never;
             header?: never;
@@ -5573,7 +5573,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.payment.recharge.refund": {
+    "/adminapi/peanut.payment.recharge.refund": {
         parameters: {
             query?: never;
             header?: never;
@@ -5593,7 +5593,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.payment.refund.retry": {
+    "/adminapi/peanut.payment.refund.retry": {
         parameters: {
             query?: never;
             header?: never;
@@ -5613,7 +5613,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.payment.refund.stat": {
+    "/adminapi/peanut.payment.refund.stat": {
         parameters: {
             query?: never;
             header?: never;
@@ -5630,7 +5630,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.payment.refund.list": {
+    "/adminapi/peanut.payment.refund.list": {
         parameters: {
             query?: never;
             header?: never;
@@ -5647,7 +5647,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.payment.refund.log": {
+    "/adminapi/peanut.payment.refund.log": {
         parameters: {
             query?: never;
             header?: never;
@@ -6061,7 +6061,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.rich-text.document.list": {
+    "/adminapi/peanut.rich-text.document.list": {
         parameters: {
             query?: never;
             header?: never;
@@ -6078,7 +6078,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.rich-text.document.detail": {
+    "/adminapi/peanut.rich-text.document.detail": {
         parameters: {
             query?: never;
             header?: never;
@@ -6095,7 +6095,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.rich-text.document.collaboration": {
+    "/adminapi/peanut.rich-text.document.collaboration": {
         parameters: {
             query?: never;
             header?: never;
@@ -6112,7 +6112,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.rich-text.document.add": {
+    "/adminapi/peanut.rich-text.document.add": {
         parameters: {
             query?: never;
             header?: never;
@@ -6129,7 +6129,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.rich-text.document.edit": {
+    "/adminapi/peanut.rich-text.document.edit": {
         parameters: {
             query?: never;
             header?: never;
@@ -6146,7 +6146,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.rich-text.document.delete": {
+    "/adminapi/peanut.rich-text.document.delete": {
         parameters: {
             query?: never;
             header?: never;
@@ -6244,7 +6244,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.task.expression": {
+    "/adminapi/peanut.task.expression": {
         parameters: {
             query?: never;
             header?: never;
@@ -6260,7 +6260,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.task.list": {
+    "/adminapi/peanut.task.list": {
         parameters: {
             query?: never;
             header?: never;
@@ -6276,7 +6276,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.task.detail": {
+    "/adminapi/peanut.task.detail": {
         parameters: {
             query?: never;
             header?: never;
@@ -6292,7 +6292,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.task.add": {
+    "/adminapi/peanut.task.add": {
         parameters: {
             query?: never;
             header?: never;
@@ -6308,7 +6308,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.task.edit": {
+    "/adminapi/peanut.task.edit": {
         parameters: {
             query?: never;
             header?: never;
@@ -6324,7 +6324,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.task.delete": {
+    "/adminapi/peanut.task.delete": {
         parameters: {
             query?: never;
             header?: never;
@@ -6340,7 +6340,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.task.operate": {
+    "/adminapi/peanut.task.operate": {
         parameters: {
             query?: never;
             header?: never;
@@ -8263,7 +8263,7 @@ export interface components {
                 auth_revision: number;
                 owner: {
                     /** @enum {string} */
-                    module_key: "official.article";
+                    module_key: "peanut.article";
                     /** @enum {string} */
                     object_type: "article";
                     object_id: string;
@@ -8316,7 +8316,7 @@ export interface components {
                 protocol: 2;
                 owner: {
                     /** @enum {string} */
-                    module_key: "official.article";
+                    module_key: "peanut.article";
                     /** @enum {string} */
                     object_type: "article";
                     object_id: string;
@@ -11693,7 +11693,7 @@ export interface components {
             secret: boolean;
             configured: boolean;
             /** @enum {string|null} */
-            source_scope: "deployment" | "tenant" | "default" | null;
+            source_scope: "deployment" | "tenant" | "config" | "default" | null;
             value?: components["schemas"]["SettingValue"];
             /** Format: date-time */
             effective_at: string | null;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace app\common\services\installation;
 
 use app\common\composition\ModuleComposition;
+use app\common\module\ModuleMigrationRun;
 use app\common\exception\installation\InstallationExecutionException;
 use app\common\services\audit\AuditContractHost;
 use app\common\value\installation\ApplicationSourceIdentity;
@@ -502,7 +503,7 @@ final class InstallationExecutionHost
         } else {
             throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
         }
-        $modules = (new \app\platform\validation\plugin\ModulePackagePreflight($packageRoot))
+        $modules = (new \app\common\module\PackageCheck($packageRoot))
             ->dependencyOrder($definitions, []);
         $credentials = array_intersect_key($input, array_flip([
             'admin_email', 'admin_password', 'platform_email', 'platform_password',
@@ -522,7 +523,7 @@ final class InstallationExecutionHost
         $registry = $this->definitionRegistry();
         foreach ($registry->modules as $manifest) {
             $key = $manifest->data['key'] ?? null;
-            if (is_string($key) && str_starts_with($key, 'official.')) {
+            if (is_string($key) && str_starts_with($key, 'peanut.')) {
                 $required = $registry->isRequiredTenantFoundation($key);
                 $modules[] = [
                     'key' => $key,
@@ -693,12 +694,18 @@ final class InstallationExecutionHost
         $table = (string) Db::connect()->getConfig('prefix') . (string) Config::get('database.migration_table', 'migrations');
         $applied = array_map('strval', Db::table($table)->column('version'));
         $migrations = [];
-        foreach (\applicationMigrationFiles($this->serverRoot . '/database') as $path) {
-            $version = (string) \Phinx\Util\Util::getVersionFromFileName(basename($path));
+        $selected = [];
+        foreach ($this->definitions->modules as $manifest) {
+            if (in_array($manifest->data['key'], $moduleKeys, true)) {
+                $selected[$manifest->data['key']] = $manifest;
+            }
+        }
+        foreach (ModuleMigrationRun::sources($selected, $this->serverRoot, true) as $migration) {
+            $version = $migration['migration_key'];
             if (!in_array($version, $applied, true)) {
                 throw new RuntimeException('INSTALL_MIGRATIONS_INCOMPLETE');
             }
-            $migrations[] = ['version' => $version, 'sha256' => $this->fileDigest($path)];
+            $migrations[] = ['version' => $version, 'sha256' => $migration['sha256']];
         }
         if ($migrations === [] || count($migrations) !== count($applied)) {
             throw new RuntimeException('INSTALL_MIGRATIONS_MISMATCH');

@@ -328,9 +328,9 @@
       ],
       "current_implementation": [
         "PeanutAdmin Kernel Idempotency primitives",
-        "server/app/modules/official/member/src/Service/MemberAdministrationService.php",
-        "server/app/modules/official/payment/src/Service/RechargeAdministrationService.php",
-        "server/app/modules/official/import_export/src/Service/TaskImportExportRuntime.php"
+        "server/app/modules/peanut/member/src/Service/MemberAdministrationService.php",
+        "server/app/modules/peanut/payment/src/Service/RechargeAdministrationService.php",
+        "server/app/modules/peanut/import_export/src/Service/TaskImportExportRuntime.php"
       ],
       "actual_callers": [
         "会员余额调账",
@@ -391,8 +391,8 @@
         "业务内容、会员、OAuth 和导出自己的领域规则"
       ],
       "current_implementation": [
-        "server/app/modules/official/file/module.json",
-        "server/app/modules/official/file/src/ModuleProvider.php",
+        "server/app/modules/peanut/file/module.json",
+        "server/app/modules/peanut/file/src/ModuleProvider.php",
         "server/app/common/model/storage/FileObject.php",
         "server/app/common/services/FileService.php",
         "server/app/common/services/storage/StorageService.php",
@@ -402,10 +402,10 @@
         "server/app/common/composition/storage/StorageDriverFactory.php"
       ],
       "actual_callers": [
-        "official.article",
-        "official.member",
-        "official.oauth",
-        "official.import-export",
+        "peanut.article",
+        "peanut.member",
+        "peanut.oauth",
+        "peanut.import-export",
         "管理端和会员端上传"
       ],
       "data_ownership": {
@@ -421,14 +421,14 @@
       "group_id": "enableable-business",
       "availability": "enableable_plugin",
       "maturity": "partial",
-      "owner": "official.notification",
+      "owner": "peanut.notification",
       "responsibility": "管理通知渠道、Scene、模板、发送日志、验证码频控和一次消费核验",
       "explicit_exclusions": [
         "外部 Provider 绑定和 callback Tenant 解析",
         "会员注册或找回密码业务状态机"
       ],
       "current_implementation": [
-        "server/app/modules/official/notification/module.json",
+        "server/app/modules/peanut/notification/module.json",
         "server/app/common/services/notice/NoticeChannelService.php",
         "server/app/common/infrastructure/notice/ApplicationNoticeSmsSender.php",
         "server/app/common/infrastructure/notice/sms/AliyunSms.php",
@@ -436,12 +436,12 @@
         "server/app/common/contract/notice/sms/SmsDriver.php",
         "server/app/common/value/notice/sms/SmsDriverResult.php",
         "server/app/common/context/notice/NoticeTenantContext.php",
-        "server/app/modules/official/notification/src/Service/NotificationApplicationService.php",
-        "server/app/modules/official/notification/src/Service/VerificationCodeService.php",
-        "server/app/modules/official/notification/src/Service/NotificationApplicationService.php",
-        "server/app/modules/official/notification/src/Contract/NotificationCommands.php",
-        "server/app/modules/official/notification/src/Contract/NotificationQueries.php",
-        "server/app/modules/official/notification/src/Contract/VerificationCodeCommands.php"
+        "server/app/modules/peanut/notification/src/Service/NotificationApplicationService.php",
+        "server/app/modules/peanut/notification/src/Service/VerificationCodeService.php",
+        "server/app/modules/peanut/notification/src/Service/NotificationApplicationService.php",
+        "server/app/modules/peanut/notification/src/Contract/NotificationCommands.php",
+        "server/app/modules/peanut/notification/src/Contract/NotificationQueries.php",
+        "server/app/modules/peanut/notification/src/Contract/VerificationCodeCommands.php"
       ],
       "actual_callers": [
         "注册",
@@ -463,7 +463,7 @@
       "group_id": "enableable-business",
       "availability": "enableable_plugin",
       "maturity": "partial",
-      "owner": "official.member",
+      "owner": "peanut.member",
       "responsibility": "管理业务会员身份、会话、资料、标签、余额和分类流水，并向支付/OAuth 提供窄合同",
       "explicit_exclusions": [
         "Tenant 管理员身份和 RBAC",
@@ -471,21 +471,21 @@
         "文件对象生命周期"
       ],
       "current_implementation": [
-        "server/app/modules/official/member/module.json",
-        "server/app/modules/official/member/src/Service/MemberAdministrationService.php",
-        "server/app/modules/official/member/src/Service/MemberBalanceService.php",
-        "server/app/modules/official/member/src/Service/MemberBalanceContractService.php",
-        "server/app/modules/official/member/src/Service/MemberIdentityContractService.php",
-        "server/app/modules/official/member/src/Service/MemberProfileContractService.php",
-        "server/app/modules/official/member/src/Service/MemberQueryService.php",
-        "server/app/modules/official/member/src/Service/MemberTagContractService.php",
-        "server/app/modules/official/member/src/Infrastructure/Persistence/ThinkPhpMemberSubjectLookup.php",
-        "server/app/modules/official/member/src/Contract/MemberAdministration.php",
-        "server/app/modules/official/member/src/Contract/MemberBalanceCommands.php",
-        "server/app/modules/official/member/src/Contract/MemberIdentityCommands.php",
-        "server/app/modules/official/member/src/Contract/MemberProfileCommands.php",
-        "server/app/modules/official/member/src/Contract/MemberQueries.php",
-        "server/app/modules/official/member/src/Contract/MemberTagCommands.php",
+        "server/app/modules/peanut/member/module.json",
+        "server/app/modules/peanut/member/src/Service/MemberAdministrationService.php",
+        "server/app/modules/peanut/member/src/Service/MemberBalanceService.php",
+        "server/app/modules/peanut/member/src/Service/MemberBalanceContractService.php",
+        "server/app/modules/peanut/member/src/Service/MemberIdentityContractService.php",
+        "server/app/modules/peanut/member/src/Service/MemberProfileContractService.php",
+        "server/app/modules/peanut/member/src/Service/MemberQueryService.php",
+        "server/app/modules/peanut/member/src/Service/MemberTagContractService.php",
+        "server/app/modules/peanut/member/src/Infrastructure/Persistence/ThinkPhpMemberSubjectLookup.php",
+        "server/app/modules/peanut/member/src/Contract/MemberAdministration.php",
+        "server/app/modules/peanut/member/src/Contract/MemberBalanceCommands.php",
+        "server/app/modules/peanut/member/src/Contract/MemberIdentityCommands.php",
+        "server/app/modules/peanut/member/src/Contract/MemberProfileCommands.php",
+        "server/app/modules/peanut/member/src/Contract/MemberQueries.php",
+        "server/app/modules/peanut/member/src/Contract/MemberTagCommands.php",
         "server/app/api/services/UserTokenService.php"
       ],
       "actual_callers": [
@@ -502,7 +502,7 @@
           "pa_member_tag_relation"
         ],
         "shared_or_read_only_tables": [],
-        "policy": "official.member 的 MemberBalanceService 通过 MemberBalanceCommands 保持余额和流水唯一 writer；其他 Module 只能调用该合同"
+        "policy": "peanut.member 的 MemberBalanceService 通过 MemberBalanceCommands 保持余额和流水唯一 writer；其他 Module 只能调用该合同"
       },
         "dependencies": ["PA-SVC-STORAGE"],
       "recommended_boundary": "MemberQueries、MemberProfileCommands、MemberIdentityCommands 和 MemberBalanceCommands；Token 只作为内部认证 adapter"    },
@@ -512,7 +512,7 @@
       "group_id": "enableable-business",
       "availability": "enableable_plugin",
       "maturity": "formed",
-      "owner": "official.payment",
+      "owner": "peanut.payment",
       "responsibility": "管理支付配置、预支付、可信回调、充值订单、退款状态机、重试和渠道结果",
       "explicit_exclusions": [
         "直接拥有会员资料或余额表",
@@ -520,17 +520,17 @@
         "通用幂等记录实现"
       ],
       "current_implementation": [
-        "server/app/modules/official/payment/module.json",
+        "server/app/modules/peanut/payment/module.json",
         "server/app/common/composition/payment/PaymentServiceFactory.php",
-        "server/app/modules/official/payment/src/Service/PayConfigApplicationService.php",
-        "server/app/modules/official/payment/src/Infrastructure/ThinkPhpPaymentChannelGrantCommands.php",
-        "server/app/modules/official/payment/src/Service/RechargeAdministrationService.php",
-        "server/app/modules/official/payment/src/Service/RechargeSettingApplicationService.php",
-        "server/app/modules/official/payment/src/Service/RechargeTenantSettingService.php",
-        "server/app/modules/official/payment/src/Service/RefundApplicationService.php",
-        "server/app/modules/official/payment/src/Contract/PaymentChannelGrantCommands.php",
-        "server/app/modules/official/payment/src/Infrastructure/ThinkPhpPaymentChannelGrantCommands.php",
-        "server/app/modules/official/payment/src/Model/RechargeOrder.php",
+        "server/app/modules/peanut/payment/src/Service/PayConfigApplicationService.php",
+        "server/app/modules/peanut/payment/src/Infrastructure/ThinkPhpPaymentChannelGrantCommands.php",
+        "server/app/modules/peanut/payment/src/Service/RechargeAdministrationService.php",
+        "server/app/modules/peanut/payment/src/Service/RechargeSettingApplicationService.php",
+        "server/app/modules/peanut/payment/src/Service/RechargeTenantSettingService.php",
+        "server/app/modules/peanut/payment/src/Service/RefundApplicationService.php",
+        "server/app/modules/peanut/payment/src/Contract/PaymentChannelGrantCommands.php",
+        "server/app/modules/peanut/payment/src/Infrastructure/ThinkPhpPaymentChannelGrantCommands.php",
+        "server/app/modules/peanut/payment/src/Model/RechargeOrder.php",
         "server/app/api/services/RechargeApplicationService.php",
         "server/app/command/RefundReconcile.php"
       ],
@@ -558,7 +558,7 @@
       "group_id": "enableable-business",
       "availability": "enableable_plugin",
       "maturity": "formed",
-      "owner": "official.oauth",
+      "owner": "peanut.oauth",
       "responsibility": "管理 OAuth state/ticket、外部身份、会员绑定、公众号回调、菜单与回复、小程序和开放平台交互",
       "explicit_exclusions": [
         "会员账户权威资料",
@@ -566,16 +566,16 @@
         "文件对象与 Provider 绑定的底层生命周期"
       ],
       "current_implementation": [
-        "server/app/modules/official/oauth/module.json",
-        "server/app/modules/official/oauth/src/Service/OAuthCommandService.php",
-        "server/app/modules/official/oauth/src/Service/OAuthQueryService.php",
-        "server/app/modules/official/oauth/src/Contract/OAuthCallbackLocator.php",
-        "server/app/modules/official/oauth/src/Contract/OAuthCommands.php",
-        "server/app/modules/official/oauth/src/Contract/OAuthQueries.php",
-        "server/app/modules/official/oauth/src/Infrastructure/Persistence/ThinkPhpOAuthPersistence.php",
+        "server/app/modules/peanut/oauth/module.json",
+        "server/app/modules/peanut/oauth/src/Service/OAuthCommandService.php",
+        "server/app/modules/peanut/oauth/src/Service/OAuthQueryService.php",
+        "server/app/modules/peanut/oauth/src/Contract/OAuthCallbackLocator.php",
+        "server/app/modules/peanut/oauth/src/Contract/OAuthCommands.php",
+        "server/app/modules/peanut/oauth/src/Contract/OAuthQueries.php",
+        "server/app/modules/peanut/oauth/src/Infrastructure/Persistence/ThinkPhpOAuthPersistence.php",
         "server/app/common/services/oauth/OAuthBrowserCallbackService.php",
         "server/app/common/services/oauth/OAuthBrowserCallbackService.php",
-        "server/app/modules/official/oauth/src/Service/OfficialAccountApplicationService.php"
+        "server/app/modules/peanut/oauth/src/Service/OfficialAccountApplicationService.php"
       ],
       "actual_callers": [
         "PC 微信登录",
@@ -603,7 +603,7 @@
       "group_id": "enableable-business",
       "availability": "enableable_plugin",
       "maturity": "partial",
-      "owner": "official.task",
+      "owner": "peanut.task",
       "responsibility": "管理 Tenant 定时计划、可信任务提交、Job/Attempt/Event、领取、重试、执行结果和执行前 Module/授权复核",
       "explicit_exclusions": [
         "具体业务 handler 的领域逻辑",
@@ -611,24 +611,24 @@
         "通用事件总线"
       ],
       "current_implementation": [
-        "server/app/modules/official/task/module.json",
-        "server/app/modules/official/task/src/Service/CrontabApplicationService.php",
-        "server/app/modules/official/task/src/Service/CrontabSchedulerService.php",
-        "server/app/modules/official/task/src/Service/CrontabTaskDefinition.php",
-        "server/app/modules/official/task/src/Infrastructure/Runtime/ThinkPhpTaskJobRuntime.php",
-        "server/app/modules/official/task/src/Service/TaskAuthorizationRouter.php",
-        "server/app/modules/official/task/src/Service/TaskSchedulerService.php",
-        "server/app/modules/official/task/src/Contract/TaskJobRuntime.php",
-        "server/app/modules/official/task/src/Contract/TaskScheduler.php",
-        "server/app/modules/official/task/src/Contract/TaskWorkerDefinition.php",
-        "server/app/modules/official/task/src/Model/Crontab.php",
+        "server/app/modules/peanut/task/module.json",
+        "server/app/modules/peanut/task/src/Service/CrontabApplicationService.php",
+        "server/app/modules/peanut/task/src/Service/CrontabSchedulerService.php",
+        "server/app/modules/peanut/task/src/Service/CrontabTaskDefinition.php",
+        "server/app/modules/peanut/task/src/Infrastructure/Runtime/ThinkPhpTaskJobRuntime.php",
+        "server/app/modules/peanut/task/src/Service/TaskAuthorizationRouter.php",
+        "server/app/modules/peanut/task/src/Service/TaskSchedulerService.php",
+        "server/app/modules/peanut/task/src/Contract/TaskJobRuntime.php",
+        "server/app/modules/peanut/task/src/Contract/TaskScheduler.php",
+        "server/app/modules/peanut/task/src/Contract/TaskWorkerDefinition.php",
+        "server/app/modules/peanut/task/src/Model/Crontab.php",
         "server/app/common/infrastructure/async/ModuleAwareTaskHandler.php",
         "server/app/command/TenantTaskWorker.php"
       ],
       "actual_callers": [
         "Crontab 调度命令",
         "Tenant worker",
-        "official.import-export",
+        "peanut.import-export",
         "未来各 Module 后台任务"
       ],
       "data_ownership": {
@@ -661,7 +661,7 @@
       "group_id": "enableable-business",
       "availability": "enableable_plugin",
       "maturity": "partial",
-      "owner": "official.import-export",
+      "owner": "peanut.import-export",
       "responsibility": "管理 Provider 注册、导入导出 operation、异步提交、行错误、状态查询和授权下载",
       "explicit_exclusions": [
         "各业务域的行转换和校验规则",
@@ -669,11 +669,11 @@
         "文件对象存储实现"
       ],
       "current_implementation": [
-        "server/app/modules/official/import_export/module.json",
-        "server/app/modules/official/import_export/src/Service/TaskImportExportRuntime.php",
-        "server/app/modules/official/import_export/src/Service/ImportExportTaskWorkerDefinition.php",
-        "server/app/modules/official/import_export/src/Infrastructure/Authorization/AdminAsyncAuthorization.php",
-        "server/app/modules/official/import_export/src/Infrastructure/File/AppFileMediaGateway.php",
+        "server/app/modules/peanut/import_export/module.json",
+        "server/app/modules/peanut/import_export/src/Service/TaskImportExportRuntime.php",
+        "server/app/modules/peanut/import_export/src/Service/ImportExportTaskWorkerDefinition.php",
+        "server/app/modules/peanut/import_export/src/Infrastructure/Authorization/AdminAsyncAuthorization.php",
+        "server/app/modules/peanut/import_export/src/Infrastructure/File/AppFileMediaGateway.php",
         "server/app/common/infrastructure/export/OperationLogExportProvider.php",
         "server/app/common/services/XlsxExportService.php"
       ],

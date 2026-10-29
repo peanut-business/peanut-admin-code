@@ -1,0 +1,23 @@
+{
+  "name": "peanut-business/peanut-member",
+  "description": "Official Tenant member CRM module",
+  "type": "library",
+  "version": "1.0.18",
+  "license": "Apache-2.0",
+  "require": {
+    "php": "^8.3",
+    "peanut-admin/core": "^5.0.2"
+  },
+  "autoload": {
+    "psr-4": {
+      "PeanutAdmin\\Modules\\Member\\": "src/"
+    }
+  },
+  "extra": {
+    "peanut": {
+      "editions": [
+        "multi-tenant"
+      ]
+    }
+  }
+}

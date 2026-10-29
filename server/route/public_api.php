@@ -24,7 +24,7 @@ if (($peanutRouteApplication ?? null) !== 'api') {
 
 // ─── 公开接口（无需 token） ────────────────────────────────────────────────────
 Route::get('index/index', [ApiIndexController::class, 'index'])
-    ->middleware(PublicTenantModuleMiddleware::class, 'peanut.article.public-read', 'official.article', 'article.index');
+    ->middleware(PublicTenantModuleMiddleware::class, 'peanut.article.public-read', 'peanut.article', 'article.index');
 Route::get('index/config', [ApiIndexController::class, 'config'])
     ->middleware(PublicTenantModuleMiddleware::class, 'peanut.decoration.public-read', '', 'decoration.config');
 Route::get('index/policy', [ApiIndexController::class, 'policy'])
@@ -35,11 +35,11 @@ Route::post('login/logout', [ApiLoginController::class, 'logout'])
     ->middleware(CheckTokenMiddleware::class);
 
 Route::get('article/cate', [ApiArticleController::class, 'cate'])
-    ->middleware(PublicTenantModuleMiddleware::class, 'peanut.article.public-read', 'official.article', 'article.cate');
+    ->middleware(PublicTenantModuleMiddleware::class, 'peanut.article.public-read', 'peanut.article', 'article.cate');
 Route::get('article/lists', [ApiArticleController::class, 'lists'])
-    ->middleware(PublicTenantModuleMiddleware::class, 'peanut.article.public-read', 'official.article', 'article.lists');
+    ->middleware(PublicTenantModuleMiddleware::class, 'peanut.article.public-read', 'peanut.article', 'article.lists');
 Route::get('article/detail', [ApiArticleController::class, 'detail'])
-    ->middleware(PublicTenantModuleMiddleware::class, 'peanut.article.public-read', 'official.article', 'article.detail');
+    ->middleware(PublicTenantModuleMiddleware::class, 'peanut.article.public-read', 'peanut.article', 'article.detail');
 
 Route::get('search/hotLists', [ApiSearchController::class, 'hotLists'])
     ->middleware(PublicTenantModuleMiddleware::class, 'peanut.hot-search.public-read', '', 'hot-search.lists');
@@ -56,11 +56,11 @@ Route::get('decoration/pc', [ApiDecorationController::class, 'pcPage'])
 Route::get('pc/config', [ApiPcController::class, 'config'])
     ->middleware(PublicTenantModuleMiddleware::class, 'peanut.decoration.public-read', '', 'decoration.config');
 Route::get('pc/index', [ApiPcController::class, 'index'])
-    ->middleware(PublicTenantModuleMiddleware::class, 'peanut.article.public-read', 'official.article', 'article.pc-index');
+    ->middleware(PublicTenantModuleMiddleware::class, 'peanut.article.public-read', 'peanut.article', 'article.pc-index');
 Route::get('pc/infoCenter', [ApiPcController::class, 'infoCenter'])
-    ->middleware(PublicTenantModuleMiddleware::class, 'peanut.article.public-read', 'official.article', 'article.info-center');
+    ->middleware(PublicTenantModuleMiddleware::class, 'peanut.article.public-read', 'peanut.article', 'article.info-center');
 Route::get('pc/articleDetail', [ApiPcController::class, 'articleDetail'])
-    ->middleware(PublicTenantModuleMiddleware::class, 'peanut.article.public-read', 'official.article', 'article.pc-detail');
+    ->middleware(PublicTenantModuleMiddleware::class, 'peanut.article.public-read', 'peanut.article', 'article.pc-detail');
 
 // ─── 需登录接口（挂 CheckTokenMiddleware） ──────────────────────────────────
 Route::group(function () {
@@ -70,4 +70,4 @@ Route::group(function () {
     Route::get('article/collect', [ApiArticleController::class, 'collect']);
 
 })->middleware(CheckTokenMiddleware::class)
-    ->middleware(OfficialModuleMiddleware::class, 'official.article', 'http.member');
+    ->middleware(OfficialModuleMiddleware::class, 'peanut.article', 'http.member');

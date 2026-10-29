@@ -3,15 +3,15 @@
   "key": "peanut.artifact-revision",
   "name": "ArtifactRevision",
   "description": "版本化业务制品与不可变修订；保留原模块编号与审计、幂等语义。",
-  "version": "4.0.0-rc.30",
+  "version": "4.0.0-rc.31",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/artifact-revision",
   "web_package": null,
   "dependencies": [
     {
-      "module_key": "official.identity",
-      "version": "4.0.0-rc.30"
+      "module_key": "peanut.identity",
+      "version": "4.0.0-rc.31"
     }
   ],
   "backend": {
@@ -19,7 +19,10 @@
   },
   "frontend": {},
   "database": {
-    "owned_tables": ["pa_artifact", "pa_artifact_revision"]
+    "owned_tables": [
+      "pa_artifact",
+      "pa_artifact_revision"
+    ]
   },
   "contracts": {
     "exports": [
@@ -33,6 +36,8 @@
   "tenant": {
     "enableable": true,
     "disable_behavior": "reject_new_operations",
-    "requires": ["official.identity"]
+    "requires": [
+      "peanut.identity"
+    ]
   }
 }

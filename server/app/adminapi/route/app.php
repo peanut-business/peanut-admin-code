@@ -10,20 +10,20 @@ require $serverRoot . '/route/tenant.php';
 require $serverRoot . '/route/admin.php';
 
 foreach ([
-    'app/modules/official/article/route/app.php',
-    'app/modules/official/file/route/app.php',
-    'app/modules/official/notification/route/app.php',
-    'app/modules/official/oauth/route/app.php',
-    'app/modules/official/payment/route/app.php',
-    'app/modules/official/member/route/app.php',
-    'app/modules/official/task/route/app.php',
-    'app/modules/official/import_export/route/app.php',
-    'app/modules/official/settings/route/app.php',
-    'app/modules/official/reference_codes/route/app.php',
-    'app/modules/official/rich_text/route/app.php',
-    'app/modules/official/document/route/app.php',
-    'app/modules/official/collaboration/route/app.php',
-    'app/modules/official/integration/route/app.php',
+    'app/modules/peanut/article/route/app.php',
+    'app/modules/peanut/file/route/app.php',
+    'app/modules/peanut/notification/route/app.php',
+    'app/modules/peanut/oauth/route/app.php',
+    'app/modules/peanut/payment/route/app.php',
+    'app/modules/peanut/member/route/app.php',
+    'app/modules/peanut/task/route/app.php',
+    'app/modules/peanut/import_export/route/app.php',
+    'app/modules/peanut/settings/route/app.php',
+    'app/modules/peanut/reference_codes/route/app.php',
+    'app/modules/peanut/rich_text/route/app.php',
+    'app/modules/peanut/document/route/app.php',
+    'app/modules/peanut/collaboration/route/app.php',
+    'app/modules/peanut/integration/route/app.php',
 ] as $moduleRoute) {
     require $serverRoot . '/' . $moduleRoute;
 }

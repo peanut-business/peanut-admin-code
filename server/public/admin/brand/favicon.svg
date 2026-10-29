@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-labelledby="title">
+  <title id="title">Peanut Admin</title>
+  <rect width="32" height="32" rx="8" fill="#165DFF"/>
+  <path d="M9 8h7.7c4.3 0 7.3 2.6 7.3 6.5S21 21 16.7 21H14v3H9V8Zm5 4v5h2.6c1.6 0 2.5-.9 2.5-2.5S18.2 12 16.6 12H14Z" fill="#fff"/>
+  <circle cx="23.5" cy="23.5" r="3" fill="#34D399"/>
+</svg>

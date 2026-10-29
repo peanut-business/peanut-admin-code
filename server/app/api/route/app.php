@@ -8,11 +8,11 @@ $serverRoot = dirname(__DIR__, 3);
 require $serverRoot . '/route/public_api.php';
 
 foreach ([
-    'app/modules/official/file/route/app.php',
-    'app/modules/official/notification/route/app.php',
-    'app/modules/official/oauth/route/app.php',
-    'app/modules/official/payment/route/app.php',
-    'app/modules/official/member/route/app.php',
+    'app/modules/peanut/file/route/app.php',
+    'app/modules/peanut/notification/route/app.php',
+    'app/modules/peanut/oauth/route/app.php',
+    'app/modules/peanut/payment/route/app.php',
+    'app/modules/peanut/member/route/app.php',
 ] as $moduleRoute) {
     require $serverRoot . '/' . $moduleRoute;
 }

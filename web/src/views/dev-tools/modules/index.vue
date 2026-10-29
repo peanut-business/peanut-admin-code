@@ -39,10 +39,13 @@
             <el-button
               type="primary"
               :disabled="busy"
-              @click="uploadVisible = true"
+              @click="openPackage('install')"
             >
               安装 .tar 包
             </el-button>
+            <el-button :disabled="busy" @click="openPackage('update')"
+              >升级 .tar 包</el-button
+            >
           </el-space>
         </div>
       </template>
@@ -63,6 +66,37 @@
         show-icon
         :title="operationLabel"
       />
+      <el-card v-if="packageTask" class="operation-alert">
+        <template #header>
+          <div class="card-header">
+            <span>模块任务 {{ packageTask.task_key }}</span>
+            <el-button :loading="busy" @click="refreshTask"
+              >刷新任务状态</el-button
+            >
+          </div>
+        </template>
+        <p
+          >{{ packageTask.package_key }} · {{ packageTask.status }} ·
+          {{ packageTask.current_step }}</p
+        >
+        <p v-if="packageTask.status === 'queued'"
+          >任务已排队，等待当前应用已登记的执行器处理。</p
+        >
+        <p v-if="packageTask.status === 'succeeded'"
+          >依赖、模块生命周期及当前支持的客户端采用已完成。</p
+        >
+        <el-alert
+          v-if="packageTask.last_error_code"
+          type="error"
+          :title="packageTask.last_error_code"
+        />
+        <pre v-if="packageTask.result">{{
+          JSON.stringify(packageTask.result, null, 2)
+        }}</pre>
+        <pre v-if="packageTask.recovery_pointer">{{
+          JSON.stringify(packageTask.recovery_pointer, null, 2)
+        }}</pre>
+      </el-card>
       <el-table :data="rows" :loading="busy" row-key="module_key" border>
         <el-table-column prop="module_key" label="Module key" min-width="210" />
         <el-table-column prop="name" label="名称" min-width="150" />
@@ -85,10 +119,28 @@
                 v-for="dependency in row.dependencies"
                 :key="dependency.module_key"
                 size="small"
+                :type="dependency.satisfied ? 'success' : 'danger'"
               >
                 {{ dependency.module_key }} {{ dependency.version }}
+                {{ dependency.unavailable_reason || '已满足' }}
               </el-tag>
               <span v-if="row.dependencies.length === 0">—</span>
+            </div>
+            <div class="dependency-line">
+              <span class="dependency-label">可选</span>
+              <el-tag
+                v-for="dependency in row.optional_dependencies"
+                :key="dependency.module_key"
+                size="small"
+                :type="dependency.satisfied ? 'success' : 'info'"
+              >
+                {{ dependency.module_key }} {{ dependency.version }}
+                {{ dependency.unavailable_reason || '可用' }}
+              </el-tag>
+              <span v-if="row.optional_dependencies.length === 0">—</span>
+            </div>
+            <div v-for="action in row.pending_actions" :key="action">
+              待处理：{{ action }}
             </div>
             <div class="dependency-line">
               <span class="dependency-label">被依赖</span>
@@ -151,7 +203,13 @@
       />
     </el-card>
 
-    <el-dialog v-model="uploadVisible" title="安装自包含模块包" width="560px">
+    <el-dialog
+      v-model="uploadVisible"
+      :title="
+        packageOperation === 'install' ? '安装自包含模块包' : '升级模块包'
+      "
+      width="560px"
+    >
       <el-form label-position="top">
         <el-form-item label=".tar 文件">
           <input
@@ -161,16 +219,23 @@
           />
         </el-form-item>
         <el-form-item label="期望 SHA-256">
-          <el-input v-model="upload.sha256" maxlength="64" />
+          <el-input
+            v-model="upload.sha256"
+            maxlength="64"
+            @input="packageIdempotency = ''"
+          />
         </el-form-item>
         <el-form-item label="签名 key id（可选）">
-          <el-input v-model="upload.signatureKeyId" />
+          <el-input
+            v-model="upload.signatureKeyId"
+            @input="packageIdempotency = ''"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="uploadVisible = false">取消</el-button>
         <el-button type="primary" :loading="busy" @click="install"
-          >校验并安装</el-button
+          >校验并提交任务</el-button
         >
       </template>
     </el-dialog>
@@ -210,11 +275,13 @@
     hasPlatformSession,
     installPackage,
     listModules,
+    moduleOperationTask,
     loginPlatform,
     moduleErrorMessage,
     previewUninstall,
     syncModules,
     type ModuleRuntimeRow,
+    type ModuleOperationTask,
   } from '@/api/dev-tools/modules';
 
   const authenticated = ref(hasPlatformSession());
@@ -226,6 +293,9 @@
   const pageSize = 20;
   const total = ref(0);
   const uploadVisible = ref(false);
+  const packageOperation = ref<'install' | 'update'>('install');
+  const packageTask = ref<ModuleOperationTask | null>(null);
+  let packageIdempotency = '';
   const createVisible = ref(false);
   const credentials = reactive({ email: '', password: '' });
   const upload = reactive<{
@@ -294,6 +364,25 @@
 
   function selectPackage(event: Event) {
     upload.file = (event.target as HTMLInputElement).files?.[0] || null;
+    packageIdempotency = '';
+  }
+
+  function openPackage(operation: 'install' | 'update') {
+    if (packageOperation.value !== operation) packageIdempotency = '';
+    packageOperation.value = operation;
+    uploadVisible.value = true;
+  }
+
+  async function refreshTask() {
+    if (!packageTask.value) return;
+    try {
+      packageTask.value = await perform(() =>
+        moduleOperationTask(packageTask.value!.task_key)
+      );
+      if (packageTask.value.status === 'succeeded') await load();
+    } catch {
+      // The visible error is set by perform.
+    }
   }
 
   async function install() {
@@ -307,13 +396,16 @@
     if (upload.signatureKeyId)
       form.append('signature_key_id', upload.signatureKeyId);
     try {
-      await perform(
-        () => installPackage(form),
-        '模块包安装完成',
-        '正在校验摘要、解包并安装模块…'
+      packageIdempotency ||= `module-${Array.from(
+        crypto.getRandomValues(new Uint8Array(16)),
+        (byte) => byte.toString(16).padStart(2, '0')
+      ).join('')}`;
+      packageTask.value = await perform(
+        () => installPackage(form, packageIdempotency, packageOperation.value),
+        '模块任务已提交，请刷新任务状态查看结果',
+        '正在校验模块包并提交任务…'
       );
       uploadVisible.value = false;
-      await load(1);
     } catch {
       // The visible error is set by perform.
     }
@@ -411,11 +503,14 @@
         affectedModules.length > 1
           ? `${moduleKey} 属于 Bundle ${packageKey}，不能单独卸载；继续将处理整个 Bundle。`
           : `将处理模块包 ${packageKey}。`;
+      const dataWindowNotice = purge
+        ? ''
+        : '\n停用后的人工数据处理窗口由你决定何时结束。请确认在途请求、任务和回调已排空、必要的数据处理已完成后继续；业务表、设置值、附件与迁移历史会保留。';
       const summary = preview.removed
         .map((entry) => `${entry.table}: ${entry.action} ${entry.count}`)
         .join('\n');
       const { value } = await ElMessageBox.prompt(
-        `${bundleNotice}\n受影响模块（${
+        `${bundleNotice}${dataWindowNotice}\n受影响模块（${
           affectedModules.length
         }）：${affectedModules.join('、')}\n${
           purge

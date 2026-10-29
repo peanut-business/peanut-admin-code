@@ -232,7 +232,7 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         ) {
             throw new \DomainException('ASYNC_OPERATION_CONTEXT_INVALID');
         }
-        if (!$this->decide($tenantContext, $admin, 'official.import-export.operation-log.export')->allowed) {
+        if (!$this->decide($tenantContext, $admin, 'peanut.import-export.operation-log.export')->allowed) {
             throw new \DomainException('ASYNC_EXPORT_PERMISSION_DENIED');
         }
 
@@ -245,7 +245,7 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
                 (string) $tenantContext->tenantId,
                 (string) $tenantContext->memberId,
                 (string) $tenantContext->authorizationRevision,
-                'official.import-export.operation-log.export',
+                'peanut.import-export.operation-log.export',
                 $operationId,
             ], static fn(string $value): bool => $value !== ''))),
         ));

@@ -92,14 +92,14 @@ TRUSTED_TENANT_KEY_PATHS = (
     "server/app/common/service/module/",
     "server/app/platform/",
     "server/app/modules/fixture/delivery_record/src/Infrastructure/",
-    "server/app/modules/official/import_export/src/Infrastructure/",
-    "server/app/modules/official/article/src/Infrastructure/Persistence/",
-    "server/app/modules/official/file/src/Infrastructure/Persistence/",
-    "server/app/modules/official/member/src/Infrastructure/Persistence/",
-    "server/app/modules/official/notification/src/Infrastructure/Persistence/",
-    "server/app/modules/official/oauth/src/Infrastructure/Persistence/",
-    "server/app/modules/official/payment/src/Infrastructure/",
-    "server/app/modules/official/task/src/Infrastructure/Persistence/",
+    "server/app/modules/peanut/import_export/src/Infrastructure/",
+    "server/app/modules/peanut/article/src/Infrastructure/Persistence/",
+    "server/app/modules/peanut/file/src/Infrastructure/Persistence/",
+    "server/app/modules/peanut/member/src/Infrastructure/Persistence/",
+    "server/app/modules/peanut/notification/src/Infrastructure/Persistence/",
+    "server/app/modules/peanut/oauth/src/Infrastructure/Persistence/",
+    "server/app/modules/peanut/payment/src/Infrastructure/",
+    "server/app/modules/peanut/task/src/Infrastructure/Persistence/",
     "server/app/common/service/notice/",
     "server/app/common/service/runtime/",
 )
@@ -264,12 +264,12 @@ def hits_for(path: Path, text: str, public_types: set[str] | None = None) -> lis
         if (rel == "server/app/api/services/UserTokenService.php" and method == "parseToken"
             and re.search(r"\breturn\s+false\s*;", line)):
             hits.append(("classified_false_error", number, line.strip()))
-        if (rel == "server/app/modules/official/task/src/Service/CrontabSchedulerService.php"
+        if (rel == "server/app/modules/peanut/task/src/Service/CrontabSchedulerService.php"
             and method == "consider"
             and re.search(r"\breturn\s+false\s*;", line)
             and "CRONTAB_EXPRESSION_INVALID" in "\n".join(lines[max(0, number - 16):number])):
             hits.append(("classified_false_error", number, line.strip()))
-        if (rel == "server/app/modules/official/payment/src/Infrastructure/ThinkPhpPaymentChannelGrantCommands.php"
+        if (rel == "server/app/modules/peanut/payment/src/Infrastructure/ThinkPhpPaymentChannelGrantCommands.php"
             and method == "channelConfigured"
             and re.search(r"\bcatch\s*\(\\?Throwable\b", line)):
             hits.append(("classified_false_error", number, line.strip()))
@@ -390,7 +390,7 @@ def hits_for(path: Path, text: str, public_types: set[str] | None = None) -> lis
         if application_path and re.search(
             r"\bDb::(?!transaction\b)|->(?:prepare|query|exec)\s*\(", line
         ):
-            if rel == "server/app/modules/official/task/src/Service/CrontabSchedulerService.php" and "->query(Crontab::class" in line:
+            if rel == "server/app/modules/peanut/task/src/Service/CrontabSchedulerService.php" and "->query(Crontab::class" in line:
                 continue
             hits.append(("application_raw_persistence", number, line.strip()))
         depth += line.count("{") - line.count("}")
@@ -410,7 +410,7 @@ def hits_for(path: Path, text: str, public_types: set[str] | None = None) -> lis
             r"\bDb::|::(?:where|find|create|destroy)\s*\(|->(?:select|find|findOrEmpty|count|column|save|update|delete|lock)\s*\(",
             stripped,
         ):
-            if rel == "server/app/modules/official/file/src/Service/FileAdministrationService.php" and "$this->storage->delete" in stripped:
+            if rel == "server/app/modules/peanut/file/src/Service/FileAdministrationService.php" and "$this->storage->delete" in stripped:
                 continue
             hits.append(("query_inside_loop", number, stripped))
         depth += stripped.count("{") - stripped.count("}")

@@ -28,7 +28,7 @@ final readonly class ModuleAwareTaskHandler implements TaskHandler, \PeanutAdmin
     public function validateNegativeFact(\PeanutAdmin\Modules\Task\Job\Execution\NegativeFactJobEnvelope $envelope): void
     {
         if (!$this->inner instanceof \PeanutAdmin\Modules\Task\Contract\NegativeFactTaskHandler
-            || $this->moduleKey !== 'official.collaboration' || $this->key() !== 'identity.revocation.propagate') {
+            || $this->moduleKey !== 'peanut.collaboration' || $this->key() !== 'identity.revocation.propagate') {
             throw TaskJobException::denied();
         }
         $ambient = $this->executionContexts->require();
@@ -37,7 +37,7 @@ final readonly class ModuleAwareTaskHandler implements TaskHandler, \PeanutAdmin
             || $ambient->metadata->handlerKey !== $this->key() || $this->executionContexts->rootIdentity() === null) {
             throw TaskJobException::denied();
         }
-        $this->modules->assertWorker('official.task');
+        $this->modules->assertWorker('peanut.task');
         $this->modules->assertWorker($this->moduleKey);
         $this->inner->validateNegativeFact($envelope);
     }
@@ -81,7 +81,7 @@ final readonly class ModuleAwareTaskHandler implements TaskHandler, \PeanutAdmin
                     || $ambient->metadata->handlerKey !== $this->key() || $this->executionContexts->rootIdentity() === null) {
                     throw TaskJobException::denied();
                 }
-                $this->modules->assertWorker('official.task');
+                $this->modules->assertWorker('peanut.task');
                 $this->modules->assertWorker($this->moduleKey);
             } catch (AuthException|ModuleException|\DomainException) {
                 throw TaskJobException::denied();

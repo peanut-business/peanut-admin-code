@@ -1,0 +1,95 @@
+{
+    "schema_version": 1,
+    "key": "peanut.notification",
+    "version": "1.0.20",
+    "source": {
+        "type": "canonical-contents",
+        "reference": "canonical-plugin-contents-v1",
+        "sha256": "385794ab6108c0903be15592a2227b5b6a67f7fcff7c54430bab076c9cb2285e"
+    },
+    "trust": {
+        "channel": "bundled",
+        "origin": {
+            "type": "repository-contents",
+            "reference": "canonical-plugin-contents-v1"
+        },
+        "archive": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "signature": {
+            "status": "not-issued",
+            "key_id": null
+        },
+        "sbom": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "license": {
+            "identifier": "Apache-2.0",
+            "status": "declared"
+        },
+        "qualification": {
+            "status": "bundled-locked",
+            "review": "not-reviewed",
+            "vulnerability_response": "not-configured",
+            "marketplace": "blocked"
+        },
+        "compatibility": {
+            "modules": [
+                {
+                    "key": "peanut.notification",
+                    "version": "1.0.20",
+                    "kernel_constraint": "^1.0",
+                    "dependencies": [
+                        {
+                            "module_key": "peanut.identity",
+                            "version": "4.0.0-rc.31"
+                        },
+                        {
+                            "module_key": "peanut.integration",
+                            "version": "^1.0"
+                        },
+                        {
+                            "module_key": "peanut.task",
+                            "version": "^1.0"
+                        }
+                    ],
+                    "permissions": {
+                        "path": "resources/permissions.json",
+                        "sha256": "36b090e5985bb52ab2c4c0020da66559d9b63f13bdfa435f986cc158d04de4a8"
+                    }
+                }
+            ]
+        }
+    },
+    "composer": [
+        {
+            "name": "peanut-business/peanut-notification",
+            "version": "1.0.20",
+            "sha256": "b04b8cffeeb7081b5b1d132cf2af87d8e603ae44c0a661636d21191cb28c33b6"
+        }
+    ],
+    "npm": [
+        {
+            "name": "@peanut-admin/peanut-notification",
+            "version": "1.0.5",
+            "integrity": "sha256-JRrpOGPiOY6VELYQrEMyHiXYNALG9vSsiSt0cU1tYi0="
+        }
+    ],
+    "frontend": [
+        {
+            "client_key": "admin-web",
+            "package": "@peanut-admin/peanut-notification",
+            "version": "1.0.5",
+            "entry": "web/src/modules/peanut-notification/contribution.ts",
+            "sha256": "e9f09a74c914ebc588095d0b45be20bed13024da6d524aaf0fe90914829b64c5"
+        }
+    ],
+    "modules": [
+        {
+            "key": "peanut.notification",
+            "root": "server/app/modules/peanut/notification"
+        }
+    ]
+}

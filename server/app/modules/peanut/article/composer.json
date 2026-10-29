@@ -1,0 +1,18 @@
+{
+  "name": "peanut-business/peanut-article",
+  "version": "1.0.9",
+  "type": "peanut-admin-module",
+  "license": "Apache-2.0",
+  "autoload": {
+    "psr-4": {
+      "PeanutAdmin\\Modules\\Article\\": "src/"
+    }
+  },
+  "extra": {
+    "peanut": {
+      "editions": [
+        "multi-tenant"
+      ]
+    }
+  }
+}

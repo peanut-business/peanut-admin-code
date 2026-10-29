@@ -17,7 +17,7 @@ use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\infrastructure\plugin\PluginArtifactWriter;
 use app\platform\validation\module\StrictVersionConstraintMatcher;
 use app\platform\validation\module\OpisManifestSchemaValidator;
-use app\platform\validation\plugin\ModulePackagePreflight;
+use app\common\module\PackageCheck;
 use RuntimeException;
 use Throwable;
 
@@ -57,7 +57,7 @@ final class ScaffoldUpgradeRunner
     }
     private function changesNotificationExecution(array $plan): bool
     {
-        $prefix = 'server/app/modules/official/notification/';
+        $prefix = 'server/app/modules/peanut/notification/';
         foreach ($plan['actions'] ?? [] as $action) {
             if (!in_array($action['action'] ?? '', ['create', 'replace', 'regenerate', 'delete', 'rename', 'rename-preserve'], true)) {
                 continue;
@@ -77,15 +77,16 @@ final class ScaffoldUpgradeRunner
     private function notificationExecutionPreflight(string $root): array
     {
         $unknown = ['status' => 'unknown', 'may_apply' => false, 'code' => 'NOTIFICATION_UPGRADE_STATE_UNKNOWN'];
-        $entry = $root . '/server/think';
+        $entry = $root . '/server/module';
         if (!is_file($entry) || is_link($entry)) { return $unknown; }
         $process = proc_open(
-            [PHP_BINARY, $entry, 'module:check', 'official.notification', '--runtime-data'],
+            [PHP_BINARY, $entry],
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             $root . '/server',
         );
         if (!is_resource($process)) { return $unknown; }
+        fwrite($pipes[0], json_encode(['operation' => 'check', 'arguments' => ['peanut.notification', '--runtime-data']], JSON_THROW_ON_ERROR));
         fclose($pipes[0]);
         stream_set_blocking($pipes[1], false);
         stream_set_blocking($pipes[2], false);
@@ -111,7 +112,7 @@ final class ScaffoldUpgradeRunner
         foreach (array_reverse(explode("\n", trim($stdout))) as $line) {
             $report = json_decode($line, true);
             if (!is_array($report) || ($report['schema_version'] ?? null) !== 1
-                || ($report['module_key'] ?? null) !== 'official.notification') { continue; }
+                || ($report['module_key'] ?? null) !== 'peanut.notification') { continue; }
             if ($exit === 0 && ($report['may_apply'] ?? false) === true
                 && ($report['status'] ?? '') === 'ready' && ($report['pending_count'] ?? null) === 0) {
                 return ['status' => 'ready', 'pending_count' => 0, 'may_apply' => true, 'code' => null,
@@ -324,7 +325,7 @@ final class ScaffoldUpgradeRunner
                 ? $this->notificationExecutionPreflight($root)
                 : ['status' => 'deferred_until_installation',
                 'may_apply_source' => true, 'runtime_accepted' => false,
-                'required_before_runtime' => 'module:check official.notification --runtime-data under the actual stopped/maintenance window'];
+                'required_before_runtime' => 'peanut module check peanut.notification --runtime-data under the actual stopped/maintenance window'];
             if ($this->hasRuntimeState($root)
                 && ($plan['notification_preflight']['may_apply'] ?? false) !== true) {
                 $plan['status'] = 'blocked';
@@ -1261,10 +1262,10 @@ final class ScaffoldUpgradeRunner
     {
         $belongs = str_starts_with($path, 'server/app/modules/peanut/workflow/')
             || str_starts_with($path, 'web/src/modules/peanut-workflow/') || str_starts_with($path, 'plugins/peanut.workflow/')
-            || str_starts_with($path, 'server/app/modules/official/article/src/Integration/Workflow/')
-            || str_starts_with($path, 'server/app/modules/official/article/resources/workflows/')
-            || str_starts_with($path, 'web/src/modules/official-article/workflow/')
-            || str_starts_with($path, 'web/src/modules/official-article/views/review/')
+            || str_starts_with($path, 'server/app/modules/peanut/article/src/Integration/Workflow/')
+            || str_starts_with($path, 'server/app/modules/peanut/article/resources/workflows/')
+            || str_starts_with($path, 'web/src/modules/peanut-article/workflow/')
+            || str_starts_with($path, 'web/src/modules/peanut-article/views/review/')
             || $path === 'server/app/command/WorkflowInstallManaged.php';
         if (!$belongs) { return null; }
         $design = str_starts_with($path, 'web/src/modules/peanut-workflow/designer/')
@@ -2367,7 +2368,7 @@ final class ScaffoldUpgradeRunner
             $built = $writer->lock();
             $this->writeFileAtomic($stage . '/plugins.lock', $built['contents'], 0644);
             $projection = $this->pluginProjection($stage, sourceApplication: false);
-            $preflight = new ModulePackagePreflight($stage, $this->targetModuleSchemaValidator($release, $stage));
+            $preflight = new PackageCheck($stage, $this->targetModuleSchemaValidator($release, $stage));
             $modules = [];
             foreach ($projection['plugins'] as $key => $plugin) {
                 foreach ($plugin['module_keys'] as $moduleKey) {

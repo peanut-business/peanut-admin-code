@@ -39,11 +39,11 @@ final class FirstRunReadinessHost
         $tenantId = $context->tenantId;
         $registeredPermissions = $this->modules->registeredPermissions($tenantId);
         $notificationEnabled = in_array(
-            'official.notification.channel.detail',
+            'peanut.notification.channel.detail',
             $registeredPermissions,
             true,
         );
-        $taskEnabled = in_array('official.task.list', $registeredPermissions, true);
+        $taskEnabled = in_array('peanut.task.list', $registeredPermissions, true);
 
         $items = [
             $this->brand($context),

@@ -124,7 +124,11 @@ PY
     composer install --working-dir=server --no-dev --no-scripts --no-plugins --no-interaction --prefer-dist
     php server/docker/scripts/prepare-vendor.php
   fi
-  backend module:compile
+  if [[ "$compose_project" == - ]]; then
+    printf '%s\n' '{"operation":"compile","arguments":[]}' | php server/module
+  else
+    printf '%s\n' '{"operation":"compile","arguments":[]}' | compose_run run -T --rm --no-deps --entrypoint php php module
+  fi
   backend migrate:run
   backend clear --cache
   if [[ "$compose_project" != - ]]; then

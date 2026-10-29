@@ -47,7 +47,7 @@ final class ModuleCheck extends ModuleContextualCommand
         if ($this->getName() !== 'module:check' || $this->preservationPdo !== $pdo || $this->preservationSelection === null
             || !$pdo->inTransaction() || Db::connect()->getPdo() !== $pdo
             || $this->getApp()->make(\app\common\execution\CurrentExecutionContext::class) !== $this->executionContext()
-            || !in_array($moduleKey, ['official.document', 'official.file'], true)) {
+            || !in_array($moduleKey, ['peanut.document', 'peanut.file'], true)) {
             throw new \RuntimeException('PRESERVATION_MODULE_SNAPSHOT_UNAUTHORIZED');
         }
         $modules = new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries();
@@ -82,7 +82,7 @@ final class ModuleCheck extends ModuleContextualCommand
     /** Only the Doc page currently being consumed can authorize a File-owned reference lookup batch. */
     public function assertPreservationReferenceBatch(\PDO $pdo, array $references): void
     {
-        $scope = $this->assertPreservationReadSnapshot($pdo, 'official.file');
+        $scope = $this->assertPreservationReadSnapshot($pdo, 'peanut.file');
         if ($this->preservationReferenceBatch === null || $references !== $this->preservationReferenceBatch || count($references) > 100) {
             throw new \RuntimeException('PRESERVATION_REFERENCE_BATCH_UNAUTHORIZED');
         }
@@ -104,7 +104,7 @@ final class ModuleCheck extends ModuleContextualCommand
                 $this->assertDevelopmentInstanceMaintenanceAccess();
                 $query = match ($input->getArgument('module_key')) {
                     'peanut.workflow' => \PeanutAdmin\Modules\Workflow\Application\WorkflowUpgradePreflight::class,
-                    'official.notification' => \PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class,
+                    'peanut.notification' => \PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class,
                     default => throw new \InvalidArgumentException('MODULE_RUNTIME_PREFLIGHT_UNAVAILABLE'),
                 };
                 $report = $this->getApp()->make($query)->report();
@@ -204,15 +204,15 @@ final class ModuleCheck extends ModuleContextualCommand
                 if (proc_close($process) !== 0 || $head !== $candidate) { throw new \RuntimeException('PRESERVATION_DETAIL_SOURCE_UNKNOWN'); }
                 $files = [];
                 foreach (['app/command/ModuleCheck.php', 'app/modules/peanut/workflow/src/Application/WorkflowUpgradePreflight.php',
-                    'app/modules/peanut/workflow/src/Definition/WorkflowGraph.php', 'app/modules/official/identity/src/Contract/WorkflowLegacyOrganizationQuery.php',
+                    'app/modules/peanut/workflow/src/Definition/WorkflowGraph.php', 'app/modules/peanut/identity/src/Contract/WorkflowLegacyOrganizationQuery.php',
                     'composer.lock', '../plugins.lock'] as $relative) {
                     $path = $root . '/' . $relative;
                     if (!is_file($path) || is_link($path)) { throw new \RuntimeException('PRESERVATION_DETAIL_SOURCE_UNKNOWN'); }
                     $files[$relative] = hash_file('sha256', $path);
                 }
                 if ($includeDocFile) {
-                    foreach (['app/modules/official/document/src/Contract/DocumentUpgradePreservationQuery.php', 'app/modules/official/document/module.json',
-                        'app/modules/official/file/src/Contract/StorageQualificationQueries.php', 'app/modules/official/file/module.json'] as $relative) {
+                    foreach (['app/modules/peanut/document/src/Contract/DocumentUpgradePreservationQuery.php', 'app/modules/peanut/document/module.json',
+                        'app/modules/peanut/file/src/Contract/StorageQualificationQueries.php', 'app/modules/peanut/file/module.json'] as $relative) {
                         $path = $root . '/' . $relative;
                         if (is_link($path)) { throw new \RuntimeException('PRESERVATION_DETAIL_SOURCE_UNKNOWN'); }
                         $files[$relative] = is_file($path) ? hash_file('sha256', $path) : 'absent';
@@ -265,7 +265,7 @@ final class ModuleCheck extends ModuleContextualCommand
             $queries = [
                 'peanut.workflow' => $this->getApp()->make(\PeanutAdmin\Modules\Workflow\Application\WorkflowUpgradePreflight::class)
                     ->detailPages($pdo, (string) $config['prefix'], $tenants, $instances, (int) $limit, $this->executionContext()),
-                'official.identity' => $this->getApp()->make(\PeanutAdmin\Modules\Identity\Contract\WorkflowLegacyOrganizationQuery::class)
+                'peanut.identity' => $this->getApp()->make(\PeanutAdmin\Modules\Identity\Contract\WorkflowLegacyOrganizationQuery::class)
                     ->detailPages($pdo, (string) $config['prefix'], $tenants, (int) $limit, $this->executionContext()),
             ];
             $complete = true; $counts = []; $classifications = []; $totals = []; $finished = [];
@@ -301,17 +301,17 @@ final class ModuleCheck extends ModuleContextualCommand
                 $file = null;
                 try {
                     if (!class_exists(\PeanutAdmin\Modules\File\Contract\StorageQualificationQueries::class)) { throw new \RuntimeException('PRESERVATION_OPTIONAL_MODULE_UNAVAILABLE'); }
-                    $this->assertPreservationReadSnapshot($pdo, 'official.file');
+                    $this->assertPreservationReadSnapshot($pdo, 'peanut.file');
                     $file = $this->getApp()->make(\PeanutAdmin\Modules\File\Contract\StorageQualificationQueries::class);
                 } catch (\Throwable) {
                     $complete = false; $docFileConsistent = false;
-                    $emit(['kind' => 'optional-module', 'module_key' => 'official.file', 'complete' => false, 'code' => 'FILE_MAINTENANCE_UNAVAILABLE']);
+                    $emit(['kind' => 'optional-module', 'module_key' => 'peanut.file', 'complete' => false, 'code' => 'FILE_MAINTENANCE_UNAVAILABLE']);
                 }
                 try {
                     if (!class_exists(\PeanutAdmin\Modules\Document\Contract\DocumentUpgradePreservationQuery::class)) { throw new \RuntimeException('PRESERVATION_OPTIONAL_MODULE_UNAVAILABLE'); }
                     $document = $this->getApp()->make(\PeanutAdmin\Modules\Document\Contract\DocumentUpgradePreservationQuery::class);
                     foreach ($document->preservationPages($pdo, (string) $config['prefix'], $tenants, $documents, (int) $limit, $this) as $page) {
-                        $consume('official.document', $page);
+                        $consume('peanut.document', $page);
                         $references = [];
                         foreach ($page['records'] as $record) { foreach ($record['references'] as $reference) { $references[] = $reference; } }
                         if ($references === []) { continue; }
@@ -330,14 +330,14 @@ final class ModuleCheck extends ModuleContextualCommand
                     }
                 } catch (\Throwable) {
                     $complete = false; $docFileConsistent = false;
-                    $emit(['kind' => 'optional-module', 'module_key' => 'official.document', 'complete' => false, 'code' => 'DOCUMENT_MAINTENANCE_UNAVAILABLE']);
+                    $emit(['kind' => 'optional-module', 'module_key' => 'peanut.document', 'complete' => false, 'code' => 'DOCUMENT_MAINTENANCE_UNAVAILABLE']);
                 }
                 if ($file !== null && $fileScope === 'all-in-selected-tenants') {
                     try {
-                        foreach ($file->preservationPages($pdo, (string) $config['prefix'], $tenants, (int) $limit, $this) as $page) { $consume('official.file', $page); }
+                        foreach ($file->preservationPages($pdo, (string) $config['prefix'], $tenants, (int) $limit, $this) as $page) { $consume('peanut.file', $page); }
                     } catch (\Throwable) {
                         $complete = false; $docFileConsistent = false;
-                        $emit(['kind' => 'optional-module', 'module_key' => 'official.file', 'complete' => false, 'code' => 'FILE_INVENTORY_UNKNOWN']);
+                        $emit(['kind' => 'optional-module', 'module_key' => 'peanut.file', 'complete' => false, 'code' => 'FILE_INVENTORY_UNKNOWN']);
                     }
                 }
             }

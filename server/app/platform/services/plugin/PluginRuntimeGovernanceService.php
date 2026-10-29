@@ -14,6 +14,7 @@ use app\platform\infrastructure\plugin\ModuleUninstallPlanCodec;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\policy\plugin\ModuleLifecyclePolicy;
 use app\platform\value\plugin\PluginDescriptor;
+use app\platform\value\plugin\ModuleFrontendLayout;
 use app\common\persistence\AdvisoryLockExecution;
 use app\common\persistence\AdvisoryLockUnavailable;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
@@ -236,7 +237,9 @@ final class PluginRuntimeGovernanceService
             }
             $affected[] = [
                 'module_key' => $moduleKey,
+                'version' => (string) $manifest->data['version'],
                 'manifest_digest' => $manifest->digest,
+                'source_paths' => $this->moduleSourcePaths($moduleKey, $manifest->data),
                 'owned_tables' => $owned,
                 'lifecycle_protected' => ModuleLifecyclePolicy::isProtected($manifest),
             ];
@@ -318,7 +321,9 @@ final class PluginRuntimeGovernanceService
             }
             $affected[] = [
                 'module_key' => $key->value(),
+                'version' => (string) $manifest->data['version'],
                 'manifest_digest' => $manifest->digest,
+                'source_paths' => $this->moduleSourcePaths($key->value(), $manifest->data),
                 'owned_tables' => $owned,
                 'lifecycle_protected' => ModuleLifecyclePolicy::isProtected($manifest),
             ];
@@ -359,12 +364,24 @@ final class PluginRuntimeGovernanceService
             $blockers[] = ['code' => 'PLUGIN_TENANT_MODULE_ACTIVE', 'kind' => 'tenant_enablement', 'identifiers' => $enabled];
         }
 
-        $dependents = ModuleLifecyclePolicy::activeBusinessDependents(
+        $states = $this->tenantStates->installationStates($moduleKeys);
+        $notDisabled = array_values(array_filter($moduleKeys, static fn(string $key): bool => ($states[$key]['status'] ?? null) !== 'maintenance'));
+        if ($notDisabled !== []) {
+            $blockers[] = ['code' => 'MODULE_DISABLE_REQUIRED', 'kind' => 'lifecycle', 'identifiers' => $notDisabled];
+        }
+        try {
+            ModuleLifecyclePolicy::assertNoOutstandingWorkflow($moduleKeys);
+        } catch (PluginLifecycleException $exception) {
+            $blockers[] = ['code' => $exception->errorCode, 'kind' => 'lifecycle', 'identifiers' => $moduleKeys];
+        }
+
+        $dependents = ModuleLifecyclePolicy::installedBusinessDependents(
             PluginLockResolver::forRuntime(
                 $this->serverRoot,
                 (string) ($this->moduleConfig['plugin_lock'] ?? 'plugins.lock'),
             ),
             $moduleKeys,
+            $this->tenantStates,
         );
         if ($dependents !== []) {
             $blockers[] = ['code' => 'MODULE_DEPENDENT_INSTALLED', 'kind' => 'business_dependency', 'identifiers' => array_values(array_unique($dependents))];
@@ -503,6 +520,15 @@ final class PluginRuntimeGovernanceService
         $now = gmdate('Y-m-d H:i:s.v');
         Db::transaction(function () use ($packageKey, $moduleKeys, $marker, $now): void {
             $this->tenantStates->lockLifecycleRows($moduleKeys, [$packageKey]);
+            $dependents = ModuleLifecyclePolicy::installedBusinessDependents(
+                PluginLockResolver::forRuntime($this->serverRoot, (string) ($this->moduleConfig['plugin_lock'] ?? '../plugins.lock')),
+                $moduleKeys,
+                $this->tenantStates,
+            );
+            if ($dependents !== []) {
+                throw new PluginLifecycleException('MODULE_DEPENDENT_INSTALLED', 'Installed Module dependencies must be removed before uninstall.');
+            }
+            ModuleLifecyclePolicy::assertNoOutstandingWorkflow($moduleKeys);
             if ($this->tenantStates->enabledReferencesForUpdate($moduleKeys) !== []) {
                 throw new PluginLifecycleException('PLUGIN_TENANT_MODULE_ACTIVE', 'New TenantModule references block Module uninstall.');
             }
@@ -533,6 +559,23 @@ final class PluginRuntimeGovernanceService
     {
         $this->assertMutableSourceLock();
         $projectRoot = realpath(dirname($this->serverRoot)) ?: dirname($this->serverRoot);
+        $paths = ['plugins/' . $packageKey];
+        foreach ($plan['affected_modules'] as $module) {
+            foreach ($module['source_paths'] as $relative) {
+                $paths[] = $relative;
+            }
+        }
+        $paths = array_values(array_unique($paths));
+        foreach ($paths as $relative) {
+            $source = $projectRoot . '/' . $relative;
+            if (!file_exists($source) && !is_link($source)) {
+                continue;
+            }
+            $resolved = realpath($source);
+            if (is_link($source) || $resolved !== $source) {
+                throw new PluginLifecycleException('MODULE_QUARANTINE_INVALID', 'Module source path escapes its application.');
+            }
+        }
         $lockPath = $projectRoot . '/plugins.lock';
         if (is_file($lockPath)) {
             $lock = json_decode((string) file_get_contents($lockPath), true, 128, JSON_THROW_ON_ERROR);
@@ -557,13 +600,6 @@ final class PluginRuntimeGovernanceService
         $this->inject('after-lock');
 
         $quarantine = $projectRoot . '/.local/module-quarantine/' . $packageKey . '-' . strtolower($digest);
-        $paths = ['plugins/' . $packageKey];
-        $layout = ModuleHostLayoutFactory::pathLayout();
-        foreach ($this->confirmedModuleKeys($plan) as $moduleKey) {
-            $key = ModuleKey::fromString($moduleKey);
-            $paths[] = rtrim($layout->backendRelativePath($key), '/');
-            $paths[] = rtrim($layout->frontendRelativePath($key), '/');
-        }
         $moved = 0;
         foreach (array_values(array_unique($paths)) as $relative) {
             $source = $projectRoot . '/' . $relative;
@@ -612,6 +648,19 @@ final class PluginRuntimeGovernanceService
                 'A valid application source identity and project Plugin lock are required for source Plugin lifecycle operations.',
             );
         }
+    }
+
+    /** Freeze the selected manifest's actual backend and client contributions before source removal.
+     * @param array<string,mixed> $manifest @return list<string>
+     */
+    private function moduleSourcePaths(string $moduleKey, array $manifest): array
+    {
+        $paths = [rtrim(ModuleHostLayoutFactory::pathLayout()->backendRelativePath(ModuleKey::fromString($moduleKey)), '/')];
+        foreach (ModuleFrontendLayout::contributions((array) ($manifest['frontend'] ?? []), $moduleKey) as $contribution) {
+            $paths[] = $contribution['root'];
+        }
+        sort($paths, SORT_STRING);
+        return $paths;
     }
 
     /** @return list<string> */
@@ -721,7 +770,17 @@ final class PluginRuntimeGovernanceService
             if (!is_string($key) || isset($keys[$key])) {
                 throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'Confirmed Module scope is invalid.');
             }
-            ModuleKey::fromString($key);
+            $moduleKey = ModuleKey::fromString($key);
+            $backend = rtrim(ModuleHostLayoutFactory::pathLayout()->backendRelativePath($moduleKey), '/');
+            $allowed = [$backend];
+            foreach (['admin-web', 'platform-web', 'pc-web', 'uniapp'] as $client) {
+                $allowed[] = ModuleFrontendLayout::clientRoot($client) . '/' . str_replace('.', '-', $key);
+            }
+            if (!is_array($module['source_paths'] ?? null)
+                || !in_array($backend, $module['source_paths'], true)
+                || array_filter($module['source_paths'], static fn(mixed $path): bool => !is_string($path) || !in_array($path, $allowed, true)) !== []) {
+                throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'Confirmed Module source scope is invalid.');
+            }
             $keys[$key] = true;
         }
         $result = array_keys($keys);

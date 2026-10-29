@@ -50,7 +50,7 @@ final readonly class OAuthApplicationService
         $result = $this->executionContexts->run(
             new SystemExecutionContext($resolution->context),
             function () use ($resolution, $scene, $params, $callbackUrl) {
-                $this->modules->assertExternalCallback('official.oauth');
+                $this->modules->assertExternalCallback('peanut.oauth');
                 return $this->commands->begin(
                     $resolution->context,
                     $scene,
@@ -78,7 +78,7 @@ final readonly class OAuthApplicationService
         $result = $this->executionContexts->run(
             new SystemExecutionContext($resolution->context),
             function () use ($resolution, $params, $ip) {
-                $this->modules->assertExternalCallback('official.oauth');
+                $this->modules->assertExternalCallback('peanut.oauth');
                 return $this->commands->callback(
                     $resolution->context,
                     (string) $params['scene'],
@@ -102,7 +102,7 @@ final readonly class OAuthApplicationService
         $result = $this->executionContexts->run(
             new SystemExecutionContext($resolution->context),
             function () use ($resolution, $params, $ip) {
-                $this->modules->assertExternalCallback('official.oauth');
+                $this->modules->assertExternalCallback('peanut.oauth');
                 return $this->commands->miniProgramLogin($resolution->context, (string) $params['code'], $resolution->binding, $ip);
             },
         );
@@ -125,7 +125,7 @@ final readonly class OAuthApplicationService
         $result = $this->executionContexts->run(
             new SystemExecutionContext($resolution->context),
             function () use ($resolution, $params, $ip) {
-                $this->modules->assertExternalCallback('official.oauth');
+                $this->modules->assertExternalCallback('peanut.oauth');
                 return $this->commands->complete($resolution->context, $params, $ip);
             },
         );

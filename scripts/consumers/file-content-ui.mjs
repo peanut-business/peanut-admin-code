@@ -61,8 +61,8 @@ export async function runFileContentUi(page, c) {
   const reads = new Map([
     ['/adminapi/user/info', 'POST'],
     ['/adminapi/user/menu', 'POST'],
-    ['/adminapi/official.file.list', 'GET'],
-    ['/adminapi/official.file.category.list', 'GET'],
+    ['/adminapi/peanut.file.list', 'GET'],
+    ['/adminapi/peanut.file.category.list', 'GET'],
     ['/adminapi/api/v1/files/assets', 'GET'],
   ]);
   const guard = async route => {
@@ -103,14 +103,14 @@ export async function runFileContentUi(page, c) {
   };
   const inspect = async response => {
     const path = new URL(response.url()).pathname;
-    if (!['/adminapi/user/info', '/adminapi/official.file.list', '/adminapi/api/v1/files/resolve'].includes(path)) return;
+    if (!['/adminapi/user/info', '/adminapi/peanut.file.list', '/adminapi/api/v1/files/resolve'].includes(path)) return;
     const body = await response.json();
     const data = body?.data;
     if (path === '/adminapi/user/info') {
       check(response.ok() && body.code === 20000 && data?.id === c.identity.id && data.tenantName === c.identity.tenantName, 'ACTUAL_IDENTITY_MISMATCH');
       identityVerified = true;
     }
-    if (path === '/adminapi/official.file.list') {
+    if (path === '/adminapi/peanut.file.list') {
       check(response.ok() && body.code === 20000 && Array.isArray(data?.lists), 'ACTUAL_FILE_LIST_INVALID');
       check(data.lists.every(item => c.allowedFileKeys.includes(item.file_key)), 'VISIBLE_ROWS_OUTSIDE_SCOPE');
       const item = data.lists.find(item => item.file_key === c.file.key);

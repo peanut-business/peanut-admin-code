@@ -1,7 +1,7 @@
 <template>
   <section v-loading="loading">
     <el-alert
-      title="本页只读取源码声明、编译目录、路由/API 目录和打包预览；声明、发现、注册、运行有效与测试证据分别展示。"
+      title="模块声明、注册、安装与运行状态分别展示；安装与升级任务在后台完成后才能使用。"
       type="info"
       :closable="false"
     />
@@ -21,8 +21,116 @@
         />
       </el-select>
       <el-button :loading="loading" @click="load">刷新目录</el-button>
+      <el-button :loading="runtimeLoading" @click="loadRuntime(1)">
+        读取安装与依赖状态
+      </el-button>
     </div>
     <el-alert v-if="error" :title="error" type="error" show-icon />
+    <el-alert
+      v-if="runtimeError"
+      :title="runtimeError"
+      type="error"
+      show-icon
+    />
+    <el-card class="backup-center-card">
+      <template #header>安装或升级模块包</template>
+      <el-form label-position="top" @submit.prevent="submitPackage">
+        <el-form-item label="操作">
+          <el-select
+            v-model="packageOperation"
+            @change="packageIdempotency = ''"
+          >
+            <el-option label="安装" value="install" />
+            <el-option label="升级" value="update" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label=".tar 文件">
+          <input
+            type="file"
+            accept=".tar,application/x-tar"
+            @change="selectPackage"
+          />
+        </el-form-item>
+        <el-form-item label="期望 SHA-256"
+          ><el-input
+            v-model="packageSha"
+            maxlength="64"
+            @input="packageIdempotency = ''"
+        /></el-form-item>
+        <el-form-item label="签名 key id（可选）"
+          ><el-input
+            v-model="packageSignature"
+            @input="packageIdempotency = ''"
+        /></el-form-item>
+        <el-button
+          type="primary"
+          :loading="packageLoading"
+          @click="submitPackage"
+          >校验并提交任务</el-button
+        >
+      </el-form>
+      <el-alert
+        v-if="packageError"
+        :title="packageError"
+        type="error"
+        show-icon
+      />
+      <template v-if="packageTask">
+        <p
+          >{{ packageTask.task_key }} · {{ packageTask.status }} ·
+          {{ packageTask.current_step }}</p
+        >
+        <p v-if="packageTask.status === 'queued'"
+          >任务已排队，等待当前应用已登记的执行器处理。</p
+        >
+        <p v-if="packageTask.status === 'succeeded'"
+          >依赖、模块生命周期及当前支持的客户端采用已完成。</p
+        >
+        <el-button :loading="packageLoading" @click="refreshPackageTask"
+          >刷新任务状态</el-button
+        >
+        <el-alert
+          v-if="packageTask.last_error_code"
+          :title="packageTask.last_error_code"
+          type="error"
+        />
+        <pre v-if="packageTask.result">{{ pretty(packageTask.result) }}</pre>
+        <pre v-if="packageTask.recovery_pointer">{{
+          pretty(packageTask.recovery_pointer)
+        }}</pre>
+      </template>
+    </el-card>
+    <el-card v-if="runtimeLoaded" class="backup-center-card">
+      <template #header>部署安装状态（不代表租户或成员已获授权）</template>
+      <el-table :data="runtimeRows">
+        <el-table-column prop="module_key" label="模块" min-width="200" />
+        <el-table-column prop="version" label="源码版本" />
+        <el-table-column prop="status" label="安装状态" />
+        <el-table-column prop="tenant_enabled_count" label="开通租户数" />
+        <el-table-column label="必需 / 可选能力及不可用原因" min-width="340">
+          <template #default="{ row }">
+            <pre>{{
+              pretty({
+                required: row.dependencies,
+                optional: row.optional_dependencies,
+              })
+            }}</pre>
+          </template>
+        </el-table-column>
+        <el-table-column label="失败待办" min-width="220">
+          <template #default="{ row }">{{
+            row.pending_actions.join('；') || '—'
+          }}</template>
+        </el-table-column>
+      </el-table>
+      <el-pagination
+        :current-page="runtimePage"
+        :page-size="20"
+        :total="runtimeTotal"
+        layout="prev, pager, next, total"
+        @current-change="loadRuntime"
+      />
+    </el-card>
     <template v-if="snapshot">
       <div class="metric-grid">
         <el-card
@@ -168,10 +276,26 @@
   import type {
     DeveloperCenterCatalogSnapshot,
     DeveloperModuleCatalog,
+    RuntimeModuleStatus,
+    ModuleOperationTask,
   } from '../api/platform';
 
   const loading = ref(false);
   const error = ref('');
+  const runtimeLoading = ref(false);
+  const runtimeLoaded = ref(false);
+  const runtimeError = ref('');
+  const runtimeRows = ref<RuntimeModuleStatus[]>([]);
+  const runtimePage = ref(1);
+  const runtimeTotal = ref(0);
+  const packageOperation = ref<'install' | 'update'>('install');
+  const packageFile = ref<File | null>(null);
+  const packageSha = ref('');
+  const packageSignature = ref('');
+  const packageLoading = ref(false);
+  const packageError = ref('');
+  const packageTask = ref<ModuleOperationTask | null>(null);
+  let packageIdempotency = '';
   const selected = ref('');
   const snapshot = ref<DeveloperCenterCatalogSnapshot | null>(null);
   const moduleChoices = ref<Array<{ key: string; name: string }>>([]);
@@ -207,6 +331,78 @@
         cause instanceof Error ? cause.message : '开发者目录加载失败';
     } finally {
       loading.value = false;
+    }
+  }
+
+  async function loadRuntime(page = 1): Promise<void> {
+    runtimeLoading.value = true;
+    runtimeError.value = '';
+    try {
+      const result = await api.runtimeModules(selected.value, page);
+      runtimeRows.value = result.lists;
+      runtimeTotal.value = result.count;
+      runtimePage.value = page;
+      runtimeLoaded.value = true;
+    } catch (cause) {
+      runtimeRows.value = [];
+      runtimeLoaded.value = false;
+      runtimeError.value =
+        cause instanceof Error ? cause.message : '安装状态读取失败';
+    } finally {
+      runtimeLoading.value = false;
+    }
+  }
+
+  function selectPackage(event: Event): void {
+    packageFile.value = (event.target as HTMLInputElement).files?.[0] || null;
+    packageIdempotency = '';
+  }
+
+  async function submitPackage(): Promise<void> {
+    if (!packageFile.value || !/^[a-f0-9]{64}$/.test(packageSha.value)) {
+      packageError.value = '请选择 .tar 文件并填写 64 位小写 SHA-256';
+      return;
+    }
+    const form = new FormData();
+    form.append('package', packageFile.value);
+    form.append('expected_sha256', packageSha.value);
+    if (packageSignature.value)
+      form.append('signature_key_id', packageSignature.value);
+    packageIdempotency ||= `module-${Array.from(
+      crypto.getRandomValues(new Uint8Array(16)),
+      (byte) => byte.toString(16).padStart(2, '0')
+    ).join('')}`;
+    packageLoading.value = true;
+    packageError.value = '';
+    try {
+      packageTask.value = await api.submitModulePackage(
+        packageOperation.value,
+        form,
+        packageIdempotency
+      );
+    } catch (cause) {
+      packageError.value =
+        cause instanceof Error ? cause.message : '模块任务提交失败';
+    } finally {
+      packageLoading.value = false;
+    }
+  }
+
+  async function refreshPackageTask(): Promise<void> {
+    if (!packageTask.value) return;
+    packageLoading.value = true;
+    packageError.value = '';
+    try {
+      packageTask.value = await api.moduleOperationTask(
+        packageTask.value.task_key
+      );
+      if (packageTask.value.status === 'succeeded')
+        await loadRuntime(runtimePage.value);
+    } catch (cause) {
+      packageError.value =
+        cause instanceof Error ? cause.message : '模块任务状态读取失败';
+    } finally {
+      packageLoading.value = false;
     }
   }
 

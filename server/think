@@ -5,23 +5,6 @@ use think\App;
 
 require __DIR__ . '/vendor/autoload.php';
 
-// Keep native Console parsing, help and IO, while source generation omits
-// instance initialization and registers no runtime commands or services.
-if ((new \think\console\Input())->getFirstArgument() === 'module:create') {
-    (new class (new App(__DIR__)) extends \think\Console {
-        protected function initialize(): void
-        {
-        }
-
-        protected function loadCommands(): void
-        {
-            $this->addCommand(new \app\command\ModuleCreate());
-            $this->addCommand(new \think\console\command\Help());
-        }
-    })->run();
-    exit(0);
-}
-
 // 应用初始化
 $app = new App();
 try {

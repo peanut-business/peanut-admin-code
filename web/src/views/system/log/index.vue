@@ -90,7 +90,7 @@
         <el-col :span="12">
           <el-space>
             <el-button
-              v-permission="['official.import-export.operation-log.export']"
+              v-permission="['peanut.import-export.operation-log.export']"
               plain
               :icon="Download"
               @click="openExport"

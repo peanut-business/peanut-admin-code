@@ -55,7 +55,7 @@ final readonly class PaymentCallbackApplicationService
         $this->executionContexts->run(
             new SystemExecutionContext($resolution->context),
             function () use ($resolution, $event, $paymentMethod): void {
-                $this->modules->assertExternalCallback('official.payment');
+                $this->modules->assertExternalCallback('peanut.payment');
                 if ($event->status() === 'success') {
                     $this->recharges->settleVerifiedCallback($resolution->binding->id, $event, $paymentMethod);
                 }

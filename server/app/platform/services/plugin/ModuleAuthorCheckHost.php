@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace app\platform\services\plugin;
 
 use app\platform\exception\plugin\PluginPackageException;
-use app\platform\validation\plugin\ModulePackagePreflight;
+use app\common\module\PackageCheck;
 use app\platform\validation\module\StrictVersionConstraintMatcher;
 use Throwable;
 
@@ -43,7 +43,7 @@ final readonly class ModuleAuthorCheckHost
         $packagePath = $this->optional($packagePath);
         $expectedSha256 = $this->optional($expectedSha256);
         $checks = $this->initialChecks();
-        $preflight = new ModulePackagePreflight($this->root());
+        $preflight = new PackageCheck($this->root());
 
         try {
             $inspection = $preflight->inspect($moduleKey);
@@ -138,7 +138,7 @@ final readonly class ModuleAuthorCheckHost
      * } $rootInspection
      * @return array<string,string>
      */
-    private function dependencyVersions(ModulePackagePreflight $preflight, array $rootInspection): array
+    private function dependencyVersions(PackageCheck $preflight, array $rootInspection): array
     {
         $modules = [];
         $available = [];

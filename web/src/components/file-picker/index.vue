@@ -124,7 +124,7 @@
     type FileCateRecord,
     type FileRecord,
     type FileType,
-  } from '@/modules/official-file/api';
+  } from '@/modules/peanut-file/api';
 
   const props = withDefaults(
     defineProps<{
@@ -155,13 +155,13 @@
   });
   const canBrowse = computed(
     () =>
-      hasPermission('official.file.list') &&
-      hasPermission('official.file.category.list')
+      hasPermission('peanut.file.list') &&
+      hasPermission('peanut.file.category.list')
   );
   const uploadPermissionMap: Record<FileType, string> = {
-    10: 'official.file.upload.image',
-    20: 'official.file.upload.video',
-    30: 'official.file.upload.file',
+    10: 'peanut.file.upload.image',
+    20: 'peanut.file.upload.video',
+    30: 'peanut.file.upload.file',
   };
   const canUpload = computed(() =>
     hasPermission(uploadPermissionMap[props.type])

@@ -14,7 +14,13 @@ use app\platform\value\plugin\PluginDescriptor;
 use app\common\contract\module\PluginLifecycleCommands;
 use app\common\persistence\AdvisoryLockExecution;
 use app\common\persistence\AdvisoryLockUnavailable;
+use app\common\module\ModuleMigrationRun;
+use app\common\module\Dependencies;
+use app\platform\exception\plugin\PluginPackageException;
+use PeanutAdmin\Kernel\Module\ManifestLoader;
 use PeanutAdmin\Kernel\Module\ManifestDocument;
+use think\console\Input;
+use think\console\Output;
 use think\facade\Db;
 
 /** Deployment-scoped Plugin lifecycle. It deliberately never mutates pa_tenant_module. */
@@ -42,36 +48,35 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     {
         $plugin = $this->resolver->require($pluginKey);
         $this->assertTrustEligible($plugin);
-        $operation = function () use ($plugin, $pluginKey): array {
+        $current = $this->pluginInstallation($pluginKey, false);
+        if (is_array($current) && $this->sameIdentity($plugin, $current) && $current['status'] === 'active'
+            && $this->allPluginModulesActive($pluginKey)) {
             $manifests = $this->pluginManifests($plugin);
-            $this->assertPreflightOwnership($plugin, $manifests, false);
-            $current = $this->pluginInstallation($pluginKey, false);
-            if (is_array($current) && $this->sameIdentity($plugin, $current) && $current['status'] === 'active') {
-                if ($this->allPluginModulesActive($pluginKey)) {
-                    $this->assertMigrationsComplete();
-                    $this->assertModuleSchema($manifests);
-                    return $plugin->publicIdentity() + ['operation' => 'unchanged'];
-                }
-                $result = $this->activate($plugin, $manifests, false);
-                $result['operation'] = 'reactivated';
-                return $result;
-            }
-            if (is_array($current) && $current['status'] === 'maintenance'
-                && in_array($current['last_error_code'] ?? null, ['MODULE_PURGE_IN_PROGRESS', 'MODULE_RETIRE_IN_PROGRESS'], true)) {
-                throw new PluginLifecycleException((string) $current['last_error_code'], 'Module uninstall recovery must finish before install.');
-            }
-            if (is_array($current) && in_array($current['status'], ['failed', 'installing'], true)) {
-                $identity = $this->installRecoveryIdentity($plugin, $current);
-                $result = $this->activate($plugin, $manifests, false);
-                $result['operation'] = $identity['higher_version'] ? 'recovered' : 'resumed';
-                return $result;
-            }
-            if (is_array($current) && !in_array($current['status'], ['uninstalled'], true)) {
-                throw new PluginLifecycleException('PLUGIN_ALREADY_INSTALLED', 'Use plugin:upgrade for an installed Plugin.');
-            }
-            return $this->activate($plugin, $manifests, false);
-        };
-        return $operation();
+            $this->assertMigrationsComplete($manifests);
+            $this->assertModuleSchema($manifests);
+            return $plugin->publicIdentity() + ['operation' => 'unchanged'];
+        }
+        if (is_array($current) && $current['status'] === 'maintenance'
+            && in_array($current['last_error_code'] ?? null, ['MODULE_PURGE_IN_PROGRESS', 'MODULE_RETIRE_IN_PROGRESS'], true)) {
+            throw new PluginLifecycleException((string) $current['last_error_code'], 'Module uninstall recovery must finish before install.');
+        }
+        $recovery = null;
+        if (is_array($current) && in_array($current['status'], ['failed', 'installing'], true)) {
+            $recovery = $this->installRecoveryIdentity($plugin, $current);
+        } elseif (is_array($current) && $current['status'] !== 'uninstalled'
+            && !($current['status'] === 'active' && $this->sameIdentity($plugin, $current))) {
+            throw new PluginLifecycleException('PLUGIN_ALREADY_INSTALLED', 'Use module upgrade for an installed package.');
+        }
+        $dependencies = $this->prepareDependencies($plugin);
+        $manifests = $this->pluginManifests($plugin);
+        $this->assertPreflightOwnership($plugin, $manifests, false);
+        $result = $this->activate($plugin, $manifests, false);
+        if ($recovery !== null) {
+            $result['operation'] = $recovery['higher_version'] ? 'recovered' : 'resumed';
+        } elseif (is_array($current) && $current['status'] === 'active') {
+            $result['operation'] = 'reactivated';
+        }
+        return $result + ['dependencies' => $dependencies];
     }
 
     /**
@@ -142,11 +147,12 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             $action = $install ? $installAction : ($preserveDisabled ? 'preserve_disabled' : (!is_array($current) ? 'planned_install'
                 : ($this->sameIdentity($plugin, $current) ? 'planned_unchanged' : 'planned_upgrade')));
             $willMigrate = in_array($action, ['planned_install', 'planned_upgrade', 'planned_reactivate'], true);
-            $applicationMigrations = $this->applicationMigrations();
+            $migrationPlan = $this->migrationPlan($manifests);
+            $applicationMigrations = $migrationPlan['migrations'];
             $pending = array_filter($applicationMigrations, static fn(array $row): bool => $row['disposition'] === 'pending');
             $modules = [];
             $missingSchemaTables = $this->missingSchemaTables($manifests);
-            $mayApply = ($willMigrate || $pending === []) && ($missingSchemaTables === [] || ($willMigrate && $pending !== []));
+            $mayApply = $migrationPlan['blockers'] === [] && ($willMigrate || $pending === []);
             foreach ($manifests as $moduleKey => $manifest) {
                 $manifestSha = hash_file('sha256', $plugin->moduleRoots[$moduleKey] . '/module.json');
                 if (!is_string($manifestSha)) {
@@ -161,6 +167,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 'from_version' => is_array($current) ? (string) $current['installed_version'] : null,
                 'manifest_sha256' => $plugin->manifestDigest, 'modules' => $modules,
                 'application_migrations' => $applicationMigrations,
+                'migration_scope' => $migrationPlan,
                 'missing_schema_tables' => $missingSchemaTables,
                 'reference_code_catalog' => $this->catalogs->referenceCodePlan($manifests),
                 'observation' => 'read-only interval; execution revalidates all native guards']);
@@ -186,8 +193,9 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         $plugin = $this->resolver->require($pluginKey);
         $this->assertTrustEligible($plugin);
         if ($this->sameIdentity($plugin, $current)) {
-            $this->assertMigrationsComplete();
-            $this->assertModuleSchema($this->pluginManifests($plugin));
+            $manifests = $this->pluginManifests($plugin);
+            $this->assertMigrationsComplete($manifests);
+            $this->assertModuleSchema($manifests);
             return $plugin->publicIdentity() + ['operation' => 'unchanged'];
         }
 
@@ -209,8 +217,6 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     {
         $plugin = $this->resolver->require($pluginKey);
         $this->assertTrustEligible($plugin);
-        $manifests = $this->pluginManifests($plugin);
-        $this->assertPreflightOwnership($plugin, $manifests, true);
         $current = $this->pluginInstallation($pluginKey, false);
         if (!is_array($current)) {
             throw new PluginLifecycleException('PLUGIN_NOT_INSTALLED', 'Plugin must be installed before upgrade.');
@@ -221,24 +227,76 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         if (version_compare($plugin->version, (string) $current['installed_version'], '<')) {
             throw new PluginLifecycleException('PLUGIN_DOWNGRADE_REJECTED', 'Upgrade cannot install an older Plugin version.');
         }
-        $plan = $this->plan($plugin, $manifests, $current);
-        if ($dryRun) {
-            $plan += ['dry_run' => true, 'operation' => 'upgrade'];
-            return $consumePlan === null ? $plan : $consumePlan($plan);
+        $prepared = false;
+        $activationStarted = false;
+        $failureManifests = [];
+        foreach ($plugin->moduleRoots as $key => $root) {
+            $failureManifests[$key] = (new ManifestLoader())->load($root);
         }
-        if ($plan['pending_migrations'] === []) {
-            $this->assertModuleSchema($manifests);
-        }
-        if ($this->sameIdentity($plugin, $current) && $current['status'] === 'active') {
-            if (!$plan['may_apply'] || $plan['pending_migrations'] !== []) {
-                throw new PluginLifecycleException('MODULE_MIGRATION_REQUIRED', 'Apply the application migrations before using this unchanged package.');
+        try {
+            $dependencies = $dryRun || ($current['status'] === 'active' && $this->sameIdentity($plugin, $current))
+                ? null : $this->prepareDependencies($plugin);
+            $prepared = $dependencies !== null;
+            $manifests = $this->pluginManifests($plugin);
+            $this->assertPreflightOwnership($plugin, $manifests, true);
+            $plan = $this->plan($plugin, $manifests, $current);
+            if ($dryRun) {
+                $plan += ['dry_run' => true, 'operation' => 'upgrade'];
+                return $consumePlan === null ? $plan : $consumePlan($plan);
             }
-            return $plan + ['dry_run' => false, 'operation' => 'unchanged'];
+            if ($plan['migration_scope']['blockers'] !== []) {
+                $blocker = $plan['migration_scope']['blockers'][0];
+                throw new PluginLifecycleException($blocker['code'], $blocker['message']);
+            }
+            if ($plan['pending_migrations'] === []) {
+                $this->assertModuleSchema($manifests);
+            }
+            if ($this->sameIdentity($plugin, $current) && $current['status'] === 'active') {
+                if (!$plan['may_apply'] || $plan['pending_migrations'] !== []) {
+                    throw new PluginLifecycleException('MODULE_MIGRATION_REQUIRED', 'An unchanged active package has pending Module migrations; review its locked identity before resuming.');
+                }
+                return $plan + ['dry_run' => false, 'operation' => 'unchanged', 'dependencies' => $dependencies];
+            }
+            if (!$plan['may_apply']) {
+                throw new PluginLifecycleException('MODULE_MIGRATION_REQUIRED', 'The selected Module migration plan cannot be applied.');
+            }
+            $activationStarted = true;
+            return $this->activate($plugin, $manifests, true) + ['plan' => $plan, 'dependencies' => $dependencies];
+        } catch (\Throwable $exception) {
+            // Dependencies and static assets may already have changed before migration planning fails.
+            if ($prepared && !$activationStarted) {
+                $this->markFailed($plugin, $failureManifests,
+                    $exception instanceof PluginLifecycleException || $exception instanceof PluginPackageException
+                        ? $exception->errorCode : 'PLUGIN_LIFECYCLE_FAILED');
+            }
+            throw $exception;
         }
-        if (!$plan['may_apply']) {
-            throw new PluginLifecycleException('MODULE_MIGRATION_REQUIRED', 'Apply the application migrations before using this unchanged package.');
+    }
+
+    /** Native dependencies must be ready before registry compilation can load new module providers. */
+    private function prepareDependencies(PluginDescriptor $plugin): array
+    {
+        $serverRoot = rtrim(app()->getRootPath(), '/');
+        $rows = Db::name('plugin_module')->field('module_key,module_version')->select()->toArray();
+        $states = $this->tenantStates->installationStates(array_column($rows, 'module_key'));
+        $installed = [];
+        foreach ($rows as $row) {
+            $key = (string) $row['module_key'];
+            $installed[$key] = ['version' => (string) $row['module_version'], 'status' => (string) ($states[$key]['status'] ?? 'uninstalled')];
         }
-        return $this->activate($plugin, $manifests, true) + ['plan' => $plan];
+        try {
+            return (new Dependencies($serverRoot))->install($plugin, $this->resolver, $installed);
+        } catch (\Throwable $exception) {
+            $manifests = [];
+            foreach ($plugin->moduleRoots as $key => $root) {
+                $manifests[$key] = (new ManifestLoader())->load($root);
+            }
+            if (!is_array($this->pluginInstallation($plugin->key, false))) {
+                $this->beginLifecycle($plugin, $manifests, false);
+            }
+            $this->markFailed($plugin, $manifests, $exception instanceof PluginPackageException ? $exception->errorCode : 'MODULE_DEPENDENCY_INSTALL_FAILED');
+            throw $exception;
+        }
     }
 
     /** Describes manual rollback steps; it does not change the installed package or database. */
@@ -258,7 +316,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 'restore the verified application source and database backup together',
                 'review native migration status before resuming application traffic',
             ],
-            'applied_migrations' => array_values(array_filter($this->applicationMigrations(),
+            'applied_migrations' => array_values(array_filter($this->migrationPlan($this->pluginManifests($this->resolver->require($pluginKey)))['migrations'],
                 static fn(array $row): bool => $row['disposition'] === 'already_applied')),
         ];
     }
@@ -330,7 +388,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
 
         $this->beginLifecycle($plugin, $manifests, $upgrade);
         try {
-            $this->applyMigrations();
+            $this->applyMigrations($plugin);
             $this->assertModuleSchema($manifests);
             $this->registerCatalog($plugin, $manifests, $upgrade);
             return $plugin->publicIdentity() + ['operation' => $upgrade ? 'upgraded' : 'installed'];
@@ -390,13 +448,30 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         }
     }
 
-    /** Database changes are delivered only by the application's native migration entry. */
-    private function applyMigrations(): void
+    /** Recheck the selected closure under the existing migration lock, then run natively. */
+    private function applyMigrations(PluginDescriptor $plugin): void
     {
         $database = Db::connect()->query('SELECT DATABASE() AS database_name', [], true)[0]['database_name'];
         try {
             (new AdvisoryLockExecution())->run('pa:native-migration:' . substr(hash('sha256', $database), 0, 32), 0,
-                static function (): void { app()->console->call('migrate:run'); });
+                function () use ($plugin): void {
+                    $this->resolver->reload();
+                    $selected = $this->resolver->require($plugin->key);
+                    if ($selected->publicIdentity() !== $plugin->publicIdentity()) {
+                        throw new PluginLifecycleException('MODULE_MIGRATION_SOURCE_CHANGED', 'Locked package changed before migration.');
+                    }
+                    $plan = $this->migrationPlan($this->pluginManifests($selected));
+                    if ($plan['blockers'] !== []) {
+                        throw new PluginLifecycleException($plan['blockers'][0]['code'], $plan['blockers'][0]['message']);
+                    }
+                    if (array_filter($plan['migrations'], static fn(array $row): bool => $row['disposition'] === 'pending') === []) {
+                        return;
+                    }
+                    $migration = new ModuleMigrationRun($plan['migrations']);
+                    $migration->setApp(app());
+                    $migration->run(new Input([]), new Output('buffer'));
+                    $this->assertMigrationsComplete($this->pluginManifests($selected));
+                });
         } catch (AdvisoryLockUnavailable) {
             throw new PluginLifecycleException('APPLICATION_MIGRATION_BUSY', 'Another application migration is running.');
         }
@@ -502,11 +577,12 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     /** @param array<string,ManifestDocument> $manifests @param array<string,mixed> $current */
     private function plan(PluginDescriptor $plugin, array $manifests, array $current): array
     {
-        $pending = array_values(array_filter($this->applicationMigrations(),
+        $migrationPlan = $this->migrationPlan($manifests);
+        $pending = array_values(array_filter($migrationPlan['migrations'],
             static fn(array $row): bool => $row['disposition'] === 'pending'));
         $willMigrate = !$this->sameIdentity($plugin, $current) || $current['status'] !== 'active';
         $missingSchemaTables = $this->missingSchemaTables($manifests);
-        $mayApply = ($willMigrate || $pending === []) && ($missingSchemaTables === [] || ($willMigrate && $pending !== []));
+        $mayApply = $migrationPlan['blockers'] === [] && ($willMigrate || $pending === []);
         $modules = array_map(static fn(string $key): array => ['module_key' => $key], array_keys($manifests));
         return [
             'plugin_key' => $plugin->key,
@@ -514,6 +590,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             'to_version' => $plugin->version,
             'identity_changed' => !$this->sameIdentity($plugin, $current),
             'pending_migrations' => $pending,
+            'migration_scope' => $migrationPlan,
             'missing_schema_tables' => $missingSchemaTables,
             'modules' => $modules, 'may_apply' => $mayApply, 'planning_complete' => true,
             'reference_code_catalog' => $this->catalogs->referenceCodePlan($manifests),
@@ -523,29 +600,95 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         ];
     }
 
-    /**
-     * Read the native migration source and ledger for a lifecycle plan.
-     * Selection, execution and recording remain owned by think-migration.
-     */
-    private function applicationMigrations(): array
+    /** @param array<string,ManifestDocument> $manifests */
+    private function migrationPlan(array $manifests): array
     {
+        $available = [];
+        foreach ($this->registries->fromPluginLock($this->resolver, $this->moduleConfig)->compiled()->modules as $manifest) {
+            $available[$manifest->data['key']] = $manifest;
+        }
+        $selected = $manifests;
+        $queue = array_keys($selected);
+        for ($index = 0; isset($queue[$index]); ++$index) {
+            foreach ($selected[$queue[$index]]->data['dependencies'] ?? [] as $dependency) {
+                $key = $dependency['module_key'];
+                if (isset($selected[$key])) {
+                    continue;
+                }
+                $selected[$key] = $available[$key] ?? throw new PluginLifecycleException(
+                    'MODULE_MIGRATION_DEPENDENCY_MISSING', "Required Module is not compiled: {$key}",
+                );
+                $queue[] = $key;
+            }
+        }
         $table = (string) config('database.migration_table', 'migrations');
-        $applied = array_fill_keys(array_map('strval', Db::name($table)->column('version')), true);
+        $applied = Db::name($table)->column('migration_name', 'version');
+        $appliedNames = [];
+        foreach ($applied as $version => $name) {
+            $appliedNames[strtolower((string) $name)] = (string) $version;
+        }
         $migrations = [];
-        foreach (glob(root_path() . 'database/migrations/*.php') ?: [] as $file) {
-            $name = basename($file);
-            if (!\Phinx\Util\Util::isValidMigrationFileName($name)) {
+        $host = [];
+        $blockers = [];
+        $pendingByModule = [];
+        $appliedByModule = [];
+        // Host sources are checked for identity collisions and prerequisites, never selected for execution here.
+        foreach (ModuleMigrationRun::sources($selected, root_path(), true) as $source) {
+            $version = $source['migration_key'];
+            $name = $source['name'];
+            if ((isset($applied[$version]) && $applied[$version] !== $name)
+                || (isset($appliedNames[strtolower($name)]) && $appliedNames[strtolower($name)] !== $version)) {
+                throw new PluginLifecycleException('MODULE_MIGRATION_IDENTITY_CONFLICT', "Migration conflicts with the native ledger: {$source['file']}");
+            }
+            $row = $source + ['disposition' => isset($applied[$version]) ? 'already_applied' : 'pending'];
+            if ($source['module_key'] === null) {
+                $host[] = $row;
+                if ($row['disposition'] === 'pending') {
+                    $blockers[] = ['code' => 'APPLICATION_MIGRATION_REQUIRED',
+                        'message' => "Apply the Host migration through its native entry first: {$source['file']}"];
+                }
                 continue;
             }
-            $version = \Phinx\Util\Util::getVersionFromFileName($name);
-            $migrations[] = [
-                'migration_key' => $version,
-                'name' => \Phinx\Util\Util::mapFileNameToClassName($name),
-                'sha256' => hash_file('sha256', $file),
-                'disposition' => isset($applied[(string) $version]) ? 'already_applied' : 'pending',
-            ];
+            $migrations[] = $row;
+            if ($row['disposition'] === 'pending') {
+                $pendingByModule[$source['module_key']][] = $version;
+            } else {
+                $appliedByModule[$source['module_key']] = true;
+            }
         }
-        return $migrations;
+        $missingByModule = [];
+        foreach ($selected as $key => $manifest) {
+            $missingByModule[$key] = $this->missingSchemaTables([$key => $manifest]);
+            $owned = $manifest->data['database']['owned_tables'] ?? [];
+            if ($missingByModule[$key] !== [] && !isset($pendingByModule[$key])) {
+                $blockers[] = ['code' => 'MODULE_SCHEMA_REQUIRED',
+                    'message' => "No pending migration supplies the missing declared schema for {$key}: " . implode(', ', $missingByModule[$key])];
+            }
+            if (isset($pendingByModule[$key]) && !isset($appliedByModule[$key])
+                && array_diff($owned, $missingByModule[$key]) !== []) {
+                // Table existence cannot prove complete structure, foreign keys, ownership or required data.
+                $blockers[] = ['code' => 'MODULE_INITIAL_MIGRATION_VERIFICATION_REQUIRED',
+                    'message' => "Existing tables for {$key} have no selected initial migration record; verify complete schema, ownership, foreign keys and required data before native registration."];
+            }
+        }
+        foreach ($selected as $key => $manifest) {
+            if (!isset($pendingByModule[$key])) {
+                continue;
+            }
+            foreach ($manifest->data['dependencies'] ?? [] as $dependency) {
+                $required = $dependency['module_key'];
+                if ($missingByModule[$required] !== [] && isset($pendingByModule[$required])
+                    && max($pendingByModule[$required]) >= min($pendingByModule[$key])) {
+                    $blockers[] = ['code' => 'MODULE_MIGRATION_DEPENDENCY_ORDER_INVALID',
+                        'message' => "Native numeric order does not establish the missing schema of {$required} before {$key}."];
+                }
+            }
+        }
+        return ['database' => Db::connect()->query('SELECT DATABASE() AS database_name', [], true)[0]['database_name'],
+            'module_keys' => array_keys($selected), 'migrations' => $migrations, 'host_migrations' => $host,
+            'blockers' => $blockers, 'direction' => 'up', 'ledger' => (string) Db::connect()->getConfig('prefix') . $table,
+            'preconditions' => 'Declared required schema and native numeric order are checked; each migration must enforce its actual SQL prerequisites through native preFlightCheck/up/change.',
+            'preview_limit' => 'Declared tables and author descriptions do not statically describe every SQL statement in arbitrary PHP.'];
     }
 
     /** @param array<string,ManifestDocument> $manifests @return list<string> */
@@ -577,11 +720,15 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         }
     }
 
-    private function assertMigrationsComplete(): void
+    private function assertMigrationsComplete(array $manifests): void
     {
-        foreach ($this->applicationMigrations() as $migration) {
+        $plan = $this->migrationPlan($manifests);
+        if ($plan['blockers'] !== []) {
+            throw new PluginLifecycleException($plan['blockers'][0]['code'], $plan['blockers'][0]['message']);
+        }
+        foreach ($plan['migrations'] as $migration) {
             if ($migration['disposition'] === 'pending') {
-                throw new PluginLifecycleException('MODULE_MIGRATION_REQUIRED', 'Apply the application migrations before using this unchanged package.');
+                throw new PluginLifecycleException('MODULE_MIGRATION_REQUIRED', 'The selected Module has a pending native migration: ' . $migration['file']);
             }
         }
     }
@@ -614,7 +761,6 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     {
         return (string) $current['installed_version'] === $plugin->version
             && hash_equals((string) $current['artifact_sha256'], $plugin->source['sha256'])
-            && hash_equals((string) $current['lock_digest'], $plugin->lockDigest)
             && $this->jsonColumn($current['composer_identity_json']) === $this->json($plugin->composer)
             && $this->jsonColumn($current['npm_identity_json']) === $this->json($plugin->npm)
             && $this->jsonColumn($current['frontend_identity_json']) === $this->json($plugin->frontend);

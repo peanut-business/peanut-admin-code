@@ -20,10 +20,10 @@ STEPS = ("diagnostics", "inbox", "mark-read", "recover")
 HISTORICAL_JOB_IDS = frozenset(range(4, 12))
 SOURCE_FILES = (
     "server/composer.lock",
-    "server/app/modules/official/task/src/Job/Persistence/TaskJobStore.php",
-    "server/app/modules/official/notification/src/Delivery/Application/NotificationService.php",
-    "server/app/modules/official/notification/src/Delivery/Task/InboxTaskHandler.php",
-    "server/app/modules/official/notification/src/Infrastructure/Authorization/NotificationAsyncAuthorization.php",
+    "server/app/modules/peanut/task/src/Job/Persistence/TaskJobStore.php",
+    "server/app/modules/peanut/notification/src/Delivery/Application/NotificationService.php",
+    "server/app/modules/peanut/notification/src/Delivery/Task/InboxTaskHandler.php",
+    "server/app/modules/peanut/notification/src/Infrastructure/Authorization/NotificationAsyncAuthorization.php",
     "server/app/modules/peanut/workflow/src/Application/WorkflowNotificationDelivery.php",
     "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessNotificationProducer.php",
     "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessNotificationWorkerDefinition.php",

@@ -148,7 +148,7 @@
     passwordWithinPolicy,
     type PasswordPolicy,
   } from '@/api/password-policy';
-  import { uploadFile, type FileRecord } from '@/modules/official-file/api';
+  import { uploadFile, type FileRecord } from '@/modules/peanut-file/api';
   import {
     getAdminSelf,
     editAdminSelf,

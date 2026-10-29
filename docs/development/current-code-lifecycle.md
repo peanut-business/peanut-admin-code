@@ -72,7 +72,7 @@ Controller的initialize由构造函数直接无参调用，不自动注入；Ser
 
 ## 5. 文章编辑例子
 
-`POST /adminapi/official.article.edit` 登记在[文章模块路由](../../server/app/modules/official/article/route/app.php)。该路由实际依次登记Login、OfficialModule、Auth和OperationLog中间件。
+`POST /adminapi/peanut.article.edit` 登记在[文章模块路由](../../server/app/modules/peanut/article/route/app.php)。该路由实际依次登记Login、OfficialModule、Auth和OperationLog中间件。
 
 员工会话、Host和状态检查 → 模块检查 → 文章编辑权限 → ArticleController/CrudTrait::edit → ArticleValidate及允许/可写字段 → ArticleAdministration合同 → 服务核上下文和动作权限 → 事务内锁定分类、文章并核文件引用 → tenantOwnership Scope及模型写入检查 → 保存和响应 → 留痕及上下文恢复。
 

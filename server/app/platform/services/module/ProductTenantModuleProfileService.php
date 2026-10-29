@@ -28,20 +28,20 @@ final readonly class ProductTenantModuleProfileService
         'standalone' => [
             'tenant_codes' => ['default'],
             'modules' => [
-                'official.file',
-                'official.task',
-                'official.notification',
-                'official.member',
-                'official.article',
-                'official.payment',
-                'official.oauth',
-                'official.import-export',
-                'official.rich-text',
+                'peanut.file',
+                'peanut.task',
+                'peanut.notification',
+                'peanut.member',
+                'peanut.article',
+                'peanut.payment',
+                'peanut.oauth',
+                'peanut.import-export',
+                'peanut.rich-text',
             ],
         ],
         'demo' => [
             'tenant_codes' => ['default', 'tenant-a', 'tenant-b'],
-            'modules' => ['official.file', 'official.article', 'official.member'],
+            'modules' => ['peanut.file', 'peanut.article', 'peanut.member'],
         ],
     ];
 
@@ -93,11 +93,11 @@ final readonly class ProductTenantModuleProfileService
         }
         $private = [];
         foreach ($lock->all() as $packageKey => $descriptor) {
-            if (str_starts_with($packageKey, 'official.')) {
+            if (str_starts_with($packageKey, 'peanut.')) {
                 continue;
             }
             foreach (array_keys($descriptor->moduleRoots) as $moduleKey) {
-                if (!str_starts_with($moduleKey, 'official.')) {
+                if (!str_starts_with($moduleKey, 'peanut.')) {
                     $private[$moduleKey] = true;
                 }
             }

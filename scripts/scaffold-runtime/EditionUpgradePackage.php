@@ -65,7 +65,7 @@ final class EditionUpgradePackage
         'server/app/platform/exception/plugin/PluginPackageException.php',
         'server/app/platform/value/plugin/ModuleFrontendLayout.php',
         'server/app/platform/infrastructure/plugin/PluginArtifactWriter.php',
-        'server/app/platform/validation/plugin/ModulePackagePreflight.php',
+        'server/app/common/module/PackageCheck.php',
         'server/app/platform/composition/plugin/PluginModuleRegistryFactory.php',
         'server/app/platform/composition/plugin/ModuleDefinitionRegistryFactory.php',
         'server/app/platform/policy/plugin/ModuleLifecyclePolicy.php',

@@ -6,7 +6,7 @@ namespace app\common\infrastructure\module;
 
 use app\common\exception\module\ModuleScaffoldException;
 use app\common\value\module\ModulePhpNamespace;
-use app\platform\validation\plugin\ModulePackagePreflight;
+use app\common\module\PackageCheck;
 use PeanutAdmin\Kernel\Module\ModuleHostLayout;
 use PeanutAdmin\Kernel\Module\ModuleKey;
 
@@ -125,8 +125,8 @@ final class ModuleScaffoldGenerator
             $rawSegments,
         ));
         $description = "Generated {$moduleKey} Module skeleton.";
-        $composerVendor = $vendorKey === 'official' ? 'peanut-business' : $vendorKey;
-        $npmScope = $vendorKey === 'official' ? 'peanut-admin' : $vendorKey;
+        $composerVendor = $vendorKey === 'peanut' ? 'peanut-business' : $vendorKey;
+        $npmScope = $vendorKey === 'peanut' ? 'peanut-admin' : $vendorKey;
         $phpPackage = $composerVendor . '/' . $slug;
         $webPackage = '@' . $npmScope . '/' . $slug;
         $tableName = 'pa_' . str_replace('-', '_', $slug) . '_record';
@@ -324,7 +324,7 @@ final class ModuleScaffoldGenerator
             }
         }
         try {
-            $inspection = (new ModulePackagePreflight($this->projectRoot))->inspect($moduleKey);
+            $inspection = (new PackageCheck($this->projectRoot))->inspect($moduleKey);
         } catch (\Throwable $exception) {
             throw new ModuleScaffoldException('MODULE_CREATE_POSTCHECK_FAILED', 'Generated Module manifest preflight failed.', 0, $exception);
         }

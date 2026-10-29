@@ -47,6 +47,9 @@ final readonly class PluginPackageAdoptionService
             $archive = new PluginPackageArchiveService($this->serverRoot);
             $package = $archive->verify($archivePath, $expectedSha256, $this->trustedPublicKeys, $signatureKeyId, $versions);
             try {
+                foreach ($package->modules as $module) {
+                    \app\common\module\PackageCheck::assertEdition($module['manifest']->root, (string) \think\facade\Config::get('deployment.mode', ''));
+                }
                 foreach ([$package->packageKey, ...array_keys($package->modules)] as $key) {
                     if (str_starts_with($key, 'official.')) {
                         throw new PluginPackageException('MODULE_PACKAGE_PRIVATE_REQUIRED', 'Adoption accepts private packages and Modules only.');
@@ -75,37 +78,24 @@ final readonly class PluginPackageAdoptionService
                     }
                 }
                 $routes = [];
-                $dependencies = [];
+                $declarations = [];
                 foreach ($package->modules as $module) {
-                    $data = $module['manifest']->data;
                     $relative = $module['backend_relative'] . '/route/app.php';
                     if (isset($package->inventory[$relative])) {
                         $routes[] = $relative;
                     }
+                    $data = $module['manifest']->data;
                     $composer = json_decode((string) file_get_contents($package->stageRoot . '/' . $module['backend_relative'] . '/composer.json'), true, 64, JSON_THROW_ON_ERROR);
-                    $npmDependencies = [];
-                    $npmPeerDependencies = [];
+                    $clients = [];
                     foreach ($module['frontend_contributions'] as $contribution) {
-                        $npm = json_decode(
-                            (string) file_get_contents($package->stageRoot . '/' . $contribution['root'] . '/package.json'),
-                            true,
-                            64,
-                            JSON_THROW_ON_ERROR,
-                        );
-                        foreach (['dependencies' => &$npmDependencies, 'peerDependencies' => &$npmPeerDependencies] as $field => &$target) {
-                            foreach ((array) ($npm[$field] ?? []) as $name => $constraint) {
-                                if (isset($target[$name]) && $target[$name] !== $constraint) {
-                                    throw new PluginPackageException('MODULE_PACKAGE_DEPENDENCY_INCOMPATIBLE', 'Frontend clients declare incompatible npm dependencies.');
-                                }
-                                $target[$name] = $constraint;
-                            }
-                        }
-                        unset($target);
+                        $frontend = json_decode((string) file_get_contents($package->stageRoot . '/' . $contribution['root'] . '/package.json'), true, 64, JSON_THROW_ON_ERROR);
+                        $clients[$contribution['client_key']] = array_intersect_key($frontend, array_flip(['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies', 'peerDependenciesMeta']));
                     }
-                    ksort($npmDependencies, SORT_STRING);
-                    ksort($npmPeerDependencies, SORT_STRING);
-                    $dependencies[$module['key']] = ['module' => $data['dependencies'] ?? [], 'tenant' => $data['tenant']['requires'] ?? [],
-                        'composer' => $composer['require'] ?? [], 'npm' => $npmDependencies, 'npm_peer' => $npmPeerDependencies];
+                    $declarations[$module['key']] = [
+                        'module' => $data['dependencies'] ?? [], 'optional_modules' => $data['optional_dependencies'] ?? [],
+                        'tenant' => $data['tenant']['requires'] ?? [], 'composer' => $composer['require'] ?? [],
+                        'composer_dev' => $composer['require-dev'] ?? [], 'frontend' => $clients,
+                    ];
                 }
                 sort($routes, SORT_STRING);
                 $next = is_file($lockPath) ? json_decode((string) file_get_contents($lockPath), true, 512, JSON_THROW_ON_ERROR) : ['schema_version' => 1, 'plugins' => []];
@@ -127,7 +117,10 @@ final readonly class PluginPackageAdoptionService
                     'package_key' => $package->packageKey, 'version' => $package->packageVersion,
                     'archive_sha256' => $package->archiveSha256, 'signature_key_id' => $signatureKeyId,
                     'route_contributions' => $routes, 'application_route_registration_required' => $routes !== [],
-                    'manual_dependencies' => $dependencies, 'runtime_database_mutated' => false,
+                    'dependencies_installed' => false,
+                    'source_declarations' => $declarations,
+                    'pending_actions' => ['native_dependency_install', 'registry_compile', 'module_migrations', 'database_install_registration', 'catalog_sync', 'frontend_and_process_adoption'],
+                    'runtime_database_mutated' => false,
                     'tenant_modules_enabled' => false, 'rbac_granted' => false, 'recovery' => $recovery];
             } finally {
                 $archive->cleanup($package);

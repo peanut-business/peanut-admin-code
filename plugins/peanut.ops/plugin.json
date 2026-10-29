@@ -1,0 +1,91 @@
+{
+    "schema_version": 1,
+    "key": "peanut.ops",
+    "version": "1.0.23",
+    "source": {
+        "type": "canonical-contents",
+        "reference": "canonical-plugin-contents-v1",
+        "sha256": "598e7d6e098ba715fa299e6644e6e1cb31cd6f0844707833fe2efdb429abb5f5"
+    },
+    "trust": {
+        "channel": "bundled",
+        "origin": {
+            "type": "repository-contents",
+            "reference": "canonical-plugin-contents-v1"
+        },
+        "archive": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "signature": {
+            "status": "not-issued",
+            "key_id": null
+        },
+        "sbom": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "license": {
+            "identifier": "Apache-2.0",
+            "status": "declared"
+        },
+        "qualification": {
+            "status": "bundled-locked",
+            "review": "not-reviewed",
+            "vulnerability_response": "not-configured",
+            "marketplace": "blocked"
+        },
+        "compatibility": {
+            "modules": [
+                {
+                    "key": "peanut.ops",
+                    "version": "1.0.23",
+                    "kernel_constraint": "^1.0",
+                    "dependencies": [
+                        {
+                            "module_key": "peanut.identity",
+                            "version": "4.0.0-rc.31"
+                        },
+                        {
+                            "module_key": "peanut.task",
+                            "version": "^1.0"
+                        }
+                    ],
+                    "permissions": {
+                        "path": null,
+                        "sha256": null
+                    }
+                }
+            ]
+        }
+    },
+    "composer": [
+        {
+            "name": "peanut-business/peanut-ops",
+            "version": "1.0.23",
+            "sha256": "449a43c841ff98813b866341fcd6263fb2e9a69e6b3fa1f067ff93043cdf6f26"
+        }
+    ],
+    "npm": [
+        {
+            "name": "@peanut-admin/peanut-ops",
+            "version": "1.0.6",
+            "integrity": "sha256-RmIuxgDAVQAbXCZu5hdUA1l21Yd846ehId2yOMdxOzk="
+        }
+    ],
+    "frontend": [
+        {
+            "client_key": "platform-web",
+            "package": "@peanut-admin/peanut-ops",
+            "version": "1.0.6",
+            "entry": "platform/src/modules/peanut-ops/contribution.ts",
+            "sha256": "45a285f08ccefa5961bc2705a80561c8a4ca3a2736af5596597afadbc2c6430e"
+        }
+    ],
+    "modules": [
+        {
+            "key": "peanut.ops",
+            "root": "server/app/modules/peanut/ops"
+        }
+    ]
+}

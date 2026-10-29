@@ -1,0 +1,103 @@
+{
+    "schema_version": 1,
+    "key": "peanut.import-export",
+    "version": "1.0.22",
+    "source": {
+        "type": "canonical-contents",
+        "reference": "canonical-plugin-contents-v1",
+        "sha256": "3f9e1cc640d1394bddf43a5b5d07204d450b170c60da08e07beb831fede29404"
+    },
+    "trust": {
+        "channel": "bundled",
+        "origin": {
+            "type": "repository-contents",
+            "reference": "canonical-plugin-contents-v1"
+        },
+        "archive": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "signature": {
+            "status": "not-issued",
+            "key_id": null
+        },
+        "sbom": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "license": {
+            "identifier": "Apache-2.0",
+            "status": "declared"
+        },
+        "qualification": {
+            "status": "bundled-locked",
+            "review": "not-reviewed",
+            "vulnerability_response": "not-configured",
+            "marketplace": "blocked"
+        },
+        "compatibility": {
+            "modules": [
+                {
+                    "key": "peanut.import-export",
+                    "version": "1.0.22",
+                    "kernel_constraint": "^1.0",
+                    "dependencies": [
+                        {
+                            "module_key": "peanut.file",
+                            "version": "^1.0"
+                        },
+                        {
+                            "module_key": "peanut.identity",
+                            "version": "4.0.0-rc.31"
+                        },
+                        {
+                            "module_key": "peanut.integration",
+                            "version": "^1.0"
+                        },
+                        {
+                            "module_key": "peanut.settings",
+                            "version": "^1.0"
+                        },
+                        {
+                            "module_key": "peanut.task",
+                            "version": "^1.0"
+                        }
+                    ],
+                    "permissions": {
+                        "path": "resources/permissions.json",
+                        "sha256": "682a123fb3ac2665a3dcc584f327f6826d0344c3a59ec1c6687866bcdf78f059"
+                    }
+                }
+            ]
+        }
+    },
+    "composer": [
+        {
+            "name": "peanut-business/peanut-import-export",
+            "version": "1.0.22",
+            "sha256": "39e07785b154cd8da557fb6e405e9ea244f7b54aa202dfefc83cf4d6b07514c3"
+        }
+    ],
+    "npm": [
+        {
+            "name": "@peanut-admin/peanut-import-export",
+            "version": "1.0.6",
+            "integrity": "sha256-WUsw7I2Czm25XDhsr+gfgDKHlCDAxOHSau6gOExGNZs="
+        }
+    ],
+    "frontend": [
+        {
+            "client_key": "admin-web",
+            "package": "@peanut-admin/peanut-import-export",
+            "version": "1.0.6",
+            "entry": "web/src/modules/peanut-import-export/contribution.ts",
+            "sha256": "ee532495dc3af39e7a6787ac19881713f93fe677fc0738add18ec5ba75d1068f"
+        }
+    ],
+    "modules": [
+        {
+            "key": "peanut.import-export",
+            "root": "server/app/modules/peanut/import_export"
+        }
+    ]
+}

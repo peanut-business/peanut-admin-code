@@ -1,0 +1,91 @@
+{
+    "schema_version": 1,
+    "key": "peanut.rich-text",
+    "version": "1.0.7",
+    "source": {
+        "type": "canonical-contents",
+        "reference": "canonical-plugin-contents-v1",
+        "sha256": "584805cc052f3be465d3f69353f1ef174d835cec21b448a70c7c94a93104e704"
+    },
+    "trust": {
+        "channel": "bundled",
+        "origin": {
+            "type": "repository-contents",
+            "reference": "canonical-plugin-contents-v1"
+        },
+        "archive": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "signature": {
+            "status": "not-issued",
+            "key_id": null
+        },
+        "sbom": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "license": {
+            "identifier": "Apache-2.0",
+            "status": "declared"
+        },
+        "qualification": {
+            "status": "bundled-locked",
+            "review": "not-reviewed",
+            "vulnerability_response": "not-configured",
+            "marketplace": "blocked"
+        },
+        "compatibility": {
+            "modules": [
+                {
+                    "key": "peanut.rich-text",
+                    "version": "1.0.7",
+                    "kernel_constraint": "^1.0",
+                    "dependencies": [
+                        {
+                            "module_key": "peanut.content-tools",
+                            "version": "1.0.1"
+                        },
+                        {
+                            "module_key": "peanut.file",
+                            "version": "^1.0"
+                        }
+                    ],
+                    "permissions": {
+                        "path": "resources/permissions.json",
+                        "sha256": "d5aa3760edb3e82684b77fb0980125b7789b1cdfa34d10d8eb8f5eabd2573813"
+                    }
+                }
+            ]
+        }
+    },
+    "composer": [
+        {
+            "name": "peanut-business/peanut-rich-text",
+            "version": "1.0.7",
+            "sha256": "1b7fd49f5c4372ec2aac5b4a6b3263a6eae59fca677bb3607a6f4eb04ff29dfb"
+        }
+    ],
+    "npm": [
+        {
+            "name": "@peanut-admin/peanut-rich-text",
+            "version": "1.0.6",
+            "integrity": "sha256-pdjGdqCbb7Kt+0vI/+gTvl+Z6RoFNX03ygjmkEDKkuE="
+        }
+    ],
+    "frontend": [
+        {
+            "client_key": "admin-web",
+            "package": "@peanut-admin/peanut-rich-text",
+            "version": "1.0.6",
+            "entry": "web/src/modules/peanut-rich-text/contribution.ts",
+            "sha256": "5ebc9f3695fb4ad0d1a9ca0c22ea345db3e82714f90b34e9513e93afcc454407"
+        }
+    ],
+    "modules": [
+        {
+            "key": "peanut.rich-text",
+            "root": "server/app/modules/peanut/rich_text"
+        }
+    ]
+}

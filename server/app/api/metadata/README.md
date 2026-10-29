@@ -12,15 +12,15 @@ or request bodies. The generator merges these fragments and rejects duplicate
 operations or component names, unknown routes, unresolved references and empty
 schemas.
 
-For example, the owner of `official.task` adds only its own file at
-`server/app/modules/official/task/api/metadata/openapi.php`:
+For example, the owner of `peanut.task` adds only its own file at
+`server/app/modules/peanut/task/api/metadata/openapi.php`:
 
 ```php
 <?php
 declare(strict_types=1);
 
 return [
-    '/adminapi/official.task/jobs' => [
+    '/adminapi/peanut.task/jobs' => [
         'get' => [
             'operationId' => 'listTaskJobs',
             'tags' => ['Task'],

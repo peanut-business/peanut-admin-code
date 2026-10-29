@@ -487,6 +487,8 @@ class AppService extends Service
                 $this->app->make(PluginCatalogSyncService::class),
                 $this->app->make(ModuleCatalogApplier::class),
                 $this->app->make(\PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries::class),
+                $this->app->make(DeploymentModuleRequestService::class),
+                $this->app->make(PlatformModuleOperationExecutionService::class),
             ));
         $this->app->bind(PlatformPermissionChecker::class, PlatformOpsPermissionChecker::class);
         $this->app->bind(OpsTaskDispatcher::class, ThinkPhpOpsTaskDispatcher::class);
@@ -626,6 +628,7 @@ class AppService extends Service
                 $this->app->make(BackupRestoreProviderRegistry::class),
                 $this->app->make(ApplicationRuntimeStatusProvider::class),
                 $this->app->make(PlatformOperatorIdentityQuery::class),
+                $this->app->make(PlatformPermissionChecker::class),
             ));
         $this->app->bind(CrontabCommandService::class, fn(): CrontabCommandService => new CrontabCommandService(
             (array) Config::get('console.commands', []),
@@ -755,6 +758,9 @@ class AppService extends Service
                 && !file_exists($releasePath) && !is_link($releasePath) && !$developmentReadonly) {
                 $factory->publishCompiled($registry, $config, $resolver->all());
             }
+        }
+        foreach ($registry->modules as $manifest) {
+            \app\common\module\PackageCheck::assertEdition($manifest->root, (string) Config::get('deployment.mode', ''));
         }
         $this->app->instance(CompiledModuleRegistry::class, $registry);
         $this->app->make(ModuleComposition::class)->register($registry);

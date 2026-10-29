@@ -1,0 +1,107 @@
+{
+    "schema_version": 1,
+    "key": "peanut.payment",
+    "version": "1.0.18",
+    "source": {
+        "type": "canonical-contents",
+        "reference": "canonical-plugin-contents-v1",
+        "sha256": "420fa3535abdd8bfdfdbcd257d5038f0c8e9c3f5dfaf1ed233095019024a0a22"
+    },
+    "trust": {
+        "channel": "bundled",
+        "origin": {
+            "type": "repository-contents",
+            "reference": "canonical-plugin-contents-v1"
+        },
+        "archive": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "signature": {
+            "status": "not-issued",
+            "key_id": null
+        },
+        "sbom": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "license": {
+            "identifier": "Apache-2.0",
+            "status": "declared"
+        },
+        "qualification": {
+            "status": "bundled-locked",
+            "review": "not-reviewed",
+            "vulnerability_response": "not-configured",
+            "marketplace": "blocked"
+        },
+        "compatibility": {
+            "modules": [
+                {
+                    "key": "peanut.payment",
+                    "version": "1.0.18",
+                    "kernel_constraint": "^1.0",
+                    "dependencies": [
+                        {
+                            "module_key": "peanut.file",
+                            "version": "^1.0"
+                        },
+                        {
+                            "module_key": "peanut.identity",
+                            "version": "4.0.0-rc.31"
+                        },
+                        {
+                            "module_key": "peanut.integration",
+                            "version": "^1.0"
+                        },
+                        {
+                            "module_key": "peanut.member",
+                            "version": "^1.0"
+                        },
+                        {
+                            "module_key": "peanut.oauth",
+                            "version": "^1.0"
+                        },
+                        {
+                            "module_key": "peanut.settings",
+                            "version": "^1.0"
+                        }
+                    ],
+                    "permissions": {
+                        "path": "resources/permissions.json",
+                        "sha256": "acf661cec823d5d2ca614630b8decd2ca4284b463868186c578b2a551a7d695e"
+                    }
+                }
+            ]
+        }
+    },
+    "composer": [
+        {
+            "name": "peanut-business/peanut-payment",
+            "version": "1.0.18",
+            "sha256": "39382089112ae857ca28b3bd31cecf30ec3256383bd225418df2192c8a877fe9"
+        }
+    ],
+    "npm": [
+        {
+            "name": "@peanut-admin/peanut-payment",
+            "version": "1.0.3",
+            "integrity": "sha256-UcyjMWQ9zru+6G5gv7FWRcjOmsL3/ka9dA5enB1sO8g="
+        }
+    ],
+    "frontend": [
+        {
+            "client_key": "admin-web",
+            "package": "@peanut-admin/peanut-payment",
+            "version": "1.0.3",
+            "entry": "web/src/modules/peanut-payment/contribution.ts",
+            "sha256": "5749bbdaf0079ecc7531008170dac785eaf7c6c28b23233fae2089683da86e30"
+        }
+    ],
+    "modules": [
+        {
+            "key": "peanut.payment",
+            "root": "server/app/modules/peanut/payment"
+        }
+    ]
+}

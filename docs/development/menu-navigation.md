@@ -14,7 +14,7 @@
 
 直接验证入口：`php server/tests/Productization/MenuGroupingTest.php`（必须提供已登记、已租约授权的三个空 MySQL 8.4 schema）；`node --test scripts/tests/menu-grouping-navigation-test.mjs`。数据库入口使用现有 `RegisteredMysqlTestResource`，拒绝未知、非空或其他任务的资源，仅清理本次拥有的合成数据。
 
-菜单管理、父子关系与角色勾选统一使用 `menu_key` / `parent_key` 字符串标识，角色 API 使用 `menu_keys` 字符串数组。标识来自模块声明（例如 `official.file.library`）、固定系统种子声明（例如 `system.menu.lists`）或自建菜单创建时生成的 `custom.<随机标识>`；不是路径或数字哈希。数据库仍有自增 `id`，只用于存储关联及记录定位，不作为跨目录、模块或前端的菜单身份。两张既有表的数字 ID 可以相同；合并及树节点始终按标识区分。
+菜单管理、父子关系与角色勾选统一使用 `menu_key` / `parent_key` 字符串标识，角色 API 使用 `menu_keys` 字符串数组。标识来自模块声明（例如 `peanut.file.library`）、固定系统种子声明（例如 `system.menu.lists`）或自建菜单创建时生成的 `custom.<随机标识>`；不是路径或数字哈希。数据库仍有自增 `id`，只用于存储关联及记录定位，不作为跨目录、模块或前端的菜单身份。两张既有表的数字 ID 可以相同；合并及树节点始终按标识区分。
 
 `pa_system_menu` 的编号 1–999,999,999 预留给上游系统种子，新自建记录从 1,000,000,000 开始。已有记录不重编号，即使历史自建记录处于预留段也保留。新增系统种子应显式指定预留段编号，并给出永久、唯一的语义标识；编号不能用来判断模块、授权或合并菜单。身份迁移按旧默认中的路径/权限语义识别历史种子；无法唯一识别的记录保留内容并获得独立自建标识。
 

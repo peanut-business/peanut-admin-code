@@ -35,12 +35,13 @@ final class ModuleInstallPackage extends ModuleContextualCommand
             return 0;
         } catch (PluginPackageException|PluginLifecycleException $exception) {
             $output->writeln((string) json_encode(
-                ['error' => $exception->errorCode],
+                ['error' => $exception->errorCode, 'reason' => $exception->getMessage()]
+                    + ($exception instanceof PluginPackageException ? ['details' => $exception->details] : []),
                 JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
             ));
-            return 1;
-        } catch (\Throwable) {
-            $output->writeln('{"error":"MODULE_PACKAGE_INSTALL_FAILED"}');
+            return $exception->getCode() > 0 && $exception->getCode() < 256 ? $exception->getCode() : 1;
+        } catch (\Throwable $exception) {
+            $output->writeln((string) json_encode(['error' => 'MODULE_PACKAGE_INSTALL_FAILED', 'reason' => $exception->getMessage()], JSON_THROW_ON_ERROR));
             return 1;
         }
     }

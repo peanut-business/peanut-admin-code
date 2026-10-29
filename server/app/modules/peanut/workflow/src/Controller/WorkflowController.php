@@ -85,7 +85,7 @@ final class WorkflowController extends BaseAdminController
     {
         return $this->respond(function () use ($instanceKey): array {
             $request = $this->request->post();
-            $taskContext = array_key_exists('expected_job_revision', $request) ? $this->workflowContext->operation('official.task.jobs.manage', 'peanut.task-job', 'manage') : null;
+            $taskContext = array_key_exists('expected_job_revision', $request) ? $this->workflowContext->operation('peanut.task.jobs.manage', 'peanut.task-job', 'manage') : null;
             return $this->commands->terminate($this->context('instance.terminate', 'terminate'), $instanceKey, $request, $this->idempotency(), $taskContext);
         });
     }
@@ -107,23 +107,23 @@ final class WorkflowController extends BaseAdminController
     }
     public function diagnostics(string $instanceKey): Json
     {
-        return $this->respond(fn() => $this->commands->taskDiagnostics($this->context('diagnostics.read', 'read'), $this->workflowContext->operation('official.task.jobs.read', 'peanut.task-job', 'read'), $instanceKey, $this->workflowContext->optionalOperation('official.task.jobs.manage', 'peanut.task-job', 'manage')));
+        return $this->respond(fn() => $this->commands->taskDiagnostics($this->context('diagnostics.read', 'read'), $this->workflowContext->operation('peanut.task.jobs.read', 'peanut.task-job', 'read'), $instanceKey, $this->workflowContext->optionalOperation('peanut.task.jobs.manage', 'peanut.task-job', 'manage')));
     }
     public function notificationDiagnostics(string $instanceKey): Json
     {
-        return $this->respond(fn() => $this->notifications->diagnostics($this->context('diagnostics.read', 'read'), $this->workflowContext->operation('official.task.jobs.read', 'peanut.task-job', 'read'), $instanceKey, $this->integer($this->request->get('page', 1)), $this->integer($this->request->get('page_size', 20)), $this->workflowContext->optionalOperation('official.task.jobs.manage', 'peanut.task-job', 'manage')), true);
+        return $this->respond(fn() => $this->notifications->diagnostics($this->context('diagnostics.read', 'read'), $this->workflowContext->operation('peanut.task.jobs.read', 'peanut.task-job', 'read'), $instanceKey, $this->integer($this->request->get('page', 1)), $this->integer($this->request->get('page_size', 20)), $this->workflowContext->optionalOperation('peanut.task.jobs.manage', 'peanut.task-job', 'manage')), true);
     }
     public function recoverNotification(string $instanceKey): Json
     {
         return $this->respond(fn() => $this->notifications->recover($this->context('diagnostics.retry', 'retry'),
-            $this->workflowContext->operation('official.task.jobs.manage', 'peanut.task-job', 'manage'), $instanceKey, $this->request->post(), $this->idempotency()));
+            $this->workflowContext->operation('peanut.task.jobs.manage', 'peanut.task-job', 'manage'), $instanceKey, $this->request->post(), $this->idempotency()));
     }
 
     private function serviceRecovery(string $instanceKey, bool $recover): Json
     {
         return $this->respond(function () use ($instanceKey, $recover): array {
             $context = $this->context($recover ? 'diagnostics.retry' : 'diagnostics.read', $recover ? 'retry' : 'read');
-            $taskContext = $this->workflowContext->operation('official.task.jobs.manage', 'peanut.task-job', 'manage');
+            $taskContext = $this->workflowContext->operation('peanut.task.jobs.manage', 'peanut.task-job', 'manage');
             return $recover
                 ? $this->commands->recoverServiceTask($context, $taskContext, $instanceKey, $this->request->post(), $this->idempotency())
                 : $this->commands->reconcileTask($context, $taskContext, $instanceKey, $this->request->post(), $this->idempotency());

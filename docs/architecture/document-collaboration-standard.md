@@ -12,21 +12,21 @@
 
 | 负责者 | 负责 | 不负责 |
 | --- | --- | --- |
-| 业务模块（如 `official.article` 或派生 APP 模块） | 主业务对象、负责人/参与人、角色和状态、归档恢复、允许哪些文档槽位、审批/发布时点、可执行操作 | 保存 CRDT/存储文件本体、实现协同 WebSocket |
-| `official.document`（新增 Code 官方模块） | 标准文档身份、业务归属、逻辑状态、正文权威持久化、不可变业务版本、引用索引、审计与受控公共 Query/Command | 自己再造负责人/成员/角色、决定业务流程 |
-| `official.content-tools`（新增目标：内容工具／内容编辑与预览） | 统一工具注册、格式与能力选择、ContentEditor/ContentViewer、工具会话与编辑/预览适配器生命周期；具体格式插件各守自己的实现 | 不拥有业务文档版本账本，不另造文件存储，不授予业务或资源权限 |
-| `official.rich-text`（复用现有模块，调整职责） | Tiptap/ProseMirror 结构、富文本控件、工具栏、查看器、类型化前端交互及正文内容投影 | 充当通用业务对象/角色表、单独拥有新正式文档账本 |
-| `official.file`（复用） | `file_key`、真实上传/分类/存储/地址解析/访问控制、文件版本/资源管理与资源审计 | 将文档查看权限自动变成资源管理权限 |
-| `official.collaboration`（新增 Code 的 PHP 应用适配模块） | PHP 的协作准入/有效授权、会话签发/撤销、读写/保存服务接口、协作事件审计 | 用 Node 绕过 PHP 直接查业务表；成为另一套身份系统 |
+| 业务模块（如 `peanut.article` 或派生 APP 模块） | 主业务对象、负责人/参与人、角色和状态、归档恢复、允许哪些文档槽位、审批/发布时点、可执行操作 | 保存 CRDT/存储文件本体、实现协同 WebSocket |
+| `peanut.document`（新增 Code 官方模块） | 标准文档身份、业务归属、逻辑状态、正文权威持久化、不可变业务版本、引用索引、审计与受控公共 Query/Command | 自己再造负责人/成员/角色、决定业务流程 |
+| `peanut.content-tools`（新增目标：内容工具／内容编辑与预览） | 统一工具注册、格式与能力选择、ContentEditor/ContentViewer、工具会话与编辑/预览适配器生命周期；具体格式插件各守自己的实现 | 不拥有业务文档版本账本，不另造文件存储，不授予业务或资源权限 |
+| `peanut.rich-text`（复用现有模块，调整职责） | Tiptap/ProseMirror 结构、富文本控件、工具栏、查看器、类型化前端交互及正文内容投影 | 充当通用业务对象/角色表、单独拥有新正式文档账本 |
+| `peanut.file`（复用） | `file_key`、真实上传/分类/存储/地址解析/访问控制、文件版本/资源管理与资源审计 | 将文档查看权限自动变成资源管理权限 |
+| `peanut.collaboration`（新增 Code 的 PHP 应用适配模块） | PHP 的协作准入/有效授权、会话签发/撤销、读写/保存服务接口、协作事件审计 | 用 Node 绕过 PHP 直接查业务表；成为另一套身份系统 |
 | `peanut-collaboration`（Code 交付的可选 Node 服务） | Hocuspocus/Yjs 房间、同步、连接与提交持久化请求、健康指标 | 直接连接 Peanut 业务数据库，作为租户或角色真相源 |
 | PHP/Web Core | 既有可信执行上下文、Scope/授权原语/客户端通信基础 | 拥有完整文档/富文本/协同业务 |
 | Peanut CLI（独立仓） | 编排已发行的应用原生配置、服务启用/升级/诊断；不独立发明部署引擎 | 直接保存文档或管理业务授权 |
 
 一个业务对象可以拥有多个文档（正文、补充说明等），**一份正式文档始终只有一个主管业务对象**；不允许两个对象共同修改同一文档。其他对象引用某个文档时，V1 只能建立指向该文档已冻结版本的引用或另存副本，不把引用变成第二个所有者。V1 不对普通用户开放无业务归属的独立文档/草稿中心；历史游离文档可为迁移保留受限制的待认领记录，但不作为新增业务能力。
 
-**依赖规则：**业务模块使用标准文档时依赖 `official.document`，文档/文件界面通过 `official.content-tools` 选择具体编辑器或预览器；富文本由现有 `official.rich-text` 提供适配器，业务附件仍由 `official.file` 保管。`DocumentEditor/DocumentViewer` 是文档侧的权限、版本与保存封装，内部委托 `ContentEditor/ContentViewer`，不能另写一套格式选择器；文件侧同理。工具注册由可信应用组合根完成，content-tools 不反向导入具体 provider，provider 不依赖 Document 私表，以免循环。仅启用多人协作才装配 `official.collaboration` 和 Node；工作流只消费固定文档版本，不成为必需依赖。
+**依赖规则：**业务模块使用标准文档时依赖 `peanut.document`，文档/文件界面通过 `peanut.content-tools` 选择具体编辑器或预览器；富文本由现有 `peanut.rich-text` 提供适配器，业务附件仍由 `peanut.file` 保管。`DocumentEditor/DocumentViewer` 是文档侧的权限、版本与保存封装，内部委托 `ContentEditor/ContentViewer`，不能另写一套格式选择器；文件侧同理。工具注册由可信应用组合根完成，content-tools 不反向导入具体 provider，provider 不依赖 Document 私表，以免循环。仅启用多人协作才装配 `peanut.collaboration` 和 Node；工作流只消费固定文档版本，不成为必需依赖。
 
-本次以“内容工具”作为上层名称，不将 `official.rich-text` 全库替换重命名：旧模块标识、已执行迁移、组件和 API 兼容入口保留；DOCX/XLSX/PPTX/PDF/图片/媒体编辑与查看工具统一在内容工具模块下接入和管理，而不是塞进 File 或 Document。部署容器、工具适配器和独立模块不是一一对应关系。详细包与接口职责见 [内容工具合同](content-surface-and-format-adapters.md)。
+本次以“内容工具”作为上层名称，不将 `peanut.rich-text` 全库替换重命名：旧模块标识、已执行迁移、组件和 API 兼容入口保留；DOCX/XLSX/PPTX/PDF/图片/媒体编辑与查看工具统一在内容工具模块下接入和管理，而不是塞进 File 或 Document。部署容器、工具适配器和独立模块不是一一对应关系。详细包与接口职责见 [内容工具合同](content-surface-and-format-adapters.md)。
 
 ## 2. 标准文档模型与归属
 
@@ -71,9 +71,9 @@
 
 - 业务模块应通过正式登记的 `DocumentOwnerPolicy`（确有跨模块边界才设接口）提供 `resolveOwner`、`authorize(action, ownerRef, context)` 和 `stateRevision`；返回可信 DTO，不暴露内部 ORM、SQL 或把原始用户输入当业务权限规则。Doc 模块复核租户/软删除/业务状态/模块状态；业务模块失效时新编辑拒绝。
 - `owner` 解析失败、版本不存在、权限来源缺失、未知模块/Slot、服务断联不得退化为“同租户已登录即可读”；按现行 403/404 隐藏策略返回错误，并留下可追踪原因。
-- 文档阅读许可 **不自动授予**其所引文件的独立下载原件/管理/重命名/删除。`official.file` 在 `view-preview` 场景可接受经 Doc 验证的一次性**受限预览授权**：同租户 + 当前文档授权 + 引用关系/可继承标记 + 当前文件可见性/敏感策略联合判定；涉密文件仍要求单独授权。文件管理入口不接受文档预览 grant。
+- 文档阅读许可 **不自动授予**其所引文件的独立下载原件/管理/重命名/删除。`peanut.file` 在 `view-preview` 场景可接受经 Doc 验证的一次性**受限预览授权**：同租户 + 当前文档授权 + 引用关系/可继承标记 + 当前文件可见性/敏感策略联合判定；涉密文件仍要求单独授权。文件管理入口不接受文档预览 grant。
 - 正文只存 `file_key`，内容渲染时按当前权限向 File 服务请求短时地址；缓存键包含租户、资源及权限修订，撤销后重新解析。`file_key` / 媒体引用不隐含外部可公开访问；未经 File 确认不得将私有原图 URL 嵌入已发布 HTML。
-- 文件公开→私有、引用影响/CDN 处置、物理空间迁移和批量操作由 `official.file` 的独立产品方案负责；Doc 只记录引用及刷新/受限呈现，不复制批量 Saga 或 CDN 逻辑。
+- 文件公开→私有、引用影响/CDN 处置、物理空间迁移和批量操作由 `peanut.file` 的独立产品方案负责；Doc 只记录引用及刷新/受限呈现，不复制批量 Saga 或 CDN 逻辑。
 - 文档关联多个对象的**引用**与共同所有权不同：引用方最多通过显式权限读取某个冻结版本，不能借引用获得正文写权限或文件管理权。跨租户默认拒绝，V1 不提供跨租户实时协作。
 
 ## 4. 正式 PHP / HTTP 接口
@@ -82,15 +82,15 @@
 
 | 动作键/公开服务意图 | 输入（业务字段） | 输出 / 前置条件 |
 | --- | --- | --- |
-| `official.document.create`（由业务模块调用的公开 Command） | `owner:{moduleKey,objectType,objectId}, slot, contentKind=rich_text|file_resource, fileKey?（仅文件型）, idempotencyKey` | `{documentId,status,authRevision}`；由业务模块和 File 共同核权，文件型还需校验真实 MIME、受控资源绑定；不提供匿名创建入口 |
-| `official.document.detail` | `document_id`、可选 `revision_id` | 当前获准元数据 + 派生 JSON + `stateSeq/revisionId`；只读 API 不返回二进制状态或签发 WebSocket 凭据 |
-| `official.document.version.create` | `document_id, expected_state_seq, reason, idempotency_key` | `{revisionId,revisionNo,sourceStateSeq,digest}`；先保存屏障；正常业务模块决定何时使用 |
-| `official.document.archive` / `restore` | `document_id, expected_auth_revision, request_id` | 归档/恢复结果，受主管业务模块生命周期动作协调；不提供脱离业务状态的任意归档 |
-| `official.collaboration.transport` | `document_id, mode: read|write` | 返回 `wss_url, document_name, document_id, mode, protocol`；重新核编辑/查看权限，不签发协作凭据 |
-| `official.document.solo.save` | `document_id, expected_state_seq, structured_content, request_id` | 仅 `rich_text` 单人模式；保存后 `{stateSeq,persistedAt}`；启用协同时禁止此路径双写 |
-| `official.document.resource.bind`（目标 Command） | `document_id, file_key, expected_state_seq, request_id` | 仅文件型：校验 owner/文件引用授权和文件真实 MIME/哈希，CAS 绑定新受控资源修订，历史冻结版本不能被改写 |
-| `official.document.capabilities`（目标 Query） | `document_id, intent=view|edit, revision_id?` | 服务端返回可信已装适配器、可用状态及查看/编辑/原件下载三种独立权限；不接受前端声明授权 |
-| `official.file.assets` / 受控 `resolve` | `file_key` 集合、`document_id` 受限上下文、目标动作 | 按 File 本身权限返回动态预览，不因为 caller 提供 document_id 就信任授权 |
+| `peanut.document.create`（由业务模块调用的公开 Command） | `owner:{moduleKey,objectType,objectId}, slot, contentKind=rich_text|file_resource, fileKey?（仅文件型）, idempotencyKey` | `{documentId,status,authRevision}`；由业务模块和 File 共同核权，文件型还需校验真实 MIME、受控资源绑定；不提供匿名创建入口 |
+| `peanut.document.detail` | `document_id`、可选 `revision_id` | 当前获准元数据 + 派生 JSON + `stateSeq/revisionId`；只读 API 不返回二进制状态或签发 WebSocket 凭据 |
+| `peanut.document.version.create` | `document_id, expected_state_seq, reason, idempotency_key` | `{revisionId,revisionNo,sourceStateSeq,digest}`；先保存屏障；正常业务模块决定何时使用 |
+| `peanut.document.archive` / `restore` | `document_id, expected_auth_revision, request_id` | 归档/恢复结果，受主管业务模块生命周期动作协调；不提供脱离业务状态的任意归档 |
+| `peanut.collaboration.transport` | `document_id, mode: read|write` | 返回 `wss_url, document_name, document_id, mode, protocol`；重新核编辑/查看权限，不签发协作凭据 |
+| `peanut.document.solo.save` | `document_id, expected_state_seq, structured_content, request_id` | 仅 `rich_text` 单人模式；保存后 `{stateSeq,persistedAt}`；启用协同时禁止此路径双写 |
+| `peanut.document.resource.bind`（目标 Command） | `document_id, file_key, expected_state_seq, request_id` | 仅文件型：校验 owner/文件引用授权和文件真实 MIME/哈希，CAS 绑定新受控资源修订，历史冻结版本不能被改写 |
+| `peanut.document.capabilities`（目标 Query） | `document_id, intent=view|edit, revision_id?` | 服务端返回可信已装适配器、可用状态及查看/编辑/原件下载三种独立权限；不接受前端声明授权 |
+| `peanut.file.assets` / 受控 `resolve` | `file_key` 集合、`document_id` 受限上下文、目标动作 | 按 File 本身权限返回动态预览，不因为 caller 提供 document_id 就信任授权 |
 
 跨模块 PHP 公开能力按真实消费登记到 `module.json:contracts.exports`：如 `DocumentCommands`、`DocumentQueries`、`DocumentOwnerPolicy`、`DocumentVersionSnapshot`、`CollaborationSessions`。签名、返回错误码和字段要生成真实类型/OpenAPI；不可单独注册未经授权的可写 ORM Model。HTTP 请求中的 `tenant_id`、`owner` 字段都不能替代受信执行上下文和后端业务对象二次核验。
 
@@ -129,7 +129,7 @@ Node 控制端点 `/internal/collaboration/control/v1/business-barrier` 的 URL 
 点击目标先 prepare 保护文件引用，后用真实提交 snapshot 覆盖点击 snapshot 的证明确认；覆盖检查包含删除集合，不能仅比较状态向量或进度计数。公开目标查询在当前版本权限下，对不存在准备记录的请求返回 not_prepared，目标摘要、目标进度、提交与版本字段均为 null，不能作为已保存证明；已有目标仅向原操作者返回 prepared、confirmed、consumed 或 canceled 及真实已有回执，不返回正文。取消只释放未消费目标的专属引用保护；尚未准备的请求以原请求身份、真实人员和业务归属持久记录取消，重复取消返回同一 canceled 小回执，迟到的 prepare/register 不能复用该请求。没有快照的取消目标查询摘要与进度字段为 null，不制造提交证明。已开始正式业务保存或已消费的目标不能取消。未知结果复用原请求与点击内容，不能重新加载后悄悄另建目标。confirmed/consumed 目标可在当前完整业务授权下续作原正式保存，无须原 Node 进程仍在线。
 
 归档文档的恢复有一个明确的持久基线分支：只有 Doc 已归档、Room 已关闭、Room 与写授权均已过期、没有待办业务，且数据库正文和 Room 基线一致时，才能用 `closed_persisted` 计划在 PHP 同事务围住加入、恢复状态、推进 epoch 并释放。它不签发 Node 排空证明、不延长旧租约；下一次有权加入仍由新 holder 显式恢复并加载持久草稿。关闭但租约尚有效的房间继续使用原生签名控制，活动房间和未知业务不能走此分支。
-未知结果通过 `official.document.operation` 查询原操作并复用同 key/input；不新造 operation、不按超时解锁。正式 TLS/managed-loader/readiness 和真实数据库/多人/socket/浏览器资格由后续对应入口核验，源码协议或单元替身不证明已完成这些资格。
+未知结果通过 `peanut.document.operation` 查询原操作并复用同 key/input；不新造 operation、不按超时解锁。正式 TLS/managed-loader/readiness 和真实数据库/多人/socket/浏览器资格由后续对应入口核验，源码协议或单元替身不证明已完成这些资格。
 
 以下是**跨组件/跨进程强约束**，`Controller` 适配的最终响应外壳复用 Peanut 现行 API 格式，不自行发明通用响应码：
 
@@ -165,9 +165,9 @@ interface FileRef { fileKey: string; kind: 'image' | 'video' | 'audio' | 'file';
 
 | 组件 / 类型入口 | Props（目标） | Emits / 行为 |
 | --- | --- | --- |
-| `RichTextEditor`：`@peanut-admin/official-rich-text/editor` | `modelValue`, `mode: 'read'|'solo'|'collaborative'`, `provider?: CollaborationBinding`, `disabled?`, `toolbar?` | 单人模式 `update:modelValue`；协同模式 Yjs 由 DocumentEditor 管理，**不得**每次 onUpdate 再把 JSON 当独立保存源；`change`, `connection-state`, `error`，卸载清理连接 |
-| `DocumentEditor`：`@peanut-admin/official-document/editor`（新增） | `documentId`, `mode`, `readOnly?`, `initialRevisionId?` | 按已授权格式能力选择真正的富文本或专用文件编辑器；未装 Office 引擎明确只读/不可编辑；所有保存经 PHP 版本与权限合同；`ready`, `save-state`, `version-created`, `error` |
-| `DocumentViewer`：`@peanut-admin/official-document/viewer`（新增） | `documentId`, `revisionId?`, `allowDownloads?` | 统一只读分发：根据服务端内容类型/MIME/权限选择富文本、PDF、图片、视频、Office 等已注册预览器或安全降级；`load`, `capabilities`, `error` |
+| `RichTextEditor`：`@peanut-admin/peanut-rich-text/editor` | `modelValue`, `mode: 'read'|'solo'|'collaborative'`, `provider?: CollaborationBinding`, `disabled?`, `toolbar?` | 单人模式 `update:modelValue`；协同模式 Yjs 由 DocumentEditor 管理，**不得**每次 onUpdate 再把 JSON 当独立保存源；`change`, `connection-state`, `error`，卸载清理连接 |
+| `DocumentEditor`：`@peanut-admin/peanut-document/editor`（新增） | `documentId`, `mode`, `readOnly?`, `initialRevisionId?` | 按已授权格式能力选择真正的富文本或专用文件编辑器；未装 Office 引擎明确只读/不可编辑；所有保存经 PHP 版本与权限合同；`ready`, `save-state`, `version-created`, `error` |
+| `DocumentViewer`：`@peanut-admin/peanut-document/viewer`（新增） | `documentId`, `revisionId?`, `allowDownloads?` | 统一只读分发：根据服务端内容类型/MIME/权限选择富文本、PDF、图片、视频、Office 等已注册预览器或安全降级；`load`, `capabilities`, `error` |
 | `FileAssetPicker`（适配已有 `FileAssetSelector.vue`） | `selectedFileKey`, `allowedKinds`, `documentId?`, `disabled?` | `select({fileKey, kind, variantKey?})`, `cancel`, `error`；后端按真实文件授权校验，不把传入的 documentId 当权利凭证 |
 | `FileReferenceView`（File 或 Document 组合件） | `fileRef`, `documentId?`, `operation='view-preview'` | 逐次解析短期地址与错误占位；`load`, `permission-denied`, `error`；不公开秘密 URL 到持久状态 |
 
@@ -177,7 +177,7 @@ interface FileRef { fileKey: string; kind: 'image' | 'video' | 'audio' | 'file';
 
 ```vue
 <script setup lang="ts">
-import { DocumentEditor } from '@peanut-admin/official-document/editor';
+import { DocumentEditor } from '@peanut-admin/peanut-document/editor';
 defineProps<{ documentId: number }>();
 </script>
 <template>
@@ -253,7 +253,7 @@ occurred_at 在事务内写入，不作为准确 T0。上述独立命令对30秒
 ### 7.2 Single / Multi-tenant
 
 - `standalone` 应用内部仍有可信默认 `tenant_id`，只是前端隐藏租户/平台管理；`multi-tenant` 中多个租户共享同一个部署实例服务，但每个 Room、服务请求、保存行、缓存、日志/限流、授权必须按真实 tenant 区分。不同应用部署实例及 Edition 永不混用 Room、Secret、数据卷、容器名、反向代理配置。
-- 模块**代码已安装**、应用协作服务**已启用**、租户的`official.collaboration`**已开通**、当前人员/业务对象**被授权**四件事独立检查；SaaS 不因某租户启用而向所有租户开放。
+- 模块**代码已安装**、应用协作服务**已启用**、租户的`peanut.collaboration`**已开通**、当前人员/业务对象**被授权**四件事独立检查；SaaS 不因某租户启用而向所有租户开放。
 - 租户停用/迁移/模块关闭：先拒绝新票据和保存，发可靠撤权并 drain 已接纳更新；数据保留而非删除，恢复前重新校验授权。跨租户实时编辑/数据同步不属于 V1。
 
 ### 7.3 CLI 最小正式接口（待编码）
@@ -274,11 +274,11 @@ APP 的可选配置入口为 `python3 server/docker/scripts/configure-collaborat
 
 ## 8. 旧代码迁移与兼容
 
-2026-10-12 `peanut-admin-code` 的已观察基线：`official.rich-text` 有 `pa_rich_text_document`、`revision`、`document_json`、`collaboration_state`、CRUD/软删除、300 秒 HMAC 协同票据和 Tiptap/Yjs/Hocuspocus 客户端；但未观察到完整 Hocuspocus Node 服务、业务 owner 授权、PHP 内部持久化协议、可靠撤权/保存屏障。`official.file` 已有 `file_key`、资源/素材选择器。旧富文本页面仍可单人编辑，不能当完整实时系统。
+2026-10-12 `peanut-admin-code` 的已观察基线：`peanut.rich-text` 有 `pa_rich_text_document`、`revision`、`document_json`、`collaboration_state`、CRUD/软删除、300 秒 HMAC 协同票据和 Tiptap/Yjs/Hocuspocus 客户端；但未观察到完整 Hocuspocus Node 服务、业务 owner 授权、PHP 内部持久化协议、可靠撤权/保存屏障。`peanut.file` 已有 `file_key`、资源/素材选择器。旧富文本页面仍可单人编辑，不能当完整实时系统。
 
-迁移原则：**新增 `official.document` 所有的新文档表，不重命名、改写、删除旧迁移或直接清空旧文档**；盘点旧数据 tenant、关联消费者、修订、CRDT 二进制是否有效并预演迁移。只有经业务所有者明确匹配且租户一致时才迁入新正式文档；无法识别 owner 的旧文档保持只读隔离、出报表供人工认领，不偷用创建人为默认 owner，不对整个租户开放读写。
+迁移原则：**新增 `peanut.document` 所有的新文档表，不重命名、改写、删除旧迁移或直接清空旧文档**；盘点旧数据 tenant、关联消费者、修订、CRDT 二进制是否有效并预演迁移。只有经业务所有者明确匹配且租户一致时才迁入新正式文档；无法识别 owner 的旧文档保持只读隔离、出报表供人工认领，不偷用创建人为默认 owner，不对整个租户开放读写。
 
-旧 `official.rich-text.document.*` 对已知消费者安排受控兼容期：先保留读或适配到新 Document API；新写流按业务归属迁走，并禁止编辑同一文档的两套持久化。先盘点下游 APP 对 API/组件的使用，再决定弃用版本与升级说明；依赖声明、模块权限和菜单均随迁移修改，旧固定 release/scaffold 快照不回写。任何迁移应有备份、幂等校验、逐租户数量/哈希比对和恢复/拒绝策略；Code 当前部署/单多租户的 APP 升级按既有机制，不发明新 SQL 自动执行后门。
+旧 `peanut.rich-text.document.*` 对已知消费者安排受控兼容期：先保留读或适配到新 Document API；新写流按业务归属迁走，并禁止编辑同一文档的两套持久化。先盘点下游 APP 对 API/组件的使用，再决定弃用版本与升级说明；依赖声明、模块权限和菜单均随迁移修改，旧固定 release/scaffold 快照不回写。任何迁移应有备份、幂等校验、逐租户数量/哈希比对和恢复/拒绝策略；Code 当前部署/单多租户的 APP 升级按既有机制，不发明新 SQL 自动执行后门。
 
 ## 9. 最低充分验收边界
 
