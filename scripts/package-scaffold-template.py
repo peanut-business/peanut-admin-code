@@ -91,15 +91,16 @@ def validate_local_tool_versions(source, tools):
 def local_core_archive_source(output, release, lock, tooling_source):
     versions = json.loads((tooling_source.parent / 'release-versions.json').read_bytes())
     core = versions.get('core_php')
-    if not isinstance(core, dict) or core.get('source_type') != 'local':
+    if not isinstance(core, dict) or core.get('source_type') not in {'local', 'git'}:
         return None
     identity = core.get('source_identity')
-    if (core.get('package') != 'peanut-admin/core'
-            or not isinstance(identity, dict) or set(identity) != {'kind', 'snapshot_sha256'}
+    local = core['source_type'] == 'local'
+    if core.get('package') != 'peanut-admin/core' or (local and (
+            not isinstance(identity, dict) or set(identity) != {'kind', 'snapshot_sha256'}
             or identity.get('kind') != 'local'
             or re.fullmatch(r'[0-9a-f]{64}', str(identity.get('snapshot_sha256', ''))) is None
             or not isinstance(release.get('release', {}).get('source_identity'), dict)
-            or release['release']['source_identity'].get('kind') != 'local'):
+            or release['release']['source_identity'].get('kind') != 'local')):
         raise ValueError('TEMPLATE_LOCAL_CORE_SOURCE_IDENTITY_INVALID')
     packages = [item for item in lock.get('packages', []) if item.get('name') == 'peanut-admin/core']
     if len(packages) != 1:
@@ -113,6 +114,16 @@ def local_core_archive_source(output, release, lock, tooling_source):
         raise ValueError('TEMPLATE_LOCAL_CORE_VERSION_INVALID')
     relative = 'packages/core-php/peanut-admin-core-' + version + '.zip'
     dist = packages[0].get('dist')
+    if not local:
+        if not isinstance(dist, dict) or not str(dist.get('url', '')).startswith('../packages/core-php/'):
+            return None
+        source = packages[0].get('source')
+        if (re.fullmatch(r'[0-9a-f]{40}', str(core.get('source_reference', ''))) is None
+                or not isinstance(source, dict) or source.get('type') != 'git'
+                or source.get('url') != core.get('source_url')
+                or source.get('reference') != core['source_reference']
+                or dist.get('reference') != core['source_reference']):
+            raise ValueError('TEMPLATE_LOCAL_CORE_GIT_IDENTITY_INVALID')
     if (not isinstance(dist, dict) or dist.get('type') != 'zip'
             or dist.get('url') != '../' + relative
             or not isinstance(dist.get('shasum'), str)
@@ -226,6 +237,34 @@ def main():
             server.mkdir()
             for name, content in tooling_inputs.items():
                 (server / name).write_bytes(content)
+            module_nodes = [package for package in lock['packages'] if package.get('dist', {}).get('type') == 'path']
+            if module_nodes:
+                loader = importlib.machinery.SourceFileLoader(
+                    'peanut_template_vendor_state', str(tooling_source / 'docker/scripts/vendor-state.py'))
+                spec = importlib.util.spec_from_loader(loader.name, loader)
+                vendor_state = importlib.util.module_from_spec(spec)
+                previous_bytecode = sys.dont_write_bytecode
+                try:
+                    sys.dont_write_bytecode = True
+                    loader.exec_module(vendor_state)
+                finally:
+                    sys.dont_write_bytecode = previous_bytecode
+                modules = vendor_state.module_packages(tooling_source)
+                for package in module_nodes:
+                    if not vendor_state.native_module(package, modules):
+                        raise ValueError('TEMPLATE_TOOLING_MODULE_ORIGIN_INVALID')
+                    relative = modules[package['name']]['url']
+                    source = tooling_source / relative
+                    destination = server / relative
+                    destination.mkdir(parents=True)
+                    shutil.copyfile(source / 'composer.json', destination / 'composer.json')
+                    for path in (source / 'src').rglob('*'):
+                        if (path.is_symlink() or not (path.is_file() or path.is_dir())
+                                or any(part in {'vendor', 'node_modules', 'private', 'credentials'}
+                                       for part in path.relative_to(source).parts)
+                                or path.name == '.env' or path.name.startswith('.env.')):
+                            raise ValueError('TEMPLATE_TOOLING_MODULE_SOURCE_INVALID')
+                    shutil.copytree(source / 'src', destination / 'src')
             composer = json.loads(tooling_inputs['composer.json'])
             if composer.get('autoload', {}).get('files'):
                 raise ValueError('TEMPLATE_TOOLING_ROOT_AUTOLOAD_FILES_UNSUPPORTED')

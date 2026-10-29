@@ -395,6 +395,15 @@ function releaseProjectCore(string $application, array $core, string $temporary)
 function releaseProjectWeb(string $application, array $core, string $receipt, string $toolRoot): array
 {
     $web = $core['inputs']['core_web'] ?? null;
+    if (($core['inputs']['php_only'] ?? false) === true) {
+        $versions = releaseReadJson($application . '/release-versions.json');
+        if ($web !== ($versions['core_web'] ?? null)) {
+            throw new RuntimeException('SCAFFOLD_RELEASE_REUSED_WEB_INPUTS_CHANGED');
+        }
+        $locks = json_decode(releaseRun(['node', $toolRoot . '/scripts/release-dependency-locks.mjs', $application,
+            '--third-party-only', '--tool-root=' . $toolRoot]), true, 512, JSON_THROW_ON_ERROR);
+        return ['packages' => $web['packages'], 'third_party_locks' => $locks];
+    }
     $suffixes = ['client', 'vue', 'ui-vue', 'nuxt', 'uniapp', 'testing'];
     $local = is_array($web) && ($web['source_type'] ?? null) === 'local';
     $identity = is_array($web) ? ($web['source_identity'] ?? null) : null;
@@ -589,7 +598,9 @@ function releaseProjectScaffold(string $application, array $core, string $tempor
     $corePath = $core['archive_relative'];
     $archives = [$corePath => $core['archive_sha256']];
     foreach ($web['packages'] as $package) {
-        $archives[$package['archive']] = $package['sha256'];
+        if (isset($package['archive'])) {
+            $archives[$package['archive']] = $package['sha256'];
+        }
     }
     $additions = [];
     foreach ($archives as $path => $digest) {

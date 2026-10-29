@@ -195,22 +195,22 @@ final class ApplicationCreator
             if ($adoption !== null && !$adoptsEdition) {
                 $this->assertAdoptionEquivalent($stage, $adoption, $parameters, $files);
             }
-            // Edition projection can rewrite Module/frontend bytes. Build the Plugin
-            // manifests and canonical lock only after those final release bytes exist,
-            // otherwise the generated lock is stale immediately after projection.
+            // Project selected source bytes before generating their derived artifacts.
             if ($this->projectEdition && !$candidate) {
                 $files = $this->projectEdition($stage, $inventory, $files, $editionProfile);
             }
             $projector = new EditionProjector();
             $files = $projector->modules($stage, $files);
             $files = $projector->workflow($stage, $files, $workflow);
-            $files = $this->rebuildBundledPluginArtifacts($stage, $files);
             $files = $this->materializeUniappPages($stage, $files);
+            $files = $this->materializeApiCatalog($stage, $files);
+            $files = $this->rebuildBundledPluginArtifacts($stage, $files);
+            // The catalog records plugins.lock as an input; refreshing only its
+            // metadata after canonicalization leaves Module SDK bytes unchanged.
+            $files = $this->materializeApiCatalog($stage, $files, true);
             if ($adoptsEdition) {
                 $this->assertAdoptionEquivalent($stage, $adoption, $parameters, $files);
             }
-            // Verify the adopted source first, then materialize derived metadata from final APP inputs.
-            $files = $this->materializeApiCatalog($stage, $files);
             $templateIdentity = $adoption === null
                 ? [
                     'version' => $inventory['template_version'],
@@ -1222,8 +1222,9 @@ final class ApplicationCreator
             if (!is_string($key) || $key === '') {
                 throw new RuntimeException('CREATE_APP_PLUGIN_LOCK_SOURCE_INVALID');
             }
-            // The source-only qualification fixture is excluded by the template inventory.
-            if (str_starts_with($key, 'fixture.')) {
+            // Static API collection needs the selected roots before final canonicalization.
+            if (str_starts_with($key, 'fixture.')
+                || !in_array($key, \InitialInstallationSource::MODULES, true)) {
                 continue;
             }
             if (isset($keys[$key])) {
@@ -1359,7 +1360,7 @@ final class ApplicationCreator
         return $result;
     }
 
-    private function materializeApiCatalog(string $stage, array $files): array
+    private function materializeApiCatalog(string $stage, array $files, bool $catalogOnly = false): array
     {
         $catalogPath = 'server/generated/api-catalog.json';
         $index = array_search($catalogPath, array_column($files, 'path'), true);
@@ -1411,8 +1412,12 @@ final class ApplicationCreator
         }
         // The native producer hashes every final APP input, including branded contract sources.
         $pipes = [];
+        $arguments = [PHP_BINARY, $generator, '--application-root=' . $stage];
+        if ($catalogOnly) {
+            array_push($arguments, '--check', '--catalog-output=' . $catalog);
+        }
         $process = proc_open(
-            [PHP_BINARY, $generator, '--application-root=' . $stage],
+            $arguments,
             [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             $stage,
