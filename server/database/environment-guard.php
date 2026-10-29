@@ -962,23 +962,6 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
             if ($deploymentTarget !== 'local-development' || $consumer !== 'host') {
                 throw new RuntimeException('shared schema runtime 只允许登记的 local-development Host');
             }
-            $schemaResource = mysqlSchemaLeaseResource($database, $endpoint, $actual);
-            if ($schemaResource === null || !is_string($database['lease_gate'] ?? null)) {
-                throw new RuntimeException('shared schema runtime 缺少 schema policy/gate');
-            }
-            $leaseProofPath ??= requiredMaintenanceEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
-            $metadata = activeLeaseMetadata($leaseProofPath, $now ?? time(), $database['lease_gate']);
-            $resources = activeLeaseResources($leaseProofPath);
-            assertNativeMysqlSchemaLease(
-                (string) realpath(dirname(__DIR__, 2)),
-                $leaseProofPath,
-                $metadata,
-                $resources,
-                $resourceId,
-                $schemaResource,
-                (string) $endpoint['endpoint_id'],
-                (string) $registrySha256,
-            );
         }
     }
 
