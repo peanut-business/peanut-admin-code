@@ -35,6 +35,24 @@ php scripts/generate-api-contracts.php --check
 
 OpenAPI JSON 可交给支持 OpenAPI 3.0.3 的阅读器构建可读页面；发行站点和 SDK 必须使用同一份生成物及同一产品候选。
 
+## 独立权限包与 API 关联
+
+权限包沿用系统和模块声明的稳定权限 key；菜单、按钮引用 key，角色通过既有 `permission_keys` 授权。API 自动登记来自同一生成目录，身份 `api_id` 由 HTTP 方法、规范化路径模板及应用入口生成，与权限包或菜单无关。权限包和 API 为多对多，定义及授权边界见[身份与授权](../architecture/identity-organization-access.md#3-部门岗位角色和数据范围)。
+
+| 入口 | 合同 |
+| --- | --- |
+| `GET /platformapi/permission/bundles` | `audience=tenant\|platform`、`page_no`、`page_size`、`search`；返回权限包 `key/name/module_key/audience/status/revision/configured/api_ids` |
+| `GET /platformapi/permission/apis` | 同上，另可按 `status=active\|retired` 过滤；返回 API `id/method/path/audience/module_key/access_mode/status/default_permission_keys/prerequisite_permission_keys` |
+| `GET /platformapi/permission/apis/bindings` | 按 `permission_key` 读取一个权限包的完整关联及修订 |
+| `PUT /platformapi/permission/apis/bindings` | 使用 `permission_key`、`expected_revision`、`api_ids` 原子替换关联；空数组明确清空，受下述管理入口约束 |
+| `GET /adminapi/permission/bundles/apis` | 租户按 `permission_key` 只读查看其可用权限包的关联 |
+
+平台读取要求 `platform.permission.read`，修改要求 `platform.permission.api.manage`；租户读取要求 `core.permission.read`。列表返回 `items/total/page_no/page_size`。关联保存缺少修订返回 428、修订冲突返回 412，不自动重试；只能新增同受众、活动且受保护 API 的关联，公开或仅认证入口不能通过此接口改为权限入口。已关联的退役 API 可保留展示或显式移除，不能作为新增候选。保存后的 `configured=true` 表示实例已接管该权限包的 API 关联，后续同步保留其选择；源码权限包定义和角色授权仍分别维护。
+
+API 的 `prerequisite_permission_keys` 始终返回字符串数组，无前置权限时为空；它由源码声明，关联选择器展示但不能修改。多个关联权限包之间按任一满足判断主要动作，前置权限则必须全部满足，即使重新关联也保留原有同时授权要求。源码路由的 `peanut_permission` 标记主要动作，不能将同一路由的其他必需权限并入任一满足的默认关联。
+
+为保留当前界面的关联修复入口，`GET /platformapi/permission/bundles`、`GET /platformapi/permission/apis`、`GET /platformapi/permission/apis/bindings`、`PUT /platformapi/permission/apis/bindings` 各自必须保留至少一个有效平台权限包关联。若保存将移除其中任一 API 的最后一个关联，整笔替换回滚并返回 409 `API_MANAGEMENT_RECOVERY_REQUIRED`。该限制只针对上述四个精确方法与路径；普通权限包仍可保存空集合。
+
 ## 部门目录分页合同
 
 `GET /adminapi/dept/lists`、`/all`、`/leaderDept` 返回 `{lists, ancestors, count, pageNo, pageSize, hasMore}`，替代原全量数组合同；旧调用缺少明确模式或分页参数返回400，所有自带页面与生成类型同步使用此合同。权限仍为原 `core.department.read`，目录结构不授予成员或业务数据权限，负责人姓名不会自动解析为成员绑定。

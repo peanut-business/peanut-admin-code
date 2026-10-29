@@ -1,4 +1,10 @@
 import axios from 'axios';
+import {
+  readPermissionApi,
+  readPermissionBundle,
+  readPermissionPage,
+  type PermissionAudience,
+} from './permission-bundles';
 import type { AxiosRequestConfig, AxiosResponse } from 'axios';
 import type {
   MaintenanceScheduleInput,
@@ -745,6 +751,46 @@ export function hasPlatformSession(): boolean {
 }
 
 export const api = {
+  permissionBundles: async (audience: PermissionAudience, page: number) =>
+    readPermissionPage(
+      await unwrap<unknown>(
+        client.get('/platformapi/permission/bundles', {
+          params: { audience, page_no: page, page_size: 100 },
+        })
+      ),
+      readPermissionBundle
+    ),
+  permissionApis: async (audience: PermissionAudience, page: number) =>
+    readPermissionPage(
+      await unwrap<unknown>(
+        client.get('/platformapi/permission/apis', {
+          params: { audience, page_no: page, page_size: 100 },
+        })
+      ),
+      readPermissionApi
+    ),
+  permissionBindings: async (permissionKey: string) =>
+    readPermissionBundle(
+      await unwrap<unknown>(
+        client.get('/platformapi/permission/apis/bindings', {
+          params: { permission_key: permissionKey },
+        })
+      )
+    ),
+  replacePermissionBindings: async (
+    permissionKey: string,
+    revision: string,
+    apiIds: string[]
+  ) =>
+    readPermissionBundle(
+      await unwrap<unknown>(
+        client.put('/platformapi/permission/apis/bindings', {
+          permission_key: permissionKey,
+          expected_revision: revision,
+          api_ids: apiIds,
+        })
+      )
+    ),
   async login(email: string, password: string) {
     advancePlatformSession();
     const snapshot = getPlatformSessionSnapshot();

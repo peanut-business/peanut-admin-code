@@ -160,53 +160,30 @@
       width="560px"
     >
       <div v-loading="authLoading" style="width: 100%">
-        <h4>{{ $t('systemRole.auth.menuPermissions') }}</h4>
-        <div class="auth-toolbar">
-          <el-checkbox
-            :model-value="expandedKeys.length > 0"
-            @change="handleExpandAll"
-          >
-            {{ $t('systemRole.auth.expand') }}
-          </el-checkbox>
-          <el-checkbox :model-value="isAllChecked" @change="handleSelectAll">
-            {{ $t('systemRole.auth.selectAll') }}
-          </el-checkbox>
-          <el-checkbox v-model="parentLinked" @change="handleLinkageChange">
-            {{ $t('systemRole.auth.parentLinked') }}
-          </el-checkbox>
-        </div>
-        <div class="auth-tree">
-          <el-tree
-            :key="treeRenderKey"
-            :default-expanded-keys="expandedKeys"
-            :default-checked-keys="authCheckedKeys"
-            :data="treeData"
-            node-key="menu_key"
-            :props="{ label: 'name', children: 'children' }"
-            show-checkbox
-            check-strictly
-            @node-expand="handleTreeExpand"
-            @node-collapse="handleTreeCollapse"
-            @check="handleTreeCheck"
-          />
-        </div>
-        <h4>{{ $t('systemRole.auth.actionPermissions') }}</h4>
+        <h4>{{ $t('systemRole.auth.bundles') }}</h4>
+        <p>{{ $t('systemRole.auth.bundleHint') }}</p>
         <el-input
           v-model="permissionSearch"
           clearable
           :placeholder="$t('systemRole.auth.searchActions')"
         />
         <el-checkbox-group
-          v-model="extraPermissionKeys"
+          v-model="authForm.permission_keys"
           class="action-permissions"
+          :disabled="
+            authLoading ||
+            authSubmitLoading ||
+            authRoleKey === 'core.tenant-owner'
+          "
         >
           <el-checkbox
-            v-for="permission in visibleActionPermissions"
+            v-for="permission in visiblePermissions"
             :key="permission.key"
             :value="permission.key"
             :title="permission.key"
           >
-            {{ permission.name }} <small>{{ permission.module_key }}</small>
+            {{ permission.name }}
+            <small>{{ permission.key }} · {{ permission.module_key }}</small>
           </el-checkbox>
         </el-checkbox-group>
       </div>
@@ -231,7 +208,6 @@
   import type { FormInstance } from 'element-plus';
   import { Plus, Refresh } from '@element-plus/icons-vue';
   import useLoading from '@/hooks/loading';
-  import { getMenuAll, type MenuRecord } from '@/api/system/menu';
   import {
     addRole,
     deleteRole,
@@ -245,16 +221,6 @@
     type RoleBaseForm,
     type RoleRecord,
   } from '@/api/system/role';
-
-  type CheckboxValue = boolean | Array<string | number | boolean>;
-  type AuthCheckEvent = {
-    checked?: boolean;
-    node?: MenuRecord & { id?: number };
-  };
-  type AuthTreeCheckedInfo = {
-    checked?: boolean;
-    checkedKeys: Array<number | string>;
-  };
 
   const { t } = useI18n();
   const { loading, setLoading } = useLoading(true);
@@ -374,12 +340,6 @@
   const authVisible = ref(false);
   const authLoading = ref(false);
   const authSubmitLoading = ref(false);
-  const menuTree = ref<MenuRecord[]>([]);
-  const treeData = computed(() => menuTree.value);
-  const parentLinked = ref(true);
-  const expandedKeys = ref<string[]>([]);
-  // These keys represent explicit grants, never inferred ancestor display state.
-  const authCheckedKeys = ref<string[]>([]);
   const authForm = reactive<RolePermissionWrite>({
     role_id: 0,
     expected_revision: '',
@@ -387,7 +347,6 @@
   });
   const authRoleKey = ref('');
   const permissionCatalog = ref<RolePermissionOption[]>([]);
-  const extraPermissionKeys = ref<string[]>([]);
   const permissionSearch = ref('');
   let authGeneration = 0;
 
@@ -407,64 +366,10 @@
     authGeneration += 1;
   });
 
-  // Element Plus default state is initialization-only.
-  const treeRenderKey = computed(
-    () =>
-      `${parentLinked.value}-${expandedKeys.value.join(
-        ','
-      )}-${authCheckedKeys.value.join(',')}`
-  );
-
-  const handleTreeExpand = (data: MenuRecord) => {
-    const id = data.menu_key;
-    if (!expandedKeys.value.includes(id)) {
-      expandedKeys.value = [...expandedKeys.value, id];
-    }
-  };
-
-  const handleTreeCollapse = (data: MenuRecord) => {
-    const id = data.menu_key;
-    expandedKeys.value = expandedKeys.value.filter((key) => key !== id);
-  };
-
-  const allMenuIds = computed(() => {
-    const ids: string[] = [];
-    const visit = (nodes: MenuRecord[]) => {
-      nodes.forEach((node) => {
-        ids.push(node.menu_key);
-        if (node.children?.length) visit(node.children);
-      });
-    };
-    visit(menuTree.value);
-    return ids;
-  });
-
-  const menuNodeMap = computed(() => {
-    const nodes = new Map<string, MenuRecord>();
-    const visit = (items: MenuRecord[]) => {
-      items.forEach((item) => {
-        nodes.set(item.menu_key, item);
-        if (item.children?.length) visit(item.children);
-      });
-    };
-    visit(menuTree.value);
-    return nodes;
-  });
-
-  const menuPermissionKeys = computed(
-    () =>
-      new Set(
-        [...menuNodeMap.value.values()]
-          .map((node) => node.perms)
-          .filter(Boolean)
-      )
-  );
-  const visibleActionPermissions = computed(() => {
-    const options = permissionCatalog.value.filter(
-      (item) => !menuPermissionKeys.value.has(item.key)
-    );
+  const visiblePermissions = computed(() => {
+    const options = [...permissionCatalog.value];
     const available = new Set(options.map((item) => item.key));
-    extraPermissionKeys.value.forEach((key) => {
+    authForm.permission_keys.forEach((key) => {
       if (!available.has(key))
         options.push({
           key,
@@ -474,23 +379,11 @@
     });
     const search = permissionSearch.value.trim().toLowerCase();
     return options.filter((item) =>
-      `${item.name} ${item.key}`.toLowerCase().includes(search)
+      `${item.name} ${item.key} ${item.module_key}`
+        .toLowerCase()
+        .includes(search)
     );
   });
-
-  const isAllChecked = computed(
-    () =>
-      allMenuIds.value.length > 0 &&
-      authCheckedKeys.value.length === allMenuIds.value.length
-  );
-
-  const orderKeys = (keys: Set<string>) =>
-    allMenuIds.value.filter((id) => keys.has(id));
-
-  const loadMenuTree = async () => {
-    const { data } = await getMenuAll();
-    return data;
-  };
 
   const loadPermissionCatalog = async () => {
     const items: RolePermissionOption[] = [];
@@ -521,39 +414,24 @@
       permission_keys: [],
     });
     authRoleKey.value = '';
-    menuTree.value = [];
     permissionCatalog.value = [];
-    authCheckedKeys.value = [];
-    extraPermissionKeys.value = [];
     const isCurrent = () => generation === authGeneration && authVisible.value;
     try {
-      const [{ data }, menus, catalog] = await Promise.all([
+      const [{ data }, catalog] = await Promise.all([
         getRolePermissions(record.id),
-        loadMenuTree(),
         loadPermissionCatalog(),
       ]);
       if (!isCurrent()) return;
       if (String(data.role_id) !== String(record.id))
         throw new Error('Role permission response target changed');
-      menuTree.value = menus;
       permissionCatalog.value = catalog;
-      const permissions = new Set(data.permission_keys);
-      const menuIds = [...menuNodeMap.value.values()]
-        .filter((node) => node.perms && permissions.has(node.perms))
-        .map((node) => node.menu_key);
       Object.assign(authForm, {
         role_id: data.role_id,
         expected_revision: data.revision,
         permission_keys: [...data.permission_keys],
       });
       authRoleKey.value = data.key;
-      extraPermissionKeys.value = data.permission_keys.filter(
-        (key) => !menuPermissionKeys.value.has(key)
-      );
       permissionSearch.value = '';
-      parentLinked.value = true;
-      expandedKeys.value = [];
-      authCheckedKeys.value = orderKeys(new Set(menuIds));
     } catch (error) {
       // Helpers return local data, so an obsolete response/error cannot mutate
       // the active role, its menus, catalog, visibility or loading indicators.
@@ -570,60 +448,6 @@
     }
   };
 
-  const setSubtreeChecked = (
-    node: MenuRecord,
-    checked: boolean,
-    checkedSet: Set<string>
-  ) => {
-    if (checked) checkedSet.add(node.menu_key);
-    else checkedSet.delete(node.menu_key);
-    node.children?.forEach((child) =>
-      setSubtreeChecked(child, checked, checkedSet)
-    );
-  };
-
-  const handleAuthCheck = (
-    rawCheckedKeys: Array<number | string>,
-    event: AuthCheckEvent
-  ) => {
-    if (authLoading.value || authSubmitLoading.value) return;
-    const keys = rawCheckedKeys.map(String);
-    if (!parentLinked.value) {
-      authCheckedKeys.value = orderKeys(new Set(keys));
-      return;
-    }
-
-    const node = menuNodeMap.value.get(event.node?.menu_key ?? '');
-    if (!node) return;
-    const checkedSet = new Set(authCheckedKeys.value);
-    const checked = event.checked ?? keys.includes(node.menu_key);
-    // Parents own permission keys. Only an explicit parent gesture cascades
-    // into its subtree; checking children never adds an ancestor's permission.
-    setSubtreeChecked(node, checked, checkedSet);
-    authCheckedKeys.value = orderKeys(checkedSet);
-  };
-
-  const handleTreeCheck = (data: MenuRecord, checked: AuthTreeCheckedInfo) => {
-    handleAuthCheck(checked.checkedKeys, {
-      checked: checked.checked,
-      node: data,
-    });
-  };
-
-  const handleLinkageChange = (value: CheckboxValue) => {
-    // A display/interaction preference cannot change the canonical grant set.
-    parentLinked.value = value === true;
-  };
-
-  const handleExpandAll = (value: CheckboxValue) => {
-    expandedKeys.value = value === true ? [...allMenuIds.value] : [];
-  };
-
-  const handleSelectAll = (value: CheckboxValue) => {
-    if (authLoading.value || authSubmitLoading.value) return;
-    authCheckedKeys.value = value === true ? [...allMenuIds.value] : [];
-  };
-
   const handleAuthSubmit = async () => {
     if (
       !authVisible.value ||
@@ -635,20 +459,12 @@
       return false;
     const generation = authGeneration;
     const isCurrent = () => generation === authGeneration && authVisible.value;
-    const menuIds = orderKeys(new Set(authCheckedKeys.value));
     authSubmitLoading.value = true;
     try {
       await replaceRolePermissions({
         role_id: authForm.role_id,
         expected_revision: authForm.expected_revision,
-        permission_keys: [
-          ...new Set([
-            ...menuIds
-              .map((key) => menuNodeMap.value.get(key)?.perms)
-              .filter((key): key is string => Boolean(key)),
-            ...extraPermissionKeys.value,
-          ]),
-        ],
+        permission_keys: [...new Set(authForm.permission_keys)],
       });
       if (!isCurrent()) return false;
       ElMessage.success(t('systemRole.tip.success'));
@@ -672,21 +488,6 @@
 <style scoped lang="less">
   .container {
     padding: 0 20px 20px 20px;
-  }
-
-  .auth-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    margin-bottom: 12px;
-  }
-
-  .auth-tree {
-    height: 240px;
-    padding: 8px 12px;
-    overflow: auto;
-    border: 1px solid var(--color-neutral-3);
-    border-radius: 4px;
   }
 
   .action-permissions {

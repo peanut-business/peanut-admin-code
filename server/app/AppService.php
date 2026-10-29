@@ -329,6 +329,7 @@ class AppService extends Service
             $this->app->make(\PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory::class),
             $this->app->make(AdminDirectoryQuery::class),
             $this->app->make(TenantAuthorizationQuery::class),
+            $this->app->make(\app\common\services\authorization\EndpointPermissionGrant::class),
         ));
         $this->app->bind(AdminAuthorizationQuery::class, fn(): AdminAuthorizationQuery => $this->app->make(AdminAuthorizationService::class));
         $this->app->bind(CoreTenantModuleAdminBridge::class, fn(): CoreTenantModuleAdminBridge => new CoreTenantModuleAdminBridge(
@@ -340,9 +341,7 @@ class AppService extends Service
         ));
         $this->app->bind(RoleAdministrationRuntime::class, fn(): RoleAdministrationRuntime => new RoleAdministrationRuntime(
             new RoleAdminService($this->app->make(AuditService::class)),
-            $this->app->make(AdminAuthorizationService::class),
             $this->app->make(TenantAuthorizationQuery::class),
-            $this->app->make(\PeanutAdmin\Modules\Identity\Menu\MenuAdministrationService::class),
         ));
         $this->app->bind(AdminDirectoryQuery::class, fn(): AdminDirectoryQuery => new AdminDirectoryQuery(
             $this->app->make(CurrentExecutionContext::class),

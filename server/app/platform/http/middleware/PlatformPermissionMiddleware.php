@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace app\platform\http\middleware;
 
-use app\common\http\JsonResponseFactory;
 use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
 use app\common\execution\CurrentExecutionContext;
 use app\platform\context\PlatformOperatorContext;
 use app\platform\services\PlatformOperatorSessionService;
 use PeanutAdmin\Kernel\Authorization\AuthorizationException;
+use PeanutAdmin\Modules\Identity\Authorization\ApiPermissionCatalog;
+use app\common\services\authorization\EndpointPermissionGrant;
+use app\common\contract\module\ModuleQualificationQuery;
 
 final class PlatformPermissionMiddleware
 {
@@ -17,6 +19,10 @@ final class PlatformPermissionMiddleware
         private readonly CurrentExecutionContext $execution,
         private readonly PlatformOperatorSessionService $sessions,
         private readonly DemoAccountPolicy $demoAccounts,
+        private readonly ApiPermissionCatalog $apis,
+        private readonly EndpointPermissionGrant $grant,
+        private readonly ModuleQualificationQuery $modules,
+        private readonly \PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator $roles,
     ) {}
 
     public function handle($request, \Closure $next, string $permission)
@@ -33,11 +39,38 @@ final class PlatformPermissionMiddleware
             throw \app\common\http\ApiProblem::fromEnvelope('Platform permission boundary is invalid.', null, 40300);
         }
 
+        $endpoint = $this->apis->endpoint($request, 'platform');
+        if ($endpoint === null || $endpoint['access_mode'] !== 'platform_permission'
+            || !$this->apis->moduleAvailable($endpoint, $this->modules)) {
+            throw \app\common\http\ApiProblem::fromEnvelope('Platform API is unavailable.', null, 40300);
+        }
+        $prerequisites = json_decode($endpoint['prerequisite_permission_keys'], true, 32, JSON_THROW_ON_ERROR);
+        $primary = json_decode($endpoint['default_permission_keys'], true, 32, JSON_THROW_ON_ERROR);
+        if (!in_array($permission, [...$primary, ...$prerequisites], true)) {
+            throw \app\common\http\ApiProblem::fromEnvelope('Platform route permission metadata changed; synchronize the catalogue.', null, 40300);
+        }
         try {
-            $this->sessions->assertAllowed($context, $permission);
+            foreach ($prerequisites as $required) {
+                // Source prerequisites retain their independent AND semantics.
+                $this->roles->assertAllowed($context->core, $required);
+            }
         } catch (AuthorizationException) {
+            throw \app\common\http\ApiProblem::fromEnvelope('Platform prerequisite permission is required.', null, 40300);
+        }
+        $allowed = false;
+        foreach ($this->apis->permissionKeys($endpoint) as $key) {
+            try {
+                $this->sessions->assertAllowed($context, $key);
+                $allowed = true;
+                break;
+            } catch (AuthorizationException) {
+                // ANY associated bundle may admit this registered endpoint.
+            }
+        }
+        if (!$allowed) {
             throw \app\common\http\ApiProblem::fromEnvelope('Platform permission is required.', null, 40300);
         }
+        $this->grant->record($context->core, $endpoint);
 
         if (in_array(strtoupper((string) $request->method()), ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
             if ($this->demoAccounts->platformMutationLocked($context->core->accountId)) {

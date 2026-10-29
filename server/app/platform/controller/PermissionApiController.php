@@ -1,0 +1,101 @@
+<?php
+
+declare(strict_types=1);
+
+namespace app\platform\controller;
+
+use PeanutAdmin\Modules\Identity\Authorization\ApiPermissionCatalog;
+use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
+use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
+use PeanutAdmin\Modules\Identity\Audit\AuditService;
+use think\facade\Db;
+
+/** @property-read ApiPermissionCatalog $catalog @property-read AuditService $audit */
+final class PermissionApiController extends BasePlatformController
+{
+    protected string $catalogClass = ApiPermissionCatalog::class;
+    protected string $auditClass = AuditService::class;
+
+    public function bundles()
+    {
+        [$input, $page, $audience, $search] = $this->listInput(false);
+        return $this->data($this->catalog->bundles($page, $audience, $search)
+            + ['page_no' => $page->page, 'page_size' => $page->pageSize]);
+    }
+
+    public function apis()
+    {
+        [$input, $page, $audience, $search] = $this->listInput(true);
+        $status = $input['status'] ?? '';
+        if (!in_array($status, ['', 'active', 'retired'], true)) {
+            throw AdminAccessException::invalid('API_INPUT_INVALID', 'Invalid API status.');
+        }
+        return $this->data($this->catalog->apis($page, $audience, $search, $status)
+            + ['page_no' => $page->page, 'page_size' => $page->pageSize]);
+    }
+
+    public function detail()
+    {
+        $input = $this->fields($this->request->get(), ['permission_key']);
+        return $this->data($this->catalog->bundle($this->key($input['permission_key'] ?? null)));
+    }
+
+    public function replace()
+    {
+        $input = $this->fields($this->request->put(), ['permission_key', 'expected_revision', 'api_ids']);
+        if (!isset($input['expected_revision'])) {
+            throw AdminAccessException::preconditionRequired();
+        }
+        $ids = $input['api_ids'] ?? null;
+        if (!is_array($ids) || !array_is_list($ids) || count($ids) > 2000
+            || array_filter($ids, static fn($id): bool => !is_string($id) || preg_match('/^[a-f0-9]{64}$/D', $id) !== 1)) {
+            throw AdminAccessException::invalid('API_INPUT_INVALID', 'A bounded list of registered API IDs is required.');
+        }
+        $key = $this->key($input['permission_key'] ?? null);
+        $revision = $this->positive($input['expected_revision']);
+        $context = $this->platformContext?->core ?? throw new \DomainException('PLATFORM_CONTEXT_REQUIRED');
+        return $this->data(Db::transaction(function () use ($key, $revision, $ids, $context): array {
+            $before = $this->catalog->bundle($key);
+            $after = $this->catalog->replace($key, $revision, $ids, app(\app\common\contract\module\ModuleQualificationQuery::class));
+            $this->audit->platform($context->operatorId, $context->accountId, $context->requestId,
+                'permission.apis.replaced', 'platform.permission.api.manage',
+                targetType: 'permission', targetId: $key, before: $before, after: $after);
+            return $after;
+        }));
+    }
+
+    private function listInput(bool $apis): array
+    {
+        $input = $this->fields($this->request->get(), ['page_no', 'page_size', 'audience', 'search', ...($apis ? ['status'] : [])]);
+        $audience = $input['audience'] ?? 'tenant';
+        $search = $input['search'] ?? '';
+        if (!in_array($audience, ['tenant', 'platform'], true) || !is_string($search) || mb_strlen($search) > 120) {
+            throw AdminAccessException::invalid('API_INPUT_INVALID', 'A valid audience and bounded search are required.');
+        }
+        return [$input, new PageRequest($this->positive($input['page_no'] ?? 1), $this->positive($input['page_size'] ?? 20)), $audience, trim($search)];
+    }
+
+    private function fields(array $input, array $allowed): array
+    {
+        if (array_diff(array_keys($input), $allowed) !== []) {
+            throw AdminAccessException::invalid('API_INPUT_INVALID', 'Unknown request fields are rejected.');
+        }
+        return $input;
+    }
+
+    private function key(mixed $value): string
+    {
+        if (!is_string($value) || $value === '' || strlen($value) > 160) {
+            throw AdminAccessException::invalid('API_INPUT_INVALID', 'A registered permission key is required.');
+        }
+        return $value;
+    }
+
+    private function positive(mixed $value): int
+    {
+        if ((!is_int($value) && !(is_string($value) && preg_match('/^[1-9][0-9]{0,17}$/D', $value) === 1)) || (int) $value < 1) {
+            throw AdminAccessException::invalid('API_INPUT_INVALID', 'A positive integer is required.');
+        }
+        return (int) $value;
+    }
+}

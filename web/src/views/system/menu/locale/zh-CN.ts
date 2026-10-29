@@ -1,4 +1,7 @@
 export default {
+  'systemMenu.field.perms.hint':
+    '引用独立权限包；多个菜单或按钮可复用同一权限包，修改菜单不授予角色权限。',
+  'systemMenu.field.perms.error': '权限包目录未完整加载，请重新打开窗口',
   'menu.system': '系统管理',
   'menu.system.menu': '菜单管理',
 
@@ -11,7 +14,7 @@ export default {
   'systemMenu.columns.name': '菜单名称',
   'systemMenu.columns.type': '类型',
   'systemMenu.columns.icon': '图标',
-  'systemMenu.columns.perms': '权限标识',
+  'systemMenu.columns.perms': '所需权限包',
   'systemMenu.columns.sort': '排序',
   'systemMenu.columns.status': '启用',
   'systemMenu.columns.operations': '操作',
@@ -34,8 +37,8 @@ export default {
   'systemMenu.field.paths.placeholder': '如 /system/menu',
   'systemMenu.field.component': '前端组件',
   'systemMenu.field.component.placeholder': '如 system/menu/index',
-  'systemMenu.field.perms': '权限标识',
-  'systemMenu.field.perms.placeholder': '如 menu/lists',
+  'systemMenu.field.perms': '所需权限包',
+  'systemMenu.field.perms.placeholder': '请选择已有权限包，可留空',
   'systemMenu.field.sort': '排序',
   'systemMenu.field.flags': '选项',
   'systemMenu.field.isShow': '显示',

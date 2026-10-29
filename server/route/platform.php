@@ -24,6 +24,19 @@ if (($peanutRouteApplication ?? null) !== 'platform') {
 }
 
 // Instance-local platform control plane. It never shares admin sessions, RBAC or routes.
+Route::get('permission/bundles', [\app\platform\controller\PermissionApiController::class, 'bundles'])
+    ->completeMatch()->middleware(PlatformLoginMiddleware::class)
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.read');
+Route::get('permission/apis/bindings', [\app\platform\controller\PermissionApiController::class, 'detail'])
+    ->completeMatch()->middleware(PlatformLoginMiddleware::class)
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.read');
+Route::put('permission/apis/bindings', [\app\platform\controller\PermissionApiController::class, 'replace'])
+    ->completeMatch()->middleware(PlatformLoginMiddleware::class)
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.api.manage');
+Route::get('permission/apis', [\app\platform\controller\PermissionApiController::class, 'apis'])
+    ->completeMatch()->middleware(PlatformLoginMiddleware::class)
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.read');
+
 Route::post('session/login', [PlatformSessionController::class, 'login'])
     ->middleware(PlatformHostMiddleware::class);
 Route::post('session/refresh', [PlatformSessionController::class, 'refresh'])
@@ -126,6 +139,7 @@ Route::get('v1/ops/maintenance', [PlatformOpsController::class, 'maintenance'])
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.read');
 Route::get('v1/ops/logs', [PlatformOpsController::class, 'logs'])
+    ->option(['peanut_permission' => 'platform.ops.logs.read'])
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.read')
     ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.logs.read');
@@ -136,6 +150,7 @@ Route::post('v1/ops/maintenance/:maintenance_key/close', [PlatformOpsController:
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.maintenance.manage');
 Route::get('v1/ops/diagnostics', [PlatformOpsController::class, 'diagnostics'])
+    ->option(['peanut_permission' => 'platform.ops.logs.read'])
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.read')
     ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.logs.read');
@@ -146,10 +161,12 @@ Route::post('v1/ops/tasks/restore', [PlatformOpsController::class, 'restore'])
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.restore.manage');
 Route::post('v1/ops/tasks/upgrade', [PlatformOpsController::class, 'upgrade'])
+    ->option(['peanut_permission' => 'platform.ops.upgrade.manage'])
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.read')
     ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.upgrade.manage');
 Route::post('v1/ops/tasks/module', [PlatformOpsController::class, 'moduleOperation'])
+    ->option(['peanut_permission' => 'platform.ops.module.manage'])
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.read')
     ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.module.manage');

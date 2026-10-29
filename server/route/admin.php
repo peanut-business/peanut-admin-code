@@ -68,6 +68,8 @@ Route::group(function () use ($peanutRouteModules) {
         ->completeMatch()->option(['peanut_permission' => 'core.role.permission.assign']);
     Route::get('role/permissions/catalog', [\app\adminapi\controller\auth\RolePermissionController::class, 'catalog'])
         ->completeMatch()->option(['peanut_permission' => 'core.permission.read']);
+    Route::get('permission/bundles/apis', [\app\adminapi\controller\auth\RolePermissionController::class, 'apis'])
+        ->completeMatch()->option(['peanut_permission' => 'core.permission.read']);
     Route::get('role/data-policy', [\app\adminapi\controller\auth\DataPolicyController::class, 'detail'])
         ->completeMatch()->option(['peanut_permission' => 'core.role.data-policy.read']);
     Route::put('role/data-policy', [\app\adminapi\controller\auth\DataPolicyController::class, 'replace'])

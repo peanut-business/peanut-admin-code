@@ -31,6 +31,7 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         private readonly TenantMemberDirectory $members,
         private readonly AdminDirectoryQuery $directory,
         private readonly TenantAuthorizationQuery $identityAuthorization,
+        private readonly EndpointPermissionGrant $endpointGrant,
     ) {}
 
     public function principal(TenantContext $tenantContext): AdminPrincipal
@@ -91,6 +92,26 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
             return PermissionDecision::deny($accessUri, 'INVALID_TENANT_ADMIN_CONTEXT');
         }
         return $this->permissionDecision($context, $principal, $accessUri);
+    }
+
+    /** One native login handoff, then ANY currently granted bundle associated with this API. */
+    public function decideApiForRequest(\think\Request $request, TenantContext $context, array $endpoint, array $keys): PermissionDecision
+    {
+        $handoff = $request->middleware(self::class);
+        $request->withMiddleware([self::class => null]);
+        $principal = is_array($handoff) ? ($handoff['principal'] ?? null) : null;
+        if (!is_array($handoff) || ($handoff['context'] ?? null) !== $context || !$principal instanceof AdminPrincipal
+            || !$this->validContext($context, $principal)) {
+            return PermissionDecision::deny($endpoint['path'], 'INVALID_TENANT_ADMIN_CONTEXT');
+        }
+        foreach ($keys as $key) {
+            $decision = $this->permissionDecision($context, $principal, $key);
+            if ($decision->allowed) {
+                $this->endpointGrant->record($context, $endpoint);
+                return $decision;
+            }
+        }
+        return PermissionDecision::deny($endpoint['path'], 'API_PERMISSION_NOT_GRANTED');
     }
 
     public function accessData(TenantContext $tenantContext, AdminPrincipal $admin): AdminAccessData
@@ -169,6 +190,9 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         $admin = $this->currentPrincipal($tenantContext, $admin);
         if (!$admin instanceof AdminPrincipal) {
             return PermissionDecision::deny($accessUri, 'STALE_TENANT_ADMIN_PRINCIPAL');
+        }
+        if ($this->endpointGrant->allows($tenantContext, $accessUri)) {
+            return PermissionDecision::allow($accessUri);
         }
         return $this->permissionDecision($tenantContext, $admin, $accessUri);
     }

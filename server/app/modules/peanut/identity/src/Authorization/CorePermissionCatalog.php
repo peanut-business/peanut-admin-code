@@ -61,6 +61,7 @@ final class CorePermissionCatalog
         'platform.role.archive',
         'platform.role.permission.assign',
         'platform.permission.read',
+        'platform.permission.api.manage',
         'platform.audit.read',
         'platform.upgrade.read',
         'platform.ops.read',

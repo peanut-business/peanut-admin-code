@@ -263,10 +263,12 @@ final readonly class CatalogLifecycleService
         $removed = [];
         $preserved = [];
         $blockers = $this->crossModuleBlockers($moduleKeys, $permissions, $targets, $conditions, $operations, !$purge);
+        $this->append($removed, 'pa_api_endpoint', 'soft_retire', $this->activeIds('pa_api_endpoint', $moduleKeys));
         if ($purge) {
             foreach ([
                 ['pa_role_permission', $this->roleBindingIds($permissions, false)],
                 ['pa_platform_role_permission', $this->roleBindingIds($permissions, true)],
+                ['pa_permission_api', $this->foreignIds('pa_permission_api', 'permission_id', $permissions)],
                 ['pa_menu_definition', $this->ids('pa_menu_definition', $moduleKeys)],
                 ['pa_resource_operation_permission', $this->foreignIds('pa_resource_operation_permission', 'resource_operation_id', $operations)],
                 ['pa_resource_operation_target_type', $this->foreignIds('pa_resource_operation_target_type', 'resource_operation_id', $operations)],
@@ -303,6 +305,11 @@ final readonly class CatalogLifecycleService
     {
         Db::transaction(function () use ($moduleKeys): void {
             $now = $this->now();
+            if ($moduleKeys !== []) {
+                Db::name('api_endpoint')->whereIn('module_key', $moduleKeys)->update([
+                    'status' => 'retired', 'retired_at' => $now, 'updated_at' => $now,
+                ]);
+            }
             $permissions = $this->ids('pa_permission', $moduleKeys);
             $resources = $this->ids('pa_protected_resource', $moduleKeys);
             $operations = $this->foreignIds('pa_resource_operation', 'protected_resource_id', $resources);
@@ -326,6 +333,11 @@ final readonly class CatalogLifecycleService
     public function purge(array $moduleKeys): void
     {
         Db::transaction(function () use ($moduleKeys): void {
+            if ($moduleKeys !== []) {
+                Db::name('api_endpoint')->whereIn('module_key', $moduleKeys)->update([
+                    'status' => 'retired', 'retired_at' => $this->now(), 'updated_at' => $this->now(),
+                ]);
+            }
             $permissions = $this->ids('pa_permission', $moduleKeys);
             $resources = $this->ids('pa_protected_resource', $moduleKeys);
             $targets = $this->ids('pa_target_type', $moduleKeys);

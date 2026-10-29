@@ -18,7 +18,15 @@
 
 管理员新增、编辑通过 `jobs_id` 保存本租户的成员岗位关系，与成员资料、部门、角色及状态同一事务提交。编辑省略该字段保留原关联，显式空数组清空；详情和列表返回实际 `jobs_id`、`jobs_name`。新关联只接受本租户启用且未删除的岗位，已有岗位停用后保留关联；岗位被成员使用时删除返回 409，须先解除关联。岗位关联本身不授予角色或动作权限。
 
-角色的菜单入口与领取、完成等操作权限共同由现有角色权限窗口配置。`GET /adminapi/role/permissions` 返回角色稳定 key、当前修订和完整权限键；`GET /adminapi/role/permissions/catalog` 分页返回当前租户可分配的权限名称、键及所属模块；`PUT /adminapi/role/permissions` 使用 `role_id`、`expected_revision`、`permission_keys` 原子替换。读取角色、读取目录和分配分别使用现有 `core.role.read`、`core.permission.read`、`core.role.permission.assign`，不以菜单可见性代替操作授权。窗口使用同一份权限快照回填菜单和操作，保存带上该快照修订；缺失修订返回 428、冲突返回 412，不能自动读取新修订后重试。内置 owner 权限仍禁止修改，平台、退役或模块不可用权限仍由 Identity 拒绝分配。
+独立权限包表达业务动作，复用现有 `pa_permission` 的稳定 key、名称和模块归属，由系统及模块源码声明维护；不按菜单、按钮或客户端复制定义。权限包与 API 是多对多关联：一个权限包可包含多个 API，同一 API 可被多个权限包复用。菜单、按钮引用权限包 key，角色授予权限包 key，各客户端复用同一业务授权。
+
+角色管理的“分配权限”窗口按独立权限包配置授权。`GET /adminapi/role/permissions` 返回角色稳定 key、当前修订和完整 `permission_keys`；`GET /adminapi/role/permissions/catalog` 分页返回当前租户可分配的权限包名称、键及所属模块；`PUT /adminapi/role/permissions` 使用 `role_id`、`expected_revision`、`permission_keys` 原子替换。读取角色、读取目录和分配分别使用 `core.role.read`、`core.permission.read`、`core.role.permission.assign`。保存携带读取到的角色修订；缺失修订返回 428、冲突返回 412，不能自动读取新修订后重试。内置 owner 权限仍禁止修改，平台、退役或模块不可用权限包仍由 Identity 拒绝分配。
+
+API 关联是实例全局配置，仅由平台“平台角色与权限”中的“独立权限包与 API 关联”维护，读取要求 `platform.permission.read`，保存要求 `platform.permission.api.manage`。租户仅可读取其可用权限包的关联，不能修改定义或覆盖实例配置。保存关联使用权限包自己的 `expected_revision`，与角色授权修订独立；显式空 `api_ids` 表示清空该权限包的 API 关联，后续同步不会重新填入源码默认项，但不能移除关联管理界面四个必要 API 的最后一个有效平台权限包关联。尚未进行实例配置的权限包跟随源码默认关联的增删，有效关联改变时更新修订。接口字段及该例外的精确范围见 [API 合同](../public/api-and-sdk.md#独立权限包与-api-关联)。
+
+受保护 API 按实际匹配路由确定登记身份，调用者具有任一关联权限包可满足该 API 的主要动作授权，同时必须满足源码声明的全部前置权限；没有有效关联的受保护 API 拒绝访问。关联管理只替换主要动作权限，不改写 `prerequisite_permission_keys`。现有平台运维的日志、诊断、升级和模块操作仍分别要求 `platform.ops.read` 与其专属动作权限同时成立；将 API 关联到其他权限包后，`platform.ops.read` 仍须独立取得，主要动作的本次请求授权记录不能满足它。只允许关联同一 tenant/platform 受众的受保护 API，公开、仅认证及其他上下文入口的模式仍由源码控制。API 所属模块必须独立满足已安装及租户开通要求，不能因另一个模块的权限包引用它而绕过。身份、租户、对象授权和数据 Scope 继续由原业务入口核验；`resource_operation_permission` 仍属于资源操作的数据授权合同，不作为 API 关联表。
+
+多客户端复用指使用同一身份与授权域的客户端可以引用同一权限包，不代表各安全域合并。本次 API 关联管理覆盖 tenant/platform 受保护入口；会员/用户中心、公开及安装入口保留其原认证和业务授权模式，目录中可发现它们不等于已经将其接入角色权限包。
 
 例：张三“审核＋S1”“查看＋S2”，不能组合成“审核 S1/S2”。保留授权来源与范围；同动作允许按范围并集，同对象明确拒绝优先。临时/继承/撤销/缓存按统一授权机制，不留隐式权限。
 

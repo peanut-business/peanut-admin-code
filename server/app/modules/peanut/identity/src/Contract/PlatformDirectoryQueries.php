@@ -7,14 +7,14 @@ namespace PeanutAdmin\Modules\Identity\Contract;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 use PeanutAdmin\Kernel\Context\PlatformContext;
-use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
+use app\platform\services\PlatformApiAuthorization;
 use think\db\Query;
 use think\facade\Db;
 
 /** 平台目录只读入口；先用原生授权器复核动作，再执行固定字段、排序和数据库分页。 */
 final readonly class PlatformDirectoryQueries
 {
-    public function __construct(private PlatformAuthorizationEvaluator $authorization) {}
+    public function __construct(private PlatformApiAuthorization $authorization) {}
 
     /** @return array{items:list<array<string,mixed>>,total:int} */
     public function operators(PlatformContext $context, PageRequest $page): array

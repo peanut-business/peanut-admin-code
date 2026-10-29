@@ -56,6 +56,12 @@ class RoleController extends BaseAdminController
 
     private function roleParams(): array
     {
-        return $this->request->post();
+        $input = $this->request->post();
+        if (array_diff(array_keys($input), ['id', 'name', 'desc', 'sort']) !== []) {
+            throw \PeanutAdmin\Kernel\Authorization\Application\AdminAccessException::invalid(
+                'ROLE_INPUT_INVALID', 'Role details do not assign permissions. Use the permission-bundle assignment endpoint.',
+            );
+        }
+        return $input;
     }
 }

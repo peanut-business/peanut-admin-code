@@ -917,7 +917,10 @@
           ></template
         >
         <template v-else-if="view === 'roles'"
-          ><div class="two-col"
+          ><PermissionBundlesPanel
+            v-if="can('platform.permission.read')"
+            :can-manage="can('platform.permission.api.manage')"
+          /><div class="two-col"
             ><el-card
               ><template #header>创建平台角色</template
               ><el-form label-position="top" @submit.prevent="createRole"
@@ -1178,6 +1181,7 @@
   } from './api/platform';
   import ProviderQualificationCard from './components/ProviderQualificationCard.vue';
   import DeveloperCenterPage from './components/DeveloperCenterPage.vue';
+  import PermissionBundlesPanel from './components/PermissionBundlesPanel.vue';
 
   const tokenFromUrl = new URLSearchParams(window.location.search).get(
     'invitation'

@@ -204,19 +204,19 @@ $schemas = [
     ],
     'AdminRole' => [
         'type' => 'object', 'additionalProperties' => false,
-        'required' => ['id', 'name', 'desc', 'sort', 'create_time', 'num', 'menu_keys', 'status', 'revision'],
+        'required' => ['id', 'name', 'desc', 'sort', 'create_time', 'num', 'permission_keys', 'status', 'revision'],
         'properties' => [
             'id' => ['type' => 'integer'], 'name' => ['type' => 'string'], 'desc' => ['type' => 'string'],
             'sort' => ['type' => 'integer'], 'create_time' => ['type' => 'string'], 'num' => ['type' => 'integer', 'minimum' => 0],
-            'menu_keys' => $ref('StringList'), 'status' => ['type' => 'string'],
+            'permission_keys' => $ref('StringList'), 'status' => ['type' => 'string'],
             'revision' => ['type' => 'integer', 'minimum' => 1],
         ],
     ],
     'AdminRoleWriteRequest' => [
-        'type' => 'object', 'required' => ['name'],
+        'type' => 'object', 'additionalProperties' => false, 'required' => ['name'],
         'properties' => [
             'id' => ['type' => 'integer', 'minimum' => 1], 'name' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 120],
-            'desc' => ['type' => 'string'], 'menu_keys' => $ref('StringList'),
+            'desc' => ['type' => 'string'], 'sort' => ['type' => 'integer'],
         ],
     ],
     'Department' => [

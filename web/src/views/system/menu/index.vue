@@ -173,10 +173,27 @@
           />
         </el-form-item>
         <el-form-item prop="perms" :label="$t('systemMenu.field.perms')">
-          <el-input
+          <el-select
             v-model="form.perms"
             :disabled="form.managed"
+            :loading="permissionLoading"
+            filterable
+            clearable
             :placeholder="$t('systemMenu.field.perms.placeholder')"
+          >
+            <el-option
+              v-for="permission in permissionOptions"
+              :key="permission.key"
+              :value="permission.key"
+              :label="`${permission.name}（${permission.key}）`"
+            />
+          </el-select>
+          <p>{{ $t('systemMenu.field.perms.hint') }}</p>
+          <el-alert
+            v-if="permissionError"
+            :title="permissionError"
+            type="error"
+            :closable="false"
           />
         </el-form-item>
         <el-form-item prop="sort" :label="$t('systemMenu.field.sort')">
@@ -195,7 +212,11 @@
       </el-form>
       <template #footer>
         <el-button @click="modalVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmit"
+        <el-button
+          type="primary"
+          :loading="submitLoading"
+          :disabled="!form.managed && (permissionLoading || !!permissionError)"
+          @click="handleSubmit"
           >保存</el-button
         >
       </template>
@@ -204,12 +225,16 @@
 </template>
 
 <script lang="ts" setup>
-  import { computed, ref, reactive } from 'vue';
+  import { computed, ref, reactive, onBeforeUnmount } from 'vue';
   import { useI18n } from 'vue-i18n';
   import { ElMessage } from 'element-plus';
   import type { FormInstance, TagProps } from 'element-plus';
   import { Plus, Refresh } from '@element-plus/icons-vue';
   import useLoading from '@/hooks/loading';
+  import {
+    getRolePermissionCatalog,
+    type RolePermissionOption,
+  } from '@/api/system/role';
   import {
     getMenuList,
     addMenu,
@@ -279,6 +304,44 @@
   const isEdit = ref(false);
   const submitLoading = ref(false);
   const formRef = ref<FormInstance>();
+  const permissionOptions = ref<RolePermissionOption[]>([]);
+  const permissionLoading = ref(false);
+  const permissionError = ref('');
+  let permissionRequest = 0;
+  onBeforeUnmount(() => {
+    permissionRequest += 1;
+  });
+
+  const loadPermissions = async () => {
+    const request = ++permissionRequest;
+    permissionLoading.value = true;
+    permissionError.value = '';
+    permissionOptions.value = [];
+    try {
+      const items: RolePermissionOption[] = [];
+      let page = 1;
+      while (true) {
+        const { data } = await getRolePermissionCatalog({
+          page_no: page,
+          page_size: 100,
+        });
+        if (!data.items.length && items.length < data.total)
+          throw new Error(t('systemMenu.field.perms.error'));
+        items.push(...data.items);
+        if (items.length >= data.total) break;
+        page += 1;
+      }
+      if (request === permissionRequest) permissionOptions.value = items;
+    } catch (error) {
+      if (request === permissionRequest)
+        permissionError.value =
+          error instanceof Error
+            ? error.message
+            : t('systemMenu.field.perms.error');
+    } finally {
+      if (request === permissionRequest) permissionLoading.value = false;
+    }
+  };
 
   const defaultForm = (): MenuForm => ({
     id: undefined,
@@ -317,6 +380,10 @@
   };
 
   const resetForm = (patch: Partial<MenuForm> = {}) => {
+    permissionRequest += 1;
+    permissionError.value = '';
+    permissionLoading.value = false;
+    permissionOptions.value = [];
     Object.assign(form, defaultForm(), patch);
   };
 
@@ -324,15 +391,19 @@
     isEdit.value = false;
     resetForm({ parent_key: parent?.menu_key ?? null });
     modalVisible.value = true;
+    loadPermissions();
   };
 
   const handleEdit = (record: MenuRecord) => {
     isEdit.value = true;
     resetForm({ ...record, children: undefined });
     modalVisible.value = true;
+    if (!record.managed) loadPermissions();
   };
 
   const handleSubmit = async () => {
+    if (!form.managed && (permissionLoading.value || permissionError.value))
+      return;
     const valid = await formRef.value?.validate().catch(() => false);
     if (!valid) return;
     submitLoading.value = true;

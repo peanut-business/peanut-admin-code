@@ -16,6 +16,7 @@
   "database": {
     "owned_tables": [
       "pa_account",
+      "pa_api_endpoint",
       "pa_auth_security_event",
       "pa_credential",
       "pa_data_condition_definition",
@@ -32,6 +33,8 @@
       "pa_menu_definition",
       "pa_module_installation",
       "pa_permission",
+      "pa_permission_api",
+      "pa_permission_api_config",
       "pa_platform_audit_event",
       "pa_platform_operator",
       "pa_platform_operator_role",
@@ -92,6 +95,7 @@
       "PeanutAdmin\\Modules\\Identity\\Authorization\\Application\\RoleAdminService",
       "PeanutAdmin\\Modules\\Identity\\Authorization\\CorePermissionCatalog",
       "PeanutAdmin\\Modules\\Identity\\Authorization\\CorePermissionCatalogSynchronizer",
+      "PeanutAdmin\\Modules\\Identity\\Authorization\\ApiPermissionCatalog",
       "PeanutAdmin\\Modules\\Identity\\Authorization\\ModuleAuthorizationCatalogSynchronizer",
       "PeanutAdmin\\Modules\\Identity\\Authorization\\CatalogLifecycleService",
       "PeanutAdmin\\Modules\\Identity\\Http\\TenantAuthEndpoint",
