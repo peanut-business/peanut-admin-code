@@ -205,6 +205,7 @@ final class ApplicationCreator
             $files = $projector->modules($stage, $files);
             $files = $projector->workflow($stage, $files, $workflow);
             $files = $this->rebuildBundledPluginArtifacts($stage, $files);
+            $files = $this->materializeUniappPages($stage, $files);
             if ($adoptsEdition) {
                 $this->assertAdoptionEquivalent($stage, $adoption, $parameters, $files);
             }
@@ -1322,6 +1323,42 @@ final class ApplicationCreator
     }
 
     /** @param list<array<string,mixed>> $files @return list<array<string,mixed>> */
+    private function materializeUniappPages(string $stage, array $files): array
+    {
+        if (!is_file($stage . '/uniapp/src/pages.base.json')) {
+            return $files;
+        }
+        $toolRoot = $this->apiGeneratorPath === null ? $this->sourceRoot : dirname($this->apiGeneratorPath, 2);
+        $process = proc_open(
+            ['node', $toolRoot . '/uniapp/scripts/module-pages.mjs', '--root', $stage . '/uniapp'],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            $toolRoot,
+        );
+        if (!is_resource($process)) {
+            throw new RuntimeException('CREATE_APP_UNIAPP_PAGES_FAILED');
+        }
+        stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+        $error = stream_get_contents($pipes[2]);
+        fclose($pipes[2]);
+        if (proc_close($process) !== 0) {
+            throw new RuntimeException('CREATE_APP_UNIAPP_PAGES_FAILED: ' . trim((string) $error));
+        }
+        $result = [];
+        foreach ($files as $file) {
+            if (str_starts_with($file['path'], 'uniapp/src/')) {
+                $path = $stage . '/' . $file['path'];
+                if (!is_file($path)) {
+                    continue;
+                }
+                $file['sha256'] = hash_file('sha256', $path);
+            }
+            $result[] = $file;
+        }
+        return $result;
+    }
+
     private function materializeApiCatalog(string $stage, array $files): array
     {
         $catalogPath = 'server/generated/api-catalog.json';

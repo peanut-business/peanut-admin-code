@@ -7,13 +7,12 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, relative, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadConfigFromFile } from 'vite';
 import { moduleFrontendEntries } from '../../scripts/module-frontend-entries.mjs';
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const sourceRoot = resolve(root, 'src');
+const defaultRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const marker = '<!-- Generated Module page: ';
 function pageAdapter(source) {
   const quoted = source.replaceAll('\\', '\\\\').replaceAll("'", "\\'");
@@ -35,7 +34,7 @@ function ownedAdapters(directory) {
   });
 }
 
-function moduleSource(entry, localPath) {
+function moduleSource(entry, localPath, sourceRoot) {
   if (typeof localPath !== 'string' || !localPath.startsWith('./'))
     throw new Error('Invalid Module component path');
   const root = dirname(entry);
@@ -52,7 +51,9 @@ function moduleSource(entry, localPath) {
   return `@/${relative(sourceRoot, path).split(sep).join('/')}`;
 }
 
-export async function prepareModulePages(configEnv) {
+export async function prepareModulePages(configEnv, targetRoot = defaultRoot) {
+  const root = resolve(targetRoot);
+  const sourceRoot = resolve(root, 'src');
   const entries = moduleFrontendEntries(
     resolve(root, '..'),
     'uniapp',
@@ -88,14 +89,14 @@ export async function prepareModulePages(configEnv) {
       const destination = resolve(sourceRoot, `${page.path}.vue`);
       adapters.set(
         destination,
-        pageAdapter(moduleSource(contribution.entry, component))
+        pageAdapter(moduleSource(contribution.entry, component, sourceRoot))
       );
       pages.pages.push(nativePage);
     }
     for (const [name, component] of Object.entries(contribution.slots ?? {})) {
       if (slots.has(name))
         throw new Error(`Module slot is duplicated: ${name}`);
-      slots.set(name, moduleSource(contribution.entry, component));
+      slots.set(name, moduleSource(contribution.entry, component, sourceRoot));
     }
   }
   // Refuse to replace application-owned pages, including edited generated adapters.
@@ -146,4 +147,17 @@ export async function prepareModulePages(configEnv) {
       ])};\nexport const modulePages = ${JSON.stringify([...paths])};`;
     },
   };
+}
+
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  const [option, root, ...extra] = process.argv.slice(2);
+  if (option !== '--root' || !root || !isAbsolute(root) || extra.length) {
+    throw new Error(
+      'Usage: node module-pages.mjs --root <absolute UniApp root>'
+    );
+  }
+  await prepareModulePages({ command: 'build', mode: 'production' }, root);
 }

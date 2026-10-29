@@ -35547,7 +35547,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "294ddb038b1b8670649143215cc7d3d25a2eef4665b98103304642b54b8f1bd5"
+            "source_sha256": "b533818f02abece5dd95682ba68ac945b4c2b2f3e65df85f668c0c4814adb6d0"
         },
         {
             "path": "uniapp/scripts/prepare-module-pages.mjs",
