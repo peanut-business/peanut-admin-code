@@ -13,7 +13,7 @@
 
 ## 可用的开发与交付入口
 
-以下命令在完整产品应用的 `server/` 内执行。先在 APP 根运行 `scripts/project-composer prepare`，再用 `scripts/project-composer install --working-dir=server --no-scripts` 按应用的 Composer lock 安装依赖；源码生成不执行需要运行环境的 Composer hooks。`peanut module create` 是仅生成源码的入口，不要求 `.env`、数据库或已安装实例，也不启动运行服务。它使用 ThinkPHP 原生参数解析和同一个模块生成器，默认仅生成后端骨架；有管理端贡献时显式选择 `--client=admin-web`。`peanut module create --help` 可在配置运行环境前查看参数。检查、打包、安装等其他命令仍使用应用自己的运行环境和模块信任配置。命令存在不表示模块业务、迁移或客户端已验收。
+以下命令在完整产品 APP 根执行；先用 `peanut config` 选择已有本机工具，再通过 `scripts/project-env` 运行项目原生 Composer、pnpm/npm。源码生成不执行需要运行环境的 Composer hooks。`peanut module create` 是仅生成源码的入口，不要求 `.env`、数据库或已安装实例，也不启动运行服务。它使用 ThinkPHP 原生参数解析和同一个模块生成器，默认仅生成后端骨架；有管理端贡献时显式选择 `--client=admin-web`。`peanut module create --help` 可在配置运行环境前查看参数。检查、打包、安装等其他命令仍使用应用自己的运行环境和模块信任配置。命令存在不表示模块业务、迁移或客户端已验收。
 
 ```sh
 peanut module create <vendor.module> --vendor=<vendor>
@@ -45,6 +45,8 @@ peanut module pack <vendor.module> --output=<absolute-release-path>/<name>.tar
 
 对外模块包应带版本化说明，至少覆盖输入输出、权限、正常与失败例子、迁移、重试、停用和升级边界。API metadata 与实现同批刷新，并运行 `./scripts/check-openapi`，确保删除接口时不残留旧 SDK 或文档条目。
 
+PC 的 `pc/modules/<slug>/contribution.ts` 使用 Nuxt 原生页面、组件和 layout 注册；UniApp 的 `uniapp/src/modules/<slug>/contribution.ts` 由 Vite 构建入口生成正式 pages.json 与必要页面入口，业务源码只保留在模块中。Web 沿用既有 contribution 入口。各端依赖写在模块自己的 package.json，由原生 workspace 求解；宿主只保留自身依赖。默认生产锁不自动加入开发用 fixture。
+
 ## 普通管理动作的写法
 
 简单列表、详情和增删改可参考 `ArticleCateController`：声明 `$crudClass` 指向当前 App 已绑定的业务用例，`CRUD_VALIDATE` 指向校验器，再按动作声明 `CRUD_INPUT_FIELDS`。新增、修改和状态变更还必须分别声明 `CRUD_WRITABLE_FIELDS`；`id` 等定位字段是控制参数，不应作为可持久化字段。已接入字段声明的 Controller 漏写场景或可写声明会报配置错误，额外请求字段会被拒绝；未接入声明的旧 Controller 仍按受控迁移保留旧路径，不能把本约束视作全站写入保护。服务仍负责 Tenant Scope、对象归属、业务不变量和事务，不能只靠 Controller 字段投影保护内部调用。
@@ -68,4 +70,4 @@ protected const CRUD_WRITABLE_FIELDS = [
 
 ## 数据库结构交付
 
-模块声明自有表继续使用 module.json 的 database.owned_tables。模块可通过 `backend.migrations: "database/migrations"` 声明自身原生 PHP 迁移目录；共享包检查校验声明及目录存在，归档保留迁移源码。这不表示安装/升级已经执行该目录：当前生命周期仍运行应用 `server/database/migrations` 的 pending 迁移，再核全部声明表，缺表明确拒绝。接收带新表模块前，应用开发者仍须审阅并交付当前运行入口能执行的原生迁移；只提升模块目录不构成结构交付。卸载保留全局版本历史，purge 后若要重装表，需新增明确恢复结构的应用迁移，不能删除原生版本行来重放初始基线。
+模块在 module.json 的 `database.owned_tables` 声明自有表，以 `backend.migrations: "database/migrations"` 声明自己的 ThinkPHP 原生迁移。安装和升级按目标模块及其强依赖收集迁移，沿用原生数字顺序、执行器和单一账本；宿主尚未应用的迁移先由宿主原生入口处理。首次安装使用宿主初始结构和实际所选模块迁移；默认脚手架保留 identity、file、settings、reference-codes、task、ops、content-tools、integration 八模块，其他模块通过独立包加入。已有表由其初始迁移核对并保留数据，不通过补写账本伪造执行。停用、卸载保留表、设置值、附件及迁移历史；清除业务数据需要单独明确授权。模块租户默认数据通过所属模块的正式启用 hook 初始化，不以安装包成功代替租户启用或 RBAC 授权。

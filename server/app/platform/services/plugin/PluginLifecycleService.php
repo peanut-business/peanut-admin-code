@@ -631,7 +631,6 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         $host = [];
         $blockers = [];
         $pendingByModule = [];
-        $appliedByModule = [];
         // Host sources are checked for identity collisions and prerequisites, never selected for execution here.
         foreach (ModuleMigrationRun::sources($selected, root_path(), true) as $source) {
             $version = $source['migration_key'];
@@ -652,23 +651,14 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             $migrations[] = $row;
             if ($row['disposition'] === 'pending') {
                 $pendingByModule[$source['module_key']][] = $version;
-            } else {
-                $appliedByModule[$source['module_key']] = true;
             }
         }
         $missingByModule = [];
         foreach ($selected as $key => $manifest) {
             $missingByModule[$key] = $this->missingSchemaTables([$key => $manifest]);
-            $owned = $manifest->data['database']['owned_tables'] ?? [];
             if ($missingByModule[$key] !== [] && !isset($pendingByModule[$key])) {
                 $blockers[] = ['code' => 'MODULE_SCHEMA_REQUIRED',
                     'message' => "No pending migration supplies the missing declared schema for {$key}: " . implode(', ', $missingByModule[$key])];
-            }
-            if (isset($pendingByModule[$key]) && !isset($appliedByModule[$key])
-                && array_diff($owned, $missingByModule[$key]) !== []) {
-                // Table existence cannot prove complete structure, foreign keys, ownership or required data.
-                $blockers[] = ['code' => 'MODULE_INITIAL_MIGRATION_VERIFICATION_REQUIRED',
-                    'message' => "Existing tables for {$key} have no selected initial migration record; verify complete schema, ownership, foreign keys and required data before native registration."];
             }
         }
         foreach ($selected as $key => $manifest) {

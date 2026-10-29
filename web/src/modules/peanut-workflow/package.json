@@ -11,5 +11,8 @@
   "peerDependencies": {
     "vue": "^3.3.0",
     "element-plus": "^2.14.3"
+  },
+  "dependencies": {
+    "@vue-flow/core": "1.48.2"
   }
 }

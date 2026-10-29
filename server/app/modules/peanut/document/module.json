@@ -3,7 +3,7 @@
   "key": "peanut.document",
   "name": "Business Documents",
   "description": "Business-owned documents, committed immutable versions and controlled File references.",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/peanut-document",
@@ -11,7 +11,7 @@
   "dependencies": [
     {
       "module_key": "peanut.identity",
-      "version": "4.0.0-rc.31"
+      "version": "4.0.0-rc.32"
     },
     {
       "module_key": "peanut.file",
@@ -33,7 +33,8 @@
     "provider": "PeanutAdmin\\Modules\\Document\\ModuleProvider",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
-    "setting_definitions": "resources/setting-definitions.json"
+    "setting_definitions": "resources/setting-definitions.json",
+    "migrations": "database/migrations"
   },
   "frontend": {
     "entry": "web/src/modules/peanut-document/contribution.ts"

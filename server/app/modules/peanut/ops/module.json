@@ -3,7 +3,7 @@
   "key": "peanut.ops",
   "name": "Platform Operations",
   "description": "Platform-owned maintenance windows, persistent operations tasks, safe diagnostics, backup, restore and upgrade orchestration.",
-  "version": "1.0.24",
+  "version": "1.0.25",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/peanut-ops",
@@ -15,14 +15,15 @@
     },
     {
       "module_key": "peanut.identity",
-      "version": "4.0.0-rc.31"
+      "version": "4.0.0-rc.32"
     }
   ],
   "lifecycle": {
     "protected": true
   },
   "backend": {
-    "provider": "PeanutAdmin\\Modules\\Ops\\ModuleProvider"
+    "provider": "PeanutAdmin\\Modules\\Ops\\ModuleProvider",
+    "migrations": "database/migrations"
   },
   "frontend": {
     "clients": {
@@ -68,6 +69,8 @@
   },
   "tenant": {
     "enableable": false,
-    "requires": []
+    "requires": [
+      "peanut.identity"
+    ]
   }
 }

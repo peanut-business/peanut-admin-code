@@ -1,8 +1,17 @@
-import type { PluginFrontendContribution } from '@peanut-admin/vue';
+import type { ModuleFrontendContribution } from '@/module-contributions';
 import { DEFAULT_LAYOUT } from '@/router/routes/base';
 
-const contribution: PluginFrontendContribution = {
+import localeArticleCateEn from './views/cate/locale/en-US';
+import localeArticleListEn from './views/list/locale/en-US';
+import localeArticleCateCn from './views/cate/locale/zh-CN';
+import localeArticleListCn from './views/list/locale/zh-CN';
+
+const contribution: ModuleFrontendContribution = {
   moduleKey: 'peanut.article',
+  locales: {
+    'en-US': { ...localeArticleCateEn, ...localeArticleListEn },
+    'zh-CN': { ...localeArticleCateCn, ...localeArticleListCn },
+  },
   routes: [
     {
       path: '/article',

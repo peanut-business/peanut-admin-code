@@ -7,14 +7,11 @@ $serverRoot = dirname(__DIR__, 3);
 
 require $serverRoot . '/route/public_api.php';
 
-foreach ([
-    'app/modules/peanut/file/route/app.php',
-    'app/modules/peanut/notification/route/app.php',
-    'app/modules/peanut/oauth/route/app.php',
-    'app/modules/peanut/payment/route/app.php',
-    'app/modules/peanut/member/route/app.php',
-] as $moduleRoute) {
-    require $serverRoot . '/' . $moduleRoute;
+foreach (app(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry::class)->modules as $manifest) {
+    $moduleRoute = $manifest->root . '/route/app.php';
+    if (is_file($moduleRoute)) {
+        require $moduleRoute;
+    }
 }
 
-unset($peanutRouteApplication, $serverRoot, $moduleRoute);
+unset($peanutRouteApplication, $serverRoot, $moduleRoute, $manifest);

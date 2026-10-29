@@ -10,6 +10,8 @@ use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
 use think\App;
 use think\Container;
 
+require_once __DIR__ . '/InitialInstallationSource.php';
+
 $installerArguments = $_SERVER['argv'] ?? [];
 $installerIsDirect = realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__;
 function emitUnavailableInstallStatus(): void
@@ -353,24 +355,6 @@ function ensureThinkPhpApplication(string $serverDir): App
     return (new App($serverDir))->initialize();
 }
 
-function expectedTables(array $files): array
-{
-    $tables = [];
-    foreach ($files as $file) {
-        $sql = file_get_contents($file);
-        if ($sql === false) {
-            throw new RuntimeException('无法读取 SQL 文件：' . basename($file));
-        }
-        preg_match_all('/CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+`([^`]+)`/i', $sql, $matches);
-        foreach ($matches[1] as $table) {
-            $tables[$table] = true;
-        }
-    }
-    $names = array_keys($tables);
-    sort($names, SORT_STRING);
-    return $names;
-}
-
 /**
  * @param array{email:string,password:string}|null $platformCredentials
  * @param array{kind:string,code:string,tenant_identity:string,rbac:string,execution_context:string,module_lifecycle:string} $tenantBootstrap
@@ -668,7 +652,7 @@ function logInstallationFailure(string $serverDir, string $stage, string $errorC
  * @param array<string,mixed> $input
  * @return array<string,mixed>
  */
-function installFreshDatabase(string $serverDir, array $input): array
+function installFreshDatabase(string $serverDir, array $input, ?array $moduleKeys = null): array
 {
     if (installationStateBlocksFreshDatabase($serverDir)) {
         throw new RuntimeException('INSTALL_STATE_PRESENT: 安装身份状态已存在，拒绝再次初始化数据库');
@@ -705,7 +689,33 @@ function installFreshDatabase(string $serverDir, array $input): array
         if (installationStateBlocksFreshDatabase($serverDir)) {
             throw new RuntimeException('INSTALL_STATE_PRESENT: 安装身份状态已存在，拒绝再次初始化数据库');
         }
-        $expected = expectedTables([$databaseDir . '/schema/baseline-schema.sql']);
+        $initial = InitialInstallationSource::project($serverDir, $moduleKeys ?? InitialInstallationSource::MODULES);
+        $initialRoot = $serverDir . '/runtime/installation/database';
+        foreach (['schema', 'migrations'] as $directory) {
+            if (!is_dir($initialRoot . '/' . $directory) && !mkdir($initialRoot . '/' . $directory, 0775, true)) {
+                throw new RuntimeException('INSTALL_INITIAL_DIRECTORY_FAILED');
+            }
+        }
+        foreach ($initial as $path => $content) {
+            if (file_put_contents($initialRoot . '/' . $path, $content) !== strlen($content)) {
+                throw new RuntimeException('INSTALL_INITIAL_WRITE_FAILED');
+            }
+        }
+        $sources = [];
+        foreach (glob($initialRoot . '/migrations/*.php') ?: [] as $file) {
+            if (!unlink($file)) {
+                throw new RuntimeException('INSTALL_INITIAL_MIGRATION_CLEANUP_FAILED');
+            }
+        }
+        foreach (glob($databaseDir . '/migrations/*.php') ?: [] as $file) {
+            $target = $initialRoot . '/migrations/' . basename($file);
+            if (!copy($file, $target)) {
+                throw new RuntimeException('INSTALL_INITIAL_MIGRATION_COPY_FAILED');
+            }
+            $sources[] = ['file' => $target];
+        }
+        $selectedKeys = $moduleKeys ?? InitialInstallationSource::MODULES;
+        $expected = InitialInstallationSource::tables($serverDir, $selectedKeys);
         $expected[] = (string) $connection->getConfig('prefix') . \think\facade\Config::get('database.migration_table', 'migrations');
         $tableCount = (int) $pdo->query(
             'SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()',
@@ -725,7 +735,16 @@ function installFreshDatabase(string $serverDir, array $input): array
             ])),
         );
         $application = ensureThinkPhpApplication($serverDir);
-        $application->console->call('migrate:run');
+        $selectedManifests = array_filter(
+            $application->make(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry::class)->modules,
+            static fn(\PeanutAdmin\Kernel\Module\ManifestDocument $manifest): bool => in_array($manifest->data['key'], $selectedKeys, true),
+        );
+        $sources = array_merge($sources, \app\common\module\ModuleMigrationRun::sources($selectedManifests, $serverDir));
+        // Only source discovery changes. The existing native runner owns execution
+        // and the original migration versions in the normal migrations ledger.
+        $migration = new \app\common\module\ModuleMigrationRun($sources);
+        $migration->setApp($application);
+        $migration->run(new \think\console\Input([]), new \think\console\Output('buffer'));
         $coreIdentity = initializeCoreIdentity($pdo, $adminEmail, $adminPassword, $platformCredentials, $demoAccounts, $tenantBootstrap);
         if ($demoAccounts->enabled()) {
             replaceInstalledDemoCredentialHashes($pdo, [$adminEmail, $platformCredentials['email'] ?? ''], $demoAccounts->credentialHash());

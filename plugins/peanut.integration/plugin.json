@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "peanut.integration",
-    "version": "1.0.21",
+    "version": "1.0.22",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "6a59769a8647718d17c061926a0e7d0084dd306563dc52a5310657e58a43a325"
+        "sha256": "66c16581566a0b1f3e8409a5d0a96a5e278cf2163a1e3f5347433b527df2f366"
     },
     "trust": {
         "channel": "bundled",
@@ -39,12 +39,12 @@
             "modules": [
                 {
                     "key": "peanut.integration",
-                    "version": "1.0.21",
+                    "version": "1.0.22",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
                             "module_key": "peanut.identity",
-                            "version": "4.0.0-rc.31"
+                            "version": "4.0.0-rc.32"
                         }
                     ],
                     "permissions": {
@@ -58,8 +58,8 @@
     "composer": [
         {
             "name": "peanut-business/peanut-integration",
-            "version": "1.0.21",
-            "sha256": "4d128788dd9f0bb732960fbc37d5c98404ba487453b558c54c0e066b407824e9"
+            "version": "1.0.22",
+            "sha256": "a6cdbb634d7b8cb21f68f2c71154a8f8c4c05ced6ef6b7a2f48f92df48a64a44"
         }
     ],
     "npm": [

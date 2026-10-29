@@ -14,14 +14,17 @@ use PeanutAdmin\Kernel\Context\TenantSystemContext;
 class PcApplicationService
 {
     public function __construct(
-        private readonly PublicArticleQueries $articles,
         private readonly DecorationReadService $decoration,
         private readonly IndexApplicationService $index,
+        private readonly ?PublicArticleQueries $articles = null,
     ) {}
 
     /** PC 首页文章分组与即时生效的 PC 装修。 */
     public function getIndexData(TenantContext|TenantSystemContext $context): array
     {
+        if ($this->articles === null) {
+            throw new \DomainException('ARTICLE_MODULE_UNAVAILABLE');
+        }
         return [
             'all' => $this->articles->limitArticles('all', 5),
             'new' => $this->articles->limitArticles('new', 7),
@@ -48,7 +51,7 @@ class PcApplicationService
     public function infoCenter(TenantContext|TenantSystemContext $context): array
     {
         $this->assertSystemOperation($context, 'article.info-center');
-        return $this->articles->infoCenter();
+        return ($this->articles ?? throw new \DomainException('ARTICLE_MODULE_UNAVAILABLE'))->infoCenter();
     }
 
     /** PC 文章详情公开查询入口。 */
@@ -59,7 +62,7 @@ class PcApplicationService
         string $source,
     ): array {
         $this->assertSystemOperation($context, 'article.pc-detail');
-        return $this->articles->pcDetail($memberId, $articleId, $source);
+        return ($this->articles ?? throw new \DomainException('ARTICLE_MODULE_UNAVAILABLE'))->pcDetail($memberId, $articleId, $source);
     }
 
     private function assertSystemOperation(

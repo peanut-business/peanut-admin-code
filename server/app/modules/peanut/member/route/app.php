@@ -44,13 +44,15 @@ Route::post('login/register', [ApiLoginController::class, 'register'])
     ->middleware(PublicTenantModuleMiddleware::class, 'peanut.member.public-auth', 'peanut.member', 'member.register');
 Route::post('login/account', [ApiLoginController::class, 'account'])
     ->middleware(PublicTenantModuleMiddleware::class, 'peanut.member.public-auth', 'peanut.member', 'member.login');
-foreach ([
-    ['login/mobile', 'mobile', 'notice.verification.verify', 'http.mobile-login'],
-    ['login/resetPassword', 'resetPassword', 'notice.verification.verify', 'http.reset-password'],
-] as [$path, $action, $noticeOperation, $memberOperation]) {
-    Route::post($path, [ApiLoginController::class, $action])
-        ->middleware(PublicTenantModuleMiddleware::class, 'peanut.notice.verification', 'peanut.notification', $noticeOperation)
-        ->middleware(OfficialModuleMiddleware::class, 'peanut.member', $memberOperation);
+if (app()->bound(\PeanutAdmin\Modules\Notification\Contract\VerificationCodeCommands::class)) {
+    foreach ([
+        ['login/mobile', 'mobile', 'notice.verification.verify', 'http.mobile-login'],
+        ['login/resetPassword', 'resetPassword', 'notice.verification.verify', 'http.reset-password'],
+    ] as [$path, $action, $noticeOperation, $memberOperation]) {
+        Route::post($path, [ApiLoginController::class, $action])
+            ->middleware(PublicTenantModuleMiddleware::class, 'peanut.notice.verification', 'peanut.notification', $noticeOperation)
+            ->middleware(OfficialModuleMiddleware::class, 'peanut.member', $memberOperation);
+    }
 }
 
 Route::group(function (): void {
@@ -58,7 +60,9 @@ Route::group(function (): void {
     Route::get('user/info', [ApiUserController::class, 'info']);
     Route::post('user/setInfo', [ApiUserController::class, 'setInfo']);
     Route::post('user/changePassword', [ApiUserController::class, 'changePassword']);
-    Route::post('user/bindMobile', [ApiUserController::class, 'bindMobile']);
+    if (app()->bound(\PeanutAdmin\Modules\Notification\Contract\VerificationCodeCommands::class)) {
+        Route::post('user/bindMobile', [ApiUserController::class, 'bindMobile']);
+    }
     Route::get('account_log/lists', [ApiAccountLogController::class, 'lists']);
 })->middleware(CheckTokenMiddleware::class)
     ->middleware(OfficialModuleMiddleware::class, 'peanut.member', 'http.member');

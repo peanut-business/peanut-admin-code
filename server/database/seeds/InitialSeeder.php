@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer;
 use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
+use PeanutAdmin\Modules\Identity\Menu\CoreMenuCatalog;
 use Phinx\Db\Adapter\PdoAdapter;
 use Phinx\Db\Adapter\WrapperInterface;
 use think\facade\Db;
@@ -21,14 +22,9 @@ final class InitialSeeder extends Seeder
             throw new RuntimeException('InitialSeeder requires the native PDO adapter.');
         }
         $pdo = $adapter->getConnection();
-        $sql = file_get_contents(__DIR__ . '/../schema/baseline-data.sql');
-        if (!is_string($sql) || $sql === '') {
-            throw new RuntimeException('The initial data source is missing.');
-        }
-        $data = explode('-- peanut-baseline-catalog-boundary', $sql);
-        if (count($data) !== 2) {
-            throw new RuntimeException('The initial data catalog boundary is invalid.');
-        }
+        require_once __DIR__ . '/../InitialInstallationSource.php';
+        $serverRoot = dirname(__DIR__, 2);
+        $data = InitialInstallationSource::project($serverRoot, InitialInstallationSource::installedModules($serverRoot))['schema/baseline-data.sql'];
         $committedInitialData = false;
         $emulated = (bool) $pdo->getAttribute(PDO::ATTR_EMULATE_PREPARES);
         $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
@@ -52,15 +48,10 @@ SQL, [(int) $tenant['id']]);
             if ((int) $owners['count'] !== 1) {
                 throw new RuntimeException('InitialSeeder requires the initialized default tenant owner.');
             }
-            $state = $this->fetchRow(<<<'SQL'
-SELECT (SELECT COUNT(*) FROM pa_system_dict_type)
-     + (SELECT COUNT(*) FROM pa_system_menu)
-     + (SELECT COUNT(*) FROM pa_config)
-     + (SELECT COUNT(*) FROM pa_tenant_setting)
-     + (SELECT COUNT(*) FROM pa_storage_account) AS count
-SQL);
-            if ((int) $state['count'] !== 0) {
-                throw new RuntimeException('INITIAL_SEED_NONEMPTY: initial or partial seed data already exists; refusing to replay.');
+            foreach (['pa_system_dict_type', 'pa_system_menu', 'pa_config', 'pa_tenant_setting', 'pa_storage_account'] as $table) {
+                if ($adapter->hasTable($table) && (int) $this->fetchRow('SELECT COUNT(*) AS count FROM `' . $table . '`')['count'] !== 0) {
+                    throw new RuntimeException('INITIAL_SEED_NONEMPTY: initial or partial seed data already exists; refusing to replay.');
+                }
             }
             $frameworkConnection = Db::connect();
             $frameworkConnection->query('SELECT 1', [], true);
@@ -74,7 +65,9 @@ SQL);
             }
             // seed:run owns the native transaction. Session variables belong to this connection only.
             $this->execute('SET @pa_default_tenant_id = ?, @pa_default_tenant_code = ?', [(int) $tenant['id'], $tenant['code']]);
-            $this->executeData($data[0]);
+            if (trim($data) !== '') {
+                $this->executeData($data);
+            }
             $adapter->commitTransaction();
             $committedInitialData = true;
 
@@ -82,7 +75,16 @@ SQL);
             (new CorePermissionCatalogSynchronizer(new ThinkPhpAuthorizationCatalogRepository()))->synchronize();
 
             $adapter->beginTransaction();
-            $this->executeData($data[1]);
+            foreach (CoreMenuCatalog::definitions() as $menu) {
+                if ($menu->scope !== 'tenant') {
+                    continue;
+                }
+                $this->execute('INSERT INTO pa_system_menu (menu_key,parent_key,module_key,pid,type,name,icon,sort,perms,paths,component,is_cache,is_show,is_disable) VALUES (?,?,?,0,?,?,?,?,?,?,?,0,1,0)', [
+                    $menu->key, $menu->parentKey, $menu->moduleKey,
+                    $menu->type === 'group' ? 'M' : 'C', $menu->name, $menu->icon ?? '',
+                    $menu->sortOrder, $menu->requiredPermission ?? '', $menu->routePath ?? '', $menu->componentKey ?? '',
+                ]);
+            }
             $temporaryMenus = $this->fetchRow("SELECT COUNT(*) AS count FROM pa_system_menu WHERE menu_key LIKE 'seed.%'");
             if ((int) $temporaryMenus['count'] !== 0) {
                 throw new RuntimeException('Initial menu identities did not converge.');

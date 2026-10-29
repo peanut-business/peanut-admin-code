@@ -43,24 +43,6 @@ export interface PolicyData {
   content: string;
 }
 
-export interface Article {
-  id: number;
-  cid: number;
-  cate_name?: string;
-  title: string;
-  image: string;
-  desc: string;
-  author?: string;
-  click: number;
-  create_time: string;
-  collect?: boolean;
-}
-
-export interface IndexData {
-  article: Article[];
-  decorate: DecorationPage;
-}
-
 /** GET api/index/config — app global config */
 export function getConfig() {
   return http.get<ConfigData>('api/index/config', undefined, false);
@@ -69,11 +51,6 @@ export function getConfig() {
 /** GET api/index/policy?type=privacy|service */
 export function getPolicy(type: 'privacy' | 'service') {
   return http.get<PolicyData>('api/index/policy', { type }, false);
-}
-
-/** GET api/index/index — home page data */
-export function getIndexData() {
-  return http.get<IndexData>('api/index/index', undefined, false);
 }
 
 /** GET api/decoration/tabbar — public visible tabbar configuration */

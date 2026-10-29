@@ -17,11 +17,12 @@ class NoticeScene extends TenantOwnedModel
     public const STATUS_ENABLED = 1;
 
     /** @param list<array{0:string,1:string,2:string,3:string}> $scenes */
-    public static function provisionDefaults(array $scenes): void
+    public static function provisionDefaults(int $tenantId, array $scenes): void
     {
         $existing = array_fill_keys(array_map(
             'strval',
-            self::whereIn('code', array_column($scenes, 0))->column('code'),
+            self::withoutTenantScope()->where('tenant_id', $tenantId)
+                ->whereIn('code', array_column($scenes, 0))->column('code'),
         ), true);
         $missing = [];
         foreach ($scenes as [$code, $name, $description, $content]) {
@@ -29,6 +30,7 @@ class NoticeScene extends TenantOwnedModel
                 continue;
             }
             $missing[] = [
+                'tenant_id' => $tenantId,
                 'code' => $code,
                 'name' => $name,
                 'description' => $description,
@@ -42,7 +44,7 @@ class NoticeScene extends TenantOwnedModel
             ];
         }
         if ($missing !== []) {
-            (new self())->saveAll($missing);
+            self::withoutTenantScope()->insertAll($missing);
         }
     }
 }

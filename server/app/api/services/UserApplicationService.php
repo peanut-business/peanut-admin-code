@@ -22,9 +22,9 @@ class UserApplicationService
         private readonly MemberQueries $members,
         private readonly MemberIdentityCommands $memberIdentities,
         private readonly MemberProfileCommands $memberProfiles,
-        private readonly VerificationCodeCommands $verificationCodes,
-        private readonly PublicArticleQueries $articleCollections,
         private readonly FileReferences $files,
+        private readonly ?VerificationCodeCommands $verificationCodes = null,
+        private readonly ?PublicArticleQueries $articleCollections = null,
     ) {}
 
     /** 用户中心（首屏数据） */
@@ -41,10 +41,14 @@ class UserApplicationService
         $data['balance']    = $data['user_money'];
         unset($data['user_money']);
         $data['avatar']     = $this->files->getFileUrl((string) $data['avatar']);
-        try {
-            $data['collect_num'] = $this->articleCollections->countForMember($context, $memberId);
-        } catch (ModuleException) {
+        if ($this->articleCollections === null) {
             $data['collect_num'] = 0;
+        } else {
+            try {
+                $data['collect_num'] = $this->articleCollections->countForMember($context, $memberId);
+            } catch (ModuleException) {
+                $data['collect_num'] = 0;
+            }
         }
 
         return $data;
@@ -118,7 +122,7 @@ class UserApplicationService
         $scene = empty($member['mobile'])
             ? NoticeSceneEnum::BIND_MOBILE
             : NoticeSceneEnum::CHANGE_MOBILE;
-        $result = $this->verificationCodes->verifyCode(
+        $result = ($this->verificationCodes ?? throw new \DomainException('NOTIFICATION_MODULE_UNAVAILABLE'))->verifyCode(
             $context,
             $scene,
             $mobile,

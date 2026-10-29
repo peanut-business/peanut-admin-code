@@ -19,11 +19,11 @@ class LoginApplicationService
 {
     public function __construct(
         private readonly MemberIdentityCommands $memberIdentities,
-        private readonly VerificationCodeCommands $verificationCodes,
         private readonly TenantApplicationSettings $applicationSettings,
         private readonly FileReferences $files,
         private readonly UserTokenService $tokens,
         private readonly string $defaultAvatar,
+        private readonly ?VerificationCodeCommands $verificationCodes = null,
     ) {}
 
     /**
@@ -74,7 +74,7 @@ class LoginApplicationService
     {
         $this->assertLoginWayEnabled($context, 2);
         $mobile = (string) $params['mobile'];
-        $result = $this->verificationCodes->verifyCode(
+        $result = ($this->verificationCodes ?? throw new \DomainException('NOTIFICATION_MODULE_UNAVAILABLE'))->verifyCode(
             $context,
             NoticeSceneEnum::LOGIN_CODE,
             $mobile,
@@ -96,7 +96,7 @@ class LoginApplicationService
     public function resetPassword(TenantContext|TenantSystemContext $context, array $params): bool
     {
         $this->memberIdentities->assertMobileBound($context, (string) $params['mobile']);
-        $result = $this->verificationCodes->verifyCode(
+        $result = ($this->verificationCodes ?? throw new \DomainException('NOTIFICATION_MODULE_UNAVAILABLE'))->verifyCode(
             $context,
             NoticeSceneEnum::RESET_PASSWORD,
             (string) $params['mobile'],

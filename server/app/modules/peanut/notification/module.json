@@ -3,7 +3,7 @@
   "key": "peanut.notification",
   "name": "Notification",
   "description": "Tenant-owned notification channels, scenes, templates and delivery logs.",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/peanut-notification",
@@ -19,7 +19,7 @@
     },
     {
       "module_key": "peanut.identity",
-      "version": "4.0.0-rc.31"
+      "version": "4.0.0-rc.32"
     }
   ],
   "optional_dependencies": [
@@ -32,7 +32,8 @@
     "provider": "PeanutAdmin\\Modules\\Notification\\ModuleProvider",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
-    "setting_definitions": "resources/setting-definitions.json"
+    "setting_definitions": "resources/setting-definitions.json",
+    "migrations": "database/migrations"
   },
   "frontend": {
     "entry": "web/src/modules/peanut-notification/contribution.ts"
@@ -78,7 +79,8 @@
     "enableable": true,
     "disable_behavior": "reject_new_operations",
     "requires": [
-      "peanut.integration"
+      "peanut.integration",
+      "peanut.identity"
     ]
   }
 }

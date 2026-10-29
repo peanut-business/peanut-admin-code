@@ -12,7 +12,6 @@ use app\common\dto\authorization\AdminAccessData;
 use app\common\dto\authorization\AdminPrincipal;
 use app\common\dto\authorization\PermissionDecision;
 use app\common\model\auth\SystemMenu;
-use PeanutAdmin\Modules\ImportExport\Contract\ImportExportCommands;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\AuthorizationDecision;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
@@ -206,7 +205,7 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         return $this->authorizedOperation(
             $tenantContext,
             $admin,
-            ImportExportCommands::RESOURCE_KEY,
+            'peanut.import-export',
             'create',
             [],
             $operationId,
@@ -226,7 +225,7 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         array $requestedTargets,
         string $operationId = '',
     ): AuthorizedOperationContext {
-        if ($resourceKey !== ImportExportCommands::RESOURCE_KEY
+        if ($resourceKey !== 'peanut.import-export'
             || $operation !== 'create'
             || $requestedTargets !== []
         ) {

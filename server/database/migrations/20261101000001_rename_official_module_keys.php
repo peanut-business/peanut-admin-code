@@ -57,6 +57,10 @@ final class RenameOfficialModuleKeys extends Migrator
         if (!$adapter instanceof PdoAdapter || $adapter->getAdapterType() !== 'mysql') {
             throw new RuntimeException('RenameOfficialModuleKeys requires the native MySQL PDO adapter.');
         }
+        // A fresh Host installs selected Module schemas and catalogs afterwards.
+        if (!$adapter->hasTable('pa_module_installation')) {
+            return;
+        }
         $pdo = $adapter->getConnection();
         // think-migration owns the transaction and successful migration ledger entry.
         if (!$pdo->inTransaction()) {
@@ -117,6 +121,9 @@ SQL);
                 $this->renamePlugin($pdo, 'official.' . $slug, 'peanut.' . $slug);
             }
             foreach (self::MODULE_COLUMNS as $table => $column) {
+                if (!$adapter->hasTable($table)) {
+                    continue;
+                }
                 foreach (self::SLUGS as $slug) {
                     $location = $table . '.' . $column;
                     $query = $pdo->prepare("UPDATE `$table` SET `$column` = ? WHERE BINARY `$column` = BINARY ?");
@@ -124,6 +131,9 @@ SQL);
                 }
             }
             foreach (self::CODE_COLUMNS as $table => $columns) {
+                if (!$adapter->hasTable($table)) {
+                    continue;
+                }
                 foreach ($columns as $column) {
                     $location = $table . '.' . $column;
                     foreach (self::SLUGS as $slug) {

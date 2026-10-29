@@ -16,9 +16,9 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 class DecorationTabbarApplicationService
 {
     public function __construct(
-        private readonly ArticleQueries $articles,
         private readonly DecorationReadService $decoration,
         private readonly DecorationSchemaService $schema,
+        private readonly ?ArticleQueries $articles = null,
     ) {}
 
     public function detail(TenantContext $context): array

@@ -1572,16 +1572,9 @@ function waitForDatabase(array $config, int $seconds): PDO
 /** @return list<string> */
 function canonicalBaselineTables(): array
 {
-    $tables = [];
-    $schema = file_get_contents(__DIR__ . '/schema/baseline-schema.sql');
-    if (!is_string($schema)) {
-        throw new RuntimeException('无法读取初始表结构 baseline-schema.sql');
-    }
-    preg_match_all('/CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+`([^`]+)`/i', $schema, $matches);
-    foreach ($matches[1] ?? [] as $table) {
-        $tables[(string) $table] = true;
-    }
-    $names = array_keys($tables);
+    require_once __DIR__ . '/InitialInstallationSource.php';
+    $serverRoot = dirname(__DIR__);
+    $names = InitialInstallationSource::tables($serverRoot, InitialInstallationSource::installedModules($serverRoot));
     sort($names, SORT_STRING);
     return $names;
 }

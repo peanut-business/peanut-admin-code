@@ -3,7 +3,7 @@
   "key": "peanut.oauth",
   "name": "OAuth and Channels",
   "description": "Tenant-owned OAuth identities and WeChat channel bindings.",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/peanut-oauth",
@@ -28,16 +28,29 @@
     {
       "module_key": "peanut.settings",
       "version": "^1.0"
+    },
+    {
+      "module_key": "peanut.identity",
+      "version": "4.0.0-rc.32"
     }
   ],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\OAuth\\ModuleProvider",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
-    "setting_definitions": "resources/setting-definitions.json"
+    "setting_definitions": "resources/setting-definitions.json",
+    "migrations": "database/migrations"
   },
   "frontend": {
-    "entry": "web/src/modules/peanut-oauth/contribution.ts"
+    "entry": "web/src/modules/peanut-oauth/contribution.ts",
+    "clients": {
+      "pc-web": {
+        "entry": "pc/modules/peanut-oauth/contribution.ts"
+      },
+      "uniapp": {
+        "entry": "uniapp/src/modules/peanut-oauth/contribution.ts"
+      }
+    }
   },
   "database": {
     "owned_tables": [
@@ -67,7 +80,9 @@
       "peanut.file",
       "peanut.member",
       "peanut.notification",
-      "peanut.settings"
+      "peanut.settings",
+      "peanut.identity",
+      "peanut.integration"
     ]
   }
 }

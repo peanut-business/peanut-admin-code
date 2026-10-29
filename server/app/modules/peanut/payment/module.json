@@ -3,7 +3,7 @@
   "key": "peanut.payment",
   "name": "Payment",
   "description": "Tenant-owned payment settings, recharge orders and refund processing.",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/peanut-payment",
@@ -15,7 +15,7 @@
     },
     {
       "module_key": "peanut.identity",
-      "version": "4.0.0-rc.31"
+      "version": "4.0.0-rc.32"
     },
     {
       "module_key": "peanut.integration",
@@ -32,16 +32,29 @@
     {
       "module_key": "peanut.settings",
       "version": "^1.0"
+    },
+    {
+      "module_key": "peanut.task",
+      "version": "^1.0"
     }
   ],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\Payment\\ModuleProvider",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
-    "setting_definitions": "resources/setting-definitions.json"
+    "setting_definitions": "resources/setting-definitions.json",
+    "migrations": "database/migrations"
   },
   "frontend": {
-    "entry": "web/src/modules/peanut-payment/contribution.ts"
+    "entry": "web/src/modules/peanut-payment/contribution.ts",
+    "clients": {
+      "pc-web": {
+        "entry": "pc/modules/peanut-payment/contribution.ts"
+      },
+      "uniapp": {
+        "entry": "uniapp/src/modules/peanut-payment/contribution.ts"
+      }
+    }
   },
   "database": {
     "owned_tables": [
@@ -68,7 +81,10 @@
     "requires": [
       "peanut.file",
       "peanut.member",
-      "peanut.settings"
+      "peanut.settings",
+      "peanut.task",
+      "peanut.identity",
+      "peanut.integration"
     ]
   }
 }

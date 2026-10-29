@@ -1,4 +1,5 @@
 import { http } from '@/utils/request';
+import { pageAvailable } from '@/module-contributions';
 
 export type DecorationLinkType = 'shop' | 'article' | 'custom' | 'mini_program';
 
@@ -188,12 +189,20 @@ export function executeDecorationLink(link: DecorationLink | null | undefined) {
   };
   if (link.target_type === 'shop') {
     const url = routes[target];
+    if (url && !pageAvailable(url)) {
+      uni.showToast({ title: '此功能尚未安装', icon: 'none' });
+      return;
+    }
     if (url && ['home', 'news', 'profile'].includes(target))
       uni.reLaunch({ url });
     else if (url) uni.navigateTo({ url });
     return;
   }
   if (link.target_type === 'article') {
+    if (!pageAvailable('/pages/news_detail/news_detail')) {
+      uni.showToast({ title: '资讯功能尚未安装', icon: 'none' });
+      return;
+    }
     const id = encodeURIComponent(target);
     uni.navigateTo({ url: `/pages/news_detail/news_detail?id=${id}` });
     return;

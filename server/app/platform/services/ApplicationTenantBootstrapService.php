@@ -19,6 +19,7 @@ use PeanutAdmin\Modules\Settings\Contract\TenantSettingsQuery;
 use PeanutAdmin\Modules\Settings\Contract\TenantSettingsCommands;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationCommands;
+use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use think\DbManager;
 use think\db\PDOConnection;
 
@@ -32,7 +33,6 @@ final readonly class ApplicationTenantBootstrapService
         'pa_decorate_tabbar',
         'pa_decorate_tabbar_setting',
         'pa_external_channel_binding',
-        'pa_notice_scene',
         'pa_permission',
         'pa_role_permission',
         'pa_tenant_setting',
@@ -40,7 +40,6 @@ final readonly class ApplicationTenantBootstrapService
     ];
 
     public function __construct(
-        private NotificationBootstrapCommands $notifications,
         private TaskBootstrapCommands $tasks,
         private ExecutionContextStore $executionContexts,
         private TenantSettingsQuery $tenantSettings,
@@ -48,6 +47,8 @@ final readonly class ApplicationTenantBootstrapService
         private ExternalIntegrationBootstrapCommands $externalBindings,
         private TenantAuthorizationCommands $authorization,
         private DbManager $database,
+        private CompiledModuleRegistry $modules,
+        private ?NotificationBootstrapCommands $notifications = null,
     ) {}
 
     public function provision(int $tenantId, int $ownerMemberId, int $ownerRoleId, string $tenantCode): void
@@ -64,7 +65,7 @@ final readonly class ApplicationTenantBootstrapService
         $execution = new SystemExecutionContext(new TenantSystemContext(
             $tenantId,
             'platform.tenant-bootstrap',
-            'notification.provision-tenant-defaults',
+            'tenant.provision-application-defaults',
             $operationId,
         ));
         $this->executionContexts->run($execution, function () use (
@@ -75,7 +76,7 @@ final readonly class ApplicationTenantBootstrapService
             $tenantCode,
         ): void {
             $this->grantOwnerPermissions($tenantId, $ownerMemberId, $ownerRoleId);
-            $this->seedCrontab();
+            $this->seedCrontab($execution->system);
             $this->seedNoticeScenes($execution);
             $this->seedDecoration();
             $this->seedSettings($execution->system);
@@ -90,8 +91,12 @@ final readonly class ApplicationTenantBootstrapService
             throw new \DomainException('TENANT_APPLICATION_SCHEMA_DRIVER_UNSUPPORTED');
         }
         $available = array_fill_keys($connection->getTables(), true);
+        $expected = self::REQUIRED_TABLES;
+        if ($this->notifications !== null) {
+            $expected[] = 'pa_notice_scene';
+        }
         $tables = array_values(array_filter(
-            self::REQUIRED_TABLES,
+            $expected,
             static fn(string $table): bool => isset($available[$table]),
         ));
         if ($tables === []) {
@@ -99,7 +104,6 @@ final readonly class ApplicationTenantBootstrapService
             return false;
         }
         sort($tables, SORT_STRING);
-        $expected = self::REQUIRED_TABLES;
         sort($expected, SORT_STRING);
         if ($tables !== $expected) {
             throw new \DomainException('TENANT_APPLICATION_SCHEMA_INCOMPLETE');
@@ -123,7 +127,7 @@ final readonly class ApplicationTenantBootstrapService
         ));
     }
 
-    private function seedCrontab(): void
+    private function seedCrontab(TenantSystemContext $context): void
     {
         $defaults = [
             [
@@ -159,12 +163,30 @@ final readonly class ApplicationTenantBootstrapService
                 'update_time' => 0,
             ],
         ];
-        $this->tasks->seedDefaults($defaults);
+        if (!in_array('peanut.payment', $this->modules->moduleKeys(), true)) {
+            $defaults = array_values(array_filter(
+                $defaults,
+                static fn(array $row): bool => $row['command'] !== 'refund:reconcile',
+            ));
+        }
+        $this->tasks->seedDefaults($context, $defaults);
     }
 
     private function seedNoticeScenes(SystemExecutionContext $execution): void
     {
-        $this->notifications->provisionTenantDefaults($execution);
+        if ($this->notifications === null) {
+            return;
+        }
+        $notificationExecution = new SystemExecutionContext(new TenantSystemContext(
+            $execution->system->tenantId,
+            'platform.tenant-bootstrap',
+            'notification.provision-tenant-defaults',
+            $execution->requestId(),
+        ));
+        $this->executionContexts->run(
+            $notificationExecution,
+            fn() => $this->notifications->provisionTenantDefaults($notificationExecution),
+        );
     }
 
     private function seedDecoration(): void
@@ -285,7 +307,12 @@ final readonly class ApplicationTenantBootstrapService
             $this->executionContexts->require()->requestId(),
         ));
         $this->executionContexts->run($execution, function () use ($tenantId, $tenantCode): void {
+            $selected = $this->modules->moduleKeys();
             foreach (ExternalIntegrationBootstrapCommands::DEFAULT_PROVIDERS as $provider) {
+                $moduleKey = str_starts_with($provider, 'payment.') ? 'peanut.payment' : 'peanut.oauth';
+                if (!in_array($moduleKey, $selected, true)) {
+                    continue;
+                }
                 $this->externalBindings->ensureUnconfiguredBinding($tenantId, $tenantCode, $provider);
             }
         });

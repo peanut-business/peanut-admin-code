@@ -2,17 +2,18 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, loadEnv } from 'vite';
 import uni from '@dcloudio/vite-plugin-uni';
+import { prepareModulePages } from './scripts/module-pages.mjs';
 
 const configDir = dirname(fileURLToPath(import.meta.url));
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(async ({ mode, command }) => {
   const environment = loadEnv(mode, configDir, '');
   const apiProxyTarget =
     environment.VITE_API_PROXY_TARGET || 'http://127.0.0.1:20180';
   return {
     base: '/mobile/',
-    plugins: [uni()],
+    plugins: [await prepareModulePages({ mode, command }), uni()],
     define: {
       'import.meta.env.VITE_APP_BASE_URL': JSON.stringify(
         environment.VITE_APP_BASE_URL || ''

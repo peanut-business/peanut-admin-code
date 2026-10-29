@@ -3,7 +3,7 @@
   "key": "peanut.reference-codes",
   "name": "Reference Codes",
   "description": "Tenant dictionaries, deployment reference values and versioned reference-code definitions.",
-  "version": "1.0.21",
+  "version": "1.0.22",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/peanut-reference-codes",
@@ -11,14 +11,15 @@
   "dependencies": [
     {
       "module_key": "peanut.identity",
-      "version": "4.0.0-rc.31"
+      "version": "4.0.0-rc.32"
     }
   ],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\ReferenceCodes\\ModuleProvider",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
-    "reference_code_sets": "resources/reference-code-sets.json"
+    "reference_code_sets": "resources/reference-code-sets.json",
+    "migrations": "database/migrations"
   },
   "frontend": {
     "entry": "web/src/modules/peanut-reference-codes/contribution.ts"
@@ -46,6 +47,8 @@
   "tenant": {
     "enableable": true,
     "disable_behavior": "reject_new_operations",
-    "requires": []
+    "requires": [
+      "peanut.identity"
+    ]
   }
 }

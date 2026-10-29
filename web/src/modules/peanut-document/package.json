@@ -8,5 +8,8 @@
     ".": "./contribution.ts",
     "./editor": "./src/editor.ts",
     "./viewer": "./src/viewer.ts"
+  },
+  "dependencies": {
+    "yjs": "13.6.32"
   }
 }

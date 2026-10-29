@@ -37,13 +37,8 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "2.3.2",
-    "@hocuspocus/provider": "4.6.0",
     "@peanut-admin/ui-vue": "5.0.2",
     "@peanut-admin/vue": "5.0.2",
-    "@tiptap/core": "3.30.5",
-    "@tiptap/extension-collaboration": "3.30.5",
-    "@tiptap/pm": "3.30.5",
-    "@tiptap/starter-kit": "3.30.5",
     "@vueuse/core": "^9.3.0",
     "axios": "0.34.0",
     "dayjs": "^1.11.5",
@@ -60,9 +55,7 @@
     "vue": "^3.3.0",
     "vue-echarts": "8.3.0",
     "vue-i18n": "^9.2.2",
-    "vue-router": "^4.0.14",
-    "yjs": "13.6.32",
-    "@vue-flow/core": "1.48.2"
+    "vue-router": "^4.0.14"
   },
   "devDependencies": {
     "@commitlint/cli": "^17.1.2",

@@ -64,6 +64,9 @@ final readonly class PluginArtifactWriter
         $plugins = [];
         foreach ($manifests as $manifestPath) {
             $manifest = $this->readJson($manifestPath);
+            if (str_starts_with((string) ($manifest['key'] ?? ''), 'fixture.')) {
+                continue;
+            }
             if ($this->validateJsonSchema) {
                 $this->assertSchema($manifest);
             }

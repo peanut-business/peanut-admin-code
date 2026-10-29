@@ -1,8 +1,27 @@
-import type { PluginFrontendContribution } from '@peanut-admin/vue';
+import type { ModuleFrontendContribution } from '@/module-contributions';
 import { DEFAULT_LAYOUT } from '@/router/routes/base';
 
-const contribution: PluginFrontendContribution = {
+import localeMemberListEn from './views/list/locale/en-US';
+import localeMemberTagEn from './views/tag/locale/en-US';
+import localeFinanceAccountLogEn from './views/account-log/locale/en-US';
+import localeMemberListCn from './views/list/locale/zh-CN';
+import localeMemberTagCn from './views/tag/locale/zh-CN';
+import localeFinanceAccountLogCn from './views/account-log/locale/zh-CN';
+
+const contribution: ModuleFrontendContribution = {
   moduleKey: 'peanut.member',
+  locales: {
+    'en-US': {
+      ...localeMemberListEn,
+      ...localeMemberTagEn,
+      ...localeFinanceAccountLogEn,
+    },
+    'zh-CN': {
+      ...localeMemberListCn,
+      ...localeMemberTagCn,
+      ...localeFinanceAccountLogCn,
+    },
+  },
   routes: [
     {
       path: '/member',

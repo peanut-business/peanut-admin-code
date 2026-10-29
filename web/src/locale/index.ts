@@ -1,6 +1,15 @@
 import { createI18n } from 'vue-i18n';
 import en from './en-US';
 import cn from './zh-CN';
+import contributions from 'virtual:peanut-plugin-contributions';
+
+function moduleMessages(locale: 'en-US' | 'zh-CN'): Record<string, string> {
+  const messages: Record<string, string> = {};
+  contributions.forEach((contribution) => {
+    Object.assign(messages, contribution.locales?.[locale]);
+  });
+  return messages;
+}
 
 export const LOCALE_OPTIONS = [
   { label: '中文', value: 'zh-CN' },
@@ -14,8 +23,8 @@ const i18n = createI18n({
   legacy: false,
   allowComposition: true,
   messages: {
-    'en-US': en,
-    'zh-CN': cn,
+    'en-US': { ...en, ...moduleMessages('en-US') },
+    'zh-CN': { ...cn, ...moduleMessages('zh-CN') },
   },
 });
 

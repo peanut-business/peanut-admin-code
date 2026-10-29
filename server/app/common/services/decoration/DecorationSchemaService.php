@@ -39,7 +39,7 @@ class DecorationSchemaService
         int $type,
         mixed $data,
         mixed $meta,
-        ArticleQueries $articles,
+        ?ArticleQueries $articles,
     ): void {
         if (!in_array($type, DecorationEnum::ALL_TYPES, true)) {
             throw new \RuntimeException('装修页面类型无效');
@@ -62,7 +62,7 @@ class DecorationSchemaService
         object $context,
         array $style,
         array $items,
-        ArticleQueries $articles,
+        ?ArticleQueries $articles,
     ): void {
         self::color((string) ($style['default_color'] ?? ''), 'Tabbar 默认颜色');
         self::color((string) ($style['selected_color'] ?? ''), 'Tabbar 选中颜色');
@@ -117,7 +117,7 @@ class DecorationSchemaService
         object $context,
         mixed $link,
         bool $pcTarget,
-        ArticleQueries $articles,
+        ?ArticleQueries $articles,
     ): void {
         if (!is_array($link)) {
             throw new \RuntimeException('装修链接格式无效');
@@ -134,7 +134,7 @@ class DecorationSchemaService
             $articleId = filter_var($target, FILTER_VALIDATE_INT);
             if ($articleId === false || $articleId <= 0
                 || !$context instanceof \PeanutAdmin\Kernel\Auth\TenantContext
-                || !$articles->visible($context, $articleId)) {
+                || $articles === null || !$articles->visible($context, $articleId)) {
                 throw new \RuntimeException('文章链接必须指向存在且可见的文章');
             }
         }
@@ -161,7 +161,7 @@ class DecorationSchemaService
         object $context,
         int $type,
         array $components,
-        ArticleQueries $articles,
+        ?ArticleQueries $articles,
     ): void {
         $expected = self::COMPONENTS[$type];
         $names = array_map(static fn($item) => is_array($item) ? (string) ($item['name'] ?? '') : '', $components);
@@ -202,7 +202,7 @@ class DecorationSchemaService
         object $context,
         string $name,
         array $content,
-        ArticleQueries $articles,
+        ?ArticleQueries $articles,
     ): void {
         if (in_array($name, self::FIXED_COMPONENTS, true)) {
             if ($content !== []) {
@@ -267,7 +267,7 @@ class DecorationSchemaService
         int $max,
         bool $showAllowed,
         bool $pcTarget,
-        ArticleQueries $articles,
+        ?ArticleQueries $articles,
     ): void {
         if (!is_array($items) || count($items) < $min || count($items) > $max) {
             throw new \RuntimeException("装修组件条目必须为 {$min}～{$max} 项");

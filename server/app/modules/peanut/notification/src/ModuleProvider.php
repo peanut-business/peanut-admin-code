@@ -18,6 +18,9 @@ use PeanutAdmin\Modules\Notification\Contract\NotificationCommands;
 use PeanutAdmin\Modules\Notification\Contract\NotificationQueries;
 use PeanutAdmin\Modules\Notification\Contract\VerificationCodeCommands;
 use PeanutAdmin\Kernel\Module\ModuleProvider as ModuleProviderContract;
+use PeanutAdmin\Kernel\Module\TenantModuleEnableHook;
+use PeanutAdmin\Kernel\Context\TenantSystemContext;
+use app\common\execution\SystemExecutionContext;
 use PeanutAdmin\Modules\Notification\Contract\NoticeSmsSender;
 use PeanutAdmin\Modules\Notification\Delivery\Application\RecipientResolver;
 use PeanutAdmin\Modules\Notification\Delivery\Identity\TenantMemberRecipientResolver;
@@ -36,8 +39,26 @@ use PeanutAdmin\Modules\Task\Contract\TaskWorkerContributor;
 use think\App;
 use think\facade\Config;
 
-final class ModuleProvider implements ModuleProviderContract, TaskWorkerContributor
+final class ModuleProvider implements ModuleProviderContract, TaskWorkerContributor, TenantModuleEnableHook
 {
+    public function __construct(private readonly App $app) {}
+
+    public function enable(int $tenantId, array $config): void
+    {
+        $execution = new SystemExecutionContext(new TenantSystemContext(
+            $tenantId,
+            'module.notification',
+            'notification.provision-tenant-defaults',
+            'module-enable:peanut.notification:' . $tenantId,
+        ));
+        $this->app->make(NotificationBootstrapCommands::class)->provisionTenantDefaults($execution);
+    }
+
+    public function disable(int $tenantId): void
+    {
+        // Disabling preserves tenant scene configuration.
+    }
+
     public function moduleKey(): string
     {
         return 'peanut.notification';

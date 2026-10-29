@@ -1,8 +1,27 @@
-import type { PluginFrontendContribution } from '@peanut-admin/vue';
+import type { ModuleFrontendContribution } from '@/module-contributions';
 import { DEFAULT_LAYOUT } from '@/router/routes/base';
 
-const contribution: PluginFrontendContribution = {
+import localeFinanceRechargeEn from './views/recharge/locale/en-US';
+import localeFinanceRefundEn from './views/refund/locale/en-US';
+import localeAppPayEn from './views/settings/locale/en-US';
+import localeFinanceRechargeCn from './views/recharge/locale/zh-CN';
+import localeFinanceRefundCn from './views/refund/locale/zh-CN';
+import localeAppPayCn from './views/settings/locale/zh-CN';
+
+const contribution: ModuleFrontendContribution = {
   moduleKey: 'peanut.payment',
+  locales: {
+    'en-US': {
+      ...localeFinanceRechargeEn,
+      ...localeFinanceRefundEn,
+      ...localeAppPayEn,
+    },
+    'zh-CN': {
+      ...localeFinanceRechargeCn,
+      ...localeFinanceRefundCn,
+      ...localeAppPayCn,
+    },
+  },
   routes: [
     {
       path: '/app-setting',

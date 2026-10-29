@@ -7,8 +7,55 @@ namespace app\common\infrastructure\scaffold;
 use app\common\value\scaffold\EditionProfile;
 use RuntimeException;
 
+require_once dirname(__DIR__, 4) . '/database/InitialInstallationSource.php';
+
 final class EditionProjector
 {
+    /** Project the same default Module set before Plugin lock and API generation. */
+    public function modules(string $stage, array $files): array
+    {
+        $database = \InitialInstallationSource::project($stage . '/server', \InitialInstallationSource::MODULES);
+        $result = [];
+        foreach ($files as $file) {
+            $path = $file['path'];
+            $module = null;
+            if (preg_match('#^server/app/modules/peanut/([^/]+)/#', $path, $match) === 1) {
+                $module = str_replace('_', '-', $match[1]);
+            } elseif (preg_match('#^(?:(?:web|platform|uniapp)/src/modules/peanut-|pc/modules/peanut-)([^/]+)/#', $path, $match) === 1) {
+                $module = $match[1];
+            } elseif (preg_match('#^plugins/peanut\.([^/]+)/#', $path, $match) === 1) {
+                $module = $match[1];
+            }
+            $absolute = $stage . '/' . $path;
+            if ($module !== null && !in_array('peanut.' . $module, \InitialInstallationSource::MODULES, true)) {
+                if (!unlink($absolute)) {
+                    throw new RuntimeException('CREATE_APP_MODULE_REMOVE_FAILED: ' . $path);
+                }
+                continue;
+            }
+            $content = (string) file_get_contents($absolute);
+            if (str_starts_with($path, 'server/database/')) {
+                $content = $database[substr($path, strlen('server/database/'))] ?? $content;
+            }
+            if ($path === 'server/composer.json') {
+                $composer = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
+                foreach ($composer['autoload']['psr-4'] as $namespace => $directory) {
+                    if (is_string($directory) && preg_match('#^app/modules/peanut/([^/]+)/#', $directory, $match) === 1
+                        && !in_array('peanut.' . str_replace('_', '-', $match[1]), \InitialInstallationSource::MODULES, true)) {
+                        unset($composer['autoload']['psr-4'][$namespace]);
+                    }
+                }
+                $content = self::json($composer);
+            }
+            if ($content !== file_get_contents($absolute)) {
+                $this->writeFile($absolute, $content, $file['mode']);
+                $file['sha256'] = hash('sha256', $content);
+            }
+            $result[] = $file;
+        }
+        return $result;
+    }
+
     /** Final bytes are projected before the canonical Plugin writer and API inventory. */
     public function workflow(string $stage, array $files, string $mode): array
     {

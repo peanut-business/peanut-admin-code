@@ -18,11 +18,11 @@ use PeanutAdmin\Kernel\Module\ModuleException;
 class DecorationPageApplicationService
 {
     public function __construct(
-        private readonly ArticleQueries $articles,
         private readonly DecorationReadService $decoration,
         private readonly DecorationSchemaService $schema,
         private readonly ProductAssetReferenceService $assets,
         private readonly ModuleExecutionBoundary $modules,
+        private readonly ?ArticleQueries $articles = null,
     ) {}
 
     public function lists(TenantContext $context, array $allowedTypes): array
@@ -88,7 +88,7 @@ class DecorationPageApplicationService
         } catch (ModuleException) {
             return [];
         }
-        $rows = $this->articles->options($context, $limit);
+        $rows = ($this->articles ?? throw new \DomainException('ARTICLE_MODULE_UNAVAILABLE'))->options($context, $limit);
         foreach ($rows as &$row) {
             $row['image'] = $this->assets->forRead((string) ($row['image'] ?? ''));
         }

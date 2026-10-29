@@ -1,5 +1,5 @@
 import type { Component } from 'vue';
-import type { PluginFrontendContribution } from '@peanut-admin/vue';
+import type { ModuleFrontendContribution } from '@/module-contributions';
 
 export type ContentKind = 'rich_text' | 'file_resource';
 export type SurfaceIntent = 'view' | 'edit';
@@ -98,7 +98,7 @@ export interface SurfaceAdapterRegistration {
   unavailableReason: string | null;
   component: Component;
 }
-export interface ContentToolsContribution extends PluginFrontendContribution {
+export interface ContentToolsContribution extends ModuleFrontendContribution {
   contentAdapters?: readonly SurfaceAdapterRegistration[];
 }
 export interface ContentCollaborationBinding {

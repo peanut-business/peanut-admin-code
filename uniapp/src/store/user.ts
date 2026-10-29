@@ -1,7 +1,22 @@
 import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
-import type { LoginResult } from '@/api/account';
-import type { UserCenter, UserInfo } from '@/api/user';
+
+interface SessionIdentity {
+  id?: number;
+  sn?: string;
+  nickname?: string;
+  avatar?: string;
+  mobile?: string;
+}
+
+interface SessionLogin {
+  token: string;
+  id: number;
+  sn: string;
+  nickname: string;
+  avatar: string;
+  mobile: string;
+}
 
 const STORAGE_KEY = 'user_store';
 
@@ -12,7 +27,9 @@ export const useUserStore = defineStore('user', () => {
 
   const token = ref<string>(initial.token || '');
   const sessionGeneration = ref(0);
-  const userInfo = ref<Partial<UserCenter & UserInfo>>(initial.userInfo || {});
+  const userInfo = ref<SessionIdentity & Record<string, unknown>>(
+    initial.userInfo || {}
+  );
 
   const isLoggedIn = computed(() => !!token.value);
 
@@ -37,11 +54,11 @@ export const useUserStore = defineStore('user', () => {
     return true;
   }
 
-  function setUserInfo(info: Partial<UserCenter & UserInfo>) {
+  function setUserInfo(info: SessionIdentity) {
     userInfo.value = { ...userInfo.value, ...info };
   }
 
-  function login(data: LoginResult) {
+  function login(data: SessionLogin) {
     setToken(data.token);
     userInfo.value = {
       id: data.id,

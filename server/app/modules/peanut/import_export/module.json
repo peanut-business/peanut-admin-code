@@ -3,7 +3,7 @@
   "key": "peanut.import-export",
   "name": "Import and Export",
   "description": "Tenant-private import and export operations, jobs and result files.",
-  "version": "1.0.22",
+  "version": "1.0.23",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/peanut-import-export",
@@ -27,14 +27,15 @@
     },
     {
       "module_key": "peanut.identity",
-      "version": "4.0.0-rc.31"
+      "version": "4.0.0-rc.32"
     }
   ],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\ImportExport\\ModuleProvider",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
-    "setting_definitions": "resources/setting-definitions.json"
+    "setting_definitions": "resources/setting-definitions.json",
+    "migrations": "database/migrations"
   },
   "frontend": {
     "entry": "web/src/modules/peanut-import-export/contribution.ts"
@@ -70,7 +71,8 @@
       "peanut.file",
       "peanut.task",
       "peanut.settings",
-      "peanut.integration"
+      "peanut.integration",
+      "peanut.identity"
     ]
   }
 }

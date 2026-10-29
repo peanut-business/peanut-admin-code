@@ -201,7 +201,9 @@ final class ApplicationCreator
             if ($this->projectEdition && !$candidate) {
                 $files = $this->projectEdition($stage, $inventory, $files, $editionProfile);
             }
-            $files = (new EditionProjector())->workflow($stage, $files, $workflow);
+            $projector = new EditionProjector();
+            $files = $projector->modules($stage, $files);
+            $files = $projector->workflow($stage, $files, $workflow);
             $files = $this->rebuildBundledPluginArtifacts($stage, $files);
             if ($adoptsEdition) {
                 $this->assertAdoptionEquivalent($stage, $adoption, $parameters, $files);

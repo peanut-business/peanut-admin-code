@@ -1,8 +1,15 @@
-import type { PluginFrontendContribution } from '@peanut-admin/vue';
+import type { ModuleFrontendContribution } from '@/module-contributions';
 import { DEFAULT_LAYOUT } from '@/router/routes/base';
 
-const contribution: PluginFrontendContribution = {
+import localeConfigurationTransferEn from './views/locale/en-US';
+import localeConfigurationTransferCn from './views/locale/zh-CN';
+
+const contribution: ModuleFrontendContribution = {
   moduleKey: 'peanut.import-export',
+  locales: {
+    'en-US': { ...localeConfigurationTransferEn },
+    'zh-CN': { ...localeConfigurationTransferCn },
+  },
   routes: [
     {
       path: '/system/configuration-transfer',

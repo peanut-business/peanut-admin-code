@@ -1,8 +1,15 @@
-import type { PluginFrontendContribution } from '@peanut-admin/vue';
+import type { ModuleFrontendContribution } from '@/module-contributions';
 import { DEFAULT_LAYOUT } from '@/router/routes/base';
 
-const contribution: PluginFrontendContribution = {
+import localeAppChannelEn from './views/channel/locale/en-US';
+import localeAppChannelCn from './views/channel/locale/zh-CN';
+
+const contribution: ModuleFrontendContribution = {
   moduleKey: 'peanut.oauth',
+  locales: {
+    'en-US': { ...localeAppChannelEn },
+    'zh-CN': { ...localeAppChannelCn },
+  },
   routes: [
     {
       path: '/app-setting',

@@ -1,6 +1,6 @@
 {
   "name": "peanut-business/peanut-article",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "type": "peanut-admin-module",
   "license": "Apache-2.0",
   "autoload": {
@@ -14,5 +14,10 @@
         "multi-tenant"
       ]
     }
+  },
+  "require": {
+    "peanut-business/peanut-identity": "4.0.0-rc.32",
+    "peanut-business/peanut-document": "^1.0",
+    "peanut-business/peanut-member": "^1.0"
   }
 }

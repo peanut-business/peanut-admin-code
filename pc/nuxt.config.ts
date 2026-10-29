@@ -1,6 +1,7 @@
 import defaultBrand from './generated/brand.json';
 import { resolve } from 'node:path';
 import { extendRouteRules, useNitro } from '@nuxt/kit';
+import { moduleFrontendEntries } from '../scripts/module-frontend-entries.mjs';
 import {
   createPcRenderingOptions,
   createPcPageRules,
@@ -11,6 +12,11 @@ const devProxyOrigin =
 const devProxyTarget =
   process.env.NUXT_DEV_PROXY_TARGET || `${devProxyOrigin}/api`;
 const rendering = createPcRenderingOptions(process.env.NUXT_PC_RENDER_MODE);
+const moduleEntries = moduleFrontendEntries(
+  resolve(import.meta.dirname, '..'),
+  'pc-web',
+  process.env.NODE_ENV === 'development'
+);
 
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
@@ -48,7 +54,22 @@ export default defineNuxtConfig({
     },
   },
 
-  modules: ['@element-plus/nuxt', '@pinia/nuxt', '@nuxtjs/tailwindcss'],
+  modules: [
+    '@element-plus/nuxt',
+    '@pinia/nuxt',
+    '@nuxtjs/tailwindcss',
+    ...moduleEntries,
+  ],
+
+  appConfig: {
+    moduleSlots: {} as Record<string, string>,
+    moduleKeys: moduleEntries.map((entry: string) => {
+      const directory = entry.slice(0, entry.lastIndexOf('/'));
+      return directory
+        .slice(directory.lastIndexOf('/') + 1)
+        .replace('peanut-', 'peanut.');
+    }),
+  },
 
   elementPlus: {
     importStyle: 'css',

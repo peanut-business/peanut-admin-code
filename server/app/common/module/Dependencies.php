@@ -198,27 +198,38 @@ final readonly class Dependencies
         return ['status' => 'dependencies-installed', 'operations' => $operations, 'optional_modules' => $optional, 'optional_packages' => $optionalPackages, 'frontend_adoption' => $frontend];
     }
 
-    /** Only admin-web currently consumes locked Module contributions in its real build entry. */
+    /** Build the clients whose native entries consume the selected Module contributions. */
     private function adoptFrontend(array $clients): array
     {
         if ($clients === []) { return []; }
-        if (array_diff($clients, ['web']) !== []) {
-            throw new PluginPackageException('MODULE_FRONTEND_ADOPTION_REQUIRED', 'Required platform/PC/UniApp Module contribution assembly is not connected; dependencies alone do not make these clients usable.',
+        if (array_diff($clients, ['web', 'pc', 'uniapp']) !== []) {
+            throw new PluginPackageException('MODULE_FRONTEND_ADOPTION_REQUIRED', 'The required client has no Module contribution reader.',
                 details: ['pending_actions' => ['frontend_module_assembly', 'frontend_build', 'frontend_adoption']]);
         }
         $edition = (string) app()->config->get('deployment.mode', '');
         if (!in_array($edition, ['standalone', 'multi-tenant'], true)) {
             throw new PluginPackageException('MODULE_FRONTEND_EDITION_REQUIRED', 'The application deployment Edition is required for the native admin build.');
         }
-        $target = $this->serverRoot . '/public/admin';
-        if (is_link($this->serverRoot . '/public') || is_link($target) || (file_exists($target) && !is_dir($target))) {
-            throw new PluginPackageException('MODULE_FRONTEND_TARGET_INVALID', 'The application admin static destination must be an ordinary directory.');
+        $results = [];
+        foreach ($clients as $client) {
+            if ($client === 'web') {
+                $target = $this->serverRoot . '/public/admin';
+                if (is_link($this->serverRoot . '/public') || is_link($target) || (file_exists($target) && !is_dir($target))) {
+                    throw new PluginPackageException('MODULE_FRONTEND_TARGET_INVALID', 'The application admin static destination must be an ordinary directory.');
+                }
+            }
+            [$key, $command, $entry] = match ($client) {
+                'web' => ['admin-web', ['pnpm', 'run', 'build', '--mode', $edition, '--outDir', '../server/public/admin', '--emptyOutDir'], 'server/public/admin/index.html'],
+                'pc' => ['pc-web', ['npm', 'run', 'build'], 'pc/.output/server/index.mjs'],
+                'uniapp' => ['uniapp', ['npm', 'run', 'build:h5'], 'uniapp/dist/build/h5/index.html'],
+            };
+            $result = $this->run($command, dirname($this->serverRoot) . '/' . $client);
+            if (!is_file(dirname($this->serverRoot) . '/' . $entry)) {
+                throw new PluginPackageException('MODULE_FRONTEND_ADOPTION_REQUIRED', "The native {$key} build did not produce its application entry.");
+            }
+            $results[$key] = $result + [($client === 'web' ? 'static_entry' : 'runtime_entry') => $entry];
         }
-        $result = $this->run(['pnpm', 'run', 'build', '--mode', $edition, '--outDir', '../server/public/admin', '--emptyOutDir'], dirname($this->serverRoot) . '/web');
-        if (!is_file($target . '/index.html')) {
-            throw new PluginPackageException('MODULE_FRONTEND_ADOPTION_REQUIRED', 'The native admin build did not produce its application static entry.');
-        }
-        return ['admin-web' => $result + ['static_entry' => 'server/public/admin/index.html']];
+        return $results;
     }
 
     /** Composer ran in a child process; this invocation must see its newly installed package mappings. */

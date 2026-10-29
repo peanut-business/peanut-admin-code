@@ -1,8 +1,27 @@
-import type { PluginFrontendContribution } from '@peanut-admin/vue';
+import type { ModuleFrontendContribution } from '@/module-contributions';
 import { DEFAULT_LAYOUT } from '@/router/routes/base';
 
-const contribution: PluginFrontendContribution = {
+import localeNoticeChannelEn from './views/channel/locale/en-US';
+import localeNoticeTemplateEn from './views/template/locale/en-US';
+import localeNoticeLogEn from './views/log/locale/en-US';
+import localeNoticeChannelCn from './views/channel/locale/zh-CN';
+import localeNoticeTemplateCn from './views/template/locale/zh-CN';
+import localeNoticeLogCn from './views/log/locale/zh-CN';
+
+const contribution: ModuleFrontendContribution = {
   moduleKey: 'peanut.notification',
+  locales: {
+    'en-US': {
+      ...localeNoticeChannelEn,
+      ...localeNoticeTemplateEn,
+      ...localeNoticeLogEn,
+    },
+    'zh-CN': {
+      ...localeNoticeChannelCn,
+      ...localeNoticeTemplateCn,
+      ...localeNoticeLogCn,
+    },
+  },
   routes: [
     {
       path: '/notice',

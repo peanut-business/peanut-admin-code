@@ -341,7 +341,7 @@ final class InstallationExecutionHost
             $this->writeProgressMarker($moduleKeys);
             $stage = 'fresh_database';
             try {
-                $migration = \installFreshDatabase($this->serverRoot, $credentials);
+                $migration = \installFreshDatabase($this->serverRoot, $credentials, $moduleKeys);
                 $completion = $this->completeInitializedInstallation($moduleKeys, $stage);
 
                 return [
@@ -455,7 +455,7 @@ final class InstallationExecutionHost
                 422,
             );
         }
-        $modules = $input['official_modules'] ?? array_column($this->officialModules(), 'key');
+        $modules = $input['official_modules'] ?? array_column(array_filter($this->officialModules(), static fn(array $module): bool => $module['default']), 'key');
         if (!is_array($modules)
             || !array_is_list($modules)
             || array_filter($modules, static fn(mixed $key): bool => !is_string($key)) !== []) {
@@ -530,7 +530,7 @@ final class InstallationExecutionHost
                     'label' => (string) ($manifest->data['name'] ?? substr($key, strlen('official.'))),
                     'description' => (string) ($manifest->data['description'] ?? ''),
                     'required' => $required,
-                    'default' => true,
+                    'default' => in_array($key, \InitialInstallationSource::MODULES, true),
                 ];
             }
         }

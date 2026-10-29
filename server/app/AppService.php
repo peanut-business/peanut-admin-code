@@ -13,8 +13,6 @@ use app\adminapi\services\AdminLoginAttemptService;
 use app\adminapi\services\OperationLogService;
 use app\adminapi\infrastructure\generator\GeneratorImportPersistence;
 use app\api\services\IndexApplicationService;
-use app\api\services\LoginApplicationService as MemberLoginApplicationService;
-use app\api\services\UserTokenService;
 use PeanutAdmin\Modules\Article\Contract\PublicArticleQueries;
 use app\common\composition\ModuleComposition;
 use app\common\contract\AdminPermissionPolicy;
@@ -311,11 +309,6 @@ class AppService extends Service
             (int) Config::get('admin_auth.password_error_times', 5),
             (int) Config::get('admin_auth.lock_minutes', 30),
         ));
-        $this->app->bind(UserTokenService::class, fn(): UserTokenService => new UserTokenService(
-            (string) Config::get('jwt.secret', ''),
-            (int) Config::get('jwt.expire', 0),
-            $this->app->make(\PeanutAdmin\Modules\Member\Contract\MemberSessions::class),
-        ));
     }
 
     /** Wires current native Admin authorization services to their exact constructor contracts. */
@@ -547,32 +540,32 @@ class AppService extends Service
             $this->app->make(PlatformPermissionChecker::class),
             $this->app->make(RuntimeStatusProvider::class),
         ));
-        $this->app->bind(PlatformProviderQualificationService::class, fn(): PlatformProviderQualificationService =>
-            new PlatformProviderQualificationService(
-                $this->app->make(PlatformPermissionChecker::class),
-                [
-                    new PaymentQualificationContributor(
-                        $this->platformIdentifierHmacKey(),
-                        $this->app->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
-                        $this->app->make(\PeanutAdmin\Modules\Integration\Contract\ExternalBindingQualificationQueries::class),
-                    ),
-                    new NotificationQualificationContributor(
-                        $this->platformIdentifierHmacKey(),
-                        $this->app->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
-                        $this->app->make(\PeanutAdmin\Modules\Integration\Contract\ExternalBindingQualificationQueries::class),
-                    ),
-                    new OauthQualificationContributor(
-                        $this->platformIdentifierHmacKey(),
-                        $this->app->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
-                        $this->app->make(\PeanutAdmin\Modules\Integration\Contract\ExternalBindingQualificationQueries::class),
-                    ),
-                    new StorageQualificationContributor(
-                        $this->platformIdentifierHmacKey(),
-                        $this->app->make(\PeanutAdmin\Modules\File\Contract\StorageQualificationQueries::class),
-                    ),
-                ],
+        $this->app->bind(PlatformProviderQualificationService::class, function (): PlatformProviderQualificationService {
+            $contributors = [new StorageQualificationContributor(
                 $this->platformIdentifierHmacKey(),
-            ));
+                $this->app->make(\PeanutAdmin\Modules\File\Contract\StorageQualificationQueries::class),
+            )];
+            $providerContributors = [
+                'peanut.payment' => PaymentQualificationContributor::class,
+                'peanut.notification' => NotificationQualificationContributor::class,
+                'peanut.oauth' => OauthQualificationContributor::class,
+            ];
+            foreach ($this->app->make(CompiledModuleRegistry::class)->modules as $manifest) {
+                $contributor = $providerContributors[$manifest->data['key']] ?? null;
+                if ($contributor !== null) {
+                    $contributors[] = new $contributor(
+                        $this->platformIdentifierHmacKey(),
+                        $this->app->make(AdminDirectoryQuery::class),
+                        $this->app->make(\PeanutAdmin\Modules\Integration\Contract\ExternalBindingQualificationQueries::class),
+                    );
+                }
+            }
+            return new PlatformProviderQualificationService(
+                $this->app->make(PlatformPermissionChecker::class),
+                $contributors,
+                $this->platformIdentifierHmacKey(),
+            );
+        });
         $this->app->bind(PlatformDiagnosticBundleService::class, function (): PlatformDiagnosticBundleService {
             $permissions = $this->app->make(PlatformPermissionChecker::class);
             return new PlatformDiagnosticBundleService(
@@ -670,7 +663,6 @@ class AppService extends Service
         $this->app->bind(IndexApplicationService::class, fn(): IndexApplicationService => new IndexApplicationService(
             $this->app->make(TenantIdentityQuery::class),
             $this->app->make(\PeanutAdmin\Modules\Settings\Contract\TenantApplicationSettings::class),
-            $this->app->make(PublicArticleQueries::class),
             $this->app->make(\app\common\services\RichTextResourceService::class),
             $this->app->make(\app\common\services\decoration\DecorationReadService::class),
             $this->app->make(\PeanutAdmin\Modules\Settings\Service\WebsiteConfigService::class),
@@ -683,14 +675,7 @@ class AppService extends Service
                 'tenant_b_email' => (string) Config::get('peanut.demo.tenant_b_email', ''),
                 'password' => (string) Config::get('peanut.demo.shared_password', ''),
             ],
-        ));
-        $this->app->bind(MemberLoginApplicationService::class, fn(): MemberLoginApplicationService => new MemberLoginApplicationService(
-            $this->app->make(\PeanutAdmin\Modules\Member\Contract\MemberIdentityCommands::class),
-            $this->app->make(\PeanutAdmin\Modules\Notification\Contract\VerificationCodeCommands::class),
-            $this->app->make(\PeanutAdmin\Modules\Settings\Contract\TenantApplicationSettings::class),
-            $this->app->make(FileService::class),
-            $this->app->make(UserTokenService::class),
-            (string) Config::get('project.default_image.user_avatar', ''),
+            $this->app->bound(PublicArticleQueries::class) ? $this->app->make(PublicArticleQueries::class) : null,
         ));
     }
 
@@ -764,6 +749,22 @@ class AppService extends Service
         }
         $this->app->instance(CompiledModuleRegistry::class, $registry);
         $this->app->make(ModuleComposition::class)->register($registry);
+        $moduleCommands = [
+            'peanut.workflow' => ['workflow:install-managed' => \app\command\WorkflowInstallManaged::class],
+            'peanut.import-export' => ['import-export:expire' => \PeanutAdmin\Modules\ImportExport\Console\ExpireOperationsCommand::class],
+            'peanut.payment' => ['refund:reconcile' => \app\command\RefundReconcile::class],
+        ];
+        $commands = (array) Config::get('console.commands', []);
+        $owners = (array) Config::get('console.module_commands', []);
+        foreach ($registry->modules as $manifest) {
+            foreach ($moduleCommands[$manifest->data['key']] ?? [] as $name => $command) {
+                $commands[$name] = $command;
+                if ($name === 'refund:reconcile') {
+                    $owners[$name] = $manifest->data['key'];
+                }
+            }
+        }
+        Config::set(['commands' => $commands, 'module_commands' => $owners], 'console');
     }
 
     /** @return array<string,mixed> */

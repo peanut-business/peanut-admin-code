@@ -23,6 +23,7 @@
             >首页</NuxtLink
           >
           <NuxtLink
+            v-if="useModuleAvailable('peanut.article')"
             to="/information"
             class="text-gray-600 hover:text-primary transition-colors"
             >资讯</NuxtLink
@@ -35,10 +36,7 @@
         </nav>
 
         <ClientOnly>
-          <MemberNavigation />
-          <template #fallback>
-            <NuxtLink to="/login" class="text-primary">登录</NuxtLink>
-          </template>
+          <ModuleSlot name="member-navigation" />
         </ClientOnly>
       </div>
     </header>

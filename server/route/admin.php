@@ -177,6 +177,8 @@ Route::group(function () {
     Route::get('decoration/pc/page/lists', [DecorationPageController::class, 'pcLists']);
     Route::get('decoration/pc/page/detail', [DecorationPageController::class, 'pcDetail']);
     Route::post('decoration/pc/page/save', [DecorationPageController::class, 'pcSave']);
-    Route::get('decoration/mobile/article', [DecorationPageController::class, 'article']);
+    if (app()->bound(\PeanutAdmin\Modules\Article\Contract\ArticleQueries::class)) {
+        Route::get('decoration/mobile/article', [DecorationPageController::class, 'article']);
+    }
 
 })->middleware([LoginMiddleware::class, AuthMiddleware::class, OperationLogMiddleware::class]);

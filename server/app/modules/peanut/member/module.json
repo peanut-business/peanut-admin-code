@@ -3,7 +3,7 @@
   "key": "peanut.member",
   "name": "Member CRM",
   "description": "Tenant-owned customer profiles, tags, balances and member sessions.",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/peanut-member",
@@ -15,17 +15,30 @@
     },
     {
       "module_key": "peanut.identity",
-      "version": "4.0.0-rc.31"
+      "version": "4.0.0-rc.32"
+    },
+    {
+      "module_key": "peanut.settings",
+      "version": "^1.0"
     }
   ],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\Member\\ModuleProvider",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
-    "setting_definitions": "resources/setting-definitions.json"
+    "setting_definitions": "resources/setting-definitions.json",
+    "migrations": "database/migrations"
   },
   "frontend": {
-    "entry": "web/src/modules/peanut-member/contribution.ts"
+    "entry": "web/src/modules/peanut-member/contribution.ts",
+    "clients": {
+      "pc-web": {
+        "entry": "pc/modules/peanut-member/contribution.ts"
+      },
+      "uniapp": {
+        "entry": "uniapp/src/modules/peanut-member/contribution.ts"
+      }
+    }
   },
   "database": {
     "owned_tables": [
@@ -58,7 +71,15 @@
     "enableable": true,
     "disable_behavior": "reject_new_operations",
     "requires": [
-      "peanut.file"
+      "peanut.file",
+      "peanut.settings",
+      "peanut.identity"
     ]
-  }
+  },
+  "optional_dependencies": [
+    {
+      "module_key": "peanut.notification",
+      "version": "^1.0"
+    }
+  ]
 }

@@ -14,11 +14,11 @@ final class NotificationBootstrapService implements NotificationBootstrapCommand
     {
         $system = $context->system;
         if ($system->tenantId < 1
-            || $system->actorKey !== 'platform.tenant-bootstrap'
+            || !in_array($system->actorKey, ['platform.tenant-bootstrap', 'module.notification'], true)
             || $system->operation !== 'notification.provision-tenant-defaults'
             || $system->operationId === '') {
             throw new \DomainException('NOTIFICATION_PROVISION_CONTEXT_INVALID');
         }
-        NoticeScene::provisionDefaults(NotificationBootstrapDefaults::scenes());
+        NoticeScene::provisionDefaults($system->tenantId, NotificationBootstrapDefaults::scenes());
     }
 }

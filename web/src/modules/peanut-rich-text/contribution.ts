@@ -2,6 +2,9 @@ import { defineAsyncComponent } from 'vue';
 import type { ContentToolsContribution } from '@/modules/peanut-content-tools/src/contracts';
 import { DEFAULT_LAYOUT } from '@/router/routes/base';
 
+import localeRichTextEn from './views/locale/en-US';
+import localeRichTextCn from './views/locale/zh-CN';
+
 const contribution: ContentToolsContribution = {
   moduleKey: 'peanut.rich-text',
   contentAdapters: [
@@ -22,6 +25,10 @@ const contribution: ContentToolsContribution = {
       ),
     },
   ],
+  locales: {
+    'en-US': { ...localeRichTextEn },
+    'zh-CN': { ...localeRichTextCn },
+  },
   routes: [
     {
       path: '/rich-text',

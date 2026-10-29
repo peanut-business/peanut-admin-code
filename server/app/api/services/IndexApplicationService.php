@@ -20,12 +20,12 @@ class IndexApplicationService
     public function __construct(
         private readonly TenantIdentityQuery $tenantIdentities,
         private readonly TenantApplicationSettings $applicationSettings,
-        private readonly PublicArticleQueries $articles,
         private readonly RichTextResourceService $richText,
         private readonly DecorationReadService $decoration,
         private readonly WebsiteConfigService $website,
         private readonly string $projectVersion,
         private readonly array $demoLoginConfig,
+        private readonly ?PublicArticleQueries $articles = null,
     ) {}
 
     /** 全局配置（uniapp / H5 用） */
@@ -120,7 +120,7 @@ class IndexApplicationService
     public function getIndexData(TenantContext|TenantSystemContext $context): array
     {
         return [
-            'article' => $this->articles->homeArticles(20),
+            'article' => ($this->articles ?? throw new \DomainException('ARTICLE_MODULE_UNAVAILABLE'))->homeArticles(20),
             'decorate' => $this->decoration->pageByType(
                 $context,
                 DecorationEnum::MOBILE_HOME,

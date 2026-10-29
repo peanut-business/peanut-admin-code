@@ -3,14 +3,14 @@
   "key": "peanut.integration",
   "name": "External Integrations",
   "description": "Tenant-owned external bindings, machine identities and webhook delivery lifecycle.",
-  "version": "1.0.21",
+  "version": "1.0.22",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/peanut-integration",
   "dependencies": [
     {
       "module_key": "peanut.identity",
-      "version": "4.0.0-rc.31"
+      "version": "4.0.0-rc.32"
     }
   ],
   "lifecycle": {
@@ -19,7 +19,8 @@
   "backend": {
     "provider": "PeanutAdmin\\Modules\\Integration\\ModuleProvider",
     "menus": "resources/menus.json",
-    "permissions": "resources/permissions.json"
+    "permissions": "resources/permissions.json",
+    "migrations": "database/migrations"
   },
   "database": {
     "owned_tables": [
@@ -49,7 +50,9 @@
   "tenant": {
     "enableable": false,
     "disable_behavior": "reject_new_operations",
-    "requires": []
+    "requires": [
+      "peanut.identity"
+    ]
   },
   "frontend": {
     "entry": "web/src/modules/peanut-integration/contribution.ts"

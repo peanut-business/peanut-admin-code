@@ -15,23 +15,9 @@ import localeSystemCrontab from '@/modules/peanut-task/views/locale/zh-CN';
 import localeSystemMaintenance from '@/views/system/maintenance/locale/zh-CN';
 import localeSystemLog from '@/views/system/log/locale/zh-CN';
 import localeSystemConfig from '@/views/system/config/locale/zh-CN';
-import localeMemberList from '@/modules/peanut-member/views/list/locale/zh-CN';
-import localeMemberTag from '@/modules/peanut-member/views/tag/locale/zh-CN';
-import localeNoticeChannel from '@/modules/peanut-notification/views/channel/locale/zh-CN';
-import localeNoticeTemplate from '@/modules/peanut-notification/views/template/locale/zh-CN';
-import localeNoticeLog from '@/modules/peanut-notification/views/log/locale/zh-CN';
-import localeFinanceAccountLog from '@/modules/peanut-member/views/account-log/locale/zh-CN';
-import localeFinanceRecharge from '@/modules/peanut-payment/views/recharge/locale/zh-CN';
-import localeFinanceRefund from '@/modules/peanut-payment/views/refund/locale/zh-CN';
 import localeAppHotSearch from '@/views/app-setting/hot-search/locale/zh-CN';
-import localeAppPay from '@/modules/peanut-payment/views/settings/locale/zh-CN';
-import localeAppChannel from '@/modules/peanut-oauth/views/channel/locale/zh-CN';
 import localeAppTransaction from '@/views/app-setting/transaction/locale/zh-CN';
 import localeAppReadiness from '@/views/app-setting/readiness/locale/zh-CN';
-import localeArticleCate from '@/modules/peanut-article/views/cate/locale/zh-CN';
-import localeArticleList from '@/modules/peanut-article/views/list/locale/zh-CN';
-import localeConfigurationTransfer from '@/modules/peanut-import-export/views/locale/zh-CN';
-import localeRichText from '@/modules/peanut-rich-text/views/locale/zh-CN';
 import localeOfficialSettings from '@/modules/peanut-settings/locale/zh-CN';
 import localeReferenceCodes from '@/modules/peanut-reference-codes/locale/zh-CN';
 import localeIntegrationSecurity from '@/modules/peanut-integration/runtime/locale/zh-CN';
@@ -75,23 +61,9 @@ export default {
   ...localeSystemMaintenance,
   ...localeSystemLog,
   ...localeSystemConfig,
-  ...localeMemberList,
-  ...localeMemberTag,
-  ...localeNoticeChannel,
-  ...localeNoticeTemplate,
-  ...localeNoticeLog,
-  ...localeFinanceAccountLog,
-  ...localeFinanceRecharge,
-  ...localeFinanceRefund,
   ...localeAppHotSearch,
-  ...localeAppPay,
-  ...localeAppChannel,
   ...localeAppTransaction,
   ...localeAppReadiness,
-  ...localeArticleCate,
-  ...localeArticleList,
-  ...localeConfigurationTransfer,
-  ...localeRichText,
   ...localeOfficialSettings,
   ...localeReferenceCodes,
   ...localeIntegrationSecurity,
