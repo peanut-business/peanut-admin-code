@@ -1534,9 +1534,14 @@ final class ApplicationCreator
         foreach (['migrations/*.php', 'schema/*.sql', 'seeds/*.php'] as $pattern) {
             foreach (glob($this->sourceRoot . '/server/database/' . $pattern) ?: [] as $path) {
                 $relative = substr($path, strlen($this->sourceRoot) + 1);
-                $digest = hash_file('sha256', $path);
-                if (!is_string($digest) || !is_file($stage . '/' . $relative)
-                    || hash_file('sha256', $stage . '/' . $relative) !== $digest) {
+                $projected = $stage . '/' . $relative;
+                if (!is_file($projected)) {
+                    throw new RuntimeException('CREATE_APP_INSTALL_MIGRATION_CHANGED');
+                }
+                $digest = hash_file('sha256', $projected);
+                // Initial SQL is selected by the producer; historical PHP migrations retain their source bytes.
+                if (!is_string($digest) || (str_starts_with($relative, 'server/database/migrations/')
+                    && hash_file('sha256', $path) !== $digest)) {
                     throw new RuntimeException('CREATE_APP_INSTALL_MIGRATION_CHANGED');
                 }
                 $installationSources[$relative] = $digest;
