@@ -63,6 +63,9 @@
       "pa_plan_module",
       "pa_plan_permission",
       "pa_tenant_license"
+    ],
+    "retired_tables": [
+      "pa_tenant_module"
     ]
   },
   "contracts": {

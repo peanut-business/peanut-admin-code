@@ -76,6 +76,8 @@ protected const CRUD_WRITABLE_FIELDS = [
 
 ## 数据库结构交付
 
+删除自有表时，从 database.owned_tables 移出并声明 database.retired_tables，保留其原生历史迁移和删除迁移的归属。退役声明只允许所属模块的正式原生迁移文件引用，不要求该表存在，也不给业务代码或其他模块访问权；不能与当前表或其他模块的声明重复。
+
 平台 HTTP 卸载沿已有 Ops 队列交给 CLI，提交后按任务状态确认结果。正常退役先将目标后端和客户端源码移入现有 quarantine，再撤销目标自己引入的 Composer require/path repository、开发 metapackage 及精确 workspace 路径；宿主依赖、其他模块节点和共享 workspace glob 保留，目标源码已不再被 glob 匹配。原生 Composer、pnpm/npm 更新锁和安装结果，重建受影响客户端并刷新编译登记后才完成退役。失败保留原确认计划和 quarantine 声明，沿同一入口继续，不重建业务数据。锁外但已有安装记录的旧模块，可从原 canonical 插件与模块声明停用、退役；不为清理而加入当前运行锁或激活其旧依赖。
 
 模块在 module.json 的 `database.owned_tables` 声明自有表，以 `backend.migrations: "database/migrations"` 声明自己的 ThinkPHP 原生迁移。安装和升级按目标模块及其强依赖收集迁移，沿用原生数字顺序、执行器和单一账本；宿主尚未应用的迁移先由宿主原生入口处理。首次安装使用宿主初始结构和实际所选模块迁移；默认脚手架保留 identity、file、settings、reference-codes、task、ops、content-tools、integration 八模块，其他模块通过独立包加入。已有表由其初始迁移核对并保留数据，不通过补写账本伪造执行。停用、卸载保留表、设置值、附件及迁移历史；清除业务数据需要单独明确授权。模块声明目录与必需静态默认由所属模块安装处理，租户级必需数据由真实租户初始化处理；应用组合初始化基础套餐与当前许可证，不以包安装成功代替租户权益或成员角色授权。
