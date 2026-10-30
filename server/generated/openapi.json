@@ -3212,7 +3212,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\auth\\AdminController",
                     "action": "lists",
-                    "permission": null,
+                    "permission": "core.member.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 83
@@ -3221,7 +3221,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "admin/lists"
+                        "key": "core.member.read"
                     }
                 ]
             }
@@ -3294,7 +3294,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\auth\\AdminController",
                     "action": "detail",
-                    "permission": null,
+                    "permission": "core.member.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 84
@@ -3303,7 +3303,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "admin/detail"
+                        "key": "core.member.read"
                     }
                 ]
             }
@@ -3550,7 +3550,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\auth\\AdminController",
                     "action": "add",
-                    "permission": null,
+                    "permission": "core.member.create",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 87
@@ -3559,7 +3559,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "admin/add"
+                        "key": "core.member.create"
                     }
                 ]
             }
@@ -3649,7 +3649,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\auth\\AdminController",
                     "action": "edit",
-                    "permission": null,
+                    "permission": "core.member.update",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 88
@@ -3658,7 +3658,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "admin/edit"
+                        "key": "core.member.update"
                     }
                 ]
             }
@@ -3756,7 +3756,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\auth\\AdminController",
                     "action": "delete",
-                    "permission": null,
+                    "permission": "core.member.leave",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 89
@@ -3765,7 +3765,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "admin/delete"
+                        "key": "core.member.leave"
                     }
                 ]
             }
@@ -3871,7 +3871,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\auth\\AdminController",
                     "action": "updateStatus",
-                    "permission": null,
+                    "permission": "core.member.update",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 90
@@ -3880,7 +3880,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "admin/status"
+                        "key": "core.member.update"
                     }
                 ]
             }
@@ -4717,7 +4717,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\auth\\RoleController",
                     "action": "lists",
-                    "permission": null,
+                    "permission": "core.role.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 61
@@ -4726,7 +4726,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "role/lists"
+                        "key": "core.role.read"
                     }
                 ]
             }
@@ -4792,7 +4792,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\auth\\RoleController",
                     "action": "all",
-                    "permission": null,
+                    "permission": "core.role.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 62
@@ -4801,7 +4801,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "role/all"
+                        "key": "core.role.read"
                     }
                 ]
             }
@@ -4874,7 +4874,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\auth\\RoleController",
                     "action": "detail",
-                    "permission": null,
+                    "permission": "core.role.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 63
@@ -4883,7 +4883,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "role/detail"
+                        "key": "core.role.read"
                     }
                 ]
             }
@@ -4966,7 +4966,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\auth\\RoleController",
                     "action": "add",
-                    "permission": null,
+                    "permission": "core.role.create",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 64
@@ -4975,7 +4975,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "role/add"
+                        "key": "core.role.create"
                     }
                 ]
             }
@@ -5061,7 +5061,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\auth\\RoleController",
                     "action": "edit",
-                    "permission": null,
+                    "permission": "core.role.update",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 65
@@ -5070,7 +5070,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "role/edit"
+                        "key": "core.role.update"
                     }
                 ]
             }
@@ -5165,7 +5165,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\auth\\RoleController",
                     "action": "delete",
-                    "permission": null,
+                    "permission": "core.role.archive",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 66
@@ -5174,7 +5174,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "role/delete"
+                        "key": "core.role.archive"
                     }
                 ]
             }
@@ -15412,6 +15412,213 @@
                     {
                         "kind": "platform_action",
                         "key": "platform.module.install"
+                    }
+                ]
+            }
+        },
+        "/platformapi/instance-tools/modules/update": {
+            "post": {
+                "tags": [
+                    "PlatformModules"
+                ],
+                "operationId": "updateInstanceModule",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Idempotency-Key",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 8,
+                            "maxLength": 200,
+                            "pattern": "^[!-~]+$"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/PlatformOpsTask"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "package",
+                                    "expected_sha256"
+                                ],
+                                "properties": {
+                                    "package": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "expected_sha256": {
+                                        "type": "string",
+                                        "pattern": "^[a-f0-9]{64}$"
+                                    },
+                                    "signature_key_id": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-peanut-errors": [
+                    "MODULE_PACKAGE_REQUEST_INVALID",
+                    "OPS_MODULE_REQUEST_INVALID"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "platform",
+                    "owner": {
+                        "type": "application",
+                        "key": "platform"
+                    },
+                    "controller": "app\\platform\\controller\\PlatformModuleLifecycleController",
+                    "action": "update",
+                    "permission": null,
+                    "source": {
+                        "file": "server/route/platform.php",
+                        "line": 115
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.module.update"
+                    }
+                ]
+            }
+        },
+        "/platformapi/instance-tools/modules/tasks/{task_key}": {
+            "get": {
+                "tags": [
+                    "PlatformModules"
+                ],
+                "operationId": "getInstanceModuleTask",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "task_key",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^job_[a-f0-9]{32}$"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/PlatformOpsTask"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "x-peanut-errors": [
+                    "OPS_TASK_NOT_FOUND"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "platform",
+                    "owner": {
+                        "type": "application",
+                        "key": "platform"
+                    },
+                    "controller": "app\\platform\\controller\\PlatformModuleLifecycleController",
+                    "action": "task",
+                    "permission": null,
+                    "source": {
+                        "file": "server/route/platform.php",
+                        "line": 119
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.module.read"
                     }
                 ]
             }

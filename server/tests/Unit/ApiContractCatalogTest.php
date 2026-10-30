@@ -7,6 +7,51 @@ use PHPUnit\Framework\TestCase;
 /** 无数据库地核对路由清单、结构化合同质量和 SDK 消费入口。 */
 final class ApiContractCatalogTest extends TestCase
 {
+    public function testAccessExceptionsUseCanonicalPathsWithoutRemovingSessionHostBoundaries(): void
+    {
+        $root = dirname(__DIR__, 3);
+        $catalog = sys_get_temp_dir() . '/peanut-api-access-' . bin2hex(random_bytes(8)) . '.json';
+        $process = proc_open([
+            PHP_BINARY, $root . '/scripts/generate-api-contracts.php', '--check', '--catalog-output=' . $catalog,
+        ], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        self::assertIsResource($process);
+        stream_get_contents($pipes[1]);
+        $error = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $status = proc_close($process);
+        try {
+            self::assertSame(0, $status, $error);
+            $endpoints = json_decode((string) file_get_contents($catalog), true, 512, JSON_THROW_ON_ERROR)['endpoints'];
+            $routes = [];
+            foreach ($endpoints as $endpoint) {
+                $routes[$endpoint['method'] . ' ' . $endpoint['path']] = $endpoint;
+            }
+            foreach (['GET /adminapi/login/info', 'GET /adminapi/menu/route', 'POST /adminapi/api/v1/files/resolve', 'POST /adminapi/admin/editSelf'] as $path) {
+                self::assertSame('authenticated', $routes[$path]['auth']['mode']);
+                self::assertSame('authenticated', $routes[$path]['auth']['exception_registration']);
+                self::assertSame([], array_values(array_filter(
+                    $routes[$path]['permissions'],
+                    static fn(array $permission): bool => in_array($permission['kind'], ['tenant_action', 'platform_action'], true),
+                )));
+            }
+            self::assertSame('tenant_host', $routes['POST /adminapi/tenant/session/login']['auth']['mode']);
+            self::assertSame('tenant_bearer', $routes['POST /adminapi/tenant/session/logout']['auth']['mode']);
+            self::assertSame('platform_host', $routes['POST /platformapi/session/login']['auth']['mode']);
+            self::assertSame('platform_refresh', $routes['POST /platformapi/session/refresh']['auth']['mode']);
+            self::assertSame('tenant_permission', $routes['POST /adminapi/admin/add']['auth']['mode']);
+            self::assertContains(['kind' => 'tenant_action', 'key' => 'core.member.create'], $routes['POST /adminapi/admin/add']['permissions']);
+            self::assertContains(['kind' => 'tenant_action', 'key' => 'core.member.update'], $routes['POST /adminapi/admin/edit']['permissions']);
+            self::assertContains(['kind' => 'tenant_action', 'key' => 'core.member.leave'], $routes['POST /adminapi/admin/delete']['permissions']);
+            self::assertSame('complete', $routes['POST /platformapi/instance-tools/modules/update']['contract_quality']);
+            self::assertSame('complete', $routes['GET /platformapi/instance-tools/modules/tasks/{task_key}']['contract_quality']);
+        } finally {
+            if (is_file($catalog)) {
+                unlink($catalog);
+            }
+        }
+    }
+
     public function testCatalogSeparatesRoutesGeneratedOperationsAndCompleteContracts(): void
     {
         $root = dirname(__DIR__, 3);

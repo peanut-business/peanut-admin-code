@@ -84,10 +84,10 @@ Route::group(function () use ($peanutRouteModules) {
     Route::get('admin/detail', [AdminController::class, 'detail'])->option(['peanut_permission' => 'core.member.read']);
     Route::get('admin/self', [AdminController::class, 'self']);
     Route::post('admin/editSelf', [AdminController::class, 'editSelf']);
-    Route::post('admin/add', [AdminController::class, 'add']);
-    Route::post('admin/edit', [AdminController::class, 'edit']);
-    Route::post('admin/delete', [AdminController::class, 'delete']);
-    Route::post('admin/status', [AdminController::class, 'updateStatus']);
+    Route::post('admin/add', [AdminController::class, 'add'])->option(['peanut_permission' => 'core.member.create']);
+    Route::post('admin/edit', [AdminController::class, 'edit'])->option(['peanut_permission' => 'core.member.update']);
+    Route::post('admin/delete', [AdminController::class, 'delete'])->option(['peanut_permission' => 'core.member.leave']);
+    Route::post('admin/status', [AdminController::class, 'updateStatus'])->option(['peanut_permission' => 'core.member.update']);
 
     // 部门
     Route::get('dept/lists', [DeptController::class, 'lists'])->option(['peanut_permission' => 'core.department.read']);

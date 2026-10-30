@@ -83,6 +83,13 @@
                 @click="handleAuth(row)"
                 >{{ $t('systemRole.operation.permission') }}</el-button
               >
+              <el-button
+                v-permission="['core.role.data-policy.read']"
+                link
+                size="small"
+                @click="dataPolicyRole = row"
+                >数据权限</el-button
+              >
               <el-popconfirm
                 :title="$t('systemRole.delete.confirm')"
                 @confirm="handleDelete(row)"
@@ -198,6 +205,12 @@
         ></template
       >
     </el-dialog>
+    <RoleDataPolicyDialog
+      v-if="dataPolicyRole"
+      :key="dataPolicyRole.id"
+      :role="dataPolicyRole"
+      @close="dataPolicyRole = null"
+    />
   </div>
 </template>
 
@@ -208,6 +221,7 @@
   import type { FormInstance } from 'element-plus';
   import { Plus, Refresh } from '@element-plus/icons-vue';
   import useLoading from '@/hooks/loading';
+  import RoleDataPolicyDialog from './RoleDataPolicyDialog.vue';
   import {
     addRole,
     deleteRole,
@@ -225,6 +239,7 @@
   const { t } = useI18n();
   const { loading, setLoading } = useLoading(true);
   const renderData = ref<RoleRecord[]>([]);
+  const dataPolicyRole = ref<RoleRecord | null>(null);
 
   const pagination = reactive({
     current: 1,

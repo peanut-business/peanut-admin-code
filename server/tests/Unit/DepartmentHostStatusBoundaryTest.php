@@ -48,6 +48,8 @@ final class DepartmentHostStatusBoundaryTest extends TestCase
         \ThinkPhpTestConnection::fromPdo($this->pdo);
         $this->pdo->exec(<<<'SQL'
             CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY,status TEXT,authorization_revision INTEGER,updated_at TEXT);
+            CREATE TABLE pa_plan (id INTEGER PRIMARY KEY,code TEXT,name TEXT,revision INTEGER);
+            CREATE TABLE pa_tenant_license (id INTEGER PRIMARY KEY,tenant_id INTEGER,plan_id INTEGER);
             INSERT INTO pa_tenant VALUES (101,'active',1,NULL),(202,'active',1,NULL);
             CREATE TABLE pa_department (id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER,parent_id INTEGER,code TEXT,name TEXT,leader TEXT,leader_member_id INTEGER,mobile TEXT,sort_order INTEGER,status TEXT,revision INTEGER DEFAULT 1,created_at TEXT,updated_at TEXT);
             CREATE TABLE pa_tenant_member (id INTEGER PRIMARY KEY,tenant_id INTEGER,primary_department_id INTEGER,status TEXT);
@@ -80,6 +82,9 @@ final class DepartmentHostStatusBoundaryTest extends TestCase
             (new \ReflectionClass(ThinkPhpModuleGovernanceProvider::class))->newInstanceWithoutConstructor(),
             $grants,
             $this->createStub(MenuCatalogRepository::class), $identity, new MenuAdministrationService(),
+            new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService(
+                new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], 'fixture-department'),
+            ),
         );
         $policy = $this->createStub(AdminPermissionPolicy::class);
         $policy->method('canAccess')->willReturnCallback(static fn(bool $root, string $uri, iterable $registered, iterable $granted): bool =>
@@ -87,6 +92,7 @@ final class DepartmentHostStatusBoundaryTest extends TestCase
         $this->owner = new DepartmentAdminService(new AuditService());
         $this->host = new DeptApplicationService($this->owner, $current, new AdminAuthorizationService(
             $bridge, $policy, $members, new AdminDirectoryQuery($current), $identity,
+            new \app\common\services\authorization\EndpointPermissionGrant(new \think\Request()),
         ));
         $this->actor = TenantContext::fromValidatedSession(new ValidatedTenantSession(1, 'dept-status', 101, 501, 601, 'admin-web', new DateTimeImmutable('2035-01-01'), 1), 'dept-status-request');
     }

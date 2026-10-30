@@ -88,7 +88,9 @@ final readonly class ModuleAuthorizationCatalogSynchronizer
         $tenants = [];
         do {
             $query = Db::name('tenant_license')->alias('license')
-                ->whereIn('license.plan_id', Db::name('plan_module')->whereIn('module_key', $moduleKeys)->field('plan_id')->buildSql())
+                ->whereIn('license.plan_id', static function (\think\db\Query $query) use ($moduleKeys): void {
+                    $query->name('plan_module')->whereIn('module_key', $moduleKeys)->field('plan_id');
+                })
                 ->where('license.id', '>', $cursor)->field('license.id,license.tenant_id')->order('license.id')->limit(100);
             if ($lock) {
                 $query->lock('FOR UPDATE NOWAIT');

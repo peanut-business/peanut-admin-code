@@ -56,9 +56,9 @@ final class PublicSettingsAuthorizationTest extends TestCase
             }
         });
         self::assertSame([
-            'official.settings.read', 'official.settings.manage', 'official.settings.manage',
-            'official.reference-codes.read', 'official.reference-codes.read', 'official.reference-codes.read',
-            'official.reference-codes.manage', 'official.reference-codes.manage', 'official.reference-codes.manage',
+            'peanut.settings.read', 'peanut.settings.manage', 'peanut.settings.manage',
+            'peanut.reference-codes.read', 'peanut.reference-codes.read', 'peanut.reference-codes.read',
+            'peanut.reference-codes.manage', 'peanut.reference-codes.manage', 'peanut.reference-codes.manage',
         ], $seen);
         self::assertTrue($contexts->isEmpty());
     }
@@ -84,7 +84,7 @@ final class PublicSettingsAuthorizationTest extends TestCase
         $tenant = $this->tenant();
         $auth = $this->createMock(AdminAuthorizationQuery::class);
         $auth->expects(self::once())->method('decide')->willReturnCallback(static function ($context, $actor, $permission): PermissionDecision {
-            self::assertSame('official.settings.read', $permission);
+            self::assertSame('peanut.settings.read', $permission);
             return PermissionDecision::allow($permission);
         });
         [$settings] = $this->services($contexts, $auth);

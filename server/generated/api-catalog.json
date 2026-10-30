@@ -4,7 +4,7 @@
     "inputs": [
         {
             "path": "plugins.lock",
-            "sha256": "3ff607e317358e9dbbcd39a80bc922b4cd93be7b7304452b9e9eecc275c083e1"
+            "sha256": "d120a6d8979940f715c41232674a409294d7c3b6b77f012e94d4f22c65edde16"
         },
         {
             "path": "release-versions.json",
@@ -28,7 +28,7 @@
         },
         {
             "path": "server/app/api/metadata/application/platform.php",
-            "sha256": "0fdccd7b5a907c82453fb15a7357cd513f1c53ee432cff24ead916931a5938e3"
+            "sha256": "213c7d98f0d0ab2fcb7175d969666ad7b7ee26808c03a6933fb2b9421c642b6c"
         },
         {
             "path": "server/app/api/metadata/application/shared.php",
@@ -84,7 +84,7 @@
         },
         {
             "path": "server/route/admin.php",
-            "sha256": "169782e598a226c7423c3fef8d13a5758584bd7d7fd2643515ef2bbb7e681f3a"
+            "sha256": "b216e62831db87b0212342f0d0abcd85418162b61ad2ae52f25b2772c7bf542b"
         },
         {
             "path": "server/route/app.php",
@@ -117,15 +117,15 @@
     },
     "summary": {
         "route_count": 260,
-        "generated_api_operations": 258,
-        "route_only_operations": 2,
-        "complete_operations": 258,
+        "generated_api_operations": 260,
+        "route_only_operations": 0,
+        "complete_operations": 260,
         "partial_operations": 0,
         "runtime_routes": 260,
-        "documented_operations": 258,
-        "undocumented_routes": 2,
+        "documented_operations": 260,
+        "undocumented_routes": 0,
         "automatic_route_metadata": 260,
-        "requires_owner_contract": 2,
+        "requires_owner_contract": 0,
         "owners": 9,
         "runtime_inventory": {
             "total": 260,
@@ -166,36 +166,7 @@
         "module:peanut.settings": 3,
         "module:peanut.task": 10
     },
-    "documentation_gaps": [
-        {
-            "method": "GET",
-            "path": "/platformapi/instance-tools/modules/tasks/{task_key}",
-            "owner": {
-                "type": "application",
-                "key": "platform"
-            },
-            "source": {
-                "file": "server/route/platform.php",
-                "line": 119
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": null
-        },
-        {
-            "method": "POST",
-            "path": "/platformapi/instance-tools/modules/update",
-            "owner": {
-                "type": "application",
-                "key": "platform"
-            },
-            "source": {
-                "file": "server/route/platform.php",
-                "line": 115
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": null
-        }
-    ],
+    "documentation_gaps": [],
     "endpoints": [
         {
             "api_id": "035b82544b4411f2c26aff37cc462b63393aeb8edeeeee51deb2357eb2cc86d8",
@@ -691,19 +662,12 @@
             "controller": "app\\adminapi\\controller\\auth\\AdminController",
             "action": "self",
             "auth": {
-                "mode": "tenant_permission",
-                "exception_registration": null
+                "mode": "authenticated",
+                "exception_registration": "authenticated"
             },
-            "default_permission_keys": [
-                "admin/self"
-            ],
+            "default_permission_keys": [],
             "prerequisite_permission_keys": [],
-            "permissions": [
-                {
-                    "kind": "tenant_action",
-                    "key": "admin/self"
-                }
-            ],
+            "permissions": [],
             "errors": [
                 401,
                 403
@@ -4108,19 +4072,12 @@
             "controller": "app\\adminapi\\controller\\auth\\LoginController",
             "action": "info",
             "auth": {
-                "mode": "tenant_permission",
-                "exception_registration": null
+                "mode": "authenticated",
+                "exception_registration": "authenticated"
             },
-            "default_permission_keys": [
-                "login/info"
-            ],
+            "default_permission_keys": [],
             "prerequisite_permission_keys": [],
-            "permissions": [
-                {
-                    "kind": "tenant_action",
-                    "key": "login/info"
-                }
-            ],
+            "permissions": [],
             "errors": [
                 401,
                 403
@@ -4384,19 +4341,12 @@
             "controller": "app\\adminapi\\controller\\auth\\MenuController",
             "action": "route",
             "auth": {
-                "mode": "tenant_permission",
-                "exception_registration": null
+                "mode": "authenticated",
+                "exception_registration": "authenticated"
             },
-            "default_permission_keys": [
-                "menu/route"
-            ],
+            "default_permission_keys": [],
             "prerequisite_permission_keys": [],
-            "permissions": [
-                {
-                    "kind": "tenant_action",
-                    "key": "menu/route"
-                }
-            ],
+            "permissions": [],
             "errors": [
                 401,
                 403
@@ -7046,7 +6996,8 @@
             ],
             "errors": [
                 401,
-                403
+                403,
+                422
             ],
             "middleware": [
                 {
@@ -7064,12 +7015,14 @@
                 "file": "server/route/platform.php",
                 "line": 119
             },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
+            "documented": true,
+            "openapi_operation_id": "getInstanceModuleTask",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
             "documentation": {
-                "status": "route_only",
+                "status": "documented",
                 "automatic_metadata": [
                     "route",
                     "owner",
@@ -7079,12 +7032,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -7649,8 +7597,8 @@
             "controller": "app\\platform\\controller\\PlatformSessionController",
             "action": "info",
             "auth": {
-                "mode": "platform_session",
-                "exception_registration": null
+                "mode": "authenticated",
+                "exception_registration": "platform_authenticated"
             },
             "default_permission_keys": [],
             "prerequisite_permission_keys": [],
@@ -8969,13 +8917,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "admin/add"
+                "core.member.create"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "admin/add"
+                    "key": "core.member.create"
                 }
             ],
             "errors": [
@@ -9040,13 +8988,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "admin/delete"
+                "core.member.leave"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "admin/delete"
+                    "key": "core.member.leave"
                 }
             ],
             "errors": [
@@ -9112,13 +9060,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "admin/edit"
+                "core.member.update"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "admin/edit"
+                    "key": "core.member.update"
                 }
             ],
             "errors": [
@@ -9180,19 +9128,12 @@
             "controller": "app\\adminapi\\controller\\auth\\AdminController",
             "action": "editSelf",
             "auth": {
-                "mode": "tenant_permission",
-                "exception_registration": null
+                "mode": "authenticated",
+                "exception_registration": "authenticated"
             },
-            "default_permission_keys": [
-                "admin/editSelf"
-            ],
+            "default_permission_keys": [],
             "prerequisite_permission_keys": [],
-            "permissions": [
-                {
-                    "kind": "tenant_action",
-                    "key": "admin/editSelf"
-                }
-            ],
+            "permissions": [],
             "errors": [
                 401,
                 403,
@@ -9254,13 +9195,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "admin/status"
+                "core.member.update"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "admin/status"
+                    "key": "core.member.update"
                 }
             ],
             "errors": [
@@ -9322,21 +9263,15 @@
             "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileController",
             "action": "resolve",
             "auth": {
-                "mode": "tenant_permission",
-                "exception_registration": null
+                "mode": "authenticated",
+                "exception_registration": "authenticated"
             },
-            "default_permission_keys": [
-                "api/v1/files/resolve"
-            ],
+            "default_permission_keys": [],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "module_capability",
                     "key": "peanut.file"
-                },
-                {
-                    "kind": "tenant_action",
-                    "key": "api/v1/files/resolve"
                 }
             ],
             "errors": [
@@ -14527,7 +14462,7 @@
             "action": "login",
             "auth": {
                 "mode": "tenant_host",
-                "exception_registration": null
+                "exception_registration": "public"
             },
             "default_permission_keys": [],
             "prerequisite_permission_keys": [],
@@ -14576,7 +14511,7 @@
             "action": "logout",
             "auth": {
                 "mode": "tenant_bearer",
-                "exception_registration": null
+                "exception_registration": "public"
             },
             "default_permission_keys": [],
             "prerequisite_permission_keys": [],
@@ -14674,7 +14609,7 @@
             "action": "select",
             "auth": {
                 "mode": "tenant_selection",
-                "exception_registration": null
+                "exception_registration": "public"
             },
             "default_permission_keys": [],
             "prerequisite_permission_keys": [],
@@ -14723,7 +14658,7 @@
             "action": "switchChallenge",
             "auth": {
                 "mode": "tenant_bearer",
-                "exception_registration": null
+                "exception_registration": "public"
             },
             "default_permission_keys": [],
             "prerequisite_permission_keys": [],
@@ -14771,8 +14706,8 @@
             "controller": "app\\adminapi\\controller\\auth\\LoginController",
             "action": "info",
             "auth": {
-                "mode": "tenant_session",
-                "exception_registration": null
+                "mode": "authenticated",
+                "exception_registration": "authenticated"
             },
             "default_permission_keys": [],
             "prerequisite_permission_keys": [],
@@ -14826,7 +14761,7 @@
             "action": "login",
             "auth": {
                 "mode": "tenant_host",
-                "exception_registration": null
+                "exception_registration": "public"
             },
             "default_permission_keys": [],
             "prerequisite_permission_keys": [],
@@ -14876,7 +14811,7 @@
             "action": "logout",
             "auth": {
                 "mode": "public",
-                "exception_registration": null
+                "exception_registration": "public"
             },
             "default_permission_keys": [],
             "prerequisite_permission_keys": [],
@@ -14921,8 +14856,8 @@
             "controller": "app\\adminapi\\controller\\auth\\MenuController",
             "action": "route",
             "auth": {
-                "mode": "tenant_session",
-                "exception_registration": null
+                "mode": "authenticated",
+                "exception_registration": "authenticated"
             },
             "default_permission_keys": [],
             "prerequisite_permission_keys": [],
@@ -15809,7 +15744,8 @@
             ],
             "errors": [
                 401,
-                403
+                403,
+                422
             ],
             "middleware": [
                 {
@@ -15831,12 +15767,14 @@
                 "file": "server/route/platform.php",
                 "line": 115
             },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
+            "documented": true,
+            "openapi_operation_id": "updateInstanceModule",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
             "documentation": {
-                "status": "route_only",
+                "status": "documented",
                 "automatic_metadata": [
                     "route",
                     "owner",
@@ -15846,12 +15784,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -16689,7 +16622,7 @@
             "action": "login",
             "auth": {
                 "mode": "platform_host",
-                "exception_registration": null
+                "exception_registration": "platform_public"
             },
             "default_permission_keys": [],
             "prerequisite_permission_keys": [],
@@ -16744,7 +16677,7 @@
             "action": "logout",
             "auth": {
                 "mode": "platform_host",
-                "exception_registration": null
+                "exception_registration": "platform_public"
             },
             "default_permission_keys": [],
             "prerequisite_permission_keys": [],
@@ -16798,7 +16731,7 @@
             "action": "refresh",
             "auth": {
                 "mode": "platform_refresh",
-                "exception_registration": null
+                "exception_registration": "platform_public"
             },
             "default_permission_keys": [],
             "prerequisite_permission_keys": [],

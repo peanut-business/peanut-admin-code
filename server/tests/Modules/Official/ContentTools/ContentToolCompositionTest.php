@@ -12,11 +12,12 @@ use think\App;
 
 $root = dirname(__DIR__, 5);
 require $root . '/server/vendor/autoload.php';
+$app = new App($root . '/server');
+$app->config->set(['mode' => 'multi-tenant'], 'deployment');
 $compiled = (new ModuleDefinitionRegistryFactory($root . '/server'))->fromPluginLock(
     new PluginLockResolver($root . '/server', '../plugins.lock'),
     ['roots'=>[],'kernel_version'=>'1.0.0','registered_client_keys'=>['admin-web','platform-web','pc-web','uniapp']],
 );
-$app = new App($root . '/server');
 (new ModuleComposition($app))->register($compiled);
 $count = 0;
 $expect = function (bool $condition) use (&$count): void {
@@ -24,14 +25,14 @@ $expect = function (bool $condition) use (&$count): void {
     $count++;
 };
 $registry = $app->make(ContentToolRegistry::class);
-$context = new AuthorizedContentContext('rich_text', null, true, true, false, 'authorized-caller-test', 'browser', ['official.rich-text']);
+$context = new AuthorizedContentContext('file_resource', 'image/png', true, true, false, 'authorized-caller-test', 'browser', ['peanut.content-tools']);
 $service = $app->make(ContentCapabilitiesService::class);
-$view = $service->resolve($context, 'view', 'rich-text.tiptap', 'rich-text.tiptap');
-$edit = $service->resolve($context, 'edit', 'rich-text.tiptap', 'rich-text.tiptap');
-$expect($view['canView'] && $edit['canEdit']);
-$expect(count(array_filter($registry->registrations(), fn($registration) => $registration->id === 'rich-text.tiptap')) === 1);
+$view = $service->resolve($context, 'view', 'builtin.image', null);
+$edit = $service->resolve($context, 'edit', 'builtin.image', null);
+$expect($view['canView'] && !$edit['canEdit']);
+$expect(count(array_filter($registry->registrations(), fn($registration) => $registration->id === 'builtin.image')) === 1);
 $expect($registry === $app->make(ContentToolRegistry::class));
-$expect($compiled->requireManifest('official.rich-text')->data['dependencies'][0]['module_key'] === 'official.content-tools');
+$expect($compiled->requireManifest('peanut.content-tools')->data['key'] === 'peanut.content-tools');
 $expect($registry->registrations()[0]->id === 'builtin.image');
-$expect(!$registry->selected('rich-text.tiptap', $context, 'view')->supportsCollaboration);
+$expect(!$registry->selected('builtin.image', $context, 'view')->supportsCollaboration);
 echo 'CONTENT-TOOL-COMPOSITION-001 passed; compiled_modules=' . count($compiled->modules) . '; assertions=' . $count . '; no DB/auth qualification' . PHP_EOL;

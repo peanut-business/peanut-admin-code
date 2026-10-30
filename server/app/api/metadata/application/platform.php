@@ -530,6 +530,21 @@ $add($paths, 'POST', '/platformapi/instance-tools/modules/install', $operation(
     requestBody: $multipartBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['package', 'expected_sha256'], 'properties' => ['package' => ['type' => 'string', 'format' => 'binary'], 'expected_sha256' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$'], 'signature_key_id' => ['type' => 'string']]]),
     errors: ['MODULE_PACKAGE_REQUEST_INVALID'],
 ));
+$add($paths, 'POST', '/platformapi/instance-tools/modules/update', $operation(
+    'updateInstanceModule',
+    'PlatformModules',
+    $responses('PlatformOpsTask'),
+    [$header('Idempotency-Key', ['type' => 'string', 'minLength' => 8, 'maxLength' => 200, 'pattern' => '^[!-~]+$'], true)],
+    requestBody: $multipartBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['package', 'expected_sha256'], 'properties' => ['package' => ['type' => 'string', 'format' => 'binary'], 'expected_sha256' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$'], 'signature_key_id' => ['type' => 'string']]]),
+    errors: ['MODULE_PACKAGE_REQUEST_INVALID', 'OPS_MODULE_REQUEST_INVALID'],
+));
+$add($paths, 'GET', '/platformapi/instance-tools/modules/tasks/{task_key}', $operation(
+    'getInstanceModuleTask',
+    'PlatformModules',
+    $responses('PlatformOpsTask'),
+    [$path('task_key', ['type' => 'string', 'pattern' => '^job_[a-f0-9]{32}$'])],
+    errors: ['OPS_TASK_NOT_FOUND'],
+));
 $add($paths, 'POST', '/platformapi/instance-tools/modules/create', $operation(
     'createInstanceModule',
     'PlatformModules',

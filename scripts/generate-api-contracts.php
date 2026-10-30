@@ -898,7 +898,8 @@ function accessMetadata(array $endpoint, ?string $exception): array
 
     // Explicit exceptions describe contextual business authorization and take
     // precedence over the shared Auth middleware on their route group.
-    if (in_array($exception, ['public', 'platform_public'], true)) {
+    if (in_array($exception, ['public', 'platform_public'], true)
+        && in_array($mode, ['public', 'tenant_permission', 'tenant_session', 'platform_permission', 'platform_session'], true)) {
         $mode = 'public';
     } elseif (in_array($exception, ['authenticated', 'platform_authenticated'], true)) {
         $mode = 'authenticated';
@@ -1040,7 +1041,7 @@ function writeModuleTypes(string $repositoryRoot, string $outputRoot, array $con
 
 function routeKey(string $method, string $path): string
 {
-    return strtoupper($method) . ' ' . openApiPath($path);
+    return strtoupper(trim($method)) . ' /' . strtolower(trim(openApiPath($path), '/'));
 }
 
 function openApiPath(string $path): string

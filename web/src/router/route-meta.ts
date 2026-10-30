@@ -27,12 +27,12 @@ export function validRouteMeta(route: RouteRecordRaw): boolean {
 }
 
 export function validateRouteTree(routes: RouteRecordRaw[]): RouteRecordRaw[] {
-  for (const route of routes) {
+  routes.forEach((route) => {
     if (!validRouteMeta(route))
       throw new Error(
         `ROUTE_META_INVALID: ${String(route.name ?? route.path)}`
       );
     if (route.children) validateRouteTree(route.children);
-  }
+  });
   return routes;
 }

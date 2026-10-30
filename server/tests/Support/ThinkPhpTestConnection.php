@@ -40,7 +40,11 @@ final class ThinkPhpTestConnection
             new \PeanutAdmin\Modules\Identity\Authorization\ModuleAuthorizationCatalogSynchronizer(
                 new \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository(),
             ),
-            new \PeanutAdmin\Modules\Identity\Menu\ThinkPhpMenuCatalogRepository(),
+            new \PeanutAdmin\Modules\Identity\Menu\ThinkPhpMenuCatalogRepository(
+                new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService(
+                    new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], 'fixture-catalog'),
+                ),
+            ),
             new \PeanutAdmin\Modules\ReferenceCodes\Service\ReferenceCodeCatalogService(),
             new \PeanutAdmin\Modules\Identity\Authorization\CatalogLifecycleService(),
         );

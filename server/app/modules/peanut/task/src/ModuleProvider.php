@@ -71,7 +71,15 @@ final class ModuleProvider implements ModuleProviderContract
                 $app->make(AdminDirectoryQuery::class),
                 $app->make(ModuleExecutionBoundary::class),
                 $app->make(CrontabCommandService::class),
-                fn(string $command, array $parameters = [], string $driver = 'buffer') => $app->make('console')->call($command, $parameters, $driver),
+                function (string $command, array $parameters = [], string $driver = 'buffer') use ($app): \think\console\Output {
+                    array_unshift($parameters, $command);
+                    $output = new \think\console\Output($driver);
+                    $exitCode = $app->make('console')->find($command)->run(new \think\console\Input($parameters), $output);
+                    if ($exitCode !== 0) {
+                        throw new \RuntimeException('CRONTAB_COMMAND_FAILED');
+                    }
+                    return $output;
+                },
                 $app->make(TaskWorkerDefinitionRegistry::class)->resolve($app),
                 (int) $app->config->get('async.worker_limit', 25),
                 $app->make(ResourceOperationCatalog::class),

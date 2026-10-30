@@ -51,7 +51,7 @@ final class HostTenantIdentityBoundaryTest extends TestCase
             self::assertStringContainsString('AdminDirectoryQuery', $source);
         }
         self::assertFileDoesNotExist($root . '/app/common/services/tenant/TenantIdentityQuery.php');
-        $manifest = json_decode(file_get_contents($root . '/app/modules/official/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents($root . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(TenantIdentityQuery::class, $manifest['contracts']['exports']);
     }
 
@@ -62,7 +62,7 @@ final class HostTenantIdentityBoundaryTest extends TestCase
         foreach ([0,-1,202,303,404,999] as $id) {
             self::assertSame('', $query->activeName($id));
         }
-        self::assertStringContainsString('/app/modules/official/identity/src/Contract/', (new ReflectionClass($query))->getFileName());
+        self::assertStringContainsString('/app/modules/peanut/identity/src/Contract/', (new ReflectionClass($query))->getFileName());
     }
 
     public function testMemberContextRetainsVerifiedOwnerAndCredentialFingerprint(): void
