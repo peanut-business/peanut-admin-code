@@ -181,10 +181,13 @@ final readonly class VerifiedServerDeployment
                     throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
                 }
                 self::assertProtectedPath($this->serverRoot, $item['root'] . '/module.json', $this->httpMount);
-                $data = self::json($item['json']);
                 $object = json_decode($item['json'], false, 512, JSON_THROW_ON_ERROR);
-                $modules[] = ManifestDocument::fromDecodedJson($this->serverRoot . '/' . $item['root'], $data, $object);
-                $roots[$data['key']] = $this->serverRoot . '/' . $item['root'];
+                if (!is_object($object)) {
+                    throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
+                }
+                $document = ManifestDocument::fromObject($this->serverRoot . '/' . $item['root'], $object);
+                $modules[] = $document;
+                $roots[$document->data['key']] = $this->serverRoot . '/' . $item['root'];
             }
             ModuleHostLayoutFactory::registerRuntimeAutoload($roots, $this->serverRoot);
             return new CompiledModuleRegistry(
