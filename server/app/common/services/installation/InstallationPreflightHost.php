@@ -171,7 +171,7 @@ final class InstallationPreflightHost
             && (file_exists($applicationManifest) || is_link($applicationManifest));
         $required = [
             'Composer autoload' => $this->serverRoot . '/vendor/autoload.php',
-            '原生初始迁移' => $this->serverRoot . '/database/migrations/20261101000000_initial_baseline.php',
+            '原生初始迁移' => $this->serverRoot . '/database/migrations/20261101020000_initial_scaffold_baseline.php',
             '初始表结构' => $this->serverRoot . '/database/schema/baseline-schema.sql',
             '原生初始 Seeder' => $this->serverRoot . '/database/seeds/InitialSeeder.php',
             '初始数据' => $this->serverRoot . '/database/schema/baseline-data.sql',

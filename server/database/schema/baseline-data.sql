@@ -51,9 +51,3 @@ FROM (
   UNION ALL SELECT 'hot-search', JSON_OBJECT('status', 0)
 ) seed
 WHERE @pa_default_tenant_id IS NOT NULL;
-
-INSERT INTO `pa_crontab`
-  (`name`,`type`,`command`,`params`,`status`,`expression`,`error`,`last_time`,`time`,`max_time`,`sort`,`remark`,`create_time`,`update_time`,`tenant_id`)
-SELECT '代码生成归档清理',1,'generator:cleanup','',1,'0 3 * * *','',0,0,0,20,
-       '清理已使用或过期的代码生成下载令牌和隔离归档',0,0,@pa_default_tenant_id
-WHERE NOT EXISTS (SELECT 1 FROM `pa_crontab` WHERE `command`='generator:cleanup');

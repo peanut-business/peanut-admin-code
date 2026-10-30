@@ -1077,7 +1077,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7e70b0186b9ebb78b303462a7a7ddf7ac166d563eb6081c436e07adcc5934917"
+            "source_sha256": "b833a65fff79cfdf025d48007b502f094701a4f8ca8db0c9859a0f95deaedb13"
         },
         {
             "path": "docs/public/module-development.md",
@@ -8891,7 +8891,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "51272d94f8940c0cf08959072ab522f714be9337793c26d603c4f35a2c21c80c"
+            "source_sha256": "15ba1993d4ceccd7dc46cf4c8f017c7dbb67d700d471ba41e84eac75fcea133d"
         },
         {
             "path": "server/app/common/services/notice/NoticeChannelService.php",
@@ -18307,7 +18307,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "26268777570fa7dd81a6139b5c5184f760a10f3caa769fe4a5ecbd37d68b9686"
+            "source_sha256": "34c6119bce77c5709eb136b31fd9891282a23a4ab306dd20a0c504449d3aa1b0"
         },
         {
             "path": "server/app/platform/services/CoreTenantOwnerAdminProvisioner.php",
@@ -19203,7 +19203,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7d7a132a81befb3893c2bb58d3ed677f3782ba587eddeccac86cda82ad36a135"
+            "source_sha256": "eb53aaa2b430cb6c84f3c50be63db7b1c2abf71b13479c182d50c32b07839bd8"
         },
         {
             "path": "server/database/environment-guard.php",
@@ -19273,7 +19273,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "94a508bcbf0b98436e927a74dbcbe7c7f619f8c40507ece999f9f9e1b3591604"
+            "source_sha256": "6afda1a08f185862be9e94eddd15d77ac3ca24ff9825a24c0841a4132f825931"
         },
         {
             "path": "server/database/schema/baseline-schema.sql",

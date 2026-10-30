@@ -51,11 +51,7 @@ final class InitialInstallationSource
         foreach ($statements[0] as $statement) {
             if (preg_match('/^INSERT(?: IGNORE)? INTO `([^`]+)`/', $statement, $target) === 1
                 && isset($tables[$target[1]])
-                && in_array($target[1], ['pa_system_dict_type', 'pa_system_dict_data', 'pa_tenant_setting', 'pa_crontab'], true)) {
-                if ($target[1] === 'pa_crontab'
-                    && (!in_array('peanut.content-tools', $modules, true) || !str_contains($statement, "'generator:cleanup'"))) {
-                    continue;
-                }
+                && in_array($target[1], ['pa_system_dict_type', 'pa_system_dict_data', 'pa_tenant_setting'], true)) {
                 $defaults[] = $statement;
             }
         }

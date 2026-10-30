@@ -123,22 +123,6 @@ final readonly class ApplicationTenantBootstrapService
                 'create_time' => 0,
                 'update_time' => 0,
             ],
-            [
-                'name' => '代码生成归档清理',
-                'type' => 1,
-                'command' => 'generator:cleanup',
-                'params' => '',
-                'status' => 1,
-                'expression' => '0 3 * * *',
-                'error' => '',
-                'last_time' => 0,
-                'time' => 0,
-                'max_time' => 0,
-                'sort' => 20,
-                'remark' => '清理已使用或过期的代码生成下载令牌和隔离归档',
-                'create_time' => 0,
-                'update_time' => 0,
-            ],
         ];
         if (!in_array('peanut.payment', $this->modules->moduleKeys(), true)) {
             $defaults = array_values(array_filter(
@@ -146,7 +130,9 @@ final readonly class ApplicationTenantBootstrapService
                 static fn(array $row): bool => $row['command'] !== 'refund:reconcile',
             ));
         }
-        $this->tasks->seedDefaults($context, $defaults);
+        if ($defaults !== []) {
+            $this->tasks->seedDefaults($context, $defaults);
+        }
     }
 
     private function seedNoticeScenes(SystemExecutionContext $execution): void
