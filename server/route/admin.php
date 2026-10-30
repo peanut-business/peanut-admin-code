@@ -40,6 +40,8 @@ Route::group(function () {
 
 // ─── 管理后台完整 API（Login → Auth 两层中间件） ─────────────────────────────
 Route::group(function () use ($peanutRouteModules) {
+    Route::get('core.tenant.license', [\app\adminapi\controller\auth\TenantLicenseController::class, 'detail'])
+        ->completeMatch();
     Route::get('login/info', [LoginController::class, 'info']);
 
     // 工作台

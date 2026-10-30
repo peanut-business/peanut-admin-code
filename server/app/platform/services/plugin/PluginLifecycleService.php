@@ -24,7 +24,7 @@ use think\console\Input;
 use think\console\Output;
 use think\facade\Db;
 
-/** Deployment-scoped Plugin lifecycle. It deliberately never mutates pa_tenant_module. */
+/** Deployment-scoped Plugin lifecycle; tenant license plans own commercial availability. */
 final readonly class PluginLifecycleService implements PluginLifecycleCommands
 {
     public function __construct(
@@ -400,7 +400,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         );
         $ownedModuleKeys = Db::name('plugin_module')->where('plugin_key', $pluginKey)->column('module_key');
         if ($ownedModuleKeys !== [] && $this->tenantStates->hasEnabledModules($ownedModuleKeys)) {
-            throw new PluginLifecycleException('PLUGIN_TENANT_MODULE_ACTIVE', 'Disable every TenantModule before uninstall.');
+            throw new PluginLifecycleException('PLUGIN_TENANT_MODULE_ACTIVE', 'Remove the modules from tenant license plans before uninstall.');
         }
         $modules = $this->pluginModuleRows($pluginKey);
         $now = $this->now();
@@ -409,7 +409,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             ModuleLifecyclePolicy::assertNoOutstandingWorkflow($moduleKeys);
             $this->tenantStates->lockLifecycleRows($moduleKeys, [$pluginKey]);
             if ($this->tenantStates->enabledReferencesForUpdate($moduleKeys) !== []) {
-                throw new PluginLifecycleException('PLUGIN_TENANT_MODULE_ACTIVE', 'Disable every TenantModule before uninstall.');
+                throw new PluginLifecycleException('PLUGIN_TENANT_MODULE_ACTIVE', 'Remove the modules from tenant license plans before uninstall.');
             }
             $this->catalogs->retire(array_map(
                 static fn(array $row): string => (string) $row['module_key'],

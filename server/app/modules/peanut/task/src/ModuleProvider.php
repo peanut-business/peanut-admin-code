@@ -24,6 +24,8 @@ use app\common\persistence\TenantPersistenceConfiguration;
 use PeanutAdmin\Kernel\Module\ModuleProvider as ModuleProviderContract;
 use think\App;
 use PeanutAdmin\Modules\Task\Job\Persistence\TaskJobStore;
+use PeanutAdmin\DataPermission\Catalog\ResourceOperationCatalog;
+use PeanutAdmin\Modules\Identity\Module\TenantEntitlementService;
 
 final class ModuleProvider implements ModuleProviderContract
 {
@@ -51,6 +53,8 @@ final class ModuleProvider implements ModuleProviderContract
         Closure $dispatch,
         array $workerDefinitions,
         int $workerLimit,
+        ResourceOperationCatalog $operations,
+        TenantEntitlementService $entitlements,
     ): TaskJobRuntime {
         return new ThinkPhpTaskJobRuntime(
             new TaskJobStore($persistence->mode, $persistence->instanceTenantId),
@@ -63,6 +67,8 @@ final class ModuleProvider implements ModuleProviderContract
             $dispatch,
             $workerDefinitions,
             $workerLimit,
+            $operations,
+            $entitlements,
         );
     }
 
@@ -80,6 +86,8 @@ final class ModuleProvider implements ModuleProviderContract
                 fn(string $command, array $parameters = [], string $driver = 'buffer') => $app->make('console')->call($command, $parameters, $driver),
                 $app->make(TaskWorkerDefinitionRegistry::class)->resolve($app),
                 (int) $app->config->get('async.worker_limit', 25),
+                $app->make(ResourceOperationCatalog::class),
+                $app->make(TenantEntitlementService::class),
             ),
             TaskBootstrapCommands::class => TaskBootstrapService::class,
             TaskDiagnosticQuery::class => TaskDiagnosticService::class,

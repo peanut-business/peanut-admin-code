@@ -29,6 +29,7 @@
         </el-drawer>
         <el-container class="layout-content" :style="paddingStyle">
           <TabBar v-if="appStore.tabBar" />
+          <TenantLicense />
           <el-main class="layout-main">
             <PageLayout />
           </el-main>
@@ -50,6 +51,7 @@
   import usePermission from '@/hooks/permission';
   import useResponsive from '@/hooks/responsive';
   import PageLayout from './page-layout.vue';
+  import TenantLicense from '@/components/tenant-license/index.vue';
 
   const appStore = useAppStore();
   const userStore = useUserStore();

@@ -38,7 +38,7 @@ Identity 升级若变更核心权限目录，升级完成后须在新的 CLI 进
 
 包作者通过可信渠道交付archive和SHA-256，不能把未知包旁自行计算的摘要当作可信来源。`peanut module install <archive> --sha256=<trusted-64-hex>`是已知Standalone / multi-tenant实例的本地开发或调试Runtime安装入口；它不创建租户、开通TenantModule或授予RBAC。确需签名时，打包同时提供`--signing-key-id`和`--signing-secret-key-file`，安装可显式要求`--signature-key-id`；既有签名不被无条件忽略。生产模块交付仍走该版本支持的受控入口，不允许普通租户自行上传和运行PHP。
 
-租户开通与成员授权各有独立入口。Standalone 部署 owner 对已安装且锁定的私有模块，可用 `php think tenant-module:enable-locked-private --module=<vendor.module>` 显式加入默认租户；该命令不授予 RBAC。平台路由提供受 `platform.tenant.module.manage` 权限保护的 `POST tenants/modules/enable` / `disable`，用于受支持的租户模块管理。成员权限沿应用的角色、成员管理入口办理，并核对实际权限键及租户 Scope；平台 `operators/roles/replace` 是平台操作员角色入口，不等同租户成员授权。当前没有已核实的“安装包后自动为任意租户开通并给所有成员授权”的单一命令，因此不得把安装成功当作可用授权回执。
+租户开通使用套餐与许可证：套餐包含已安装模块及明确权限组合，租户的唯一当前许可证引用套餐并记录期限和状态。平台通过 plans 和 tenants/license 管理，逐租户模块 enable/disable 接口与命令已退出。安装包不会自动改已有套餐或授予成员权限；升级许可证只改变可用上限。成员权限沿应用的角色、成员管理入口办理，并核对实际权限键及租户 Scope；平台 operators/roles/replace 是平台操作员角色入口，不等同租户成员授权。
 
 以下动作彼此独立：
 
@@ -78,4 +78,4 @@ protected const CRUD_WRITABLE_FIELDS = [
 
 平台 HTTP 卸载沿已有 Ops 队列交给 CLI，提交后按任务状态确认结果。正常退役先将目标后端和客户端源码移入现有 quarantine，再撤销目标自己引入的 Composer require/path repository、开发 metapackage 及精确 workspace 路径；宿主依赖、其他模块节点和共享 workspace glob 保留，目标源码已不再被 glob 匹配。原生 Composer、pnpm/npm 更新锁和安装结果，重建受影响客户端并刷新编译登记后才完成退役。失败保留原确认计划和 quarantine 声明，沿同一入口继续，不重建业务数据。锁外但已有安装记录的旧模块，可从原 canonical 插件与模块声明停用、退役；不为清理而加入当前运行锁或激活其旧依赖。
 
-模块在 module.json 的 `database.owned_tables` 声明自有表，以 `backend.migrations: "database/migrations"` 声明自己的 ThinkPHP 原生迁移。安装和升级按目标模块及其强依赖收集迁移，沿用原生数字顺序、执行器和单一账本；宿主尚未应用的迁移先由宿主原生入口处理。首次安装使用宿主初始结构和实际所选模块迁移；默认脚手架保留 identity、file、settings、reference-codes、task、ops、content-tools、integration 八模块，其他模块通过独立包加入。已有表由其初始迁移核对并保留数据，不通过补写账本伪造执行。停用、卸载保留表、设置值、附件及迁移历史；清除业务数据需要单独明确授权。模块租户默认数据通过所属模块的正式启用 hook 初始化，不以安装包成功代替租户启用或 RBAC 授权。
+模块在 module.json 的 `database.owned_tables` 声明自有表，以 `backend.migrations: "database/migrations"` 声明自己的 ThinkPHP 原生迁移。安装和升级按目标模块及其强依赖收集迁移，沿用原生数字顺序、执行器和单一账本；宿主尚未应用的迁移先由宿主原生入口处理。首次安装使用宿主初始结构和实际所选模块迁移；默认脚手架保留 identity、file、settings、reference-codes、task、ops、content-tools、integration 八模块，其他模块通过独立包加入。已有表由其初始迁移核对并保留数据，不通过补写账本伪造执行。停用、卸载保留表、设置值、附件及迁移历史；清除业务数据需要单独明确授权。模块声明目录与必需静态默认由所属模块安装处理，租户级必需数据由真实租户初始化处理；应用组合初始化基础套餐与当前许可证，不以包安装成功代替租户权益或成员角色授权。

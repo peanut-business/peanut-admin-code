@@ -11,6 +11,7 @@ use app\common\execution\AdminExecutionContext;
 use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Modules\Identity\Authorization\ApiPermissionCatalog;
 use app\common\contract\module\ModuleQualificationQuery;
+use PeanutAdmin\Modules\Identity\Module\TenantEntitlementService;
 
 /**
  * 权限中间件（原生 TP 风格）
@@ -18,7 +19,7 @@ use app\common\contract\module\ModuleQualificationQuery;
  * 必须在路由级 LoginMiddleware 之后执行，从 CurrentExecutionContext 获取已验证人员；
  * 不从 Request 动态属性或客户端参数恢复可信身份。
  * 只有版本化 authenticated 元数据或启用的精确权限节点可以放行。
- * root 只绕过角色授权，不能绕过路由登记、登录、TenantContext 或身份边界。
+ * root 只绕过角色授权，不能绕过套餐权益、路由登记、登录或身份边界。
  */
 class AuthMiddleware
 {
@@ -29,6 +30,7 @@ class AuthMiddleware
         private readonly DemoAccountPolicy $demoAccounts,
         private readonly ApiPermissionCatalog $apis,
         private readonly ModuleQualificationQuery $modules,
+        private readonly TenantEntitlementService $entitlements,
     ) {}
 
     public function handle($request, \Closure $next)
@@ -48,7 +50,9 @@ class AuthMiddleware
         }
         $tenantContext = $current instanceof AdminExecutionContext ? $current->tenant : null;
         if (!$tenantContext instanceof \PeanutAdmin\Kernel\Auth\TenantContext
-            || !$this->apis->moduleAvailable($endpoint, $this->modules, $tenantContext->tenantId)) {
+            || !$this->apis->moduleAvailable($endpoint, $this->modules)
+            || (!in_array($endpoint['module_key'], ['peanut.admin', 'platform', 'member', 'installation'], true)
+                && !in_array($endpoint['module_key'], $this->entitlements->moduleKeys($tenantContext->tenantId), true))) {
             throw \app\common\http\ApiProblem::fromEnvelope('API 所属模块不可用', null, 40300);
         }
         if ($endpoint['access_mode'] === 'authenticated'

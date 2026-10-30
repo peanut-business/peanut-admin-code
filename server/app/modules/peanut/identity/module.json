@@ -56,10 +56,13 @@
       "pa_tenant_audit_event",
       "pa_tenant_entry_binding",
       "pa_tenant_member",
-      "pa_tenant_module",
       "pa_tenant_owner_invitation",
       "pa_tenant_session",
-      "pa_tenant_session_token"
+      "pa_tenant_session_token",
+      "pa_plan",
+      "pa_plan_module",
+      "pa_plan_permission",
+      "pa_tenant_license"
     ]
   },
   "contracts": {
@@ -110,7 +113,6 @@
       "PeanutAdmin\\Modules\\Identity\\Menu\\CoreMenuCatalog",
       "PeanutAdmin\\Modules\\Identity\\Menu\\MenuCatalogSynchronizer",
       "PeanutAdmin\\Modules\\Identity\\Module\\ModuleAvailabilityService",
-      "PeanutAdmin\\Modules\\Identity\\Module\\TenantModuleConfigurationService",
       "PeanutAdmin\\Modules\\Identity\\Organization\\Application\\DepartmentAdminService",
       "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformAccessAdminService",
       "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformTenantAdminService",
@@ -145,8 +147,9 @@
       "PeanutAdmin\\Modules\\Identity\\Contract\\TenantSessionAccess",
       "PeanutAdmin\\Modules\\Identity\\Contract\\TenantSessionAccessException",
       "PeanutAdmin\\Modules\\Identity\\Contract\\TenantAuthorizationQuery",
-      "PeanutAdmin\\Modules\\Identity\\Contract\\TenantAuthorizationCommands",
-      "PeanutAdmin\\Modules\\Identity\\Menu\\MenuAdministrationService"
+      "PeanutAdmin\\Modules\\Identity\\Menu\\MenuAdministrationService",
+      "PeanutAdmin\\Modules\\Identity\\Module\\TenantEntitlementService",
+      "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlanLicenseAdminService"
     ],
     "events": []
   },

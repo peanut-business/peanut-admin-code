@@ -1896,6 +1896,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/adminapi/core.tenant.license": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getCurrentTenantLicense"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platformapi/session/login": {
         parameters: {
             query?: never;
@@ -2424,38 +2440,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/platformapi/tenants/modules/enable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["enablePlatformTenantModule"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/platformapi/tenants/modules/disable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["disablePlatformTenantModule"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/platformapi/instance-tools/modules": {
         parameters: {
             query?: never;
@@ -2610,6 +2594,38 @@ export interface paths {
         };
         get: operations["downloadPlatformDiagnostics"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listTenantPlans"];
+        put: operations["updateTenantPlan"];
+        post: operations["createTenantPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/tenants/license": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getTenantLicense"];
+        put: operations["updateTenantLicense"];
         post?: never;
         delete?: never;
         options?: never;
@@ -5154,7 +5170,7 @@ export interface components {
             permission_catalog: "platform.*";
             /** @enum {boolean} */
             tenant_business_access: false;
-            operations: ("platform.tenant.create" | "platform.tenant.lifecycle" | "platform.tenant.provision-owner" | "platform.tenant.module.manage")[];
+            operations: ("platform.tenant.create" | "platform.tenant.lifecycle" | "platform.tenant.provision-owner" | "platform.tenant.license.manage")[];
         };
         PlatformOperator: {
             id: number | string;
@@ -5243,25 +5259,6 @@ export interface components {
         } & {
             [key: string]: components["schemas"]["ApplicationDynamicValue"];
         };
-        PlatformTenantModuleRecord: {
-            id: string;
-            tenant_id: string;
-            module_key: string;
-            status: string;
-            source: string;
-            config_revision: string;
-            authorization_revision: string;
-            effective_at: string | null;
-            expires_at: string | null;
-            enabled_at: string | null;
-            disabled_at: string | null;
-            disabled_reason: string | null;
-            created_at: string;
-            updated_at: string;
-            config: {
-                [key: string]: components["schemas"]["ApplicationDynamicValue"];
-            };
-        };
         PlatformTenantOwner: {
             member_id: number;
             tenant_id: number;
@@ -5349,6 +5346,11 @@ export interface components {
             tenant_enabled_count: number;
             blockers: string[];
             dependents: string[];
+            tenant: {
+                enableable: boolean;
+                required: boolean;
+                requires: string[];
+            };
         };
         PlatformModuleLifecycleResult: {
             operation: string;
@@ -5537,6 +5539,66 @@ export interface components {
             ready?: boolean;
         } & {
             [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        TenantPlan: {
+            id: number;
+            code: string;
+            name: string;
+            /** @enum {string} */
+            status: "active" | "inactive";
+            revision: number;
+            module_keys: string[];
+            permission_keys: string[];
+        };
+        TenantLicense: {
+            id: number;
+            tenant_id: number;
+            plan_id: number;
+            plan_code: string;
+            plan_name: string;
+            /** @enum {string} */
+            status: "active" | "suspended";
+            /** Format: date-time */
+            effective_at: string;
+            /** Format: date-time */
+            expires_at: string | null;
+            revision: number;
+            effective: boolean;
+            /** @enum {string} */
+            state: "active" | "suspended" | "upcoming" | "expired";
+        };
+        TenantLicenseData: {
+            tenant_id: number;
+            license: components["schemas"]["TenantLicense"] | null;
+        };
+        TenantPlanCreate: {
+            code: string;
+            name: string;
+            module_keys: string[];
+            permission_keys: string[];
+            change_reason: string;
+        };
+        TenantPlanUpdate: {
+            id: number;
+            expected_revision: number;
+            /** @enum {string} */
+            status: "active" | "inactive";
+            name: string;
+            module_keys: string[];
+            permission_keys: string[];
+            change_reason: string;
+        };
+        TenantLicenseWrite: {
+            tenant_id: number;
+            plan_id: number;
+            /** @enum {string} */
+            status: "active" | "suspended";
+            /** Format: date-time */
+            effective_at: string;
+            /** Format: date-time */
+            expires_at: string | null;
+            expected_revision: number;
+            change_reason: string;
         };
         PermissionBundle: {
             key: string;
@@ -10672,6 +10734,33 @@ export interface operations {
             403: components["responses"]["ErrorResponse"];
         };
     };
+    getCurrentTenantLicense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["TenantLicenseData"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
     platformSessionLogin: {
         parameters: {
             query?: never;
@@ -11843,85 +11932,6 @@ export interface operations {
             422: components["responses"]["ErrorResponse"];
         };
     };
-    enablePlatformTenantModule: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    tenant_id: number;
-                    module_key: string;
-                    change_reason: string;
-                    config?: {
-                        [key: string]: components["schemas"]["ApplicationDynamicValue"];
-                    };
-                    /** Format: date-time */
-                    effective_at?: string;
-                    /** Format: date-time */
-                    expires_at?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["PlatformTenantModuleRecord"];
-                    };
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    disablePlatformTenantModule: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    tenant_id: number;
-                    module_key: string;
-                    change_reason: string;
-                };
-            };
-        };
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["PlatformTenantModuleRecord"];
-                    };
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
     listInstanceModules: {
         parameters: {
             query?: {
@@ -12275,6 +12285,174 @@ export interface operations {
             };
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listTenantPlans: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: components["schemas"]["TenantPlan"][];
+                            count: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateTenantPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantPlanUpdate"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["TenantPlan"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createTenantPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantPlanCreate"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["TenantPlan"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getTenantLicense: {
+        parameters: {
+            query: {
+                tenant_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["TenantLicenseData"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateTenantLicense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantLicenseWrite"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["TenantLicenseData"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };

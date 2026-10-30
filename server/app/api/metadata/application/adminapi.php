@@ -869,4 +869,5 @@ $overrides = [
 ];
 
 $paths['/adminapi/decoration/mobile/article']['x-peanut-required-modules'] = ['peanut.article'];
+$add($paths, 'GET', '/adminapi/core.tenant.license', $operation('getCurrentTenantLicense', 'TenantPlans', $ok('TenantLicenseData')));
 return ['paths' => $paths, 'overrides' => $overrides, 'components' => ['schemas' => $schemas]];

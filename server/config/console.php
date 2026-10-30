@@ -21,8 +21,6 @@ return [
         'ops-module:request' => \app\command\OpsModuleRequest::class,
         'ops-module:task' => \app\command\OpsModuleTask::class,
         'developer:center' => \app\command\DeveloperCenterCatalog::class,
-        'tenant-module:apply-profile' => \app\command\TenantModuleProfile::class,
-        'tenant-module:enable-locked-private' => \app\command\TenantModuleEnableLockedPrivate::class,
     ],
     // Every command that may run from the Tenant scheduler must declare its owning Module.
     // Core commands use the built-in `core` capability; application Modules register their key.

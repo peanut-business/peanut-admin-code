@@ -7,7 +7,6 @@ namespace app\platform\services;
 use PeanutAdmin\Modules\Identity\Contract\TenantOwnerAdminProvisioner;
 use app\common\exception\BusinessException;
 use app\platform\identity\PlatformOperatorIdentityPort;
-use DateTimeImmutable;
 use PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService;
 use PeanutAdmin\Modules\Identity\Platform\Application\TenantOwnerAdminService;
 use think\facade\Db;
@@ -127,47 +126,4 @@ final readonly class TenantGovernanceService
         }
     }
 
-    /** @param array<string,mixed> $config @return array<string,mixed> */
-    public function enableModule(
-        string $operatorCredential,
-        int $tenantId,
-        string $moduleKey,
-        array $config,
-        string $source,
-        ?DateTimeImmutable $effectiveAt,
-        ?DateTimeImmutable $expiresAt,
-        string $changeReason,
-        string $requestId,
-    ): array {
-        $operator = $this->identities->requireActive($operatorCredential, $requestId);
-
-        return $this->administration->enableModule(
-            $operator->core,
-            $tenantId,
-            $moduleKey,
-            $config,
-            $source,
-            $effectiveAt,
-            $expiresAt,
-            $changeReason,
-        );
-    }
-
-    /** @return array<string,mixed> */
-    public function disableModule(
-        string $operatorCredential,
-        int $tenantId,
-        string $moduleKey,
-        string $changeReason,
-        string $requestId,
-    ): array {
-        $operator = $this->identities->requireActive($operatorCredential, $requestId);
-
-        return $this->administration->disableModule(
-            $operator->core,
-            $tenantId,
-            $moduleKey,
-            $changeReason,
-        );
-    }
 }

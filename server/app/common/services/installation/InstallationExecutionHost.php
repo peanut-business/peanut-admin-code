@@ -4,19 +4,15 @@ declare(strict_types=1);
 
 namespace app\common\services\installation;
 
-use app\common\composition\ModuleComposition;
 use app\common\module\ModuleMigrationRun;
 use app\common\exception\installation\InstallationExecutionException;
-use app\common\services\audit\AuditContractHost;
 use app\common\value\installation\ApplicationSourceIdentity;
 use app\common\value\installation\ServerReleaseIdentity;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
-use app\platform\services\module\ProductTenantModuleProfileService;
 use app\platform\infrastructure\plugin\ModuleCatalogApplier;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
-use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
 use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
-use Closure;
+use PeanutAdmin\Modules\Identity\Platform\Application\PlanLicenseAdminService;
 use PDO;
 use RuntimeException;
 use think\db\PDOConnection;
@@ -31,15 +27,11 @@ final class InstallationExecutionHost
     private ?string $currentInstallationModule = null;
     private readonly string $serverRoot;
 
-    /** @param Closure(CompiledModuleRegistry):ModuleRuntimeRepository $moduleRuntimeFactory */
     public function __construct(
         string $serverRoot,
         private readonly ModuleCatalogApplier $catalogs,
-        private readonly \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery $tenantDirectory,
-        private readonly Closure $moduleRuntimeFactory,
-        private readonly AuditContractHost $audit,
         private readonly TenantModuleStateQueries $moduleStates,
-        private readonly ModuleComposition $moduleComposition,
+        private readonly PlanLicenseAdminService $licenses,
         private readonly CompiledModuleRegistry $definitions,
     ) {
         $this->serverRoot = rtrim($serverRoot, DIRECTORY_SEPARATOR);
@@ -588,20 +580,8 @@ final class InstallationExecutionHost
                 'operation' => (string) ($result['operation'] ?? ''),
             ];
         }
-        $profile = (new ProductTenantModuleProfileService(
-            $this->runtimeForProfile($registry),
-            $governance,
-            $this->audit,
-            $this->tenantDirectory,
-            $this->moduleComposition,
-        ))->applyInstallationSelection($moduleKeys, $tenantBootstrap['code']);
-        return ['operations' => $operations, 'profile' => $profile];
-    }
-
-    /** Construct persistence after reconciliation over the same immutable deployment declaration. */
-    private function runtimeForProfile(CompiledModuleRegistry $registry): ModuleRuntimeRepository
-    {
-        return ($this->moduleRuntimeFactory)($registry);
+        $license = $this->licenses->initializeInstallation($moduleKeys, $tenantBootstrap['code']);
+        return ['operations' => $operations, 'license' => $license];
     }
 
     /** @param list<string> $moduleKeys @return array<string,int> */

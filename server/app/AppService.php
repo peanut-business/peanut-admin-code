@@ -73,9 +73,6 @@ use app\platform\services\PlatformOperatorSessionService;
 use app\platform\services\TenantGovernanceService;
 use PeanutAdmin\Modules\Identity\Contract\TenantOwnerAdminProvisioner;
 use app\platform\infrastructure\module\DeployedTenantModuleRegistry;
-use app\platform\validation\module\OpisTenantModuleConfigValidator;
-use app\platform\services\module\PlatformTenantModuleService;
-use app\platform\infrastructure\module\VerifiedTenantModuleRepository;
 use PeanutAdmin\Modules\Ops\Service\PlatformOpsApplicationService;
 use PeanutAdmin\Modules\Ops\Infrastructure\ApplicationRuntimeStatusProvider;
 use PeanutAdmin\Modules\Ops\Service\DeploymentModuleRequestService;
@@ -128,8 +125,6 @@ use PeanutAdmin\Kernel\Host\ApplicationHostPolicy;
 use PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
-use PeanutAdmin\Modules\Identity\Module\TenantModuleConfigurationService;
-use PeanutAdmin\Kernel\Module\TenantModuleManager;
 use PeanutAdmin\Modules\Identity\Menu\ThinkPhpMenuCatalogRepository;
 use PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService;
 use PeanutAdmin\Modules\Identity\Platform\Application\TenantOwnerAdminService;
@@ -255,11 +250,8 @@ class AppService extends Service
             fn(): InstallationExecutionHost => new InstallationExecutionHost(
                 dirname(__DIR__),
                 $this->app->make(ModuleCatalogApplier::class),
-                $this->app->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
-                fn(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry $registry): \PeanutAdmin\Kernel\Module\ModuleRuntimeRepository => $this->installationModuleRuntime($registry),
-                $this->app->make(AuditContractHost::class),
                 $this->app->make(\PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries::class),
-                $this->app->make(ModuleComposition::class),
+                $this->app->make(\PeanutAdmin\Modules\Identity\Platform\Application\PlanLicenseAdminService::class),
                 $this->app->make(CompiledModuleRegistry::class),
             ),
         );
@@ -270,12 +262,6 @@ class AppService extends Service
         $this->app->bind(OperationLogService::class, fn(): OperationLogService => new OperationLogService(
             $this->app->make(AuditContractHost::class),
         ));
-    }
-
-    /** Composition-only construction; keep the original installation availability locks and late registry. */
-    private function installationModuleRuntime(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry $registry): \PeanutAdmin\Kernel\Module\ModuleRuntimeRepository
-    {
-        return new \PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository($registry, true);
     }
 
     private function registerAuthentication(): void
@@ -338,9 +324,13 @@ class AppService extends Service
             $this->app->make(\PeanutAdmin\Kernel\Menu\MenuCatalogRepository::class),
             $this->app->make(TenantAuthorizationQuery::class),
             $this->app->make(\PeanutAdmin\Modules\Identity\Menu\MenuAdministrationService::class),
+            $this->app->make(\PeanutAdmin\Modules\Identity\Module\TenantEntitlementService::class),
         ));
         $this->app->bind(RoleAdministrationRuntime::class, fn(): RoleAdministrationRuntime => new RoleAdministrationRuntime(
-            new RoleAdminService($this->app->make(AuditService::class)),
+            new RoleAdminService(
+                $this->app->make(AuditService::class),
+                $this->app->make(\PeanutAdmin\Modules\Identity\Module\TenantEntitlementService::class),
+            ),
             $this->app->make(TenantAuthorizationQuery::class),
         ));
         $this->app->bind(AdminDirectoryQuery::class, fn(): AdminDirectoryQuery => new AdminDirectoryQuery(
@@ -449,21 +439,6 @@ class AppService extends Service
         $this->app->bind(DeployedTenantModuleRegistry::class, fn(): DeployedTenantModuleRegistry =>
             $this->app->make(ThinkPhpModuleGovernanceProvider::class)->registry());
         $this->app->bind(ModuleRuntimeRepository::class, ThinkPhpModuleRuntimeRepository::class);
-        $this->app->bind(TenantModuleConfigurationService::class, fn(): TenantModuleConfigurationService => new TenantModuleConfigurationService(
-            $this->app->make(DeployedTenantModuleRegistry::class)->compiled(),
-            $this->app->make(OpisTenantModuleConfigValidator::class),
-            $this->app->make(ModuleRuntimeRepository::class),
-            $this->app->make(AuditService::class),
-        ));
-        $this->app->bind(TenantModuleManager::class, fn(): TenantModuleManager => new TenantModuleManager(
-            $this->app->make(DeployedTenantModuleRegistry::class)->compiled(),
-            new VerifiedTenantModuleRepository(
-                new ThinkPhpModuleRuntimeRepository($this->app->make(CompiledModuleRegistry::class), true),
-                $this->app->make(DeployedTenantModuleRegistry::class),
-            ),
-            $this->app->make(OpisTenantModuleConfigValidator::class),
-            $this->app->make(ModuleComposition::class)->tenantHooks($this->app->make(DeployedTenantModuleRegistry::class)->compiled()),
-        ));
         $this->app->bind(PluginCatalogSyncService::class, fn(): PluginCatalogSyncService =>
             new PluginCatalogSyncService(
                 dirname(__DIR__),
@@ -481,6 +456,7 @@ class AppService extends Service
                 $this->app->make(\PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries::class),
                 $this->app->make(DeploymentModuleRequestService::class),
                 $this->app->make(PlatformModuleOperationExecutionService::class),
+                $this->app->make(CompiledModuleRegistry::class),
             ));
         $this->app->bind(PlatformPermissionChecker::class, PlatformOpsPermissionChecker::class);
         $this->app->bind(OpsTaskDispatcher::class, ThinkPhpOpsTaskDispatcher::class);

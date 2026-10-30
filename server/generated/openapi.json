@@ -93,6 +93,9 @@
             "name": "Workbench"
         },
         {
+            "name": "TenantPlans"
+        },
+        {
             "name": "PlatformSession"
         },
         {
@@ -109,9 +112,6 @@
         },
         {
             "name": "PlatformTenantBindings"
-        },
-        {
-            "name": "PlatformTenantModules"
         },
         {
             "name": "PlatformModules"
@@ -620,7 +620,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 163
+                        "line": 165
                     }
                 },
                 "x-peanut-permissions": [
@@ -724,7 +724,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 191
+                        "line": 190
                     }
                 },
                 "x-peanut-permissions": [
@@ -802,7 +802,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 144
+                        "line": 143
                     }
                 },
                 "x-peanut-permissions": [
@@ -880,7 +880,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 188
+                        "line": 187
                     }
                 },
                 "x-peanut-permissions": [
@@ -958,7 +958,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 185
+                        "line": 184
                     }
                 },
                 "x-peanut-permissions": [
@@ -1062,7 +1062,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 147
+                        "line": 146
                     }
                 },
                 "x-peanut-permissions": [
@@ -1140,7 +1140,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 150
+                        "line": 149
                     }
                 },
                 "x-peanut-permissions": [
@@ -1252,7 +1252,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 158
+                        "line": 157
                     }
                 },
                 "x-peanut-permissions": [
@@ -1358,7 +1358,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 161
+                        "line": 160
                     }
                 },
                 "x-peanut-permissions": [
@@ -1459,7 +1459,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 169
+                        "line": 168
                     }
                 },
                 "x-peanut-permissions": [
@@ -1571,7 +1571,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 172
+                        "line": 171
                     }
                 },
                 "x-peanut-permissions": [
@@ -1665,7 +1665,7 @@
                     "permission": "platform.ops.upgrade.manage",
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 175
+                        "line": 174
                     }
                 },
                 "x-peanut-permissions": [
@@ -1770,7 +1770,7 @@
                     "permission": "platform.ops.module.manage",
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 180
+                        "line": 179
                     }
                 },
                 "x-peanut-permissions": [
@@ -1862,7 +1862,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 194
+                        "line": 193
                     }
                 },
                 "x-peanut-permissions": [
@@ -2713,7 +2713,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 43
+                        "line": 45
                     }
                 },
                 "x-peanut-permissions": [
@@ -3215,7 +3215,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 81
+                        "line": 83
                     }
                 },
                 "x-peanut-permissions": [
@@ -3297,7 +3297,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 82
+                        "line": 84
                     }
                 },
                 "x-peanut-permissions": [
@@ -3369,7 +3369,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 83
+                        "line": 85
                     }
                 },
                 "x-peanut-permissions": [
@@ -3458,7 +3458,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 84
+                        "line": 86
                     }
                 },
                 "x-peanut-permissions": [
@@ -3553,7 +3553,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 85
+                        "line": 87
                     }
                 },
                 "x-peanut-permissions": [
@@ -3652,7 +3652,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 86
+                        "line": 88
                     }
                 },
                 "x-peanut-permissions": [
@@ -3759,7 +3759,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 87
+                        "line": 89
                     }
                 },
                 "x-peanut-permissions": [
@@ -3874,7 +3874,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 88
+                        "line": 90
                     }
                 },
                 "x-peanut-permissions": [
@@ -3949,7 +3949,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 49
+                        "line": 51
                     }
                 },
                 "x-peanut-permissions": [
@@ -4024,7 +4024,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 50
+                        "line": 52
                     }
                 },
                 "x-peanut-permissions": [
@@ -4099,7 +4099,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 51
+                        "line": 53
                     }
                 },
                 "x-peanut-permissions": [
@@ -4182,7 +4182,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 52
+                        "line": 54
                     }
                 },
                 "x-peanut-permissions": [
@@ -4282,7 +4282,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 53
+                        "line": 55
                     }
                 },
                 "x-peanut-permissions": [
@@ -4393,7 +4393,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 54
+                        "line": 56
                     }
                 },
                 "x-peanut-permissions": [
@@ -4504,7 +4504,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 55
+                        "line": 57
                     }
                 },
                 "x-peanut-permissions": [
@@ -4617,7 +4617,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 56
+                        "line": 58
                     }
                 },
                 "x-peanut-permissions": [
@@ -4720,7 +4720,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 59
+                        "line": 61
                     }
                 },
                 "x-peanut-permissions": [
@@ -4795,7 +4795,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 60
+                        "line": 62
                     }
                 },
                 "x-peanut-permissions": [
@@ -4877,7 +4877,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 61
+                        "line": 63
                     }
                 },
                 "x-peanut-permissions": [
@@ -4969,7 +4969,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 62
+                        "line": 64
                     }
                 },
                 "x-peanut-permissions": [
@@ -5064,7 +5064,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 63
+                        "line": 65
                     }
                 },
                 "x-peanut-permissions": [
@@ -5168,7 +5168,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 64
+                        "line": 66
                     }
                 },
                 "x-peanut-permissions": [
@@ -5264,7 +5264,7 @@
                     "permission": "core.role.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 65
+                        "line": 67
                     }
                 },
                 "x-peanut-permissions": [
@@ -5359,7 +5359,7 @@
                     "permission": "core.role.permission.assign",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 67
+                        "line": 69
                     }
                 },
                 "x-peanut-permissions": [
@@ -5460,7 +5460,7 @@
                     "permission": "core.permission.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 69
+                        "line": 71
                     }
                 },
                 "x-peanut-permissions": [
@@ -5576,7 +5576,7 @@
                     "permission": "core.role.data-policy.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 73
+                        "line": 75
                     }
                 },
                 "x-peanut-permissions": [
@@ -5671,7 +5671,7 @@
                     "permission": "core.role.data-policy.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 75
+                        "line": 77
                     }
                 },
                 "x-peanut-permissions": [
@@ -5796,7 +5796,7 @@
                     "permission": "core.role.data-policy.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 77
+                        "line": 79
                     }
                 },
                 "x-peanut-permissions": [
@@ -6138,7 +6138,7 @@
                     "permission": "core.department.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 91
+                        "line": 93
                     }
                 },
                 "x-peanut-permissions": [
@@ -6480,7 +6480,7 @@
                     "permission": "core.department.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 92
+                        "line": 94
                     }
                 },
                 "x-peanut-permissions": [
@@ -6821,7 +6821,7 @@
                     "permission": "core.department.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 93
+                        "line": 95
                     }
                 },
                 "x-peanut-permissions": [
@@ -6991,7 +6991,7 @@
                     "permission": "core.department.update",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 94
+                        "line": 96
                     }
                 },
                 "x-peanut-permissions": [
@@ -7073,7 +7073,7 @@
                     "permission": "core.department.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 95
+                        "line": 97
                     }
                 },
                 "x-peanut-permissions": [
@@ -7168,7 +7168,7 @@
                     "permission": "core.department.create",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 96
+                        "line": 98
                     }
                 },
                 "x-peanut-permissions": [
@@ -7263,7 +7263,7 @@
                     "permission": "core.department.update",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 97
+                        "line": 99
                     }
                 },
                 "x-peanut-permissions": [
@@ -7367,7 +7367,7 @@
                     "permission": "core.department.archive",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 98
+                        "line": 100
                     }
                 },
                 "x-peanut-permissions": [
@@ -7479,7 +7479,7 @@
                     "permission": "core.department.update",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 99
+                        "line": 101
                     }
                 },
                 "x-peanut-permissions": [
@@ -7632,7 +7632,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 102
+                        "line": 104
                     }
                 },
                 "x-peanut-permissions": [
@@ -7707,7 +7707,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 103
+                        "line": 105
                     }
                 },
                 "x-peanut-permissions": [
@@ -7789,7 +7789,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 104
+                        "line": 106
                     }
                 },
                 "x-peanut-permissions": [
@@ -7888,7 +7888,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 105
+                        "line": 107
                     }
                 },
                 "x-peanut-permissions": [
@@ -7987,7 +7987,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 106
+                        "line": 108
                     }
                 },
                 "x-peanut-permissions": [
@@ -8091,7 +8091,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 107
+                        "line": 109
                     }
                 },
                 "x-peanut-permissions": [
@@ -8203,7 +8203,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 108
+                        "line": 110
                     }
                 },
                 "x-peanut-permissions": [
@@ -8275,7 +8275,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 149
+                        "line": 151
                     }
                 },
                 "x-peanut-permissions": [
@@ -8357,7 +8357,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 150
+                        "line": 152
                     }
                 },
                 "x-peanut-permissions": [
@@ -8429,7 +8429,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 153
+                        "line": 155
                     }
                 },
                 "x-peanut-permissions": [
@@ -8518,7 +8518,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 154
+                        "line": 156
                     }
                 },
                 "x-peanut-permissions": [
@@ -8590,7 +8590,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 155
+                        "line": 157
                     }
                 },
                 "x-peanut-permissions": [
@@ -8679,7 +8679,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 156
+                        "line": 158
                     }
                 },
                 "x-peanut-permissions": [
@@ -8751,7 +8751,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 157
+                        "line": 159
                     }
                 },
                 "x-peanut-permissions": [
@@ -8840,7 +8840,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 158
+                        "line": 160
                     }
                 },
                 "x-peanut-permissions": [
@@ -8912,7 +8912,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 159
+                        "line": 161
                     }
                 },
                 "x-peanut-permissions": [
@@ -9001,7 +9001,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 160
+                        "line": 162
                     }
                 },
                 "x-peanut-permissions": [
@@ -9073,7 +9073,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 151
+                        "line": 153
                     }
                 },
                 "x-peanut-permissions": [
@@ -9162,7 +9162,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 152
+                        "line": 154
                     }
                 },
                 "x-peanut-permissions": [
@@ -9237,7 +9237,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 174
+                        "line": 176
                     }
                 },
                 "x-peanut-permissions": [
@@ -9325,7 +9325,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 175
+                        "line": 177
                     }
                 },
                 "x-peanut-permissions": [
@@ -9426,7 +9426,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 176
+                        "line": 178
                     }
                 },
                 "x-peanut-permissions": [
@@ -9501,7 +9501,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 179
+                        "line": 181
                     }
                 },
                 "x-peanut-permissions": [
@@ -9589,7 +9589,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 180
+                        "line": 182
                     }
                 },
                 "x-peanut-permissions": [
@@ -9690,7 +9690,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 181
+                        "line": 183
                     }
                 },
                 "x-peanut-permissions": [
@@ -9762,7 +9762,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 177
+                        "line": 179
                     }
                 },
                 "x-peanut-permissions": [
@@ -9854,7 +9854,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 178
+                        "line": 180
                     }
                 },
                 "x-peanut-permissions": [
@@ -9966,7 +9966,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 129
+                        "line": 131
                     }
                 },
                 "x-peanut-permissions": [
@@ -10078,7 +10078,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 130
+                        "line": 132
                     }
                 },
                 "x-peanut-permissions": [
@@ -10160,7 +10160,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 131
+                        "line": 133
                     }
                 },
                 "x-peanut-permissions": [
@@ -10263,7 +10263,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 132
+                        "line": 134
                     }
                 },
                 "x-peanut-permissions": [
@@ -10361,7 +10361,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 133
+                        "line": 135
                     }
                 },
                 "x-peanut-permissions": [
@@ -10450,7 +10450,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 134
+                        "line": 136
                     }
                 },
                 "x-peanut-permissions": [
@@ -10556,7 +10556,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 135
+                        "line": 137
                     }
                 },
                 "x-peanut-permissions": [
@@ -10653,7 +10653,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 136
+                        "line": 138
                     }
                 },
                 "x-peanut-permissions": [
@@ -10755,7 +10755,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 137
+                        "line": 139
                     }
                 },
                 "x-peanut-permissions": [
@@ -10828,7 +10828,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 138
+                        "line": 140
                     }
                 },
                 "x-peanut-permissions": [
@@ -10903,7 +10903,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 139
+                        "line": 141
                     }
                 },
                 "x-peanut-permissions": [
@@ -11076,7 +11076,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 146
+                        "line": 148
                     }
                 },
                 "x-peanut-permissions": [
@@ -11155,7 +11155,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 147
+                        "line": 149
                     }
                 },
                 "x-peanut-permissions": [
@@ -11227,7 +11227,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 166
+                        "line": 168
                     }
                 },
                 "x-peanut-permissions": [
@@ -11316,7 +11316,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 167
+                        "line": 169
                     }
                 },
                 "x-peanut-permissions": [
@@ -11388,7 +11388,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 170
+                        "line": 172
                     }
                 },
                 "x-peanut-permissions": [
@@ -11483,7 +11483,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 171
+                        "line": 173
                     }
                 },
                 "x-peanut-permissions": [
@@ -11555,7 +11555,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 142
+                        "line": 144
                     }
                 },
                 "x-peanut-permissions": [
@@ -11634,7 +11634,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 143
+                        "line": 145
                     }
                 },
                 "x-peanut-permissions": [
@@ -11706,13 +11706,85 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 46
+                        "line": 48
                     }
                 },
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
                         "key": "workbench/index"
+                    }
+                ]
+            }
+        },
+        "/adminapi/core.tenant.license": {
+            "get": {
+                "tags": [
+                    "TenantPlans"
+                ],
+                "operationId": "getCurrentTenantLicense",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/TenantLicenseData"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "application",
+                        "key": "adminapi"
+                    },
+                    "controller": "app\\adminapi\\controller\\auth\\TenantLicenseController",
+                    "action": "detail",
+                    "permission": null,
+                    "source": {
+                        "file": "server/route/admin.php",
+                        "line": 43
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "tenant_action",
+                        "key": "core.tenant.license"
                     }
                 ]
             }
@@ -11794,7 +11866,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 52
+                        "line": 51
                     }
                 },
                 "x-peanut-permissions": []
@@ -11865,7 +11937,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 54
+                        "line": 53
                     }
                 },
                 "x-peanut-permissions": []
@@ -11936,7 +12008,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 56
+                        "line": 55
                     }
                 },
                 "x-peanut-permissions": []
@@ -12006,7 +12078,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 58
+                        "line": 57
                     }
                 },
                 "x-peanut-permissions": []
@@ -12076,7 +12148,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 60
+                        "line": 59
                     }
                 },
                 "x-peanut-permissions": [
@@ -12185,7 +12257,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 216
+                        "line": 224
                     }
                 },
                 "x-peanut-permissions": [
@@ -12270,7 +12342,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 63
+                        "line": 62
                     }
                 },
                 "x-peanut-permissions": [
@@ -12358,7 +12430,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 200
+                        "line": 199
                     }
                 },
                 "x-peanut-permissions": [
@@ -12446,7 +12518,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 203
+                        "line": 202
                     }
                 },
                 "x-peanut-permissions": [
@@ -12534,7 +12606,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 206
+                        "line": 205
                     }
                 },
                 "x-peanut-permissions": [
@@ -12643,7 +12715,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 85
+                        "line": 84
                     }
                 },
                 "x-peanut-permissions": [
@@ -12752,7 +12824,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 88
+                        "line": 87
                     }
                 },
                 "x-peanut-permissions": [
@@ -12861,7 +12933,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 91
+                        "line": 90
                     }
                 },
                 "x-peanut-permissions": [
@@ -12970,7 +13042,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 94
+                        "line": 93
                     }
                 },
                 "x-peanut-permissions": [
@@ -13088,7 +13160,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 97
+                        "line": 96
                     }
                 },
                 "x-peanut-permissions": [
@@ -13173,7 +13245,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 82
+                        "line": 81
                     }
                 },
                 "x-peanut-permissions": [
@@ -13278,7 +13350,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 219
+                        "line": 227
                     }
                 },
                 "x-peanut-permissions": [
@@ -13388,7 +13460,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 222
+                        "line": 230
                     }
                 },
                 "x-peanut-permissions": [
@@ -13502,7 +13574,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 225
+                        "line": 233
                     }
                 },
                 "x-peanut-permissions": [
@@ -13607,7 +13679,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 228
+                        "line": 236
                     }
                 },
                 "x-peanut-permissions": [
@@ -13712,7 +13784,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 231
+                        "line": 239
                     }
                 },
                 "x-peanut-permissions": [
@@ -13817,7 +13889,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 234
+                        "line": 242
                     }
                 },
                 "x-peanut-permissions": [
@@ -13922,7 +13994,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 237
+                        "line": 245
                     }
                 },
                 "x-peanut-permissions": [
@@ -14036,7 +14108,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 240
+                        "line": 248
                     }
                 },
                 "x-peanut-permissions": [
@@ -14141,7 +14213,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 243
+                        "line": 251
                     }
                 },
                 "x-peanut-permissions": [
@@ -14254,7 +14326,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 246
+                        "line": 254
                     }
                 },
                 "x-peanut-permissions": [
@@ -14372,7 +14444,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 66
+                        "line": 65
                     }
                 },
                 "x-peanut-permissions": [
@@ -14484,7 +14556,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 76
+                        "line": 75
                     }
                 },
                 "x-peanut-permissions": [
@@ -14600,7 +14672,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 79
+                        "line": 78
                     }
                 },
                 "x-peanut-permissions": [
@@ -14701,7 +14773,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 69
+                        "line": 68
                     }
                 },
                 "x-peanut-permissions": [
@@ -14796,7 +14868,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 72
+                        "line": 71
                     }
                 },
                 "x-peanut-permissions": [
@@ -14884,7 +14956,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 135
+                        "line": 134
                     }
                 },
                 "x-peanut-permissions": [
@@ -15004,7 +15076,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 138
+                        "line": 137
                     }
                 },
                 "x-peanut-permissions": [
@@ -15109,241 +15181,13 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 197
+                        "line": 196
                     }
                 },
                 "x-peanut-permissions": [
                     {
                         "kind": "platform_action",
                         "key": "platform.tenant.update"
-                    }
-                ]
-            }
-        },
-        "/platformapi/tenants/modules/enable": {
-            "post": {
-                "tags": [
-                    "PlatformTenantModules"
-                ],
-                "operationId": "enablePlatformTenantModule",
-                "parameters": [],
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "additionalProperties": false,
-                                    "required": [
-                                        "code",
-                                        "msg",
-                                        "data"
-                                    ],
-                                    "properties": {
-                                        "code": {
-                                            "type": "integer",
-                                            "enum": [
-                                                20000
-                                            ]
-                                        },
-                                        "msg": {
-                                            "type": "string"
-                                        },
-                                        "data": {
-                                            "$ref": "#/components/schemas/PlatformTenantModuleRecord"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    },
-                    "403": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    }
-                },
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "additionalProperties": false,
-                                "required": [
-                                    "tenant_id",
-                                    "module_key",
-                                    "change_reason"
-                                ],
-                                "properties": {
-                                    "tenant_id": {
-                                        "type": "integer",
-                                        "minimum": 1
-                                    },
-                                    "module_key": {
-                                        "type": "string",
-                                        "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$",
-                                        "maxLength": 96
-                                    },
-                                    "change_reason": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 500
-                                    },
-                                    "config": {
-                                        "type": "object",
-                                        "additionalProperties": {
-                                            "$ref": "#/components/schemas/ApplicationDynamicValue"
-                                        }
-                                    },
-                                    "effective_at": {
-                                        "type": "string",
-                                        "format": "date-time"
-                                    },
-                                    "expires_at": {
-                                        "type": "string",
-                                        "format": "date-time"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": {}
-                    }
-                ],
-                "x-peanut-route": {
-                    "application": "platform",
-                    "owner": {
-                        "type": "application",
-                        "key": "platform"
-                    },
-                    "controller": "app\\platform\\controller\\PlatformTenantModuleController",
-                    "action": "enable",
-                    "permission": null,
-                    "source": {
-                        "file": "server/route/platform.php",
-                        "line": 209
-                    }
-                },
-                "x-peanut-permissions": [
-                    {
-                        "kind": "platform_action",
-                        "key": "platform.tenant.module.manage"
-                    }
-                ]
-            }
-        },
-        "/platformapi/tenants/modules/disable": {
-            "post": {
-                "tags": [
-                    "PlatformTenantModules"
-                ],
-                "operationId": "disablePlatformTenantModule",
-                "parameters": [],
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "additionalProperties": false,
-                                    "required": [
-                                        "code",
-                                        "msg",
-                                        "data"
-                                    ],
-                                    "properties": {
-                                        "code": {
-                                            "type": "integer",
-                                            "enum": [
-                                                20000
-                                            ]
-                                        },
-                                        "msg": {
-                                            "type": "string"
-                                        },
-                                        "data": {
-                                            "$ref": "#/components/schemas/PlatformTenantModuleRecord"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    },
-                    "403": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    }
-                },
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "additionalProperties": false,
-                                "required": [
-                                    "tenant_id",
-                                    "module_key",
-                                    "change_reason"
-                                ],
-                                "properties": {
-                                    "tenant_id": {
-                                        "type": "integer",
-                                        "minimum": 1
-                                    },
-                                    "module_key": {
-                                        "type": "string",
-                                        "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$",
-                                        "maxLength": 96
-                                    },
-                                    "change_reason": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "maxLength": 500
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": {}
-                    }
-                ],
-                "x-peanut-route": {
-                    "application": "platform",
-                    "owner": {
-                        "type": "application",
-                        "key": "platform"
-                    },
-                    "controller": "app\\platform\\controller\\PlatformTenantModuleController",
-                    "action": "disable",
-                    "permission": null,
-                    "source": {
-                        "file": "server/route/platform.php",
-                        "line": 212
-                    }
-                },
-                "x-peanut-permissions": [
-                    {
-                        "kind": "platform_action",
-                        "key": "platform.tenant.module.manage"
                     }
                 ]
             }
@@ -15455,7 +15299,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 100
+                        "line": 99
                     }
                 },
                 "x-peanut-permissions": [
@@ -15561,7 +15405,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 112
+                        "line": 111
                     }
                 },
                 "x-peanut-permissions": [
@@ -15671,7 +15515,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 108
+                        "line": 107
                     }
                 },
                 "x-peanut-permissions": [
@@ -15772,7 +15616,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 127
+                        "line": 126
                     }
                 },
                 "x-peanut-permissions": [
@@ -15864,7 +15708,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 131
+                        "line": 130
                     }
                 },
                 "x-peanut-permissions": [
@@ -16037,7 +15881,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 123
+                        "line": 122
                     }
                 },
                 "x-peanut-permissions": [
@@ -16122,7 +15966,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 105
+                        "line": 104
                     }
                 },
                 "x-peanut-permissions": [
@@ -16200,7 +16044,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 141
+                        "line": 140
                     }
                 },
                 "x-peanut-permissions": [
@@ -16331,7 +16175,7 @@
                     "permission": "platform.ops.logs.read",
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 153
+                        "line": 152
                     }
                 },
                 "x-peanut-permissions": [
@@ -16431,7 +16275,7 @@
                     "permission": "platform.ops.logs.read",
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 164
+                        "line": 163
                     }
                 },
                 "x-peanut-permissions": [
@@ -16442,6 +16286,478 @@
                     {
                         "kind": "platform_action",
                         "key": "platform.ops.logs.read"
+                    }
+                ]
+            }
+        },
+        "/platformapi/plans": {
+            "get": {
+                "tags": [
+                    "TenantPlans"
+                ],
+                "operationId": "listTenantPlans",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "default": 1
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "page_size",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100,
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "lists",
+                                                "count"
+                                            ],
+                                            "properties": {
+                                                "lists": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/TenantPlan"
+                                                    }
+                                                },
+                                                "count": {
+                                                    "type": "integer",
+                                                    "minimum": 0
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "platform",
+                    "owner": {
+                        "type": "application",
+                        "key": "platform"
+                    },
+                    "controller": "app\\platform\\controller\\PlanLicenseController",
+                    "action": "lists",
+                    "permission": null,
+                    "source": {
+                        "file": "server/route/platform.php",
+                        "line": 209
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.plan.read"
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "TenantPlans"
+                ],
+                "operationId": "createTenantPlan",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/TenantPlan"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TenantPlanCreate"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "platform",
+                    "owner": {
+                        "type": "application",
+                        "key": "platform"
+                    },
+                    "controller": "app\\platform\\controller\\PlanLicenseController",
+                    "action": "create",
+                    "permission": null,
+                    "source": {
+                        "file": "server/route/platform.php",
+                        "line": 212
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.plan.manage"
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "TenantPlans"
+                ],
+                "operationId": "updateTenantPlan",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/TenantPlan"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TenantPlanUpdate"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "platform",
+                    "owner": {
+                        "type": "application",
+                        "key": "platform"
+                    },
+                    "controller": "app\\platform\\controller\\PlanLicenseController",
+                    "action": "update",
+                    "permission": null,
+                    "source": {
+                        "file": "server/route/platform.php",
+                        "line": 215
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.plan.manage"
+                    }
+                ]
+            }
+        },
+        "/platformapi/tenants/license": {
+            "get": {
+                "tags": [
+                    "TenantPlans"
+                ],
+                "operationId": "getTenantLicense",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "tenant_id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/TenantLicenseData"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "platform",
+                    "owner": {
+                        "type": "application",
+                        "key": "platform"
+                    },
+                    "controller": "app\\platform\\controller\\PlanLicenseController",
+                    "action": "license",
+                    "permission": null,
+                    "source": {
+                        "file": "server/route/platform.php",
+                        "line": 218
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.tenant.read"
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "TenantPlans"
+                ],
+                "operationId": "updateTenantLicense",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/TenantLicenseData"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TenantLicenseWrite"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "platform",
+                    "owner": {
+                        "type": "application",
+                        "key": "platform"
+                    },
+                    "controller": "app\\platform\\controller\\PlanLicenseController",
+                    "action": "updateLicense",
+                    "permission": null,
+                    "source": {
+                        "file": "server/route/platform.php",
+                        "line": 221
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.tenant.license.manage"
                     }
                 ]
             }
@@ -16578,7 +16894,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 33
+                        "line": 32
                     }
                 },
                 "x-peanut-permissions": [
@@ -16692,7 +17008,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 36
+                        "line": 35
                     }
                 },
                 "x-peanut-permissions": [
@@ -16825,7 +17141,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 39
+                        "line": 38
                     }
                 },
                 "x-peanut-permissions": [
@@ -16967,7 +17283,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 27
+                        "line": 26
                     }
                 },
                 "x-peanut-permissions": [
@@ -17140,7 +17456,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 30
+                        "line": 29
                     }
                 },
                 "x-peanut-permissions": [
@@ -17295,7 +17611,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 48
+                        "line": 47
                     }
                 },
                 "x-peanut-permissions": [
@@ -17384,7 +17700,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 42
+                        "line": 41
                     }
                 },
                 "x-peanut-permissions": [
@@ -17518,7 +17834,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 45
+                        "line": 44
                     }
                 },
                 "x-peanut-permissions": [
@@ -17607,7 +17923,7 @@
                     "permission": "core.permission.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 71
+                        "line": 73
                     }
                 },
                 "x-peanut-permissions": [
@@ -21578,7 +21894,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 111
+                        "line": 113
                     }
                 },
                 "x-peanut-permissions": [
@@ -21629,7 +21945,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 112
+                        "line": 114
                     }
                 },
                 "x-peanut-permissions": [
@@ -21700,7 +22016,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 113
+                        "line": 115
                     }
                 },
                 "x-peanut-permissions": [
@@ -21767,7 +22083,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 114
+                        "line": 116
                     }
                 },
                 "x-peanut-permissions": [
@@ -21834,7 +22150,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 115
+                        "line": 117
                     }
                 },
                 "x-peanut-permissions": [
@@ -21901,7 +22217,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 116
+                        "line": 118
                     }
                 },
                 "x-peanut-permissions": [
@@ -21968,7 +22284,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 117
+                        "line": 119
                     }
                 },
                 "x-peanut-permissions": [
@@ -22082,7 +22398,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 120
+                        "line": 122
                     }
                 },
                 "x-peanut-permissions": [
@@ -22144,7 +22460,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 121
+                        "line": 123
                     }
                 },
                 "x-peanut-permissions": [
@@ -22215,7 +22531,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 122
+                        "line": 124
                     }
                 },
                 "x-peanut-permissions": [
@@ -22282,7 +22598,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 123
+                        "line": 125
                     }
                 },
                 "x-peanut-permissions": [
@@ -22349,7 +22665,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 124
+                        "line": 126
                     }
                 },
                 "x-peanut-permissions": [
@@ -22416,7 +22732,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 125
+                        "line": 127
                     }
                 },
                 "x-peanut-permissions": [
@@ -22483,7 +22799,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 126
+                        "line": 128
                     }
                 },
                 "x-peanut-permissions": [
@@ -30025,7 +30341,7 @@
                                 "platform.tenant.create",
                                 "platform.tenant.lifecycle",
                                 "platform.tenant.provision-owner",
-                                "platform.tenant.module.manage"
+                                "platform.tenant.license.manage"
                             ]
                         }
                     }
@@ -30443,86 +30759,6 @@
                     }
                 }
             },
-            "PlatformTenantModuleRecord": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                    "id",
-                    "tenant_id",
-                    "module_key",
-                    "status",
-                    "source",
-                    "config_revision",
-                    "authorization_revision",
-                    "effective_at",
-                    "expires_at",
-                    "enabled_at",
-                    "disabled_at",
-                    "disabled_reason",
-                    "created_at",
-                    "updated_at",
-                    "config"
-                ],
-                "properties": {
-                    "id": {
-                        "type": "string",
-                        "pattern": "^[1-9][0-9]*$"
-                    },
-                    "tenant_id": {
-                        "type": "string",
-                        "pattern": "^[1-9][0-9]*$"
-                    },
-                    "module_key": {
-                        "type": "string"
-                    },
-                    "status": {
-                        "type": "string"
-                    },
-                    "source": {
-                        "type": "string"
-                    },
-                    "config_revision": {
-                        "type": "string",
-                        "pattern": "^[0-9]+$"
-                    },
-                    "authorization_revision": {
-                        "type": "string",
-                        "pattern": "^[0-9]+$"
-                    },
-                    "effective_at": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "expires_at": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "enabled_at": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "disabled_at": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "disabled_reason": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "created_at": {
-                        "type": "string"
-                    },
-                    "updated_at": {
-                        "type": "string"
-                    },
-                    "config": {
-                        "type": "object",
-                        "additionalProperties": {
-                            "$ref": "#/components/schemas/ApplicationDynamicValue"
-                        }
-                    }
-                }
-            },
             "PlatformTenantOwner": {
                 "type": "object",
                 "additionalProperties": false,
@@ -30816,7 +31052,8 @@
                     "status",
                     "tenant_enabled_count",
                     "blockers",
-                    "dependents"
+                    "dependents",
+                    "tenant"
                 ],
                 "properties": {
                     "module_key": {
@@ -30883,6 +31120,29 @@
                         "type": "array",
                         "items": {
                             "type": "string"
+                        }
+                    },
+                    "tenant": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "enableable",
+                            "required",
+                            "requires"
+                        ],
+                        "properties": {
+                            "enableable": {
+                                "type": "boolean"
+                            },
+                            "required": {
+                                "type": "boolean"
+                            },
+                            "requires": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
                         }
                     }
                 }
@@ -31565,6 +31825,285 @@
                     },
                     "ready": {
                         "type": "boolean"
+                    }
+                }
+            },
+            "TenantPlan": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "id",
+                    "code",
+                    "name",
+                    "status",
+                    "revision",
+                    "module_keys",
+                    "permission_keys"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "code": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "inactive"
+                        ]
+                    },
+                    "revision": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "module_keys": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "permission_keys": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "TenantLicense": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "id",
+                    "tenant_id",
+                    "plan_id",
+                    "plan_code",
+                    "plan_name",
+                    "status",
+                    "effective_at",
+                    "expires_at",
+                    "revision",
+                    "effective",
+                    "state"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "tenant_id": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "plan_id": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "plan_code": {
+                        "type": "string"
+                    },
+                    "plan_name": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "suspended"
+                        ]
+                    },
+                    "effective_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "expires_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "revision": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "effective": {
+                        "type": "boolean"
+                    },
+                    "state": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "suspended",
+                            "upcoming",
+                            "expired"
+                        ]
+                    }
+                }
+            },
+            "TenantLicenseData": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "tenant_id",
+                    "license"
+                ],
+                "properties": {
+                    "tenant_id": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "license": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TenantLicense"
+                            }
+                        ],
+                        "nullable": true
+                    }
+                }
+            },
+            "TenantPlanCreate": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "code",
+                    "name",
+                    "module_keys",
+                    "permission_keys",
+                    "change_reason"
+                ],
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "maxLength": 64,
+                        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+                    },
+                    "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                    },
+                    "module_keys": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "permission_keys": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "change_reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                    }
+                }
+            },
+            "TenantPlanUpdate": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "id",
+                    "expected_revision",
+                    "status",
+                    "name",
+                    "module_keys",
+                    "permission_keys",
+                    "change_reason"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "expected_revision": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "inactive"
+                        ]
+                    },
+                    "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                    },
+                    "module_keys": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "permission_keys": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "change_reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                    }
+                }
+            },
+            "TenantLicenseWrite": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "tenant_id",
+                    "plan_id",
+                    "status",
+                    "effective_at",
+                    "expires_at",
+                    "expected_revision",
+                    "change_reason"
+                ],
+                "properties": {
+                    "tenant_id": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "plan_id": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "suspended"
+                        ]
+                    },
+                    "effective_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "expires_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "expected_revision": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "change_reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
                     }
                 }
             },

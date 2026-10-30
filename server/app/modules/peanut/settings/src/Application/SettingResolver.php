@@ -581,8 +581,11 @@ final readonly class SettingResolver
         $scope = $this->tenantScope($tenantId);
 
         return Db::transaction(function () use ($definition, $scope, $targetResourceKey, $targetId): array {
+            if ($this->tenants === null) {
+                throw new \LogicException('Tenant workspace queries are not configured.');
+            }
             try {
-                ($this->tenants ?? new TenantWorkspaceQueryService())->tenant($scope->tenantId());
+                $this->tenants->tenant($scope->tenantId());
             } catch (\Throwable) {
                 throw SettingException::notFound();
             }

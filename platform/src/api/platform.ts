@@ -1,5 +1,13 @@
 import axios from 'axios';
 import {
+  readPlan,
+  readPlanPage,
+  readPlanModules,
+  readTenantLicense,
+  type Plan,
+  type LicenseInput,
+} from './tenant-license';
+import {
   readPermissionApi,
   readPermissionBundle,
   readPermissionMenuBinding,
@@ -752,6 +760,49 @@ export function hasPlatformSession(): boolean {
 }
 
 export const api = {
+  planModules: async (page = 1) =>
+    readPlanModules(
+      await unwrap<unknown>(
+        client.get('/platformapi/instance-tools/modules', {
+          params: { page, page_size: 100 },
+        })
+      )
+    ),
+  plans: async (page = 1) =>
+    readPlanPage(
+      await unwrap<unknown>(
+        client.get('/platformapi/plans', { params: { page, page_size: 100 } })
+      )
+    ),
+  createPlan: async (data: {
+    code: string;
+    name: string;
+    module_keys: string[];
+    permission_keys: string[];
+    change_reason: string;
+  }) =>
+    readPlan(await unwrap<unknown>(client.post('/platformapi/plans', data))),
+  updatePlan: async (data: {
+    id: number;
+    expected_revision: number;
+    name: string;
+    status: Plan['status'];
+    module_keys: string[];
+    permission_keys: string[];
+    change_reason: string;
+  }) => readPlan(await unwrap<unknown>(client.put('/platformapi/plans', data))),
+  tenantLicense: async (tenantId: number) =>
+    readTenantLicense(
+      await unwrap<unknown>(
+        client.get('/platformapi/tenants/license', {
+          params: { tenant_id: tenantId },
+        })
+      )
+    ),
+  saveTenantLicense: async (data: LicenseInput) =>
+    readTenantLicense(
+      await unwrap<unknown>(client.put('/platformapi/tenants/license', data))
+    ),
   permissionMenus: async () =>
     readPermissionPage(
       await unwrap<unknown>(client.get('/platformapi/permission/menus')),
@@ -959,23 +1010,6 @@ export const api = {
       client.get('/platformapi/tenants/modules', {
         params: { tenant_id: tenantId, page: 1, page_size: 100 },
       })
-    ),
-  changeModule: (
-    enabled: boolean,
-    tenantId: number,
-    moduleKey: string,
-    changeReason: string
-  ) =>
-    unwrap(
-      client.post(
-        `/platformapi/tenants/modules/${enabled ? 'enable' : 'disable'}`,
-        {
-          tenant_id: tenantId,
-          module_key: moduleKey,
-          config: {},
-          change_reason: changeReason,
-        }
-      )
     ),
   operators: () =>
     unwrap<Page<Operator>>(
