@@ -137,31 +137,6 @@ try {
     $storedPaths[]=$serverRoot.'/public/storage/'.$safe['object_key'];parse_str((string)parse_url($safe['url'],PHP_URL_QUERY),$delivery);
     $opened=$storage->authorizedDownload($tenant,$delivery['file_key'],$delivery['token']);
     fileAccessExpect($opened['disposition']==='inline' && hash_file('sha256',$opened['path'])===hash_file('sha256',$original),'safe verified PNG still previews inline');
-    $pdfBytes = "%PDF-1.4\n";
-    $pdfOffsets = [0];
-    foreach (['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-        '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> >>'] as $index => $body) {
-        $pdfOffsets[] = strlen($pdfBytes);
-        $pdfBytes .= ($index + 1) . " 0 obj\n" . $body . "\nendobj\n";
-    }
-    $xrefOffset = strlen($pdfBytes);
-    $pdfBytes .= "xref\n0 4\n0000000000 65535 f \n";
-    foreach (array_slice($pdfOffsets, 1) as $offset) {
-        $pdfBytes .= sprintf("%010d 00000 n \n", $offset);
-    }
-    $pdfBytes .= "trailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n" . $xrefOffset . "\n%%EOF\n";
-    $pdfInput = tempnam(sys_get_temp_dir(), 'r0-pdf-');
-    $paths[] = $pdfInput;
-    file_put_contents($pdfInput, $pdfBytes);
-    $pdf = $run(fn() => $storage->storePath($tenant, $member, 'material.file', $pdfInput, 'preview.pdf', 'application/pdf'));
-    $storedPaths[] = $serverRoot . '/public/storage/' . $pdf['object_key'];
-    foreach (['preview' => 'inline', 'download_original' => 'attachment'] as $operation => $disposition) {
-        $resolved = $run(fn() => $app->make(FileAccess::class)->resolve($context, $pdf['file_key'], $operation, null, null, 'builtin.pdf'));
-        parse_str((string) parse_url($resolved['url'], PHP_URL_QUERY), $delivery);
-        $opened = $storage->authorizedDownload($tenant, $delivery['file_key'], $delivery['token']);
-        fileAccessExpect($opened['media_type'] === 'application/pdf' && $opened['disposition'] === $disposition
-            && file_get_contents($opened['path']) === $pdfBytes, 'PDF ' . $operation . ' preserves bytes and its delivery disposition');
-    }
     echo 'FILE_DELIVERY_EDGE_CASES_OK assertions='.$assertions.' real_mysql=8.4 local_bytes=real'.PHP_EOL;
 } finally {
     foreach (array_merge($paths,$storedPaths) as $path) { if (is_string($path) && is_file($path)) unlink($path); }

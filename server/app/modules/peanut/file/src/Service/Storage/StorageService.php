@@ -673,7 +673,7 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
             'filename' => (string) $object['original_name'],
             'media_type' => (string) $object['media_type'],
             'disposition' => $grant['operation'] !== 'download_original'
-                && in_array(strtolower((string) $object['media_type']), ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf', 'audio/mpeg', 'audio/ogg', 'audio/wav', 'video/mp4', 'video/webm', 'video/ogg'], true)
+                && in_array(strtolower((string) $object['media_type']), ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'audio/mpeg', 'audio/ogg', 'audio/wav', 'video/mp4', 'video/webm', 'video/ogg'], true)
                 ? 'inline' : 'attachment',
         ];
     }
