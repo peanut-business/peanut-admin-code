@@ -32123,7 +32123,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "df1ebb2cf55c86c459002ce33d643498f345346b28ea30137ca6999bc90ecd39"
+            "source_sha256": "8395595ad643fa7e26ddbf41c12612844d1bb6705ad9768d41e99c0b4e9bd91a"
         },
         {
             "path": "web/src/views/system/role/index.vue",
@@ -32137,7 +32137,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f0b18c7085fa1d97b6814eb1d46076a7a70ebe15663ee914ec497f5bb81c232e"
+            "source_sha256": "be9ba400f4ecbbc241d94db764e2ae44b87eaf5f97679d8064a17db6a91f6d84"
         },
         {
             "path": "web/src/views/system/role/locale/en-US.ts",
