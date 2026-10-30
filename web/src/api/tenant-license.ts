@@ -19,7 +19,7 @@ export async function getTenantLicense(
   const envelope = result.data;
   if (!envelope || typeof envelope !== 'object' || !('data' in envelope))
     throw new Error('许可证响应格式异常');
-  const data = envelope.data;
+  const { data } = envelope;
   if (!data || typeof data !== 'object' || !('license' in data))
     throw new Error('许可证响应格式异常');
   if (data.license === null) return null;

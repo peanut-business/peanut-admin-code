@@ -431,7 +431,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "5e6ce203f9d5bde7d549e028208d5ba34732cde29ce3d05e2caf422b3da6927d"
+                "sha256": "55438bd582a2006d9eaec992a9b3e904208e53190286d3bb5680e942d4e3419f"
             },
             "trust": {
                 "channel": "bundled",
@@ -511,7 +511,7 @@
                 }
             ],
             "manifest": "plugins/peanut.reference-codes/plugin.json",
-            "manifest_sha256": "85ddb89df667c05a34ac86fe15be143441e57f10cdad8aa7ccbcf51309151fdb"
+            "manifest_sha256": "1232fad6e934cf10e919b928ac4db0fbe1b5ebecd70c3278d2115d4ba0fd7d36"
         },
         {
             "key": "peanut.settings",
@@ -519,7 +519,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "f1acdd23bbf545dfb809fc9c2d0ad571fb9672aacca96278a30c936cbd13294b"
+                "sha256": "1973ad1c0871914f9655f6dc2427bbed9445c3e7c1582ce2aad60923b670ebf6"
             },
             "trust": {
                 "channel": "bundled",
@@ -603,7 +603,7 @@
                 }
             ],
             "manifest": "plugins/peanut.settings/plugin.json",
-            "manifest_sha256": "329f1b35d060b35a7559d262427fb01e66140cbe45ef662ba7438d1a26e8f3aa"
+            "manifest_sha256": "c49983b5361595c0b75c090bab2bebf96b51c5cdd9fad25ddd73744785341191"
         },
         {
             "key": "peanut.task",
@@ -611,7 +611,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "655581a113687c2e2dc08cdfab4705c410c102e7f4c6cb0337c7c8ce29b5d93c"
+                "sha256": "4abff54ebc91becedee5a9f66f2a4ac295d98ecae6e104410e023298252eab41"
             },
             "trust": {
                 "channel": "bundled",
@@ -691,7 +691,7 @@
                 }
             ],
             "manifest": "plugins/peanut.task/plugin.json",
-            "manifest_sha256": "eacf79f1bca9a15b8369a9e124ce91196cae010708dc574709605cc1c972249b"
+            "manifest_sha256": "d1e2b2ee3cb77e64c6d54339245d7d1cd2fd5155ba1fdfa5149e8519fbcd4ad1"
         }
     ]
 }

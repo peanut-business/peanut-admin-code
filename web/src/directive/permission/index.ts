@@ -6,7 +6,10 @@ function checkPermission(el: HTMLElement, binding: DirectiveBinding) {
 
   if (Array.isArray(value)) {
     if (value.length > 0) {
-      if (!hasPermission(value) && el.parentNode) {
+      if (
+        !hasPermission(value, binding.instance?.$route?.path) &&
+        el.parentNode
+      ) {
         el.parentNode.removeChild(el);
       }
     }

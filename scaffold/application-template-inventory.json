@@ -2312,7 +2312,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "01738f99a0a7c555df30cbaa2e3e93e26df9f9cdad8f235f213a02aeccd410ba"
+            "source_sha256": "c2b062092feab81f25e84ebc16e1ec86e2e55ee133c3efaa0b4504ce08ee8d94"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2435,7 +2435,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "85ddb89df667c05a34ac86fe15be143441e57f10cdad8aa7ccbcf51309151fdb"
+            "source_sha256": "1232fad6e934cf10e919b928ac4db0fbe1b5ebecd70c3278d2115d4ba0fd7d36"
         },
         {
             "path": "plugins/peanut.settings/plugin.json",
@@ -2449,7 +2449,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "329f1b35d060b35a7559d262427fb01e66140cbe45ef662ba7438d1a26e8f3aa"
+            "source_sha256": "c49983b5361595c0b75c090bab2bebf96b51c5cdd9fad25ddd73744785341191"
         },
         {
             "path": "plugins/peanut.task/plugin.json",
@@ -2463,7 +2463,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eacf79f1bca9a15b8369a9e124ce91196cae010708dc574709605cc1c972249b"
+            "source_sha256": "d1e2b2ee3cb77e64c6d54339245d7d1cd2fd5155ba1fdfa5149e8519fbcd4ad1"
         },
         {
             "path": "release-versions.json",
@@ -19859,7 +19859,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "da1b508982920afaa227c5c7b69989baf5bcc22a55641b2e0c5f908522a38b59"
+            "source_sha256": "52ef0446a7d5f2ea71c7d7a1c1ede15c52df26f8aeaed2c87cb617404c756b21"
         },
         {
             "path": "server/generated/openapi.json",
@@ -28554,7 +28554,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ff2f528ef6bf2df378cc151773b0af04b89ff10cfb12d270b85b38c6d55048b9"
+            "source_sha256": "6f04fe337f90063ea288048a0b50413adcbc1b4624827934eb417e1f9b0dc277"
         },
         {
             "path": "web/src/api/tenant-session-fetch.ts",
@@ -28708,7 +28708,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e5e8ba86237c423c20152702083a6358b08313e2d82d8da51d0dc7ff2f9d2563"
+            "source_sha256": "a472efec8056bb5964ec3c8106b0cf9a8c9c328913591dbaae365f836f7eb9e6"
         },
         {
             "path": "web/src/components/footer/index.vue",
@@ -28876,7 +28876,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "795199e2083caab382235819c8b5b5c664f2e41f4bf42e124c560e6c704dc8d5"
+            "source_sha256": "65b41393c126160fae6ee1b703b2d37028ea687667be94574ec033c6fdce7364"
         },
         {
             "path": "web/src/config/settings.json",
@@ -28947,7 +28947,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1421a088291aa702396ffefc5e7310577ab7ca513ade4c1fb4fbe0faf8d55f38"
+            "source_sha256": "f74760dbca5638828b0aaea8660ef00a2d740cb9fb6205a6dd3bf3509e50935c"
         },
         {
             "path": "web/src/env.d.ts",
@@ -29059,7 +29059,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0dd764e94011ccc836178430cf7208f958e4a967ad47d8ea7babb4413d8d2a03"
+            "source_sha256": "7b0d2b8d5078dab3376dc3b8b521c4a90b66207ece49038f8e64574c2b4ad233"
         },
         {
             "path": "web/src/hooks/request.ts",
@@ -29143,7 +29143,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "063d51a12b30582a0f5289d892205df8bfa667733c12c68b034bff435d7796b0"
+            "source_sha256": "0f178693fc7135e694fc1e4dc75a0dcc1a30e4fdec18aed963bf286bf88d823c"
         },
         {
             "path": "web/src/layout/page-layout.vue",
@@ -30059,7 +30059,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0d531d6272fd59a47380dcaac9f9da6681767f0ad68d6ad203ddfd8316e6ddaa"
+            "source_sha256": "efb181f8f8d7e8f90cf8613bf3b74a32db47b46183db778fe3b3abd4062ceec8"
         },
         {
             "path": "web/src/modules/peanut-reference-codes/contribution.ts",
@@ -30255,7 +30255,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2e5b191212c6f00428c8255e5d94e97713f15e9dd7d879f8b9b6a12d9e9aa00e"
+            "source_sha256": "3d2e2bd249cb5edea8765865d7148142887c5b4a4afa3bafb814a54e7e8ae09c"
         },
         {
             "path": "web/src/modules/peanut-settings/contribution.ts",
@@ -30451,7 +30451,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9a9ea58b0442afec71048dec9d3998d594074d368005c7d44bdd2371e8c0cfbd"
+            "source_sha256": "bd659b3c1231d7dcfa6934b3bd92d669b293c343d9ede601d68bee7079d7d98c"
         },
         {
             "path": "web/src/modules/peanut-task/api.ts",
@@ -31753,7 +31753,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2cd320a330548d345ec29875db0939ac1196af14302c1d6e43ef93f230e061bd"
+            "source_sha256": "e4385fd3af5bbb671b5dec725e98ffdf290750ebf68fc63a927baef46699687b"
         },
         {
             "path": "web/src/views/system/dept/locale/en-US.ts",

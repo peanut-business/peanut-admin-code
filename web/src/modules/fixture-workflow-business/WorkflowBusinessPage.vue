@@ -246,7 +246,7 @@
       <el-option label="入库办理" value="receipt" />
     </el-select>
     <el-button
-      v-if="hasPermission(['fixture.workflow-business.create'])"
+      v-if="hasPermission(['fixture.workflow-business.create'], route.path)"
       :disabled="busy"
       @click="newObject"
       >新建样例对象</el-button
@@ -304,10 +304,13 @@
       <el-button
         v-if="
           (!selected || selected.available_actions.includes('update')) &&
-          hasPermission([
-            'fixture.workflow-business.update',
-            'fixture.workflow-business.create',
-          ])
+          hasPermission(
+            [
+              'fixture.workflow-business.update',
+              'fixture.workflow-business.create',
+            ],
+            route.path
+          )
         "
         :loading="busy"
         @click="save"

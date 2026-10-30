@@ -3,7 +3,6 @@ import { useAppStore, useUserStore } from '@/store';
 import { REDIRECT_ROUTE_NAME } from '@/router/constants';
 import { permissionEvaluator } from '@/core/runtime';
 import { evaluateRequiredPermissions } from '@peanut-admin/vue';
-import router from '@/router';
 
 const nonemptyString = (value: unknown): value is string =>
   typeof value === 'string' && value.trim() !== '';
@@ -30,14 +29,16 @@ function validMeta(route: RouteLocationNormalized | RouteRecordRaw): boolean {
 }
 export function hasPermission(
   requiredPermissions: string | string[],
+  pagePath: string | undefined,
   grantedPermissions?: string[]
 ): boolean {
   if (!permissionRequirement(requiredPermissions)) return false;
   const permissions = grantedPermissions ?? useUserStore().permissions;
   if (!stringList(permissions)) return false;
   if (grantedPermissions === undefined) {
+    if (!nonemptyString(pagePath)) return false;
     const bindings = useUserStore().action_bindings.filter(
-      (item) => item.page_path === router.currentRoute.value.path
+      (item) => item.page_path === pagePath
     );
     const required = Array.isArray(requiredPermissions)
       ? requiredPermissions
@@ -112,12 +113,15 @@ export default function usePermission() {
         moduleKey(tenant) ? tenant : undefined
       ).some((menu) => {
         const gate = menu.meta?.requiredPermissions;
-        return gate === undefined || hasPermission(gate, userStore.permissions);
+        return (
+          gate === undefined ||
+          hasPermission(gate, route.path, userStore.permissions)
+        );
       });
     }
     if (
       required !== undefined &&
-      !hasPermission(required, userStore.permissions)
+      !hasPermission(required, route.path, userStore.permissions)
     )
       return false;
     const { roles } = route.meta;

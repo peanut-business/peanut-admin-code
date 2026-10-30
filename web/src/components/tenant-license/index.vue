@@ -38,6 +38,7 @@
     getTenantLicense,
     type TenantLicenseSummary,
   } from '@/api/tenant-license';
+
   const license = ref<TenantLicenseSummary | null>(null);
   const loading = ref(false);
   const loaded = ref(false);

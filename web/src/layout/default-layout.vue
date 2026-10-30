@@ -50,8 +50,8 @@
   import TabBar from '@/components/tab-bar/index.vue';
   import usePermission from '@/hooks/permission';
   import useResponsive from '@/hooks/responsive';
-  import PageLayout from './page-layout.vue';
   import TenantLicense from '@/components/tenant-license/index.vue';
+  import PageLayout from './page-layout.vue';
 
   const appStore = useAppStore();
   const userStore = useUserStore();
