@@ -3406,8 +3406,16 @@ final class ScaffoldUpgradeRunner
         foreach ($snapshot as $path => $digest) {
             if (!is_string($path) || !is_string($digest) || preg_match('/^[a-f0-9]{64}$/D', $digest) !== 1
                 || preg_match('#^server/database/(?:installation|migrations|schema|seeds)/#D', ScaffoldManifest::path($path)) !== 1
-                || !isset($files[$path])
-                || !in_array($digest, [$files[$path]['sha256'] ?? null, $files[$path]['baseline_sha256'] ?? null], true)) {
+                || !isset($files[$path])) {
+                throw new RuntimeException('SCAFFOLD_INSTALLATION_SNAPSHOT_INVALID');
+            }
+            $file = $files[$path];
+            if (in_array($file['classification'] ?? null, ['managed', 'generated-managed'], true)) {
+                if (($file['baseline_sha256'] ?? null) !== $digest) {
+                    throw new RuntimeException('SCAFFOLD_INSTALLATION_SNAPSHOT_INVALID');
+                }
+            } elseif (($file['classification'] ?? null) !== 'app-owned' || ($file['sha256'] ?? null) !== $digest
+                || ($file['owner'] ?? null) !== 'application' || ($file['source'] ?? null) !== $path) {
                 throw new RuntimeException('SCAFFOLD_INSTALLATION_SNAPSHOT_INVALID');
             }
         }
