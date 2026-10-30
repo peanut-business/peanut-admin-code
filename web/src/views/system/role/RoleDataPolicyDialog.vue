@@ -57,15 +57,15 @@
           ><el-date-picker
             :model-value="dateValue(policy.valid_from)"
             type="datetime"
-            @update:model-value="policy.valid_from = dateText($event)"
             clearable
+            @update:model-value="policy.valid_from = dateText($event)"
         /></el-form-item>
         <el-form-item label="结束时间"
           ><el-date-picker
             :model-value="dateValue(policy.valid_until)"
             type="datetime"
-            @update:model-value="policy.valid_until = dateText($event)"
             clearable
+            @update:model-value="policy.valid_until = dateText($event)"
         /></el-form-item>
         <el-card
           v-for="(group, gi) in policy.groups"
@@ -214,52 +214,6 @@
   function dateText(value: Date | null): string | null {
     return value ? value.toISOString() : null;
   }
-  async function loadOperations(next = 1) {
-    const request = ++generation;
-    loading.value = true;
-    error.value = '';
-    selected.value = null;
-    policy.value = null;
-    conditions.value = [];
-    try {
-      const { data } = await getPolicyOperations(next);
-      if (!current(request)) return;
-      operations.value = data.items;
-      total.value = data.total;
-      page.value = next;
-    } catch (failure) {
-      if (current(request))
-        error.value =
-          failure instanceof Error ? failure.message : '资源目录读取失败';
-    } finally {
-      if (current(request)) loading.value = false;
-    }
-  }
-  async function loadPolicy() {
-    const target = location();
-    const request = ++generation;
-    loading.value = true;
-    error.value = '';
-    policy.value = null;
-    revision.value = null;
-    conditions.value = [];
-    try {
-      const catalog = await getPolicyConditions(target);
-      if (!current(request)) return;
-      conditions.value = catalog.data.conditions;
-      const { data } = await getDataPolicy(target);
-      if (!current(request)) return;
-      policy.value = cleanPolicy(data);
-      revision.value = Number(data.revision);
-    } catch (failure) {
-      if (current(request))
-        error.value = `${
-          failure instanceof Error ? failure.message : '策略读取失败'
-        }。尚未配置时可选择新建策略；已有策略请重新读取。`;
-    } finally {
-      if (current(request)) loading.value = false;
-    }
-  }
   function cleanPolicy(data: DataPolicy): DataPolicy {
     return {
       status: data.status,
@@ -282,6 +236,54 @@
         })),
       })),
     };
+  }
+  async function loadOperations(next = 1) {
+    generation += 1;
+    const request = generation;
+    loading.value = true;
+    error.value = '';
+    selected.value = null;
+    policy.value = null;
+    conditions.value = [];
+    try {
+      const { data } = await getPolicyOperations(next);
+      if (!current(request)) return;
+      operations.value = data.items;
+      total.value = data.total;
+      page.value = next;
+    } catch (failure) {
+      if (current(request))
+        error.value =
+          failure instanceof Error ? failure.message : '资源目录读取失败';
+    } finally {
+      if (current(request)) loading.value = false;
+    }
+  }
+  async function loadPolicy() {
+    const target = location();
+    generation += 1;
+    const request = generation;
+    loading.value = true;
+    error.value = '';
+    policy.value = null;
+    revision.value = null;
+    conditions.value = [];
+    try {
+      const catalog = await getPolicyConditions(target);
+      if (!current(request)) return;
+      conditions.value = catalog.data.conditions;
+      const { data } = await getDataPolicy(target);
+      if (!current(request)) return;
+      policy.value = cleanPolicy(data);
+      revision.value = Number(data.revision);
+    } catch (failure) {
+      if (current(request))
+        error.value = `${
+          failure instanceof Error ? failure.message : '策略读取失败'
+        }。尚未配置时可选择新建策略；已有策略请重新读取。`;
+    } finally {
+      if (current(request)) loading.value = false;
+    }
   }
   function createPolicy() {
     if (getSessionSnapshot().generation !== session) return;
