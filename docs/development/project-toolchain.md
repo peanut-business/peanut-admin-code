@@ -14,6 +14,8 @@ Core 的 prepared 指纹绑定 Code state root、该 Core 的 host scope、规�
 
 PHP 的 `local-core-composer` 仅在 ignored `.local/composer-core/composer.json` 中将 Core 依赖投影到所选源码的真实 Git 分支。已配置本地 path 模块若依赖 Core，其真实 manifest 元数据也在同一开发 manifest 内投影到该分支，模块版本保留原声明；Composer 通过原生 `package` 元数据和 `dist.type=path` 强制链接真实模块目录，不生成源码副本。局部 `update` 明确列出 Core 和这些受影响模块，其他包保持正式锁定版本；不使用 `-w/-W`、稳定版本 alias，也不修改正式 `server/composer.json`、锁或模块 manifest。此处复用 [Composer package repository](https://getcomposer.org/doc/05-repositories.md#package-2)、[path downloader](https://github.com/composer/composer/blob/2.10.2/src/Composer/Downloader/PathDownloader.php) 与[局部 update](https://getcomposer.org/doc/03-cli.md#update-u-upgrade)，只服务源码联调。
 
+原生模块生命周期的依赖准备同样读取本工程明确保存的 `.local/core-dev.json`：存在有效选择时，其 Composer 操作经正常 `project-env prepare/exec` 调用 `local-core-composer install`，沿用所选 PHP Core 和 backend env；helper 继续核对来源、锁与服务登记。不存在选择时保持正式 Composer 路径；无效或属于另一工程的选择明确失败，不回落固定包。该路由只处理 PHP 开发依赖，不隐式安装或重建 Web Core。
+
 ## 使用
 
 使用已安装的 CLI，在选定 Code 根执行 `peanut config`，预览并确认已安装工具和路径；环境、路径和声明不变时，之后生成 ST/MT 模板只需 `peanut release`。CLI 内部调用 `project-env` 和原生模板生产者，不要求每次手动 prepare/install/hash。需要本地 Core 随模板携带时显式选择 `--with-local-core`。

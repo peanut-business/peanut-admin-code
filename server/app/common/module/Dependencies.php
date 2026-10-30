@@ -486,6 +486,24 @@ final readonly class Dependencies
     private function run(array $command, string $directory): array
     {
         $project = dirname($this->serverRoot);
+        $tool = $command[0];
+        $selectionPath = $project . '/.local/core-dev.json';
+        if ($tool === 'composer' && (file_exists($selectionPath) || is_link($selectionPath))) {
+            $selection = $this->json($selectionPath);
+            if (is_link($selectionPath) || ($selection['schema_version'] ?? null) !== 1
+                || ($selection['application_root'] ?? null) !== realpath($project)) {
+                throw new PluginPackageException('MODULE_DEPENDENCY_SOURCE_CONFLICT', 'The local Core selection must belong to this application.');
+            }
+            foreach (['php_core_dir', 'backend_env'] as $field) {
+                $value = $selection[$field] ?? null;
+                if (!is_string($value) || !str_starts_with($value, '/') || preg_match('/[\x00-\x1f\x7f]/', $value) === 1) {
+                    throw new PluginPackageException('MODULE_DEPENDENCY_SOURCE_CONFLICT', 'The local Core selection requires absolute source and environment paths.');
+                }
+            }
+            $command = [$project . '/scripts/local-core-composer', 'install',
+                '--core-dir', $selection['php_core_dir'], '--backend-env', $selection['backend_env']];
+            $tool = 'local-core-composer';
+        }
         $host = $this->json($project . '/.local/toolchain/host.json');
         $python = $host['commands']['python3'] ?? null;
         if (!is_array($python) || !is_string($python[0] ?? null) || !str_starts_with($python[0], '/')) {
@@ -495,7 +513,7 @@ final readonly class Dependencies
         // Native manifests participate in project-env's fingerprint. Prepare their new registered
         // environment before exec; never bypass its fingerprint or fall back to ambient tools.
         $this->execute([...$runner, 'prepare'], $project, 'project-env');
-        return $this->execute([...$runner, 'exec', '--', ...$command], $directory, $command[0]);
+        return $this->execute([...$runner, 'exec', '--', ...$command], $directory, $tool);
     }
 
     private function execute(array $command, string $directory, string $tool): array

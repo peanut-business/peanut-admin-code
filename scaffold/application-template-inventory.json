@@ -915,7 +915,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "92c552556568c9cae195566db1952286c70498f356e460a6fe01621a48a0e466"
+            "source_sha256": "25af79b7f2a997f066da1857b331b25efeaeb48c2bdcdc21a0c81dc40b33baa3"
         },
         {
             "path": "docs/development/standard.md",
@@ -8526,7 +8526,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "84c146ed6e65a0a263d1fe89b31191678e63361df306269b1455e7ce20ab89ed"
+            "source_sha256": "6ba3a6216b4f2ed2b5eec1d0e6dbe16c4ec226ede226862bf9c95fc22578f48d"
         },
         {
             "path": "server/app/common/module/ModuleMigrationRun.php",
