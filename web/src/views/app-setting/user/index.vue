@@ -18,7 +18,7 @@
           />
         </el-form-item>
         <el-button
-          v-permission="['config/user/save']"
+          v-permission="['peanut.settings.manage']"
           type="primary"
           :loading="savingUser"
           @click="submitUser"
@@ -70,7 +70,7 @@
           />
         </el-form-item>
         <el-button
-          v-permission="['config/login/save']"
+          v-permission="['peanut.settings.manage']"
           type="primary"
           :loading="savingLogin"
           @click="submitLogin"

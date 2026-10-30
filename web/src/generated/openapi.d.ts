@@ -6389,17 +6389,17 @@ export interface components {
                 total: number;
             };
         };
-        /** @description 旧控制器保留原始请求；未列字段会被忽略。 */
+        /** @description 仅接受列出的标识字段；未声明字段会被拒绝。 */
         ReferenceCodeLegacyIdentifierRequest: {
             id: number;
         };
-        /** @description 旧控制器保留原始请求；未列字段会被忽略。 */
+        /** @description 仅接受列出的标识与状态字段；未声明字段会被拒绝。 */
         ReferenceCodeLegacyStatusRequest: {
             id: number;
             /** @enum {integer} */
             is_disable: 0 | 1;
         };
-        /** @description 服务只写入列出的字段；旧控制器会忽略其他字段。 */
+        /** @description 仅接受列出的创建字段；租户归属等未声明字段会被拒绝。 */
         ReferenceCodeLegacyTypeCreateRequest: {
             name: string;
             type: string;
@@ -6407,7 +6407,7 @@ export interface components {
             is_disable?: 0 | 1;
             remark?: string;
         };
-        /** @description 服务只写入列出的字段；旧控制器会忽略其他字段。 */
+        /** @description 仅接受列出的标识与更新字段；未声明字段会被拒绝。 */
         ReferenceCodeLegacyTypeUpdateRequest: {
             id: number;
             name: string;
@@ -6416,7 +6416,7 @@ export interface components {
             is_disable?: 0 | 1;
             remark?: string;
         };
-        /** @description 服务只写入列出的字段；旧控制器会忽略其他字段。 */
+        /** @description 仅接受列出的创建字段；租户归属等未声明字段会被拒绝。 */
         ReferenceCodeLegacyEntryCreateRequest: {
             type_id: number;
             name: string;
@@ -6426,7 +6426,7 @@ export interface components {
             is_disable?: 0 | 1;
             remark?: string;
         };
-        /** @description 服务只写入列出的字段；旧控制器会忽略其他字段。 */
+        /** @description 仅接受列出的标识与更新字段；重新指定父类型等未声明字段会被拒绝。 */
         ReferenceCodeLegacyEntryUpdateRequest: {
             id: number;
             name: string;

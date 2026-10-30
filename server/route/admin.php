@@ -110,22 +110,22 @@ Route::group(function () use ($peanutRouteModules) {
     Route::post('jobs/status', [JobsController::class, 'updateStatus']);
 
     // 字典类型
-    Route::get('dict/type/lists', [DictTypeController::class, 'lists']);
-    Route::get('dict/type/all', [DictTypeController::class, 'all']);
-    Route::get('dict/type/detail', [DictTypeController::class, 'detail']);
-    Route::post('dict/type/add', [DictTypeController::class, 'add']);
-    Route::post('dict/type/edit', [DictTypeController::class, 'edit']);
-    Route::post('dict/type/delete', [DictTypeController::class, 'delete']);
-    Route::post('dict/type/status', [DictTypeController::class, 'updateStatus']);
+    Route::get('dict/type/lists', [DictTypeController::class, 'lists'])->option(['peanut_permission' => 'peanut.reference-codes.read']);
+    Route::get('dict/type/all', [DictTypeController::class, 'all'])->option(['peanut_permission' => 'peanut.reference-codes.read']);
+    Route::get('dict/type/detail', [DictTypeController::class, 'detail'])->option(['peanut_permission' => 'peanut.reference-codes.read']);
+    Route::post('dict/type/add', [DictTypeController::class, 'add'])->option(['peanut_permission' => 'peanut.reference-codes.manage']);
+    Route::post('dict/type/edit', [DictTypeController::class, 'edit'])->option(['peanut_permission' => 'peanut.reference-codes.manage']);
+    Route::post('dict/type/delete', [DictTypeController::class, 'delete'])->option(['peanut_permission' => 'peanut.reference-codes.manage']);
+    Route::post('dict/type/status', [DictTypeController::class, 'updateStatus'])->option(['peanut_permission' => 'peanut.reference-codes.manage']);
 
     // 字典数据
-    Route::get('dict/data/lists', [DictDataController::class, 'lists']);
-    Route::get('dict/data/byType', [DictDataController::class, 'byType']);
-    Route::get('dict/data/detail', [DictDataController::class, 'detail']);
-    Route::post('dict/data/add', [DictDataController::class, 'add']);
-    Route::post('dict/data/edit', [DictDataController::class, 'edit']);
-    Route::post('dict/data/delete', [DictDataController::class, 'delete']);
-    Route::post('dict/data/status', [DictDataController::class, 'updateStatus']);
+    Route::get('dict/data/lists', [DictDataController::class, 'lists'])->option(['peanut_permission' => 'peanut.reference-codes.read']);
+    Route::get('dict/data/byType', [DictDataController::class, 'byType'])->option(['peanut_permission' => 'peanut.reference-codes.read']);
+    Route::get('dict/data/detail', [DictDataController::class, 'detail'])->option(['peanut_permission' => 'peanut.reference-codes.read']);
+    Route::post('dict/data/add', [DictDataController::class, 'add'])->option(['peanut_permission' => 'peanut.reference-codes.manage']);
+    Route::post('dict/data/edit', [DictDataController::class, 'edit'])->option(['peanut_permission' => 'peanut.reference-codes.manage']);
+    Route::post('dict/data/delete', [DictDataController::class, 'delete'])->option(['peanut_permission' => 'peanut.reference-codes.manage']);
+    Route::post('dict/data/status', [DictDataController::class, 'updateStatus'])->option(['peanut_permission' => 'peanut.reference-codes.manage']);
 
     // 开发工具 - 安全代码生成器
     Route::get('generator/source-tables', [GeneratorController::class, 'sourceTables']);
@@ -148,29 +148,29 @@ Route::group(function () use ($peanutRouteModules) {
     Route::get('log/lists', [OperationLogController::class, 'lists']);
     Route::post('log/clear', [OperationLogController::class, 'clear']);
     // 系统配置 - 网站设置
-    Route::get('config/website', [ConfigController::class, 'getWebsite']);
-    Route::post('config/website/save', [ConfigController::class, 'saveWebsite']);
-    Route::get('config/copyright', [ConfigController::class, 'getCopyright']);
-    Route::post('config/copyright/save', [ConfigController::class, 'saveCopyright']);
-    Route::get('config/agreement', [ConfigController::class, 'getAgreement']);
-    Route::post('config/agreement/save', [ConfigController::class, 'saveAgreement']);
-    Route::get('config/statistics', [ConfigController::class, 'getStatistics']);
-    Route::post('config/statistics/save', [ConfigController::class, 'saveStatistics']);
-    Route::get('config/user', [ConfigController::class, 'getUser']);
-    Route::post('config/user/save', [ConfigController::class, 'saveUser']);
-    Route::get('config/login', [ConfigController::class, 'getLogin']);
-    Route::post('config/login/save', [ConfigController::class, 'saveLogin']);
+    Route::get('config/website', [ConfigController::class, 'getWebsite'])->option(['peanut_permission' => 'peanut.settings.read']);
+    Route::post('config/website/save', [ConfigController::class, 'saveWebsite'])->option(['peanut_permission' => 'peanut.settings.manage']);
+    Route::get('config/copyright', [ConfigController::class, 'getCopyright'])->option(['peanut_permission' => 'peanut.settings.read']);
+    Route::post('config/copyright/save', [ConfigController::class, 'saveCopyright'])->option(['peanut_permission' => 'peanut.settings.manage']);
+    Route::get('config/agreement', [ConfigController::class, 'getAgreement'])->option(['peanut_permission' => 'peanut.settings.read']);
+    Route::post('config/agreement/save', [ConfigController::class, 'saveAgreement'])->option(['peanut_permission' => 'peanut.settings.manage']);
+    Route::get('config/statistics', [ConfigController::class, 'getStatistics'])->option(['peanut_permission' => 'peanut.settings.read']);
+    Route::post('config/statistics/save', [ConfigController::class, 'saveStatistics'])->option(['peanut_permission' => 'peanut.settings.manage']);
+    Route::get('config/user', [ConfigController::class, 'getUser'])->option(['peanut_permission' => 'peanut.settings.read']);
+    Route::post('config/user/save', [ConfigController::class, 'saveUser'])->option(['peanut_permission' => 'peanut.settings.manage']);
+    Route::get('config/login', [ConfigController::class, 'getLogin'])->option(['peanut_permission' => 'peanut.settings.read']);
+    Route::post('config/login/save', [ConfigController::class, 'saveLogin'])->option(['peanut_permission' => 'peanut.settings.manage']);
 
     // 应用设置 - 首次运行生产准备清单（只读，不执行外部探测）
     Route::get('readiness/checklist', [ReadinessController::class, 'checklist']);
 
     // 应用设置 - 热门搜索
-    Route::get('setting/hot-search/config', [HotSearchController::class, 'getConfig']);
-    Route::post('setting/hot-search/save', [HotSearchController::class, 'setConfig']);
+    Route::get('setting/hot-search/config', [HotSearchController::class, 'getConfig'])->option(['peanut_permission' => 'peanut.settings.read']);
+    Route::post('setting/hot-search/save', [HotSearchController::class, 'setConfig'])->option(['peanut_permission' => 'peanut.settings.manage']);
 
     // 应用设置 - 交易设置
-    Route::get('setting/transaction/config', [TransactionSettingsController::class, 'getConfig']);
-    Route::post('setting/transaction/save', [TransactionSettingsController::class, 'setConfig']);
+    Route::get('setting/transaction/config', [TransactionSettingsController::class, 'getConfig'])->option(['peanut_permission' => 'peanut.settings.read']);
+    Route::post('setting/transaction/save', [TransactionSettingsController::class, 'setConfig'])->option(['peanut_permission' => 'peanut.settings.manage']);
 
     // 装修管理：移动端、Tabbar 与 PC 权限域严格分离
     Route::get('decoration/mobile/page/lists', [DecorationPageController::class, 'mobileLists']);

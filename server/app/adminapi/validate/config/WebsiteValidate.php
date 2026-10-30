@@ -60,7 +60,7 @@ class WebsiteValidate extends Validate
             return '至少启用一种登录方式';
         }
         foreach ($value as $way) {
-            if (!in_array((int) $way, [1, 2], true)) {
+            if (!in_array($way, [1, 2, '1', '2'], true)) {
                 return '登录方式无效';
             }
         }

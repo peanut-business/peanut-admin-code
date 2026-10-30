@@ -4,7 +4,7 @@
     "inputs": [
         {
             "path": "plugins.lock",
-            "sha256": "68e90333be91b084f25f8565cf665a4e0336097c076030cd04c1f411950e0204"
+            "sha256": "66407b1651fecd0c9b00dca49fdd8230d58cf410aef53491b542c04e5624f650"
         },
         {
             "path": "release-versions.json",
@@ -56,7 +56,7 @@
         },
         {
             "path": "server/app/modules/peanut/reference_codes/api/metadata/openapi.php",
-            "sha256": "33fdb3ee6380d2b4113af5d7827005a7f49913e70c84c7e19ebd310da01f6c3e"
+            "sha256": "917568579bbb0d8099cf6ea188747f9049fd7c51e5d44a35555f95c5eda0f953"
         },
         {
             "path": "server/app/modules/peanut/reference_codes/route/app.php",
@@ -84,7 +84,7 @@
         },
         {
             "path": "server/route/admin.php",
-            "sha256": "b216e62831db87b0212342f0d0abcd85418162b61ad2ae52f25b2772c7bf542b"
+            "sha256": "d05a748a5aa3f50d44073e272e816d7d48dde142dd8ffd5e0acf336f5df22798"
         },
         {
             "path": "server/route/app.php",
@@ -1799,13 +1799,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "config/agreement"
+                "peanut.settings.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "config/agreement"
+                    "key": "peanut.settings.read"
                 }
             ],
             "errors": [
@@ -1917,13 +1917,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "config/copyright"
+                "peanut.settings.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "config/copyright"
+                    "key": "peanut.settings.read"
                 }
             ],
             "errors": [
@@ -1986,13 +1986,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "config/login"
+                "peanut.settings.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "config/login"
+                    "key": "peanut.settings.read"
                 }
             ],
             "errors": [
@@ -2055,13 +2055,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "config/statistics"
+                "peanut.settings.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "config/statistics"
+                    "key": "peanut.settings.read"
                 }
             ],
             "errors": [
@@ -2124,13 +2124,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "config/user"
+                "peanut.settings.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "config/user"
+                    "key": "peanut.settings.read"
                 }
             ],
             "errors": [
@@ -2193,13 +2193,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "config/website"
+                "peanut.settings.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "config/website"
+                    "key": "peanut.settings.read"
                 }
             ],
             "errors": [
@@ -3028,13 +3028,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "dict/data/byType"
+                "peanut.reference-codes.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dict/data/byType"
+                    "key": "peanut.reference-codes.read"
                 }
             ],
             "errors": [
@@ -3098,13 +3098,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "dict/data/detail"
+                "peanut.reference-codes.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dict/data/detail"
+                    "key": "peanut.reference-codes.read"
                 }
             ],
             "errors": [
@@ -3170,13 +3170,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "dict/data/lists"
+                "peanut.reference-codes.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dict/data/lists"
+                    "key": "peanut.reference-codes.read"
                 }
             ],
             "errors": [
@@ -3241,13 +3241,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "dict/type/all"
+                "peanut.reference-codes.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dict/type/all"
+                    "key": "peanut.reference-codes.read"
                 }
             ],
             "errors": [
@@ -3311,13 +3311,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "dict/type/detail"
+                "peanut.reference-codes.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dict/type/detail"
+                    "key": "peanut.reference-codes.read"
                 }
             ],
             "errors": [
@@ -3383,13 +3383,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "dict/type/lists"
+                "peanut.reference-codes.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dict/type/lists"
+                    "key": "peanut.reference-codes.read"
                 }
             ],
             "errors": [
@@ -5529,13 +5529,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "setting/hot-search/config"
+                "peanut.settings.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "setting/hot-search/config"
+                    "key": "peanut.settings.read"
                 }
             ],
             "errors": [
@@ -5598,13 +5598,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "setting/transaction/config"
+                "peanut.settings.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "setting/transaction/config"
+                    "key": "peanut.settings.read"
                 }
             ],
             "errors": [
@@ -10272,13 +10272,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "config/agreement/save"
+                "peanut.settings.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "config/agreement/save"
+                    "key": "peanut.settings.manage"
                 }
             ],
             "errors": [
@@ -10342,13 +10342,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "config/copyright/save"
+                "peanut.settings.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "config/copyright/save"
+                    "key": "peanut.settings.manage"
                 }
             ],
             "errors": [
@@ -10412,13 +10412,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "config/login/save"
+                "peanut.settings.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "config/login/save"
+                    "key": "peanut.settings.manage"
                 }
             ],
             "errors": [
@@ -10482,13 +10482,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "config/statistics/save"
+                "peanut.settings.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "config/statistics/save"
+                    "key": "peanut.settings.manage"
                 }
             ],
             "errors": [
@@ -10552,13 +10552,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "config/user/save"
+                "peanut.settings.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "config/user/save"
+                    "key": "peanut.settings.manage"
                 }
             ],
             "errors": [
@@ -10622,13 +10622,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "config/website/save"
+                "peanut.settings.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "config/website/save"
+                    "key": "peanut.settings.manage"
                 }
             ],
             "errors": [
@@ -11193,13 +11193,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "dict/data/add"
+                "peanut.reference-codes.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dict/data/add"
+                    "key": "peanut.reference-codes.manage"
                 }
             ],
             "errors": [
@@ -11265,13 +11265,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "dict/data/delete"
+                "peanut.reference-codes.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dict/data/delete"
+                    "key": "peanut.reference-codes.manage"
                 }
             ],
             "errors": [
@@ -11337,13 +11337,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "dict/data/edit"
+                "peanut.reference-codes.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dict/data/edit"
+                    "key": "peanut.reference-codes.manage"
                 }
             ],
             "errors": [
@@ -11409,13 +11409,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "dict/data/status"
+                "peanut.reference-codes.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dict/data/status"
+                    "key": "peanut.reference-codes.manage"
                 }
             ],
             "errors": [
@@ -11481,13 +11481,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "dict/type/add"
+                "peanut.reference-codes.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dict/type/add"
+                    "key": "peanut.reference-codes.manage"
                 }
             ],
             "errors": [
@@ -11553,13 +11553,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "dict/type/delete"
+                "peanut.reference-codes.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dict/type/delete"
+                    "key": "peanut.reference-codes.manage"
                 }
             ],
             "errors": [
@@ -11625,13 +11625,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "dict/type/edit"
+                "peanut.reference-codes.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dict/type/edit"
+                    "key": "peanut.reference-codes.manage"
                 }
             ],
             "errors": [
@@ -11697,13 +11697,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "dict/type/status"
+                "peanut.reference-codes.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dict/type/status"
+                    "key": "peanut.reference-codes.manage"
                 }
             ],
             "errors": [
@@ -14198,13 +14198,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "setting/hot-search/save"
+                "peanut.settings.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "setting/hot-search/save"
+                    "key": "peanut.settings.manage"
                 }
             ],
             "errors": [
@@ -14268,13 +14268,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "setting/transaction/save"
+                "peanut.settings.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "setting/transaction/save"
+                    "key": "peanut.settings.manage"
                 }
             ],
             "errors": [

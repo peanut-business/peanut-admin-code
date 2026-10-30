@@ -77,6 +77,9 @@ expect($store->values['web_logo'] === 'stored:/logo.png', 'storage mapper must h
 expect(array_keys($store->values) === WebsiteConfigService::fields(), 'save must write one complete field set');
 
 $invalidPayloads = [];
+$unknownField = validPayload();
+$unknownField['tenant_id'] = 202;
+$invalidPayloads[] = $unknownField;
 $emptyName = validPayload();
 $emptyName['name'] = '   ';
 $invalidPayloads[] = $emptyName;

@@ -8272,7 +8272,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\config\\ConfigController",
                     "action": "getWebsite",
-                    "permission": null,
+                    "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 151
@@ -8281,7 +8281,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "config/website"
+                        "key": "peanut.settings.read"
                     }
                 ]
             }
@@ -8354,7 +8354,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\config\\ConfigController",
                     "action": "saveWebsite",
-                    "permission": null,
+                    "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 152
@@ -8363,7 +8363,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "config/website/save"
+                        "key": "peanut.settings.manage"
                     }
                 ]
             }
@@ -8426,7 +8426,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\config\\ConfigController",
                     "action": "getAgreement",
-                    "permission": null,
+                    "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 155
@@ -8435,7 +8435,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "config/agreement"
+                        "key": "peanut.settings.read"
                     }
                 ]
             }
@@ -8515,7 +8515,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\config\\ConfigController",
                     "action": "saveAgreement",
-                    "permission": null,
+                    "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 156
@@ -8524,7 +8524,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "config/agreement/save"
+                        "key": "peanut.settings.manage"
                     }
                 ]
             }
@@ -8587,7 +8587,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\config\\ConfigController",
                     "action": "getStatistics",
-                    "permission": null,
+                    "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 157
@@ -8596,7 +8596,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "config/statistics"
+                        "key": "peanut.settings.read"
                     }
                 ]
             }
@@ -8676,7 +8676,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\config\\ConfigController",
                     "action": "saveStatistics",
-                    "permission": null,
+                    "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 158
@@ -8685,7 +8685,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "config/statistics/save"
+                        "key": "peanut.settings.manage"
                     }
                 ]
             }
@@ -8748,7 +8748,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\config\\ConfigController",
                     "action": "getUser",
-                    "permission": null,
+                    "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 159
@@ -8757,7 +8757,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "config/user"
+                        "key": "peanut.settings.read"
                     }
                 ]
             }
@@ -8837,7 +8837,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\config\\ConfigController",
                     "action": "saveUser",
-                    "permission": null,
+                    "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 160
@@ -8846,7 +8846,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "config/user/save"
+                        "key": "peanut.settings.manage"
                     }
                 ]
             }
@@ -8909,7 +8909,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\config\\ConfigController",
                     "action": "getLogin",
-                    "permission": null,
+                    "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 161
@@ -8918,7 +8918,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "config/login"
+                        "key": "peanut.settings.read"
                     }
                 ]
             }
@@ -8998,7 +8998,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\config\\ConfigController",
                     "action": "saveLogin",
-                    "permission": null,
+                    "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 162
@@ -9007,7 +9007,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "config/login/save"
+                        "key": "peanut.settings.manage"
                     }
                 ]
             }
@@ -9070,7 +9070,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\config\\ConfigController",
                     "action": "getCopyright",
-                    "permission": null,
+                    "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 153
@@ -9079,7 +9079,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "config/copyright"
+                        "key": "peanut.settings.read"
                     }
                 ]
             }
@@ -9159,7 +9159,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\config\\ConfigController",
                     "action": "saveCopyright",
-                    "permission": null,
+                    "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 154
@@ -9168,7 +9168,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "config/copyright/save"
+                        "key": "peanut.settings.manage"
                     }
                 ]
             }
@@ -11224,7 +11224,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\setting\\HotSearchController",
                     "action": "getConfig",
-                    "permission": null,
+                    "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 168
@@ -11233,7 +11233,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "setting/hot-search/config"
+                        "key": "peanut.settings.read"
                     }
                 ]
             }
@@ -11313,7 +11313,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\setting\\HotSearchController",
                     "action": "setConfig",
-                    "permission": null,
+                    "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 169
@@ -11322,7 +11322,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "setting/hot-search/save"
+                        "key": "peanut.settings.manage"
                     }
                 ]
             }
@@ -11385,7 +11385,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\setting\\TransactionSettingsController",
                     "action": "getConfig",
-                    "permission": null,
+                    "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 172
@@ -11394,7 +11394,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "setting/transaction/config"
+                        "key": "peanut.settings.read"
                     }
                 ]
             }
@@ -11480,7 +11480,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\setting\\TransactionSettingsController",
                     "action": "setConfig",
-                    "permission": null,
+                    "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 173
@@ -11489,7 +11489,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "setting/transaction/save"
+                        "key": "peanut.settings.manage"
                     }
                 ]
             }
@@ -22098,7 +22098,7 @@
                     },
                     "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictTypeController",
                     "action": "lists",
-                    "permission": null,
+                    "permission": "peanut.reference-codes.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 113
@@ -22107,7 +22107,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dict/type/lists"
+                        "key": "peanut.reference-codes.read"
                     }
                 ]
             }
@@ -22149,7 +22149,7 @@
                     },
                     "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictTypeController",
                     "action": "all",
-                    "permission": null,
+                    "permission": "peanut.reference-codes.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 114
@@ -22158,7 +22158,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dict/type/all"
+                        "key": "peanut.reference-codes.read"
                     }
                 ]
             }
@@ -22220,7 +22220,7 @@
                     },
                     "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictTypeController",
                     "action": "detail",
-                    "permission": null,
+                    "permission": "peanut.reference-codes.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 115
@@ -22229,7 +22229,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dict/type/detail"
+                        "key": "peanut.reference-codes.read"
                     }
                 ]
             }
@@ -22287,7 +22287,7 @@
                     },
                     "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictTypeController",
                     "action": "add",
-                    "permission": null,
+                    "permission": "peanut.reference-codes.manage",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 116
@@ -22296,7 +22296,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dict/type/add"
+                        "key": "peanut.reference-codes.manage"
                     }
                 ]
             }
@@ -22354,7 +22354,7 @@
                     },
                     "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictTypeController",
                     "action": "edit",
-                    "permission": null,
+                    "permission": "peanut.reference-codes.manage",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 117
@@ -22363,7 +22363,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dict/type/edit"
+                        "key": "peanut.reference-codes.manage"
                     }
                 ]
             }
@@ -22421,7 +22421,7 @@
                     },
                     "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictTypeController",
                     "action": "delete",
-                    "permission": null,
+                    "permission": "peanut.reference-codes.manage",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 118
@@ -22430,7 +22430,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dict/type/delete"
+                        "key": "peanut.reference-codes.manage"
                     }
                 ]
             }
@@ -22488,7 +22488,7 @@
                     },
                     "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictTypeController",
                     "action": "updateStatus",
-                    "permission": null,
+                    "permission": "peanut.reference-codes.manage",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 119
@@ -22497,7 +22497,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dict/type/status"
+                        "key": "peanut.reference-codes.manage"
                     }
                 ]
             }
@@ -22602,7 +22602,7 @@
                     },
                     "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictDataController",
                     "action": "lists",
-                    "permission": null,
+                    "permission": "peanut.reference-codes.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 122
@@ -22611,7 +22611,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dict/data/lists"
+                        "key": "peanut.reference-codes.read"
                     }
                 ]
             }
@@ -22664,7 +22664,7 @@
                     },
                     "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictDataController",
                     "action": "byType",
-                    "permission": null,
+                    "permission": "peanut.reference-codes.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 123
@@ -22673,7 +22673,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dict/data/byType"
+                        "key": "peanut.reference-codes.read"
                     }
                 ]
             }
@@ -22735,7 +22735,7 @@
                     },
                     "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictDataController",
                     "action": "detail",
-                    "permission": null,
+                    "permission": "peanut.reference-codes.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 124
@@ -22744,7 +22744,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dict/data/detail"
+                        "key": "peanut.reference-codes.read"
                     }
                 ]
             }
@@ -22802,7 +22802,7 @@
                     },
                     "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictDataController",
                     "action": "add",
-                    "permission": null,
+                    "permission": "peanut.reference-codes.manage",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 125
@@ -22811,7 +22811,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dict/data/add"
+                        "key": "peanut.reference-codes.manage"
                     }
                 ]
             }
@@ -22869,7 +22869,7 @@
                     },
                     "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictDataController",
                     "action": "edit",
-                    "permission": null,
+                    "permission": "peanut.reference-codes.manage",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 126
@@ -22878,7 +22878,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dict/data/edit"
+                        "key": "peanut.reference-codes.manage"
                     }
                 ]
             }
@@ -22936,7 +22936,7 @@
                     },
                     "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictDataController",
                     "action": "delete",
-                    "permission": null,
+                    "permission": "peanut.reference-codes.manage",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 127
@@ -22945,7 +22945,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dict/data/delete"
+                        "key": "peanut.reference-codes.manage"
                     }
                 ]
             }
@@ -23003,7 +23003,7 @@
                     },
                     "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictDataController",
                     "action": "updateStatus",
-                    "permission": null,
+                    "permission": "peanut.reference-codes.manage",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 128
@@ -23012,7 +23012,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dict/data/status"
+                        "key": "peanut.reference-codes.manage"
                     }
                 ]
             }
@@ -35388,7 +35388,8 @@
             },
             "ReferenceCodeLegacyIdentifierRequest": {
                 "type": "object",
-                "description": "旧控制器保留原始请求；未列字段会被忽略。",
+                "additionalProperties": false,
+                "description": "仅接受列出的标识字段；未声明字段会被拒绝。",
                 "required": [
                     "id"
                 ],
@@ -35401,7 +35402,8 @@
             },
             "ReferenceCodeLegacyStatusRequest": {
                 "type": "object",
-                "description": "旧控制器保留原始请求；未列字段会被忽略。",
+                "additionalProperties": false,
+                "description": "仅接受列出的标识与状态字段；未声明字段会被拒绝。",
                 "required": [
                     "id",
                     "is_disable"
@@ -35422,7 +35424,8 @@
             },
             "ReferenceCodeLegacyTypeCreateRequest": {
                 "type": "object",
-                "description": "服务只写入列出的字段；旧控制器会忽略其他字段。",
+                "additionalProperties": false,
+                "description": "仅接受列出的创建字段；租户归属等未声明字段会被拒绝。",
                 "required": [
                     "name",
                     "type"
@@ -35454,7 +35457,8 @@
             },
             "ReferenceCodeLegacyTypeUpdateRequest": {
                 "type": "object",
-                "description": "服务只写入列出的字段；旧控制器会忽略其他字段。",
+                "additionalProperties": false,
+                "description": "仅接受列出的标识与更新字段；未声明字段会被拒绝。",
                 "required": [
                     "id",
                     "name",
@@ -35491,7 +35495,8 @@
             },
             "ReferenceCodeLegacyEntryCreateRequest": {
                 "type": "object",
-                "description": "服务只写入列出的字段；旧控制器会忽略其他字段。",
+                "additionalProperties": false,
+                "description": "仅接受列出的创建字段；租户归属等未声明字段会被拒绝。",
                 "required": [
                     "type_id",
                     "name",
@@ -35531,7 +35536,8 @@
             },
             "ReferenceCodeLegacyEntryUpdateRequest": {
                 "type": "object",
-                "description": "服务只写入列出的字段；旧控制器会忽略其他字段。",
+                "additionalProperties": false,
+                "description": "仅接受列出的标识与更新字段；重新指定父类型等未声明字段会被拒绝。",
                 "required": [
                     "id",
                     "name",

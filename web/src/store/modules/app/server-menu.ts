@@ -1,7 +1,7 @@
 import type { RouteRecordRaw } from 'vue-router';
 import appClientMenus from '@/router/app-menus';
-import type { ServerMenuRecord } from './types';
 import { validRouteMeta } from '@/router/route-meta';
+import type { ServerMenuRecord } from './types';
 
 function normalizePath(path: string): string {
   const normalized = `/${path}`.replace(/\/{2,}/g, '/');

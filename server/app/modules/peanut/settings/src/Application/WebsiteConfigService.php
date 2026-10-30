@@ -57,6 +57,9 @@ final class WebsiteConfigService
      */
     public function save(array $params): array
     {
+        if (array_diff(array_keys($params), self::FIELDS) !== []) {
+            throw new InvalidArgumentException('网站配置包含未知字段');
+        }
         $normalized = [];
         foreach ($this->defaults as $field => $default) {
             $raw = $params[$field] ?? $default;

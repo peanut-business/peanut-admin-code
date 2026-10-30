@@ -69,7 +69,8 @@ const SYSTEM: AppRouteRecordRaw = {
       meta: {
         locale: 'menu.system.dict',
         requiresAuth: true,
-        roles: ['admin'],
+        tenantModuleKey: 'peanut.reference-codes',
+        requiredPermissions: ['peanut.reference-codes.read'],
       },
     },
     {
