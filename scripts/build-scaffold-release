@@ -567,6 +567,12 @@ function releaseProjectScaffold(string $application, array $core, string $tempor
     }
     releaseWriteJson($versionPath, $versions);
     releaseProjectCore($application, $core, $temporary, $manifest);
+    $receiptDigest = hash_file('sha256', $receipt);
+    if (!is_string($receiptDigest)) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_RECEIPT_INVALID');
+    }
+    $manifest['scaffold_candidate']['core_inputs_sha256'] = $receiptDigest;
+    releaseWriteJson($manifestPath, $manifest);
     $web = releaseProjectWeb($application, $core, $receipt, $toolRoot);
     $versions = releaseReadJson($versionPath);
     releaseRun([PHP_BINARY, $toolRoot . '/scripts/generate-api-contracts.php',
@@ -663,10 +669,6 @@ function releaseProjectScaffold(string $application, array $core, string $tempor
     sort($rows, SORT_STRING);
     $manifest['digests']['managed_tree_sha256'] = hash('sha256', implode("\n", $rows));
     releaseWriteJson($manifestPath, $manifest);
-    $receiptDigest = hash_file('sha256', $receipt);
-    if (!is_string($receiptDigest)) {
-        throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_RECEIPT_INVALID');
-    }
     $projection = [
         'protocol' => 'peanut.internal-core-scaffold-projection.v1',
         'scope' => 'internal-upgrade-target-not-formal-release',
