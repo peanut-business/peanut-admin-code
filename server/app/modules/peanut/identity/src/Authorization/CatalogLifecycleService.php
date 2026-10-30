@@ -447,6 +447,8 @@ final readonly class CatalogLifecycleService
         sort($ids, SORT_STRING);
         if ($ids !== [] || $includeEmpty) {
             $resource = match ($table) {
+                'pa_api_endpoint' => 'api-endpoints',
+                'pa_permission_api' => 'permission-api-bindings',
                 'pa_permission' => 'permissions',
                 'pa_protected_resource' => 'protected-resources',
                 'pa_target_type' => 'target-types',

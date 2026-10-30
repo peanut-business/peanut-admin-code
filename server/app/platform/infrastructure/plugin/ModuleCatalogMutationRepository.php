@@ -86,6 +86,8 @@ final readonly class ModuleCatalogMutationRepository
     private function legacyIdentityEntry(array $entry): array
     {
         $label = match ($entry['resource']) {
+            'api-endpoints' => 'pa_api_endpoint',
+            'permission-api-bindings' => 'pa_permission_api',
             'permissions' => 'pa_permission',
             'protected-resources' => 'pa_protected_resource',
             'target-types' => 'pa_target_type',
