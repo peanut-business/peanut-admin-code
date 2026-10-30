@@ -2312,7 +2312,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f4d29fd8f1ea9f81b98e3473f3698168a64a28e308ba7385f962254cc718549f"
+            "source_sha256": "81b998dd4adce98d59338bffad0c30099368dc567cbb6bfd5cfc98c84953ac9e"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2379,7 +2379,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8b538517efdab9da7c99f3472fcf277101fb0d4e10ab583f27399a326b6d479c"
+            "source_sha256": "9f12a4340b660f592a586e65cf7867bcb34608888b6bf7b922e0dbb42051455d"
         },
         {
             "path": "plugins/peanut.identity/plugin.json",
@@ -11287,7 +11287,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5869f697114b89938ce5b0b75d101e84cf1ff8463b8588e526dea1a9512cbba0"
+            "source_sha256": "8d6a41bcb3a88a84572e08c287c0e430104da5729e9a6de56630215fcd1772a9"
         },
         {
             "path": "server/app/modules/peanut/file/src/Validation/FileCateValidate.php",
@@ -19775,7 +19775,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cf28098cfc06044c06fd94f2cb5c40cb87d6f7f28f8758c8ccfbc2834b8bc2e5"
+            "source_sha256": "97f4b30135844fb0256e00d73f9a9218f6fb2e7ed29a71aa0755301da8594cf6"
         },
         {
             "path": "server/generated/openapi.json",
@@ -28957,6 +28957,20 @@
             "source_sha256": "004c30eb45e283bb0c4d0fb5b29bec373cb696a85ce8bc5f7ff669c5c5144459"
         },
         {
+            "path": "web/src/directive/permission/index.spec.ts",
+            "target": "web/src/directive/permission/index.spec.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e816e4a5dfe6269a3c076614f762088d47c649526af50e6231b3ec86163fcc1f"
+        },
+        {
             "path": "web/src/directive/permission/index.ts",
             "target": "web/src/directive/permission/index.ts",
             "classification": "managed",
@@ -28968,7 +28982,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f74760dbca5638828b0aaea8660ef00a2d740cb9fb6205a6dd3bf3509e50935c"
+            "source_sha256": "656252be4952e3acdeffcb3dd47d8168855a106715e56b8a2e0d09a7b808eaa1"
         },
         {
             "path": "web/src/env.d.ts",
