@@ -738,7 +738,7 @@
             :closable="false" /><tenant-picker /><TenantLicensePanel
             v-if="targetTenantId"
             :key="targetTenantId"
-            :tenant-id="targetTenantId"
+            :tenant-id="Number(targetTenantId)"
             :can-manage="can('platform.tenant.license.manage')"
             @saved="loadView" /><el-empty
             v-if="!targetTenant"

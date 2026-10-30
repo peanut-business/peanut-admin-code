@@ -1738,7 +1738,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "524a7c9b56fc87724961bcb3a92dc11a1a79df1d886dabd04af40082b68f527f"
+            "source_sha256": "4138f81fb6f7a8d915322f81af62683c33dde2576d8e162cb3d742e6a50bd095"
         },
         {
             "path": "platform/src/api/permission-bundles.ts",
@@ -29199,7 +29199,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "61adfc4237fd419567b25a492e65dd1989f235c42d07fa490fb6fae453942a01"
+            "source_sha256": "bbe1a64a74476984dd4c8d34536958f91a9c6af7586934c6131d9f107f29829f"
         },
         {
             "path": "web/src/locale/zh-CN.ts",
