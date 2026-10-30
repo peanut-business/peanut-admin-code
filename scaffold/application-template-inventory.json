@@ -2312,7 +2312,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81b998dd4adce98d59338bffad0c30099368dc567cbb6bfd5cfc98c84953ac9e"
+            "source_sha256": "c975cdd712f344d2eb7fcbe9b66c4921aa9c94a87d020b8607b79acf237ecb31"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2379,7 +2379,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9f12a4340b660f592a586e65cf7867bcb34608888b6bf7b922e0dbb42051455d"
+            "source_sha256": "45867f26267e56fbd89a38b10bbb200816a3f8bf812d9834011c4fc47dae1871"
         },
         {
             "path": "plugins/peanut.identity/plugin.json",
@@ -17593,7 +17593,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "890ae5bd67c262792e051e1caf33652cea8d49b0e92e90bf9aad146a570ad727"
+            "source_sha256": "6ee367ec6ab737e427392dc1470fad112cc906e1df4cbc769f8f47c3cbc65dfc"
         },
         {
             "path": "server/app/platform/controller/PlatformAccessController.php",
@@ -17621,7 +17621,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d6240506a7e12b667139eebdbb36f2de57f69667612a2a1c009bfc706832a456"
+            "source_sha256": "b91b115c38b5f6e5c25566d7abacadb394ee2bf096ec36a0a01445a63cb640ca"
         },
         {
             "path": "server/app/platform/controller/PlatformDeveloperCenterController.php",
@@ -17719,7 +17719,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d7bf78bf5c43fbd4650b7659ea88e274546a54ed35faf34fe1d05d6dbcdda6c8"
+            "source_sha256": "61bdfecf0885646e1c11d1afa065b7d6b337a4f1aef395888434e9bf686b4304"
         },
         {
             "path": "server/app/platform/controller/PlatformTenantEntryBindingController.php",
@@ -17733,7 +17733,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a6fb5ffb25ddf5bc1d6dd34c77d1811d80410584addfb0e1b66f151699e6646c"
+            "source_sha256": "dcbaed0404126ce8a6c9816b2eb4e365dea987f89be0f9c8a66d2d13edcd36b1"
         },
         {
             "path": "server/app/platform/controller/PlatformTenantInvitationController.php",
@@ -18461,7 +18461,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2cf4ac80df0172970ddea90200c2e684de6ef8b596e03d861b543e1569352ad6"
+            "source_sha256": "484b39c718487a530cbefaf53dbffb59db82bc43f62031e989680857f398d586"
         },
         {
             "path": "server/app/platform/validate/PlatformLoginValidate.php",
@@ -18489,7 +18489,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "171ba807853c7b18c3c4097066e282140fe7117e9dc0ca8a833fd4808c882fb9"
+            "source_sha256": "921b802d8b3ccff9e54b4b0a9d273859bc8f03468f36ed4db69dbb1a639e597b"
         },
         {
             "path": "server/app/platform/validate/TenantEntryBindingValidate.php",
@@ -18503,7 +18503,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "09844204c4faa510d3644463c6272b938cdcab871ef1c6c89d475acc99bb9cd0"
+            "source_sha256": "e4acdcff031fff547966b6b7775f6238106bb62ba6478668d353770b2c50570c"
         },
         {
             "path": "server/app/platform/validate/TenantOwnerInvitationValidate.php",
@@ -18517,7 +18517,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fb1fb1e6649e132d449e371bcea3c02705932179b4558ea17bb12b7942d565ec"
+            "source_sha256": "09a5237e08452c3887c7295bd0fae0bfce618a7f5b262db3ebb82d4c30957e18"
         },
         {
             "path": "server/app/platform/validation/module/ModulePublicSurfacePolicy.php",
@@ -19775,7 +19775,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "97f4b30135844fb0256e00d73f9a9218f6fb2e7ed29a71aa0755301da8594cf6"
+            "source_sha256": "6140ed0be354c277632a21b3e5a3cfbb3c7e4fe86a82a93dd2b14fc874c78f77"
         },
         {
             "path": "server/generated/openapi.json",
@@ -26082,6 +26082,19 @@
             ]
         },
         {
+            "path": "server/tests/Unit/PlatformIdentityInputBoundaryTest.php",
+            "target": "server/tests/Unit/PlatformIdentityInputBoundaryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Unit/PlatformLifecycleFixtureAssemblyTest.php",
             "target": "server/tests/Unit/PlatformLifecycleFixtureAssemblyTest.php",
             "classification": "excluded",
@@ -29898,7 +29911,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5ffbdbb360728b4dd9628772de2e4d57eaf24bdeb0f9b83a2cb103481f2036a6"
+            "source_sha256": "0d1a9c04a837d786979ad7481a3344fb29d4d1c1c6b113f4e9378de8e973e769"
         },
         {
             "path": "web/src/modules/peanut-file/views/locale/en-US.ts",
