@@ -1105,7 +1105,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "44dad2dacec49f44bcef7f1503f7ca9a5249ddef62c35b4438efe8dc02a03e1c"
+            "source_sha256": "740a30f2a40e8aa9340a9ed1650fee00ee3fc624637597cc62deab2850b2985c"
         },
         {
             "path": "docs/public/support.md",
@@ -3620,7 +3620,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1b14ba5de7908c0548eca37cb79a8c6e6ae57b80e52a12dd41bf6ade073cd331"
+            "source_sha256": "cf92281dbb9b2fe695e2931ed41240a8ed7b8ff3aaef10aecd8c7397578f01cd"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",

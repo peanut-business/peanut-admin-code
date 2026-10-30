@@ -243,6 +243,7 @@ final class ScaffoldUpgradeRunner
                 $to,
                 $targetParameters,
                 $versionContract,
+                $development,
             );
             $actions = $this->projectPluginBoundary($actions, $pluginProjection, $targetPlugins, $pluginTarget);
         }
@@ -2269,6 +2270,7 @@ final class ScaffoldUpgradeRunner
         ScaffoldManifest $release,
         array $parameters,
         array $versionContract,
+        ?array $development,
     ): array {
         $keys = [];
         foreach ($target as $key => $plugin) {
@@ -2383,6 +2385,10 @@ final class ScaffoldUpgradeRunner
             $preflight = new PackageCheck($stage, $this->targetModuleSchemaValidator($release, $stage));
             $modules = [];
             foreach ($projection['plugins'] as $key => $plugin) {
+                // A verified whole-template development source and unchanged
+                // managed baseline already fix these bytes independently of
+                // an immutable, independently issued Module package version.
+                $managedDevelopment = $development !== null && isset($managedUpstreamProofs[$key]);
                 foreach ($plugin['module_keys'] as $moduleKey) {
                     if (isset($modules[$moduleKey])) {
                         throw new RuntimeException('SCAFFOLD_PLUGIN_MODULE_OWNERSHIP_CONFLICT');
@@ -2392,16 +2398,19 @@ final class ScaffoldUpgradeRunner
                     if (in_array($key, $keys, true) && isset($current['plugins'][$key])) {
                         $oldManifest = json_decode((string) file_get_contents($root . '/' . $inspection['backend_relative'] . '/module.json'), true, 64, JSON_THROW_ON_ERROR);
                         $oldVersion = (string) ($oldManifest['version'] ?? '');
-                        $oldDigest = hash_file('sha256', $root . '/' . $inspection['backend_relative'] . '/module.json');
-                        $oldFrontend = \app\platform\value\plugin\ModuleFrontendLayout::contributions($oldManifest['frontend'] ?? [], $moduleKey);
-                        $oldRoots = [$inspection['backend_relative'], ...array_column($oldFrontend, 'root')];
-                        $targetRoots = [$inspection['backend_relative'], ...array_column($inspection['frontend_contributions'], 'root')];
-                        $changed = $this->pluginSourceFiles($root, $oldRoots) !== $this->pluginSourceFiles($stage, $targetRoots);
-                        if (version_compare($inspection['version'], $oldVersion) < 0
-                            || ($changed && version_compare($inspection['version'], $oldVersion) <= 0)
-                            || ($inspection['version'] === $oldVersion
-                                && $oldDigest !== hash_file('sha256', $stage . '/' . $inspection['backend_relative'] . '/module.json'))) {
+                        $comparison = version_compare($inspection['version'], $oldVersion);
+                        if ($comparison < 0) {
                             throw new RuntimeException('SCAFFOLD_OFFICIAL_MODULE_VERSION_IDENTITY_CONFLICT: ' . $moduleKey);
+                        }
+                        if (!$managedDevelopment && $comparison === 0) {
+                            $oldDigest = hash_file('sha256', $root . '/' . $inspection['backend_relative'] . '/module.json');
+                            $oldFrontend = \app\platform\value\plugin\ModuleFrontendLayout::contributions($oldManifest['frontend'] ?? [], $moduleKey);
+                            $oldRoots = [$inspection['backend_relative'], ...array_column($oldFrontend, 'root')];
+                            $targetRoots = [$inspection['backend_relative'], ...array_column($inspection['frontend_contributions'], 'root')];
+                            if ($this->pluginSourceFiles($root, $oldRoots) !== $this->pluginSourceFiles($stage, $targetRoots)
+                                || $oldDigest !== hash_file('sha256', $stage . '/' . $inspection['backend_relative'] . '/module.json')) {
+                                throw new RuntimeException('SCAFFOLD_OFFICIAL_MODULE_VERSION_IDENTITY_CONFLICT: ' . $moduleKey);
+                            }
                         }
                     }
                 }
@@ -2412,7 +2421,7 @@ final class ScaffoldUpgradeRunner
                         }
                     }
                     $installed = $current['plugins'][$key] ?? null;
-                    if (is_array($installed) && version_compare($plugin['version'], $installed['version']) === 0
+                    if (!$managedDevelopment && is_array($installed) && version_compare($plugin['version'], $installed['version']) === 0
                         && $plugin['manifest_sha256'] !== $installed['manifest_sha256']) {
                         throw new RuntimeException('SCAFFOLD_OFFICIAL_VERSION_IDENTITY_CONFLICT: ' . $key);
                     }
