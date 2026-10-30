@@ -18,7 +18,7 @@
 
 ## 2. 创建和上游升级
 
-当前开发CLI已实现直接读取正式模板压缩包，也可显式传入本地`--archive`和`--manifest`，在严格空目标目录创建APP；参数以实际采用的CLI版本help和说明为准，源码实现不表示该版本已公开发行。正式来源核GitHub Release、候选锁、固定Code commit/tree、Edition清单及TGZ长度/SHA，创建后保存模板来源、归档摘要和受管baseline。本地包保留development来源，不能标记为已正式发布。
+当前开发CLI已实现直接读取正式模板压缩包，也可显式传入本地`--archive`和`--manifest`，在严格空目标目录创建APP；参数以实际采用的CLI版本help和说明为准，源码实现不表示该版本已公开发行。正式来源核GitHub Release、候选锁、固定Code commit/tree、Edition清单及TGZ长度/SHA，创建后保存模板来源、归档摘要和受管baseline。本地包保留development来源，不能标记为已正式发布。升级的无变化判断同时比较已记录的模板归档摘要；该归档固定Code、PHP Core与Web Core的实际组合，Code commit相同但Core投影改变时仍进入原生三方计划。开发Git来源允许相同或后继commit及不低于当前的模板版本，保留固定来源、baseline、定制冲突与恢复保护；正式同版本异制品仍拒绝。
 
 `peanut upgrade`在开发APP中吸收上游：`--path`选择APP，`--ref`固定目标，`--check`只检查，`--plan`保存计划。apply/recover继续同一来源和计划，不重新选最新版。省略版本的渠道及主版本范围由所用CLI版本决定，不允许静默跨主版本。APP名称、独立版本、自有业务、配置和定制不能被上游重置。
 

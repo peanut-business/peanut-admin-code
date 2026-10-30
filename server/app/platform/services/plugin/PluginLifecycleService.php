@@ -55,7 +55,6 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             && $this->allPluginModulesActive($pluginKey)) {
             $manifests = $this->pluginManifests($plugin);
             $this->assertMigrationsComplete($manifests);
-            $this->assertModuleSchema($manifests);
             return $plugin->publicIdentity() + ['operation' => 'unchanged'];
         }
         if (is_array($current) && $current['status'] === 'maintenance'
@@ -244,7 +243,6 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         if ($this->sameIdentity($plugin, $current)) {
             $manifests = $this->pluginManifests($plugin);
             $this->assertMigrationsComplete($manifests);
-            $this->assertModuleSchema($manifests);
             return $plugin->publicIdentity() + ['operation' => 'unchanged'];
         }
 

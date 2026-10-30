@@ -178,7 +178,7 @@ final class ScaffoldUpgradeRunner
         return $this->previewSource($projectRoot, $fromManifestPath, $toManifestPath, $sourceSelection);
     }
 
-    private function previewSource(string $projectRoot, string $fromManifestPath, string $toManifestPath, ?array $sourceSelection): array
+    private function previewSource(string $projectRoot, string $fromManifestPath, string $toManifestPath, ?array $sourceSelection, ?ScaffoldManifest &$verifiedTarget = null): array
     {
         $root = ScaffoldPathGuard::projectRoot($projectRoot);
         [$application, $applicationDigest] = $this->applicationManifest($root);
@@ -275,6 +275,13 @@ final class ScaffoldUpgradeRunner
                 'workflow_paths_sha256' => $workflow['paths'] === null ? null : hash('sha256', self::canonicalJson($workflow['paths'])),
                 'excluded_paths_sha256' => hash('sha256', self::canonicalJson($development['excluded_paths']))];
         }
+        if (isset($sourceSelection['template_package_path'])) {
+            $metadata = json_decode((string) file_get_contents($sourceSelection['template_package_path']), true, 512, JSON_THROW_ON_ERROR);
+            $identity['target_template_package'] = ['protocol' => $metadata['protocol'], 'version' => $metadata['version'],
+                'archive_sha256' => $metadata['archive']['sha256'],
+                'source' => $sourceSelection['channel'] === 'development' ? 'local' : 'official'];
+        }
+        $verifiedTarget = $to;
         $planDigest = hash('sha256', self::canonicalJson([$identity, $actions]));
         $candidate = 'scaffold-' . substr($planDigest, 0, 24);
         $status = $summary['conflicts'] === 0 && !$this->moduleCompatibilityBlocked($pluginTarget)
@@ -594,7 +601,7 @@ final class ScaffoldUpgradeRunner
     public function apply(string $projectRoot, string $planPath): array
     {
         return $this->locked($projectRoot, function (string $root) use ($planPath): array {
-            $plan = $this->loadPlan($root, $planPath);
+            $plan = $this->loadPlan($root, $planPath, false);
             $ledger = $this->ledger($root);
             if ($plan['status'] !== 'ready') {
                 throw new RuntimeException('SCAFFOLD_PLAN_BLOCKED');
@@ -604,8 +611,7 @@ final class ScaffoldUpgradeRunner
                 return ['status' => 'applied', 'candidate' => $plan['candidate'], 'idempotent' => true];
             }
             $this->assertPlanFresh($root, $plan);
-            $this->assertPlanRebound($root, $plan);
-            $to = $this->planTarget($root, $plan);
+            $to = $this->assertPlanRebound($root, $plan);
             $this->assertManifestDigest($to, $plan['identity']['to']['manifest_sha256']);
             // Installed notification delivery must be drained in the operator's maintenance window.
             if ($this->changesNotificationExecution($plan) && $this->hasRuntimeState($root)) {
@@ -1309,7 +1315,7 @@ final class ScaffoldUpgradeRunner
             || !is_dir($checkout) || is_link($checkout) || ($selection['channel'] ?? null) !== 'development'
             || !isset($selection['template_package_path']) || ($base['repository'] ?? null) !== $repository
             || ($base['channel'] ?? null) !== 'development' || !array_key_exists('release_version', $base)
-            || $base['release_version'] !== null || $fromVersion !== $to->version()
+            || $base['release_version'] !== null || Semver::compare($fromVersion, $to->version()) > 0
             || !in_array($profile, ['minimal', 'standard', 'full'], true)
             || !in_array($workflow, ['none', 'runtime', 'full'], true)) {
             throw new RuntimeException('SCAFFOLD_DEVELOPMENT_SOURCE_INVALID');
@@ -1415,7 +1421,6 @@ final class ScaffoldUpgradeRunner
             }
             $identities[$side] = array_intersect_key($source, array_flip(['commit', 'tree', 'inventory_sha256']));
         }
-        if ($base['commit'] === $target['commit']) { throw new RuntimeException('SCAFFOLD_DEVELOPMENT_NOT_SUCCESSOR'); }
         $git(['merge-base', '--is-ancestor', $base['commit'], $target['commit']], true);
         sort($excluded, SORT_STRING);
         return ['relation' => ['kind' => 'development_successor', 'repository' => $repository,
@@ -3418,7 +3423,7 @@ final class ScaffoldUpgradeRunner
         return ['files' => $files, 'digest' => 'sha256:' . hash('sha256', self::canonicalJson($files))];
     }
 
-    private function loadPlan(string $root, string $path): array
+    private function loadPlan(string $root, string $path, bool $validateTarget = true): array
     {
         $resolved = ScaffoldPathGuard::existingFileWithin($root, $path, 'SCAFFOLD_PLAN_PATH_INVALID');
         $data = json_decode((string) file_get_contents($resolved), true, 512, JSON_THROW_ON_ERROR);
@@ -3436,7 +3441,7 @@ final class ScaffoldUpgradeRunner
             isset($data['identity']['development_source']), isset($data['identity']['source_relation'])];
         if (in_array(true, $developmentKeys, true)) {
             if (in_array(false, $developmentKeys, true)) { throw new RuntimeException('SCAFFOLD_DEVELOPMENT_PLAN_BINDING_CHANGED'); }
-            $this->planTarget($root, $data);
+            if ($validateTarget) { $this->planTarget($root, $data); }
         }
         $expectedStatus = count(array_filter($data['actions'], static fn(array $action): bool => ($action['conflict'] ?? null) === true)) === 0
             && !$this->moduleCompatibilityBlocked($data['identity']['plugin_target'] ?? null)
@@ -3557,6 +3562,8 @@ final class ScaffoldUpgradeRunner
             || ScaffoldSourceIdentity::from($application['template'] ?? []) !== $to->sourceIdentity()
             || ($application['application']['version'] ?? null) !== $plan['identity']['application_version']
             || ($application['generation_source'] ?? null) !== ($plan['identity']['target_generation_source'] ?? null)
+            || (isset($plan['identity']['target_template_package'])
+                && ($application['template_package'] ?? null) !== $plan['identity']['target_template_package'])
             || ($application['edition'] ?? null) !== ($plan['identity']['edition'] ?? null)) {
             throw new RuntimeException('SCAFFOLD_VERIFY_APPLICATION_IDENTITY_MISMATCH');
         }
@@ -3598,13 +3605,15 @@ final class ScaffoldUpgradeRunner
     }
 
     /** Rebuild the plan from its immutable manifests so edited actions cannot claim another ownership class or path. */
-    private function assertPlanRebound(string $root, array $plan): void
+    private function assertPlanRebound(string $root, array $plan): ScaffoldManifest
     {
-        $expected = $this->preview(
+        $to = null;
+        $expected = $this->previewSource(
             $root,
             (string) $plan['manifest_paths']['from'],
             (string) $plan['manifest_paths']['to'],
             $plan['identity']['source_selection'] ?? null,
+            $to,
         );
         if (isset($plan['resolution'])) {
             $resolution = $plan['resolution'];
@@ -3626,6 +3635,7 @@ final class ScaffoldUpgradeRunner
             || !hash_equals((string) $expected['plan_sha256'], (string) ($plan['plan_sha256'] ?? ''))) {
             throw new RuntimeException('SCAFFOLD_PLAN_MANIFEST_REBIND_FAILED');
         }
+        return $to;
     }
 
     private function ledger(string $root): ScaffoldUpgradeLedger
@@ -3816,6 +3826,16 @@ final class ScaffoldUpgradeRunner
         $application['template'] = ['version' => $to->version(),'inventory_sha256' => $to->release()['inventory_sha256'],
             ...ScaffoldSourceIdentity::fields($to->sourceIdentity())];
         $application['generation_source'] = $plan['identity']['target_generation_source'];
+        if (isset($plan['identity']['target_template_package'])) {
+            $application['template_package'] = $plan['identity']['target_template_package'];
+            if (isset($to->data['internal_core_projection'])) {
+                $application['scaffold_candidate'] = ['manifest_sha256' => substr($to->digest(), 7),
+                    'core_inputs_sha256' => $to->data['internal_core_projection']['core_inputs_sha256'],
+                    'formal_release_eligible' => false];
+            } else {
+                unset($application['scaffold_candidate']);
+            }
+        }
         $edition = $plan['identity']['edition'] ?? null;
         if (is_array($edition)) {
             $application['edition'] = $edition;
