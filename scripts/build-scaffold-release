@@ -289,11 +289,21 @@ function releaseProjectComposer(string $application, array $corePackage, string 
         'type' => 'package',
         'package' => $corePackage,
     ]];
+    $moduleRepositories = [];
+    foreach (glob($application . '/server/app/modules/*/*/composer.json') ?: [] as $moduleComposer) {
+        $moduleRepositories[substr(dirname($moduleComposer), strlen($application . '/server/'))] = true;
+    }
     foreach ($existing as $repository) {
-        if (!is_array($repository) || ($repository['type'] ?? null) === 'path') {
+        if (!is_array($repository)) {
             throw new RuntimeException('SCAFFOLD_RELEASE_COMPOSER_REPOSITORY_UNSUPPORTED');
         }
-        if (($repository['url'] ?? null) === 'https://github.com/peanut-business/peanut-admin-core-php.git') {
+        if (($repository['type'] ?? null) === 'path'
+            && (!is_string($repository['url'] ?? null) || !isset($moduleRepositories[$repository['url']])
+                || ($repository['options']['symlink'] ?? null) !== false)) {
+            throw new RuntimeException('SCAFFOLD_RELEASE_COMPOSER_REPOSITORY_UNSUPPORTED');
+        }
+        if (($repository['url'] ?? null) === 'https://github.com/peanut-business/peanut-admin-core-php.git'
+            || (($repository['type'] ?? null) === 'package' && ($repository['package']['name'] ?? null) === 'peanut-admin/core')) {
             continue;
         }
         $repositories[] = $repository;
@@ -337,27 +347,6 @@ function releaseLockRows(string $lockPath): string
     return hash('sha256', implode("\n", $rows));
 }
 
-function releaseProjectModules(string $application, string $version): void
-{
-    foreach (glob($application . '/server/app/modules/*/*/composer.json') ?: [] as $path) {
-        $composer = releaseReadJson($path);
-        if (isset($composer['require']['peanut-admin/core'])) {
-            $composer['require']['peanut-admin/core'] = $version;
-            releaseWriteJson($path, $composer);
-        }
-    }
-    $writer = new app\platform\infrastructure\plugin\PluginArtifactWriter($application . '/server', false);
-    foreach (glob($application . '/plugins/*/plugin.json') ?: [] as $path) {
-        $plugin = releaseReadJson($path);
-        $specs = [];
-        foreach ($plugin['modules'] as $module) {
-            $specs[] = $module['key'] . '=' . $module['root'];
-        }
-        $writer->make($plugin['key'], $plugin['version'], $specs);
-    }
-    $writer->writeLock();
-}
-
 function releaseProjectCore(string $application, array $core, string $temporary, array $manifest): string
 {
     $coreTarget = $application . '/' . $core['archive_relative'];
@@ -394,7 +383,7 @@ function releaseProjectCore(string $application, array $core, string $temporary,
     $lockBefore = releaseLockRows($application . '/server/composer.lock');
     $version = (string) $core['inputs']['core_php']['resolved_version'];
     releaseProjectComposer($application, $core['package'], $version);
-    releaseProjectModules($application, $version);
+    // Module authors own their Core constraints; native resolution rejects incompatible combinations.
     releaseRun([
         'composer',
         'update', 'peanut-admin/core',
@@ -580,9 +569,12 @@ function releaseProjectScaffold(string $application, array $core, string $tempor
     releaseProjectCore($application, $core, $temporary, $manifest);
     $web = releaseProjectWeb($application, $core, $receipt, $toolRoot);
     $versions = releaseReadJson($versionPath);
+    releaseRun([PHP_BINARY, $toolRoot . '/scripts/generate-api-contracts.php',
+        '--application-root=' . $application, '--check',
+        '--catalog-output=' . $application . '/server/generated/api-catalog.json']);
 
     $allowed = ['release-versions.json' => true, 'server/composer.json' => true,
-        'server/composer.lock' => true, 'plugins.lock' => true];
+        'server/composer.lock' => true, 'server/generated/api-catalog.json' => true];
     $allowed[$core['archive_relative']] = true;
     foreach (['web', 'platform', 'pc', 'uniapp'] as $client) {
         $allowed[$client . '/package.json'] = true;
@@ -600,8 +592,7 @@ function releaseProjectScaffold(string $application, array $core, string $tempor
             throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_FILE_MISSING: ' . $path);
         }
         if (!hash_equals($file['sha256'], $actual)) {
-            if (!isset($allowed[$path]) && preg_match('#^server/app/modules/[a-z0-9_-]+/[a-z0-9_-]+/composer\.json$#D', $path) !== 1
-                && preg_match('#^plugins/[a-z0-9._-]+/plugin\.json$#D', $path) !== 1) {
+            if (!isset($allowed[$path])) {
                 throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_PROJECTION_UNEXPECTED: ' . $path);
             }
             if (!in_array($file['classification'], ['managed', 'generated-managed'], true)
@@ -846,16 +837,6 @@ try {
         if (!$modernCreator || $edition === null
             || ($manifest['template']['version'] ?? null) !== $options['version']) {
             throw new RuntimeException('SCAFFOLD_RELEASE_INTERNAL_SOURCE_UNSUPPORTED');
-        }
-        foreach ([
-            '/server/app/platform/exception/plugin/PluginArtifactToolException.php',
-            '/server/app/platform/value/plugin/ModuleFrontendLayout.php',
-            '/server/app/platform/infrastructure/plugin/PluginArtifactWriter.php',
-            '/server/app/platform/exception/plugin/PluginLifecycleException.php',
-            '/server/app/platform/value/plugin/PluginDescriptor.php',
-            '/server/app/platform/infrastructure/plugin/PluginLockResolver.php',
-        ] as $dependency) {
-            require_once $source . $dependency;
         }
         $core = releaseCoreInputs($options['internal-core-inputs']);
         $internalProjection = releaseProjectScaffold(

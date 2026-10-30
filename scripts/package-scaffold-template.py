@@ -217,7 +217,9 @@ def main():
             raise ValueError('TEMPLATE_SOURCE_SNAPSHOT_MISMATCH')
     elif source_identity is not None and source_identity.get('kind') != 'git':
         raise ValueError('TEMPLATE_SOURCE_IDENTITY_INVALID')
-    tooling_inputs = {name: (tooling_source / name).read_bytes() for name in ['composer.json', 'composer.lock']}
+    # Dependency bytes follow the final APP projection; producer identity remains source-bound above.
+    dependency_source = app / 'server' if projection is not None else tooling_source
+    tooling_inputs = {name: (dependency_source / name).read_bytes() for name in ['composer.json', 'composer.lock']}
     lock = json.loads(tooling_inputs['composer.lock'])
     def tooling_identity(package):
         return {key: package.get(key) for key in ['name', 'version', 'source', 'dist']}
@@ -249,12 +251,12 @@ def main():
                     loader.exec_module(vendor_state)
                 finally:
                     sys.dont_write_bytecode = previous_bytecode
-                modules = vendor_state.module_packages(tooling_source)
+                modules = vendor_state.module_packages(dependency_source)
                 for package in module_nodes:
                     if not vendor_state.native_module(package, modules):
                         raise ValueError('TEMPLATE_TOOLING_MODULE_ORIGIN_INVALID')
                     relative = modules[package['name']]['url']
-                    source = tooling_source / relative
+                    source = dependency_source / relative
                     destination = server / relative
                     destination.mkdir(parents=True)
                     shutil.copyfile(source / 'composer.json', destination / 'composer.json')
@@ -269,8 +271,8 @@ def main():
             if composer.get('autoload', {}).get('files'):
                 raise ValueError('TEMPLATE_TOOLING_ROOT_AUTOLOAD_FILES_UNSUPPORTED')
             for relative in composer.get('autoload', {}).get('classmap', []):
-                original = (tooling_source / relative).resolve(strict=True)
-                if not original.is_relative_to(tooling_source) or original.is_symlink():
+                original = (dependency_source / relative).resolve(strict=True)
+                if not original.is_relative_to(dependency_source) or original.is_symlink():
                     raise ValueError('TEMPLATE_TOOLING_CLASSMAP_SOURCE_INVALID')
                 destination = server / relative
                 if original.is_dir():
@@ -278,7 +280,7 @@ def main():
                 else:
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(original, destination)
-            local_archive = local_core_archive_source(output, release, lock, tooling_source)
+            local_archive = local_core_archive_source(output, release, lock, dependency_source)
             if local_archive is not None:
                 relative, content, mode = local_archive
                 archive = temporary_root / 'packages' / pathlib.PurePosixPath(relative).relative_to('packages')

@@ -2312,7 +2312,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "af91c96a1307bcc3180f97d4b82887249d6b6c2437b57df43de6fdc3204e7b5c"
+            "source_sha256": "01738f99a0a7c555df30cbaa2e3e93e26df9f9cdad8f235f213a02aeccd410ba"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2379,7 +2379,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dc4026d04eb4cfb777584b5f931f179c7f7fbcecee0aa03bc820fe31de675ea0"
+            "source_sha256": "e004f840966683f32029da3c88f5a2edd452acf5b9908066c673e74dcc6f1ef5"
         },
         {
             "path": "plugins/peanut.identity/plugin.json",
@@ -19859,7 +19859,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "573bbc96dceb66aa73d75e4577386c86396055d99b6ff5e6a5e78f1f19b550b1"
+            "source_sha256": "da1b508982920afaa227c5c7b69989baf5bcc22a55641b2e0c5f908522a38b59"
         },
         {
             "path": "server/generated/openapi.json",

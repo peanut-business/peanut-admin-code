@@ -90,7 +90,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "44ba82fb0b964571d2d38ad8ebcf9241484132543bf046f5695e2411bf0ffb75"
+                "sha256": "6b9e53009c5b236ed34e9588a24dd1d48a42e1f8165cd65983c2f1597581d3c9"
             },
             "trust": {
                 "channel": "bundled",
@@ -174,7 +174,7 @@
                 }
             ],
             "manifest": "plugins/peanut.file/plugin.json",
-            "manifest_sha256": "dc4026d04eb4cfb777584b5f931f179c7f7fbcecee0aa03bc820fe31de675ea0"
+            "manifest_sha256": "e004f840966683f32029da3c88f5a2edd452acf5b9908066c673e74dcc6f1ef5"
         },
         {
             "key": "peanut.identity",

@@ -45,7 +45,9 @@ seed、受控迁移维护和固定资格的资源选择使用独立进程输入�
 
 主发行物或有效输入不符时保留差异，不继承原组合结论；独立重建通过也不自动继承完整资格。正式发布优先传递已验证原件，原件seal/digest及候选锁、发行清单和原资格摘要仍严格绑定；更换环境或最终包先记录确切输入与比较结果，不能自动继承旧PASS。内部Core候选与公开依赖/锁不同，须作为不同组合记录并验证。
 
-升级工具依赖单独位于`tooling/`，由该固定源码的Composer锁以no-dev、no-scripts、no-plugins安装形成；`upgrade-tooling.json`绑定锁、实际生产包身份和全部文件字节/模式，并由包清单摘要覆盖。此域不进入APP创建清单、受管源码或APP vendor。CLI只校验和缓存，不执行依赖安装或要求人工prepare；PHP入口在require之前核完整tooling集合，并将Composer根命名空间映射到同一模板的`files/server`。`--check`核固定工具载荷、锁和清单，不重新安装依赖。
+升级工具依赖单独位于`tooling/`，由该次固定输入的最终APP投影Composer锁以no-dev、no-scripts、no-plugins安装形成；`upgrade-tooling.json`绑定锁、实际生产包身份和全部文件字节/模式，并由包清单摘要覆盖。此域不进入APP创建清单、受管源码或APP vendor。CLI只校验和缓存，不执行依赖安装或要求人工prepare；PHP入口在require之前核完整tooling集合，并将Composer根命名空间映射到同一模板的`files/server`。`--check`核固定工具载荷、锁和清单，不重新安装依赖。
+
+采用内部固定Core输入时，来源和工具环境仍绑定原固定源码；隔离tooling安装只消费最终APP投影的Composer清单、原生锁、模块根及Core身份。保留模块作者已有Core约束和Plugin指纹，不为投影改写模块兼容声明；原生Composer拒绝不兼容的组合。最终Core投影完成后只刷新API catalog输入摘要，并同步现有manifest/baseline，不重建前端。
 
 官方模块内容及Plugin指纹随版本固定，不因APP品牌替换而改变；发行器拒绝这些域含APP身份token。内部固定PHP Core输入若与生成APP中的受管归档同路径，只有当前生成manifest和baseline摘要共同证明旧载荷后，才采用输入回执绑定的新字节，并同步原manifest/baseline摘要；新路径沿原新增文件合同处理，未知或漂移的目标仍拒绝。此操作只修改本次临时投影，不覆盖历史归档或正式版本。CLI仅替换声明的宿主身份，按最终字节更新Composer content-hash与API inputs，创建0644模式的受管基线及准确APP文件/tree摘要。CLI创建不依赖PHP、Composer、维护者源码仓或私有Project；运行准备是独立动作。本地归档来源明确标记development/local，不能当作正式GitHub已发布。正式附件仍需对应资格与获准CI；CLI入口源码存在不代表已有新版CLI发行。
 
