@@ -637,7 +637,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1b6006c89e59cc83541706039a87d5a08178a3005c4afcdd0fa8793239897f7a"
+            "source_sha256": "f273e751874e10aed69d8fe9d396b0485ae334643d7611cd8228e599d70442ca"
         },
         {
             "path": "docs/architecture/core-capabilities-and-application-overrides.md",
@@ -679,7 +679,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "efbc7614c56cde1e86df35d0fb38ece5d2b1107ff1f0ffdd761f4be10c61797b"
+            "source_sha256": "80c5f6de737b9e1a6481be60a96e043d502fd48438261a5940fb36299a00d384"
         },
         {
             "path": "docs/architecture/events-and-tasks.md",
@@ -19230,7 +19230,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "206aa8442f859f0ce390cf0d6d2336f813eda820218fd346d8b1a2e9e94b1705"
+            "source_sha256": "fc75b70ce020a7746776a763cc79cf53ce015364e0e961360cfe3301522bb347"
         },
         {
             "path": "server/docker/Dockerfile",
@@ -19482,7 +19482,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e2c276d819678e157cc099491c706f1432849d567ce08d12de9c0ad7dd7a8a35"
+            "source_sha256": "983a34ada355d7620ceb9365c20062033a52f90cad80d66ab243ae3ae1a0292a"
         },
         {
             "path": "server/docker/scripts/configure-runtime.py",
@@ -29681,7 +29681,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "da4c6d4f7c59ff38eb8dd105ac007739145e4e58f409f9f7675cd1a4a16044df"
+            "source_sha256": "2aa8abea8de684f39e6fbac12aeb3c3b015452e3a995fa0e058c61eb7d11c80a"
         },
         {
             "path": "web/src/modules/peanut-file/views/FileContentViewer.vue",
@@ -32214,7 +32214,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "30599dc46342e797fd67463253618e939af44c208dee8e7b30e1d7e6bb5677ac"
+            "source_sha256": "3cafc58011f876c4249e35c0ec5a7aad91f835c71467a1583e1170622fc9948e"
         },
         {
             "path": "web/tsconfig.optional-tests.json",
