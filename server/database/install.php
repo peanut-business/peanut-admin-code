@@ -675,7 +675,7 @@ function installFreshDatabase(string $serverDir, array $input, ?array $moduleKey
             throw new RuntimeException('INSTALL_STATE_PRESENT: 安装身份状态已存在，拒绝再次初始化数据库');
         }
         $initial = InitialInstallationSource::project($serverDir, $moduleKeys ?? InitialInstallationSource::MODULES);
-        $initialRoot = $serverDir . '/runtime/installation/database';
+        $initialRoot = $serverDir . '/runtime/temp/installation-database';
         foreach (['schema', 'migrations'] as $directory) {
             if (!is_dir($initialRoot . '/' . $directory) && !mkdir($initialRoot . '/' . $directory, 0775, true)) {
                 throw new RuntimeException('INSTALL_INITIAL_DIRECTORY_FAILED');

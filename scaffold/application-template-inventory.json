@@ -19133,7 +19133,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d879bd118a59e8125c67f9d76e071b516df8fa0ad6596d8f1eb0a543ded98821"
+            "source_sha256": "8da9fbce8a9e0c52ba10124267877f68a8f73cba42b3649a767129af1e478534"
         },
         {
             "path": "server/database/installation/20261101020000_initial_scaffold_baseline.php",
