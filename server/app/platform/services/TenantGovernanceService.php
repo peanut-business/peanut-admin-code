@@ -6,7 +6,7 @@ namespace app\platform\services;
 
 use PeanutAdmin\Modules\Identity\Contract\TenantOwnerAdminProvisioner;
 use app\common\exception\BusinessException;
-use app\platform\identity\PlatformOperatorIdentityPort;
+use app\platform\context\PlatformOperatorContext;
 use PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService;
 use PeanutAdmin\Modules\Identity\Platform\Application\TenantOwnerAdminService;
 use think\facade\Db;
@@ -15,13 +15,12 @@ use PeanutAdmin\Modules\Identity\Tenancy\TenantStatus;
 /**
  * Application adapter for the instance-local Tenant control plane.
  *
- * It accepts no administrator id or request tenant id as authority. The caller must inject a
- * trusted platform identity port; until one exists, use UnavailablePlatformOperatorIdentityPort.
+ * The HTTP authentication boundary supplies the validated platform context. Identity
+ * still locks and verifies the active operator inside each business transaction.
  */
 final readonly class TenantGovernanceService
 {
     public function __construct(
-        private PlatformOperatorIdentityPort $identities,
         private PlatformTenantAdminService $administration,
         private TenantOwnerAdminService $owners,
         private TenantOwnerAdminProvisioner $ownerAdmins,
@@ -29,16 +28,15 @@ final readonly class TenantGovernanceService
 
     /** @return array{tenant_id:int,account_id:int,member_id:int,role_id:int,status:string} */
     public function provision(
-        string $operatorCredential,
+        PlatformOperatorContext $operator,
         string $tenantCode,
         string $tenantName,
         string $ownerEmail,
         ?string $initialPassword,
         string $ownerDisplayName,
-        string $requestId,
     ): array {
+        $requestId = $operator->core->requestId;
         try {
-            $operator = $this->identities->requireActive($operatorCredential, $requestId);
             return Db::transaction(function () use (
                 $operator,
                 $tenantCode,
@@ -99,15 +97,13 @@ final readonly class TenantGovernanceService
 
     /** @return array<string,mixed> */
     public function transition(
-        string $operatorCredential,
+        PlatformOperatorContext $operator,
         int $tenantId,
         int $expectedRevision,
         TenantStatus $next,
         string $changeReason,
-        string $requestId,
     ): array {
         try {
-            $operator = $this->identities->requireActive($operatorCredential, $requestId);
             return $this->administration->transitionTenant(
                 $operator->core,
                 $tenantId,
