@@ -5,6 +5,7 @@ declare(strict_types=1);
 use app\adminapi\controller\decoration\DecorationPageController;
 use app\adminapi\services\config\ConfigApplicationService;
 use app\common\services\RichTextResourceService;
+use app\common\exception\BusinessException;
 use app\adminapi\validate\decoration\DecorationPageValidate;
 use app\adminapi\validate\config\WebsiteValidate;
 use app\common\enum\decoration\DecorationEnum;
@@ -34,7 +35,7 @@ final class DecorationInputBoundaryTest extends TestCase
         $settings->method('memberProfile')->with($context)->willReturn(['user_avatar' => '']);
         $settings->expects(self::once())->method('replaceMemberProfile')->with($context, ['user_avatar' => '']);
         $files = $this->createMock(FileReferences::class);
-        $files->method('getFileUrl')->with('brand/avatar-member.svg')->willReturn('https://assets.example/default-avatar');
+        $files->expects(self::never())->method('getFileUrl');
         $files->expects(self::once())->method('setTenantFileUrl')->with($context, '')->willReturn('');
         $service = new ConfigApplicationService($settings, $files,
             (new ReflectionClass(RichTextResourceService::class))->newInstanceWithoutConstructor(),
@@ -42,7 +43,7 @@ final class DecorationInputBoundaryTest extends TestCase
         );
         $editor = $service->getUser($context);
         self::assertSame('', $editor['default_avatar']);
-        self::assertSame('https://assets.example/default-avatar', $editor['default_avatar_url']);
+        self::assertSame('/brand/avatar-member.svg', $editor['default_avatar_url']);
         $app = new App();
         $input = (new InputValidator($app, new CurrentExecutionContext(new ExecutionContextStore())))->validateInput(
             ['default_avatar' => $editor['default_avatar']], WebsiteValidate::class . '.user', ['default_avatar'],
@@ -51,6 +52,35 @@ final class DecorationInputBoundaryTest extends TestCase
         self::assertTrue($service->saveUser($context, $input));
         foreach ([[], ['default_avatar' => null], ['default_avatar' => false], ['default_avatar' => []], ['default_avatar' => str_repeat('x', 501)]] as $invalid) {
             self::assertFalse((new WebsiteValidate())->scene('user')->check($invalid));
+        }
+    }
+
+    public function testOnlyTheDeclaredAvatarDefaultBypassesFileStorage(): void
+    {
+        $context = TenantContext::fromValidatedSession(new ValidatedTenantSession(1, str_repeat('a', 26), 101, 201, 301, 'admin-web', new DateTimeImmutable('+1 hour'), 1), 'declared-avatar-input');
+        $default = 'brand/avatar-member.svg';
+        $settings = $this->createMock(TenantApplicationSettings::class);
+        $settings->method('memberProfile')->with($context)->willReturn(['user_avatar' => $default]);
+        $settings->expects(self::once())->method('replaceMemberProfile')->with($context, ['user_avatar' => $default]);
+        $files = $this->createMock(FileReferences::class);
+        $files->expects(self::never())->method('getFileUrl');
+        $files->expects(self::exactly(3))->method('setTenantFileUrl')->willThrowException(BusinessException::invalid('FILE_REFERENCE_INVALID', 'Stable file reference required.'));
+        $service = new ConfigApplicationService($settings, $files,
+            (new ReflectionClass(RichTextResourceService::class))->newInstanceWithoutConstructor(),
+            (new ReflectionClass(WebsiteConfigService::class))->newInstanceWithoutConstructor(), $default,
+        );
+        $editor = $service->getUser($context);
+        self::assertSame($default, $editor['default_avatar']);
+        self::assertSame('/brand/avatar-member.svg', $editor['default_avatar_url']);
+        self::assertTrue((new WebsiteValidate())->scene('user')->check(['default_avatar' => $editor['default_avatar']]));
+        self::assertTrue($service->saveUser($context, ['default_avatar' => $editor['default_avatar']]));
+        foreach (['brand/avatar-admin.svg', 'brand/unregistered.svg', 'https://assets.example/default-avatar'] as $invalid) {
+            try {
+                $service->saveUser($context, ['default_avatar' => $invalid]);
+                self::fail('An undeclared avatar value bypassed File storage.');
+            } catch (BusinessException $exception) {
+                self::assertSame('FILE_REFERENCE_INVALID', $exception->errorCode);
+            }
         }
     }
 

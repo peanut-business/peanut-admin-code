@@ -66,7 +66,7 @@ $service = new WebsiteConfigService(
 $result = $service->get();
 expect(array_keys($result) === WebsiteConfigService::fields(), 'read must expose only fixed fields');
 expect($result['web_logo'] === 'read:logo.png', 'read mapper must handle image fields');
-expect($result['pc_logo'] === 'read:brand/logo.svg', 'empty image fields must resolve to the bootstrap asset');
+expect($result['pc_logo'] === '/brand/logo.svg', 'empty image fields must resolve to the declared bootstrap asset');
 expect($result['pc_desc'] === 'Peanut Admin 全端管理脚手架', 'missing fields must use the bootstrap default');
 
 $service->save(validPayload());
@@ -114,5 +114,30 @@ try {
     expect($exception->getMessage() === 'simulated storage failure', 'storage failure must not be replaced');
 }
 expect($store->values === $before, 'failed atomic store must leave values unchanged');
+
+$defaultStore = new MemoryWebsiteConfigStore(BrandDefaults::website());
+$declaredDefaults = new WebsiteConfigService(
+    $defaultStore,
+    static fn(string $value): string => throw new RuntimeException('declared defaults must not enter File reads'),
+    static fn(string $value): string => throw new InvalidArgumentException('FILE_REFERENCE_INVALID'),
+    BrandDefaults::website(),
+);
+$editor = $declaredDefaults->getForEdit();
+expect($editor['web_logo'] === 'brand/logo.svg', 'editor keeps the exact declared default reference');
+expect($declaredDefaults->get()['web_logo'] === '/brand/logo.svg', 'public presentation resolves the declared default asset');
+$declaredDefaults->save($editor);
+expect($defaultStore->values === BrandDefaults::website(), 'default GET values round-trip without changing their references');
+foreach (['brand/favicon.svg', 'brand/unregistered.svg', 'https://assets.example/logo.svg'] as $invalid) {
+    $payload = $editor;
+    $payload['web_logo'] = $invalid;
+    $attempts = $defaultStore->attempts;
+    try {
+        $declaredDefaults->save($payload);
+        throw new RuntimeException('an undeclared field default bypassed File storage');
+    } catch (InvalidArgumentException $exception) {
+        expect($exception->getMessage() === 'FILE_REFERENCE_INVALID', 'other paths still enter the File contract');
+    }
+    expect($defaultStore->attempts === $attempts, 'rejected references cannot change website settings');
+}
 
 echo "PB04-SETTINGS-WEBSITE-001 passed\n";

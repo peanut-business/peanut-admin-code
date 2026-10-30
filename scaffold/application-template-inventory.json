@@ -2312,7 +2312,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3d7be46c3c064ca32b73df1aca145b2a8a3d5b07053028df2e94c3ffff53df76"
+            "source_sha256": "f4d29fd8f1ea9f81b98e3473f3698168a64a28e308ba7385f962254cc718549f"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2449,7 +2449,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9a825ad68d500818c7df42f00e2384e5e3ffdafd44c84e3d15a923f1d8f3be75"
+            "source_sha256": "655b7f34f2e375b17419c20bc2c082440f6edc49f4b454d96526144a622bf5d7"
         },
         {
             "path": "plugins/peanut.task/plugin.json",
@@ -5372,7 +5372,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ed056fe3dd1c9cb93bfcfada503c565d0faa35309effaf05161d8fde0f428661"
+            "source_sha256": "72763f68d53b761cf51815456e64c3bb6dfd589fad6e198b20317c82faf867ef"
         },
         {
             "path": "server/app/adminapi/services/decoration/DecorationPageApplicationService.php",
@@ -16259,7 +16259,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "23306e59af1ba0d6c7275113e1167cba10fc9ab8ab748f477b6de9b8a9968f9a"
+            "source_sha256": "6783d80e0a5e0079531b5f59f631bef00e0b3c10bc34b1af0392ea9bb635c56a"
         },
         {
             "path": "server/app/modules/peanut/settings/src/Cache/ArrayRevisionedSettingCache.php",
@@ -19775,7 +19775,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1d7bd24871cbe77f6c309bdcfb3c5e23a2b464e806b8f307eb57a1b0c38ab0ca"
+            "source_sha256": "cf28098cfc06044c06fd94f2cb5c40cb87d6f7f28f8758c8ccfbc2834b8bc2e5"
         },
         {
             "path": "server/generated/openapi.json",

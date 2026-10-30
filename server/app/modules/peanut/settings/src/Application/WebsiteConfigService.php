@@ -95,7 +95,9 @@ final class WebsiteConfigService
         $result = [];
         foreach ($values as $field => $value) {
             $result[$field] = $this->isImage($field)
-                ? (string) ($this->urlForRead)($value)
+                ? ($value !== '' && $value === $this->defaults[$field]
+                    ? '/' . ltrim($value, '/')
+                    : (string) ($this->urlForRead)($value))
                 : $value;
         }
 
