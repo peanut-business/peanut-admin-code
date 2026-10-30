@@ -23,6 +23,7 @@
         <el-form-item prop="role_id" :label="$t('systemAdmin.search.role')">
           <el-select
             v-model="queryParams.role_id"
+            :disabled="!canReadRoles"
             clearable
             :placeholder="$t('systemAdmin.search.role.all')"
             style="width: 180px"
@@ -255,6 +256,7 @@
         <el-form-item prop="jobs_id" :label="$t('systemAdmin.field.jobs')">
           <el-select
             v-model="form.jobs_id"
+            :disabled="!canReadJobs"
             multiple
             clearable
             :placeholder="$t('systemAdmin.field.jobs.placeholder')"
@@ -273,6 +275,7 @@
         >
           <el-select
             v-model="form.role_id"
+            :disabled="!canReadRoles"
             multiple
             clearable
             :placeholder="$t('systemAdmin.field.roles.placeholder')"
@@ -428,11 +431,13 @@
 
 <script lang="ts" setup>
   import { computed, nextTick, reactive, ref } from 'vue';
+  import { useRoute } from 'vue-router';
   import { useI18n } from 'vue-i18n';
   import { ElMessage } from 'element-plus';
   import type { FormInstance, UploadRequestOptions } from 'element-plus';
   import { Download, Plus, Refresh, Search } from '@element-plus/icons-vue';
   import useLoading from '@/hooks/loading';
+  import { hasPermission } from '@/hooks/permission';
   import { useUserStore } from '@/store';
   import {
     getPasswordPolicy,
@@ -460,6 +465,11 @@
 
   const { t } = useI18n();
   const userStore = useUserStore();
+  const route = useRoute();
+  const canReadRoles = computed(() =>
+    hasPermission('core.role.read', route.path)
+  );
+  const canReadJobs = computed(() => hasPermission('jobs/all', route.path));
   const { loading, setLoading } = useLoading(true);
   const renderData = ref<AdminRecord[]>([]);
   const formatLoginTime = (value: string): string => {
@@ -508,15 +518,20 @@
   };
 
   const loadOptions = async () => {
-    const [roles, jobs] = await Promise.all([getRoleAll(), getJobsAll()]);
-    roleOptions.value = roles.data.map((item) => ({
-      value: item.id,
-      label: item.name,
-    }));
-    jobsOptions.value = jobs.data.map((item) => ({
-      value: item.id,
-      label: item.name,
-    }));
+    if (canReadRoles.value) {
+      const { data } = await getRoleAll();
+      roleOptions.value = data.map((item) => ({
+        value: item.id,
+        label: item.name,
+      }));
+    }
+    if (canReadJobs.value) {
+      const { data } = await getJobsAll();
+      jobsOptions.value = data.map((item) => ({
+        value: item.id,
+        label: item.name,
+      }));
+    }
   };
 
   const search = () => fetchData(1);

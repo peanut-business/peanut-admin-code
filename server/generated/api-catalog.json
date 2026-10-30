@@ -4,7 +4,7 @@
     "inputs": [
         {
             "path": "plugins.lock",
-            "sha256": "c2b062092feab81f25e84ebc16e1ec86e2e55ee133c3efaa0b4504ce08ee8d94"
+            "sha256": "3ff607e317358e9dbbcd39a80bc922b4cd93be7b7304452b9e9eecc275c083e1"
         },
         {
             "path": "release-versions.json",
@@ -84,7 +84,7 @@
         },
         {
             "path": "server/route/admin.php",
-            "sha256": "df99d30560d135e6e6e9fd068998eb250f84a25e4bb345c14c95b806d32e49cb"
+            "sha256": "169782e598a226c7423c3fef8d13a5758584bd7d7fd2643515ef2bbb7e681f3a"
         },
         {
             "path": "server/route/app.php",
@@ -557,13 +557,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "admin/detail"
+                "core.member.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "admin/detail"
+                    "key": "core.member.read"
                 }
             ],
             "errors": [
@@ -626,13 +626,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "admin/lists"
+                "core.member.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "admin/lists"
+                    "key": "core.member.read"
                 }
             ],
             "errors": [
@@ -5089,13 +5089,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "role/all"
+                "core.role.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "role/all"
+                    "key": "core.role.read"
                 }
             ],
             "errors": [
@@ -5300,13 +5300,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "role/detail"
+                "core.role.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "role/detail"
+                    "key": "core.role.read"
                 }
             ],
             "errors": [
@@ -5369,13 +5369,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "role/lists"
+                "core.role.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "role/lists"
+                    "key": "core.role.read"
                 }
             ],
             "errors": [
@@ -14048,13 +14048,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "role/add"
+                "core.role.create"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "role/add"
+                    "key": "core.role.create"
                 }
             ],
             "errors": [
@@ -14119,13 +14119,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "role/delete"
+                "core.role.archive"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "role/delete"
+                    "key": "core.role.archive"
                 }
             ],
             "errors": [
@@ -14191,13 +14191,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "role/edit"
+                "core.role.update"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "role/edit"
+                    "key": "core.role.update"
                 }
             ],
             "errors": [

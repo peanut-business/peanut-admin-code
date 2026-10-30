@@ -58,12 +58,12 @@ Route::group(function () use ($peanutRouteModules) {
     Route::post('menu/status', [MenuController::class, 'updateStatus']);
 
     // 角色
-    Route::get('role/lists', [RoleController::class, 'lists']);
-    Route::get('role/all', [RoleController::class, 'all']);
-    Route::get('role/detail', [RoleController::class, 'detail']);
-    Route::post('role/add', [RoleController::class, 'add']);
-    Route::post('role/edit', [RoleController::class, 'edit']);
-    Route::post('role/delete', [RoleController::class, 'delete']);
+    Route::get('role/lists', [RoleController::class, 'lists'])->option(['peanut_permission' => 'core.role.read']);
+    Route::get('role/all', [RoleController::class, 'all'])->option(['peanut_permission' => 'core.role.read']);
+    Route::get('role/detail', [RoleController::class, 'detail'])->option(['peanut_permission' => 'core.role.read']);
+    Route::post('role/add', [RoleController::class, 'add'])->option(['peanut_permission' => 'core.role.create']);
+    Route::post('role/edit', [RoleController::class, 'edit'])->option(['peanut_permission' => 'core.role.update']);
+    Route::post('role/delete', [RoleController::class, 'delete'])->option(['peanut_permission' => 'core.role.archive']);
     Route::get('role/permissions', [\app\adminapi\controller\auth\RolePermissionController::class, 'detail'])
         ->completeMatch()->option(['peanut_permission' => 'core.role.read']);
     Route::put('role/permissions', [\app\adminapi\controller\auth\RolePermissionController::class, 'replace'])
@@ -80,8 +80,8 @@ Route::group(function () use ($peanutRouteModules) {
         ->completeMatch()->option(['peanut_permission' => 'core.role.data-policy.read']);
 
     // 管理员
-    Route::get('admin/lists', [AdminController::class, 'lists']);
-    Route::get('admin/detail', [AdminController::class, 'detail']);
+    Route::get('admin/lists', [AdminController::class, 'lists'])->option(['peanut_permission' => 'core.member.read']);
+    Route::get('admin/detail', [AdminController::class, 'detail'])->option(['peanut_permission' => 'core.member.read']);
     Route::get('admin/self', [AdminController::class, 'self']);
     Route::post('admin/editSelf', [AdminController::class, 'editSelf']);
     Route::post('admin/add', [AdminController::class, 'add']);

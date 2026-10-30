@@ -7,7 +7,7 @@
         <el-col :span="12">
           <el-space>
             <el-button
-              v-permission="['role/add']"
+              v-permission="['core.role.create']"
               type="primary"
               @click="handleAdd"
             >
@@ -70,7 +70,7 @@
           <template #default="{ row }">
             <el-space v-if="row.status === 'active'">
               <el-button
-                v-permission="['role/edit']"
+                v-permission="['core.role.update']"
                 link
                 size="small"
                 @click="handleEdit(row)"
@@ -89,7 +89,7 @@
               >
                 <template #reference
                   ><el-button
-                    v-permission="['role/delete']"
+                    v-permission="['core.role.archive']"
                     link
                     type="danger"
                     size="small"
