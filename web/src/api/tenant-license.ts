@@ -13,10 +13,12 @@ export interface TenantLicenseSummary {
 export async function getTenantLicense(
   signal?: AbortSignal
 ): Promise<TenantLicenseSummary | null> {
-  const result = await axios.get<unknown>('/adminapi/core.tenant.license', {
-    signal,
-  });
-  const envelope = result.data;
+  const envelope = await axios.get<unknown, unknown>(
+    '/adminapi/core.tenant.license',
+    {
+      signal,
+    }
+  );
   if (!envelope || typeof envelope !== 'object' || !('data' in envelope))
     throw new Error('许可证响应格式异常');
   const { data } = envelope;
