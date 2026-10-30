@@ -140,8 +140,8 @@
         </el-form-item>
         <el-form-item prop="desc" :label="$t('systemRole.field.desc')">
           <el-input
-            type="textarea"
             v-model="form.desc"
+            type="textarea"
             :placeholder="$t('systemRole.field.desc.placeholder')"
             :autosize="{ minRows: 4, maxRows: 6 }"
             maxlength="200"
@@ -221,7 +221,6 @@
   import type { FormInstance } from 'element-plus';
   import { Plus, Refresh } from '@element-plus/icons-vue';
   import useLoading from '@/hooks/loading';
-  import RoleDataPolicyDialog from './RoleDataPolicyDialog.vue';
   import {
     addRole,
     deleteRole,
@@ -235,6 +234,7 @@
     type RoleBaseForm,
     type RoleRecord,
   } from '@/api/system/role';
+  import RoleDataPolicyDialog from './RoleDataPolicyDialog.vue';
 
   const { t } = useI18n();
   const { loading, setLoading } = useLoading(true);
