@@ -32430,7 +32430,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3cafc58011f876c4249e35c0ec5a7aad91f835c71467a1583e1170622fc9948e"
+            "source_sha256": "de34857a4f543ecd4cce67593733e929db3de5defb4f1725ee189fcad2fa0f5b"
         },
         {
             "path": "web/tsconfig.optional-tests.json",
@@ -32444,7 +32444,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "98d1fccf8194f8fd309ac27a6133e8dd0f92da474b66bd384779a52edb410e60"
+            "source_sha256": "14c48f28aad8fcde8249af7fc40cd056e7bf0611769c038dfec1d4c5df525f7d"
         },
         {
             "path": "web/vite.config.ts",
