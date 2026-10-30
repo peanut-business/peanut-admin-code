@@ -13,9 +13,9 @@ final class PlanLicenseController extends BasePlatformController
 
     public function lists()
     {
-        $page = filter_var($this->request->get('page', 1), FILTER_VALIDATE_INT);
-        $pageSize = filter_var($this->request->get('page_size', 20), FILTER_VALIDATE_INT);
-        return $this->data($this->plans->plans($page === false ? 0 : $page, $pageSize === false ? 0 : $pageSize));
+        $page = $this->positiveInteger($this->request->get('page', 1));
+        $pageSize = $this->positiveInteger($this->request->get('page_size', 20));
+        return $this->data($this->plans->plans($page, $pageSize));
     }
 
     public function create()
@@ -30,12 +30,21 @@ final class PlanLicenseController extends BasePlatformController
 
     public function license()
     {
-        $id = filter_var($this->request->get('tenant_id'), FILTER_VALIDATE_INT);
-        return $this->data($this->plans->tenantLicense($id === false ? 0 : $id));
+        return $this->data($this->plans->tenantLicense($this->positiveInteger($this->request->get('tenant_id'))));
     }
 
     public function updateLicense()
     {
         return $this->data($this->plans->saveLicense($this->platformContext->core, $this->request->put()));
+    }
+
+    private function positiveInteger(mixed $value): int
+    {
+        if ((!is_int($value) && !is_string($value))
+            || preg_match('/^[1-9][0-9]*$/D', (string) $value) !== 1
+            || filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) === false) {
+            throw \PeanutAdmin\Kernel\Authorization\Application\AdminAccessException::invalid('PLAN_INPUT_INVALID', 'A positive integer is required.');
+        }
+        return (int) $value;
     }
 }
