@@ -331,18 +331,7 @@ function installationTenantBootstrapContract(string $serverDir): array
 
 function installationSourceDevelopmentMode(string $serverDir): bool
 {
-    $root = dirname($serverDir);
-    return env('PEANUT_INSTALLATION_SOURCE_MODE', false) === 'development'
-        && file_exists($root . '/.git')
-        && !is_link($root . '/.git')
-        && (
-            is_file($root . '/.peanut/application-manifest.json')
-            || (
-                is_file($root . '/scaffold/application-template-inventory.json')
-                && is_file($root . '/scaffold/edition-profiles.json')
-            )
-        )
-        && is_file($root . '/release-versions.json');
+    return InitialInstallationSource::sourceDevelopmentMode($serverDir);
 }
 
 function ensureThinkPhpApplication(string $serverDir): App

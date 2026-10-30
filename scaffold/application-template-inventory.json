@@ -8568,7 +8568,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bdab091ebd6b9d6032fb8ac087ae593e056e91685f6cc5127716bdaeb92307f3"
+            "source_sha256": "1b1a047530ba5e49aef0c8b57446835b837234e48d87465b9b4f6abbac7afdbf"
         },
         {
             "path": "server/app/common/module/ModuleSeedRun.php",
@@ -8905,7 +8905,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "952d6e9289d6b7982893ad9bfba74ed0e5757360bf9b163e2439bf29a282504a"
+            "source_sha256": "d6e0088df74f8e1dc9ea61bd491db0a81a10c7030a24a6d33419119a824758c5"
         },
         {
             "path": "server/app/common/services/notice/NoticeChannelService.php",
@@ -19105,7 +19105,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "451610dc6e27319ff74c60716e2e17d6b5782989eb730516622148457441856e"
+            "source_sha256": "13c0f16a22b2d0362c0bf9c9650df0e2ab6cb36cac9426205aa450dbcd5f6a76"
         },
         {
             "path": "server/database/environment-guard.php",
@@ -19119,7 +19119,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "55b70e069169784a04f3b889ffc7c2713114179cd58279470a759127a57ce433"
+            "source_sha256": "34e4b7c8f29de0e076bd87a66fd4217c176c9753b2abb9cddc334ae3a1b84c67"
         },
         {
             "path": "server/database/install.php",
@@ -19133,7 +19133,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bbab6877a227c497194556d1da745b3cc2be46d33fd200c53268b84f1ce9544d"
+            "source_sha256": "d879bd118a59e8125c67f9d76e071b516df8fa0ad6596d8f1eb0a543ded98821"
         },
         {
             "path": "server/database/installation/20261101020000_initial_scaffold_baseline.php",
