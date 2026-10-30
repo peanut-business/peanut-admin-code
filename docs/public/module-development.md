@@ -15,6 +15,8 @@
 
 多个已安装包需要联立更新原生依赖图时，原生 `reconcile` 调用可重复指定 `--selected-installed=<package_key>`，选择包含其必要依赖的已安装锁定图。该调用按真实 Module 节点准备一次 Composer／workspace 依赖和客户端输出，在同一依赖锁内按依赖顺序恢复选中包的 active／failed 安装状态；同批生命周期消费这次已经完成的准备结果，客户端各构建一次。
 
+产品 Git 更新已按锁准备 PHP 依赖并采用静态文件后，使用 `reconcile --release-locked --prepared-release`：复用运行依赖与客户端入口校验，通过原生生命周期采用已有 active 包，不调用依赖解析或客户端构建。该选项仅用于 release-locked；普通开发安装／升级仍使用其原生准备流程，未准备的发行输入不能靠该选项跳过校验。
+
 ## 可用的开发与交付入口
 
 以下命令在完整产品 APP 根执行；先用 `peanut config` 选择已有本机工具，再通过 `scripts/project-env` 运行项目原生 Composer、pnpm/npm。源码生成不执行需要运行环境的 Composer hooks。`peanut module create` 是仅生成源码的入口，不要求 `.env`、数据库或已安装实例，也不启动运行服务。它使用 ThinkPHP 原生参数解析和同一个模块生成器，默认仅生成后端骨架；有管理端贡献时显式选择 `--client=admin-web`。`peanut module create --help` 可在配置运行环境前查看参数。检查、打包、安装等其他命令仍使用应用自己的运行环境和模块信任配置。命令存在不表示模块业务、迁移或客户端已验收。

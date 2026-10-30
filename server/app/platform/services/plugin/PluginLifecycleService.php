@@ -85,9 +85,16 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
      *
      * @return array<string,mixed>
      */
-    public function reconcile(string $pluginKey): array
+    public function reconcile(string $pluginKey, bool $preparedRelease = false): array
     {
-        return $this->withPackageLock($pluginKey, fn(): array => $this->reconcileLocked($pluginKey));
+        return $this->withPackageLock($pluginKey, function () use ($pluginKey, $preparedRelease): array {
+            $dependencies = $preparedRelease
+                ? (new Dependencies(rtrim(app()->getRootPath(), '/')))->verifyInstalled(
+                    $this->resolver->require($pluginKey), $this->resolver, $this->installedModules(),
+                )
+                : null;
+            return $this->reconcileLocked($pluginKey, $dependencies);
+        });
     }
 
     /** The native command supplies dependency-ordered, explicitly selected installed package keys. */

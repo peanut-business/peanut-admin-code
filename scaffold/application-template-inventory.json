@@ -1063,7 +1063,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5a09a215a67587be659aba0ad371a400ef814052b7aafb27c9b9b50ca1d74ac1"
+            "source_sha256": "1691f28de9a6798513ef7139a8255e4af1a2e6f47301c732a1a9cddd91511b0e"
         },
         {
             "path": "docs/public/installation.md",
@@ -1091,7 +1091,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4bb0e6b64437f511c45bbaf2b4aef3b784526eecf6b26da361d5a1839609dd86"
+            "source_sha256": "961db65c42ebcad22655835ea1b6d0c5180488586aa24149da3824c41eb2f9a5"
         },
         {
             "path": "docs/public/release-channels.md",
@@ -3019,7 +3019,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "07151161c5746d0a930de5638807ab3458e405ba5ad1f5bb1b0f0674f76383e3"
+            "source_sha256": "fcf44c872834e51b4815b0812e8d0642e0590728e8c48fa88f7256dfd04bc50b"
         },
         {
             "path": "scripts/export-release-database",
@@ -6646,7 +6646,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "09371ae4906f69b52a5e89b8d13d0c8aa40c5ad5c94114a8825795478ce1c881"
+            "source_sha256": "bc52d30d8bc0be324a6692c5fd540cfbcd8f8291334a2dc0ad16e29e61cf4832"
         },
         {
             "path": "server/app/command/PluginReleaseComposition.php",
@@ -7067,7 +7067,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "95c1ed783dceaa77a25e133bcc8b6a0f6c7ed0499c4709c00c28ae52ee3847d3"
+            "source_sha256": "6e3998a75b07bf53bc61e39f7f9c0edf675ae47b62eac14c2cc1398d1d1548d4"
         },
         {
             "path": "server/app/common/contract/module/TenantModuleState.php",
@@ -8554,7 +8554,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f4c4d1167b6b291c854738adb39152338e4464c98c2016a05211af4441f233c3"
+            "source_sha256": "1f0083bcedbe73a2d7ccb577fadebb04034397704f775e9b055a6a76f0dd2522"
         },
         {
             "path": "server/app/common/module/ModuleMigrationRun.php",
@@ -18391,7 +18391,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0fecc008d5ea1f955995763973fc3b609109bf88e8e36d742ae06e5e444573cf"
+            "source_sha256": "8c75d75268d5180d025d4ced7aafaa3e0d3ece005160afbc6d89cd1d6a323ede"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
@@ -19594,7 +19594,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0ef197872be7bce8ddb7211366588aea2cab2767a86daf7698bb327ddce46471"
+            "source_sha256": "1065e3c1a5aa781b1de90fe2e0ca62a895879a622f0ec2fecb34debb4e79d51e"
         },
         {
             "path": "server/docker/scripts/provision-database.php",

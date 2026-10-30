@@ -30,6 +30,12 @@ final readonly class Dependencies
         return $this->withLock(fn(): array => $this->prepare($plugin->moduleRoots, $resolver, $installed));
     }
 
+    /** Verify release-machine output without changing native manifests or invoking build tools. */
+    public function verifyInstalled(PluginDescriptor $plugin, PluginLockResolver $resolver, array $installed): array
+    {
+        return $this->prepare($plugin->moduleRoots, $resolver, $installed, verifyOnly: true);
+    }
+
     /** Prepare admitted real Module nodes once; a native consumer may reuse that result under the same lock.
      * @param null|list<string> $selectedModuleKeys
      * @param null|callable(array<string,mixed>):array<string,mixed> $consume
@@ -183,7 +189,7 @@ final readonly class Dependencies
         }
     }
 
-    private function prepare(array $moduleRoots, PluginLockResolver $resolver, array $installed, ?array $releaseClients = null): array
+    private function prepare(array $moduleRoots, PluginLockResolver $resolver, array $installed, ?array $releaseClients = null, bool $verifyOnly = false): array
     {
         $project = dirname($this->serverRoot);
         $known = [];
@@ -284,7 +290,7 @@ final readonly class Dependencies
                 $client = explode('/', $contribution['root'])[0];
                 if ($standalone && $client === 'platform') { continue; }
                 if ($releaseClients !== null && !in_array($client, $releaseClients, true)) { continue; }
-                if (PHP_SAPI !== 'cli') {
+                if (PHP_SAPI !== 'cli' || $verifyOnly) {
                     $clients[$client] = [];
                     continue;
                 }
@@ -300,7 +306,7 @@ final readonly class Dependencies
                 // Root dependencies are left intact for the native solver to evaluate alongside them.
             }
         }
-        if (PHP_SAPI !== 'cli') {
+        if (PHP_SAPI !== 'cli' || $verifyOnly) {
             $parser = new VersionParser();
             foreach ($runtimeRequirements as $requirements) {
                 foreach ($requirements as $name => $range) {

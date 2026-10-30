@@ -108,6 +108,8 @@ PHP
     git merge-base --is-ancestor "$old_head" "$new_head" || fail 'selected origin branch is not a fast-forward'
   fi
   changed="$(git diff --name-only "$old_head" "$new_head")"
+  dependencies_changed=false
+  if grep -Eq '^server/composer\.(json|lock)$' <<<"$changed"; then dependencies_changed=true; fi
   target_edition="$(git show "$new_head:.peanut/application-manifest.json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["application"]["edition"])')"
   [[ "$target_edition" == "$edition" ]] || fail 'an update cannot change the installed Edition'
   static_clients=(admin)
@@ -130,25 +132,38 @@ PY
     while IFS= read -r argument; do compose+=("$argument"); done <<< "$compose_lines"
     compose+=(-p "$compose_project")
     compose_run config --quiet
-    python3 server/docker/scripts/vendor-state.py check --server "$ROOT/server"
-    # Native start deliberately refuses installed vendor repair. Do not bypass it.
-    if grep -Eq '^server/composer\.(json|lock)$' <<<"$changed"; then
-      fail 'Docker dependency changes require the native installed-source vendor update entry before adoption'
+    # On a resumed update at the new HEAD, maintenance below verifies or repairs
+    # the new lock. Before adoption, the old installed vendor must still verify.
+    if [[ "$current_head" == "$old_head" ]] || ! $dependencies_changed; then
+      python3 server/docker/scripts/vendor-state.py check --server "$ROOT/server"
     fi
   fi
   if [[ ! -e "$state" ]]; then
     (umask 077; set -o noclobber; printf '%s %s %s %s %s %s\n' "$old_head" "$new_head" "$edition" "$clients" "$compose_project" "$branch" > "$state")
   fi
-  if [[ "$compose_project" != - ]]; then compose_run stop nginx php; fi
+  if [[ "$compose_project" != - ]]; then
+    compose_run stop nginx php
+    [[ -z "$(compose_run ps --status running -q nginx php)" ]] || fail 'instance writers are still running'
+  fi
   git merge --ff-only "$new_head"
-  if [[ "$compose_project" == - ]] && grep -Eq '^server/composer\.(json|lock)$' <<<"$changed"; then
-    composer install --working-dir=server --no-dev --no-scripts --no-plugins --no-interaction --prefer-dist
-    php server/docker/scripts/prepare-vendor.php
+  if $dependencies_changed; then
+    if [[ "$compose_project" == - ]]; then
+      composer install --working-dir=server --no-dev --no-scripts --no-plugins --no-interaction --prefer-dist
+      php server/docker/scripts/prepare-vendor.php
+    else
+      php_image="$(sed -n 's/^PHP_IMAGE=//p' server/docker/.env | tail -n 1)"
+      sh server/docker/scripts/prepare-vendor.sh maintenance "$ROOT/server" "$php_image"
+    fi
   fi
   if [[ "$compose_project" == - ]]; then
     printf '%s\n' '{"operation":"compile","arguments":[]}' | php server/module
   else
     printf '%s\n' '{"operation":"compile","arguments":[]}' | compose_run run -T --rm --no-deps --entrypoint php php module
+  fi
+  if [[ "$compose_project" == - ]]; then
+    printf '%s\n' '{"operation":"reconcile","arguments":["--release-locked","--prepared-release"]}' | php server/module
+  else
+    printf '%s\n' '{"operation":"reconcile","arguments":["--release-locked","--prepared-release"]}' | compose_run run -T --rm --no-deps --entrypoint php php module
   fi
   # Native discovery includes only database/migrations; fresh-only inputs live in database/installation.
   backend migrate:run
