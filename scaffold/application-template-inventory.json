@@ -915,7 +915,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "16d76e60bf6c69499d27c7cd6b9a4151fac660337b2ede48b54f45871713f8b0"
+            "source_sha256": "92c552556568c9cae195566db1952286c70498f356e460a6fe01621a48a0e466"
         },
         {
             "path": "docs/development/standard.md",
@@ -3114,7 +3114,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6b3c578fc6b66c35c4358dba40dab7776799d5dbf6c8c6e2aabfec4cb5fcca18"
+            "source_sha256": "7b410c40337d07de49133fa888ee1d66de9bfbf0a45b6411f995b58f162083e5"
         },
         {
             "path": "scripts/local-core-links.mjs",
