@@ -929,7 +929,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4519a6b339066a3994938022f6cb45c0c6d5272bcd738c5c8863951cfdb584d7"
+            "source_sha256": "3f9f2d7b439ffe5a3ee9aa632abc2160197d000ad1495bfde0869a875595f190"
         },
         {
             "path": "docs/maintenance/README.md",
@@ -1063,7 +1063,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a41cdf43f8bd0efbaf81c92331e02d0255d25a1682b726d0a8ce055ef53b5757"
+            "source_sha256": "5a09a215a67587be659aba0ad371a400ef814052b7aafb27c9b9b50ca1d74ac1"
         },
         {
             "path": "docs/public/installation.md",
@@ -3019,7 +3019,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "522e4683f200c812ddd8349cd4c5edb84b1ee1ed1dd86dfc528be0c496644a9d"
+            "source_sha256": "07151161c5746d0a930de5638807ab3458e405ba5ad1f5bb1b0f0674f76383e3"
         },
         {
             "path": "scripts/export-release-database",
@@ -3620,7 +3620,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9429573cc59d235488c6a67cb4b79bf4370d1b61531ab3fb62f396f2f6ac786e"
+            "source_sha256": "b7f7c989454730390dd1d93bc2d2c0c8b5574f8549236a8f793ef61ddb4bee8a"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",

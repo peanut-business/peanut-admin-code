@@ -3124,10 +3124,12 @@ final class ScaffoldUpgradeRunner
                 }
                 $ownershipTransition = ($action['reason'] ?? null) === 'recipe_ownership_transition_required'
                     && ($action['target_sha256'] ?? null) === null;
-                $action['action'] = $ownershipTransition || $upstreamRemoved ? 'omit' : 'preserve';
+                $missingPreserved = ($action['current']['present'] ?? null) === false;
+                $action['action'] = $ownershipTransition || $upstreamRemoved || $missingPreserved ? 'omit' : 'preserve';
                 $action['reason'] = $ownershipTransition
                     ? 'recipe_ownership_transition_confirmed'
-                    : ($upstreamRemoved ? 'upstream_removed_preserve_confirmed' : 'conflict_preserve_confirmed');
+                    : ($upstreamRemoved ? 'upstream_removed_preserve_confirmed'
+                        : ($missingPreserved ? 'missing_file_preserve_confirmed' : 'conflict_preserve_confirmed'));
                 $action['conflict'] = false;
                 continue;
             }
@@ -3508,6 +3510,11 @@ final class ScaffoldUpgradeRunner
             || (isset($data['plan_sha256']) && !hash_equals('sha256:' . $digest, (string) $data['plan_sha256']))) {
             throw new RuntimeException('SCAFFOLD_PLAN_CHECKSUM_DRIFT');
         }
+        if (!is_array($data['app_owned_pre_state'] ?? null)
+            || !hash_equals($data['identity']['app_owned_pre_sha256'],
+                'sha256:' . hash('sha256', self::canonicalJson($data['app_owned_pre_state'])))) {
+            throw new RuntimeException('SCAFFOLD_PLAN_CHECKSUM_DRIFT');
+        }
         $developmentKeys = [isset($data['identity']['source_selection']['source_checkout'])
             || (($data['identity']['source_selection']['source_identity']['kind'] ?? null) === 'local'),
             isset($data['identity']['development_source']), isset($data['identity']['source_relation'])];
@@ -3659,9 +3666,15 @@ final class ScaffoldUpgradeRunner
                 || array_intersect(['baseline_path', 'baseline_sha256', 'baseline_mode'], array_keys($entry[0])) !== []) {
                 throw new RuntimeException('SCAFFOLD_VERIFY_RETAINED_OWNERSHIP_MISMATCH: ' . $path);
             }
-            unset($originalAppOwned[$path]);
+            if (!array_key_exists($path, $plan['app_owned_pre_state'])) {
+                unset($originalAppOwned[$path]);
+            }
         }
-        if (!hash_equals($plan['identity']['app_owned_pre_sha256'], 'sha256:' . hash('sha256', self::canonicalJson($originalAppOwned)))) {
+        $expectedAppOwned = $plan['app_owned_pre_state'];
+        foreach ($this->adoptedApplicationPaths($plan) as $path => $_) {
+            unset($expectedAppOwned[$path]);
+        }
+        if ($originalAppOwned !== $expectedAppOwned) {
             throw new RuntimeException('SCAFFOLD_VERIFY_APP_OWNED_CHANGED');
         }
         foreach ($application['files'] as $file) {
@@ -3860,6 +3873,7 @@ final class ScaffoldUpgradeRunner
     {
         [$application] = $this->applicationManifest($root);
         $retained = $this->retainedUpstreamDeletions($root, $plan);
+        $adopted = $this->adoptedApplicationPaths($plan);
         $oldByPath = [];
         foreach ($application['files'] as $file) {
             $oldByPath[$file['path']] = $file;
@@ -3867,7 +3881,8 @@ final class ScaffoldUpgradeRunner
         $managedPaths = array_column($plan['actions'], 'path');
         $files = [];
         foreach ($application['files'] as $file) {
-            if (!in_array($file['classification'], ['managed','generated-managed'], true)) {
+            if (!in_array($file['classification'], ['managed','generated-managed'], true)
+                && !isset($retained[$file['path']]) && !isset($adopted[$file['path']])) {
                 $state = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $file['path']), $file['path']);
                 $file['sha256'] = $state['sha256'];
                 $file['mode'] = $state['mode'];
@@ -3935,15 +3950,30 @@ final class ScaffoldUpgradeRunner
         return $application;
     }
 
-    /** Retained application sources have no incoming bytes or new upstream baseline. */
+    /** Only explicitly confirmed replacements may transfer an existing application path back to managed ownership. */
+    private function adoptedApplicationPaths(array $plan): array
+    {
+        $paths = [];
+        foreach ($plan['actions'] as $action) {
+            if (array_key_exists($action['path'], $plan['app_owned_pre_state'])
+                && ($action['reason'] ?? null) === 'conflict_replace_confirmed'
+                && in_array($action['action'], ['replace', 'regenerate', 'rename'], true)) {
+                $paths[$action['path']] = true;
+            }
+        }
+        return $paths;
+    }
+
+    /** Retained application paths, including confirmed absences, have no incoming bytes or new upstream baseline. */
     private function retainedUpstreamDeletions(string $root, array $plan): array
     {
         $paths = [];
         foreach ($plan['actions'] as $action) {
             if (($action['action'] ?? null) === 'omit'
-                && in_array($action['reason'] ?? null, ['upstream_removed_preserve_confirmed', 'conflict_upstream_delete_confirmed', 'installation_source_retained'], true)) {
+                && in_array($action['reason'] ?? null, ['upstream_removed_preserve_confirmed', 'conflict_upstream_delete_confirmed', 'installation_source_retained', 'missing_file_preserve_confirmed'], true)) {
                 $this->assertActionFresh($root, $action);
-                if ($action['current']['present']) {
+                if ($action['current']['present']
+                    || in_array($action['reason'], ['upstream_removed_preserve_confirmed', 'missing_file_preserve_confirmed'], true)) {
                     $paths[$action['path']] = true;
                 }
             }

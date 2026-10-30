@@ -12,22 +12,25 @@ main() {
   compose_project='-'
   prepare_release=false
   version=''
+  branch=main
   for argument in "$@"; do
     case "$argument" in
       --target=*) target="${argument#*=}" ;;
       --compose-project=*) compose_project="${argument#*=}" ;;
       --prepare-release) prepare_release=true ;;
       --version=*) version="${argument#*=}" ;;
-      *) fail 'usage: scripts/deploy-update.sh --prepare-release [--version=<app-version>] | --target=<commit> [--compose-project=<project>]' ;;
+      --branch=*) branch="${argument#*=}" ;;
+      *) fail 'usage: scripts/deploy-update.sh --prepare-release [--version=<app-version>] | --target=<commit> [--branch=<branch>] [--compose-project=<project>]' ;;
     esac
   done
   [[ -z "$target" || "$target" =~ ^[a-f0-9]{40}$ ]] || fail 'target must be a full commit hash'
   [[ "$compose_project" == - || "$compose_project" =~ ^[a-z0-9][a-z0-9_-]{0,62}$ ]] || fail 'invalid Compose project'
+  git check-ref-format "refs/heads/$branch" >/dev/null || fail 'invalid product branch'
   edition="$(python3 -c 'import json; print(json.load(open(".peanut/application-manifest.json"))["application"]["edition"])')"
   case "$edition" in standalone) clients=admin ;; multi-tenant) clients=admin,platform ;; *) fail 'invalid application Edition' ;; esac
   [[ "$(git rev-parse --show-toplevel)" == "$ROOT" ]] || fail 'run from the product Git checkout'
   if $prepare_release; then
-    [[ -z "$target" && "$compose_project" == - ]] || fail 'release preparation runs on the development/release machine'
+    [[ -z "$target" && "$compose_project" == - && "$branch" == main ]] || fail 'release preparation runs on the development/release machine'
     declared_version="$(python3 -c 'import json; print(json.load(open(".peanut/application-manifest.json"))["application"]["version"])')"
     [[ -z "$version" || "$version" == "$declared_version" ]] || fail 'version differs from the product declaration'
     # Raw archives are build inputs. PHP runtime identity readers do not consume them.
@@ -77,7 +80,7 @@ PHP
     return
   fi
   [[ -z "$version" ]] || fail '--version belongs to --prepare-release'
-  [[ "$(git branch --show-current)" == main ]] || fail 'the product checkout must be on main'
+  [[ "$(git branch --show-current)" == "$branch" ]] || fail 'the product checkout must be on the selected branch'
   [[ -z "$(git status --porcelain --untracked-files=no)" ]] || fail 'tracked files have uncommitted changes'
 
   state="$ROOT/.peanut/deploy-update.pending"
@@ -85,22 +88,24 @@ PHP
   current_head="$(git rev-parse HEAD)"
   if [[ -e "$state" ]]; then
     [[ -f "$state" ]] || fail 'update state is not a regular file'
-    read -r old_head new_head saved_edition saved_clients saved_project extra < "$state"
+    read -r old_head new_head saved_edition saved_clients saved_project saved_branch extra < "$state"
+    # Earlier pending records could only originate from the fixed main branch.
+    saved_branch="${saved_branch:-main}"
     [[ "$old_head" =~ ^[a-f0-9]{40}$ && "$new_head" =~ ^[a-f0-9]{40}$ && -z "$extra" ]] || fail 'invalid pending update state'
-    [[ "$saved_edition" == "$edition" && "$saved_clients" == "$clients" && "$saved_project" == "$compose_project" ]] || fail 'resume with the recorded Edition, clients and Compose project'
+    [[ "$saved_edition" == "$edition" && "$saved_clients" == "$clients" && "$saved_project" == "$compose_project" && "$saved_branch" == "$branch" ]] || fail 'resume with the recorded Edition, clients, Compose project and branch'
     [[ "$current_head" == "$old_head" || "$current_head" == "$new_head" ]] || fail 'checkout differs from the pending update'
     [[ -z "$target" || "$target" == "$new_head" ]] || fail 'finish the recorded pending update before selecting another target'
     printf '[deploy-update] Resuming %s -> %s\n' "$old_head" "$new_head"
   else
     old_head="$current_head"
-    git fetch --quiet origin main
-    new_head="$(git rev-parse origin/main^{commit})"
-    [[ -z "$target" || "$target" == "$new_head" ]] || fail 'origin/main changed from the reviewed target'
+    git fetch --quiet origin "refs/heads/$branch:refs/remotes/origin/$branch"
+    new_head="$(git rev-parse "refs/remotes/origin/$branch^{commit}")"
+    [[ -z "$target" || "$target" == "$new_head" ]] || fail 'selected origin branch changed from the reviewed target'
     if [[ "$old_head" == "$new_head" ]]; then
       printf '[deploy-update] Already at %s\n' "$new_head"
       exit 0
     fi
-    git merge-base --is-ancestor "$old_head" "$new_head" || fail 'origin/main is not a fast-forward'
+    git merge-base --is-ancestor "$old_head" "$new_head" || fail 'selected origin branch is not a fast-forward'
   fi
   changed="$(git diff --name-only "$old_head" "$new_head")"
   target_edition="$(git show "$new_head:.peanut/application-manifest.json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["application"]["edition"])')"
@@ -132,7 +137,7 @@ PY
     fi
   fi
   if [[ ! -e "$state" ]]; then
-    (umask 077; set -o noclobber; printf '%s %s %s %s %s\n' "$old_head" "$new_head" "$edition" "$clients" "$compose_project" > "$state")
+    (umask 077; set -o noclobber; printf '%s %s %s %s %s %s\n' "$old_head" "$new_head" "$edition" "$clients" "$compose_project" "$branch" > "$state")
   fi
   if [[ "$compose_project" != - ]]; then compose_run stop nginx php; fi
   git merge --ff-only "$new_head"

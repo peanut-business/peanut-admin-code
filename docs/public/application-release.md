@@ -59,9 +59,11 @@ git add -- server/public/platform
 scripts/deploy-update.sh --target=<审核main的完整提交>
 # 挂载式 Docker 实例：
 scripts/deploy-update.sh --target=<审核main的完整提交> --compose-project=<原实例项目名>
+# 已明确授权从其他现有分支部署时，显式选择同一分支：
+scripts/deploy-update.sh --target=<审核dev的完整提交> --branch=dev --compose-project=<原实例项目名>
 ```
 
-入口要求真实产品根、main、无受管修改，fetch 后目标仍等于审核的 origin/main，只允许 ff-only 及相同 Edition；目标须已包含该 Edition 的受管后台入口。pending 绑定旧／新提交、Edition 和原 Compose 项目。生产分支只采用 Git 静态文件，不调用 Node、npm 或 pnpm。
+入口要求真实产品根、当前检出等于所选分支（默认main）、无受管修改，fetch 后目标仍等于审核的该远端分支，只允许 ff-only 及相同 Edition；目标须已包含该 Edition 的受管后台入口。显式分支参数不授予新的部署权限。pending 绑定旧／新提交、Edition、原 Compose 项目和分支；早期未记分支的pending仅属于main。生产分支只采用 Git 静态文件，不调用 Node、npm 或 pnpm。
 
 Docker 模式复用原生 Compose 参数及适用 overlay、原 vendor receipt，正常停 nginx/php，在同一 php 服务的 owner 工作目录和网络执行原生 module:compile、migrate:run、clear --cache，再复用 start.sh 恢复。MySQL/卷保留；其他业务写者由 owner 预先排空。宿主 PHP 模式的停写和进程采用由调用者管理。
 
