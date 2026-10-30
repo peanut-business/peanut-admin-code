@@ -26,7 +26,8 @@
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
     "setting_definitions": "resources/setting-definitions.json",
-    "migrations": "database/migrations"
+    "migrations": "database/migrations",
+    "seeds": "database/seeds"
   },
   "frontend": {
     "entry": "web/src/modules/peanut-file/contribution.ts"

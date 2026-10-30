@@ -16,6 +16,7 @@ use app\common\contract\module\PluginLifecycleCommands;
 use app\common\persistence\AdvisoryLockExecution;
 use app\common\persistence\AdvisoryLockUnavailable;
 use app\common\module\ModuleMigrationRun;
+use app\common\module\ModuleSeedRun;
 use app\common\module\Dependencies;
 use app\platform\exception\plugin\PluginPackageException;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
@@ -439,11 +440,21 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     /** @param array<string,ManifestDocument> $manifests @return array<string,mixed> */
     private function activate(PluginDescriptor $plugin, array $manifests, bool $upgrade): array
     {
-
+        $firstActivation = Db::name('plugin_installation')->where('plugin_key', $plugin->key)
+            ->value('activated_at') === null;
         $this->beginLifecycle($plugin, $manifests, $upgrade);
         try {
             $this->applyMigrations($plugin);
             $this->assertModuleSchema($manifests);
+            if ($firstActivation) {
+                foreach ($manifests as $manifest) {
+                    if (isset($manifest->data['backend']['seeds'])) {
+                        $seeds = new ModuleSeedRun($manifest);
+                        $seeds->setApp(app());
+                        $seeds->run(new Input([]), new Output('buffer'));
+                    }
+                }
+            }
             $this->registerCatalog($plugin, $manifests, $upgrade);
             return $plugin->publicIdentity() + ['operation' => $upgrade ? 'upgraded' : 'installed'];
         } catch (\Throwable $exception) {

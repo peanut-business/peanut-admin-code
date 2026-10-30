@@ -57,16 +57,3 @@ INSERT INTO `pa_crontab`
 SELECT '代码生成归档清理',1,'generator:cleanup','',1,'0 3 * * *','',0,0,0,20,
        '清理已使用或过期的代码生成下载令牌和隔离归档',0,0,@pa_default_tenant_id
 WHERE NOT EXISTS (SELECT 1 FROM `pa_crontab` WHERE `command`='generator:cleanup');
-
-INSERT INTO `pa_storage_account` (`account_key`,`driver`,`name`,`credential_ciphertext`,`credential_key_version`,`credential_rotated_at`,`status`,`created_at`,`updated_at`) VALUES ('local','local','本地存储',NULL,NULL,NULL,'active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3));
-
-INSERT INTO `pa_storage_space` (`space_key`,`account_id`,`name`,`access_type`,`local_path`,`status`,`created_at`,`updated_at`)
- SELECT 'local-public',`id`,'本地公开文件','public','public/storage','active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3) FROM `pa_storage_account` WHERE `account_key`='local';
-
-INSERT INTO `pa_storage_space` (`space_key`,`account_id`,`name`,`access_type`,`local_path`,`status`,`created_at`,`updated_at`)
- SELECT 'local-private',`id`,'本地私有文件','private','private/storage','active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3) FROM `pa_storage_account` WHERE `account_key`='local';
-
-INSERT INTO `pa_storage_route` (`route_key`,`access_type`,`space_id`,`updated_at`)
- SELECT 'default.public','public',`id`,UTC_TIMESTAMP(3) FROM `pa_storage_space` WHERE `space_key`='local-public';
-
-INSERT INTO `pa_storage_route` (`route_key`,`access_type`,`space_id`,`updated_at`) SELECT 'default.private','private',`id`,UTC_TIMESTAMP(3) FROM `pa_storage_space` WHERE `space_key`='local-private';
