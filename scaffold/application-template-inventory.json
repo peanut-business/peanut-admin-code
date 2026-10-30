@@ -3620,7 +3620,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "feea278061a28523d37380751c2ebbb4d6158ce2f71ccdeaae605fcbdc144d56"
+            "source_sha256": "1b14ba5de7908c0548eca37cb79a8c6e6ae57b80e52a12dd41bf6ade073cd331"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
