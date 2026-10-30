@@ -2106,7 +2106,14 @@ final class ScaffoldUpgradeRunner
             }
             $key = (string) $entry['key'];
             $manifestPath = ScaffoldManifest::path($entry['manifest']);
-            if (isset($plugins[$key]) || !isset($files[$manifestPath])) {
+            if (isset($plugins[$key])) {
+                throw new RuntimeException('SCAFFOLD_TARGET_PLUGIN_LOCK_INVALID');
+            }
+            if (!isset($files[$manifestPath])) {
+                // Recorded locks include the APP's complete graph; only managed
+                // manifests belong to its upstream baseline. The live customer
+                // graph is validated separately by pluginProjection().
+                if ($manifest->isRecordedBaseline()) { continue; }
                 throw new RuntimeException('SCAFFOLD_TARGET_PLUGIN_LOCK_INVALID');
             }
             $moduleRoots = [];
