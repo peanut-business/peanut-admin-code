@@ -68,6 +68,8 @@ server/private/installation/installed.json是完成回执和防重装身份。�
 
 HTTP 安装只使用已安装的 PHP／模块依赖和已构建的客户端文件。开发／发行机器先运行 `scripts/deploy-update.sh --prepare-release`；生产从产品 Git 采用这些文件并按 PHP 锁准备依赖。缺少模块依赖或客户端入口时返回 `MODULE_RELEASE_PREPARATION_REQUIRED`，HTTP 不启动 Composer、Node 或前端构建。普通模块安装／升级仍通过 Ops 后台任务完成其原生依赖及前端采用。
 
+HTTP worker 的执行时限须覆盖首次迁移和所选模块安装；本地开发可为该实例设置有限的 PHP `max_execution_time`（本次八模块安装使用180秒），保留默认扩展加载，不修改其他实例的全局配置。超时后先核对原请求和 worker 已终止；结果未知时先对原执行对账，不重发。再读取原安装状态，仅 `INSTALL_RESUME_READY` 且 `safe_retry=true` 时继续原模块选择，不能清库或重置身份。模板 source apply 后仍须完成[模块运行准备](module-development.md)；仅 PHP/API 输入变化时可单独刷新最终 API 目录，复用未变客户端构建。
+
 旧安装状态不提供自动兼容、迁移或重装；需要处理旧现场时单独核定来源、数据和恢复边界。
 
 安装状态、服务启动、管理员登录、权限和业务分别确认。静态检查不替代运行结果；已有实例的更新、备份和回退见[产品 Git 交付](application-release.md)。

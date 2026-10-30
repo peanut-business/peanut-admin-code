@@ -11,7 +11,7 @@
 
 模块适用 Edition 声明在已有 `composer.json` 的 `extra.peanut.editions`，值为 `multi-tenant` 或 `standalone` 的非空列表，不新增另一份清单。本轮官方模块只声明 `multi-tenant`，ST 后补；检查、采用、安装及运行按宿主 Edition 拒绝不匹配或缺声明。模块版本与 Composer 版本保持同一来源，模块各自独立升版。
 
-存在 Web／Platform 贡献时，安装、升级、卸载及发版准备在原生依赖完成后、受影响客户端构建前，调用同一 `scripts/generate-api-contracts.php` 刷新宿主 API 类型和输出；不要求操作人员每次额外运行生成命令。纯后端模块没有前端消费者时不因此要求 Node。
+存在 Web／Platform 贡献时，模块安装、升级、卸载及发版准备在原生依赖完成后、受影响客户端构建前，调用同一 `scripts/generate-api-contracts.php` 刷新宿主 API 类型和输出。CLI 模板 source apply 只采用源码，不代表已完成这些运行准备；更新后须让生成的 API 目录匹配应用最终的品牌化声明、锁和源码。仅 PHP/API 输入改变且客户端未变时，可在 APP 根通过原生 project-env 执行 `php scripts/generate-api-contracts.php --check --catalog-output="$PWD/server/generated/api-catalog.json"`，只刷新目录，无须重建客户端；有客户端/API 类型变化时仍按受影响客户端完成原生准备。纯后端模块没有前端消费者时不因此要求 Node。
 
 多个已安装包需要联立更新原生依赖图时，原生 `reconcile` 调用可重复指定 `--selected-installed=<package_key>`，选择包含其必要依赖的已安装锁定图。该调用按真实 Module 节点准备一次 Composer／workspace 依赖和客户端输出，在同一依赖锁内按依赖顺序恢复选中包的 active／failed 安装状态；同批生命周期消费这次已经完成的准备结果，客户端各构建一次。
 
@@ -28,7 +28,7 @@ peanut module pack <vendor.module> --output=<absolute-release-path>/<name>.tar
 
 源码 HTTP 请求只读取已编译模块注册表，不逐请求校验插件目录、编译声明或扫描 PHP 源码边界。`peanut module compile` 在 CLI 中校验锁定声明和后端模块并写入 ThinkPHP 原生 File 缓存，不运行迁移或访问业务数据库；缓存只含模块声明，不含租户、用户或权限快照。`think run` 启动前自动生成，直接使用 `php -S` 的调用方须先执行该命令。`peanut module lock --write` 同步刷新编译结果；锁文件、依赖身份或编译配置改变后，其他采用入口须重新执行 `peanut module compile`。缺失或输入不匹配时 HTTP 返回 503，不在请求中自动重编译。编译结果位于 `runtime/module-registry`，普通业务缓存清理不删除它；清空整个 runtime 后须重新编译。正式部署继续使用既有 VerifiedServerDeployment 发布/读取流程。
 
-Identity 升级若变更核心权限目录，升级完成后须在新的 CLI 进程执行 `peanut module sync --module=peanut.identity`，再执行 `peanut module compile`。PHP 已加载的类不能在同一进程内由新源码替换；升级进程中的目录同步可能仍读取旧权限目录。新进程同步通过原有目录生产和租户 owner 授权链采用新定义，不直接补写权限或角色授予数据。
+Identity 升级若变更核心权限目录，升级完成后须在新的 CLI 进程执行 `peanut module sync --module=peanut.identity`，再执行 `peanut module compile`。PHP 已加载的类不能在同一进程内由新源码替换；升级进程中的目录同步可能仍读取旧权限目录。新进程同步通过原有目录生产链采用新定义；目录生成不授予成员或角色权限，已有租户权益仍由套餐/许可控制。
 
 后端启动、安装和已锁模块治理使用同一解析器的 `forRuntime()`，仍核验锁结构、manifest 摘要与声明一致性、模块 key/路径/命名空间归属、PHP 包身份和后端模块合同；前端贡献保留声明及 npm 归属核对，不读取 web/platform 源码或 Node。完整源码的 canonical 摘要包含前端文件，只在源码创建、升级、锁生成及包采用等源码操作校验；普通构造解析器和 `forSourceUpgrade()` 保留完整文件核验，后端投影仍校验自身完整内容。不要为后端运行补挂前端目录，也不要将运行期模块编译当作前端构建或完整源码资格。
 

@@ -1077,7 +1077,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b833a65fff79cfdf025d48007b502f094701a4f8ca8db0c9859a0f95deaedb13"
+            "source_sha256": "83a817698f7491e8a1f1afdb5705f17220bbcab73dfce37543845a3d82939c0a"
         },
         {
             "path": "docs/public/module-development.md",
@@ -1091,7 +1091,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c1a0bb5ef8ccf878f13e8783b899487cf05bd406613b61f6e771f511c0067b7f"
+            "source_sha256": "4c2e883ce71e8f1b1bc6ce9d4ae0364b16fa19df284d5a257bb4d241e5f3f51e"
         },
         {
             "path": "docs/public/release-channels.md",
