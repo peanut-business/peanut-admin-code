@@ -617,7 +617,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\config\\ReadinessController",
                     "action": "checklist",
-                    "permission": null,
+                    "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 165
@@ -626,7 +626,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "readiness/checklist"
+                        "key": "peanut.settings.read"
                     }
                 ]
             }
@@ -7629,7 +7629,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\dept\\JobsController",
                     "action": "lists",
-                    "permission": null,
+                    "permission": "core.job.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 104
@@ -7638,7 +7638,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "jobs/lists"
+                        "key": "core.job.read"
                     }
                 ]
             }
@@ -7704,7 +7704,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\dept\\JobsController",
                     "action": "all",
-                    "permission": null,
+                    "permission": "core.job.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 105
@@ -7713,7 +7713,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "jobs/all"
+                        "key": "core.job.read"
                     }
                 ]
             }
@@ -7786,7 +7786,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\dept\\JobsController",
                     "action": "detail",
-                    "permission": null,
+                    "permission": "core.job.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 106
@@ -7795,7 +7795,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "jobs/detail"
+                        "key": "core.job.read"
                     }
                 ]
             }
@@ -7885,7 +7885,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\dept\\JobsController",
                     "action": "add",
-                    "permission": null,
+                    "permission": "core.job.create",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 107
@@ -7894,7 +7894,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "jobs/add"
+                        "key": "core.job.create"
                     }
                 ]
             }
@@ -7984,7 +7984,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\dept\\JobsController",
                     "action": "edit",
-                    "permission": null,
+                    "permission": "core.job.update",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 108
@@ -7993,7 +7993,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "jobs/edit"
+                        "key": "core.job.update"
                     }
                 ]
             }
@@ -8088,7 +8088,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\dept\\JobsController",
                     "action": "delete",
-                    "permission": null,
+                    "permission": "core.job.archive",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 109
@@ -8097,7 +8097,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "jobs/delete"
+                        "key": "core.job.archive"
                     }
                 ]
             }
@@ -8200,7 +8200,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\dept\\JobsController",
                     "action": "updateStatus",
-                    "permission": null,
+                    "permission": "core.job.update",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 110
@@ -8209,7 +8209,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "jobs/status"
+                        "key": "core.job.update"
                     }
                 ]
             }
@@ -8819,7 +8819,7 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/MemberProfileConfig"
+                                "$ref": "#/components/schemas/MemberProfileWriteRequest"
                             }
                         }
                     }
@@ -9234,7 +9234,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\decoration\\DecorationPageController",
                     "action": "mobileLists",
-                    "permission": null,
+                    "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 176
@@ -9243,7 +9243,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "decoration/mobile/page/lists"
+                        "key": "peanut.settings.read"
                     }
                 ]
             }
@@ -9322,7 +9322,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\decoration\\DecorationPageController",
                     "action": "mobileDetail",
-                    "permission": null,
+                    "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 177
@@ -9331,7 +9331,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "decoration/mobile/page/detail"
+                        "key": "peanut.settings.read"
                     }
                 ]
             }
@@ -9423,7 +9423,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\decoration\\DecorationPageController",
                     "action": "mobileSave",
-                    "permission": null,
+                    "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 178
@@ -9432,7 +9432,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "decoration/mobile/page/save"
+                        "key": "peanut.settings.manage"
                     }
                 ]
             }
@@ -9498,7 +9498,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\decoration\\DecorationPageController",
                     "action": "pcLists",
-                    "permission": null,
+                    "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 181
@@ -9507,7 +9507,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "decoration/pc/page/lists"
+                        "key": "peanut.settings.read"
                     }
                 ]
             }
@@ -9586,7 +9586,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\decoration\\DecorationPageController",
                     "action": "pcDetail",
-                    "permission": null,
+                    "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 182
@@ -9595,7 +9595,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "decoration/pc/page/detail"
+                        "key": "peanut.settings.read"
                     }
                 ]
             }
@@ -9687,7 +9687,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\decoration\\DecorationPageController",
                     "action": "pcSave",
-                    "permission": null,
+                    "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 183
@@ -9696,7 +9696,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "decoration/pc/page/save"
+                        "key": "peanut.settings.manage"
                     }
                 ]
             }
@@ -9759,7 +9759,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\decoration\\DecorationTabbarController",
                     "action": "detail",
-                    "permission": null,
+                    "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 179
@@ -9768,7 +9768,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "decoration/tabbar/detail"
+                        "key": "peanut.settings.read"
                     }
                 ]
             }
@@ -9830,7 +9830,7 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/DecorationTabbar"
+                                "$ref": "#/components/schemas/DecorationTabbarSaveRequest"
                             }
                         }
                     }
@@ -9851,7 +9851,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\decoration\\DecorationTabbarController",
                     "action": "save",
-                    "permission": null,
+                    "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 180
@@ -9860,7 +9860,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "decoration/tabbar/save"
+                        "key": "peanut.settings.manage"
                     }
                 ]
             }
@@ -11073,7 +11073,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\log\\OperationLogController",
                     "action": "lists",
-                    "permission": null,
+                    "permission": "core.audit.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 148
@@ -11082,7 +11082,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "log/lists"
+                        "key": "core.audit.read"
                     }
                 ]
             }
@@ -28000,10 +28000,6 @@
                     "nickname": {
                         "type": "string"
                     },
-                    "avatar": {
-                        "type": "string",
-                        "maxLength": 512
-                    },
                     "password": {
                         "type": "string",
                         "description": "Effective UTF-8 byte bounds from getPasswordPolicy."
@@ -28470,6 +28466,7 @@
             },
             "JobWriteRequest": {
                 "type": "object",
+                "additionalProperties": false,
                 "required": [
                     "name",
                     "code",
@@ -28498,13 +28495,6 @@
                         "maxLength": 200
                     },
                     "status": {
-                        "type": "integer",
-                        "enum": [
-                            0,
-                            1
-                        ]
-                    },
-                    "is_disable": {
                         "type": "integer",
                         "enum": [
                             0,
@@ -28702,6 +28692,23 @@
                 "type": "object",
                 "additionalProperties": false,
                 "required": [
+                    "default_avatar",
+                    "default_avatar_url"
+                ],
+                "properties": {
+                    "default_avatar": {
+                        "type": "string",
+                        "maxLength": 500
+                    },
+                    "default_avatar_url": {
+                        "type": "string"
+                    }
+                }
+            },
+            "MemberProfileWriteRequest": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
                     "default_avatar"
                 ],
                 "properties": {
@@ -28811,7 +28818,8 @@
                     "type",
                     "name",
                     "data",
-                    "meta"
+                    "meta",
+                    "resource_urls"
                 ],
                 "properties": {
                     "id": {
@@ -28831,21 +28839,48 @@
                         "type": "string"
                     },
                     "data": {
-                        "type": "array",
-                        "items": {
-                            "$ref": "#/components/schemas/ApplicationDynamicValue"
-                        }
+                        "oneOf": [
+                            {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/ApplicationDynamicValue"
+                                }
+                            },
+                            {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "$ref": "#/components/schemas/ApplicationDynamicValue"
+                                }
+                            }
+                        ]
                     },
                     "meta": {
+                        "oneOf": [
+                            {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/ApplicationDynamicValue"
+                                }
+                            },
+                            {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "$ref": "#/components/schemas/ApplicationDynamicValue"
+                                }
+                            }
+                        ]
+                    },
+                    "resource_urls": {
                         "type": "object",
                         "additionalProperties": {
-                            "$ref": "#/components/schemas/ApplicationDynamicValue"
+                            "type": "string"
                         }
                     }
                 }
             },
             "DecorationPageSaveRequest": {
                 "type": "object",
+                "additionalProperties": false,
                 "required": [
                     "id",
                     "type",
@@ -28867,16 +28902,36 @@
                         ]
                     },
                     "data": {
-                        "type": "array",
-                        "items": {
-                            "$ref": "#/components/schemas/ApplicationDynamicValue"
-                        }
+                        "oneOf": [
+                            {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/ApplicationDynamicValue"
+                                }
+                            },
+                            {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "$ref": "#/components/schemas/ApplicationDynamicValue"
+                                }
+                            }
+                        ]
                     },
                     "meta": {
-                        "type": "object",
-                        "additionalProperties": {
-                            "$ref": "#/components/schemas/ApplicationDynamicValue"
-                        }
+                        "oneOf": [
+                            {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/ApplicationDynamicValue"
+                                }
+                            },
+                            {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "$ref": "#/components/schemas/ApplicationDynamicValue"
+                                }
+                            }
+                        ]
                     }
                 }
             },
@@ -28885,9 +28940,16 @@
                 "additionalProperties": false,
                 "required": [
                     "style",
-                    "list"
+                    "list",
+                    "resource_urls"
                 ],
                 "properties": {
+                    "resource_urls": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    },
                     "style": {
                         "type": "object",
                         "additionalProperties": {
@@ -28901,6 +28963,70 @@
                             "additionalProperties": {
                                 "$ref": "#/components/schemas/ApplicationDynamicValue"
                             },
+                            "required": [
+                                "name",
+                                "selected",
+                                "unselected",
+                                "link",
+                                "is_show"
+                            ],
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "selected": {
+                                    "type": "string"
+                                },
+                                "unselected": {
+                                    "type": "string"
+                                },
+                                "link": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "$ref": "#/components/schemas/ApplicationDynamicValue"
+                                    }
+                                },
+                                "is_show": {
+                                    "type": "integer",
+                                    "enum": [
+                                        0,
+                                        1
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "DecorationTabbarSaveRequest": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "style",
+                    "list"
+                ],
+                "properties": {
+                    "style": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "default_color",
+                            "selected_color"
+                        ],
+                        "properties": {
+                            "default_color": {
+                                "type": "string"
+                            },
+                            "selected_color": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "list": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
                             "required": [
                                 "name",
                                 "selected",

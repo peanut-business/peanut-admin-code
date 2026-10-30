@@ -19,8 +19,8 @@ const APP_SETTING: AppRouteRecordRaw = {
       meta: {
         locale: 'menu.appSetting.readiness',
         requiresAuth: true,
-        requiredPermissions: ['readiness/checklist'],
-        roles: ['admin'],
+        requiredPermissions: ['peanut.settings.read'],
+        tenantModuleKey: 'peanut.settings',
       },
     },
     {

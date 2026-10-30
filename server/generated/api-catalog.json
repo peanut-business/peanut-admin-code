@@ -4,7 +4,7 @@
     "inputs": [
         {
             "path": "plugins.lock",
-            "sha256": "66407b1651fecd0c9b00dca49fdd8230d58cf410aef53491b542c04e5624f650"
+            "sha256": "3d7be46c3c064ca32b73df1aca145b2a8a3d5b07053028df2e94c3ffff53df76"
         },
         {
             "path": "release-versions.json",
@@ -12,7 +12,7 @@
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
-            "sha256": "bc843ec658cdb46719b4d27b0ea8633879acdac9ca815b147a13f429a0e54e0e"
+            "sha256": "cbb1bed1478f2aff8144fbf4c1ddeffcccfd3987608136bf316505860fbeaac3"
         },
         {
             "path": "server/app/api/metadata/application/common.php",
@@ -84,7 +84,7 @@
         },
         {
             "path": "server/route/admin.php",
-            "sha256": "d05a748a5aa3f50d44073e272e816d7d48dde142dd8ffd5e0acf336f5df22798"
+            "sha256": "f9aae052bbdaf77a1160c2b166ed1888c0ec4942c08490b113bf9cb622c662c5"
         },
         {
             "path": "server/route/app.php",
@@ -2324,13 +2324,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "decoration/mobile/page/detail"
+                "peanut.settings.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "decoration/mobile/page/detail"
+                    "key": "peanut.settings.read"
                 }
             ],
             "errors": [
@@ -2394,13 +2394,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "decoration/mobile/page/lists"
+                "peanut.settings.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "decoration/mobile/page/lists"
+                    "key": "peanut.settings.read"
                 }
             ],
             "errors": [
@@ -2463,13 +2463,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "decoration/pc/page/detail"
+                "peanut.settings.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "decoration/pc/page/detail"
+                    "key": "peanut.settings.read"
                 }
             ],
             "errors": [
@@ -2533,13 +2533,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "decoration/pc/page/lists"
+                "peanut.settings.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "decoration/pc/page/lists"
+                    "key": "peanut.settings.read"
                 }
             ],
             "errors": [
@@ -2602,13 +2602,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "decoration/tabbar/detail"
+                "peanut.settings.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "decoration/tabbar/detail"
+                    "key": "peanut.settings.read"
                 }
             ],
             "errors": [
@@ -3800,13 +3800,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "jobs/all"
+                "core.job.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "jobs/all"
+                    "key": "core.job.read"
                 }
             ],
             "errors": [
@@ -3869,13 +3869,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "jobs/detail"
+                "core.job.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "jobs/detail"
+                    "key": "core.job.read"
                 }
             ],
             "errors": [
@@ -3938,13 +3938,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "jobs/lists"
+                "core.job.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "jobs/lists"
+                    "key": "core.job.read"
                 }
             ],
             "errors": [
@@ -4007,13 +4007,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "log/lists"
+                "core.audit.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "log/lists"
+                    "key": "core.audit.read"
                 }
             ],
             "errors": [
@@ -4970,13 +4970,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "readiness/checklist"
+                "peanut.settings.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "readiness/checklist"
+                    "key": "peanut.settings.read"
                 }
             ],
             "errors": [
@@ -10691,13 +10691,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "decoration/mobile/page/save"
+                "peanut.settings.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "decoration/mobile/page/save"
+                    "key": "peanut.settings.manage"
                 }
             ],
             "errors": [
@@ -10763,13 +10763,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "decoration/pc/page/save"
+                "peanut.settings.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "decoration/pc/page/save"
+                    "key": "peanut.settings.manage"
                 }
             ],
             "errors": [
@@ -10835,13 +10835,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "decoration/tabbar/save"
+                "peanut.settings.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "decoration/tabbar/save"
+                    "key": "peanut.settings.manage"
                 }
             ],
             "errors": [
@@ -12191,13 +12191,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "jobs/add"
+                "core.job.create"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "jobs/add"
+                    "key": "core.job.create"
                 }
             ],
             "errors": [
@@ -12263,13 +12263,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "jobs/delete"
+                "core.job.archive"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "jobs/delete"
+                    "key": "core.job.archive"
                 }
             ],
             "errors": [
@@ -12334,13 +12334,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "jobs/edit"
+                "core.job.update"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "jobs/edit"
+                    "key": "core.job.update"
                 }
             ],
             "errors": [
@@ -12406,13 +12406,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "jobs/status"
+                "core.job.update"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "jobs/status"
+                    "key": "core.job.update"
                 }
             ],
             "errors": [

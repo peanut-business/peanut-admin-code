@@ -220,4 +220,43 @@ final class MemberHostActionPermissionTest extends TestCase
         self::assertTrue($this->runAs(fn() => $this->host->updateStatus($this->actor,$id,0)));
         self::assertSame('active', $this->members->get(101,$id)['status']);
     }
+
+    public function testAdministratorWritesRejectAvatarInsteadOfChangingTheGlobalAccount(): void
+    {
+        $this->permissions = ['core.member.create','core.member.update','core.member.role.assign','core.member.activate'];
+        $before = $this->pdo->query('SELECT * FROM pa_account ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+        foreach (['add','edit'] as $action) {
+            try {
+                $this->runAs(fn()=>$this->host->$action($this->actor,[
+                    'id'=>602,'name'=>'Target','account'=>'new@example.test','role_id'=>[701],'disable'=>0,
+                    'avatar'=>'file_'.str_repeat('a',32),
+                ]));
+                self::fail('Administrator silently accepted a global account avatar.');
+            } catch(BusinessException $error) { self::assertSame('ADMIN_AVATAR_SELF_SERVICE_REQUIRED',$error->errorCode); }
+        }
+        self::assertSame($before,$this->pdo->query('SELECT * FROM pa_account ORDER BY id')->fetchAll(PDO::FETCH_ASSOC));
+        self::assertSame('Target',$this->members->get(101,602)['display_name']);
+    }
+
+    public function testOwnProfileKeepsTheStableAvatarAfterTheTenantReferenceCheck(): void
+    {
+        $this->pdo->exec('ALTER TABLE pa_account ADD COLUMN updated_at TEXT');
+        $this->pdo->exec('ALTER TABLE pa_credential ADD COLUMN verified_at TEXT');
+        $this->pdo->exec('ALTER TABLE pa_credential ADD COLUMN secret_changed_at TEXT');
+        $current = $this->app->make(CurrentExecutionContext::class);
+        $key = 'file_'.str_repeat('a',32);
+        $references = $this->createMock(\PeanutAdmin\Modules\File\Contract\FileReferences::class);
+        $references->expects(self::once())->method('setTenantFileUrl')->with($this->actor,$key)->willReturn($key);
+        $self = new \PeanutAdmin\Modules\Identity\Identity\SelfService\AccountSelfService(
+            new AuditService($current),new \PeanutAdmin\Kernel\Identity\PasswordHasher(),new \PeanutAdmin\Kernel\Identity\PasswordPolicy(),
+        );
+        $runtime = new \app\common\runtime\org\TenantAdminRuntime($this->members,$self,new \PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy(false,[]));
+        $host = new AdminApplicationService(
+            (new ReflectionProperty($this->host,'xlsxExport'))->getValue($this->host),new AdminDirectoryQuery($current),$runtime,$references,
+            new \PeanutAdmin\Kernel\Identity\PasswordPolicy(),$current,(new ReflectionProperty($this->host,'authorization'))->getValue($this->host),
+        );
+        self::assertTrue($this->runAs(fn()=>$host->editSelf($this->actor,601,['nickname'=>'Actor renamed','avatar'=>$key],'192.0.2.1','fixture')));
+        self::assertSame($key,$this->pdo->query('SELECT avatar_uri FROM pa_account WHERE id=501')->fetchColumn());
+        self::assertSame('Actor renamed',$this->members->get(101,601)['display_name']);
+    }
 }

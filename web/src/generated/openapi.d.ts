@@ -4594,7 +4594,6 @@ export interface components {
             username?: string;
             name: string;
             nickname?: string;
-            avatar?: string;
             /** @description Effective UTF-8 byte bounds from getPasswordPolicy. */
             password?: string;
             password_confirm?: string;
@@ -4727,8 +4726,6 @@ export interface components {
             remark?: string;
             /** @enum {integer} */
             status: 0 | 1;
-            /** @enum {integer} */
-            is_disable?: 0 | 1;
         };
         WebsiteConfig: {
             name: string;
@@ -4775,6 +4772,10 @@ export interface components {
         };
         MemberProfileConfig: {
             default_avatar: string;
+            default_avatar_url: string;
+        };
+        MemberProfileWriteRequest: {
+            default_avatar: string;
         };
         LoginConfig: {
             login_way: (1 | 2)[];
@@ -4799,9 +4800,14 @@ export interface components {
             /** @enum {integer} */
             type: 1 | 2 | 3 | 4 | 5;
             name: string;
-            data: components["schemas"]["ApplicationDynamicValue"][];
-            meta: {
+            data: components["schemas"]["ApplicationDynamicValue"][] | {
                 [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            meta: components["schemas"]["ApplicationDynamicValue"][] | {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            resource_urls: {
+                [key: string]: string;
             };
         } & {
             [key: string]: components["schemas"]["ApplicationDynamicValue"];
@@ -4810,12 +4816,17 @@ export interface components {
             id: number;
             /** @enum {integer} */
             type: 1 | 2 | 3 | 4 | 5;
-            data: components["schemas"]["ApplicationDynamicValue"][];
-            meta?: {
+            data: components["schemas"]["ApplicationDynamicValue"][] | {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            meta?: components["schemas"]["ApplicationDynamicValue"][] | {
                 [key: string]: components["schemas"]["ApplicationDynamicValue"];
             };
         };
         DecorationTabbar: {
+            resource_urls: {
+                [key: string]: string;
+            };
             style: {
                 [key: string]: components["schemas"]["ApplicationDynamicValue"];
             };
@@ -4831,6 +4842,22 @@ export interface components {
             } & {
                 [key: string]: components["schemas"]["ApplicationDynamicValue"];
             })[];
+        };
+        DecorationTabbarSaveRequest: {
+            style: {
+                default_color: string;
+                selected_color: string;
+            };
+            list: {
+                name: string;
+                selected: string;
+                unselected: string;
+                link: {
+                    [key: string]: components["schemas"]["ApplicationDynamicValue"];
+                };
+                /** @enum {integer} */
+                is_show: 0 | 1;
+            }[];
         };
         ArticleOption: {
             id: number;
@@ -9756,7 +9783,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MemberProfileConfig"];
+                "application/json": components["schemas"]["MemberProfileWriteRequest"];
             };
         };
         responses: {
@@ -10115,7 +10142,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DecorationTabbar"];
+                "application/json": components["schemas"]["DecorationTabbarSaveRequest"];
             };
         };
         responses: {

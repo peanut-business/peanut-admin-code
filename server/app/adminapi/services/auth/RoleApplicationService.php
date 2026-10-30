@@ -16,9 +16,14 @@ final class RoleApplicationService
 
     public function validationRules(string $scene): array
     {
-        return $scene === 'add'
-            ? ['name' => 'require|length:1,120']
-            : ['id' => 'require|integer|gt:0', 'name' => 'require|length:1,120'];
+        $id = ['require', static fn(mixed $value): bool => (is_int($value) || is_string($value))
+            && preg_match('/^[1-9][0-9]*$/D', (string) $value) === 1
+            && filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) !== false];
+        return match ($scene) {
+            'add' => ['name' => 'require|length:1,120'],
+            'detail', 'delete' => ['id' => $id],
+            default => ['id' => $id, 'name' => 'require|length:1,120'],
+        };
     }
 
     public function lists(TenantContext $context, array $params): PageResult

@@ -211,33 +211,7 @@
           />
         </el-form-item>
 
-        <el-form-item prop="avatar" :label="$t('systemAdmin.field.avatar')">
-          <el-space align="start">
-            <el-avatar :size="72" :src="avatarUrl">
-              {{ form.name?.slice(0, 1) }}
-            </el-avatar>
-            <div>
-              <el-upload
-                :http-request="
-                  (options: UploadRequestOptions) => uploadFile(10, options)
-                "
-                :show-file-list="false"
-                accept="image/jpeg,image/png"
-                @success="onAvatarSuccess"
-              >
-                <template #trigger>
-                  <el-button>
-                    <template #icon><icon-upload /></template>
-                    {{ $t('systemAdmin.field.avatar.upload') }}
-                  </el-button>
-                </template>
-              </el-upload>
-              <div class="form-tip">{{
-                $t('systemAdmin.field.avatar.tip')
-              }}</div>
-            </div>
-          </el-space>
-        </el-form-item>
+        <p class="form-tip">头像由账号本人在个人设置维护。</p>
 
         <el-form-item prop="name" :label="$t('systemAdmin.field.name')">
           <el-input
@@ -437,7 +411,7 @@
   import { useRoute } from 'vue-router';
   import { useI18n } from 'vue-i18n';
   import { ElMessage } from 'element-plus';
-  import type { FormInstance, UploadRequestOptions } from 'element-plus';
+  import type { FormInstance } from 'element-plus';
   import { Download, Plus, Refresh, Search } from '@element-plus/icons-vue';
   import useLoading from '@/hooks/loading';
   import { hasPermission } from '@/hooks/permission';
@@ -447,7 +421,6 @@
     passwordWithinPolicy,
     type PasswordPolicy,
   } from '@/api/password-policy';
-  import { uploadFile, type FileRecord } from '@/modules/peanut-file/api';
   import { getRoleAll } from '@/api/system/role';
   import { getJobsAll } from '@/api/system/jobs';
   import {
@@ -480,7 +453,9 @@
   const canReadRoles = computed(() =>
     hasPermission('core.role.read', route.path)
   );
-  const canReadJobs = computed(() => hasPermission('jobs/all', route.path));
+  const canReadJobs = computed(() =>
+    hasPermission('core.job.read', route.path)
+  );
   const { loading, setLoading } = useLoading(true);
   const renderData = ref<AdminRecord[]>([]);
   const formatLoginTime = (value: string): string => {
@@ -594,7 +569,6 @@
   );
   const submitLoading = ref(false);
   const formRef = ref<FormInstance>();
-  const avatarPreview = ref('');
 
   type AdminEditorForm = Omit<AdminForm, 'dept_id'> & { dept_id: number };
 
@@ -602,7 +576,6 @@
     id: undefined,
     account: '',
     name: '',
-    avatar: '',
     dept_id: 0,
     jobs_id: [],
     role_id: [],
@@ -613,7 +586,6 @@
     root: 0,
   });
   const form = reactive<AdminEditorForm>(defaultForm());
-  const avatarUrl = computed(() => avatarPreview.value || form.avatar);
 
   const rules = computed(() => ({
     account: [
@@ -710,7 +682,6 @@
 
   const resetForm = (patch: Partial<AdminEditorForm> = {}) => {
     Object.assign(form, defaultForm(), patch);
-    avatarPreview.value = patch.avatar || '';
     nextTick(() => formRef.value?.clearValidate());
   };
 
@@ -732,7 +703,6 @@
       id: data.id,
       account: data.account,
       name: data.name,
-      avatar: data.avatar,
       dept_id: data.dept_id[0] ?? 0,
       jobs_id: data.jobs_id || [],
       role_id: data.role_id || [],
@@ -790,12 +760,6 @@
         ? t('systemAdmin.status.disabled')
         : t('systemAdmin.status.normal');
     ElMessage.success(t('systemAdmin.tip.success'));
-  };
-
-  const onAvatarSuccess = (file: FileRecord) => {
-    form.avatar = file.uri;
-    avatarPreview.value = file.url;
-    ElMessage.success(t('systemAdmin.field.avatar.uploadSuccess'));
   };
 
   // ---- 两阶段导出 ----

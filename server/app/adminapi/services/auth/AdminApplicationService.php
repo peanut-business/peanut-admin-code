@@ -46,6 +46,9 @@ final class AdminApplicationService
         if (!$write) {
             return $params;
         }
+        if (array_key_exists('avatar', $params)) {
+            throw BusinessException::forbidden('ADMIN_AVATAR_SELF_SERVICE_REQUIRED', '头像只能由账号本人在个人设置修改');
+        }
         foreach (['role_id', 'dept_id', 'jobs_id'] as $field) {
             if (isset($params[$field])) {
                 if (!is_array($params[$field])) {
@@ -65,7 +68,6 @@ final class AdminApplicationService
                 && filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) !== false],
             'account' => 'require|email|max:255',
             'name' => 'require|length:1,120',
-            'avatar' => 'max:512',
             'password' => [function ($value, array $data) use ($scene): bool|string {
                 if ($scene === 'edit' && (!array_key_exists('password', $data) || $value === '')) {
                     return true;

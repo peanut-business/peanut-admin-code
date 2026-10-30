@@ -97,7 +97,8 @@ class ConfigApplicationService
         $setting = $this->applicationSettings->memberProfile($context);
         $avatar = trim((string) $setting['user_avatar']);
         return [
-            'default_avatar' => $this->files->getFileUrl(
+            'default_avatar' => $avatar,
+            'default_avatar_url' => $this->files->getFileUrl(
                 $avatar !== '' ? $avatar : $this->defaultAvatar,
             ),
         ];

@@ -101,13 +101,13 @@ Route::group(function () use ($peanutRouteModules) {
     Route::post('dept/status', [DeptController::class, 'updateStatus'])->option(['peanut_permission' => 'core.department.update']);
 
     // 岗位
-    Route::get('jobs/lists', [JobsController::class, 'lists']);
-    Route::get('jobs/all', [JobsController::class, 'all']);
-    Route::get('jobs/detail', [JobsController::class, 'detail']);
-    Route::post('jobs/add', [JobsController::class, 'add']);
-    Route::post('jobs/edit', [JobsController::class, 'edit']);
-    Route::post('jobs/delete', [JobsController::class, 'delete']);
-    Route::post('jobs/status', [JobsController::class, 'updateStatus']);
+    Route::get('jobs/lists', [JobsController::class, 'lists'])->option(['peanut_permission' => 'core.job.read']);
+    Route::get('jobs/all', [JobsController::class, 'all'])->option(['peanut_permission' => 'core.job.read']);
+    Route::get('jobs/detail', [JobsController::class, 'detail'])->option(['peanut_permission' => 'core.job.read']);
+    Route::post('jobs/add', [JobsController::class, 'add'])->option(['peanut_permission' => 'core.job.create']);
+    Route::post('jobs/edit', [JobsController::class, 'edit'])->option(['peanut_permission' => 'core.job.update']);
+    Route::post('jobs/delete', [JobsController::class, 'delete'])->option(['peanut_permission' => 'core.job.archive']);
+    Route::post('jobs/status', [JobsController::class, 'updateStatus'])->option(['peanut_permission' => 'core.job.update']);
 
     // 字典类型
     Route::get('dict/type/lists', [DictTypeController::class, 'lists'])->option(['peanut_permission' => 'peanut.reference-codes.read']);
@@ -145,7 +145,7 @@ Route::group(function () use ($peanutRouteModules) {
     Route::post('system/clearCache', [SystemController::class, 'clearCache']);
 
     // 操作日志
-    Route::get('log/lists', [OperationLogController::class, 'lists']);
+    Route::get('log/lists', [OperationLogController::class, 'lists'])->option(['peanut_permission' => 'core.audit.read']);
     Route::post('log/clear', [OperationLogController::class, 'clear']);
     // 系统配置 - 网站设置
     Route::get('config/website', [ConfigController::class, 'getWebsite'])->option(['peanut_permission' => 'peanut.settings.read']);
@@ -162,7 +162,7 @@ Route::group(function () use ($peanutRouteModules) {
     Route::post('config/login/save', [ConfigController::class, 'saveLogin'])->option(['peanut_permission' => 'peanut.settings.manage']);
 
     // 应用设置 - 首次运行生产准备清单（只读，不执行外部探测）
-    Route::get('readiness/checklist', [ReadinessController::class, 'checklist']);
+    Route::get('readiness/checklist', [ReadinessController::class, 'checklist'])->option(['peanut_permission' => 'peanut.settings.read']);
 
     // 应用设置 - 热门搜索
     Route::get('setting/hot-search/config', [HotSearchController::class, 'getConfig'])->option(['peanut_permission' => 'peanut.settings.read']);
@@ -173,14 +173,14 @@ Route::group(function () use ($peanutRouteModules) {
     Route::post('setting/transaction/save', [TransactionSettingsController::class, 'setConfig'])->option(['peanut_permission' => 'peanut.settings.manage']);
 
     // 装修管理：移动端、Tabbar 与 PC 权限域严格分离
-    Route::get('decoration/mobile/page/lists', [DecorationPageController::class, 'mobileLists']);
-    Route::get('decoration/mobile/page/detail', [DecorationPageController::class, 'mobileDetail']);
-    Route::post('decoration/mobile/page/save', [DecorationPageController::class, 'mobileSave']);
-    Route::get('decoration/tabbar/detail', [DecorationTabbarController::class, 'detail']);
-    Route::post('decoration/tabbar/save', [DecorationTabbarController::class, 'save']);
-    Route::get('decoration/pc/page/lists', [DecorationPageController::class, 'pcLists']);
-    Route::get('decoration/pc/page/detail', [DecorationPageController::class, 'pcDetail']);
-    Route::post('decoration/pc/page/save', [DecorationPageController::class, 'pcSave']);
+    Route::get('decoration/mobile/page/lists', [DecorationPageController::class, 'mobileLists'])->option(['peanut_permission' => 'peanut.settings.read']);
+    Route::get('decoration/mobile/page/detail', [DecorationPageController::class, 'mobileDetail'])->option(['peanut_permission' => 'peanut.settings.read']);
+    Route::post('decoration/mobile/page/save', [DecorationPageController::class, 'mobileSave'])->option(['peanut_permission' => 'peanut.settings.manage']);
+    Route::get('decoration/tabbar/detail', [DecorationTabbarController::class, 'detail'])->option(['peanut_permission' => 'peanut.settings.read']);
+    Route::post('decoration/tabbar/save', [DecorationTabbarController::class, 'save'])->option(['peanut_permission' => 'peanut.settings.manage']);
+    Route::get('decoration/pc/page/lists', [DecorationPageController::class, 'pcLists'])->option(['peanut_permission' => 'peanut.settings.read']);
+    Route::get('decoration/pc/page/detail', [DecorationPageController::class, 'pcDetail'])->option(['peanut_permission' => 'peanut.settings.read']);
+    Route::post('decoration/pc/page/save', [DecorationPageController::class, 'pcSave'])->option(['peanut_permission' => 'peanut.settings.manage']);
     if (isset($peanutRouteModules['peanut.article'])) {
         Route::get('decoration/mobile/article', [DecorationPageController::class, 'article']);
     }

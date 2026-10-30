@@ -26,7 +26,7 @@ class RoleController extends BaseAdminController
     public function detail()
     {
         $params = $this->request->get();
-        $this->validate($params, ['id' => 'require|integer|gt:0']);
+        $this->validate($params, $this->roles->validationRules('detail'));
         return $this->data($this->roles->detail($this->tenantAdminContext(), (int) $params['id']));
     }
 
@@ -49,7 +49,7 @@ class RoleController extends BaseAdminController
     public function delete()
     {
         $params = $this->request->post();
-        $this->validate($params, ['id' => 'require|integer|gt:0']);
+        $this->validate($params, $this->roles->validationRules('delete'));
         $this->roles->delete($this->tenantAdminContext(), (int) $params['id']);
         return $this->success('操作成功');
     }
