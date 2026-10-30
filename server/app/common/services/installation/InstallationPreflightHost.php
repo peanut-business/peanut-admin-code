@@ -335,8 +335,7 @@ final class InstallationPreflightHost
             $actual = $map($installed['packages']);
             $pinned = static function (string $name) use ($manifest, $runtime): bool {
                 $constraint = $manifest['require'][$name] ?? null;
-                return is_string($constraint)
-                    && preg_match('/^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/D', $constraint) === 1
+                return ReleaseDependencyIdentity::fixed($constraint)
                     && in_array($runtime[$name][0] ?? null, [$constraint, 'v' . $constraint], true);
             };
             if (!$runtime || array_intersect_key($runtime, $development)
