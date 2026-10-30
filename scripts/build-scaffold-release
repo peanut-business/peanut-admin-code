@@ -358,10 +358,39 @@ function releaseProjectModules(string $application, string $version): void
     $writer->writeLock();
 }
 
-function releaseProjectCore(string $application, array $core, string $temporary): string
+function releaseProjectCore(string $application, array $core, string $temporary, array $manifest): string
 {
     $coreTarget = $application . '/' . $core['archive_relative'];
-    releaseCopyFile($core['archive_absolute'], $coreTarget);
+    $original = null;
+    foreach ($manifest['files'] as $file) {
+        if ($file['path'] === $core['archive_relative']) {
+            $original = $file;
+            break;
+        }
+    }
+    if (file_exists($coreTarget) || is_link($coreTarget)) {
+        if ($original === null || !in_array($original['classification'], ['managed', 'generated-managed'], true)
+            || !is_string($original['baseline_path'] ?? null)) {
+            throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_CORE_PATH_COLLISION: ' . $core['archive_relative']);
+        }
+        $baseline = $application . '/' . $original['baseline_path'];
+        releaseInputFile($coreTarget);
+        releaseInputFile($baseline);
+        if (hash_file('sha256', $coreTarget) !== $original['sha256']
+            || hash_file('sha256', $baseline) !== $original['baseline_sha256']
+            || $original['baseline_sha256'] !== $original['sha256']) {
+            throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_BASELINE_INVALID: ' . $core['archive_relative']);
+        }
+        // Only the generated, managed archive may adopt the receipt-bound replacement.
+        if (!copy($core['archive_absolute'], $coreTarget)) {
+            throw new RuntimeException('SCAFFOLD_RELEASE_COPY_FAILED: ' . $coreTarget);
+        }
+    } else {
+        if ($original !== null) {
+            throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_FILE_MISSING: ' . $core['archive_relative']);
+        }
+        releaseCopyFile($core['archive_absolute'], $coreTarget);
+    }
     $lockBefore = releaseLockRows($application . '/server/composer.lock');
     $version = (string) $core['inputs']['core_php']['resolved_version'];
     releaseProjectComposer($application, $core['package'], $version);
@@ -548,12 +577,13 @@ function releaseProjectScaffold(string $application, array $core, string $tempor
         $versions['core_php']['source_reference'] = $coreIdentity['source_reference'];
     }
     releaseWriteJson($versionPath, $versions);
-    releaseProjectCore($application, $core, $temporary);
+    releaseProjectCore($application, $core, $temporary, $manifest);
     $web = releaseProjectWeb($application, $core, $receipt, $toolRoot);
     $versions = releaseReadJson($versionPath);
 
     $allowed = ['release-versions.json' => true, 'server/composer.json' => true,
         'server/composer.lock' => true, 'plugins.lock' => true];
+    $allowed[$core['archive_relative']] = true;
     foreach (['web', 'platform', 'pc', 'uniapp'] as $client) {
         $allowed[$client . '/package.json'] = true;
         $allowed[$client . '/' . ($client === 'web' ? 'pnpm-lock.yaml' : 'package-lock.json')] = true;
@@ -616,7 +646,16 @@ function releaseProjectScaffold(string $application, array $core, string $tempor
         }
         foreach ($manifest['files'] as $file) {
             if ($file['path'] === $path) {
-                throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_CORE_PATH_COLLISION: ' . $path);
+                if ($path !== $corePath || !in_array($file['classification'], ['managed', 'generated-managed'], true)
+                    || $file['sha256'] !== $digest || ($file['baseline_sha256'] ?? null) !== $digest
+                    || !is_string($file['baseline_path'] ?? null)) {
+                    throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_CORE_PATH_COLLISION: ' . $path);
+                }
+                releaseInputFile($application . '/' . $file['baseline_path']);
+                if (hash_file('sha256', $application . '/' . $file['baseline_path']) !== $digest) {
+                    throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_BASELINE_INVALID: ' . $path);
+                }
+                continue 2;
             }
         }
         $baseline = $manifest['ownership']['baseline_root'] . '/' . $path;
