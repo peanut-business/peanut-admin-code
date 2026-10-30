@@ -80,7 +80,7 @@
         },
         {
             "path": "server/config/admin_api_access.php",
-            "sha256": "04e7ebbb412aa9cdb3d565365a7909210a2519160b108674a6c33c81a9ccd4c1"
+            "sha256": "8f1d6dc2610530f8346fc12dac495f63b4b8102a1c5e22308261d697ecb6619c"
         },
         {
             "path": "server/route/admin.php",
@@ -2294,19 +2294,12 @@
             "controller": "app\\adminapi\\controller\\auth\\TenantLicenseController",
             "action": "detail",
             "auth": {
-                "mode": "tenant_permission",
-                "exception_registration": null
+                "mode": "authenticated",
+                "exception_registration": "authenticated"
             },
-            "default_permission_keys": [
-                "core.tenant.license"
-            ],
+            "default_permission_keys": [],
             "prerequisite_permission_keys": [],
-            "permissions": [
-                {
-                    "kind": "tenant_action",
-                    "key": "core.tenant.license"
-                }
-            ],
+            "permissions": [],
             "errors": [
                 401,
                 403
