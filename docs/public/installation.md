@@ -82,12 +82,14 @@ HTTP worker 的执行时限须覆盖首次迁移和所选模块安装；本地�
 
 | 类别 | 来源与首次安装行为 |
 | --- | --- |
-| 表结构 | 所选模块自带原生迁移先建立自有表，Host `20261101020000_initial_scaffold_baseline.php` 采用 `server/database/schema/baseline-schema.sql` 的宿主表；成功执行后由官方适配器记入 `pa_migrations`。 |
+| 表结构 | 所选模块自带原生迁移先建立自有表，Host `server/database/installation/20261101020000_initial_scaffold_baseline.php` 采用 `server/database/schema/baseline-schema.sql` 的宿主表。首次安装将它与所选 SQL 投影到原安装暂存目录，再交同一原生执行器；成功执行后由官方适配器记入 `pa_migrations`。 |
 | 必需系统数据 | `InitialSeeder` 在真实默认租户创建后写中性租户设置；定时计划初始为空。模块安装同步自有权限、API、菜单、设置等声明目录，并执行 `backend.seeds` 的必需中性初始种子；File 自带本地存储账号、空间和路由。目录不等于租户开通或成员授权，不创建样例成员、部门、文件、订单、执行历史或外部渠道占位。 |
 | 实例身份与配置 | 当次输入建立管理员、默认租户及适用平台账号，实际插入结果决定关联 ID；域名绑定来自该实例的明确输入，秘密及回调 key 当次生成。开发库中的账号、密码散列、域名、凭据、会话、安装身份和迁移记录均不复制。 |
 | 可选示例数据 | 默认 `PEANUT_DEMO_MODE=disabled`，首次安装不执行示例脚本，不创建 A/B 演示租户或合成业务记录。普通工作台显示“尚未接入业务统计”，不会将固定数值或随机趋势显示为实际业务数据。 |
 
 完整实例 SQL dump 属于独立恢复材料，可能包含身份、秘密和业务数据；它不是上述种子，不进入模板包，也不用于填充另一个新 APP。
+
+`server/database/installation/` 仅提供首次安装输入；普通 `migrate:run` 仍扫描 `server/database/migrations/`，不会把新 initial 当作已有实例的增量升级。已有实例的迁移执行情况以原生迁移表为准。APP manifest 的 `installation_migrations` 只记录安装来源路径和摘要：有安装完成或执行状态时，源码升级保留这些文件的原字节与身份，并转为应用持有的安装来源；不会删除旧 initial、改写历史来源或补造已执行版本。尚未安装的 APP 采用目标模板的安装来源快照。
 
 需要明确的演示实例时，复用现有 `scripts/seed-demo-data`：完成安装后，在该实例后端环境显式配置 `PEANUT_DEMO_MODE=enabled`、目标实际 `PEANUT_DEMO_TENANT_ID` 和 HTTP(S) `PEANUT_DEMO_DOCS_URL`。先预览计划，再按该命令既有资源/租约准入执行：
 

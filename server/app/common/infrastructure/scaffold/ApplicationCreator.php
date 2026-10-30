@@ -862,7 +862,8 @@ final class ApplicationCreator
     private function textTransform(string $content, array $parameters, string $path): string
     {
         // Fixed artifacts and immutable migration source identities survive APP branding byte-for-byte.
-        if (str_starts_with($path, 'server/database/schema/') || str_starts_with($path, 'server/database/migrations/') || str_starts_with($path, 'server/database/seeds/')
+        if (str_starts_with($path, 'server/database/schema/') || str_starts_with($path, 'server/database/migrations/')
+            || str_starts_with($path, 'server/database/installation/') || str_starts_with($path, 'server/database/seeds/')
             || preg_match('#^(?:server/app/modules|(?:web|platform|uniapp)/src/modules|pc/modules)/#D', $path) === 1) {
             // Official Module contents belong to their published identity. APP branding
             // must not mutate their canonical contents or dependency fingerprints.
@@ -1536,7 +1537,7 @@ final class ApplicationCreator
         $managed = array_values(array_filter($files, static fn(array $file): bool => in_array($file['classification'], ['managed', 'generated-managed'], true)));
         $appOwned = array_values(array_filter($files, static fn(array $file): bool => $file['classification'] === 'app-owned'));
         $installationSources = [];
-        foreach (['migrations/*.php', 'schema/*.sql', 'seeds/*.php'] as $pattern) {
+        foreach (['installation/*.php', 'migrations/*.php', 'schema/*.sql', 'seeds/*.php'] as $pattern) {
             foreach (glob($this->sourceRoot . '/server/database/' . $pattern) ?: [] as $path) {
                 $relative = substr($path, strlen($this->sourceRoot) + 1);
                 $projected = $stage . '/' . $relative;
@@ -1545,7 +1546,7 @@ final class ApplicationCreator
                 }
                 $digest = hash_file('sha256', $projected);
                 // Initial SQL is selected by the producer; historical PHP migrations retain their source bytes.
-                if (!is_string($digest) || (str_starts_with($relative, 'server/database/migrations/')
+                if (!is_string($digest) || (preg_match('#^server/database/(?:migrations|installation)/#D', $relative) === 1
                     && hash_file('sha256', $path) !== $digest)) {
                     throw new RuntimeException('CREATE_APP_INSTALL_MIGRATION_CHANGED');
                 }

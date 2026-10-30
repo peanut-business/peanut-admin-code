@@ -1077,7 +1077,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dfae3969b0128444673455fc50af02bedad4e147407b81c03eb30fb0824f9d78"
+            "source_sha256": "c6066da721321d1aa0e469b939966829eefc369f2578bd802512bd18dd3b3c53"
         },
         {
             "path": "docs/public/module-development.md",
@@ -3019,7 +3019,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "684b36d1cead89615d0c97509f6729d97b9ebfb51a8269aa7e9b87dacfb4c4d2"
+            "source_sha256": "522e4683f200c812ddd8349cd4c5edb84b1ee1ed1dd86dfc528be0c496644a9d"
         },
         {
             "path": "scripts/export-release-database",
@@ -3620,7 +3620,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cf92281dbb9b2fe695e2931ed41240a8ed7b8ff3aaef10aecd8c7397578f01cd"
+            "source_sha256": "ab86a70d5f42adebf1cf29ae955beb152b40eaab02e5b6da4f2931b3c7442cc8"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -19077,7 +19077,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eb53aaa2b430cb6c84f3c50be63db7b1c2abf71b13479c182d50c32b07839bd8"
+            "source_sha256": "451610dc6e27319ff74c60716e2e17d6b5782989eb730516622148457441856e"
         },
         {
             "path": "server/database/environment-guard.php",
@@ -19105,11 +19105,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2072437c7cb584d8acbfa98f76cd9542fb05216e011852d3adf912f9e56ab268"
+            "source_sha256": "bbab6877a227c497194556d1da745b3cc2be46d33fd200c53268b84f1ce9544d"
         },
         {
-            "path": "server/database/migrations/20261101020000_initial_scaffold_baseline.php",
-            "target": "server/database/migrations/20261101020000_initial_scaffold_baseline.php",
+            "path": "server/database/installation/20261101020000_initial_scaffold_baseline.php",
+            "target": "server/database/installation/20261101020000_initial_scaffold_baseline.php",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",

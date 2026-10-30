@@ -145,6 +145,7 @@ PY
   else
     printf '%s\n' '{"operation":"compile","arguments":[]}' | compose_run run -T --rm --no-deps --entrypoint php php module
   fi
+  # Native discovery includes only database/migrations; fresh-only inputs live in database/installation.
   backend migrate:run
   backend clear --cache
   if [[ "$compose_project" != - ]]; then

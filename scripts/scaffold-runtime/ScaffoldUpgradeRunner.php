@@ -281,6 +281,21 @@ final class ScaffoldUpgradeRunner
             $identity['target_template_package'] = ['protocol' => $metadata['protocol'], 'version' => $metadata['version'],
                 'archive_sha256' => $metadata['archive']['sha256'],
                 'source' => $sourceSelection['channel'] === 'development' ? 'local' : 'official'];
+            if (!$this->hasRuntimeState($root)) {
+                $createPath = ScaffoldPathGuard::existingFileWithin(dirname($sourceSelection['template_package_path']),
+                    dirname($sourceSelection['template_package_path']) . '/template-create.json', 'SCAFFOLD_TEMPLATE_CREATE_REQUIRED');
+                $createBytes = (string) file_get_contents($createPath);
+                if (hash('sha256', $createBytes) !== $metadata['create_manifest_sha256']) {
+                    throw new RuntimeException('SCAFFOLD_TEMPLATE_CREATE_CHANGED');
+                }
+                $create = json_decode($createBytes, true, 512, JSON_THROW_ON_ERROR);
+                if (array_key_exists('installation_migrations', $create['application_manifest'])) {
+                    $identity['target_installation_migrations'] = $this->installationSnapshot($create['application_manifest']);
+                }
+            }
+        }
+        if (!isset($identity['target_installation_migrations']) && array_key_exists('installation_migrations', $application)) {
+            $identity['target_installation_migrations'] = $application['installation_migrations'];
         }
         $verifiedTarget = $to;
         $planDigest = hash('sha256', self::canonicalJson([$identity, $actions]));
@@ -1682,11 +1697,22 @@ final class ScaffoldUpgradeRunner
                 $applicationFiles[$file['path']] = $file;
             }
         }
+        $installationSources = $this->hasRuntimeState($root) ? ($application['installation_migrations'] ?? []) : [];
+        foreach ($installationSources as $path => $digest) {
+            $current = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $path), $path);
+            if (!$current['present'] || $current['sha256'] !== $digest) {
+                throw new RuntimeException('SCAFFOLD_INSTALLATION_SOURCE_CHANGED: ' . $path);
+            }
+            if (($applicationFiles[$path]['classification'] ?? null) === 'app-owned') {
+                unset($old[$path], $new[$path]);
+            }
+        }
         $renamedFrom = [];
         $renamedTo = [];
         foreach ($to->renames() as $rename) {
             $fromPath = (string) $rename['from'];
             $toPath = (string) $rename['to'];
+            if (isset($installationSources[$fromPath])) { continue; }
             $before = $old[$fromPath] ?? null;
             $after = $new[$toPath] ?? null;
             if ($before === null || $after === null || isset($old[$toPath]) || isset($new[$fromPath])
@@ -1764,6 +1790,10 @@ final class ScaffoldUpgradeRunner
             $projectPath = ScaffoldPathGuard::projectPath($root, $path);
             $current = $this->regularFileState($projectPath, $path);
             $instanceFile = $applicationFiles[$path] ?? null;
+            if (isset($installationSources[$path])) {
+                $actions[] = $this->action($path, $after ?? $before ?? [], 'omit', 'installation_source_retained', false, $current, null);
+                continue;
+            }
             if (($instanceFile['classification'] ?? null) === 'app-owned') {
                 $file = $after ?? $before ?? [];
                 $target = $after === null ? null : hash('sha256', $this->renderCurrentVersionArtifact($to, $after, $targetParameters, $versionContract));
@@ -3363,7 +3393,25 @@ final class ScaffoldUpgradeRunner
         if (preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:[-+][0-9A-Za-z.-]+)?$/D', (string) $version) !== 1) {
             throw new RuntimeException('SCAFFOLD_APPLICATION_VERSION_INVALID');
         }
+        $this->installationSnapshot($data);
         return [$data, 'sha256:' . hash('sha256', (string) $raw)];
+    }
+
+    /** Installation source bytes, never evidence that a database migration ran. */
+    private function installationSnapshot(array $application): array
+    {
+        $snapshot = array_key_exists('installation_migrations', $application) ? $application['installation_migrations'] : [];
+        if (!is_array($snapshot)) { throw new RuntimeException('SCAFFOLD_INSTALLATION_SNAPSHOT_INVALID'); }
+        $files = array_column($application['files'], null, 'path');
+        foreach ($snapshot as $path => $digest) {
+            if (!is_string($path) || !is_string($digest) || preg_match('/^[a-f0-9]{64}$/D', $digest) !== 1
+                || preg_match('#^server/database/(?:installation|migrations|schema|seeds)/#D', ScaffoldManifest::path($path)) !== 1
+                || !isset($files[$path])
+                || !in_array($digest, [$files[$path]['sha256'] ?? null, $files[$path]['baseline_sha256'] ?? null], true)) {
+                throw new RuntimeException('SCAFFOLD_INSTALLATION_SNAPSHOT_INVALID');
+            }
+        }
+        return $snapshot;
     }
 
     private function legacyApplicationVersion(string $root): string
@@ -3580,6 +3628,8 @@ final class ScaffoldUpgradeRunner
             || ($application['generation_source'] ?? null) !== ($plan['identity']['target_generation_source'] ?? null)
             || (isset($plan['identity']['target_template_package'])
                 && ($application['template_package'] ?? null) !== $plan['identity']['target_template_package'])
+            || (isset($plan['identity']['target_installation_migrations'])
+                && ($application['installation_migrations'] ?? null) !== $plan['identity']['target_installation_migrations'])
             || ($application['edition'] ?? null) !== ($plan['identity']['edition'] ?? null)) {
             throw new RuntimeException('SCAFFOLD_VERIFY_APPLICATION_IDENTITY_MISMATCH');
         }
@@ -3842,6 +3892,9 @@ final class ScaffoldUpgradeRunner
         $application['template'] = ['version' => $to->version(),'inventory_sha256' => $to->release()['inventory_sha256'],
             ...ScaffoldSourceIdentity::fields($to->sourceIdentity())];
         $application['generation_source'] = $plan['identity']['target_generation_source'];
+        if (isset($plan['identity']['target_installation_migrations'])) {
+            $application['installation_migrations'] = $plan['identity']['target_installation_migrations'];
+        }
         if (isset($plan['identity']['target_template_package'])) {
             $application['template_package'] = $plan['identity']['target_template_package'];
             if (isset($to->data['internal_core_projection'])) {
@@ -3874,13 +3927,13 @@ final class ScaffoldUpgradeRunner
         return $application;
     }
 
-    /** A confirmed local retention has no incoming bytes or new upstream baseline. */
+    /** Retained application sources have no incoming bytes or new upstream baseline. */
     private function retainedUpstreamDeletions(string $root, array $plan): array
     {
         $paths = [];
         foreach ($plan['actions'] as $action) {
             if (($action['action'] ?? null) === 'omit'
-                && in_array($action['reason'] ?? null, ['upstream_removed_preserve_confirmed', 'conflict_upstream_delete_confirmed'], true)) {
+                && in_array($action['reason'] ?? null, ['upstream_removed_preserve_confirmed', 'conflict_upstream_delete_confirmed', 'installation_source_retained'], true)) {
                 $this->assertActionFresh($root, $action);
                 if ($action['current']['present']) {
                     $paths[$action['path']] = true;

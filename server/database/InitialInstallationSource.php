@@ -58,6 +58,9 @@ final class InitialInstallationSource
         return [
             'schema/baseline-schema.sql' => implode("\n\n", $selected) . "\n",
             'schema/baseline-data.sql' => implode("\n\n", $defaults) . "\n",
+            'migrations/20261101020000_initial_scaffold_baseline.php' => self::read(
+                $serverRoot . '/database/installation/20261101020000_initial_scaffold_baseline.php',
+            ),
         ];
     }
 

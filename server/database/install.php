@@ -692,6 +692,11 @@ function installFreshDatabase(string $serverDir, array $input, ?array $moduleKey
                 throw new RuntimeException('INSTALL_INITIAL_DIRECTORY_FAILED');
             }
         }
+        foreach (glob($initialRoot . '/migrations/*.php') ?: [] as $file) {
+            if (!unlink($file)) {
+                throw new RuntimeException('INSTALL_INITIAL_MIGRATION_CLEANUP_FAILED');
+            }
+        }
         foreach ($initial as $path => $content) {
             if (file_put_contents($initialRoot . '/' . $path, $content) !== strlen($content)) {
                 throw new RuntimeException('INSTALL_INITIAL_WRITE_FAILED');
@@ -699,9 +704,7 @@ function installFreshDatabase(string $serverDir, array $input, ?array $moduleKey
         }
         $sources = [];
         foreach (glob($initialRoot . '/migrations/*.php') ?: [] as $file) {
-            if (!unlink($file)) {
-                throw new RuntimeException('INSTALL_INITIAL_MIGRATION_CLEANUP_FAILED');
-            }
+            $sources[] = ['file' => $file];
         }
         foreach (glob($databaseDir . '/migrations/*.php') ?: [] as $file) {
             $target = $initialRoot . '/migrations/' . basename($file);
