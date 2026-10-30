@@ -148,6 +148,52 @@ final class HostTenantIdentityBoundaryTest extends TestCase
         self::assertInstanceOf(AdminDirectoryQuery::class, (new ReflectionProperty(ModuleExecutionBoundary::class, 'tenants'))->getValue($this->app->make(ModuleExecutionBoundary::class)));
     }
 
+    public function testTenantAdminLoginDistinguishesBindingPolicyDenialFromInfrastructureFailure(): void
+    {
+        $this->database->exec('ALTER TABLE pa_tenant ADD COLUMN code TEXT');
+        $this->database->exec("UPDATE pa_tenant SET code='paused' WHERE id=202");
+        $this->database->exec('CREATE TABLE pa_tenant_entry_binding(id INTEGER PRIMARY KEY,tenant_id INTEGER,host TEXT,client_key TEXT,status TEXT)');
+        $this->database->exec("INSERT INTO pa_tenant_entry_binding VALUES(1,202,'paused.example.test','admin-web','active')");
+        $bindings = new \PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver(
+            null, true, new \PeanutAdmin\Modules\Identity\Tenancy\Infrastructure\ThinkPhpTenantEntryBindingLookup(),
+        );
+        $middleware = new \app\adminapi\http\middleware\LoginMiddleware(
+            $this->current,
+            (new ReflectionClass(\PeanutAdmin\Modules\Identity\Auth\TenantAuthService::class))->newInstanceWithoutConstructor(),
+            $this->contexts,
+            (new ReflectionClass(\app\common\services\authorization\AdminAuthorizationService::class))->newInstanceWithoutConstructor(),
+            new \PeanutAdmin\Kernel\Host\ApplicationHostPolicy('multi-tenant',['platform.example.test'],$bindings),
+            $bindings,
+        );
+        $request = new class {
+            public function host(): string { return 'paused.example.test'; }
+            public function header(string $name,string $default = ''): string
+            {
+                return $name === 'Authorization' ? 'Bearer pa_tat_synthetic-host-boundary' : $default;
+            }
+        };
+        $next = static fn() => self::fail('An unavailable entry reached authentication or the next handler.');
+        try {
+            $middleware->handle($request,$next);
+            self::fail('A suspended tenant entry was accepted.');
+        } catch (\app\common\http\ApiProblem $problem) {
+            self::assertSame(403,$problem->httpStatus);
+            self::assertSame(40300,$problem->apiCode());
+        }
+
+        // This table belongs only to the in-memory fixture; exercise the producer's SQL-error branch.
+        $this->database->exec('DROP TABLE pa_tenant_entry_binding');
+        try {
+            $middleware->handle($request,$next);
+            self::fail('A lookup infrastructure failure was swallowed.');
+        } catch (DomainException $exception) {
+            self::assertSame('TENANT_ENTRY_BINDING_UNAVAILABLE',$exception->getMessage());
+            self::assertNotNull($exception->getPrevious());
+            self::assertNull((new \app\common\http\ApiProblemMapper())->map($exception));
+        }
+        self::assertTrue($this->contexts->isEmpty());
+    }
+
     private function resolver(MemberSubjectLookup $lookup): MemberApiTenantContextResolver
     {
         self::assertCount(2, (new ReflectionClass(MemberApiTenantContextResolver::class))->getConstructor()->getParameters());
