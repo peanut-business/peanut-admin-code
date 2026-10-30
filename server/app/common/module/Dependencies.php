@@ -510,8 +510,8 @@ final readonly class Dependencies
             throw new PluginPackageException('MODULE_DEPENDENCY_TOOLCHAIN_REQUIRED', 'Register the application Python command with project-env before installing module dependencies.');
         }
         $runner = [...$python, $project . '/scripts/project-env', '--root', $project];
-        // Native manifests participate in project-env's fingerprint. Prepare their new registered
-        // environment before exec; never bypass its fingerprint or fall back to ambient tools.
+        // Prepare the registered tool environment; business dependency changes alone
+        // do not invalidate it. Never fall back to ambient tools.
         $this->execute([...$runner, 'prepare'], $project, 'project-env');
         return $this->execute([...$runner, 'exec', '--', ...$command], $directory, $tool);
     }

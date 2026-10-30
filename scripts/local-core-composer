@@ -63,10 +63,12 @@ if [[ "$ACTION" != services && "$ACTION" != services-check ]]; then
     mkdir -p "$LOCAL_COMPOSER_DIR"
 fi
 
-required_version="$(core_php -r '$manifest = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR); echo $manifest["require"]["peanut-admin/core"] ?? "";' "$SERVER_DIR/composer.json")"
-[[ -n "$required_version" ]] || die 'server/composer.json does not pin peanut-admin/core'
 core_name="$(core_php -r '$manifest = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR); echo $manifest["name"] ?? "";' "$CORE_PACKAGE_DIR/composer.json")"
 [[ "$core_name" == peanut-admin/core ]] || die 'selected checkout is not peanut-admin/core'
+# Service-only actions must not reinstall dependencies or rewrite local manifests.
+if [[ "$ACTION" != services && "$ACTION" != services-check ]]; then
+required_version="$(core_php -r '$manifest = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR); echo $manifest["require"]["peanut-admin/core"] ?? "";' "$SERVER_DIR/composer.json")"
+[[ -n "$required_version" ]] || die 'server/composer.json does not pin peanut-admin/core'
 # The development path package uses its actual Git branch identity. Do not
 # disguise an unpublished checkout as the production lock version or an alias.
 core_branch="$(git -C "$CORE_PACKAGE_DIR" symbolic-ref --quiet --short HEAD)" \
@@ -74,8 +76,6 @@ core_branch="$(git -C "$CORE_PACKAGE_DIR" symbolic-ref --quiet --short HEAD)" \
 core_requirement="dev-$core_branch"
 update_packages=(peanut-admin/core)
 
-# Service-only actions must not reinstall dependencies or rewrite local manifests.
-if [[ "$ACTION" != services && "$ACTION" != services-check ]]; then
 local_package_names="$(core_php -r '
 $source = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR);
 $source["require"]["peanut-admin/core"] = $argv[6];
@@ -232,32 +232,14 @@ refresh_application_services() {
     check_application_services || die 'ThinkPHP service discovery did not produce a usable registry'
 }
 
-LOCK_BACKUP=""
-preserve_application_lock() {
-    [[ -f "$SERVER_DIR/composer.lock" ]] || return 0
-    LOCK_BACKUP="$(mktemp "${TMPDIR:-/tmp}/peanut-admin-composer-lock.XXXXXX")"
-    cp "$SERVER_DIR/composer.lock" "$LOCK_BACKUP"
-}
-
-restore_application_lock() {
-    if [[ -n "$LOCK_BACKUP" && -f "$LOCK_BACKUP" ]]; then
-        cp "$LOCK_BACKUP" "$SERVER_DIR/composer.lock"
-        rm -f "$LOCK_BACKUP"
-    fi
-}
-
 case "$ACTION" in
     install)
         # Unlock only Core and local modules whose Core requirement was projected.
         # Third-party versions remain fixed by the committed application lock.
-        preserve_application_lock
-        trap restore_application_lock EXIT
         cp "$SERVER_DIR/composer.lock" "$LOCAL_LOCK"
         run_composer update "${update_packages[@]}" --no-scripts --no-progress --prefer-dist
         ;;
     update|refresh)
-        preserve_application_lock
-        trap restore_application_lock EXIT
         cp "$SERVER_DIR/composer.lock" "$LOCAL_LOCK"
         run_composer update "${update_packages[@]}" --no-scripts --no-progress --prefer-dist
         ;;
