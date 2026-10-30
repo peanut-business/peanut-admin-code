@@ -6,6 +6,7 @@
 return [
     // 指令定义
     'commands' => [
+        'module:compile' => \app\command\ModuleCompile::class,
         'identity:credential-recover' => \app\command\IdentityCredentialRecovery::class,
         'identity:revocations' => \PeanutAdmin\Modules\Identity\Console\RevocationFactsCommand::class,
         // 平台系统维护仅允许顶层CLI执行，不登记为租户调度命令。
