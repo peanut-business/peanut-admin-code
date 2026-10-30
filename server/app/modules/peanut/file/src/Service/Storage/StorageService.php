@@ -216,7 +216,7 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
         if (preg_match('/^file_[0-9a-f]{32}$/D', $reference) === 1) {
             $object = $this->deliverableObjectForTenant($tenantId, $reference);
             if ($object === null || $object['access_type'] !== 'public' || !StoragePurpose::allowsDocumentPreviewInheritance($object['purpose'])) {
-                throw new \RuntimeException('素材对象不属于当前租户');
+                throw BusinessException::invalid('FILE_REFERENCE_INVALID', '素材引用无效');
             }
             return $reference;
         }

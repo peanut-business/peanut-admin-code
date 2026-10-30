@@ -13,6 +13,51 @@ use ReflectionClass;
 
 final class FileTaskInputBoundaryTest extends TestCase
 {
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    #[\PHPUnit\Framework\Attributes\PreserveGlobalState(false)]
+    public function testStableReferencesRejectUnavailableObjectsAsInvalidInput(): void
+    {
+        $app = new \think\App();
+        $database = new \PDO('sqlite::memory:', null, null, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]);
+        \ThinkPhpTestConnection::fromPdo($database);
+        $database->exec(<<<'SQL'
+            CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY, status TEXT);
+            INSERT INTO pa_tenant VALUES (1,'active'),(2,'active');
+            CREATE TABLE pa_storage_account (id INTEGER PRIMARY KEY, account_key TEXT, driver TEXT, name TEXT, credential_ciphertext TEXT, credential_key_version INTEGER, status TEXT);
+            INSERT INTO pa_storage_account VALUES (1,'local','local','Local',NULL,1,'active');
+            CREATE TABLE pa_storage_space (id INTEGER PRIMARY KEY, account_id INTEGER, space_key TEXT, name TEXT, bucket TEXT, region TEXT, endpoint TEXT, access_domain TEXT, local_path TEXT, status TEXT);
+            INSERT INTO pa_storage_space VALUES (1,1,'public','Public',NULL,NULL,NULL,NULL,'public/storage','active');
+            CREATE TABLE pa_file_object (id INTEGER PRIMARY KEY, file_key TEXT, tenant_id INTEGER, access_type TEXT, storage_space_id INTEGER, object_key TEXT, status TEXT, purpose TEXT);
+            INSERT INTO pa_file_object VALUES
+                (1,'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',1,'public',1,'tenants/v1/1/public.png','ready','material.image'),
+                (2,'file_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',1,'private',1,'tenants/v1/1/private.png','ready','document.resource'),
+                (3,'file_cccccccccccccccccccccccccccccccc',1,'public',1,'tenants/v1/1/sensitive.png','ready','attachment.sensitive');
+            SQL);
+        $type = new ReflectionClass(\PeanutAdmin\Modules\File\Service\Storage\StorageService::class);
+        $storage = $type->newInstanceWithoutConstructor();
+        $type->getProperty('directory')->setValue($storage, new \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery(
+            new \app\common\execution\CurrentExecutionContext(new \app\common\execution\ExecutionContextStore()),
+        ));
+        $publicKey = 'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+        self::assertSame($publicKey, $storage->normalizePublicReference(1, $publicKey));
+        self::assertSame('', $storage->normalizePublicReference(1, ''));
+        foreach ([
+            [2, $publicKey],
+            [1, 'file_dddddddddddddddddddddddddddddddd'],
+            [1, 'file_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'],
+            [1, 'file_cccccccccccccccccccccccccccccccc'],
+            [1, 'https://example.invalid/delivery'],
+        ] as [$tenantId, $reference]) {
+            try {
+                $storage->normalizePublicReference($tenantId, $reference);
+                self::fail('Invalid resource reference was accepted.');
+            } catch (\app\common\exception\BusinessException $error) {
+                self::assertSame('FILE_REFERENCE_INVALID', $error->errorCode);
+                self::assertSame(400, $error->httpStatus);
+            }
+        }
+    }
+
     public function testMaterialIdsPreserveValidIdentifiersAndRejectCoercion(): void
     {
         $type = new ReflectionClass(FileAdministrationService::class);
