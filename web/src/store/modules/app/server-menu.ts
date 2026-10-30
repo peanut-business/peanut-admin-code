@@ -1,6 +1,7 @@
 import type { RouteRecordRaw } from 'vue-router';
 import appClientMenus from '@/router/app-menus';
 import type { ServerMenuRecord } from './types';
+import { validRouteMeta } from '@/router/route-meta';
 
 function normalizePath(path: string): string {
   const normalized = `/${path}`.replace(/\/{2,}/g, '/');
@@ -59,7 +60,7 @@ export default function mapServerMenu(
 
       if (staticRoute.children?.length && children.length === 0) return null;
 
-      return {
+      const route = {
         ...staticRoute,
         path: normalizePath(menu.paths || staticRoute.path),
         meta: {
@@ -76,6 +77,7 @@ export default function mapServerMenu(
         },
         children,
       } as RouteRecordRaw;
+      return validRouteMeta(route) ? route : null;
     })
     .filter((route): route is RouteRecordRaw => route !== null);
 }

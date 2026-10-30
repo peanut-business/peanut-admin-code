@@ -12,21 +12,6 @@ const permissionRequirement = (value: unknown): value is string | string[] =>
   nonemptyString(value) || (stringList(value) && value.length > 0);
 const moduleKey = (value: unknown): value is string =>
   nonemptyString(value) && /^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$/.test(value);
-function validMeta(route: RouteLocationNormalized | RouteRecordRaw): boolean {
-  const { meta } = route;
-  if (!meta) return true;
-  return (
-    (meta.roles === undefined || stringList(meta.roles)) &&
-    (meta.requiredPermissions === undefined ||
-      permissionRequirement(meta.requiredPermissions)) &&
-    (meta.tenantModuleKey === undefined || moduleKey(meta.tenantModuleKey)) &&
-    (meta.activeMenu === undefined || nonemptyString(meta.activeMenu)) &&
-    (meta.requiresAuth === undefined ||
-      typeof meta.requiresAuth === 'boolean') &&
-    (meta.order === undefined ||
-      (typeof meta.order === 'number' && Number.isFinite(meta.order)))
-  );
-}
 export function hasPermission(
   requiredPermissions: string | string[],
   pagePath: string | undefined,
@@ -74,7 +59,6 @@ function matchingRoutes(
     const route = pending.shift();
     if (
       route &&
-      validMeta(route) &&
       String(route.name || '') === routeName &&
       (tenantModuleKey === undefined ||
         route.meta?.tenantModuleKey === tenantModuleKey)
@@ -90,7 +74,6 @@ export default function usePermission() {
   const accessRouter = (
     route: RouteLocationNormalized | RouteRecordRaw
   ): boolean => {
-    if (!validMeta(route)) return false;
     if (!route.meta?.requiresAuth) return true;
     const required = route.meta.requiredPermissions;
     const tenant = route.meta.tenantModuleKey;
@@ -137,7 +120,7 @@ export default function usePermission() {
       const pending = [...routers];
       while (pending.length) {
         const route = pending.shift();
-        if (route && validMeta(route)) {
+        if (route) {
           if (route.children?.length) pending.unshift(...route.children);
           else {
             const roles = route.meta?.roles;

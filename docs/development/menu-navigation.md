@@ -1,5 +1,7 @@
 # 默认导航分类与菜单定制
 
+Web 的静态模块和插件路由在 `router/routes/index.ts` 装配时递归校验 meta，非法源码配置在注册前报错；插件 meta 不先做布尔强转来掩盖非法输入。服务端菜单在 `server-menu.ts` 映射到已知静态路由后检查投影 meta，丢弃非法节点。导航和菜单匹配直接使用已采用的记录，继续按当前会话执行角色、权限包和租户模块门槛，不逐次重验不变的 meta 结构。
+
 租户后台保留工作台独立入口，其余默认入口按真实用途进入六类：组织与权限、会员与财务、内容与资源、应用与集成、系统设置、运维与审计。平台后台保留总览，按租户运营、组织与权限、运维与审计组织原有操作入口。分类只是导航节点，不产生业务权限；页面的 URL、route name、组件注册和权限码保持原身份。
 
 模块继续通过原有 `module.json` 引用的 `resources/menus.json` 声明菜单。租户 page 必须明确写 `parent_key`，选择产品装配提供的 `core.organization`、`core.business`、`core.content`、`core.applications`、`core.system`、`core.operations`，或本模块声明的同 scope 分类。确有高频独立入口时显式写 `parent_key: null`；遗漏字段会被同步器拒绝。禁止另建分类 manifest。实例展示定制使用菜单管理入口，不直接改库。通常采用分类和页面两层；分类必须有可见页面才显示。
