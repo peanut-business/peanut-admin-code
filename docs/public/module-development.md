@@ -9,7 +9,7 @@
 打包收集模块后端及已声明客户端的完整源码与资源，包括生成的 API 声明；递归前跳过 `vendor`、`node_modules`、`.cache`、`.vite`、`.nuxt`、`.output`、`.next`、`.turbo`、`.parcel-cache`、`coverage`、`tmp`、`temp` 和 `unpackage` 目录。普通 `build`、`dist` 目录可能被源码、包入口或资源引用，因此保留。作者无需为打包删除本地依赖；路径越界、符号链接、环境配置和凭据仍拒绝交付。
 
 
-模块适用 Edition 声明在已有 `composer.json` 的 `extra.peanut.editions`，值为 `multi-tenant` 或 `standalone` 的非空列表，不新增另一份清单。本轮官方模块只声明 `multi-tenant`，ST 后补；检查、采用、安装及运行按宿主 Edition 拒绝不匹配或缺声明。模块版本与 Composer 版本保持同一来源，模块各自独立升版。
+模块适用 Edition 声明在已有 `composer.json` 的 `extra.peanut.editions`，值为 `multi-tenant` 或 `standalone` 的非空列表，不新增另一份清单。八个默认初始模块声明支持 `multi-tenant` 与 `standalone`，两种 Edition 均使用真实租户身份和原有权限隔离；检查、采用、安装及运行按宿主 Edition 拒绝不匹配或缺声明。平台入口仍受宿主 Edition 约束，模块声明不开放平台能力。模块版本与 Composer 版本保持同一来源，模块各自独立升版。
 
 存在 Web／Platform 贡献时，模块安装、升级、卸载及发版准备在原生依赖完成后、受影响客户端构建前，调用同一 `scripts/generate-api-contracts.php` 刷新宿主 API 类型和输出。CLI 模板 source apply 只采用源码，不代表已完成这些运行准备；更新后须让生成的 API 目录匹配应用最终的品牌化声明、锁和源码。仅 PHP/API 输入改变且客户端未变时，可在 APP 根通过原生 project-env 执行 `php scripts/generate-api-contracts.php --check --catalog-output="$PWD/server/generated/api-catalog.json"`，只刷新目录，无须重建客户端；有客户端/API 类型变化时仍按受影响客户端完成原生准备。纯后端模块没有前端消费者时不因此要求 Node。
 

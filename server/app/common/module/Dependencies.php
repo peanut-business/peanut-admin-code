@@ -198,7 +198,9 @@ final readonly class Dependencies
         $runtimeRequirements = [];
         $clients = [];
         $optional = [];
+        $standalone = \think\facade\Config::get('deployment.mode') === 'standalone';
         foreach ($releaseClients ?? [] as $client) {
+            if ($standalone && $client === 'platform') { continue; }
             $clients[$client] = ['manifest' => $this->json($project . '/' . $client . '/package.json'), 'modules' => [], 'optional' => []];
         }
         foreach ($moduleRoots as $key => $root) {
@@ -280,6 +282,7 @@ final readonly class Dependencies
             }
             foreach (ModuleFrontendLayout::contributions($manifest['frontend'] ?? [], $key) as $contribution) {
                 $client = explode('/', $contribution['root'])[0];
+                if ($standalone && $client === 'platform') { continue; }
                 if ($releaseClients !== null && !in_array($client, $releaseClients, true)) { continue; }
                 if (PHP_SAPI !== 'cli') {
                     $clients[$client] = [];

@@ -18,7 +18,8 @@
   "extra": {
     "peanut": {
       "editions": [
-        "multi-tenant"
+        "multi-tenant",
+        "standalone"
       ]
     }
   }

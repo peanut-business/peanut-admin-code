@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "042d975a2809f5f7e2ebfe7e9b0d7989a7318188220d669197965ad4693a375c"
+        "sha256": "a2364b34ae7559e19eec2492ae9722081c4f06988d39066d865bb92561fab2ea"
     },
     "trust": {
         "channel": "bundled",
@@ -54,7 +54,7 @@
         {
             "name": "peanut-business/peanut-identity",
             "version": "4.0.0-rc.39",
-            "sha256": "ca05253042e6d872951a2d252a02ca7ad0fd21ce02a7cfd96d197151361dba66"
+            "sha256": "3b7ee627040e1b420be917765694e543d3fdc8ce453624192a9f0990e17c45c5"
         }
     ],
     "npm": [],
