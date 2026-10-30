@@ -15,7 +15,7 @@ use app\platform\value\plugin\PluginDescriptor;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\infrastructure\plugin\PluginArtifactWriter;
-use app\platform\validation\module\StrictVersionConstraintMatcher;
+use PeanutAdmin\Kernel\Module\StrictVersionConstraintMatcher;
 use app\platform\validation\module\OpisManifestSchemaValidator;
 use app\common\module\PackageCheck;
 use RuntimeException;
