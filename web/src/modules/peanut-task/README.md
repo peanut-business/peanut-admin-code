@@ -61,3 +61,47 @@ onBeforeUnmount(runtime.dispose);
 后端持久任务的处理者及 checkpoint/失租合同见
 [`job/README.md`](../../../../server/app/modules/peanut/task/job/README.md)。
 本页面只管理脱敏作业状态，不替代所属业务模块的授权、提交与结果交付入口。
+
+## 自定义状态视图与重试
+
+复用上面的 runtime/provider，但自定义页面不必渲染 `TaskJobPage`；它可读取
+`runtime.state.items/status/page/total/loading/mutating/error`，在挂载时调用一次
+`load()`。若渲染 `TaskJobPage`，由该页面完成首次加载，父组件不重复调用。
+页面没有约定公开 slots，不向它传入未声明的状态/重试插槽。
+
+例如只观察失败终止的作业并显式重试当前选择项：
+
+```ts
+// runtime 由上面的正式工厂创建，selectedJobKey 来自自定义页面当前选择。
+// 该示例替代内置页面自己的首次加载。
+await runtime.setStatus('dead');
+const selected = runtime.state.items.find((job) => job.jobKey === selectedJobKey);
+if (selected?.status === 'dead' && runtime.canManage()) {
+  await runtime.retry(selected);
+}
+// retry 成功后由 runtime 自己刷新，不再追加一次 load()。
+// 先查看 state.error；Promise resolved 不表示作业业务已执行成功。
+```
+
+`queued` 表示待执行、`running` 表示处理中，`succeeded/dead/cancelled`
+分别为成功、失败终止和取消，五种状态沿现有 `TaskStatus` 呈现。
+重试提交使用原 `jobKey/revision`，不创建另一份业务作业或覆盖原尝试账本。
+错误例：无 `canManage` 时 runtime 不发取消/重试请求；无读取权限时列表记录
+403。服务器仍拒绝状态或 revision 不符的动作，页面保留错误/request ID，
+重新读取后由用户决定，不自动重放或把 dead 显示成成功。
+
+## 调度与 handler 的既有链
+
+PHP 通过模块公开 `Contract\TaskScheduler` 的原生绑定调用调度，
+`runDue(int $now)` 的时间为 Unix 时间戳；`start(TenantScope $scope, array $item)`
+只接收可信调度 Scope 和已登记 crontab 项。两者均要求没有环境执行上下文的
+原生调度入口，并沿 `TaskJobRuntime` 入账/执行；不是普通租户 HTTP 页面的
+“立即执行任意命令”接口。已有上下文调用会在入队前拒绝
+`TASK_EXECUTION_ROOT_REQUIRED`，不能清空别人的上下文绕过它。
+
+处理者实现公开 `Contract\TaskHandler` 的 `key()` 和
+`handle(AuthorizedOperationContext $context, JobExecution $execution)`，经既有
+应用组合/注册链选定，提交者经 `TaskSubmissionProvider` 构造可信 payload。
+页面只观察账本，不注册 handler、不提供类名/命令/payload，也不另建浏览器调度器。
+handler 的 checkpoint、失租停止、外部幂等和恢复规则沿上面的后端 README；
+外观修改不改变执行权限、审计或业务结果交付责任。
