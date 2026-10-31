@@ -17,4 +17,23 @@ final class Tenant extends Model
         'revision' => 'integer',
         'authorization_revision' => 'integer',
     ];
+
+    /** @var array<string, string> Keep aligned with the Identity migrations. */
+    protected $schema = [
+        'id' => 'bigint',
+        'code' => 'string',
+        'name' => 'string',
+        'display_name' => 'string',
+        'status' => 'string',
+        'locale' => 'string',
+        'timezone' => 'string',
+        'security_revision' => 'bigint',
+        'authorization_revision' => 'bigint',
+        'revision' => 'bigint',
+        'activated_at' => 'datetime',
+        'suspended_at' => 'datetime',
+        'closed_at' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
 }

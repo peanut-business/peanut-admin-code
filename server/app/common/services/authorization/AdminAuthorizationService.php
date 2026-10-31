@@ -231,21 +231,6 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         if ($accessUris === []) {
             return [];
         }
-        // This call still re-reads current membership and active credential together.
-        $profile = $this->directory->activePrincipalProfile($tenantContext->tenantId, $tenantContext->accountId);
-        if ($profile === null || $profile['member']->memberId !== $tenantContext->memberId) {
-            throw new \DomainException('TENANT_ADMIN_PRINCIPAL_UNAVAILABLE');
-        }
-        $member = $profile['member'];
-        if ($tenantContext->authorizationRevision < 1
-            || $member->authorizationRevision !== $tenantContext->authorizationRevision
-            || $tenantContext->sessionKey === '' || $tenantContext->clientKey === '' || $tenantContext->requestId === '') {
-            $decisions = [];
-            foreach ($accessUris as $accessUri) {
-                $decisions[$accessUri] = PermissionDecision::deny($accessUri, 'INVALID_TENANT_ADMIN_CONTEXT');
-            }
-            return $decisions;
-        }
         $decisions = [];
         $pending = [];
         foreach ($accessUris as $accessUri) {
@@ -258,6 +243,20 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
             }
         }
         if ($pending === []) {
+            return $decisions;
+        }
+        // Unadmitted permissions still read current membership and credential together.
+        $profile = $this->directory->activePrincipalProfile($tenantContext->tenantId, $tenantContext->accountId);
+        if ($profile === null || $profile['member']->memberId !== $tenantContext->memberId) {
+            throw new \DomainException('TENANT_ADMIN_PRINCIPAL_UNAVAILABLE');
+        }
+        $member = $profile['member'];
+        if ($tenantContext->authorizationRevision < 1
+            || $member->authorizationRevision !== $tenantContext->authorizationRevision
+            || $tenantContext->sessionKey === '' || $tenantContext->clientKey === '' || $tenantContext->requestId === '') {
+            foreach ($pending as $accessUri) {
+                $decisions[$accessUri] = PermissionDecision::deny($accessUri, 'INVALID_TENANT_ADMIN_CONTEXT');
+            }
             return $decisions;
         }
         $keys = array_map(static fn(string $uri): string => strtolower(trim($uri, '/')), $pending);

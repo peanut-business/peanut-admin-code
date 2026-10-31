@@ -203,15 +203,16 @@ final readonly class CoreTenantModuleAdminBridge
         return true;
     }
 
-    /** One live permission projection already applies the license ceiling.
+    /** One live projection checks only the requested member grants and their license ceiling.
      * @param list<string> $permissions
      * @return array{registered:list<string>,owned:list<string>}
      */
     public function permissionInputs(TenantContext $context, array $permissions): array
     {
-        $owned = $this->basePermissions($context);
+        $states = $this->identityAuthorization->permissionGrants($context, $permissions);
+        $owned = array_keys($states);
         return [
-            'registered' => $this->registeredLicensedSubset(array_values(array_intersect($permissions, $owned))),
+            'registered' => $this->registeredLicensedSubset($owned, null, $states),
             'owned' => $owned,
         ];
     }
@@ -231,14 +232,15 @@ final readonly class CoreTenantModuleAdminBridge
 
     /** Null module selection is used only with this call's already licensed member grants.
      * @param list<string> $permissions @param list<string>|null $licensedModules
+     * @param array<string,array{key:string,module_key:string|null,status:string}>|null $states
      * @return list<string>
      */
-    private function registeredLicensedSubset(array $permissions, ?array $licensedModules = null): array
+    private function registeredLicensedSubset(array $permissions, ?array $licensedModules = null, ?array $states = null): array
     {
         if ($permissions === []) {
             return [];
         }
-        $states = $this->identityAuthorization->permissionStates(array_values(array_unique($permissions)));
+        $states ??= $this->identityAuthorization->permissionStates(array_values(array_unique($permissions)));
         $owners = [];
         $registered = [];
         foreach ($permissions as $permission) {

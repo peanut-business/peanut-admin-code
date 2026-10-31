@@ -52,7 +52,7 @@ class AuthMiddleware
         if (!$tenantContext instanceof \PeanutAdmin\Kernel\Auth\TenantContext
             || !$this->apis->moduleAvailable($endpoint, $this->modules)
             || (!in_array($endpoint['module_key'], ['peanut.admin', 'platform', 'member', 'installation'], true)
-                && !in_array($endpoint['module_key'], $this->entitlements->moduleKeys($tenantContext->tenantId), true))) {
+                && !$this->entitlements->allowsModule($tenantContext->tenantId, $endpoint['module_key']))) {
             throw \app\common\http\ApiProblem::fromEnvelope('API 所属模块不可用', null, 40300);
         }
         if ($endpoint['access_mode'] === 'authenticated'

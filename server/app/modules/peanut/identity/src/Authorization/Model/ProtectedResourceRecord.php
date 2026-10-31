@@ -11,4 +11,20 @@ final class ProtectedResourceRecord extends Model
     /** @var string */ protected $name = 'protected_resource';
     /** @var bool */ protected $autoWriteTimestamp = false;
     /** @var array<string, string> */ protected $type = ['id' => 'integer'];
+
+    /** @var array<string, string> Keep aligned with the Identity migrations. */
+    protected $schema = [
+        'id' => 'bigint',
+        'key' => 'string',
+        'module_key' => 'string',
+        'name' => 'string',
+        'ownership' => 'string',
+        'provider_key' => 'string',
+        'status' => 'string',
+        'manifest_version' => 'string',
+        'manifest_digest' => 'string',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'retired_at' => 'datetime',
+    ];
 }

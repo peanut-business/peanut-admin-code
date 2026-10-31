@@ -14,4 +14,19 @@ final class TenantSessionToken extends Model
         'id' => 'integer',
         'session_id' => 'integer',
     ];
+
+    /** @var array<string, string> Keep aligned with the Identity migrations. */
+    protected $schema = [
+        'id' => 'bigint',
+        'session_id' => 'bigint',
+        'token_type' => 'string',
+        'token_hash' => 'string',
+        'status' => 'string',
+        'parent_token_id' => 'bigint',
+        'replaced_by_token_id' => 'bigint',
+        'expires_at' => 'datetime',
+        'used_at' => 'datetime',
+        'revoked_at' => 'datetime',
+        'created_at' => 'datetime',
+    ];
 }
