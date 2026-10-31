@@ -3,14 +3,14 @@
     :is="workspaceShell"
     class="tenant-shell"
     :theme="theme"
-    :layout="shellPresentation.layout"
+    :layout="appearance.layout"
     :navigation-mode="navigationMode"
   >
     <template #header>
       <NavBar
         v-if="appStore.navbar"
         :navigation-mode="navigationMode"
-        :brand="shellPresentation.brand"
+        :brand="appearance.brand"
       >
         <template #header-context
           ><ShellContributions name="header-context"
@@ -45,10 +45,7 @@
       </el-drawer>
     </template>
     <template #breadcrumb>
-      <el-breadcrumb
-        v-if="shellPresentation.breadcrumb"
-        class="tenant-breadcrumb"
-      >
+      <el-breadcrumb v-if="appearance.breadcrumb" class="tenant-breadcrumb">
         <el-breadcrumb-item v-for="item in breadcrumbs" :key="item.path">{{
           item.label
         }}</el-breadcrumb-item>
@@ -70,7 +67,6 @@
   import { useI18n } from 'vue-i18n';
   import { useAppStore, useUserStore } from '@/store';
   import { workspaceShell } from '@/core/runtime';
-  import { shellPresentation } from '@/peanut.overrides';
   import NavBar from '@/components/navbar/index.vue';
   import Menu from '@/components/menu/index.vue';
   import Footer from '@/components/footer/index.vue';
@@ -88,23 +84,17 @@
   const permission = usePermission();
   const { t, te } = useI18n();
   useResponsive(true);
-  const navigationMode = computed(() =>
-    shellPresentation.navigationMode === 'tree' && appStore.topMenu
-      ? 'top'
-      : shellPresentation.navigationMode
-  );
+  const appearance = computed(() => appStore.shellAppearance);
+  const navigationMode = computed(() => appearance.value.navigationMode);
   const isTop = computed(
     () => navigationMode.value === 'top' && appStore.device !== 'mobile'
   );
   const theme = computed(() => ({
-    ...shellPresentation.theme,
-    mode:
-      shellPresentation.theme.mode ??
-      (appStore.theme === 'dark' ? ('dark' as const) : ('light' as const)),
-    colors: { primary: appStore.themeColor, ...shellPresentation.theme.colors },
+    ...appearance.value.theme,
+    colors: { primary: appStore.themeColor, ...appearance.value.theme.colors },
     tokens: {
       '--pa-shell-sidebar-width': `${appStore.menuWidth}px`,
-      ...shellPresentation.theme.tokens,
+      ...appearance.value.theme.tokens,
     },
   }));
   const breadcrumbs = computed(() =>
