@@ -122,6 +122,12 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         if (!$admin instanceof AdminPrincipal) {
             return new AdminAccessData([], []);
         }
+        return $this->accessDataForPrincipal($tenantContext, $admin);
+    }
+
+    /** The caller has loaded and validated this principal in the current invocation. */
+    private function accessDataForPrincipal(TenantContext $tenantContext, AdminPrincipal $admin): AdminAccessData
+    {
         $bridge = $this->moduleAdmin;
         $native = $bridge->adminShellAccessData($tenantContext);
         $permissions = $native['permissions'];
@@ -132,6 +138,7 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
                 $permissions,
                 $native['registered_system_menu_permissions'],
                 $native['managed_menu_keys'],
+                $native['system_menu_rows'],
             ), null, 'menu_key'),
             array_column($native['menu'], null, 'menu_key'),
         ));
@@ -152,15 +159,18 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         return new AdminAccessData(
             menu: linear_to_tree($menus, 'children', 'menu_key', 'parent_key'),
             permissions: array_values(array_unique($permissions)),
-            actionBindings: $this->actionBindings($tenantContext),
+            actionBindings: $this->actionBindings(
+                $native['system_menu_rows'],
+                $native['managed_menu_keys'],
+                $native['assignable_menu_records'],
+            ),
         );
     }
 
-    private function actionBindings(TenantContext $context): array
+    private function actionBindings(array $rows, array $managedMenuKeys, array $assignableMenuRecords): array
     {
-        $rows = SystemMenu::order('id')->select()->toArray();
-        $managed = array_fill_keys($this->moduleAdmin->managedMenuKeys(), true);
-        $pages = array_column($this->moduleAdmin->assignableMenuRecords($context->tenantId), null, 'menu_key');
+        $managed = array_fill_keys($managedMenuKeys, true);
+        $pages = array_column($assignableMenuRecords, null, 'menu_key');
         foreach ($rows as $row) {
             if ($row['type'] === 'C' && !isset($managed[$row['menu_key']]) && (int) $row['is_disable'] === 0) {
                 $pages[$row['menu_key']] = $row;
@@ -190,7 +200,10 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         }
 
         try {
-            return $this->accessData($tenantContext, $this->principal($tenantContext))->menu;
+            $admin = $this->principal($tenantContext);
+            return $this->validContext($tenantContext, $admin)
+                ? $this->accessDataForPrincipal($tenantContext, $admin)->menu
+                : [];
         } catch (\Throwable) {
             return [];
         }
@@ -372,32 +385,34 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         return $this->moduleAdmin->accessData($tenantContext)['menu'];
     }
 
-    /** @param list<string> $permissions @param list<string> $registered @param list<string> $managedMenuKeys */
+    /** @param list<string> $permissions @param list<string> $registered @param list<string> $managedMenuKeys
+     * @param list<array<string,mixed>> $systemMenus
+     */
     private function compatibilityMenus(
         TenantContext $tenantContext,
         AdminPrincipal $admin,
         array $permissions,
         array $registered,
         array $managedMenuKeys,
+        array $systemMenus,
     ): array {
         if (!$this->validContext($tenantContext, $admin)) {
             return [];
         }
 
         $visiblePermissions = array_values(array_intersect($permissions, $registered));
-        $query = SystemMenu::where('type', 'in', ['M', 'C'])
-            ->where('is_disable', 0)
-            ->whereNotIn('perms', InstanceControlPlanePolicy::tenantAdminPermissions())
-            ->whereNotIn('paths', InstanceControlPlanePolicy::tenantAdminPaths())
-            ->where(static function ($query) use ($visiblePermissions): void {
-                $query->where('perms', '')->whereOr('perms', 'in', $visiblePermissions ?: ['__none__']);
-            });
-
         $nativeKeys = array_fill_keys($managedMenuKeys, true);
-        return array_values(array_filter(
-            $query->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray(),
-            static fn(array $row): bool => !isset($nativeKeys[$row['menu_key']]),
+        $menus = array_values(array_filter(
+            $systemMenus,
+            static fn(array $row): bool => in_array($row['type'], ['M', 'C'], true)
+                && (int) $row['is_disable'] === 0
+                && !in_array($row['perms'], InstanceControlPlanePolicy::tenantAdminPermissions(), true)
+                && !in_array($row['paths'], InstanceControlPlanePolicy::tenantAdminPaths(), true)
+                && ($row['perms'] === '' || in_array($row['perms'], $visiblePermissions ?: ['__none__'], true))
+                && !isset($nativeKeys[$row['menu_key']]),
         ));
+        usort($menus, static fn(array $a, array $b): int => [-$a['sort'], $a['id']] <=> [-$b['sort'], $b['id']]);
+        return $menus;
     }
 
     private function validContext(?TenantContext $context, AdminPrincipal $admin): bool
