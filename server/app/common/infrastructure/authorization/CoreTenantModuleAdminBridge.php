@@ -275,14 +275,11 @@ final readonly class CoreTenantModuleAdminBridge
     /** Read current grants without retaining them beyond this projection. @return list<string> */
     public function basePermissions(TenantContext $tenantContext): array
     {
-        $permissions = array_values(array_unique([
-            ...$this->authorization->permissions(
-                $tenantContext->tenantId,
-                $tenantContext->memberId,
-            )->keys(),
-            ...$this->applicationPermissions($tenantContext),
-        ]));
-        return array_values(array_intersect($permissions, $this->entitlements->permissionKeys($tenantContext->tenantId)));
+        // Identity's effective set already includes application grants and the license ceiling.
+        return $this->authorization->permissions(
+            $tenantContext->tenantId,
+            $tenantContext->memberId,
+        )->keys();
     }
 
     /** @param list<string> $active @param list<string> $corePermissions @return list<string> */
@@ -327,12 +324,6 @@ final readonly class CoreTenantModuleAdminBridge
         }
 
         return array_values(array_unique($permissions));
-    }
-
-    /** @return list<string> */
-    private function applicationPermissions(TenantContext $context): array
-    {
-        return $this->identityAuthorization->applicationPermissionKeys($context);
     }
 
     /** @return list<string> */
