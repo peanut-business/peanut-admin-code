@@ -200,6 +200,7 @@ final readonly class Dependencies
         }
         $composerPath = $this->serverRoot . '/composer.json';
         $composer = $this->json($composerPath);
+        $localCore = (PHP_SAPI !== 'cli' || $verifyOnly) ? $this->localCoreProjection() : null;
         $composerNames = [];
         $runtimeRequirements = [];
         $clients = [];
@@ -232,7 +233,15 @@ final readonly class Dependencies
             }
             $package = $this->json($root . '/composer.json');
             $runtimeRequirements[] = [$package['name'] => $package['version']];
-            $runtimeRequirements[] = $package['require'] ?? [];
+            $requirements = $package['require'] ?? [];
+            if ($localCore !== null && isset($requirements['peanut-admin/core'])) {
+                $range = $localCore[$package['name']] ?? null;
+                if (!is_string($range)) {
+                    throw new PluginPackageException('MODULE_RELEASE_PREPARATION_REQUIRED', 'Prepare the selected local Module Core projection through the native dependency CLI.');
+                }
+                $requirements['peanut-admin/core'] = $range;
+            }
+            $runtimeRequirements[] = $requirements;
             $name = $package['name'];
             $relative = substr($root, strlen($this->serverRoot) + 1);
             $repository = ['type' => 'path', 'url' => $relative, 'options' => ['symlink' => false]];
@@ -492,12 +501,11 @@ final readonly class Dependencies
         return $data;
     }
 
-    private function run(array $command, string $directory): array
+    private function localCoreSelection(): ?array
     {
         $project = dirname($this->serverRoot);
-        $tool = $command[0];
         $selectionPath = $project . '/.local/core-dev.json';
-        if ($tool === 'composer' && (file_exists($selectionPath) || is_link($selectionPath))) {
+        if (file_exists($selectionPath) || is_link($selectionPath)) {
             $selection = $this->json($selectionPath);
             if (is_link($selectionPath) || ($selection['schema_version'] ?? null) !== 1
                 || ($selection['application_root'] ?? null) !== realpath($project)) {
@@ -509,6 +517,38 @@ final readonly class Dependencies
                     throw new PluginPackageException('MODULE_DEPENDENCY_SOURCE_CONFLICT', 'The local Core selection requires absolute source and environment paths.');
                 }
             }
+            return $selection;
+        }
+        return null;
+    }
+
+    /** Read the existing native development projection; never resolve or install dependencies here. */
+    private function localCoreProjection(): ?array
+    {
+        $selection = $this->localCoreSelection();
+        if ($selection === null) { return null; }
+        $source = $selection['php_core_dir'];
+        $core = realpath(is_file($source . '/composer.json') ? $source : $source . '/packages/php');
+        if ($core === false || realpath(InstalledVersions::getInstallPath('peanut-admin/core') ?? '') !== $core) {
+            throw new PluginPackageException('MODULE_DEPENDENCY_SOURCE_CONFLICT', 'Installed Core must use the explicitly selected local source.');
+        }
+        $projection = $this->json(dirname($this->serverRoot) . '/.local/composer-core/composer.json');
+        $packages = [];
+        foreach ($projection['repositories'] ?? [] as $repository) {
+            if (($repository['type'] ?? null) === 'package') {
+                $package = $repository['package'];
+                $packages[$package['name']] = $package['require']['peanut-admin/core'] ?? null;
+            }
+        }
+        return $packages;
+    }
+
+    private function run(array $command, string $directory): array
+    {
+        $project = dirname($this->serverRoot);
+        $tool = $command[0];
+        $selection = $tool === 'composer' ? $this->localCoreSelection() : null;
+        if ($selection !== null) {
             $command = [$project . '/scripts/local-core-composer', 'install',
                 '--core-dir', $selection['php_core_dir'], '--backend-env', $selection['backend_env']];
             $tool = 'local-core-composer';
