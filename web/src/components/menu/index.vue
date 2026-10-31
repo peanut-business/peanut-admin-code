@@ -16,6 +16,7 @@
     ElIcon,
     ElMenu,
     ElMenuItem,
+    ElMenuItemGroup,
     ElSubMenu,
     type MenuInstance,
   } from 'element-plus';
@@ -83,8 +84,11 @@
   };
 
   export default defineComponent({
+    props: {
+      navigationMode: { type: String, default: 'tree' },
+    },
     emits: ['collapse'],
-    setup() {
+    setup(props) {
       const { t, te } = useI18n();
       const appStore = useAppStore();
       const router = useRouter();
@@ -93,7 +97,8 @@
       const menuRef = ref<MenuInstance>();
       const collapsed = computed({
         get() {
-          if (appStore.device === 'desktop') return appStore.menuCollapse;
+          if (appStore.device === 'desktop' && props.navigationMode === 'tree')
+            return appStore.menuCollapse;
           return false;
         },
         set(value: boolean) {
@@ -102,13 +107,19 @@
       });
 
       const topMenu = computed(
-        () => appStore.topMenu && appStore.device !== 'mobile'
+        () =>
+          props.navigationMode !== 'grouped' &&
+          (props.navigationMode === 'top' || appStore.topMenu) &&
+          appStore.device !== 'mobile'
       );
       const openKeys = ref<string[]>([]);
       const selectedKey = ref<string[]>([]);
       const submenuKeys = new Set<string>();
       const showCollapseButton = computed(
-        () => appStore.device !== 'mobile' && !topMenu.value
+        () =>
+          appStore.device !== 'mobile' &&
+          !topMenu.value &&
+          props.navigationMode === 'tree'
       );
 
       const updateSelectedKey = (key?: string) => {
@@ -133,7 +144,11 @@
       const goto = (item: RouteRecordRaw) => {
         // Open external link
         if (regexUrl.test(item.path)) {
-          openWindow(item.path);
+          openWindow(item.path, {
+            target: item.meta?.target === '_self' ? '_self' : '_blank',
+            noopener: true,
+            noreferrer: true,
+          });
           updateSelectedKey(item.name as string);
           return;
         }
@@ -233,6 +248,16 @@
           return _route.map((element) => {
             const index = element.name as string;
             if (element.children?.length) {
+              if (props.navigationMode === 'grouped') {
+                return h(
+                  ElMenuItemGroup,
+                  { key: index },
+                  {
+                    title: () => renderLabel(element),
+                    default: () => travel(element.children as RouteRecordRaw[]),
+                  }
+                );
+              }
               submenuKeys.add(index);
               return h(
                 ElSubMenu,
