@@ -217,10 +217,12 @@ final readonly class AdminDirectoryQuery
         ] : null;
     }
 
-    /** @return null|array{tenant_name:string,username:string,avatar:string,last_login_at:mixed} */
-    public function activePrincipalProfile(int $tenantId, int $accountId): ?array
+    /** A single current membership/credential projection; the optional count serves the Admin shell.
+     * @return null|array{tenant_name:string,username:string,avatar:string,last_login_at:mixed,member:Dto\TenantMemberSummary,switchable_tenant_count?:int}
+     */
+    public function activePrincipalProfile(int $tenantId, int $accountId, bool $includeTenantCount = false): ?array
     {
-        $row = TenantMember::alias('member')
+        $query = TenantMember::alias('member')
             ->join('tenant tenant', "tenant.id = member.tenant_id AND tenant.status = 'active'")
             ->join('account account', "account.id = member.account_id AND account.status = 'active'")
             ->join('credential credential', "credential.account_id = account.id AND credential.kind = 'email_password' AND credential.identifier_type = 'email' AND credential.status = 'active'")
@@ -228,17 +230,45 @@ final readonly class AdminDirectoryQuery
             ->where('member.account_id', $accountId)
             ->where('member.status', 'active')
             ->field([
-                'tenant.name' => 'tenant_name',
-                'credential.identifier_normalized' => 'username',
-                'account.avatar_uri' => 'avatar',
-                'account.last_login_at',
-            ])->find()?->toArray();
-
-        return $row === null ? null : [
+                'member.id' => 'member_id', 'member.tenant_id', 'member.account_id', 'member.display_name',
+                'member.primary_department_id', 'member.security_revision', 'member.authorization_revision',
+                'account.display_name' => 'account_display_name',
+                'account.security_revision' => 'account_security_revision',
+                'tenant.security_revision' => 'tenant_security_revision',
+                'tenant.name' => 'tenant_name', 'credential.identifier_normalized' => 'username',
+                'account.avatar_uri' => 'avatar', 'account.last_login_at',
+            ]);
+        if ($includeTenantCount) {
+            $count = TenantMember::alias('candidate')
+                ->join('tenant candidate_tenant', "candidate_tenant.id = candidate.tenant_id AND candidate_tenant.status = 'active'")
+                ->join('account candidate_account', "candidate_account.id = candidate.account_id AND candidate_account.status = 'active'")
+                ->whereColumn('candidate.account_id', 'member.account_id')
+                ->where('candidate.status', 'active')->fieldRaw('COUNT(*)');
+            $query->fieldRaw('(' . $count->buildSql(false) . ') AS switchable_tenant_count');
+        }
+        $row = $query->find()?->toArray();
+        if ($row === null) {
+            return null;
+        }
+        $displayName = trim((string) ($row['display_name'] ?: $row['account_display_name']));
+        if ($displayName === '') {
+            return null;
+        }
+        $result = [
             'tenant_name' => (string) $row['tenant_name'],
             'username' => (string) $row['username'],
             'avatar' => (string) ($row['avatar'] ?? ''),
-            'last_login_at' => $row['last_login_at'] ?? null,
+            'last_login_at' => $row['last_login_at'],
+            'member' => new Dto\TenantMemberSummary(
+                (int) $row['tenant_id'], (int) $row['member_id'], (int) $row['account_id'], $displayName,
+                (int) $row['account_security_revision'], (int) $row['tenant_security_revision'],
+                (int) $row['security_revision'], (int) $row['authorization_revision'],
+                $row['primary_department_id'] === null ? null : (int) $row['primary_department_id'],
+            ),
         ];
+        if ($includeTenantCount) {
+            $result['switchable_tenant_count'] = (int) $row['switchable_tenant_count'];
+        }
+        return $result;
     }
 }
