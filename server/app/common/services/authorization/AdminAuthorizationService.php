@@ -34,12 +34,13 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
 
     public function principal(TenantContext $tenantContext): AdminPrincipal
     {
-        $profile = $this->directory->activePrincipalProfile($tenantContext->tenantId, $tenantContext->accountId, true);
-        if ($profile === null || $profile['member']->memberId !== $tenantContext->memberId) {
+        $snapshot = $this->directory->activePrincipalProfileWithRoles($tenantContext->tenantId, $tenantContext->accountId, true);
+        if ($snapshot === null || $snapshot['profile']['member']->memberId !== $tenantContext->memberId) {
             throw new \DomainException('TENANT_ADMIN_PRINCIPAL_UNAVAILABLE');
         }
+        $profile = $snapshot['profile'];
         $member = $profile['member'];
-        $roles = $this->identityAuthorization->roles($tenantContext->tenantId, $tenantContext->memberId);
+        $roles = $snapshot['roles'];
         $switchableTenantCount = $profile['switchable_tenant_count'];
         $root = false;
         foreach ($roles as $role) {

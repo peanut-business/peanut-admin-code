@@ -223,6 +223,56 @@ final readonly class AdminDirectoryQuery
      */
     public function activePrincipalProfile(int $tenantId, int $accountId, bool $includeTenantCount = false): ?array
     {
+        $row = $this->principalProfileQuery($tenantId, $accountId, $includeTenantCount)->find()?->toArray();
+
+        return $row === null ? null : $this->principalProfileFromRow($row, $includeTenantCount);
+    }
+
+    /**
+     * Current principal and active roles in one read, without retaining state between calls.
+     * @return null|array{profile:array{tenant_name:string,username:string,avatar:string,last_login_at:mixed,member:Dto\TenantMemberSummary,switchable_tenant_count?:int},roles:list<array{id:int,key:string,name:string,is_builtin:bool}>}
+     */
+    public function activePrincipalProfileWithRoles(int $tenantId, int $accountId, bool $includeTenantCount = false): ?array
+    {
+        // Select the same single profile before expanding roles: credentials are unique by identifier, not account.
+        $profileSql = $this->principalProfileQuery($tenantId, $accountId, $includeTenantCount)->limit(1)->buildSql();
+        $rows = \think\facade\Db::table($profileSql)->alias('principal_profile')
+            ->leftJoin('member_role membership', 'membership.tenant_id = principal_profile.tenant_id AND membership.tenant_member_id = principal_profile.member_id')
+            ->leftJoin('role role', "role.tenant_id = membership.tenant_id AND role.id = membership.role_id AND role.status = 'active'")
+            ->field([
+                'principal_profile.*',
+                'role.id' => 'principal_role_id',
+                'role.key' => 'principal_role_key',
+                'role.name' => 'principal_role_name',
+                'role.is_builtin' => 'principal_role_is_builtin',
+            ])
+            ->order('role.key')->order('role.id')->select()->toArray();
+        if ($rows === []) {
+            return null;
+        }
+        $profile = $this->principalProfileFromRow($rows[0], $includeTenantCount);
+        if ($profile === null) {
+            return null;
+        }
+        $roles = [];
+        foreach ($rows as $row) {
+            // An active principal with no active roles must remain available.
+            if ($row['principal_role_id'] === null) {
+                continue;
+            }
+            $roles[] = [
+                'id' => (int) $row['principal_role_id'],
+                'key' => (string) $row['principal_role_key'],
+                'name' => (string) $row['principal_role_name'],
+                'is_builtin' => (int) $row['principal_role_is_builtin'] === 1,
+            ];
+        }
+
+        return ['profile' => $profile, 'roles' => $roles];
+    }
+
+    private function principalProfileQuery(int $tenantId, int $accountId, bool $includeTenantCount): \think\db\Query
+    {
         $query = TenantMember::alias('member')
             ->join('tenant tenant', "tenant.id = member.tenant_id AND tenant.status = 'active'")
             ->join('account account', "account.id = member.account_id AND account.status = 'active'")
@@ -248,10 +298,15 @@ final readonly class AdminDirectoryQuery
                 ->where('candidate.status', 'active')->fieldRaw('COUNT(*)');
             $query->fieldRaw('(' . $count->buildSql(false) . ') AS switchable_tenant_count');
         }
-        $row = $query->find()?->toArray();
-        if ($row === null) {
-            return null;
-        }
+        return $query;
+    }
+
+    /**
+     * @param array<string,mixed> $row
+     * @return null|array{tenant_name:string,username:string,avatar:string,last_login_at:mixed,member:Dto\TenantMemberSummary,switchable_tenant_count?:int}
+     */
+    private function principalProfileFromRow(array $row, bool $includeTenantCount): ?array
+    {
         $displayName = trim((string) ($row['display_name'] ?: $row['account_display_name']));
         if ($displayName === '') {
             return null;
