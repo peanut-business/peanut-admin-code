@@ -17,8 +17,8 @@ final class ResourceOperationRecord extends Model
 
     /** @var array<string, string> Keep aligned with the Identity migrations. */
     protected $schema = [
-        'id' => 'bigint',
-        'protected_resource_id' => 'bigint',
+        'id' => 'integer',
+        'protected_resource_id' => 'integer',
         'operation' => 'string',
         'access_mode' => 'string',
         'target_cardinality' => 'string',

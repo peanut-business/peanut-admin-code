@@ -14,7 +14,7 @@ final class ResourceOperationTargetTypeRecord extends Model
 
     /** @var array<string, string> Keep aligned with the Identity migrations. */
     protected $schema = [
-        'id' => 'bigint',
+        'id' => 'integer',
         'resource_operation_id' => 'bigint',
         'target_type_id' => 'bigint',
         'target_role' => 'string',

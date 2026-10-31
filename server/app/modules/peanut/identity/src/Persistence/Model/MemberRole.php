@@ -16,10 +16,10 @@ final class MemberRole extends \PeanutAdmin\Kernel\Persistence\Model\TenantModel
 
     /** @var array<string, string> Keep aligned with the Identity migrations. */
     protected $schema = [
-        'id' => 'bigint',
-        'tenant_id' => 'bigint',
-        'tenant_member_id' => 'bigint',
-        'role_id' => 'bigint',
+        'id' => 'integer',
+        'tenant_id' => 'integer',
+        'tenant_member_id' => 'integer',
+        'role_id' => 'integer',
         'assigned_by_member_id' => 'bigint',
         'assigned_at' => 'datetime',
     ];

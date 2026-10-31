@@ -17,8 +17,8 @@ final class TenantSessionToken extends Model
 
     /** @var array<string, string> Keep aligned with the Identity migrations. */
     protected $schema = [
-        'id' => 'bigint',
-        'session_id' => 'bigint',
+        'id' => 'integer',
+        'session_id' => 'integer',
         'token_type' => 'string',
         'token_hash' => 'string',
         'status' => 'string',

@@ -17,9 +17,9 @@ final class TenantMember extends \PeanutAdmin\Kernel\Persistence\Model\TenantMod
 
     /** @var array<string, string> Keep aligned with the Identity migrations. */
     protected $schema = [
-        'id' => 'bigint',
-        'tenant_id' => 'bigint',
-        'account_id' => 'bigint',
+        'id' => 'integer',
+        'tenant_id' => 'integer',
+        'account_id' => 'integer',
         'member_no' => 'string',
         'display_name' => 'string',
         'member_type' => 'string',

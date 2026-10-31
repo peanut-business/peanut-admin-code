@@ -14,7 +14,7 @@ final class DataConditionDefinitionRecord extends Model
 
     /** @var array<string, string> Keep aligned with the Identity migrations. */
     protected $schema = [
-        'id' => 'bigint',
+        'id' => 'integer',
         'key' => 'string',
         'module_key' => 'string',
         'category' => 'string',

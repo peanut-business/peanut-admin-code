@@ -20,13 +20,13 @@ final class ModuleInstallation extends Model
 
     /** @var array<string, string> Keep aligned with the Identity migrations. */
     protected $schema = [
-        'id' => 'bigint',
+        'id' => 'integer',
         'module_key' => 'string',
         'installed_version' => 'string',
-        'manifest_schema_version' => 'int',
+        'manifest_schema_version' => 'integer',
         'manifest_digest' => 'string',
         'status' => 'string',
-        'revision' => 'bigint',
+        'revision' => 'integer',
         'installed_at' => 'datetime',
         'activated_at' => 'datetime',
         'upgraded_at' => 'datetime',

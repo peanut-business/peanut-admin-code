@@ -16,10 +16,10 @@ final class RolePermission extends \PeanutAdmin\Kernel\Persistence\Model\TenantM
 
     /** @var array<string, string> Keep aligned with the Identity migrations. */
     protected $schema = [
-        'id' => 'bigint',
-        'tenant_id' => 'bigint',
-        'role_id' => 'bigint',
-        'permission_id' => 'bigint',
+        'id' => 'integer',
+        'tenant_id' => 'integer',
+        'role_id' => 'integer',
+        'permission_id' => 'integer',
         'granted_by_member_id' => 'bigint',
         'granted_at' => 'datetime',
     ];

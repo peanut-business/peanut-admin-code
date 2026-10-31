@@ -14,8 +14,8 @@ final class TenantEntryBinding extends \PeanutAdmin\Kernel\Persistence\Model\Ten
 
     /** @var array<string, string> Keep aligned with the Identity migrations. */
     protected $schema = [
-        'id' => 'bigint',
-        'tenant_id' => 'bigint',
+        'id' => 'integer',
+        'tenant_id' => 'integer',
         'host' => 'string',
         'client_key' => 'string',
         'status' => 'string',
