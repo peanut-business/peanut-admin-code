@@ -53,3 +53,30 @@ onBeforeUnmount(runtime.dispose);
 例如在已有可信执行上下文及授权的模块用例中构造注入 `DictionaryQuery $dictionary`，调用 `$dictionary->enabledByType($context, 'your-type')`，映射返回 DTO 的 `name` / `value`。不要直接读写字典私表或导出 ORM。该读取合并共享系统项与当前租户启用项，重复 value 以系统项优先；空列表表示没有启用选项，权限/网络/数据库错误不应被消费者改成空列表。
 
 DictionaryQuery/Commands 要求宿主先建立正式租户执行 Scope，并在用例入口校验权限；TenantContext 参数不替代执行 Scope 或调用方授权。现有 HTTP 入口带登录、模块、权限中间件。写入的类型冲突/被占用、跨租户不存在等错误沿现有业务异常处理，不由复用方绕过。模块停用拒绝新操作，保留字典数据；目录同步属于部署生命周期，不授予普通业务调用方安装模块或写任意租户数据的权限。
+
+## 查询与命令组合及拒绝例
+
+在已有正式租户 Scope、授权和输入校验的模块用例中，注入公开接口；下面方法体中的 `$context` 是可信 `TenantContext`，`$entryId` 是当前租户已选条目 ID：
+
+```php
+use PeanutAdmin\Modules\ReferenceCodes\Contract\DictionaryQuery;
+use PeanutAdmin\Modules\ReferenceCodes\Contract\TenantDictionaryCommands;
+use PeanutAdmin\Modules\ReferenceCodes\Dto\DictionaryEntryDto;
+
+// 由宿主原生容器注入，不自行 new 数据库 provider 或建立另一份 registry。
+public function __construct(
+    private DictionaryQuery $dictionary,
+    private TenantDictionaryCommands $dictionaryCommands,
+) {}
+
+// 在已授权的用例方法体中：
+$this->dictionaryCommands->setEntryDisabled($context, $entryId, false);
+$options = array_map(
+    static fn(DictionaryEntryDto $entry): array => ['label' => $entry->name, 'value' => $entry->value],
+    $this->dictionary->enabledByType($context, 'catalog-status'),
+);
+```
+
+`ModuleProvider` 将两个接口绑定到现有 `DictionaryRuntime`，后者使用已有租户/系统 provider；部署的版本化代码集则使用现有 `DeployedReferenceCodeSetRegistry` → `ReferenceCodeSetRegistry`。普通字典查询不需要往版本化 registry 再声明一次。自定义页面只选择上述字典 API 或版本化 runtime 中对应业务的一条数据链；复用已加载的结果，不同时发两种查询来拼相同选项。
+
+拒绝例：删除仍有数据项的字典类型时，`deleteType($context, $typeId)` 抛出 `DICTIONARY_TYPE_IN_USE`；重复类型标识写入抛出 `DICTIONARY_TYPE_EXISTS`。让现有业务错误边界呈现失败，不把它变成成功、先删数据项或直接写私表。其他租户的 ID 保持不存在语义，不能通过传入请求中的 tenant ID 切换 Scope。无读/写权限仍在宿主入口拒绝；接口参数本身不授予权限。

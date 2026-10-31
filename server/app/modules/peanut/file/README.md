@@ -43,10 +43,12 @@ onBeforeUnmount(runtime.dispose);
 <template>
   <FileAssetSelector
     :items="runtime.state.items"
+    :selected-file-key="runtime.state.selectedFileKey"
     :loading="runtime.state.loading"
     :error="runtime.state.error?.message ?? null"
+    :disabled="!props.canRead"
     @retry="runtime.load()"
-    @select="emit('select', $event.fileKey)"
+    @select="runtime.select($event); emit('select', $event.fileKey)"
   />
 </template>
 ```
@@ -61,6 +63,33 @@ pagination, loading and error state.
 network/invalid-response failures have no HTTP status. This optional transport
 uses native fetch; it does not provide the management Axios interceptor's token
 refresh flow. Do not persist preview/delivery URLs. Persist only `fileKey`.
+
+If the owner already loaded authorized `AssetCandidate[]`, pass that data and its
+loading/error/selection state directly to `FileAssetSelector`; handle `select` and
+`retry` in the owner. Do not also create/load a runtime for the same list. In the
+example above, this owner performs the single initial load; do not additionally
+mount `FileMediaPage`, which owns its own load.
+
+For a refusal example, `canRead: () => false` makes `runtime.load()` set
+`state.error.status` to 403 without issuing a request. Render that error and keep
+the selector disabled. An HTTP 403 from the server is also an error, never an
+empty successful result. The host must dispose the old runtime when permission or
+identity changes; disabling a button alone does not revoke access to old data.
+
+Choose the entry by the consumer's stored contract. The existing host
+`web/src/components/file-picker/index.vue` serves user settings and PC/mobile/tabbar
+decoration: it supports categories, upload, image/video/file types and multi-select,
+and emits `select(urls, FileRecord[])`. Those consumers retain that native entry.
+`FileMediaPage` and new stable-reference image-asset consumers use
+`FileAssetSelector` and `fileKey`. These are different data contracts; do not mount
+both pickers for one selection, convert a delivery URL into a stable reference, or
+replace the host picker with an asset-only list that drops its required features.
+
+Visibility changes remain the separate management workflow described below.
+Selecting an asset never changes visibility; preview access never grants
+`peanut.file.visibility.change`. Reuse `views/FileVisibilityDialog.vue` through
+the existing File management page for preflight/confirmation/progress rather than
+adding a visibility write to `select` or a second batch-submission path.
 
 Backend consumers inject declared contracts from `PeanutAdmin\Modules\File\Contract`
 through the compiled module's native provider bindings, rather than reading File
