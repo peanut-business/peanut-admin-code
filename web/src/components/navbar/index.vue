@@ -3,9 +3,9 @@
     <div class="left-side">
       <div class="left-content">
         <img
-          v-if="brandStore.website.web_logo"
+          v-if="brand?.logo || brandStore.website.web_logo"
           alt="logo"
-          :src="brandStore.website.web_logo"
+          :src="brand?.logo || brandStore.website.web_logo"
           style="width: 28px; height: 28px"
         />
         <h5 class="brand-title" :title="brandTitle" :aria-label="brandTitle">
@@ -24,9 +24,11 @@
       </div>
     </div>
     <div class="center-side">
-      <MenuComponent v-if="topMenu" />
+      <MenuComponent v-if="topMenu" navigation-mode="top" />
     </div>
+    <slot name="header-context" />
     <ul class="right-side">
+      <li><slot name="header-actions" /></li>
       <li>
         <el-tooltip :content="$t('settings.search')">
           <el-button
@@ -327,16 +329,27 @@
     const identity = userStore.name?.trim() || userStore.email?.trim() || '?';
     return Array.from(identity)[0]?.toLocaleUpperCase() || '?';
   });
-  const brandTitle = computed(() =>
-    userStore.tenantName
-      ? `${userStore.tenantName} - ${brandStore.website.name}`
-      : brandStore.website.name
+  const props = defineProps<{
+    navigationMode?: 'tree' | 'grouped' | 'top';
+    brand?: { name?: string; logo?: string };
+  }>();
+  const brandTitle = computed(
+    () =>
+      props.brand?.name ||
+      (userStore.tenantName
+        ? `${userStore.tenantName} - ${brandStore.website.name}`
+        : brandStore.website.name)
   );
   const theme = computed(() => {
     return appStore.theme;
   });
   const topMenu = computed(
-    () => appStore.topMenu && appStore.menu && appStore.device !== 'mobile'
+    () =>
+      (props.navigationMode === undefined
+        ? appStore.topMenu
+        : props.navigationMode === 'top') &&
+      appStore.menu &&
+      appStore.device !== 'mobile'
   );
   const tenantSession = computed(
     () => getToken()?.startsWith('pa_tat_') === true
