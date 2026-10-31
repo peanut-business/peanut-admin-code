@@ -52,8 +52,11 @@ onBeforeUnmount(runtime.dispose);
 ```
 
 The host owns identity/tenant lifecycle: dispose the previous runtime on identity
-or tenant change and create/load a runtime for the new context. `load` cancels the
-previous request; `dispose` cancels pending work and clears assets/selection.
+or tenant change and create/load a runtime for the new context. `FileMediaPage`
+already clears/reloads on its current session/account/tenant/permission context.
+`load` cancels the
+previous request; `dispose` cancels pending work and clears assets, selection,
+pagination, loading and error state.
 `state.error` carries a message, HTTP status and request ID when available;
 network/invalid-response failures have no HTTP status. This optional transport
 uses native fetch; it does not provide the management Axios interceptor's token
