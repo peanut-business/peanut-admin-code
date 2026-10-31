@@ -26,6 +26,10 @@ function allowedAppearanceValue<Value extends string>(
 const useAppStore = defineStore('app', {
   state: (): AppState => ({
     ...defaultSettings,
+    shellPreset: undefined,
+    shellLayout: undefined,
+    shellNavigationMode: undefined,
+    shellDensity: undefined,
     theme:
       localStorage.getItem('element-theme') ??
       shellPresentation.theme.mode ??
