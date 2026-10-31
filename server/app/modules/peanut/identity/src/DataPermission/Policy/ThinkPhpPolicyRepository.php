@@ -16,20 +16,39 @@ final readonly class ThinkPhpPolicyRepository implements \PeanutAdmin\DataPermis
 {
     public function revision(int $tenantId, int $memberId, int $operationId): \PeanutAdmin\DataPermission\Policy\PolicyRevision
     {
-        $row = Tenant::alias('t')
-            ->join('tenant_member tm', 'tm.tenant_id = t.id')
-            ->leftJoin('member_role member_role', 'member_role.tenant_id = t.id AND member_role.tenant_member_id = tm.id')
-            ->leftJoin('role r', 'r.tenant_id = t.id AND r.id = member_role.role_id')
-            ->leftJoin(
-                'data_permission_policy policy',
-                'policy.tenant_id = t.id AND policy.role_id = r.id AND policy.resource_operation_id = ' . $operationId,
-            )
-            ->leftJoin('data_permission_group policy_group', 'policy_group.tenant_id = t.id AND policy_group.data_permission_policy_id = policy.id')
-            ->leftJoin('data_permission_condition policy_condition', 'policy_condition.tenant_id = t.id AND policy_condition.data_permission_group_id = policy_group.id')
-            ->leftJoin('data_permission_target_set target_set', 'target_set.tenant_id = t.id AND target_set.id = policy_condition.target_set_id')
-            ->where('t.id', $tenantId)
-            ->where('tm.id', $memberId)
-            ->fieldRaw(<<<'SQL'
+        return $this->revisions($tenantId, $memberId, [$operationId])[$operationId];
+    }
+
+    /** @param list<int> $operationIds @return array<int, \PeanutAdmin\DataPermission\Policy\PolicyRevision> */
+    public function revisions(int $tenantId, int $memberId, array $operationIds): array
+    {
+        $revisions = [];
+        foreach (array_chunk(array_values(array_unique($operationIds)), 500) as $ids) {
+            $selected = [];
+            $bindings = [];
+            foreach ($ids as $index => $id) {
+                $selected[] = 'SELECT :operation_' . $index . ' AS operation_id';
+                $bindings['operation_' . $index] = $id;
+                $revisions[$id] = new \PeanutAdmin\DataPermission\Policy\PolicyRevision(hash('sha256', "missing:{$tenantId}:{$memberId}"), null);
+            }
+            // Selecting the requested IDs also preserves a revision for operations without policies.
+            $rows = Tenant::alias('t')
+                ->join('(' . implode(' UNION ALL ', $selected) . ') requested', 'TRUE')
+                ->bind($bindings)
+                ->join('tenant_member tm', 'tm.tenant_id = t.id')
+                ->leftJoin('member_role member_role', 'member_role.tenant_id = t.id AND member_role.tenant_member_id = tm.id')
+                ->leftJoin('role r', 'r.tenant_id = t.id AND r.id = member_role.role_id')
+                ->leftJoin(
+                    'data_permission_policy policy',
+                    'policy.tenant_id = t.id AND policy.role_id = r.id AND policy.resource_operation_id = requested.operation_id',
+                )
+                ->leftJoin('data_permission_group policy_group', 'policy_group.tenant_id = t.id AND policy_group.data_permission_policy_id = policy.id')
+                ->leftJoin('data_permission_condition policy_condition', 'policy_condition.tenant_id = t.id AND policy_condition.data_permission_group_id = policy_group.id')
+                ->leftJoin('data_permission_target_set target_set', 'target_set.tenant_id = t.id AND target_set.id = policy_condition.target_set_id')
+                ->where('t.id', $tenantId)
+                ->where('tm.id', $memberId)
+                ->fieldRaw(<<<'SQL'
+requested.operation_id AS requested_operation_id,
 t.authorization_revision AS tenant_revision,
 tm.authorization_revision AS member_revision,
 COALESCE(GROUP_CONCAT(DISTINCT CONCAT(
@@ -46,16 +65,19 @@ MIN(CASE
     ELSE NULL
 END) AS next_transition
 SQL)
-            ->group('t.id,t.authorization_revision,tm.authorization_revision')
-            ->find()?->toArray();
-        if ($row === null) {
-            return new \PeanutAdmin\DataPermission\Policy\PolicyRevision(hash('sha256', "missing:{$tenantId}:{$memberId}"), null);
+                ->group('requested.operation_id,t.id,t.authorization_revision,tm.authorization_revision')
+                ->select()->toArray();
+            foreach ($rows as $row) {
+                $id = (int) $row['requested_operation_id'];
+                // The auxiliary grouping key is not part of the original per-operation digest.
+                unset($row['requested_operation_id']);
+                $nextTransition = is_string($row['next_transition'])
+                    ? new DateTimeImmutable($row['next_transition'], new DateTimeZone('UTC'))
+                    : null;
+                $revisions[$id] = new \PeanutAdmin\DataPermission\Policy\PolicyRevision(hash('sha256', json_encode($row, JSON_THROW_ON_ERROR)), $nextTransition);
+            }
         }
-        $nextTransition = is_string($row['next_transition'])
-            ? new DateTimeImmutable($row['next_transition'], new DateTimeZone('UTC'))
-            : null;
-
-        return new \PeanutAdmin\DataPermission\Policy\PolicyRevision(hash('sha256', json_encode($row, JSON_THROW_ON_ERROR)), $nextTransition);
+        return $revisions;
     }
 
     public function load(int $tenantId, int $memberId, int $operationId): \PeanutAdmin\DataPermission\Policy\EffectivePolicySet
