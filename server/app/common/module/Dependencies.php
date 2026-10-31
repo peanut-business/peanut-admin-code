@@ -404,6 +404,12 @@ final readonly class Dependencies
         if (!in_array($edition, ['standalone', 'multi-tenant'], true)) {
             throw new PluginPackageException('MODULE_FRONTEND_EDITION_REQUIRED', 'The application deployment Edition is required for the native admin build.');
         }
+        $selection = $this->localCoreSelection();
+        if ($selection !== null) {
+            // Native dependency installs replace ignored links; restore the explicit source before building consumers.
+            $results['local-web-core'] = $this->run([$project . '/scripts/local-core-web', 'link',
+                '--core-dir', $selection['web_core_dir'], '--client', implode(',', $clients)], $project);
+        }
         foreach ($clients as $client) {
             if (in_array($client, ['web', 'platform'], true)) {
                 $target = dirname($this->serverRoot) . '/' . dirname($this->frontendEntry($client));
@@ -510,7 +516,7 @@ final readonly class Dependencies
                 || ($selection['application_root'] ?? null) !== realpath($project)) {
                 throw new PluginPackageException('MODULE_DEPENDENCY_SOURCE_CONFLICT', 'The local Core selection must belong to this application.');
             }
-            foreach (['php_core_dir', 'backend_env'] as $field) {
+            foreach (['php_core_dir', 'web_core_dir', 'backend_env'] as $field) {
                 $value = $selection[$field] ?? null;
                 if (!is_string($value) || !str_starts_with($value, '/') || preg_match('/[\x00-\x1f\x7f]/', $value) === 1) {
                     throw new PluginPackageException('MODULE_DEPENDENCY_SOURCE_CONFLICT', 'The local Core selection requires absolute source and environment paths.');
