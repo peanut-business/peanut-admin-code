@@ -208,7 +208,10 @@ class AppService extends Service
         $this->app->instance(ExecutionContextStore::class, $contexts);
         $this->app->instance(CurrentExecutionContext::class, $current);
         $configuredOverrides = Config::get('peanut.overrides', []);
-        CoreServiceOverrides::configure(is_array($configuredOverrides) ? $configuredOverrides : []);
+        if (!is_array($configuredOverrides)) {
+            throw new \RuntimeException('Peanut 核心服务覆盖配置必须是数组');
+        }
+        CoreServiceOverrides::configure($configuredOverrides);
         foreach (CoreServiceOverrides::registry()->bindings() as $contract => $implementation) {
             if (!$this->app->bound($contract)) {
                 $this->app->bind($contract, $implementation);
