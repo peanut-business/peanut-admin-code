@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "22f3793e010905e17b9ff5d2821e7dafbd87eb3b6b5cc769f59adb1d06d73e5c"
+        "sha256": "4f7b4d402a3c12443fd2d1691b9e37376ed40389ae09255b41e609739f59b841"
     },
     "trust": {
         "channel": "bundled",
@@ -66,7 +66,7 @@
         {
             "name": "@peanut-admin/peanut-task",
             "version": "1.0.6",
-            "integrity": "sha256-UAFlpHfEu1aDWb6AxlY1xAmpXLCWG60M5rbVp3EhhVA="
+            "integrity": "sha256-CxMwZtvVc47fya93vVG2qhp20uatTwOuvApcXpSyP3Y="
         }
     ],
     "frontend": [
