@@ -1,5 +1,79 @@
 # File composition
 
+## Reuse entries
+
+The management page `/system/file` uses the module's `web/src/modules/peanut-file/api.ts`
+for paginated files, category management and upload. File and category loading
+have separate error states and explicit retry actions; a failed category request
+does not prevent browsing files. Loading a different filter or page clears the
+previous result and selection. Cancellation and superseded responses do not show
+a failure for the current request.
+
+The frontend package exports `@peanut-admin/peanut-file/optional-runtime`:
+
+- `FileAssetSelector` takes `items: readonly AssetCandidate[]`, optional
+  `selectedFileKey`, `loading`, `error` and `disabled`; it emits `select(asset)`
+  and `retry`. It performs no HTTP or persistence itself.
+- `createFileAssetRuntime({ canRead, request? })` exposes reactive `state`,
+  `load(page?)`, `select(asset)` and `dispose()`. Its default request reads
+  `GET /adminapi/api/v1/files/assets?page_no=1&page_size=24` with the current
+  token. The canonical response is `{ data: { items }, meta: { request_id,
+  page, page_size, total } }`, validated by `parseAssetList`. A custom request
+  receives `(page, pageSize, signal)` and returns a native `Response`.
+- `createFileContentCallbacks` provides authorized preview/original-download
+  callbacks for the selected Content Tools viewer. It resolves current delivery
+  on demand; preview permission does not imply original-download permission.
+
+`FileMediaPage` is the actual selector/runtime consumer registered at
+`/system/file/assets`; `views/FileContentViewer.vue` consumes content callbacks.
+For a selector embedded in an existing authorized page:
+
+```vue
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted } from 'vue';
+import { FileAssetSelector, createFileAssetRuntime } from '@peanut-admin/peanut-file/optional-runtime';
+
+const props = defineProps<{ canRead: boolean }>();
+const emit = defineEmits<{ select: [fileKey: string] }>();
+const runtime = createFileAssetRuntime({ canRead: () => props.canRead });
+onMounted(() => runtime.load());
+onBeforeUnmount(runtime.dispose);
+</script>
+
+<template>
+  <FileAssetSelector
+    :items="runtime.state.items"
+    :loading="runtime.state.loading"
+    :error="runtime.state.error?.message ?? null"
+    @retry="runtime.load()"
+    @select="emit('select', $event.fileKey)"
+  />
+</template>
+```
+
+The host owns identity/tenant lifecycle: dispose the previous runtime on identity
+or tenant change and create/load a runtime for the new context. `FileMediaPage`
+already clears/reloads on its current session/account/tenant/permission context.
+`load` cancels the
+previous request; `dispose` cancels pending work and clears assets, selection,
+pagination, loading and error state.
+`state.error` carries a message, HTTP status and request ID when available;
+network/invalid-response failures have no HTTP status. This optional transport
+uses native fetch; it does not provide the management Axios interceptor's token
+refresh flow. Do not persist preview/delivery URLs. Persist only `fileKey`.
+
+Backend consumers inject declared contracts from `PeanutAdmin\Modules\File\Contract`
+through the compiled module's native provider bindings, rather than reading File
+Models. `FileUploads::image/video/file` takes the authenticated context,
+`Dto\UploadFile`, category and source and returns upload metadata;
+The host's `server/app/api/controller/UploadController.php` already consumes
+`FileUploads` for member uploads.
+`FileAccess::resolve($context, $fileKey, 'preview')` returns authorized access
+metadata or an unavailable result; missing permission/session/module or invalid
+resource fails through the existing business error boundary. Tenant context must
+come from the authenticated entry, never request-supplied tenant IDs. The
+remaining sections specify the existing reference and visibility contracts.
+
 The public `FileDocumentReferenceRegistry` is an application-composition contract.
 The composition root constructs it from the selected, compiled provider's
 `FileDocumentReferenceContributor` declaration and registers that instance in the
