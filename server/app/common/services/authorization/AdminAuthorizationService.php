@@ -138,7 +138,6 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
                 $permissions,
                 $native['registered_system_menu_permissions'],
                 $native['managed_menu_keys'],
-                $native['system_menu_rows'],
             ), null, 'menu_key'),
             array_column($native['menu'], null, 'menu_key'),
         ));
@@ -385,34 +384,32 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         return $this->moduleAdmin->accessData($tenantContext)['menu'];
     }
 
-    /** @param list<string> $permissions @param list<string> $registered @param list<string> $managedMenuKeys
-     * @param list<array<string,mixed>> $systemMenus
-     */
+    /** @param list<string> $permissions @param list<string> $registered @param list<string> $managedMenuKeys */
     private function compatibilityMenus(
         TenantContext $tenantContext,
         AdminPrincipal $admin,
         array $permissions,
         array $registered,
         array $managedMenuKeys,
-        array $systemMenus,
     ): array {
         if (!$this->validContext($tenantContext, $admin)) {
             return [];
         }
 
         $visiblePermissions = array_values(array_intersect($permissions, $registered));
+        $query = SystemMenu::where('type', 'in', ['M', 'C'])
+            ->where('is_disable', 0)
+            ->whereNotIn('perms', InstanceControlPlanePolicy::tenantAdminPermissions())
+            ->whereNotIn('paths', InstanceControlPlanePolicy::tenantAdminPaths())
+            ->where(static function ($query) use ($visiblePermissions): void {
+                $query->where('perms', '')->whereOr('perms', 'in', $visiblePermissions ?: ['__none__']);
+            });
+
         $nativeKeys = array_fill_keys($managedMenuKeys, true);
-        $menus = array_values(array_filter(
-            $systemMenus,
-            static fn(array $row): bool => in_array($row['type'], ['M', 'C'], true)
-                && (int) $row['is_disable'] === 0
-                && !in_array($row['perms'], InstanceControlPlanePolicy::tenantAdminPermissions(), true)
-                && !in_array($row['paths'], InstanceControlPlanePolicy::tenantAdminPaths(), true)
-                && ($row['perms'] === '' || in_array($row['perms'], $visiblePermissions ?: ['__none__'], true))
-                && !isset($nativeKeys[$row['menu_key']]),
+        return array_values(array_filter(
+            $query->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray(),
+            static fn(array $row): bool => !isset($nativeKeys[$row['menu_key']]),
         ));
-        usort($menus, static fn(array $a, array $b): int => [-$a['sort'], $a['id']] <=> [-$b['sort'], $b['id']]);
-        return $menus;
     }
 
     private function validContext(?TenantContext $context, AdminPrincipal $admin): bool

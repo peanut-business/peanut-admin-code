@@ -129,7 +129,7 @@ final readonly class CoreTenantModuleAdminBridge
             $data['registered_permissions'] = $registeredPermissions;
             $data['registered_system_menu_permissions'] = $this->registeredLicensedSubset(
                 array_values(array_intersect(
-                    $this->registeredSystemMenuPermissionsForOwners($activeOwners, $corePermissions, $systemMenus),
+                    $this->registeredSystemMenuPermissionsForOwners($activeOwners, $corePermissions),
                     $entitlements['permissions'],
                 )),
                 $entitlements['modules'],
@@ -345,16 +345,12 @@ final readonly class CoreTenantModuleAdminBridge
     }
 
     /** @param list<string> $activeOwners @param list<string> $corePermissions @return list<string> */
-    private function registeredSystemMenuPermissionsForOwners(array $activeOwners, array $corePermissions, ?array $systemMenus = null): array
+    private function registeredSystemMenuPermissionsForOwners(array $activeOwners, array $corePermissions): array
     {
         $active = array_fill_keys($activeOwners, true);
         $permissions = [];
-        $menuPermissions = $systemMenus === null
-            ? array_map('strval', SystemMenu::where('is_disable', 0)->where('perms', '<>', '')->distinct(true)->column('perms'))
-            : array_values(array_unique(array_map('strval', array_column(array_filter(
-                $systemMenus,
-                static fn(array $row): bool => (int) $row['is_disable'] === 0 && $row['perms'] !== '',
-            ), 'perms'))));
+        $menuPermissions = array_map('strval', SystemMenu::where('is_disable', 0)
+            ->where('perms', '<>', '')->distinct(true)->column('perms'));
         $states = $this->identityAuthorization->permissionStates($menuPermissions);
         $registeredCorePermissions = array_fill_keys(
             $corePermissions,
