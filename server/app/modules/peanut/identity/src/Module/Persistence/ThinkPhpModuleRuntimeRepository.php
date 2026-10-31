@@ -83,7 +83,8 @@ final readonly class ThinkPhpModuleRuntimeRepository implements ModuleRuntimeRep
             );
         }
         $license = $this->entitlements->license($tenantId, $this->lockAvailabilityReads);
-        if ($license === null || Db::name('plan_module')->where('plan_id', $license['plan_id'])
+        if ($license === null || Db::name('plan_module')->pk(['plan_id', 'module_key'])
+            ->schema(['plan_id' => 'bigint', 'module_key' => 'string'])->where('plan_id', $license['plan_id'])
             ->where('module_key', $moduleKey)->lock($this->lockAvailabilityReads)->find() === null) {
             return null;
         }

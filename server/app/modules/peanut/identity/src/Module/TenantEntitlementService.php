@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog;
+use PeanutAdmin\Modules\Identity\Module\Model\ModuleInstallation;
 use think\facade\Db;
 
 /** Shared commercial ceiling; it never grants a member a role or permission. */
@@ -23,7 +24,11 @@ final readonly class TenantEntitlementService
     /** The plan revision is already selected by the license join. @return array{0:?array,1:mixed} */
     private function licenseAndPlanRevision(int $tenantId, bool $lock): array
     {
-        $row = Db::name('tenant_license')->alias('license')
+        $row = Db::name('tenant_license')->pk('id')->schema([
+            'id' => 'bigint', 'tenant_id' => 'bigint', 'plan_id' => 'bigint', 'status' => 'string',
+            'effective_at' => 'datetime', 'expires_at' => 'datetime', 'revision' => 'bigint',
+            'created_at' => 'datetime', 'updated_at' => 'datetime',
+        ])->alias('license')
             ->join('plan plan', 'plan.id = license.plan_id')->where('license.tenant_id', $tenantId)
             ->field('license.*,plan.code AS plan_code,plan.name AS plan_name,plan.revision AS plan_revision')
             ->lock($lock)->find();
@@ -48,6 +53,28 @@ final readonly class TenantEntitlementService
     public function moduleKeys(int $tenantId, bool $lock = false): array
     {
         return $this->modulesForLicense($this->license($tenantId, $lock), $lock);
+    }
+
+    /** The same installed/compiled/license ceiling as moduleKeys(), projected to one module. */
+    public function moduleAvailable(int $tenantId, string $moduleKey): bool
+    {
+        if (!in_array($moduleKey, $this->registry->moduleKeys(), true)) {
+            return false;
+        }
+        $query = ModuleInstallation::alias('installation')
+            ->where('installation.module_key', $moduleKey)->where('installation.status', 'active');
+        if (!$this->registry->isRequiredTenantFoundation($moduleKey)) {
+            $now = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s.u');
+            $query->join('tenant_license license', 'TRUE')->where('license.tenant_id', $tenantId)
+                ->join('plan plan', 'plan.id = license.plan_id')
+                ->join('plan_module selection', 'selection.plan_id = plan.id AND selection.module_key = installation.module_key')
+                ->whereRaw('BINARY selection.module_key = ?', [$moduleKey])
+                // The registered license schema permits only active or suspended states.
+                ->where('license.status', 'active')->where('license.effective_at', '<=', $now)
+                ->where(static fn($query) => $query->pk('id')->whereNull('license.expires_at')->whereOr('license.expires_at', '>', $now));
+        }
+        // moduleKeys() returns the stored key; preserve its exact canonical comparison.
+        return $query->value('installation.module_key') === $moduleKey;
     }
 
     /** @return list<string> */
@@ -107,7 +134,9 @@ final readonly class TenantEntitlementService
         $now ??= new DateTimeImmutable('now', new DateTimeZone('UTC'));
         return new DateTimeImmutable($license['effective_at']) <= $now
             && ($license['expires_at'] === null || $now < new DateTimeImmutable($license['expires_at']))
-            && Db::name('plan_module')->where('plan_id', $license['plan_id'])->where('module_key', $moduleKey)->lock($lock)->find() !== null;
+            && Db::name('plan_module')->pk(['plan_id', 'module_key'])
+                ->schema(['plan_id' => 'bigint', 'module_key' => 'string'])
+                ->where('plan_id', $license['plan_id'])->where('module_key', $moduleKey)->lock($lock)->find() !== null;
     }
 
     /** A shared plan revision and the live time state invalidate existing authorization caches. */

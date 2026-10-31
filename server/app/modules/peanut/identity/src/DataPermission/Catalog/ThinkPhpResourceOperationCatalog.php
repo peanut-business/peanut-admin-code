@@ -105,7 +105,7 @@ final readonly class ThinkPhpResourceOperationCatalog implements \PeanutAdmin\Da
             return true;
         }
 
-        return in_array($moduleKey, $this->entitlements->moduleKeys($tenantId), true);
+        return $this->entitlements->moduleAvailable($tenantId, $moduleKey);
     }
 
     public function registryRevision(): string

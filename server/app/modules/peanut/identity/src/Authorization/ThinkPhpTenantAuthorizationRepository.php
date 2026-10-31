@@ -7,6 +7,7 @@ namespace PeanutAdmin\Modules\Identity\Authorization;
 use JsonException;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Modules\Identity\Module\TenantEntitlementService;
+use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationQuery;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Account;
 use PeanutAdmin\Modules\Identity\Persistence\Model\MemberRole;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Permission;
@@ -20,7 +21,24 @@ use think\facade\Db;
 
 final class ThinkPhpTenantAuthorizationRepository implements \PeanutAdmin\Kernel\Authorization\TenantAuthorizationRepository
 {
-    public function __construct(private readonly TenantEntitlementService $entitlements) {}
+    public function __construct(private readonly TenantEntitlementService $entitlements, private readonly TenantAuthorizationQuery $queries) {}
+
+    public function permissionsForKeys(TenantContext $context, array $permissionKeys): \PeanutAdmin\Kernel\Authorization\EffectivePermissionSet
+    {
+        $keys = array_keys($this->queries->permissionGrants($context, $permissionKeys));
+        $missingCore = array_values(array_intersect(CorePermissionCatalog::TENANT, array_diff($permissionKeys, $keys)));
+        if ($missingCore !== [] && TenantMember::alias('member')
+            ->join('tenant tenant', "tenant.id = member.tenant_id AND tenant.status = 'active'")
+            ->join('member_role membership', 'membership.tenant_id = member.tenant_id AND membership.tenant_member_id = member.id')
+            ->join('role role', "role.tenant_id = member.tenant_id AND role.id = membership.role_id AND role.status = 'active' AND role.is_builtin = 1")
+            ->where('member.tenant_id', $context->tenantId)->where('member.id', $context->memberId)
+            ->where('member.account_id', $context->accountId)->where('member.status', 'active')
+            ->whereRaw('BINARY role.`key` = ?', ['core.tenant-owner'])->value('member.id') !== null) {
+            // Core's fixed owner grants do not depend on permission catalog rows or a commercial license.
+            $keys = [...$keys, ...$missingCore];
+        }
+        return new \PeanutAdmin\Kernel\Authorization\EffectivePermissionSet($keys);
+    }
 
     /** Native authority inputs only; the caller retains the existing permission decision. */
     public function readFence(TenantContext $context, array $permissionKeys, array $moduleKeys, bool $lock): string

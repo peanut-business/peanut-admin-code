@@ -55,26 +55,26 @@ final readonly class TenantAuthorizationQuery
                 ->where('permission.status', 'active')->whereNotLike('permission.key', 'platform.%')
                 ->whereIn('permission.key', $keys)
                 ->where(static function ($query): void {
-                    $query->whereNotNull('binding.permission_id')->whereOr(static function ($query): void {
+                    $query->pk('id')->whereNotNull('binding.permission_id')->whereOr(static function ($query): void {
                         // The built-in owner adds only Core's fixed tenant permissions.
-                        $query->whereRaw('BINARY role.`key` = ?', ['core.tenant-owner'])->where('role.is_builtin', 1)
+                        $query->pk('id')->whereRaw('BINARY role.`key` = ?', ['core.tenant-owner'])->where('role.is_builtin', 1)
                             ->whereRaw('BINARY permission.`key` IN (' . implode(',', array_fill(0, count(CorePermissionCatalog::TENANT), '?')) . ')', CorePermissionCatalog::TENANT);
                     });
                 })
                 ->where(static function ($query) use ($compiled, $foundations, $now): void {
                     // Explicit Core grants survive an absent/expired commercial license.
-                    $query->whereIn('permission.key', CorePermissionCatalog::TENANT)
+                    $query->pk('id')->whereIn('permission.key', CorePermissionCatalog::TENANT)
                         ->whereOr(static function ($query) use ($compiled, $foundations, $now): void {
-                            $query->whereNotNull('plan.id')->where('license.status', '<>', 'suspended')
+                            $query->pk('id')->whereNotNull('plan.id')->where('license.status', '<>', 'suspended')
                                 ->where('license.effective_at', '<=', $now)
-                                ->where(static fn($query) => $query->whereNull('license.expires_at')->whereOr('license.expires_at', '>', $now))
+                                ->where(static fn($query) => $query->pk('id')->whereNull('license.expires_at')->whereOr('license.expires_at', '>', $now))
                                 ->whereNotNull('ceiling.permission_key')
                                 ->where(static function ($query) use ($compiled, $foundations): void {
-                                    $query->whereIn('permission.module_key', ['core', 'peanut.admin', 'instance.tenant'])
+                                    $query->pk('id')->whereIn('permission.module_key', ['core', 'peanut.admin', 'instance.tenant'])
                                         ->whereOr(static function ($query) use ($compiled, $foundations): void {
-                                            $query->whereIn('permission.module_key', $compiled)
+                                            $query->pk('id')->whereIn('permission.module_key', $compiled)
                                                 ->whereNotNull('installation.module_key')
-                                                ->where(static fn($query) => $query->whereIn('permission.module_key', $foundations)
+                                                ->where(static fn($query) => $query->pk('id')->whereIn('permission.module_key', $foundations)
                                                     ->whereNotNull('selection.module_key', 'OR'));
                                         });
                                 });

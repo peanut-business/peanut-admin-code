@@ -10,7 +10,7 @@ use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
 use app\common\execution\AdminExecutionContext;
 use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Modules\Identity\Authorization\ApiPermissionCatalog;
-use app\common\contract\module\ModuleQualificationQuery;
+use PeanutAdmin\Kernel\Module\ModuleAvailability;
 use PeanutAdmin\Modules\Identity\Module\TenantEntitlementService;
 
 /**
@@ -29,7 +29,7 @@ class AuthMiddleware
         private readonly AdminApiAccessRegistry $accessRegistry,
         private readonly DemoAccountPolicy $demoAccounts,
         private readonly ApiPermissionCatalog $apis,
-        private readonly ModuleQualificationQuery $modules,
+        private readonly ModuleAvailability $modules,
         private readonly TenantEntitlementService $entitlements,
     ) {}
 

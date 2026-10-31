@@ -7,25 +7,26 @@ namespace PeanutAdmin\Modules\Identity\Authorization;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 use think\facade\Db;
+use PeanutAdmin\Kernel\Module\ModuleAvailability;
 
 /** Instance API catalogue and independent permission-bundle associations. */
 final class ApiPermissionCatalog
 {
-    public function moduleAvailable(array $endpoint, \app\common\contract\module\ModuleQualificationQuery $modules, ?int $tenantId = null): bool
+    public function moduleAvailable(array $endpoint, ModuleAvailability $modules): bool
     {
         $owner = $endpoint['module_key'];
         if (in_array($owner, ['peanut.admin', 'platform', 'member', 'installation'], true)) {
             return true;
         }
         try {
-            $modules->installedModule($owner);
+            $modules->assertDeployment($owner);
         } catch (\PeanutAdmin\Kernel\Module\ModuleException $exception) {
             if (in_array($exception->errorCode, ['MODULE_NOT_INSTALLED', 'MODULE_INSTALLATION_FAILED'], true)) {
                 return false;
             }
             throw $exception;
         }
-        return $tenantId === null || in_array($owner, $modules->activeTenantModuleKeys($tenantId), true);
+        return true;
     }
 
     /** The route generator is the only discovery producer. No runtime scanner or role grants. */
@@ -126,7 +127,12 @@ final class ApiPermissionCatalog
         }
         $template = preg_replace('/<([A-Za-z_][A-Za-z0-9_]*)>/', '{$1}', $rule);
         $prefix = $audience === 'platform' ? 'platformapi' : 'adminapi';
-        return Db::name('api_endpoint')->where('method', strtoupper($request->method()))
+        return Db::name('api_endpoint')->pk('id')->schema([
+            'id' => 'string', 'method' => 'string', 'path' => 'string', 'audience' => 'string',
+            'module_key' => 'string', 'access_mode' => 'string', 'status' => 'string',
+            'default_permission_keys' => 'json', 'prerequisite_permission_keys' => 'json',
+            'created_at' => 'datetime', 'updated_at' => 'datetime', 'retired_at' => 'datetime',
+        ])->where('method', strtoupper($request->method()))
             ->where('path', '/' . $prefix . '/' . strtolower(trim($template, '/')))
             ->where('audience', $audience)->where('status', 'active')->find();
     }
@@ -134,10 +140,13 @@ final class ApiPermissionCatalog
     /** @return list<string> */
     public function permissionKeys(array $endpoint, bool $lock = false): array
     {
-        $query = Db::name('permission_api')->alias('binding')
+        $query = Db::name('permission_api')->pk('id')->schema([
+            'id' => 'bigint', 'permission_id' => 'bigint', 'api_id' => 'string', 'created_at' => 'datetime',
+        ])->alias('binding')
             ->join('permission permission', 'permission.id=binding.permission_id')
             ->where('binding.api_id', $endpoint['id'])->where('permission.status', 'active')
             ->where(function ($query) use ($endpoint): void {
+                $query->pk('id');
                 if ($endpoint['audience'] === 'platform') {
                     $query->whereLike('permission.key', 'platform.%');
                 } else {
@@ -203,7 +212,7 @@ final class ApiPermissionCatalog
         return $this->bundleRow($permission);
     }
 
-    public function replace(string $key, int $expectedRevision, array $apiIds, \app\common\contract\module\ModuleQualificationQuery $modules): array
+    public function replace(string $key, int $expectedRevision, array $apiIds, ModuleAvailability $modules): array
     {
         return Db::transaction(function () use ($key, $expectedRevision, $apiIds, $modules): array {
             // Serialize only this management dependency's invariant through native row locks.
