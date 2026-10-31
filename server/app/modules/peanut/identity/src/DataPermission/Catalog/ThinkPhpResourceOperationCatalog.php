@@ -20,19 +20,30 @@ final readonly class ThinkPhpResourceOperationCatalog implements \PeanutAdmin\Da
 
     public function find(string $resourceKey, string $operation): ?\PeanutAdmin\DataPermission\Catalog\ResourceOperation
     {
-        $row = ResourceOperationRecord::alias('ro')
+        $rows = ResourceOperationRecord::alias('ro')
             ->join('protected_resource pr', "pr.id = ro.protected_resource_id AND pr.status = 'active'")
+            ->leftJoin('resource_operation_permission relation', 'relation.resource_operation_id = ro.id')
+            ->leftJoin('permission permission', "permission.id = relation.permission_id AND permission.status = 'active'")
             ->where('pr.key', $resourceKey)
             ->where('ro.operation', $operation)
             ->where('ro.status', 'active')
             ->field([
                 'ro.id', 'ro.protected_resource_id', 'ro.operation', 'ro.access_mode',
                 'ro.target_cardinality', 'ro.permission_match', 'pr.key' => 'resource_key',
-                'pr.module_key', 'pr.provider_key', 'pr.ownership',
+                'pr.module_key', 'pr.provider_key', 'pr.ownership', 'permission.key' => 'permission_key',
             ])
-            ->find()?->toArray();
-
-        return $row === null ? null : $this->operation($row);
+            ->order('relation.sort_order')->order('permission.key')->select()->toArray();
+        if ($rows === []) {
+            return null;
+        }
+        $permissions = [];
+        foreach ($rows as $row) {
+            if ($row['permission_key'] !== null) {
+                $permissions[] = (string) $row['permission_key'];
+            }
+        }
+        // Target types remain a separate collection: joining both children multiplies permission/target rows.
+        return $this->operation($rows[0], $permissions);
     }
 
     public function availableOperations(int $tenantId, PageRequest $page): array
@@ -72,29 +83,22 @@ final readonly class ThinkPhpResourceOperationCatalog implements \PeanutAdmin\Da
 
     public function registryRevision(): string
     {
-        $digests = [];
-        foreach (ProtectedResourceRecord::field('id,status,manifest_digest')->select()->toArray() as $row) {
-            $digests[] = "resource:{$row['id']}:{$row['status']}:{$row['manifest_digest']}";
-        }
-        foreach (ResourceOperationRecord::field('id,status,manifest_digest')->select()->toArray() as $row) {
-            $digests[] = "operation:{$row['id']}:{$row['status']}:{$row['manifest_digest']}";
-        }
-        foreach (ModuleInstallation::field('module_key,status,revision,manifest_digest')->select()->toArray() as $row) {
-            $digests[] = "module-installation:{$row['module_key']}:{$row['status']}:{$row['revision']}:{$row['manifest_digest']}";
-        }
-        foreach (TargetTypeRecord::field('id,status,manifest_digest')->select()->toArray() as $row) {
-            $digests[] = "target:{$row['id']}:{$row['status']}:{$row['manifest_digest']}";
-        }
-        foreach (DataConditionDefinitionRecord::field('id,status,manifest_digest')->select()->toArray() as $row) {
-            $digests[] = "condition:{$row['id']}:{$row['status']}:{$row['manifest_digest']}";
-        }
+        // One native UNION ALL keeps the same complete revision inputs without five round trips.
+        $query = ProtectedResourceRecord::fieldRaw("CONCAT('resource:',id,':',status,':',manifest_digest) AS digest")
+            ->unionAll([
+                ResourceOperationRecord::fieldRaw("CONCAT('operation:',id,':',status,':',manifest_digest) AS digest")->buildSql(false),
+                ModuleInstallation::fieldRaw("CONCAT('module-installation:',module_key,':',status,':',revision,':',manifest_digest) AS digest")->buildSql(false),
+                TargetTypeRecord::fieldRaw("CONCAT('target:',id,':',status,':',manifest_digest) AS digest")->buildSql(false),
+                DataConditionDefinitionRecord::fieldRaw("CONCAT('condition:',id,':',status,':',manifest_digest) AS digest")->buildSql(false),
+            ]);
+        $digests = array_column(\think\facade\Db::query($query->buildSql(false)), 'digest');
         sort($digests, SORT_STRING);
 
         return hash('sha256', implode('|', $digests));
     }
 
-    /** @param array<string, mixed> $row */
-    private function operation(array $row): \PeanutAdmin\DataPermission\Catalog\ResourceOperation
+    /** @param array<string, mixed> $row @param list<string>|null $permissionKeys */
+    private function operation(array $row, ?array $permissionKeys = null): \PeanutAdmin\DataPermission\Catalog\ResourceOperation
     {
         $id = (int) $row['id'];
 
@@ -109,7 +113,7 @@ final readonly class ThinkPhpResourceOperationCatalog implements \PeanutAdmin\Da
             (string) $row['access_mode'],
             (string) $row['target_cardinality'],
             (string) $row['permission_match'],
-            $this->permissionKeys($id),
+            $permissionKeys ?? $this->permissionKeys($id),
             $this->targetTypes($id),
         );
     }

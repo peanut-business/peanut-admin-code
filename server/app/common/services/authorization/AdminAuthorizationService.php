@@ -18,7 +18,6 @@ use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use PeanutAdmin\Kernel\Context\RequestedTargetSet;
 use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationQuery;
-use PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory;
 use PeanutAdmin\Modules\Identity\Platform\InstanceControlPlanePolicy;
 use app\common\validation\instance\InstanceToolAccessGuard;
 
@@ -28,7 +27,6 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
     public function __construct(
         private readonly CoreTenantModuleAdminBridge $moduleAdmin,
         private readonly AdminPermissionPolicy $permissionPolicy,
-        private readonly TenantMemberDirectory $members,
         private readonly AdminDirectoryQuery $directory,
         private readonly TenantAuthorizationQuery $identityAuthorization,
         private readonly EndpointPermissionGrant $endpointGrant,
@@ -36,19 +34,13 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
 
     public function principal(TenantContext $tenantContext): AdminPrincipal
     {
-        $member = $this->members->activeMembership($tenantContext->tenantId, $tenantContext->memberId);
-        if ($member === null
-            || $member->accountId !== $tenantContext->accountId) {
+        $profile = $this->directory->activePrincipalProfile($tenantContext->tenantId, $tenantContext->accountId, true);
+        if ($profile === null || $profile['member']->memberId !== $tenantContext->memberId) {
             throw new \DomainException('TENANT_ADMIN_PRINCIPAL_UNAVAILABLE');
         }
-
-        $profile = $this->directory->activePrincipalProfile($member->tenantId, $member->accountId);
-        if ($profile === null) {
-            throw new \DomainException('TENANT_ADMIN_PRINCIPAL_UNAVAILABLE');
-        }
-
+        $member = $profile['member'];
         $roles = $this->identityAuthorization->roles($tenantContext->tenantId, $tenantContext->memberId);
-        $switchableTenantCount = $this->members->activeMembershipCount($member->accountId);
+        $switchableTenantCount = $profile['switchable_tenant_count'];
         $root = false;
         foreach ($roles as $role) {
             $root = $root || ($role['key'] === 'core.tenant-owner' && $role['is_builtin']);
@@ -239,13 +231,12 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         if ($accessUris === []) {
             return [];
         }
-        // Presentation roles and switchable-tenant counts are irrelevant to this decision.
-        // Re-read membership and active credential profile; never reuse a prior principal snapshot.
-        $member = $this->members->activeMembership($tenantContext->tenantId, $tenantContext->memberId);
-        if ($member === null || $member->accountId !== $tenantContext->accountId
-            || $this->directory->activePrincipalProfile($member->tenantId, $member->accountId) === null) {
+        // This call still re-reads current membership and active credential together.
+        $profile = $this->directory->activePrincipalProfile($tenantContext->tenantId, $tenantContext->accountId);
+        if ($profile === null || $profile['member']->memberId !== $tenantContext->memberId) {
             throw new \DomainException('TENANT_ADMIN_PRINCIPAL_UNAVAILABLE');
         }
+        $member = $profile['member'];
         if ($tenantContext->authorizationRevision < 1
             || $member->authorizationRevision !== $tenantContext->authorizationRevision
             || $tenantContext->sessionKey === '' || $tenantContext->clientKey === '' || $tenantContext->requestId === '') {
