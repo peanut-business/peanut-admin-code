@@ -6,6 +6,8 @@ namespace PeanutAdmin\Modules\Identity\Authorization;
 
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
+use PeanutAdmin\Kernel\Auth\TenantContext;
+use think\facade\Cache;
 use think\facade\Db;
 use PeanutAdmin\Kernel\Module\ModuleAvailability;
 
@@ -119,7 +121,7 @@ final class ApiPermissionCatalog
     }
 
     /** Native matched Rule identifies the template; never derive authority from submitted IDs. */
-    public function endpoint(\think\Request $request, string $audience): ?array
+    public function endpoint(\think\Request $request, string $audience, ?TenantContext $context = null): ?array
     {
         $rule = $request->rule()?->getRule();
         if (!is_string($rule) || $rule === '') {
@@ -127,19 +129,36 @@ final class ApiPermissionCatalog
         }
         $template = preg_replace('/<([A-Za-z_][A-Za-z0-9_]*)>/', '{$1}', $rule);
         $prefix = $audience === 'platform' ? 'platformapi' : 'adminapi';
-        return Db::name('api_endpoint')->pk('id')->schema([
+        $method = strtoupper($request->method());
+        $path = '/' . $prefix . '/' . strtolower(trim($template, '/'));
+        $read = static fn(): ?array => Db::name('api_endpoint')->pk('id')->schema([
             'id' => 'string', 'method' => 'string', 'path' => 'string', 'audience' => 'string',
             'module_key' => 'string', 'access_mode' => 'string', 'status' => 'string',
             'default_permission_keys' => 'json', 'prerequisite_permission_keys' => 'json',
             'created_at' => 'datetime', 'updated_at' => 'datetime', 'retired_at' => 'datetime',
-        ])->where('method', strtoupper($request->method()))
-            ->where('path', '/' . $prefix . '/' . strtolower(trim($template, '/')))
+        ])->where('method', $method)
+            ->where('path', $path)
             ->where('audience', $audience)->where('status', 'active')->find();
+        $pdo = Db::connect()->getPdo();
+        if ($context === null || $audience !== 'tenant' || ($pdo !== false && $pdo->inTransaction())) {
+            return $read();
+        }
+        $key = 'identity:api-endpoint:v1:' . $context->tenantId . ':' . $context->tenantAuthorizationRevision
+            . ':' . hash('sha256', $method . ':' . $path);
+        // Wrap absent endpoints so the native store can cache a negative lookup too.
+        return Cache::remember($key, static fn(): array => [$read()], 300)[0];
     }
 
     /** @return list<string> */
-    public function permissionKeys(array $endpoint, bool $lock = false): array
+    public function permissionKeys(array $endpoint, bool $lock = false, ?TenantContext $context = null): array
     {
+        $pdo = Db::connect()->getPdo();
+        if ($context !== null && $endpoint['audience'] === 'tenant' && !$lock
+            && ($pdo === false || !$pdo->inTransaction())) {
+            $key = 'identity:api-permissions:v1:' . $context->tenantId . ':' . $context->tenantAuthorizationRevision
+                . ':' . $endpoint['id'];
+            return Cache::remember($key, fn(): array => $this->permissionKeys($endpoint), 300);
+        }
         $query = Db::name('permission_api')->pk('id')->schema([
             'id' => 'bigint', 'permission_id' => 'bigint', 'api_id' => 'string', 'created_at' => 'datetime',
         ])->alias('binding')
@@ -268,6 +287,9 @@ final class ApiPermissionCatalog
                     throw AdminAccessException::conflict('API_MANAGEMENT_RECOVERY_REQUIRED', 'Keep an active platform bundle bound to the API mapping management routes.');
                 }
             }
+            if ($current['audience'] === 'tenant') {
+                app(ModuleAuthorizationCatalogSynchronizer::class)->invalidateTenantAuthorization([$permission['module_key']]);
+            }
             return $this->bundle($key);
         });
     }
@@ -312,9 +334,9 @@ final class ApiPermissionCatalog
             if ($roleIds !== []) {
                 Db::name('platform_role')->whereIn('id', $roleIds)->inc('revision')->update(['updated_at' => $now]);
             }
-            $tenantIds = Db::name('role_permission')->where('permission_id', $row['id'])->distinct(true)->column('tenant_id');
-            if ($tenantIds !== []) {
-                Db::name('tenant')->whereIn('id', $tenantIds)->inc('authorization_revision')->inc('revision')->update(['updated_at' => $now]);
+            if ($current['audience'] === 'tenant') {
+                // Active API bindings are shared even by tenants without this role grant.
+                app(ModuleAuthorizationCatalogSynchronizer::class)->invalidateTenantAuthorization([$row['module_key']]);
             }
         }
         if ($status === 'retired') {
