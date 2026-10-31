@@ -63,9 +63,17 @@ final readonly class TenantEntitlementService
     /** @return list<string> */
     public function permissionKeys(int $tenantId, bool $lock = false): array
     {
+        return $this->permissionProjection($tenantId, $lock)['permissions'];
+    }
+
+    /** One call reads a license and its modules once; later calls always read live state.
+     * @return array{modules: list<string>, permissions: list<string>}
+     */
+    public function permissionProjection(int $tenantId, bool $lock = false): array
+    {
         $license = $this->license($tenantId, $lock);
         $modules = $license !== null && $license['effective'] ? $this->modulesForLicense($license, $lock) : [];
-        return $this->permissionsForLicense($license, $modules, $lock);
+        return ['modules' => $modules, 'permissions' => $this->permissionsForLicense($license, $modules, $lock)];
     }
 
     /** @param list<string> $modules @return list<string> */

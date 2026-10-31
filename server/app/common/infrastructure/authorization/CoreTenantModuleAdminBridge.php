@@ -209,7 +209,8 @@ final readonly class CoreTenantModuleAdminBridge
         if ($tenantId < 1 || $permissions === []) {
             return [];
         }
-        $permissions = array_values(array_intersect($permissions, $this->entitlements->permissionKeys($tenantId)));
+        $entitlements = $this->entitlements->permissionProjection($tenantId);
+        $permissions = array_values(array_intersect($permissions, $entitlements['permissions']));
         if ($permissions === []) {
             return [];
         }
@@ -230,7 +231,7 @@ final readonly class CoreTenantModuleAdminBridge
                 $qualification->installedModules(),
             ), true);
             $activeOwners = array_fill_keys(array_filter(
-                $this->entitlements->moduleKeys($tenantId),
+                $entitlements['modules'],
                 static fn(string $owner): bool => isset($installed[$owner]),
             ), true);
         }
