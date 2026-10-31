@@ -97,7 +97,7 @@
       const menuRef = ref<MenuInstance>();
       const collapsed = computed({
         get() {
-          if (appStore.device === 'desktop' && props.navigationMode === 'tree')
+          if (appStore.device === 'desktop' && props.navigationMode !== 'top')
             return appStore.menuCollapse;
           return false;
         },
@@ -113,10 +113,7 @@
       const selectedKey = ref<string[]>([]);
       const submenuKeys = new Set<string>();
       const showCollapseButton = computed(
-        () =>
-          appStore.device !== 'mobile' &&
-          !topMenu.value &&
-          props.navigationMode === 'tree'
+        () => appStore.device !== 'mobile' && !topMenu.value
       );
 
       const updateSelectedKey = (key?: string) => {
@@ -303,8 +300,17 @@
                 {
                   'class': 'collapse-button',
                   'text': true,
-                  'title': t('settings.menu'),
-                  'aria-label': t('settings.menu'),
+                  'title': t(
+                    collapsed.value
+                      ? 'settings.menu.expand'
+                      : 'settings.menu.collapse'
+                  ),
+                  'aria-label': t(
+                    collapsed.value
+                      ? 'settings.menu.expand'
+                      : 'settings.menu.collapse'
+                  ),
+                  'aria-expanded': !collapsed.value,
                   'onClick': () => setCollapse(!collapsed.value),
                 },
                 {

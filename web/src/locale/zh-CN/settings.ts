@@ -14,6 +14,8 @@ export default {
   'settings.navbar.screen.toExit': '点击退出全屏模式',
   'settings.navbar.alerts': '消息通知',
   'settings.menu': '菜单栏',
+  'settings.menu.expand': '展开菜单',
+  'settings.menu.collapse': '收起菜单',
   'settings.shellPreset': '展示预设',
   'settings.shellLayout': '布局',
   'settings.navigationMode': '导航方式',

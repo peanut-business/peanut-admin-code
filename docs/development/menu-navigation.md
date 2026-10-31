@@ -17,7 +17,7 @@ export const shellPresentation: ShellPresentation = {
 };
 ```
 
-`layout` 的 `admin/workspace`、`navigationMode` 的 `tree/grouped/top` 和 `theme` 相互独立。tree 保留折叠菜单；grouped 将每层分类标题和后代平铺显示，不隐藏层级或折叠为图标；top 沿原页头菜单呈现。导航只消费 `AppSettings.shellNavigationMode`，原 `topMenu` 独立开关已经移除，避免双轨偏好冲突。`themeColor`、`menuWidth`、`tabBar`、`navbar/menu/footer` 保留独立语义。主题变量只应用于本宿主，不保存身份或发起业务请求。默认品牌沿 Brand store 及租户信息，应用指定 brand 时只替换展示。
+`layout` 的 `admin/workspace`、`navigationMode` 的 `tree/grouped/top` 和 `theme` 相互独立。tree 保留分层折叠菜单；grouped 将每层分类标题和后代平铺显示，不按组折叠。两种侧栏模式都可用原收起/展开按钮切换整个侧栏宽度；grouped 收起时隐藏分类标题、保留平铺入口，展开恢复标题和文字，导航方式仍为 grouped。top 沿原页头菜单呈现。导航只消费 `AppSettings.shellNavigationMode`，原 `topMenu` 独立开关已经移除，避免双轨偏好冲突。`themeColor`、`menuWidth`、`tabBar`、`navbar/menu/footer` 保留独立语义。主题变量只应用于本宿主，不保存身份或发起业务请求。默认品牌沿 Brand store 及租户信息，应用指定 brand 时只替换展示。
 
 普通用户从原 Navbar 的“页面配置”打开 GlobalSetting，选择已登记的管理台/工作台预设，再调整应用允许的布局、导航、密度和主题模式。选择写入原 AppSettings：`shellPreset/shellLayout/shellNavigationMode/shellDensity`，主题仍使用 `theme` 与已有 `element-theme` 偏好键；其余展示项沿原临时设置/复制配置方式保存，没有新增服务端设置、存储账本或业务请求。更换预设只修改同一 Shell 的展示 props，不切换业务组件身份或重建 runtime。
 

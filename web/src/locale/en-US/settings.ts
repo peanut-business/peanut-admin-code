@@ -14,6 +14,8 @@ export default {
   'settings.navbar.screen.toExit': 'Click to exit the full screen mode',
   'settings.navbar.alerts': 'alerts',
   'settings.menu': 'Menu',
+  'settings.menu.expand': 'Expand navigation',
+  'settings.menu.collapse': 'Collapse navigation',
   'settings.shellPreset': 'Presentation preset',
   'settings.shellLayout': 'Layout',
   'settings.navigationMode': 'Navigation',

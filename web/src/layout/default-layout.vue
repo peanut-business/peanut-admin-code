@@ -25,7 +25,7 @@
         v-if="appStore.menu && !isTop && !appStore.hideMenu"
         class="tenant-sidebar"
         :class="{
-          'is-collapsed': navigationMode === 'tree' && appStore.menuCollapse,
+          'is-collapsed': appStore.menuCollapse,
         }"
       >
         <Menu :navigation-mode="navigationMode" />
@@ -147,6 +147,9 @@
       transition: width var(--pa-shell-motion-duration);
       &.is-collapsed {
         width: var(--pa-shell-sidebar-collapsed-width);
+        .el-menu-item-group__title {
+          display: none;
+        }
       }
       .menu-container {
         height: auto;
