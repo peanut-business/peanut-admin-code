@@ -17,25 +17,31 @@ final readonly class TenantEntitlementService
 
     public function license(int $tenantId, bool $lock = false): ?array
     {
+        return $this->licenseAndPlanRevision($tenantId, $lock)[0];
+    }
+
+    /** The plan revision is already selected by the license join. @return array{0:?array,1:mixed} */
+    private function licenseAndPlanRevision(int $tenantId, bool $lock): array
+    {
         $row = Db::name('tenant_license')->alias('license')
             ->join('plan plan', 'plan.id = license.plan_id')->where('license.tenant_id', $tenantId)
             ->field('license.*,plan.code AS plan_code,plan.name AS plan_name,plan.revision AS plan_revision')
             ->lock($lock)->find();
         if ($row === null) {
-            return null;
+            return [null, null];
         }
         $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
         $effectiveAt = new DateTimeImmutable((string) $row['effective_at'], new DateTimeZone('UTC'));
         $expiresAt = $row['expires_at'] === null ? null : new DateTimeImmutable((string) $row['expires_at'], new DateTimeZone('UTC'));
         $state = $row['status'] === 'suspended' ? 'suspended'
             : ($effectiveAt > $now ? 'upcoming' : ($expiresAt !== null && $expiresAt <= $now ? 'expired' : 'active'));
-        return [
+        return [[
             'id' => (int) $row['id'], 'tenant_id' => (int) $row['tenant_id'], 'plan_id' => (int) $row['plan_id'],
             'plan_code' => (string) $row['plan_code'], 'plan_name' => (string) $row['plan_name'],
             'status' => (string) $row['status'], 'effective_at' => $effectiveAt->format('Y-m-d\TH:i:s.v\Z'),
             'expires_at' => $expiresAt?->format('Y-m-d\TH:i:s.v\Z'), 'revision' => (int) $row['revision'],
             'effective' => $state === 'active', 'state' => $state,
-        ];
+        ], $row['plan_revision']];
     }
 
     /** @return list<string> */
@@ -107,12 +113,12 @@ final readonly class TenantEntitlementService
     /** A shared plan revision and the live time state invalidate existing authorization caches. */
     public function revisionFacts(int $tenantId, bool $lock = false): array
     {
-        $license = $this->license($tenantId, $lock);
+        [$license, $planRevision] = $this->licenseAndPlanRevision($tenantId, $lock);
         if ($license === null) {
             return [];
         }
         $modules = $this->modulesForLicense($license, $lock);
-        return [$license, Db::name('plan')->where('id', $license['plan_id'])->lock($lock)->value('revision'),
+        return [$license, $planRevision,
             $modules, $this->permissionsForLicense($license, $modules, $lock)];
     }
 }

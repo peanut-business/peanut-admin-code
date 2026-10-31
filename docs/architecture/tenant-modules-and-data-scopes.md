@@ -56,3 +56,5 @@
 Core 管范围表达与强制执行；通用授权模块核身份/授权并生成范围；来源模块管限定查询；汇总模块管关联需求、指标和界面。验证覆盖双租户同局部 ID、双方模块、字段/对象、join/subquery/page/count/aggregate、deny、撤权、缓存、任务和结果交付；不以规则存在当作实现已经通过。
 
 批量入口需要包含该API的Core版本：本轮固定开发候选为5.0.3-alpha.2，尚不代表公开发行或宿主默认Core已自动升级。实际消费须显式采用包含该API的固定Core。批量统计多个受保护资源时，使用 Core `DataPermissionEngine::queryConstraints(context, [resourceKey => operationName])`，将返回的每个约束分别交给原生 `ThinkPhpQueryConstraintApplier`，用于对应资源的列表和聚合。该入口只复用本次计算的模块、权限和目录修订，各操作的策略修订、有效期、目标基数及租户约束仍独立校验；指定目标仍使用 `queryConstraint`。独立调用重新读取，不建立请求级或跨请求授权缓存。Identity `TenantEntitlementService::permissionProjection` 同一次调用返回许可内模块与权限，宿主登记子集检查复用这份模块投影。
+
+普通API及批量业务权限判断由Host在同一调用内取得已受许可限制的有效权限，并仅校验候选权限的实际模块owner；复用原生installedModule验证版本/schema/manifest，不枚举无关模块。成员权限判断仍重新读取活动成员、凭据及授权修订，但不额外读取界面角色名称和可切换租户数量。Identity许可查询已带回套餐修订，revisionFacts复用同一行，不再次读取相同套餐。独立调用不持有权限或许可快照。

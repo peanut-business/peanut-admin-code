@@ -17,9 +17,15 @@ final class ApiPermissionCatalog
         if (in_array($owner, ['peanut.admin', 'platform', 'member', 'installation'], true)) {
             return true;
         }
-        $installed = array_column(array_map(static fn($module): array => ['key' => $module->moduleKey], $modules->installedModules()), 'key');
-        return in_array($owner, $installed, true)
-            && ($tenantId === null || in_array($owner, $modules->activeTenantModuleKeys($tenantId), true));
+        try {
+            $modules->installedModule($owner);
+        } catch (\PeanutAdmin\Kernel\Module\ModuleException $exception) {
+            if (in_array($exception->errorCode, ['MODULE_NOT_INSTALLED', 'MODULE_INSTALLATION_FAILED'], true)) {
+                return false;
+            }
+            throw $exception;
+        }
+        return $tenantId === null || in_array($owner, $modules->activeTenantModuleKeys($tenantId), true);
     }
 
     /** The route generator is the only discovery producer. No runtime scanner or role grants. */

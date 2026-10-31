@@ -203,6 +203,19 @@ final readonly class CoreTenantModuleAdminBridge
         return true;
     }
 
+    /** One live permission projection already applies the license ceiling.
+     * @param list<string> $permissions
+     * @return array{registered:list<string>,owned:list<string>}
+     */
+    public function permissionInputs(TenantContext $context, array $permissions): array
+    {
+        $owned = $this->basePermissions($context);
+        return [
+            'registered' => $this->registeredLicensedSubset(array_values(array_intersect($permissions, $owned))),
+            'owned' => $owned,
+        ];
+    }
+
     /** @param list<string> $permissions @return list<string> */
     public function registeredPermissionSubset(int $tenantId, array $permissions): array
     {
@@ -210,31 +223,23 @@ final readonly class CoreTenantModuleAdminBridge
             return [];
         }
         $entitlements = $this->entitlements->permissionProjection($tenantId);
-        $permissions = array_values(array_intersect($permissions, $entitlements['permissions']));
+        return $this->registeredLicensedSubset(
+            array_values(array_intersect($permissions, $entitlements['permissions'])),
+            $entitlements['modules'],
+        );
+    }
+
+    /** Null module selection is used only with this call's already licensed member grants.
+     * @param list<string> $permissions @param list<string>|null $licensedModules
+     * @return list<string>
+     */
+    private function registeredLicensedSubset(array $permissions, ?array $licensedModules = null): array
+    {
         if ($permissions === []) {
             return [];
         }
         $states = $this->identityAuthorization->permissionStates(array_values(array_unique($permissions)));
-        $modulesNeeded = false;
-        foreach ($states as $state) {
-            if (($state['status'] ?? null) === 'active'
-                && !in_array($state['module_key'], ['core', self::APPLICATION_PERMISSION_OWNER, 'instance.tenant', null, ''], true)) {
-                $modulesNeeded = true;
-                break;
-            }
-        }
-        $activeOwners = [];
-        if ($modulesNeeded) {
-            $qualification = $this->moduleGovernance->qualification();
-            $installed = array_fill_keys(array_map(
-                static fn($module): string => $module->moduleKey,
-                $qualification->installedModules(),
-            ), true);
-            $activeOwners = array_fill_keys(array_filter(
-                $entitlements['modules'],
-                static fn(string $owner): bool => isset($installed[$owner]),
-            ), true);
-        }
+        $owners = [];
         $registered = [];
         foreach ($permissions as $permission) {
             $state = $states[$permission] ?? null;
@@ -243,8 +248,26 @@ final readonly class CoreTenantModuleAdminBridge
             }
             $owner = $state['module_key'];
             if (($owner === 'core' && in_array($permission, CorePermissionCatalog::TENANT, true))
-                || in_array($owner, [self::APPLICATION_PERMISSION_OWNER, 'instance.tenant'], true)
-                || isset($activeOwners[$owner ?? ''])) {
+                || in_array($owner, [self::APPLICATION_PERMISSION_OWNER, 'instance.tenant'], true)) {
+                $registered[] = $permission;
+                continue;
+            }
+            if ($owner === null || $owner === ''
+                || ($licensedModules !== null && !in_array($owner, $licensedModules, true))) {
+                continue;
+            }
+            if (!array_key_exists($owner, $owners)) {
+                try {
+                    $this->moduleGovernance->qualification()->installedModule($owner);
+                    $owners[$owner] = true;
+                } catch (\PeanutAdmin\Kernel\Module\ModuleException $exception) {
+                    if (!in_array($exception->errorCode, ['MODULE_NOT_INSTALLED', 'MODULE_INSTALLATION_FAILED'], true)) {
+                        throw $exception;
+                    }
+                    $owners[$owner] = false;
+                }
+            }
+            if ($owners[$owner]) {
                 $registered[] = $permission;
             }
         }
