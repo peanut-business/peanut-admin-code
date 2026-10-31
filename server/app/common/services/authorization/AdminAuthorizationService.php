@@ -246,22 +246,30 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
             }
             return $decisions;
         }
-        $keys = array_map(static fn(string $uri): string => strtolower(trim($uri, '/')), $accessUris);
+        $decisions = [];
+        $pending = [];
+        foreach ($accessUris as $accessUri) {
+            if (InstanceControlPlanePolicy::isTenantAdminRoute($accessUri)) {
+                $decisions[$accessUri] = PermissionDecision::deny($accessUri, 'PLATFORM_ROUTE_FORBIDDEN');
+            } elseif ($this->endpointGrant->allows($tenantContext, $accessUri)) {
+                $decisions[$accessUri] = PermissionDecision::allow($accessUri);
+            } else {
+                $pending[] = $accessUri;
+            }
+        }
+        if ($pending === []) {
+            return $decisions;
+        }
+        $keys = array_map(static fn(string $uri): string => strtolower(trim($uri, '/')), $pending);
         $registered = $this->moduleAdmin->registeredPermissionSubset(
             $tenantContext->tenantId,
             array_values(array_unique(array_filter($keys, static fn(string $key): bool => $key !== ''))),
         );
         $owned = $this->moduleAdmin->basePermissions($tenantContext);
-        $decisions = [];
-        foreach ($accessUris as $accessUri) {
+        foreach ($pending as $accessUri) {
             $key = strtolower(trim($accessUri, '/'));
-            if (InstanceControlPlanePolicy::isTenantAdminRoute($accessUri)) {
-                $decisions[$accessUri] = PermissionDecision::deny($accessUri, 'PLATFORM_ROUTE_FORBIDDEN');
-                continue;
-            }
-            $allowed = $this->endpointGrant->allows($tenantContext, $accessUri)
-                || (!in_array($key, InstanceControlPlanePolicy::tenantAdminPermissions(), true)
-                    && $this->permissionPolicy->canAccess(false, $accessUri, $registered, $owned));
+            $allowed = !in_array($key, InstanceControlPlanePolicy::tenantAdminPermissions(), true)
+                && $this->permissionPolicy->canAccess(false, $accessUri, $registered, $owned);
             $decisions[$accessUri] = $allowed
                 ? PermissionDecision::allow($accessUri)
                 : PermissionDecision::deny($accessUri, 'PERMISSION_NOT_GRANTED');
