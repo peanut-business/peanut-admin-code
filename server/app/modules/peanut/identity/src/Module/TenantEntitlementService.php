@@ -41,7 +41,12 @@ final readonly class TenantEntitlementService
     /** @return list<string> */
     public function moduleKeys(int $tenantId, bool $lock = false): array
     {
-        $license = $this->license($tenantId, $lock);
+        return $this->modulesForLicense($this->license($tenantId, $lock), $lock);
+    }
+
+    /** @return list<string> */
+    private function modulesForLicense(?array $license, bool $lock): array
+    {
         $selected = $license !== null && $license['effective']
             ? Db::name('plan_module')->where('plan_id', $license['plan_id'])->lock($lock)->column('module_key') : [];
         $keys = [];
@@ -59,12 +64,19 @@ final readonly class TenantEntitlementService
     public function permissionKeys(int $tenantId, bool $lock = false): array
     {
         $license = $this->license($tenantId, $lock);
+        $modules = $license !== null && $license['effective'] ? $this->modulesForLicense($license, $lock) : [];
+        return $this->permissionsForLicense($license, $modules, $lock);
+    }
+
+    /** @param list<string> $modules @return list<string> */
+    private function permissionsForLicense(?array $license, array $modules, bool $lock): array
+    {
         $keys = $license !== null && $license['effective']
             ? Db::name('plan_permission')->alias('detail')
                 ->join('permission permission', 'permission.key = detail.permission_key')
                 ->where('detail.plan_id', $license['plan_id'])->where('permission.status', 'active')
                 ->whereNotLike('permission.key', 'platform.%')
-                ->whereIn('permission.module_key', ['core', 'peanut.admin', 'instance.tenant', ...$this->moduleKeys($tenantId, $lock)])
+                ->whereIn('permission.module_key', ['core', 'peanut.admin', 'instance.tenant', ...$modules])
                 ->lock($lock)->column('permission.key') : [];
         return array_values(array_unique([...CorePermissionCatalog::TENANT, ...array_map('strval', $keys)]));
     }
@@ -91,7 +103,8 @@ final readonly class TenantEntitlementService
         if ($license === null) {
             return [];
         }
+        $modules = $this->modulesForLicense($license, $lock);
         return [$license, Db::name('plan')->where('id', $license['plan_id'])->lock($lock)->value('revision'),
-            $this->moduleKeys($tenantId, $lock), $this->permissionKeys($tenantId, $lock)];
+            $modules, $this->permissionsForLicense($license, $modules, $lock)];
     }
 }
