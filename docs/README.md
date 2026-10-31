@@ -9,13 +9,13 @@
 - [发行渠道与版本身份](public/release-channels.md)：脚手架、APP、Core和CLI版本分开。
 - [首次安装与实例配置](public/installation.md)：新实例与已有实例分开。
 - [产品 Git 交付与生产更新](public/application-release.md)：定版、首次部署、原目录更新、数据保护及实现差距。
-- [API合同与SDK](public/api-and-sdk.md)、[模块开发与交付](public/module-development.md)。
+- [API合同与SDK](public/api-and-sdk.md)、[模块开发与交付](public/module-development.md)、[界面组件与应用覆盖](architecture/core-capabilities-and-application-overrides.md)。
 
 ## 二开开发：规范与源码
 
 [开发规范](development/standard.md)维护共用约定；[应用约定](development/application-conventions.md)、[Controller与命名空间](development/controller-access-and-namespaces.md)、[PHP/ThinkPHP](development/php-thinkphp-guidelines.md)解释具体写法。
 
-[当前代码导读](development/current-code-lifecycle.md)、[模块布局](module-layout.md)、[工具链](development/project-toolchain.md)、[开发者中心与文档生成](development/developer-center-and-documentation.md)、[菜单导航](development/menu-navigation.md)提供实际入口。
+[当前代码导读](development/current-code-lifecycle.md)、[模块布局](module-layout.md)、[工具链](development/project-toolchain.md)、[开发者中心与文档生成](development/developer-center-and-documentation.md)、[菜单导航](development/menu-navigation.md)提供实际入口。Core Web 的组件、Shell、主题及覆盖合同见[UI/Vue扩展文档](https://github.com/peanut-business/peanut-admin-core-web/blob/dev/packages/ui-vue/README.md)。
 
 ## 产品架构与扩展合同
 
