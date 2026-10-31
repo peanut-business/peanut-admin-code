@@ -129,9 +129,10 @@ final readonly class TenantModuleStateQueries
     /**
      * Share the installed fact within one read-only HTTP Request, never across requests or transactions.
      * Each consumer still checks the fact against its compiled manifest and original error contract.
+     * A consumer with a combined live JOIN can request only an already shared fact without adding a query.
      * @return array{module_key:mixed,installed_version:mixed,manifest_schema_version:mixed,manifest_digest:mixed,status:mixed,revision:mixed}|null
      */
-    public function installationRecord(string $moduleKey, bool $lock = false): ?array
+    public function installationRecord(string $moduleKey, bool $lock = false, bool $readIfMissing = true): ?array
     {
         $pdo = Db::connect()->getPdo();
         $request = !$lock && !app()->runningInConsole() && app()->request->isGet()
@@ -139,6 +140,9 @@ final readonly class TenantModuleStateQueries
         $rows = $request?->middleware(self::class, []) ?? [];
         if ($request !== null && array_key_exists($moduleKey, $rows)) {
             return $rows[$moduleKey];
+        }
+        if (!$readIfMissing) {
+            return null;
         }
         $model = new ModuleInstallation();
         $query = Db::name('module_installation')->pk($model->getPk())

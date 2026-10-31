@@ -1122,8 +1122,8 @@
             "source_sha256": "2e76fcb7a2f8c13f94a39232a0ac802215d69f144eacd65f982f9f88d2b1db4f"
         },
         {
-            "path": "packages/core-php/peanut-admin-core-5.0.3-alpha.5.zip",
-            "target": "packages/core-php/peanut-admin-core-5.0.3-alpha.5.zip",
+            "path": "packages/core-php/peanut-admin-core-5.0.3-alpha.6.zip",
+            "target": "packages/core-php/peanut-admin-core-5.0.3-alpha.6.zip",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -1133,7 +1133,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d60164c33859515a271e56beca839535a01131ba6301f574e89a9ae563996452"
+            "source_sha256": "81ddbe3a42e2cceba146112076a47e6615089c9b032d0301cb269f7960c41330"
         },
         {
             "path": "pc/.env.example",
@@ -2326,7 +2326,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f0903a7f8f4337d9b2d2cbda15987d7aff86fc18ec5d044b1407778e44f3cfbb"
+            "source_sha256": "481f223be7c2581337f405f14c7d44766163d94db5e4cd37f978c9226183936b"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2407,7 +2407,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9fc0e5dc5ebcdcf87c7234222007d4676df853f5f8eb1ef36fe9308abb193a92"
+            "source_sha256": "f6d672d9869371135327ef300aa7f21cf08b63213e29a2a97e878786f2e016c1"
         },
         {
             "path": "plugins/peanut.integration/plugin.json",
@@ -11385,7 +11385,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "218f5ad8afabc89b93ad3c24e15db9b26a7a133cd977e96800af3398352219fe"
+            "source_sha256": "f94de3b00d09b74027ced0de3c92d991bb8ba841db65d8f83afcd54773446bbe"
         },
         {
             "path": "server/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php",
@@ -11469,7 +11469,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b4d519c64d99c5393c0d2343b4eb2d99a764ba1201e549c759842455af1eb54a"
+            "source_sha256": "fba33bc90fb77dcb1613464f868b60c63f969099701aa7755088c190fe736449"
         },
         {
             "path": "server/app/modules/peanut/identity/src/Audit/AuditService.php",
@@ -12295,7 +12295,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cb8c5ad125b4aec557a36d85c5ceac4d1b88c7ca3f6934e428e14d245dfa352e"
+            "source_sha256": "f00aa138be3c5653566b5f088caf616b151458d5d95c619eae807de40c034cc9"
         },
         {
             "path": "server/app/modules/peanut/identity/src/Contract/TenantOwnerAdminProvisioner.php",
@@ -12883,7 +12883,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3b95d877d600ec5e2acf2104ae30795a9252f8091bac6a46951d931bb2bb99de"
+            "source_sha256": "5774b8194ce0f13a93ca6d88ee1122f27002615d6b12564ad2c59260319112ac"
         },
         {
             "path": "server/app/modules/peanut/identity/src/Module/Persistence/ThinkPhpModuleRuntimeRepository.php",
@@ -12897,7 +12897,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d5a301eea1c2515f09962b1dd4199a7217711376d25b5f1eb3245c47188edff9"
+            "source_sha256": "061ce23ff23728f82e9ab740d8ced11bf58f4e7c6e4d41a8080cc8173a8aa632"
         },
         {
             "path": "server/app/modules/peanut/identity/src/Module/TenantEntitlementService.php",
@@ -12911,7 +12911,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d9b7a8342379745372b83418dd1281b0c05956aeee56f461bd4004ba49057e17"
+            "source_sha256": "734398904e3bc9db3766d185785b19a03885a41fff4e6ae0fe8ae076686d8eaf"
         },
         {
             "path": "server/app/modules/peanut/identity/src/ModuleProvider.php",
@@ -18741,7 +18741,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f17e186814a55f9c142c13e448056e58042a594ab8a505cb45e8e7b556334ee6"
+            "source_sha256": "4b7db28324062c5717939928f7dbb7ee83844f5b276596473416b03d39527913"
         },
         {
             "path": "server/composer.lock",
@@ -18755,7 +18755,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a67869fd0654411d94220f5c6dca8af01f20f47f52d2a42cb8d250bb28b9f154"
+            "source_sha256": "8485d961bdf4089bddbbd317925d25952d47ec00b156f747e45498334cc7f276"
         },
         {
             "path": "server/config/admin_api_access.php",
@@ -19831,7 +19831,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "198081fa0002394656b143098589ab911cf80a3b5e1621d19af289ca50471965"
+            "source_sha256": "ad2ca2a5f6423bdc7d432242f0d4c572f3400fc654f4ebc659be23d5db6191e1"
         },
         {
             "path": "server/generated/openapi.json",

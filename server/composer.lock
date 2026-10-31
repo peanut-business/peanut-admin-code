@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "9aee7a500f77dbe4cfd7f40df623d769",
+    "content-hash": "2010d56bc41742efd69768815a7549ce",
     "packages": [
         {
             "name": "aliyuncs/oss-sdk-php",
@@ -1695,17 +1695,17 @@
         },
         {
             "name": "peanut-admin/core",
-            "version": "5.0.3-alpha.5",
+            "version": "5.0.3-alpha.6",
             "source": {
                 "type": "git",
                 "url": "https://github.com/peanut-business/peanut-admin-core-php.git",
-                "reference": "40f7b0884c8a71fef8c984fb3e9eb40449255626"
+                "reference": "7c7d5938922408c02aba88dc1f03147a8c8be11c"
             },
             "dist": {
                 "type": "zip",
-                "url": "../packages/core-php/peanut-admin-core-5.0.3-alpha.5.zip",
-                "reference": "40f7b0884c8a71fef8c984fb3e9eb40449255626",
-                "shasum": "24950bc33699a91d815da94edd724218be4e9198"
+                "url": "../packages/core-php/peanut-admin-core-5.0.3-alpha.6.zip",
+                "reference": "7c7d5938922408c02aba88dc1f03147a8c8be11c",
+                "shasum": "3f62f1804fcbd84539eb41f45eb3a73a12bf0508"
             },
             "require": {
                 "composer/semver": "^3.4.4",
@@ -1811,14 +1811,14 @@
         },
         {
             "name": "peanut-business/peanut-identity",
-            "version": "4.0.0-rc.48",
+            "version": "4.0.0-rc.49",
             "dist": {
                 "type": "path",
                 "url": "app/modules/peanut/identity",
-                "reference": "f2656516e626167f44f8652028f8d04d2756b88c"
+                "reference": "4c07df7520b4b8bd825cff723c367682fe6f5168"
             },
             "require": {
-                "peanut-admin/core": "^5.0.3-alpha.5",
+                "peanut-admin/core": "^5.0.3-alpha.6",
                 "php": "^8.3"
             },
             "type": "library",

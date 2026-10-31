@@ -86,25 +86,37 @@ final readonly class TenantEntitlementService
         if (!in_array($moduleKey, $this->registry->moduleKeys(), true)) {
             return false;
         }
-        $installation = $this->installations->installationRecord($moduleKey);
-        if ($installation === null || $installation['status'] !== 'active' || $installation['module_key'] !== $moduleKey) {
-            return false;
-        }
-        if ($this->registry->isRequiredTenantFoundation($moduleKey)) {
-            return true;
+        $installation = $this->installations->installationRecord($moduleKey, readIfMissing: false);
+        if ($installation !== null) {
+            if ($installation['status'] !== 'active' || $installation['module_key'] !== $moduleKey) {
+                return false;
+            }
+            if ($this->registry->isRequiredTenantFoundation($moduleKey)) {
+                return true;
+            }
+            $query = Db::name('tenant_license')->pk('id')->schema([
+                'id' => 'bigint', 'tenant_id' => 'bigint', 'plan_id' => 'bigint', 'status' => 'string',
+                'effective_at' => 'datetime', 'expires_at' => 'datetime', 'revision' => 'bigint',
+                'created_at' => 'datetime', 'updated_at' => 'datetime',
+            ])->alias('license')->where('license.tenant_id', $tenantId);
+            $field = 'selection.module_key';
+        } else {
+            // Independent/transactional callers retain the original single live JOIN.
+            $query = ModuleInstallation::alias('installation')
+                ->where('installation.module_key', $moduleKey)->where('installation.status', 'active');
+            if ($this->registry->isRequiredTenantFoundation($moduleKey)) {
+                return $query->value('installation.module_key') === $moduleKey;
+            }
+            $query->join('tenant_license license', 'TRUE')->where('license.tenant_id', $tenantId);
+            $field = 'installation.module_key';
         }
         $now = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s.u');
-        return Db::name('tenant_license')->pk('id')->schema([
-            'id' => 'bigint', 'tenant_id' => 'bigint', 'plan_id' => 'bigint', 'status' => 'string',
-            'effective_at' => 'datetime', 'expires_at' => 'datetime', 'revision' => 'bigint',
-            'created_at' => 'datetime', 'updated_at' => 'datetime',
-        ])->alias('license')->where('license.tenant_id', $tenantId)
-            ->join('plan plan', 'plan.id = license.plan_id')
+        return $query->join('plan plan', 'plan.id = license.plan_id')
             ->join('plan_module selection', 'selection.plan_id = plan.id')
             ->whereRaw('BINARY selection.module_key = ?', [$moduleKey])
             ->where('license.status', 'active')->where('license.effective_at', '<=', $now)
             ->where(static fn($query) => $query->pk('id')->whereNull('license.expires_at')->whereOr('license.expires_at', '>', $now))
-            ->value('selection.module_key') === $moduleKey;
+            ->value($field) === $moduleKey;
     }
 
     /** @return list<string> */
