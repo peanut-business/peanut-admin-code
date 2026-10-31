@@ -7838,7 +7838,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6c082da5d99da64aa2a0fc4384bfa1813183003d23809bb52d18e09a00ab386d"
+            "source_sha256": "2008d283eec406c97f4bac44d9bdf86683c3c3b385ebefa708daa584753f01af"
         },
         {
             "path": "server/app/common/infrastructure/crontab/CrontabTenantLock.php",
@@ -8807,7 +8807,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "62857e46b5dbce4cfbeb37280be1629571221a563fb5ea356503cdcf58256a9b"
+            "source_sha256": "eb516a5ed54070dd2b13c22b73899a00b7ddd1cbbaea889e95ce4e657d7a4316"
         },
         {
             "path": "server/app/common/services/authorization/EndpointPermissionGrant.php",
@@ -11665,7 +11665,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c8947bce2a160df8636bd3676e14c1a9c3bad02759933fbc7032373cadf9a812"
+            "source_sha256": "af81fcdc1d213e289d086a42e0260e9bebbcf86a8425d27cc382265f4dd624a0"
         },
         {
             "path": "server/app/modules/peanut/identity/src/Auth/PlatformAuthentication.php",
@@ -11749,7 +11749,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "241e6dc4e48d54f1ab378a817969245dbadffc349a926ad3b75f5d6b9ff265f7"
+            "source_sha256": "fbd533d1fcc3af97ea97a2d2d606e853a28cc2cfcabac5cd3d17e1ebfe7c6777"
         },
         {
             "path": "server/app/modules/peanut/identity/src/Auth/TenantAuthentication.php",
