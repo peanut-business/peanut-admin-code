@@ -31213,7 +31213,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1b83a2b1e6cb8835349d1402d2d0fd2920532ae97c71eb683fa8eeebd88208ac"
+            "source_sha256": "16a464091ffeb2a72bf19d780a47b48e9592a7ca190f3453096e536334867bdb"
         },
         {
             "path": "web/src/store/modules/app/server-menu.ts",

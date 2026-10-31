@@ -4,10 +4,10 @@ import type { RouteRecordRaw } from 'vue-router';
 import { enabledTenantModulesFromRoutes } from '@peanut-admin/vue';
 import defaultSettings from '@/config/settings.json';
 import { getMenuList } from '@/api/user';
-import type { AppSettings, AppState, ServerMenuRecord } from './types';
-import mapServerMenu from './server-menu';
 import { shellPresentation, shellUserOptions } from '@/peanut.overrides';
 import { shellPresets, type ShellPresentation } from '@/layout/shell-presets';
+import type { AppSettings, AppState, ServerMenuRecord } from './types';
+import mapServerMenu from './server-menu';
 
 /** Filters user preferences and preset defaults through the application's choices. */
 function allowedAppearanceValue<Value extends string>(
