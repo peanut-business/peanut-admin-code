@@ -9,6 +9,20 @@ import mapServerMenu from './server-menu';
 import { shellPresentation, shellUserOptions } from '@/peanut.overrides';
 import { shellPresets, type ShellPresentation } from '@/layout/shell-presets';
 
+/** Filters user preferences and preset defaults through the application's choices. */
+function allowedAppearanceValue<Value extends string>(
+  choices: readonly Value[],
+  preferred: string | undefined,
+  fallback: Value
+): Value {
+  if (choices.length === 0) return fallback;
+  return (
+    choices.find((value) => value === preferred) ??
+    choices.find((value) => value === fallback) ??
+    choices[0]
+  );
+}
+
 const useAppStore = defineStore('app', {
   state: (): AppState => ({
     ...defaultSettings,
@@ -20,37 +34,32 @@ const useAppStore = defineStore('app', {
 
   getters: {
     shellAppearance(state: AppState): ShellPresentation {
-      const preset =
-        shellUserOptions.presets.length === 1
-          ? shellUserOptions.presets[0]
-          : state.shellPreset;
+      const preset = allowedAppearanceValue(
+        shellUserOptions.presets,
+        state.shellPreset,
+        shellPresentation.preset
+      );
       const selected: ShellPresentation =
-        preset && shellUserOptions.presets.includes(preset)
-          ? shellPresets[preset]
-          : shellPresentation;
+        preset === shellPresentation.preset
+          ? shellPresentation
+          : shellPresets[preset];
       return {
         ...shellPresentation,
         preset: selected.preset,
-        layout:
-          shellUserOptions.layouts.length === 1
-            ? shellUserOptions.layouts[0]
-            : state.shellLayout &&
-              shellUserOptions.layouts.includes(state.shellLayout)
-            ? state.shellLayout
-            : shellUserOptions.layouts.length === 0
+        layout: allowedAppearanceValue(
+          shellUserOptions.layouts,
+          state.shellLayout,
+          shellUserOptions.layouts.length === 0
             ? shellPresentation.layout
-            : selected.layout,
-        navigationMode:
-          shellUserOptions.navigationModes.length === 1
-            ? shellUserOptions.navigationModes[0]
-            : state.shellNavigationMode &&
-              shellUserOptions.navigationModes.includes(
-                state.shellNavigationMode
-              )
-            ? state.shellNavigationMode
-            : shellUserOptions.navigationModes.length === 0
+            : selected.layout
+        ),
+        navigationMode: allowedAppearanceValue(
+          shellUserOptions.navigationModes,
+          state.shellNavigationMode,
+          shellUserOptions.navigationModes.length === 0
             ? shellPresentation.navigationMode
-            : selected.navigationMode,
+            : selected.navigationMode
+        ),
         theme: {
           ...selected.theme,
           ...shellPresentation.theme,
@@ -58,21 +67,18 @@ const useAppStore = defineStore('app', {
             ...selected.theme.colors,
             ...shellPresentation.theme.colors,
           },
-          mode:
-            shellUserOptions.modes.length === 1
-              ? shellUserOptions.modes[0]
-              : shellUserOptions.modes.includes(state.theme as 'light' | 'dark')
-              ? (state.theme as 'light' | 'dark')
-              : shellPresentation.theme.mode ?? 'light',
-          density:
-            shellUserOptions.densities.length === 1
-              ? shellUserOptions.densities[0]
-              : state.shellDensity &&
-                shellUserOptions.densities.includes(state.shellDensity)
-              ? state.shellDensity
-              : shellUserOptions.densities.length === 0
-              ? shellPresentation.theme.density ?? 'comfortable'
-              : selected.theme.density ?? 'comfortable',
+          mode: allowedAppearanceValue(
+            shellUserOptions.modes,
+            state.theme,
+            shellPresentation.theme.mode ?? 'light'
+          ),
+          density: allowedAppearanceValue(
+            shellUserOptions.densities,
+            state.shellDensity,
+            (shellUserOptions.densities.length === 0
+              ? shellPresentation.theme.density
+              : selected.theme.density) ?? 'comfortable'
+          ),
         },
       };
     },
