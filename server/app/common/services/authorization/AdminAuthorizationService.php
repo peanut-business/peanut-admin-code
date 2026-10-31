@@ -232,6 +232,43 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         return $this->permissionDecision($tenantContext, $admin, $accessUri);
     }
 
+    /** A fresh projection per call; no authority survives into a later operation. */
+    public function decisions(TenantContext $tenantContext, array $accessUris): array
+    {
+        if ($accessUris === []) {
+            return [];
+        }
+        $principal = $this->principal($tenantContext);
+        if (!$this->validContext($tenantContext, $principal)) {
+            $decisions = [];
+            foreach ($accessUris as $accessUri) {
+                $decisions[$accessUri] = PermissionDecision::deny($accessUri, 'INVALID_TENANT_ADMIN_CONTEXT');
+            }
+            return $decisions;
+        }
+        $keys = array_map(static fn(string $uri): string => strtolower(trim($uri, '/')), $accessUris);
+        $registered = $this->moduleAdmin->registeredPermissionSubset(
+            $tenantContext->tenantId,
+            array_values(array_unique(array_filter($keys, static fn(string $key): bool => $key !== ''))),
+        );
+        $owned = $this->moduleAdmin->basePermissions($tenantContext);
+        $decisions = [];
+        foreach ($accessUris as $accessUri) {
+            $key = strtolower(trim($accessUri, '/'));
+            if (InstanceControlPlanePolicy::isTenantAdminRoute($accessUri)) {
+                $decisions[$accessUri] = PermissionDecision::deny($accessUri, 'PLATFORM_ROUTE_FORBIDDEN');
+                continue;
+            }
+            $allowed = $this->endpointGrant->allows($tenantContext, $accessUri)
+                || (!in_array($key, InstanceControlPlanePolicy::tenantAdminPermissions(), true)
+                    && $this->permissionPolicy->canAccess(false, $accessUri, $registered, $owned));
+            $decisions[$accessUri] = $allowed
+                ? PermissionDecision::allow($accessUri)
+                : PermissionDecision::deny($accessUri, 'PERMISSION_NOT_GRANTED');
+        }
+        return $decisions;
+    }
+
     private function permissionDecision(TenantContext $tenantContext, AdminPrincipal $admin, string $accessUri): PermissionDecision
     {
         if (InstanceControlPlanePolicy::isTenantAdminRoute($accessUri)) {

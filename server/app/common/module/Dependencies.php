@@ -390,7 +390,12 @@ final readonly class Dependencies
     /** Build the clients whose native entries consume the selected Module contributions. */
     private function adoptFrontend(array $clients): array
     {
-        if ($clients === []) { return []; }
+        // Every package changes plugins.lock, including backend-only packages.
+        // Catalog activation reads its source hashes before any client is required.
+        $project = dirname($this->serverRoot);
+        $results = ['api-contracts' => $this->run(['php', '-d', 'zend.exception_ignore_args=1',
+            $project . '/scripts/generate-api-contracts.php', '--application-root=' . $project], $project)];
+        if ($clients === []) { return $results; }
         if (array_diff($clients, ['web', 'platform', 'pc', 'uniapp']) !== []) {
             throw new PluginPackageException('MODULE_FRONTEND_ADOPTION_REQUIRED', 'The required client has no Module contribution reader.',
                 details: ['pending_actions' => ['frontend_module_assembly', 'frontend_build', 'frontend_adoption']]);
@@ -398,12 +403,6 @@ final readonly class Dependencies
         $edition = (string) app()->config->get('deployment.mode', '');
         if (!in_array($edition, ['standalone', 'multi-tenant'], true)) {
             throw new PluginPackageException('MODULE_FRONTEND_EDITION_REQUIRED', 'The application deployment Edition is required for the native admin build.');
-        }
-        $results = [];
-        if (array_intersect($clients, ['web', 'platform']) !== []) {
-            $project = dirname($this->serverRoot);
-            $results['api-contracts'] = $this->run(['php', '-d', 'zend.exception_ignore_args=1',
-                $project . '/scripts/generate-api-contracts.php', '--application-root=' . $project], $project);
         }
         foreach ($clients as $client) {
             if (in_array($client, ['web', 'platform'], true)) {
