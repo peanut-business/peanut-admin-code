@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "0c02e8739c7e2e844d2fd14a6ff90a92",
+    "content-hash": "9aee7a500f77dbe4cfd7f40df623d769",
     "packages": [
         {
             "name": "aliyuncs/oss-sdk-php",
@@ -1695,19 +1695,20 @@
         },
         {
             "name": "peanut-admin/core",
-            "version": "5.0.3-alpha.1",
+            "version": "5.0.3-alpha.5",
             "source": {
                 "type": "git",
                 "url": "https://github.com/peanut-business/peanut-admin-core-php.git",
-                "reference": "62383f26e0128d176bb86080bb031ffb1e018ab1"
+                "reference": "40f7b0884c8a71fef8c984fb3e9eb40449255626"
             },
             "dist": {
                 "type": "zip",
-                "url": "../packages/core-php/peanut-admin-core-5.0.3-alpha.1.zip",
-                "reference": "62383f26e0128d176bb86080bb031ffb1e018ab1",
-                "shasum": "1903d5df8f674cc4ef8251c11ac734e32f1ee9bb"
+                "url": "../packages/core-php/peanut-admin-core-5.0.3-alpha.5.zip",
+                "reference": "40f7b0884c8a71fef8c984fb3e9eb40449255626",
+                "shasum": "24950bc33699a91d815da94edd724218be4e9198"
             },
             "require": {
+                "composer/semver": "^3.4.4",
                 "ext-fileinfo": "*",
                 "ext-json": "*",
                 "ext-openssl": "*",
@@ -1810,14 +1811,14 @@
         },
         {
             "name": "peanut-business/peanut-identity",
-            "version": "4.0.0-rc.47",
+            "version": "4.0.0-rc.48",
             "dist": {
                 "type": "path",
                 "url": "app/modules/peanut/identity",
-                "reference": "d12adbbfdcd3f96ae06f6aa7125e24a3c9f04877"
+                "reference": "f2656516e626167f44f8652028f8d04d2756b88c"
             },
             "require": {
-                "peanut-admin/core": "^5.0.2",
+                "peanut-admin/core": "^5.0.3-alpha.5",
                 "php": "^8.3"
             },
             "type": "library",
@@ -1918,11 +1919,11 @@
         },
         {
             "name": "peanut-business/peanut-reference-codes",
-            "version": "1.0.24",
+            "version": "1.0.25",
             "dist": {
                 "type": "path",
                 "url": "app/modules/peanut/reference_codes",
-                "reference": "3f27f1f79f328689b4a75f6a260beceefca08743"
+                "reference": "5a61bfbdbea93dac5c2876fdb6779075deb95a9c"
             },
             "require": {
                 "peanut-admin/core": "^5.0.2",
@@ -1990,15 +1991,15 @@
         },
         {
             "name": "peanut-business/peanut-task",
-            "version": "1.0.26",
+            "version": "1.0.27",
             "dist": {
                 "type": "path",
                 "url": "app/modules/peanut/task",
-                "reference": "98e6b3d8d20402dc4c67967b1bf6fa9641e008e4"
+                "reference": "6b53acb67c14be5ed2ef82886596d39fdc1ed994"
             },
             "require": {
-                "peanut-admin/core": "^5.0.2",
-                "peanut-business/peanut-identity": "^4.0.0-rc.32",
+                "peanut-admin/core": "^5.0.3-alpha.5",
+                "peanut-business/peanut-identity": "^4.0.0-rc.48",
                 "php": "^8.3"
             },
             "type": "library",
