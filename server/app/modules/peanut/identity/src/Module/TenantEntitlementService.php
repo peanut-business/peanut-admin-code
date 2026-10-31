@@ -12,11 +12,15 @@ use PeanutAdmin\Modules\Identity\Module\Model\ModuleInstallation;
 use think\facade\Db;
 use think\facade\Cache;
 use PeanutAdmin\Kernel\Auth\TenantContext;
+use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 
 /** Shared commercial ceiling; it never grants a member a role or permission. */
 final readonly class TenantEntitlementService
 {
-    public function __construct(private CompiledModuleRegistry $registry) {}
+    public function __construct(
+        private CompiledModuleRegistry $registry,
+        private TenantModuleStateQueries $installations = new TenantModuleStateQueries(),
+    ) {}
 
     public function license(int $tenantId, bool $lock = false, ?TenantContext $context = null): ?array
     {
@@ -82,20 +86,25 @@ final readonly class TenantEntitlementService
         if (!in_array($moduleKey, $this->registry->moduleKeys(), true)) {
             return false;
         }
-        $query = ModuleInstallation::alias('installation')
-            ->where('installation.module_key', $moduleKey)->where('installation.status', 'active');
-        if (!$this->registry->isRequiredTenantFoundation($moduleKey)) {
-            $now = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s.u');
-            $query->join('tenant_license license', 'TRUE')->where('license.tenant_id', $tenantId)
-                ->join('plan plan', 'plan.id = license.plan_id')
-                ->join('plan_module selection', 'selection.plan_id = plan.id AND selection.module_key = installation.module_key')
-                ->whereRaw('BINARY selection.module_key = ?', [$moduleKey])
-                // The registered license schema permits only active or suspended states.
-                ->where('license.status', 'active')->where('license.effective_at', '<=', $now)
-                ->where(static fn($query) => $query->pk('id')->whereNull('license.expires_at')->whereOr('license.expires_at', '>', $now));
+        $installation = $this->installations->installationRecord($moduleKey);
+        if ($installation === null || $installation['status'] !== 'active' || $installation['module_key'] !== $moduleKey) {
+            return false;
         }
-        // moduleKeys() returns the stored key; preserve its exact canonical comparison.
-        return $query->value('installation.module_key') === $moduleKey;
+        if ($this->registry->isRequiredTenantFoundation($moduleKey)) {
+            return true;
+        }
+        $now = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s.u');
+        return Db::name('tenant_license')->pk('id')->schema([
+            'id' => 'bigint', 'tenant_id' => 'bigint', 'plan_id' => 'bigint', 'status' => 'string',
+            'effective_at' => 'datetime', 'expires_at' => 'datetime', 'revision' => 'bigint',
+            'created_at' => 'datetime', 'updated_at' => 'datetime',
+        ])->alias('license')->where('license.tenant_id', $tenantId)
+            ->join('plan plan', 'plan.id = license.plan_id')
+            ->join('plan_module selection', 'selection.plan_id = plan.id')
+            ->whereRaw('BINARY selection.module_key = ?', [$moduleKey])
+            ->where('license.status', 'active')->where('license.effective_at', '<=', $now)
+            ->where(static fn($query) => $query->pk('id')->whereNull('license.expires_at')->whereOr('license.expires_at', '>', $now))
+            ->value('selection.module_key') === $moduleKey;
     }
 
     /** @return list<string> */

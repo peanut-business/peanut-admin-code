@@ -10,7 +10,7 @@ use PeanutAdmin\Kernel\Module\ModuleException;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ModuleInstallationRecord;
 use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
-use PeanutAdmin\Modules\Identity\Module\Model\ModuleInstallation;
+use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use PeanutAdmin\Kernel\Module\TenantModuleRecord;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Tenant;
 use PeanutAdmin\Modules\Identity\Module\TenantEntitlementService;
@@ -21,6 +21,7 @@ final readonly class ThinkPhpModuleRuntimeRepository implements ModuleRuntimeRep
         private CompiledModuleRegistry $registry,
         private TenantEntitlementService $entitlements,
         private bool $lockAvailabilityReads = false,
+        private TenantModuleStateQueries $installations = new TenantModuleStateQueries(),
     ) {}
 
     public function tenantIsActive(int $tenantId): bool
@@ -30,13 +31,7 @@ final readonly class ThinkPhpModuleRuntimeRepository implements ModuleRuntimeRep
 
     public function installation(string $moduleKey): ?ModuleInstallationRecord
     {
-        $query = ModuleInstallation::where('module_key', $moduleKey);
-        if ($this->lockAvailabilityReads) {
-            $query->lock(true);
-        }
-        $row = $query->field(
-            'module_key,installed_version,manifest_schema_version,status,revision,manifest_digest',
-        )->find()?->toArray();
+        $row = $this->installations->installationRecord($moduleKey, $this->lockAvailabilityReads);
 
         if ($row !== null) {
             $manifest = $this->registry->requireManifest($moduleKey);
