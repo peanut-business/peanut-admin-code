@@ -57,6 +57,10 @@ Core 管范围表达与强制执行；通用授权模块核身份/授权并生�
 
 批量入口需要包含该API的Core版本：本轮固定开发候选为5.0.3-alpha.2，尚不代表公开发行或宿主默认Core已自动升级。实际消费须显式采用包含该API的固定Core。批量统计多个受保护资源时，使用 Core `DataPermissionEngine::queryConstraints(context, [resourceKey => operationName])`，将返回的每个约束分别交给原生 `ThinkPhpQueryConstraintApplier`，用于对应资源的列表和聚合。该入口只复用本次计算的模块、权限和目录修订，各操作的策略修订、有效期、目标基数及租户约束仍独立校验；指定目标仍使用 `queryConstraint`。独立调用重新读取，不建立请求级或跨请求授权缓存。Identity `TenantEntitlementService::permissionProjection` 同一次调用返回许可内模块与权限，宿主登记子集检查复用这份模块投影。
 
-普通API及批量业务权限判断由Host在同一调用内取得已受许可限制的有效权限，并仅校验候选权限的实际模块owner；复用原生installedModule验证版本/schema/manifest，不枚举无关模块。成员权限判断仍重新读取活动成员、凭据及授权修订，但不额外读取界面角色名称和可切换租户数量。Identity许可查询已带回套餐修订，revisionFacts复用同一行，不再次读取相同套餐。独立调用不持有权限或许可快照。
+普通API及批量业务权限由Identity `TenantAuthorizationQuery::permissionGrants` 对本次待判键执行原生关联查询，同时约束活动租户/成员/角色、显式角色授权、许可时间、套餐权限及已安装模块；内置租户owner仅补Core固定权限。Host复用本次权限状态，再对唯一模块owner调用原生installedModule验证版本/schema/manifest。API模块入口检查使用精确allowsModule，并保留前置安装身份校验。
+
+既有EndpointPermissionGrant只交接同一Request、同一TenantContext对象的源码默认权限；业务decisions命中精确键时消费准入结果，不重读人员资料。语义是该请求准入持续到请求结束，不承诺命中调用即时感知请求中途撤权。其他键仍逐次检查活动成员/凭据/授权修订；对象范围、事务内权限fence、异步和后续请求保持原实时边界。本次没有新增请求或跨请求授权缓存。
+
+热路径Identity模型使用ThinkORM原生完整 `$schema`，字段与类型来自所属迁移；既有模型生成器也输出完整schema。迁移改变字段时同步所属模型声明，不能以部分字段映射代替完整schema。裸Db查询及显式元数据调用仍遵循原生行为；这不是持久字段缓存。
 
 Identity主体读取使用同一活动成员/账号/租户/凭据JOIN返回既有TenantMemberSummary和资料；管理端需要时在该单行查询内计算活动租户数，角色仍独立读取，普通权限判断不计算展示计数。资源操作与权限关系合并读取，目标类型保留独立集合以避免两个一对多关系相乘。目录修订通过原生UNION ALL一次读取原五组完整摘要输入，继续按PHP字符串排序生成同一hash，不新增缓存或删减修订输入。
