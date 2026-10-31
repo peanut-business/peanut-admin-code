@@ -225,7 +225,7 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         return $this->permissionDecision($tenantContext, $admin, $accessUri);
     }
 
-    /** A fresh projection per call; no authority survives into a later operation. */
+    /** Reuse this request's exact endpoint admission; pending keys use a fresh projection. */
     public function decisions(TenantContext $tenantContext, array $accessUris): array
     {
         if ($accessUris === []) {
