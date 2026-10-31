@@ -9,6 +9,7 @@ use think\Model;
 final class TenantSessionToken extends Model
 {
     /** @var string */ protected $name = 'tenant_session_token';
+    /** @var string */ protected $pk = 'id';
     /** @var bool */ protected $autoWriteTimestamp = false;
     /** @var array<string, string> */ protected $type = [
         'id' => 'integer',

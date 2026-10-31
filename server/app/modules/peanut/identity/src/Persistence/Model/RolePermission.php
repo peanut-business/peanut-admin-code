@@ -7,6 +7,7 @@ namespace PeanutAdmin\Modules\Identity\Persistence\Model;
 final class RolePermission extends \PeanutAdmin\Kernel\Persistence\Model\TenantModel
 {
     /** @var string */ protected $name = 'role_permission';
+    /** @var string */ protected $pk = 'id';
     /** @var array<string, string> */ protected $type = [
         'id' => 'integer',
         'tenant_id' => 'integer',

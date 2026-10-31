@@ -9,6 +9,7 @@ use think\Model;
 final class ModuleInstallation extends Model
 {
     /** @var string */ protected $name = 'module_installation';
+    /** @var string */ protected $pk = 'id';
     /** @var bool */ protected $autoWriteTimestamp = false;
 
     /** @var array<string, string> */

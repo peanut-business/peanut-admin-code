@@ -9,6 +9,7 @@ use think\Model;
 final class Tenant extends Model
 {
     /** @var string */ protected $name = 'tenant';
+    /** @var string */ protected $pk = 'id';
     /** @var bool */ protected $autoWriteTimestamp = false;
 
     /** @var array<string, string> */

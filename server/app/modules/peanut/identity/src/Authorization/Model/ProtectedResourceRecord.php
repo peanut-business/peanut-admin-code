@@ -9,6 +9,7 @@ use think\Model;
 final class ProtectedResourceRecord extends Model
 {
     /** @var string */ protected $name = 'protected_resource';
+    /** @var string */ protected $pk = 'id';
     /** @var bool */ protected $autoWriteTimestamp = false;
     /** @var array<string, string> */ protected $type = ['id' => 'integer'];
 

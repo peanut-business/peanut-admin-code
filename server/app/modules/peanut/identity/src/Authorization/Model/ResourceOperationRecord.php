@@ -9,6 +9,7 @@ use think\Model;
 final class ResourceOperationRecord extends Model
 {
     /** @var string */ protected $name = 'resource_operation';
+    /** @var string */ protected $pk = 'id';
     /** @var bool */ protected $autoWriteTimestamp = false;
     /** @var array<string, string> */ protected $type = [
         'id' => 'integer',

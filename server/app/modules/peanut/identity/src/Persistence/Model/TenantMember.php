@@ -7,6 +7,7 @@ namespace PeanutAdmin\Modules\Identity\Persistence\Model;
 final class TenantMember extends \PeanutAdmin\Kernel\Persistence\Model\TenantModel
 {
     /** @var string */ protected $name = 'tenant_member';
+    /** @var string */ protected $pk = 'id';
 
     /** @var array<string, string> */
     protected $type = [
