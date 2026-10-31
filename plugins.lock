@@ -7,7 +7,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "cd5907b08fa19f50c73de0541845889413388aa1e10ea9a16e544dc6151cd7ad"
+                "sha256": "f17f626c64a5de522933206c8fa2a99b19bc4ad0338895aa487b394ff7d3f8ce"
             },
             "trust": {
                 "channel": "bundled",
@@ -82,7 +82,7 @@
                 }
             ],
             "manifest": "plugins/peanut.content-tools/plugin.json",
-            "manifest_sha256": "c07f52e73116fdf55eabe2cd9c3b09be68ec1d9c78f4e31b1f538b26fe22d2b2"
+            "manifest_sha256": "717b365e99789f7cc261d327b954ea534606d8c2402c8e9748edef8a2150675c"
         },
         {
             "key": "peanut.file",
@@ -90,7 +90,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "cda17acaac4417b3e5282cc7f0bda5bea5c05da33ab19654e7917cc163661870"
+                "sha256": "df51e4652181e872e2ca013f384973652abd0f785758da6c704b69206810feaf"
             },
             "trust": {
                 "channel": "bundled",
@@ -174,7 +174,7 @@
                 }
             ],
             "manifest": "plugins/peanut.file/plugin.json",
-            "manifest_sha256": "46d7c5f5c68d542218a85e51458749e10ed8d65218e1f933d3468cb93969c9e2"
+            "manifest_sha256": "80870e5c33dd0506e2a79b7d1c69a705e0d6f25f4b56cb042f96051b8370942c"
         },
         {
             "key": "peanut.identity",
@@ -182,7 +182,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "5feaa68aac30432e28a9b45e484aa7d03c6956cc45f9ce4c97164ad83d6c9305"
+                "sha256": "9c89c02a90e59af5af57b0968b063b346762f81ee4dc7e2f7ff42ecce1b0aa70"
             },
             "trust": {
                 "channel": "bundled",
@@ -243,7 +243,7 @@
                 }
             ],
             "manifest": "plugins/peanut.identity/plugin.json",
-            "manifest_sha256": "aba95a0bf231bb26ebdae2de5306152586f3e0ac4605bc2ef71ecb38d2117691"
+            "manifest_sha256": "e0b0d2f14e59fcb515472b0ffde6b98f770bb73e87286f3fb7c45643b2ea3bd3"
         },
         {
             "key": "peanut.integration",
@@ -251,7 +251,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "a1264dfb291951b551dfea1c2f32d2c2f6ac2c72d33c4ae458a26c96530049fe"
+                "sha256": "3d6a68223a78b208694da9d5e48ca4b201b13ce07c71634fc8cc43c5413fc722"
             },
             "trust": {
                 "channel": "bundled",
@@ -331,7 +331,7 @@
                 }
             ],
             "manifest": "plugins/peanut.integration/plugin.json",
-            "manifest_sha256": "5cd541e640e8642dbc25f9867a3598ca330ed0aa171bf4dd8389ce3206756f61"
+            "manifest_sha256": "69701c4d7d450691e4014ce17c1c29be9a25e62ec394224807f702d08b5ae2a8"
         },
         {
             "key": "peanut.ops",
@@ -339,7 +339,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "cfe7baa9ba1c067bf223208ffe3edeb5516c70fc98aec2dfa0db144915590f93"
+                "sha256": "b2edbc11e7e5baead081944665ec7df556bd45bed5ea995538a97258af4d92b3"
             },
             "trust": {
                 "channel": "bundled",
@@ -423,7 +423,7 @@
                 }
             ],
             "manifest": "plugins/peanut.ops/plugin.json",
-            "manifest_sha256": "e9df4adae5399aa83c335332c8bf3e70407a46c3704d2dbf37c28054527cbff9"
+            "manifest_sha256": "ea20e21c70db0e363a98d88b243f630fd160273193fa14310d260283687ee1d2"
         },
         {
             "key": "peanut.reference-codes",
@@ -431,7 +431,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "f9173506ea6bc2d6277a347d9b3266603dbdd4593cad2f5ec81b67a2ecee9606"
+                "sha256": "546ed3d7665f6700306ee7373f6bdc5796d10066929b065cce23076c81fc496b"
             },
             "trust": {
                 "channel": "bundled",
@@ -511,7 +511,7 @@
                 }
             ],
             "manifest": "plugins/peanut.reference-codes/plugin.json",
-            "manifest_sha256": "db0633779c7ce6d6d04bea96e1f8906cb76add7f57cd1cc73be6b1715bcbd89b"
+            "manifest_sha256": "1637725e9776d281391d1e359341e7cbbe1dea5087d7b1a4de9e36ae51ab6c5a"
         },
         {
             "key": "peanut.settings",
@@ -519,7 +519,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "4f5ab69f283ba27c85c262fefbc82148aeee01d00219248cf77305f35d0b0bf7"
+                "sha256": "9f6c33b34a79b9b98d3d1a049d1d40ff87355334d3e979bdadbabdad92b48bae"
             },
             "trust": {
                 "channel": "bundled",
@@ -603,7 +603,7 @@
                 }
             ],
             "manifest": "plugins/peanut.settings/plugin.json",
-            "manifest_sha256": "7aabd4e58176ca11d76da940b794974d053c63a8c67d11259e4176387e46edd1"
+            "manifest_sha256": "4e7066da629fb2fcbc8ada264cfd72b8cde64cff9b5d7e7157a71a5bf888b062"
         },
         {
             "key": "peanut.task",
@@ -611,7 +611,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "4f7b4d402a3c12443fd2d1691b9e37376ed40389ae09255b41e609739f59b841"
+                "sha256": "7cf1ea44b07ac3bcca1a3fc62659e024b17041c6ade73932603ee1896725aa69"
             },
             "trust": {
                 "channel": "bundled",
@@ -691,7 +691,7 @@
                 }
             ],
             "manifest": "plugins/peanut.task/plugin.json",
-            "manifest_sha256": "4b4003954bc3832c1a8ae0ba548a4fbcec7fd3bf10890f1bdca9c1474d9d2116"
+            "manifest_sha256": "10816125dd31fc19f605b2fa7a6a2d6d08e456fae2b376bdfe08b33715021d8d"
         }
     ]
 }
