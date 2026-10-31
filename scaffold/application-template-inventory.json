@@ -19901,7 +19901,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "edd2881e7ea01b69d647d2412699a486205df8d34926d022f9dfa219a5210818"
+            "source_sha256": "418fa9210fd3c8455c8716338116289667879d22b06a72ad910e364c1eb20f03"
         },
         {
             "path": "server/public/admin/.vite/manifest.json.gz",
@@ -19915,11 +19915,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "adf6c6ce5f0ae4d574498d15394ea37b626759669079a995bca260c8b1855f60"
+            "source_sha256": "5882bd883623965d4058d26c2dbd93c5274c88e16e79e8d6a8b2bc6a13cc4478"
         },
         {
-            "path": "server/public/admin/assets/BasicFileViewer-BpXBB7mq.js",
-            "target": "server/public/admin/assets/BasicFileViewer-BpXBB7mq.js",
+            "path": "server/public/admin/assets/BasicFileViewer-Bb7ahR4C.js",
+            "target": "server/public/admin/assets/BasicFileViewer-Bb7ahR4C.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -19929,11 +19929,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "40c06eb8ec77a8212f8a5f89bb160087e791f30e0046e2594b21b90881a0392f"
+            "source_sha256": "1d06f912b9c1a402440c20d9673a707cc9e503420a31aa037fe04c6a4cd0ddfb"
         },
         {
-            "path": "server/public/admin/assets/BasicFileViewer-BpXBB7mq.js.gz",
-            "target": "server/public/admin/assets/BasicFileViewer-BpXBB7mq.js.gz",
+            "path": "server/public/admin/assets/BasicFileViewer-Bb7ahR4C.js.gz",
+            "target": "server/public/admin/assets/BasicFileViewer-Bb7ahR4C.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -19943,7 +19943,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b70c967d3ad1feec96ddd976163c0172f1845e5bf0d4fa25b9dd12eaed8118ac"
+            "source_sha256": "a5a1a3af9bcc01e35810f87eede2dfc18f0c793440dc0b708bed731376d9f716"
         },
         {
             "path": "server/public/admin/assets/BasicFileViewer-MWqTVwgn.css",
@@ -19960,8 +19960,8 @@
             "source_sha256": "f1d3ec7afcf7ecaaed1dc7d5e6b7f3f91ab082a2d6fd42a817d81b79de52bbfd"
         },
         {
-            "path": "server/public/admin/assets/FileMediaPage-BK0jiP8-.js",
-            "target": "server/public/admin/assets/FileMediaPage-BK0jiP8-.js",
+            "path": "server/public/admin/assets/FileMediaPage-CaK0ibev.js",
+            "target": "server/public/admin/assets/FileMediaPage-CaK0ibev.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -19971,11 +19971,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0d90632dccdf3c4effa013e2da93b77c82ca7e888ce6bdfcaf7ac4323bc4be10"
+            "source_sha256": "79d2d999ab59d7422dd97fd68145d7093bf68f6921c1c203d37ef84830e36cae"
         },
         {
-            "path": "server/public/admin/assets/FileMediaPage-BK0jiP8-.js.gz",
-            "target": "server/public/admin/assets/FileMediaPage-BK0jiP8-.js.gz",
+            "path": "server/public/admin/assets/FileMediaPage-CaK0ibev.js.gz",
+            "target": "server/public/admin/assets/FileMediaPage-CaK0ibev.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -19985,7 +19985,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e87df0e9c94a4709fdcb8e10fe40b62f41dd6e11a4465a727dd5baf4029bf5c1"
+            "source_sha256": "cc79a9c92f322abc4026fc5de71f299537b328214f6f1f948c171d25693d4bfd"
         },
         {
             "path": "server/public/admin/assets/FileMediaPage-DWX7O__z.css",
@@ -20072,8 +20072,8 @@
             "source_sha256": "92809c149183853e07e04ca88484e3e2f11ecf6378dfbeb06a2292abf1cf82b4"
         },
         {
-            "path": "server/public/admin/assets/RuntimePage-BtmlXY34.js",
-            "target": "server/public/admin/assets/RuntimePage-BtmlXY34.js",
+            "path": "server/public/admin/assets/RuntimePage-CE159GTa.js",
+            "target": "server/public/admin/assets/RuntimePage-CE159GTa.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20083,11 +20083,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a01df4ad19191a07556c8eb32e07c44d9ebbfbc05d3f472e26e92418e76a3656"
+            "source_sha256": "2382a69938c14b2973bb519fc2d29cb1cb94494cc649bcfb573025ab3c12d731"
         },
         {
-            "path": "server/public/admin/assets/RuntimePage-BtmlXY34.js.gz",
-            "target": "server/public/admin/assets/RuntimePage-BtmlXY34.js.gz",
+            "path": "server/public/admin/assets/RuntimePage-CE159GTa.js.gz",
+            "target": "server/public/admin/assets/RuntimePage-CE159GTa.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -20097,11 +20097,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "49a83932a61915e84af6cda745217e67afaa3b32e8555399e1198af4defd3217"
+            "source_sha256": "c90b983e9c6e5ac6a0c0f28821e003cb10b05e4b7cafd8317ca571ae900ca0c5"
         },
         {
-            "path": "server/public/admin/assets/RuntimePage-CTjsL_FC.js",
-            "target": "server/public/admin/assets/RuntimePage-CTjsL_FC.js",
+            "path": "server/public/admin/assets/RuntimePage-CGsmpVhG.js",
+            "target": "server/public/admin/assets/RuntimePage-CGsmpVhG.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20111,11 +20111,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a967302c618d041d956eb0a50d78e53b0b587b018f58af7ccd094fc6ca4d42ef"
+            "source_sha256": "baa66d796a18063831069002f344e7bf6346887364ebef8d422ef3120220da63"
         },
         {
-            "path": "server/public/admin/assets/RuntimePage-CTjsL_FC.js.gz",
-            "target": "server/public/admin/assets/RuntimePage-CTjsL_FC.js.gz",
+            "path": "server/public/admin/assets/RuntimePage-CGsmpVhG.js.gz",
+            "target": "server/public/admin/assets/RuntimePage-CGsmpVhG.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -20125,11 +20125,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dd4abb4d15075a18d3528de4a95689ab124937db1ba42c48d1eeec5009721e30"
+            "source_sha256": "c294a6c1fcdb27d9a537eab33062e06efc41e0070e369e26e06caf3e793a593c"
         },
         {
-            "path": "server/public/admin/assets/RuntimePage-CwDWe0Sw.js",
-            "target": "server/public/admin/assets/RuntimePage-CwDWe0Sw.js",
+            "path": "server/public/admin/assets/RuntimePage-DJrIx6ZH.js",
+            "target": "server/public/admin/assets/RuntimePage-DJrIx6ZH.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20139,11 +20139,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f15ca3a6bce3443632baaa50e796015145e81ce0eb2f38f2a4acd057254757ad"
+            "source_sha256": "528e64b7375abefaf0507b8aee477f95c7c21ae163c278252651cbfd045d1502"
         },
         {
-            "path": "server/public/admin/assets/RuntimePage-CwDWe0Sw.js.gz",
-            "target": "server/public/admin/assets/RuntimePage-CwDWe0Sw.js.gz",
+            "path": "server/public/admin/assets/RuntimePage-DJrIx6ZH.js.gz",
+            "target": "server/public/admin/assets/RuntimePage-DJrIx6ZH.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -20153,7 +20153,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bdfea5f737a33f0c7ed050ac8bb36f2a1094cc997cd64e9dd038408009f25301"
+            "source_sha256": "fc0466194fcaf9796828de97cb8509dd41c94d257680168b576100879b2344d4"
         },
         {
             "path": "server/public/admin/assets/RuntimePage-mjuU0JKg.css",
@@ -20184,6 +20184,34 @@
             "source_sha256": "f9767e8474666e156ef99520f8aa7fee6ab57503faac6ffa5db554e5ec24ede5"
         },
         {
+            "path": "server/public/admin/assets/TaskJobsPage-C0c3MB44.js",
+            "target": "server/public/admin/assets/TaskJobsPage-C0c3MB44.js",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "3ffe6daefed0288f805e76be07ac71ebbb8b53d5cafb5c792046350b0dfad1b0"
+        },
+        {
+            "path": "server/public/admin/assets/TaskJobsPage-C0c3MB44.js.gz",
+            "target": "server/public/admin/assets/TaskJobsPage-C0c3MB44.js.gz",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "5a65f7e65bdd78046350abbcb64444cf47012e4b3bdfb9728fcdd1d8fe445e3b"
+        },
+        {
             "path": "server/public/admin/assets/TaskJobsPage-CY9mDuMj.css",
             "target": "server/public/admin/assets/TaskJobsPage-CY9mDuMj.css",
             "classification": "managed",
@@ -20198,8 +20226,8 @@
             "source_sha256": "6de8af1ebdd531311ace19894b3c70d9bbd5dd065d46255f23f42ec72c29e843"
         },
         {
-            "path": "server/public/admin/assets/TaskJobsPage-D7_klu_9.js",
-            "target": "server/public/admin/assets/TaskJobsPage-D7_klu_9.js",
+            "path": "server/public/admin/assets/admin-zEr2HXca.js",
+            "target": "server/public/admin/assets/admin-zEr2HXca.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20209,11 +20237,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "aa165bc30b9459c1d3296ae8bef7bce4b1acf85adaa38ff10e55edb190fb1358"
+            "source_sha256": "8121330f6e6b8e2643c7f2e940e360202057ea748ff49e75ae196b3ecc053e8e"
         },
         {
-            "path": "server/public/admin/assets/TaskJobsPage-D7_klu_9.js.gz",
-            "target": "server/public/admin/assets/TaskJobsPage-D7_klu_9.js.gz",
+            "path": "server/public/admin/assets/admin-zEr2HXca.js.gz",
+            "target": "server/public/admin/assets/admin-zEr2HXca.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -20223,11 +20251,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4731d648cadb87cb9b95f9d651970bd32deb3c1e000767fd96f7c19d3471b1e3"
+            "source_sha256": "ea8bf5955f6e012260ac70eb0876087d04efa0c02feb93d6b0fbf9d7d4f6cb41"
         },
         {
-            "path": "server/public/admin/assets/admin-Bu4S1O31.js",
-            "target": "server/public/admin/assets/admin-Bu4S1O31.js",
+            "path": "server/public/admin/assets/api-DOElc4cY.js",
+            "target": "server/public/admin/assets/api-DOElc4cY.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20237,11 +20265,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8229eaeb9df70511d570ecdc5e3c5294b2ac21b73af4d780980a2fec073b7419"
+            "source_sha256": "377e684e9b71bff3f0e49ca917e20da5a519e4ce64ceb7b1695f4735de2f0bd2"
         },
         {
-            "path": "server/public/admin/assets/admin-Bu4S1O31.js.gz",
-            "target": "server/public/admin/assets/admin-Bu4S1O31.js.gz",
+            "path": "server/public/admin/assets/api-DOElc4cY.js.gz",
+            "target": "server/public/admin/assets/api-DOElc4cY.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -20251,11 +20279,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c08eab952603f9a7ac117811995ce9385dc63a366f3bf806a2beaa4268866fea"
+            "source_sha256": "7a1a444b0b461b29c7b00f986ed412e57ce6b732b24b15d0badf75c7ee94c8c7"
         },
         {
-            "path": "server/public/admin/assets/api-AGS1fTkR.js",
-            "target": "server/public/admin/assets/api-AGS1fTkR.js",
+            "path": "server/public/admin/assets/app-CvTVne1O.js",
+            "target": "server/public/admin/assets/app-CvTVne1O.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20265,11 +20293,25 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5811a6912924efc8eea13ab6add731961fbb6745a7ecfc61a7bec73a7dd4527c"
+            "source_sha256": "57c725b106c3a10a5921f8a81d2b42fe210aee510ce7d14116305b5666faedcc"
         },
         {
-            "path": "server/public/admin/assets/api-AGS1fTkR.js.gz",
-            "target": "server/public/admin/assets/api-AGS1fTkR.js.gz",
+            "path": "server/public/admin/assets/decoration-DknKhoTe.js",
+            "target": "server/public/admin/assets/decoration-DknKhoTe.js",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "3b238777caf0e066d5a0f8b337634664a4c520e57a0d573bd1173cb951b58d6b"
+        },
+        {
+            "path": "server/public/admin/assets/decoration-DknKhoTe.js.gz",
+            "target": "server/public/admin/assets/decoration-DknKhoTe.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -20279,11 +20321,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "62d83a00a1ac8ca51dbb764c0a9a0b293c282f5491160d22b506a88bafdd67e5"
+            "source_sha256": "9a18dfde93ff67eb07fc417411b48c29a8ff78d3a0965593f602769dc9ec1fd0"
         },
         {
-            "path": "server/public/admin/assets/app-DQdEYGNp.js",
-            "target": "server/public/admin/assets/app-DQdEYGNp.js",
+            "path": "server/public/admin/assets/default-layout-B08Qy4hI.css",
+            "target": "server/public/admin/assets/default-layout-B08Qy4hI.css",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20293,25 +20335,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b8e589f284b3739372bc674a2284d71790603a92b20fedaf2b0ce9fb8cb7866c"
+            "source_sha256": "570a942315e3892ad37b06ebb338d3436673a0d211ffe7b7aaeb2bca28d8963b"
         },
         {
-            "path": "server/public/admin/assets/decoration-Bo_GTyar.js",
-            "target": "server/public/admin/assets/decoration-Bo_GTyar.js",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "0bd7a35a129e509206a23743c58fe60a7249f942cf405e516e83caefa32c97f1"
-        },
-        {
-            "path": "server/public/admin/assets/decoration-Bo_GTyar.js.gz",
-            "target": "server/public/admin/assets/decoration-Bo_GTyar.js.gz",
+            "path": "server/public/admin/assets/default-layout-B08Qy4hI.css.gz",
+            "target": "server/public/admin/assets/default-layout-B08Qy4hI.css.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -20321,11 +20349,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0c0d4d2325f2a48e073015615f8dde9c220ed17d182e675569137e8557249ad5"
+            "source_sha256": "3ccffd1a1f78098f36a069bc19dd913012e25bf3538776dc82b670d168e4b6e3"
         },
         {
-            "path": "server/public/admin/assets/default-layout-Bpbf5hFO.css",
-            "target": "server/public/admin/assets/default-layout-Bpbf5hFO.css",
+            "path": "server/public/admin/assets/default-layout-CttbVoK-.js",
+            "target": "server/public/admin/assets/default-layout-CttbVoK-.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20335,11 +20363,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c9b0bc6061de375ece555893fb92f67fc3c9fb35bb779dfc690e5f6e11a9508c"
+            "source_sha256": "60bf380a881049b877a8136f05500ab7eb8d1a496b2e725b8ac3dda90965832e"
         },
         {
-            "path": "server/public/admin/assets/default-layout-Bpbf5hFO.css.gz",
-            "target": "server/public/admin/assets/default-layout-Bpbf5hFO.css.gz",
+            "path": "server/public/admin/assets/default-layout-CttbVoK-.js.gz",
+            "target": "server/public/admin/assets/default-layout-CttbVoK-.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -20349,11 +20377,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "18306419eca467ec1b6b8eae87c63656e6957ef2df4efb5dce234397381368d3"
+            "source_sha256": "f5a6f46f73e6932e6608cdc79a9192459614d599869af5b069f09d5c9d89db57"
         },
         {
-            "path": "server/public/admin/assets/default-layout-IkpOgcOh.js",
-            "target": "server/public/admin/assets/default-layout-IkpOgcOh.js",
+            "path": "server/public/admin/assets/index--rf1g4gW.js",
+            "target": "server/public/admin/assets/index--rf1g4gW.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20363,11 +20391,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "971c9fa72827144aa438f69097ae3baa93e9e290b2b5839f9306a69b6b86b427"
+            "source_sha256": "c49cf0e7473875416671efa413e38983e52bca4f97c27b77f81b1f51e8b08186"
         },
         {
-            "path": "server/public/admin/assets/default-layout-IkpOgcOh.js.gz",
-            "target": "server/public/admin/assets/default-layout-IkpOgcOh.js.gz",
+            "path": "server/public/admin/assets/index--rf1g4gW.js.gz",
+            "target": "server/public/admin/assets/index--rf1g4gW.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -20377,7 +20405,35 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ecebc53f1d53cf822938cc20224d002be65dc2111d6b360d530b6f5c05d644dd"
+            "source_sha256": "bfa0de1681c5d1c575d1d370f5065782c065fba12d054e0b157234ce1ee456ac"
+        },
+        {
+            "path": "server/public/admin/assets/index-0sITfWqG.js",
+            "target": "server/public/admin/assets/index-0sITfWqG.js",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "8218bd2d4df7c3a7e3704bc7e29b1ee73962a733ab0d0a961aa75da5c529616f"
+        },
+        {
+            "path": "server/public/admin/assets/index-0sITfWqG.js.gz",
+            "target": "server/public/admin/assets/index-0sITfWqG.js.gz",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "805e9197ce8c4cd40969061897e70cba26eddd71709323caacb006449ce864be"
         },
         {
             "path": "server/public/admin/assets/index-6AEw-F_8.css",
@@ -20422,8 +20478,8 @@
             "source_sha256": "8b1d3cd2b589d7a2534f338337f92829f444037014c86ce5f19e7d07cbb754f4"
         },
         {
-            "path": "server/public/admin/assets/index-B3Nc7r4F.js",
-            "target": "server/public/admin/assets/index-B3Nc7r4F.js",
+            "path": "server/public/admin/assets/index-9QDg66my.js",
+            "target": "server/public/admin/assets/index-9QDg66my.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20433,11 +20489,25 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "19a9bdf08dc15bfed0725d4d03ea2d70bb8f1884c94f675f9b843fbe29a5b2d3"
+            "source_sha256": "073768d226b7c4bc7229d83a114d97faab00df607a980ecacbfd1e36fd127d4a"
         },
         {
-            "path": "server/public/admin/assets/index-B3Nc7r4F.js.gz",
-            "target": "server/public/admin/assets/index-B3Nc7r4F.js.gz",
+            "path": "server/public/admin/assets/index-A7xyHBdf.js",
+            "target": "server/public/admin/assets/index-A7xyHBdf.js",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "5f9758ea10b8cee86e9ee5e5c459ff409bf7686fa465aa0564c2e1b8b225d597"
+        },
+        {
+            "path": "server/public/admin/assets/index-A7xyHBdf.js.gz",
+            "target": "server/public/admin/assets/index-A7xyHBdf.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -20447,11 +20517,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d25003d3d6be7cee5184870f8632454442a409efa8f487386757bc5f787e0d4b"
+            "source_sha256": "18834d9921296e2aacf61f21691e3dd2e331739e1f2979273fcd5108bc745b97"
         },
         {
-            "path": "server/public/admin/assets/index-B5YWNT-V.js",
-            "target": "server/public/admin/assets/index-B5YWNT-V.js",
+            "path": "server/public/admin/assets/index-B9M13Pis.js",
+            "target": "server/public/admin/assets/index-B9M13Pis.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20461,7 +20531,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "893391aae42c420b911457f4da9f6310f53a117c6d43104bf504b3a06dba6635"
+            "source_sha256": "e27c46d10638d190e331e9a15ac1ead6af7920eabcd1eb1b9cfdb15ac5eb7dcd"
+        },
+        {
+            "path": "server/public/admin/assets/index-B9M13Pis.js.gz",
+            "target": "server/public/admin/assets/index-B9M13Pis.js.gz",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e3859a0efd332ff7bcf09027f55f856ffb4f1b929f2612ba7e669cf1c314141e"
         },
         {
             "path": "server/public/admin/assets/index-B9PWUGcE.css",
@@ -20478,8 +20562,8 @@
             "source_sha256": "1a19a04ce04d22222b3d7caca9f038ba5facac2393cf1ca70416fe20b06b3780"
         },
         {
-            "path": "server/public/admin/assets/index-BB_j2aR6.js",
-            "target": "server/public/admin/assets/index-BB_j2aR6.js",
+            "path": "server/public/admin/assets/index-BEa0m9hI.js",
+            "target": "server/public/admin/assets/index-BEa0m9hI.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20489,11 +20573,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8bc65a32b9bc8ff657f36c31be1a33bb115327855116e085de434bee4fccb0b7"
+            "source_sha256": "1360894ebd5bd7ecd5a5c45e9c75a3535fdbba3b1633032098c98af517924b7d"
         },
         {
-            "path": "server/public/admin/assets/index-BB_j2aR6.js.gz",
-            "target": "server/public/admin/assets/index-BB_j2aR6.js.gz",
+            "path": "server/public/admin/assets/index-BEa0m9hI.js.gz",
+            "target": "server/public/admin/assets/index-BEa0m9hI.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -20503,7 +20587,63 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a44f0f9d0e9d786534d7488ef1724b920940dbc7199f8f10502da7415e5b6fb5"
+            "source_sha256": "fe0b36727cbb1a664336aecdd61962e0d6bcb3e1cbdb6930c4394f636a22a2cc"
+        },
+        {
+            "path": "server/public/admin/assets/index-BEqEDk8C.css",
+            "target": "server/public/admin/assets/index-BEqEDk8C.css",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ba281d317748d0bfd9a0c3a25d76b552d21c4d063d47381b24cb66402a94c804"
+        },
+        {
+            "path": "server/public/admin/assets/index-BEqEDk8C.css.gz",
+            "target": "server/public/admin/assets/index-BEqEDk8C.css.gz",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "119fa6ea41f10dfe5f15c3f8d6de15ee9395beb7dd51000ea24c3550d970f8af"
+        },
+        {
+            "path": "server/public/admin/assets/index-BIGLHx-7.js",
+            "target": "server/public/admin/assets/index-BIGLHx-7.js",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "b302bdf1d5d109b10ad2cb11254ae20ba819ff1c1315f925aa103d59dbf2b9e3"
+        },
+        {
+            "path": "server/public/admin/assets/index-BIGLHx-7.js.gz",
+            "target": "server/public/admin/assets/index-BIGLHx-7.js.gz",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "58cc22e5c67a67d7d8c70b56251654ccf4bb8a4d20030a2a2127860dd36c41f8"
         },
         {
             "path": "server/public/admin/assets/index-BINtlwlF.css",
@@ -20520,8 +20660,8 @@
             "source_sha256": "4009ebd6d4e10221d92789d1d3366c79e6fbf68cd3b60f29a49f23a174ec7851"
         },
         {
-            "path": "server/public/admin/assets/index-BVSUDzXJ.js",
-            "target": "server/public/admin/assets/index-BVSUDzXJ.js",
+            "path": "server/public/admin/assets/index-BIaQ95eN.js",
+            "target": "server/public/admin/assets/index-BIaQ95eN.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20531,11 +20671,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a372dcb1547f8b257665d4cf47764aa785636b029843305d27fd0c8462bbe12d"
+            "source_sha256": "f181dcd5801a6f60cd5d3e0e4dbcc8210ee462e4aa17050a0e72c9d5804d9457"
         },
         {
-            "path": "server/public/admin/assets/index-BVSUDzXJ.js.gz",
-            "target": "server/public/admin/assets/index-BVSUDzXJ.js.gz",
+            "path": "server/public/admin/assets/index-BIaQ95eN.js.gz",
+            "target": "server/public/admin/assets/index-BIaQ95eN.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -20545,7 +20685,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "244067ca774a1bef97bd646c9bf29adfeafd31710bb2fc902152f1c554c9ca17"
+            "source_sha256": "cba581016f123ad163085fb4de95707a1f6af6642c6f7fef234b530635df553c"
         },
         {
             "path": "server/public/admin/assets/index-BYPNpt0q.css",
@@ -20576,8 +20716,8 @@
             "source_sha256": "bdabacb69d03b2325373a59438b6354f00405cf56d36f3a0ba0df5e51731a828"
         },
         {
-            "path": "server/public/admin/assets/index-BasV3R0w.js",
-            "target": "server/public/admin/assets/index-BasV3R0w.js",
+            "path": "server/public/admin/assets/index-Be5PUqMn.js",
+            "target": "server/public/admin/assets/index-Be5PUqMn.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20587,11 +20727,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7222ba343a7e06177d573d998815104e05ac153b94bb5d4125ebcea5e104937f"
+            "source_sha256": "64ac1a29eff29f36a7e86b1237062c31c4650f993fc395b0981629238c157453"
         },
         {
-            "path": "server/public/admin/assets/index-BasV3R0w.js.gz",
-            "target": "server/public/admin/assets/index-BasV3R0w.js.gz",
+            "path": "server/public/admin/assets/index-Be5PUqMn.js.gz",
+            "target": "server/public/admin/assets/index-Be5PUqMn.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -20601,11 +20741,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4b06b7dda869dac3f4bc4270d07e6fcd14baa9c46a0d8535dea915e7698bcfd4"
+            "source_sha256": "7cd559fdafe8ad34a34273ed921bdee05d4c2d12473500ae6680197280f1fac8"
         },
         {
-            "path": "server/public/admin/assets/index-Baz8mYt5.js",
-            "target": "server/public/admin/assets/index-Baz8mYt5.js",
+            "path": "server/public/admin/assets/index-Bg7CNx8J.js",
+            "target": "server/public/admin/assets/index-Bg7CNx8J.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20615,11 +20755,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2e6d5f9fc86a142dc8d55de79623cb515106e2dc318fa3462fd1e2f13c5fd933"
+            "source_sha256": "334a96f6a7a2d374693ec718925433b3a1f13f70f3ed0ccc373356fcc9f2d832"
         },
         {
-            "path": "server/public/admin/assets/index-Baz8mYt5.js.gz",
-            "target": "server/public/admin/assets/index-Baz8mYt5.js.gz",
+            "path": "server/public/admin/assets/index-Bg7CNx8J.js.gz",
+            "target": "server/public/admin/assets/index-Bg7CNx8J.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -20629,35 +20769,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "417fa880724938f938dff94403dce4dceb1dc78e75326127cf40bccd7ecf41e4"
-        },
-        {
-            "path": "server/public/admin/assets/index-BiUSYEeu.js",
-            "target": "server/public/admin/assets/index-BiUSYEeu.js",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "4fe06e4949208c556070bd8267a2014fa0fdef987c5edc48bcbdad0f085aa007"
-        },
-        {
-            "path": "server/public/admin/assets/index-BiUSYEeu.js.gz",
-            "target": "server/public/admin/assets/index-BiUSYEeu.js.gz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "66778a28996df1978a54a080ecd5a0e68d1fd014ed5a2dbd583ef7fef1d4ebba"
+            "source_sha256": "86c1b2ea3b3f1dc8db9f4277e8b197a16012d049c19d01e3741917dad4bef48c"
         },
         {
             "path": "server/public/admin/assets/index-BlUm1Kof.css",
@@ -20672,48 +20784,6 @@
                 "full"
             ],
             "source_sha256": "ad5eecd04563bdf9f604bae2e9900bb18833d71751e707812b34734714efa2fe"
-        },
-        {
-            "path": "server/public/admin/assets/index-BlY3XUUG.js",
-            "target": "server/public/admin/assets/index-BlY3XUUG.js",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "b454e4720dd4aa1c631f10255e951ef3027efa14fd5c70333f6ceaf40fab3aea"
-        },
-        {
-            "path": "server/public/admin/assets/index-BpXH3TrC.js",
-            "target": "server/public/admin/assets/index-BpXH3TrC.js",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "2600bfca5c2d3bb418c07b046bb925d9b4ac9caba72f66bec896582fcd25fd91"
-        },
-        {
-            "path": "server/public/admin/assets/index-BpXH3TrC.js.gz",
-            "target": "server/public/admin/assets/index-BpXH3TrC.js.gz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "28834962839235d93057491664df2ec4eda3ef725262effaef980486145ccbbf"
         },
         {
             "path": "server/public/admin/assets/index-BvwZBUfv.css",
@@ -20744,8 +20814,8 @@
             "source_sha256": "afc81bf623bfd6d83db28cd147dd972c5e75dfa6b48710f9cad1809d3ad58b57"
         },
         {
-            "path": "server/public/admin/assets/index-Bzjsl_Iy.js",
-            "target": "server/public/admin/assets/index-Bzjsl_Iy.js",
+            "path": "server/public/admin/assets/index-ByaCKiG1.js",
+            "target": "server/public/admin/assets/index-ByaCKiG1.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20755,21 +20825,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ac86b59e7d0f52a13cfe5e114a423060786fd4abe86a209956763207e8004c6c"
-        },
-        {
-            "path": "server/public/admin/assets/index-Bzjsl_Iy.js.gz",
-            "target": "server/public/admin/assets/index-Bzjsl_Iy.js.gz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "b16ab53cde34c59014c23d7be1a6ef6621205958107b5dddb7cdbebce65b1793"
+            "source_sha256": "eace13e7b63f7178516b31ac89964e29ea92427cf97ab31c3ee046da62412893"
         },
         {
             "path": "server/public/admin/assets/index-C21y9TFn.css",
@@ -20814,8 +20870,8 @@
             "source_sha256": "8f666a2fed05256a6234bc415cd32b777ea79f725c141d97a5badba351fb3704"
         },
         {
-            "path": "server/public/admin/assets/index-C8a2t3xb.js",
-            "target": "server/public/admin/assets/index-C8a2t3xb.js",
+            "path": "server/public/admin/assets/index-C3k8bhvV.js",
+            "target": "server/public/admin/assets/index-C3k8bhvV.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20825,11 +20881,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b40bd31dcdf3b643d8f948aa2ad25105cbb588fc723d29fb7ec37d2ca45a1563"
+            "source_sha256": "3c8cc2eec9f2fba5890edfc003999c71126b8eb71461b8c815babcf90a0b3913"
         },
         {
-            "path": "server/public/admin/assets/index-C8a2t3xb.js.gz",
-            "target": "server/public/admin/assets/index-C8a2t3xb.js.gz",
+            "path": "server/public/admin/assets/index-C3k8bhvV.js.gz",
+            "target": "server/public/admin/assets/index-C3k8bhvV.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -20839,11 +20895,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6720e4fd43ae1d11bb687c20bd8c514daa08065f26a50099cc505423a44e54ad"
+            "source_sha256": "f0acf7e4f05cfcafa0e2e0a5ee8ac5deacd7c54bcdd5fd74a6b17681821687a0"
         },
         {
-            "path": "server/public/admin/assets/index-COtvKGiV.js",
-            "target": "server/public/admin/assets/index-COtvKGiV.js",
+            "path": "server/public/admin/assets/index-CLqjqWLD.js",
+            "target": "server/public/admin/assets/index-CLqjqWLD.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20853,11 +20909,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a540170c66c6d6ad4b998ad0a344957cc7a4d8defa3dd3152adbbdfee03c3201"
+            "source_sha256": "9289b5e31809d5dd9555fe75bd68addd13d2ef69c4850de82d95887c51238306"
         },
         {
-            "path": "server/public/admin/assets/index-COtvKGiV.js.gz",
-            "target": "server/public/admin/assets/index-COtvKGiV.js.gz",
+            "path": "server/public/admin/assets/index-CLqjqWLD.js.gz",
+            "target": "server/public/admin/assets/index-CLqjqWLD.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -20867,11 +20923,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "06e4e6c541e12fca1a22e5edb11e48bbc0c7eacf498bdbe4e786d91bda62523a"
+            "source_sha256": "171c798570dc2bbfb334823c897a78bd65e97b18b3bf8a93b3a6ff40df38ae0b"
         },
         {
-            "path": "server/public/admin/assets/index-CZQ-rzc0.js",
-            "target": "server/public/admin/assets/index-CZQ-rzc0.js",
+            "path": "server/public/admin/assets/index-CQe1nmcq.js",
+            "target": "server/public/admin/assets/index-CQe1nmcq.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20881,11 +20937,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0178753d78bf63e27dd59ff526489609dccf551d0264e1614f541916b7d3ea34"
+            "source_sha256": "17264831b836da1f3e5e24b5b7615e4c50c0a0ffc06a0187b13dee39e66271c0"
         },
         {
-            "path": "server/public/admin/assets/index-CZQ-rzc0.js.gz",
-            "target": "server/public/admin/assets/index-CZQ-rzc0.js.gz",
+            "path": "server/public/admin/assets/index-CQe1nmcq.js.gz",
+            "target": "server/public/admin/assets/index-CQe1nmcq.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -20895,35 +20951,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "49ae50d40e19e63d4a51e7f3c5b12ead4f8f832b754063498e6be43bc702abde"
-        },
-        {
-            "path": "server/public/admin/assets/index-C_irpJ4a.js",
-            "target": "server/public/admin/assets/index-C_irpJ4a.js",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "5b08a6331e0e95165754b40fe8bdfa73ee25d1227af38d06041a1f36c01d208f"
-        },
-        {
-            "path": "server/public/admin/assets/index-C_irpJ4a.js.gz",
-            "target": "server/public/admin/assets/index-C_irpJ4a.js.gz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c7be9b58d077c4b7f236954a85775be2cfb0e9f2b4105abc2e06180e99ad741e"
+            "source_sha256": "bfca5d088adb28de1e14a126204881d52b30e333e5f4065af48a9a393cd6841f"
         },
         {
             "path": "server/public/admin/assets/index-Cdjr7wxI.css",
@@ -20940,8 +20968,8 @@
             "source_sha256": "b549eb24df7fdc37cb6946f2981bc8c0710150dbb26ea0fc918ea0ea1cab1f69"
         },
         {
-            "path": "server/public/admin/assets/index-CiH10eSW.js",
-            "target": "server/public/admin/assets/index-CiH10eSW.js",
+            "path": "server/public/admin/assets/index-Cix4Lv6J.js",
+            "target": "server/public/admin/assets/index-Cix4Lv6J.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20951,11 +20979,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "818874355496735581b48ed36c31419fdd6ca009f05c2e7c3a604993defc78fa"
+            "source_sha256": "6fa89a89ce220c324e22737954026ed47438aee53daeaa56a0151b7c0c860d71"
         },
         {
-            "path": "server/public/admin/assets/index-CiH10eSW.js.gz",
-            "target": "server/public/admin/assets/index-CiH10eSW.js.gz",
+            "path": "server/public/admin/assets/index-Cix4Lv6J.js.gz",
+            "target": "server/public/admin/assets/index-Cix4Lv6J.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -20965,11 +20993,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "57ebe52d7b6d723dfb3c3cb00eb2fde8aa760834eeb6e73f6b2dd3219c72a554"
+            "source_sha256": "41536fbc33d1a14dc033ba2b1564cf640bc7c008ed2a8808216a464ece4f162e"
         },
         {
-            "path": "server/public/admin/assets/index-Cp2OiSUx.js",
-            "target": "server/public/admin/assets/index-Cp2OiSUx.js",
+            "path": "server/public/admin/assets/index-CjIQvxLf.js",
+            "target": "server/public/admin/assets/index-CjIQvxLf.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -20979,11 +21007,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "115c56059f6521beabfcfc0989cb858ec1c9c677b9d52594ec54f23e0dfd7b18"
+            "source_sha256": "b84e730daecc83dd9132550f96293ba2cd6ace8d3232a07c63444ed3950539fa"
         },
         {
-            "path": "server/public/admin/assets/index-Cp2OiSUx.js.gz",
-            "target": "server/public/admin/assets/index-Cp2OiSUx.js.gz",
+            "path": "server/public/admin/assets/index-CjIQvxLf.js.gz",
+            "target": "server/public/admin/assets/index-CjIQvxLf.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -20993,7 +21021,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5b677403013dc75c41eb70247f554513fd9f68a3b02bfa8dac417246e9036b6a"
+            "source_sha256": "8a80e0cd83fc859e6d782777674d083298713499e40ab4fe2966ce3c25170d54"
         },
         {
             "path": "server/public/admin/assets/index-Cr02132q.js",
@@ -21036,34 +21064,6 @@
                 "full"
             ],
             "source_sha256": "9bc156a661b92b7e1dbbbc2d79ebceca7865e37b957f2ee88d202eedf33c55ae"
-        },
-        {
-            "path": "server/public/admin/assets/index-Ctfh6K5X.js",
-            "target": "server/public/admin/assets/index-Ctfh6K5X.js",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "ee5aefc3ad38647804007c3051b1da3c2315d881cf78b510116d668aeb6f5583"
-        },
-        {
-            "path": "server/public/admin/assets/index-Ctfh6K5X.js.gz",
-            "target": "server/public/admin/assets/index-Ctfh6K5X.js.gz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "0acf62fd03d0f20c968fdbbb2667a719b9aa78fc423d99bca08d1c098e3098a1"
         },
         {
             "path": "server/public/admin/assets/index-Cu8Iswpd.css",
@@ -21136,62 +21136,6 @@
             "source_sha256": "f459c6c50b0852c6d4d64db76765edff992f9290eaa8ce9d484c14bbdca35f2d"
         },
         {
-            "path": "server/public/admin/assets/index-D32Vwf7m.js",
-            "target": "server/public/admin/assets/index-D32Vwf7m.js",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "238538e57a704d3bd26c9b7a85671531aa08e027853f1cbc55547e626ff91d38"
-        },
-        {
-            "path": "server/public/admin/assets/index-D32Vwf7m.js.gz",
-            "target": "server/public/admin/assets/index-D32Vwf7m.js.gz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "3d9850e7bb49cd60bd9a39e26f7b3ad0652a79399cd17e56e8b199ce71efd1ec"
-        },
-        {
-            "path": "server/public/admin/assets/index-DDhdIN1N.css",
-            "target": "server/public/admin/assets/index-DDhdIN1N.css",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "bd11b97b28ba6840e801cbf0930c1ad7b50b61a38a5dfeb4439befa7a09b5051"
-        },
-        {
-            "path": "server/public/admin/assets/index-DDhdIN1N.css.gz",
-            "target": "server/public/admin/assets/index-DDhdIN1N.css.gz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "f4ba37e9af8c566320773c9882302ea31875913ebc3bd8e561989f9fc9cdb559"
-        },
-        {
             "path": "server/public/admin/assets/index-DUHw_zvJ.css",
             "target": "server/public/admin/assets/index-DUHw_zvJ.css",
             "classification": "managed",
@@ -21204,6 +21148,20 @@
                 "full"
             ],
             "source_sha256": "d1dd7fc02170e08cd4750bea3d9f4ec4d77e09b3172a47c636fa71ed3d598dd2"
+        },
+        {
+            "path": "server/public/admin/assets/index-DVBwLsff.js",
+            "target": "server/public/admin/assets/index-DVBwLsff.js",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "1110972c9ea4058dd1ae4315041cc507e00209419be191da7e6ac596d44f6157"
         },
         {
             "path": "server/public/admin/assets/index-DVpmAtGH.css",
@@ -21220,8 +21178,8 @@
             "source_sha256": "c07549994717c719b6869a3462646a6324f7e6946172d8ec95cb824092ed75f1"
         },
         {
-            "path": "server/public/admin/assets/index-DiNrjhMx.js",
-            "target": "server/public/admin/assets/index-DiNrjhMx.js",
+            "path": "server/public/admin/assets/index-DcParu9M.js",
+            "target": "server/public/admin/assets/index-DcParu9M.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21231,11 +21189,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6b1243bc3aaadfa63bf33b47f141a7a4c1b581672d80c190c3ee079c0ac0eef2"
+            "source_sha256": "2a8e330d4745bc1278c7979492c1c3565250ba423c9be98d9e379d6ac767b5ee"
         },
         {
-            "path": "server/public/admin/assets/index-DiNrjhMx.js.gz",
-            "target": "server/public/admin/assets/index-DiNrjhMx.js.gz",
+            "path": "server/public/admin/assets/index-DcParu9M.js.gz",
+            "target": "server/public/admin/assets/index-DcParu9M.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -21245,11 +21203,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eca6fc38a915659955396eeddea5310b630044980c87d017f32853438a466e0f"
+            "source_sha256": "adfd1a242b1e8acfb4515548f58230a01deecb0232c5448a6f54616a62a9483a"
         },
         {
-            "path": "server/public/admin/assets/index-DntLu4gq.js",
-            "target": "server/public/admin/assets/index-DntLu4gq.js",
+            "path": "server/public/admin/assets/index-Dm2uJk9X.js",
+            "target": "server/public/admin/assets/index-Dm2uJk9X.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21259,11 +21217,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a6fd23e8067cc326487dd7662214e523c806ce4fbf44011a3c27673d42129db0"
+            "source_sha256": "fab521352f3180e013f6dadd70fa681af247c9f681a4de533db85780612a60dd"
         },
         {
-            "path": "server/public/admin/assets/index-IsBZ1hFf.js",
-            "target": "server/public/admin/assets/index-IsBZ1hFf.js",
+            "path": "server/public/admin/assets/index-DzphMsM8.js",
+            "target": "server/public/admin/assets/index-DzphMsM8.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21273,11 +21231,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "79c1a8c21c366c17026965dcdadb1dbd285d6fc35eb3e0170bec2a458f2deb08"
+            "source_sha256": "444a179ebfb042361e6b9b19961d3602589bbcc0e5e8a23178261370d42457e6"
         },
         {
-            "path": "server/public/admin/assets/index-IsBZ1hFf.js.gz",
-            "target": "server/public/admin/assets/index-IsBZ1hFf.js.gz",
+            "path": "server/public/admin/assets/index-DzphMsM8.js.gz",
+            "target": "server/public/admin/assets/index-DzphMsM8.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -21287,11 +21245,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d7ed787d98f659fa3cb86bde015a366b98d2556289f9519775d89007ed7c87b7"
+            "source_sha256": "4a7bfaafd29ae24f4b6a1c175189ab673df02382e7b65bf35915b365fe4a16d2"
         },
         {
-            "path": "server/public/admin/assets/index-JOXMyJ_R.js",
-            "target": "server/public/admin/assets/index-JOXMyJ_R.js",
+            "path": "server/public/admin/assets/index-HL2N2u6A.js",
+            "target": "server/public/admin/assets/index-HL2N2u6A.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21301,11 +21259,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "54d2517ff10fce19a1032d65e3d22ae454571eac9fc643c5ec504a10cb009eae"
+            "source_sha256": "f35d6c55f0b117d8982ea149af4c520a830b8004aff08f69b34dc8fdf0ff7a20"
         },
         {
-            "path": "server/public/admin/assets/index-JOXMyJ_R.js.gz",
-            "target": "server/public/admin/assets/index-JOXMyJ_R.js.gz",
+            "path": "server/public/admin/assets/index-HL2N2u6A.js.gz",
+            "target": "server/public/admin/assets/index-HL2N2u6A.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -21315,35 +21273,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3724c4f69ac99146a7b28e3beede3512689dae68c441f08c3fb9707f7858ee65"
-        },
-        {
-            "path": "server/public/admin/assets/index-QyVoThtv.js",
-            "target": "server/public/admin/assets/index-QyVoThtv.js",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "565afe7c84ece0811d20511cad8adabec50d1f3ea76ec86b8543add7aab79daf"
-        },
-        {
-            "path": "server/public/admin/assets/index-QyVoThtv.js.gz",
-            "target": "server/public/admin/assets/index-QyVoThtv.js.gz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "69cfc78fbb184d1cabaf330db877c032f79f7bf20205ed102b1db7a1357c282e"
+            "source_sha256": "f5e2fed93beb2ced13fc2afaaea7e1b47d2ea03504475cd15db1a52af4694e8b"
         },
         {
             "path": "server/public/admin/assets/index-RbIiTVAV.css",
@@ -21360,34 +21290,6 @@
             "source_sha256": "a433dcb68757712757db3c378d16be8de2f5803d6e9945f412239a0c844afb00"
         },
         {
-            "path": "server/public/admin/assets/index-Run_72Fl.js",
-            "target": "server/public/admin/assets/index-Run_72Fl.js",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "9c54f088fd2a3e9e6ddf17201530f27a5c0c7925ce334fea2a08746bd4dfdc5a"
-        },
-        {
-            "path": "server/public/admin/assets/index-Run_72Fl.js.gz",
-            "target": "server/public/admin/assets/index-Run_72Fl.js.gz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "f4901240d892bb272acdcc69a1b4616252f8c3ab6506d2511245f8648b004248"
-        },
-        {
             "path": "server/public/admin/assets/index-Rz-S1cpO.css",
             "target": "server/public/admin/assets/index-Rz-S1cpO.css",
             "classification": "managed",
@@ -21400,6 +21302,34 @@
                 "full"
             ],
             "source_sha256": "74a30e847dd957d883abc0546c06ec09439f31683f49c0a34dc24fe65723fa9c"
+        },
+        {
+            "path": "server/public/admin/assets/index-WLUfUZ2w.js",
+            "target": "server/public/admin/assets/index-WLUfUZ2w.js",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "3fcf94a5e2b795e6193416abff28502075be13ecc8a9b1eb2b3d239a634a6a59"
+        },
+        {
+            "path": "server/public/admin/assets/index-WLUfUZ2w.js.gz",
+            "target": "server/public/admin/assets/index-WLUfUZ2w.js.gz",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c31e1ad86198e1cddc6981f3332128b5d7cf5d2b9b7171fb260029c6b428c83a"
         },
         {
             "path": "server/public/admin/assets/index-WYjzCGLN.css",
@@ -21416,8 +21346,8 @@
             "source_sha256": "3d4f0991e617115fddc7b04c1f98366bf5998f0b9be221f4789813a6cc92fcaf"
         },
         {
-            "path": "server/public/admin/assets/index-XLPg2_CF.js",
-            "target": "server/public/admin/assets/index-XLPg2_CF.js",
+            "path": "server/public/admin/assets/index-bY7N7XRx.js",
+            "target": "server/public/admin/assets/index-bY7N7XRx.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21427,7 +21357,77 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6dce5601785ed8cbec98f310ad0c8e32a7bd2fafdd0af47627e812c75e73d36d"
+            "source_sha256": "7bfb195d154aa95ad64b4a172c815821dc830f37ece512cbc890817973121a76"
+        },
+        {
+            "path": "server/public/admin/assets/index-bY7N7XRx.js.gz",
+            "target": "server/public/admin/assets/index-bY7N7XRx.js.gz",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e52448e7ed58c1d33e80584b9b3e6bb1a0d79a84435d7ce91aa84bcd71a12761"
+        },
+        {
+            "path": "server/public/admin/assets/index-fv9b9pf9.js",
+            "target": "server/public/admin/assets/index-fv9b9pf9.js",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "86a98ebad8983e3afb4b3d95adaf037e1629c96b2ac3b2689c079a5cdfc43e85"
+        },
+        {
+            "path": "server/public/admin/assets/index-fv9b9pf9.js.gz",
+            "target": "server/public/admin/assets/index-fv9b9pf9.js.gz",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0509ac1cade65118d12f3b1b6ded3b1acaf5c967e000b452516ed6c6e4344aec"
+        },
+        {
+            "path": "server/public/admin/assets/index-iQt0TPDy.js",
+            "target": "server/public/admin/assets/index-iQt0TPDy.js",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e1dc4104bdb07a9ddae6e6871cf9e79085d9264bcf82bc58ca8ff9da5a2b6c2b"
+        },
+        {
+            "path": "server/public/admin/assets/index-iQt0TPDy.js.gz",
+            "target": "server/public/admin/assets/index-iQt0TPDy.js.gz",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "bc3039f44270cd2147fbd9ef7c0531cb8efcf7f730038cc92a9952483c81197b"
         },
         {
             "path": "server/public/admin/assets/index-qNB2MZZs.css",
@@ -21486,8 +21486,8 @@
             "source_sha256": "b14547e6308330ef64627e2fd249579206aa88c12c5a1247491b782d07cc2a6c"
         },
         {
-            "path": "server/public/admin/assets/index-wTe6is0L.js",
-            "target": "server/public/admin/assets/index-wTe6is0L.js",
+            "path": "server/public/admin/assets/index-xoztuv4_.js",
+            "target": "server/public/admin/assets/index-xoztuv4_.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21497,11 +21497,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "099b102ae929d1bdb1038ed9375765c6535c516069fa4773e4ca87c211db5642"
+            "source_sha256": "3ce0ba680e8ee2bca86e2f814e13f255e9fb1888ec6e84c152c4ab6ec445a9ea"
         },
         {
-            "path": "server/public/admin/assets/index-wTe6is0L.js.gz",
-            "target": "server/public/admin/assets/index-wTe6is0L.js.gz",
+            "path": "server/public/admin/assets/index-xoztuv4_.js.gz",
+            "target": "server/public/admin/assets/index-xoztuv4_.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -21511,11 +21511,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a9be26f5098bed0113862052151178ec41763b372ee9be7a741f06732d0ba8f6"
+            "source_sha256": "d45e635219375d89a5971a8c74909a7ddaaf70f50902cb3eff0d2864992ef16d"
         },
         {
-            "path": "server/public/admin/assets/jobs-_dRLS8_h.js",
-            "target": "server/public/admin/assets/jobs-_dRLS8_h.js",
+            "path": "server/public/admin/assets/jobs-3XdI0crX.js",
+            "target": "server/public/admin/assets/jobs-3XdI0crX.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21525,11 +21525,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1d6d077b7c50f7e819e928832e719f284e15b10a7cb69feade096c58375faa13"
+            "source_sha256": "8188d031e05e84f97e2901f03881e38da5eca3e5d9a2416bb83ec90181ae4117"
         },
         {
-            "path": "server/public/admin/assets/loading-DWicyLDO.js",
-            "target": "server/public/admin/assets/loading-DWicyLDO.js",
+            "path": "server/public/admin/assets/loading-DwcvfaaO.js",
+            "target": "server/public/admin/assets/loading-DwcvfaaO.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21539,11 +21539,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f76b25f2660365739caf74afa9936b5dd876d856e16035cd26ab98fecc1b84ce"
+            "source_sha256": "f4936b949f49337dc28254e6a40691c721e68749ec887db5cd99adad596c7baa"
         },
         {
-            "path": "server/public/admin/assets/parent-options-CujBGnlY.js",
-            "target": "server/public/admin/assets/parent-options-CujBGnlY.js",
+            "path": "server/public/admin/assets/parent-options-DmNx30i5.js",
+            "target": "server/public/admin/assets/parent-options-DmNx30i5.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21553,11 +21553,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ecfb5a6bab50f217ecb1e14eeb2824e3b3c587a5a09273b65c20c6251b1ea95d"
+            "source_sha256": "bc4e6936ac7e925ded7f66ccc6d093e3cd5d580544e65d66f83de58ef0abe104"
         },
         {
-            "path": "server/public/admin/assets/parent-options-CujBGnlY.js.gz",
-            "target": "server/public/admin/assets/parent-options-CujBGnlY.js.gz",
+            "path": "server/public/admin/assets/parent-options-DmNx30i5.js.gz",
+            "target": "server/public/admin/assets/parent-options-DmNx30i5.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -21567,11 +21567,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dd596e0446807177530649e05f1689458c0268526b3e690680f66e31ff9b0302"
+            "source_sha256": "ff611f338b36d93147da742757a406bf505b039ff59197edc7bf3cf350910b7d"
         },
         {
-            "path": "server/public/admin/assets/public-image-references-BPI-RLFU.js",
-            "target": "server/public/admin/assets/public-image-references-BPI-RLFU.js",
+            "path": "server/public/admin/assets/public-image-references-BL8GLoQW.js",
+            "target": "server/public/admin/assets/public-image-references-BL8GLoQW.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21581,11 +21581,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a92354a8bc89114e681adad033d2c74a1dfd53f4d837aad39a3a8b9ec1027c4a"
+            "source_sha256": "9cedafe5da4a1eb2a77b8ed9ad9e09667cfad5f3cea8965d3fa2a5af6ba33dcc"
         },
         {
-            "path": "server/public/admin/assets/public-image-references-BPI-RLFU.js.gz",
-            "target": "server/public/admin/assets/public-image-references-BPI-RLFU.js.gz",
+            "path": "server/public/admin/assets/public-image-references-BL8GLoQW.js.gz",
+            "target": "server/public/admin/assets/public-image-references-BL8GLoQW.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -21595,7 +21595,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8e552ce74ae6458e416460cf3d4ef6decf4ec34e2240056c16dede8addc4dca6"
+            "source_sha256": "134b2f577bb8c7db9e400c8de40dae9ff8ce4b44bd597f6dee63bf61712722aa"
         },
         {
             "path": "server/public/admin/assets/public-image-references-DMpOFX2V.css",
@@ -21626,8 +21626,8 @@
             "source_sha256": "a78a3a769cb61cc7220655973f695ff5bc456cfc55f49634abdcb1bd28292b37"
         },
         {
-            "path": "server/public/admin/assets/role-DQKYSvxP.js",
-            "target": "server/public/admin/assets/role-DQKYSvxP.js",
+            "path": "server/public/admin/assets/role-Ci2gQu28.js",
+            "target": "server/public/admin/assets/role-Ci2gQu28.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21637,11 +21637,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "429a3d9ff3de61cee76e67686db365f2cd67ffa38323169c6f82447b0972acc7"
+            "source_sha256": "b8ad573efa115cdc6859d2bffdc148b0e7e8b93975061d684ad1e55cf2625df5"
         },
         {
-            "path": "server/public/admin/assets/role-DQKYSvxP.js.gz",
-            "target": "server/public/admin/assets/role-DQKYSvxP.js.gz",
+            "path": "server/public/admin/assets/role-Ci2gQu28.js.gz",
+            "target": "server/public/admin/assets/role-Ci2gQu28.js.gz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -21651,11 +21651,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "78df3dfd50c40bcfc2d047112d7f4b78223570c3be911286e491b0aa64651734"
+            "source_sha256": "a6820af7b4460d2e416cc4ddedecbbfb5a069526757ee48fc472bcdea0e8442a"
         },
         {
-            "path": "server/public/admin/assets/tenant-session-fetch-D0mXF3Rx.js",
-            "target": "server/public/admin/assets/tenant-session-fetch-D0mXF3Rx.js",
+            "path": "server/public/admin/assets/tenant-session-fetch-CHa4t9-5.js",
+            "target": "server/public/admin/assets/tenant-session-fetch-CHa4t9-5.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21665,11 +21665,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c6d4be55ea2f63726331d369d16fb581317788f71423578b664dae70945e291f"
+            "source_sha256": "e796b57082e194fa18613da56ae04f5fbe70e1fdd61aa452e45cce0de857e121"
         },
         {
-            "path": "server/public/admin/assets/user-Do2ci_LW.js",
-            "target": "server/public/admin/assets/user-Do2ci_LW.js",
+            "path": "server/public/admin/assets/user-jGc47Txl.js",
+            "target": "server/public/admin/assets/user-jGc47Txl.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21679,7 +21679,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "80f52be5c1b23d2b342b5d58968b84bfb8eee677cb1008a7158ebcd4de9766ed"
+            "source_sha256": "e13bd573e339edf3fba4daea2197e9f376983350d8eec810939b93f9addea5e5"
         },
         {
             "path": "server/public/admin/brand/avatar-admin.svg",
@@ -21805,7 +21805,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fd42b91a2a9946f78c0920d4114e8b5327f4cea064c965aa4d80265b9d89807b"
+            "source_sha256": "71a50af02d49720c56f1979b9eaf87a1e8a6cc20683f713a619b6b5bd52bfc51"
         },
         {
             "path": "server/public/brand/avatar-admin.svg",
@@ -21962,8 +21962,8 @@
             "source_sha256": "a78cfb51ec4cfa554bd0993def234b57359ca942e7ae82c36cce15242f9b79c0"
         },
         {
-            "path": "server/public/platform/assets/index-BQZ2cORP.css",
-            "target": "server/public/platform/assets/index-BQZ2cORP.css",
+            "path": "server/public/platform/assets/index-B_dgxo3j.js",
+            "target": "server/public/platform/assets/index-B_dgxo3j.js",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21973,11 +21973,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a4b5fcf449d9bcf8259486552c4290131bd5898d4d284f5c87f3663b253a4145"
+            "source_sha256": "ff68e7243d374e7c5ade9dc777bbc1a427ba3ff1ff3ec10a9ab1cd3fa4970a47"
         },
         {
-            "path": "server/public/platform/assets/index-CI7c5U5h.js",
-            "target": "server/public/platform/assets/index-CI7c5U5h.js",
+            "path": "server/public/platform/assets/index-C-_9xYSQ.css",
+            "target": "server/public/platform/assets/index-C-_9xYSQ.css",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21987,7 +21987,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "459282d23fc93b8fb71f676fc353d049fa8994c3fc577df073443711d686209b"
+            "source_sha256": "a4d88d312bf5a5cc3b9676544cee96d5e191405274a11fd3c4089c434bd904fa"
         },
         {
             "path": "server/public/platform/index.html",
@@ -22001,7 +22001,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5be26ae66cda1ba11f6905f6fab66db146409da754c5ca7e1a0803819dd9e2ec"
+            "source_sha256": "758d70b547279959125b930624e39b7aca5110a563536101bd593247dd49ebd8"
         },
         {
             "path": "server/public/robots.txt",
