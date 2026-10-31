@@ -1,10 +1,69 @@
 # Official integration module
 
-This optional official module owns Tenant machine credentials, external channel
+This protected core module owns Tenant machine credentials, external channel
 bindings, outbound Webhook lifecycle, delivery evidence, and self-scoped Tenant
 session device controls. Technical OAuth/Webhook transports, destination safety,
 and secret cryptography remain in `peanut-admin/core`; this module owns the
 business records, schema, Provider bindings, and lifecycle.
+
+## Reuse entry points and current consumers
+
+Cross-module PHP consumers depend on the exports in `module.json`, not the
+repository or `Service` implementations. `ModuleProvider` binds the contracts
+through the ThinkPHP container; callers inject them through constructors.
+
+| Entry | Input and result | Current consumer |
+| --- | --- | --- |
+| `Contract\ExternalChannelBindings::config` | Trusted `TenantContext`, `ExternalProvider` key → provider configuration array; absent configuration returns `[]` | OAuth `OpenPlatformApplicationService::getConfig` |
+| `ExternalChannelBindings::update` / `mutate` | Trusted context, provider, configuration/atomic mutator, external identity → persisted Tenant binding | OAuth configuration services; Notification `NoticeChannelService` |
+| `Contract\ExternalTenantResolutionService::verifiedCallback` | Provider, opaque callback key, operation/id and provider verifier → binding, verified value and Tenant system context | Application `OfficialAccountApplicationService` and `PaymentCallbackApplicationService` |
+| `ExternalTenantResolutionService::bindingForCallbackReference` | Existing trusted OAuth state/ticket Tenant and binding reference → unverified binding candidate | OAuth `ThinkPhpOAuthCallbackLocator` |
+
+OAuth and Payment business services belong to their external modules in the
+module-development application. Integration remains the Code-owned source of
+the shared binding contracts. For example, an already authorized OAuth use case
+can read its configuration without implementing a second binding ledger:
+
+```php
+use PeanutAdmin\Kernel\Auth\TenantContext;
+use PeanutAdmin\Modules\Integration\Contract\ExternalChannelBindings;
+use PeanutAdmin\Modules\Integration\Contract\ExternalProvider;
+
+final readonly class OpenPlatformConfiguration
+{
+    public function __construct(private ExternalChannelBindings $bindings) {}
+
+    public function read(TenantContext $context): array
+    {
+        return $this->bindings->config($context, ExternalProvider::WECHAT_OPEN_PLATFORM);
+    }
+}
+```
+
+The calling use case owns its feature permission and request validation. Never
+construct a Tenant context from a client Tenant id. Configuration can contain
+secrets: redact them in the consumer's HTTP projection, as the existing OAuth
+service does. Configuration reads may include disabled bindings for management;
+they do not authorize callbacks. Callback resolution rejects missing, ambiguous,
+inactive or invalid ownership with `ExternalTenantResolutionException`
+(`EXTERNAL_CALLBACK_REJECTED`). The verifier must perform the provider's actual
+verification; callback candidates alone do not prove authenticity. OAuth state
+expiry/one-time checks and payment validation remain with their business owners.
+`mutate` holds the adapter's row lock for its configuration change; it is not a
+transaction around an external network action.
+
+The Web entry is `web/src/modules/peanut-integration/contribution.ts` →
+`RuntimePage.vue` → `runtime/IntegrationSecurityPage.vue`. The existing
+`runtime/index.ts` exports the typed transport, response parsers, runtime and
+page. `RuntimePage.vue` is their real consumer: it supplies `tenantSessionFetch`,
+current permissions and the current-session logout callback, provides
+`integrationSecurityRuntimeKey`, and calls `dispose` on unmount. Reusing the
+page requires that same provider lifecycle; no independent token store or URL
+assembly is needed. The runtime validates responses, exposes independent
+loading/error states, suppresses superseded requests and clears one-time
+credentials on disposal. Attempt-detail loading clears prior rows before
+requesting another delivery, so errors cannot leave another delivery's evidence
+under the selected key.
 
 ## Authorization and public boundary
 
@@ -131,7 +190,9 @@ the header is `v1=<lowercase HMAC-SHA256>`. The delivery key is also the
 idempotency header. Payloads are canonical JSON, at most 256 KiB, with a replay
 timestamp window owned by the HTTP transport adapter. `408`, `425`, `429`, transport failure and `5xx`
 are retryable with bounded backoff; other `4xx` and all redirect/security
-failures are permanent. The fake transport used here performs no network I/O.
+failures are permanent. The registered `CurlWebhookTransport` performs real
+network I/O; do not run dispatch as a configuration check. Synthetic test
+transports are separate from this production binding.
 
 ## Errors and integration status
 
