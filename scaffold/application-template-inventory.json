@@ -19831,7 +19831,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "282835fb5df158e85fb2fba4ee5ce74b15644fe11832ec1d4cd8aab362dd035c"
+            "source_sha256": "357b6c36afddb06cbfa6ce0345d65993705377d48879b1a5ce92feb3a75ac875"
         },
         {
             "path": "server/generated/openapi.json",
