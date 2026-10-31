@@ -72,7 +72,7 @@
           </el-dropdown>
         </el-tooltip>
       </li>
-      <li class="desktop-action">
+      <li v-if="shellUserOptions.modes.length > 1" class="desktop-action">
         <el-tooltip
           :content="
             theme === 'light'
@@ -157,11 +157,15 @@
                 <el-icon v-if="item.value === currentLocale"><Check /></el-icon>
                 {{ item.label }}
               </el-dropdown-item>
-              <el-dropdown-item command="theme">{{
-                theme === 'light'
-                  ? $t('settings.navbar.theme.toDark')
-                  : $t('settings.navbar.theme.toLight')
-              }}</el-dropdown-item>
+              <el-dropdown-item
+                v-if="shellUserOptions.modes.length > 1"
+                command="theme"
+                >{{
+                  theme === 'light'
+                    ? $t('settings.navbar.theme.toDark')
+                    : $t('settings.navbar.theme.toLight')
+                }}</el-dropdown-item
+              >
               <el-dropdown-item command="fullscreen">{{
                 isFullscreen
                   ? $t('settings.navbar.screen.toExit')
@@ -280,7 +284,7 @@
   import { computed, inject, ref } from 'vue';
   import type { ButtonInstance, InputInstance } from 'element-plus';
   import { useI18n } from 'vue-i18n';
-  import { useDark, useToggle, useFullscreen } from '@vueuse/core';
+  import { useFullscreen } from '@vueuse/core';
   import { useRouter } from 'vue-router';
   import type { RouteRecordRaw } from 'vue-router';
   import {
@@ -298,6 +302,7 @@
     SwitchButton,
   } from '@element-plus/icons-vue';
   import { useAppStore, useBrandStore, useUserStore } from '@/store';
+  import { shellUserOptions } from '@/peanut.overrides';
   import { LOCALE_OPTIONS } from '@/locale';
   import useLocale from '@/hooks/locale';
   import useUser from '@/hooks/user';
@@ -341,12 +346,12 @@
         : brandStore.website.name)
   );
   const theme = computed(() => {
-    return appStore.theme;
+    return appStore.shellAppearance.theme.mode;
   });
   const topMenu = computed(
     () =>
       (props.navigationMode === undefined
-        ? appStore.topMenu
+        ? appStore.shellAppearance.navigationMode === 'top'
         : props.navigationMode === 'top') &&
       appStore.menu &&
       appStore.device !== 'mobile'
@@ -399,20 +404,8 @@
     const [first] = menuSearchResults.value;
     if (first) openMenuSearchResult(first);
   };
-  const isDark = useDark({
-    selector: 'html',
-    attribute: 'class',
-    valueDark: 'dark',
-    valueLight: '',
-    storageKey: 'element-theme',
-    onChanged(dark: boolean) {
-      // Keep the application store and Element Plus theme class in sync.
-      appStore.toggleTheme(dark);
-    },
-  });
-  const toggleTheme = useToggle(isDark);
   const handleToggleTheme = () => {
-    toggleTheme();
+    appStore.toggleTheme(theme.value !== 'dark');
   };
   const setVisible = () => {
     appStore.updateSettings({ globalSettings: true });

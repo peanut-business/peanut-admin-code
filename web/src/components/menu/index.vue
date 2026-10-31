@@ -107,10 +107,7 @@
       });
 
       const topMenu = computed(
-        () =>
-          props.navigationMode !== 'grouped' &&
-          (props.navigationMode === 'top' || appStore.topMenu) &&
-          appStore.device !== 'mobile'
+        () => props.navigationMode === 'top' && appStore.device !== 'mobile'
       );
       const openKeys = ref<string[]>([]);
       const selectedKey = ref<string[]>([]);

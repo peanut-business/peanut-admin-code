@@ -163,6 +163,81 @@
             >实例平台控制面 · 账户 {{ platformAccount }}</span
           ></div
         ><div class="platform-header-actions"
+          ><el-popover
+            v-if="hasPresentationChoices"
+            trigger="click"
+            width="260"
+            :teleported="false"
+          >
+            <template #reference><el-button text>展示设置</el-button></template>
+            <el-form label-position="top">
+              <el-form-item
+                v-if="platformUserOptions.presets.length > 1"
+                label="展示预设"
+              >
+                <el-select
+                  :model-value="platformPresentation.preset"
+                  @change="selectPlatformPreset"
+                >
+                  <el-option
+                    v-for="value in platformUserOptions.presets"
+                    :key="value"
+                    :value="value"
+                    :label="value === 'admin' ? '默认管理台' : '工作台'"
+                  />
+                </el-select>
+              </el-form-item>
+              <el-form-item
+                v-if="platformUserOptions.layouts.length > 1"
+                label="布局"
+              >
+                <el-select v-model="platformPresentation.layout"
+                  ><el-option
+                    v-for="value in platformUserOptions.layouts"
+                    :key="value"
+                    :value="value"
+                    :label="value === 'admin' ? '管理台' : '工作台'"
+                /></el-select>
+              </el-form-item>
+              <el-form-item
+                v-if="platformUserOptions.navigationModes.length > 1"
+                label="导航方式"
+              >
+                <el-select v-model="platformPresentation.navigationMode"
+                  ><el-option
+                    v-for="value in platformUserOptions.navigationModes"
+                    :key="value"
+                    :value="value"
+                    :label="
+                      { tree: '树形', grouped: '分组平铺', top: '顶部' }[value]
+                    "
+                /></el-select>
+              </el-form-item>
+              <el-form-item
+                v-if="platformUserOptions.densities.length > 1"
+                label="界面密度"
+              >
+                <el-select v-model="platformPresentation.theme.density"
+                  ><el-option
+                    v-for="value in platformUserOptions.densities"
+                    :key="value"
+                    :value="value"
+                    :label="value === 'compact' ? '紧凑' : '舒适'"
+                /></el-select>
+              </el-form-item>
+              <el-form-item
+                v-if="platformUserOptions.modes.length > 1"
+                label="主题模式"
+              >
+                <el-select v-model="platformPresentation.theme.mode"
+                  ><el-option
+                    v-for="value in platformUserOptions.modes"
+                    :key="value"
+                    :value="value"
+                    :label="value === 'dark' ? '暗色' : '亮色'"
+                /></el-select>
+              </el-form-item>
+            </el-form> </el-popover
           ><el-button text :loading="loading" @click="refreshView"
             >刷新</el-button
           ><el-button text @click="logout">退出登录</el-button></div
@@ -1200,7 +1275,16 @@
   import PermissionBundlesPanel from './components/PermissionBundlesPanel.vue';
   import PlansPanel from './components/PlansPanel.vue';
   import TenantLicensePanel from './components/TenantLicensePanel.vue';
-  import { platformPresentation, platformShell } from './peanut.overrides';
+  import {
+    platformPresentation,
+    platformShell,
+    platformUserOptions,
+    selectPlatformPreset,
+  } from './peanut.overrides';
+
+  const hasPresentationChoices = Object.values(platformUserOptions).some(
+    (values) => values.length > 1
+  );
 
   const navigationGroup = computed(() =>
     platformPresentation.navigationMode === 'grouped'

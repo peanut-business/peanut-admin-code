@@ -17,7 +17,23 @@ export const shellPresentation: ShellPresentation = {
 };
 ```
 
-`layout` 的 `admin/workspace`、`navigationMode` 的 `tree/grouped/top` 和 `theme` 相互独立。tree 保留折叠菜单；grouped 将每层分类标题和后代平铺显示，不隐藏层级或折叠为图标；top 沿原页头菜单呈现。默认 tree 允许既有界面设置 `topMenu` 切换顶部导航，源码明确选择 grouped/top 时优先于该设置。`theme`、`themeColor`、`menuWidth`、`tabBar`、`navbar/menu/footer` 继续由原 AppSettings 控制，源码 theme 中显式 mode/颜色/token 优先于通用展示设置。主题变量只应用于本宿主，不保存身份或发起业务请求。默认品牌沿 Brand store 及租户信息，应用指定 brand 时只替换展示。
+`layout` 的 `admin/workspace`、`navigationMode` 的 `tree/grouped/top` 和 `theme` 相互独立。tree 保留折叠菜单；grouped 将每层分类标题和后代平铺显示，不隐藏层级或折叠为图标；top 沿原页头菜单呈现。导航只消费 `AppSettings.shellNavigationMode`，原 `topMenu` 独立开关已经移除，避免双轨偏好冲突。`themeColor`、`menuWidth`、`tabBar`、`navbar/menu/footer` 保留独立语义。主题变量只应用于本宿主，不保存身份或发起业务请求。默认品牌沿 Brand store 及租户信息，应用指定 brand 时只替换展示。
+
+普通用户从原 Navbar 的“页面配置”打开 GlobalSetting，选择已登记的管理台/工作台预设，再调整应用允许的布局、导航、密度和主题模式。选择写入原 AppSettings：`shellPreset/shellLayout/shellNavigationMode/shellDensity`，主题仍使用 `theme` 与已有 `element-theme` 偏好键；其余展示项沿原临时设置/复制配置方式保存，没有新增服务端设置、存储账本或业务请求。更换预设只修改同一 Shell 的展示 props，不切换业务组件身份或重建 runtime。
+
+应用在同一 `peanut.overrides.ts` 中导出精确允许项（类型 `ShellUserOptions` 来自 `layout/shell-presets.ts`）。零项表示禁止用户调整并保留应用默认，单项表示固定值且不显示选择器，多项才显示选项。旧偏好超出允许值时不生效。媒体类应用可固定工作台和平铺导航，同时允许主题和密度：
+
+```ts
+export const shellUserOptions: ShellUserOptions = {
+  presets: ['workspace'],
+  layouts: ['workspace'],
+  navigationModes: ['grouped'],
+  densities: ['comfortable', 'compact'],
+  modes: ['light', 'dark'],
+};
+```
+
+`shellPresentation` 定义应用默认品牌、颜色、token 和初始布局等；选择预设提供其内置展示默认，独立参数只在允许集合内覆盖。应用的明确单项限制始终优先于用户偏好。固定源码颜色/token 不由这个普通用户界面编辑，普通用户不能提交组件名、任意 CSS 或覆盖类名。
 
 主题应用于 `.tenant-shell` 根，侧栏使用 `--pa-shell-surface-color`，菜单继承 Element Plus 变量。仅需深色侧栏、浅色内容时，应用自有样式可在 `.tenant-shell .tenant-sidebar` 局部设置背景及 `--el-menu-bg-color/text-color/active-color/hover-bg-color`；不要为局部外观把整个 theme.mode 改为 dark。样式不替换菜单数据或账号动作。
 
@@ -27,9 +43,9 @@ export const shellPresentation: ShellPresentation = {
 
 Web 的锁定模块贡献入口支持既有 Core `AdminModuleShellSlotContribution` 的 `shellSlots`：`header-context`、`header-actions`、`sidebar-footer`、`page-tools`。在模块自己的 contribution 对象中声明 `name`、懒加载 `component` 及可选 `access: { moduleKey, permissionKeys }`。宿主先检查当前启用模块，再按所属模块和已有权限 evaluator 过滤，未获准的组件不加载；退出/权限变化后随组件卸载，模块仍负责自己的订阅和请求释放。不要把贡献位的可见性当作后端授权。
 
-Platform 的真实应用入口是 `platform/src/App.vue`，自有覆盖入口为 `platform/src/peanut.overrides.ts`。`platformPresentation` 提供 brand/theme/layout/navigationMode，`presets/overrides` 使用相同 Core shell slot；平台账号、导航可见性及 `selectView`/刷新/退出仍由原平台宿主处理。OpsConsolePage 保留原 `refresh/upgrade` slots、runtime 和 providers，不引入租户 Web runtime。自定义平台外壳须透传宿主内容，不能据布局选择改变平台身份或操作权限。
+Platform 的真实应用入口是 `platform/src/App.vue`，自有覆盖入口为 `platform/src/peanut.overrides.ts`。`platformPresets` 定义管理台/工作台展示值，`platformUserOptions` 用上述五组精确允许项约束页头“展示设置”，每组首项为初始值；`platformPresentation` 是本页面的原生 reactive 展示状态，选择只作用于当前页面，不创建用户配置数据库或新的持久记录。`presets/overrides` 继续使用同一 Core shell slot。平台账号、导航可见性及 `selectView`/刷新/退出仍由原平台宿主处理。OpsConsolePage 保留原 `refresh/upgrade` slots、runtime 和 providers，不引入租户 Web runtime。自定义平台外壳须透传宿主内容，不能据布局选择改变平台身份或操作权限。
 
-这些入口属于应用源码定制，升级时由应用按原 ownership/baseline 审阅合并。普通用户展示设置沿既有配置界面，不接收任意组件名或覆盖类名。修改不等于已发布 Core 包或已完成发行资格。
+这些允许项、默认值及组件覆盖属于应用源码定制，升级时由应用按原 ownership/baseline 审阅合并。已有 app-owned `peanut.overrides.ts` 采用这批宿主源码时须补齐 `shellUserOptions` 导出，不能只复制宿主调用而遗漏应用允许项。修改不等于已发布 Core 包或已完成发行资格。
 
 Web 的静态模块和插件路由在 `router/routes/index.ts` 装配时递归校验 meta，非法源码配置在注册前报错；插件 meta 不先做布尔强转来掩盖非法输入。服务端菜单在 `server-menu.ts` 映射到已知静态路由后检查投影 meta，丢弃非法节点。导航和菜单匹配直接使用已采用的记录，继续按当前会话执行角色、权限包和租户模块门槛，不逐次重验不变的 meta 结构。
 

@@ -8,7 +8,7 @@ export default function useChartOption(
 ) {
   const appStore = useAppStore();
   const isDark = computed(() => {
-    return appStore.theme === 'dark';
+    return appStore.shellAppearance.theme.mode === 'dark';
   });
   const chartOption = computed<EChartsOption>(() => {
     return sourceOption(isDark.value);
