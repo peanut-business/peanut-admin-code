@@ -7,19 +7,21 @@ namespace PeanutAdmin\Modules\Identity\Contract;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog;
+use PeanutAdmin\Modules\Identity\Module\TenantEntitlementService;
 use PeanutAdmin\Modules\Identity\Persistence\Model\MemberRole;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Permission;
 use PeanutAdmin\Modules\Identity\Persistence\Model\RolePermission;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Tenant;
 use think\facade\Db;
+use think\facade\Cache;
 
-/** 公开授权投影；人员权限查询逐次复核原生会话与修订，不缓存跨请求身份。 */
+/** 公开授权投影；可信上下文版本隔离权限缓存，事务内始终读取当前授权。 */
 final readonly class TenantAuthorizationQuery
 {
-    public function __construct(private TenantMemberDirectory $members, private CompiledModuleRegistry $registry) {}
+    public function __construct(private TenantMemberDirectory $members, private CompiledModuleRegistry $registry, private TenantEntitlementService $entitlements) {}
 
     /**
-     * One live, bounded member-grant projection; deployment manifest qualification remains with the caller.
+     * Requested-key grants use trusted authority versions; deployment qualification remains with the caller.
      * @param list<string> $permissionKeys
      * @return array<string,array{key:string,module_key:string|null,status:string}>
      */
@@ -34,6 +36,33 @@ final readonly class TenantAuthorizationQuery
             return [];
         }
         $permissionKeys = array_values(array_unique($permissionKeys));
+        $cacheKey = null;
+        $validUntil = null;
+        $pdo = Db::connect()->getPdo();
+        if (!($pdo !== false && $pdo->inTransaction())) {
+            $license = $this->entitlements->license($context->tenantId, false, $context);
+            $cacheKeys = $permissionKeys;
+            sort($cacheKeys, SORT_STRING);
+            $cacheKey = 'identity:permission-grants:v1:' . hash('sha256', json_encode([
+                $context->tenantId, $context->accountId, $context->memberId,
+                $context->tenantAuthorizationRevision, $context->authorizationRevision,
+                $this->registry->revision, $cacheKeys,
+            ], JSON_THROW_ON_ERROR));
+            $now = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+            foreach ([$license['effective_at'] ?? null, $license['expires_at'] ?? null] as $boundary) {
+                if ($boundary !== null) {
+                    $date = new \DateTimeImmutable($boundary, new \DateTimeZone('UTC'));
+                    if ($date > $now && ($validUntil === null || $date < $validUntil)) {
+                        $validUntil = $date;
+                    }
+                }
+            }
+            $cached = Cache::get($cacheKey);
+            if ($cached !== null && ($cached['valid_until'] === null
+                || new \DateTimeImmutable('now', new \DateTimeZone('UTC')) < new \DateTimeImmutable($cached['valid_until']))) {
+                return $cached['grants'];
+            }
+        }
         $compiled = $this->registry->moduleKeys();
         $foundations = array_values(array_filter($compiled, $this->registry->isRequiredTenantFoundation(...)));
         $now = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s.u');
@@ -55,26 +84,26 @@ final readonly class TenantAuthorizationQuery
                 ->where('permission.status', 'active')->whereNotLike('permission.key', 'platform.%')
                 ->whereIn('permission.key', $keys)
                 ->where(static function ($query): void {
-                    $query->whereNotNull('binding.permission_id')->whereOr(static function ($query): void {
+                    $query->pk('id')->whereNotNull('binding.permission_id')->whereOr(static function ($query): void {
                         // The built-in owner adds only Core's fixed tenant permissions.
-                        $query->whereRaw('BINARY role.`key` = ?', ['core.tenant-owner'])->where('role.is_builtin', 1)
+                        $query->pk('id')->whereRaw('BINARY role.`key` = ?', ['core.tenant-owner'])->where('role.is_builtin', 1)
                             ->whereRaw('BINARY permission.`key` IN (' . implode(',', array_fill(0, count(CorePermissionCatalog::TENANT), '?')) . ')', CorePermissionCatalog::TENANT);
                     });
                 })
                 ->where(static function ($query) use ($compiled, $foundations, $now): void {
                     // Explicit Core grants survive an absent/expired commercial license.
-                    $query->whereIn('permission.key', CorePermissionCatalog::TENANT)
+                    $query->pk('id')->whereIn('permission.key', CorePermissionCatalog::TENANT)
                         ->whereOr(static function ($query) use ($compiled, $foundations, $now): void {
-                            $query->whereNotNull('plan.id')->where('license.status', '<>', 'suspended')
+                            $query->pk('id')->whereNotNull('plan.id')->where('license.status', '<>', 'suspended')
                                 ->where('license.effective_at', '<=', $now)
-                                ->where(static fn($query) => $query->whereNull('license.expires_at')->whereOr('license.expires_at', '>', $now))
+                                ->where(static fn($query) => $query->pk('id')->whereNull('license.expires_at')->whereOr('license.expires_at', '>', $now))
                                 ->whereNotNull('ceiling.permission_key')
                                 ->where(static function ($query) use ($compiled, $foundations): void {
-                                    $query->whereIn('permission.module_key', ['core', 'peanut.admin', 'instance.tenant'])
+                                    $query->pk('id')->whereIn('permission.module_key', ['core', 'peanut.admin', 'instance.tenant'])
                                         ->whereOr(static function ($query) use ($compiled, $foundations): void {
-                                            $query->whereIn('permission.module_key', $compiled)
+                                            $query->pk('id')->whereIn('permission.module_key', $compiled)
                                                 ->whereNotNull('installation.module_key')
-                                                ->where(static fn($query) => $query->whereIn('permission.module_key', $foundations)
+                                                ->where(static fn($query) => $query->pk('id')->whereIn('permission.module_key', $foundations)
                                                     ->whereNotNull('selection.module_key', 'OR'));
                                         });
                                 });
@@ -92,6 +121,10 @@ final readonly class TenantAuthorizationQuery
                     ];
                 }
             }
+        }
+        if ($cacheKey !== null) {
+            // TTL only removes old versioned keys; exact transitions are checked on every hit.
+            Cache::set($cacheKey, ['valid_until' => $validUntil?->format('Y-m-d\TH:i:s.u\Z'), 'grants' => $grants], 300);
         }
         return $grants;
     }

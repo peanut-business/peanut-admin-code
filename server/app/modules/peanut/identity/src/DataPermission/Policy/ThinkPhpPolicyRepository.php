@@ -82,13 +82,27 @@ SQL)
 
     public function load(int $tenantId, int $memberId, int $operationId): \PeanutAdmin\DataPermission\Policy\EffectivePolicySet
     {
+        return $this->loadMany($tenantId, $memberId, [$operationId])[$operationId];
+    }
+
+    /** @param list<int> $operationIds @return array<int, \PeanutAdmin\DataPermission\Policy\EffectivePolicySet> */
+    public function loadMany(int $tenantId, int $memberId, array $operationIds): array
+    {
+        $operationIds = array_values(array_unique($operationIds));
+        if ($operationIds === []) {
+            return [];
+        }
         $memberRow = TenantMember::where('tenant_id', $tenantId)
             ->where('id', $memberId)
             ->where('status', 'active')
             ->field('primary_department_id')
             ->find()?->toArray();
         if ($memberRow === null) {
-            return new \PeanutAdmin\DataPermission\Policy\EffectivePolicySet([], null);
+            $empty = [];
+            foreach ($operationIds as $id) {
+                $empty[$id] = new \PeanutAdmin\DataPermission\Policy\EffectivePolicySet([], null);
+            }
+            return $empty;
         }
 
         $rows = MemberRole::alias('member_role')
@@ -102,23 +116,24 @@ SQL)
             ->join('resource_operation_condition allowed_condition', "allowed_condition.resource_operation_id = policy.resource_operation_id AND allowed_condition.condition_definition_id = definition.id AND allowed_condition.status = 'active'")
             ->where('member_role.tenant_id', $tenantId)
             ->where('member_role.tenant_member_id', $memberId)
-            ->where('policy.resource_operation_id', $operationId)
+            ->whereIn('policy.resource_operation_id', $operationIds)
             ->where(function ($query): void {
-                $query->whereNull('policy.valid_from')->whereOr('policy.valid_from', '<=', new Raw('CURRENT_TIMESTAMP(3)'));
+                $query->pk('id')->whereNull('policy.valid_from')->whereOr('policy.valid_from', '<=', new Raw('CURRENT_TIMESTAMP(3)'));
             })
             ->where(function ($query): void {
-                $query->whereNull('policy.valid_until')->whereOr('policy.valid_until', '>', new Raw('CURRENT_TIMESTAMP(3)'));
+                $query->pk('id')->whereNull('policy.valid_until')->whereOr('policy.valid_until', '>', new Raw('CURRENT_TIMESTAMP(3)'));
             })
             ->where(function ($query): void {
-                $query->where('definition.key', '<>', 'core.specified_objects')
+                $query->pk('id')->where('definition.key', '<>', 'core.specified_objects')
                     ->whereOr('allowed_condition.selector_resource_key', '=', new Raw('target_set.target_resource_key'));
             })
             ->field([
+                'policy.resource_operation_id',
                 'policy.id' => 'policy_id', 'policy.role_id', 'policy_group.id' => 'group_id',
                 'policy_condition.id' => 'condition_id', 'definition.key' => 'condition_key',
                 'target_set.id' => 'target_set_id', 'target_set.target_resource_key',
             ])
-            ->order('policy.id')
+            ->order('policy.resource_operation_id')->order('policy.id')
             ->order('policy_group.sort_order')
             ->order('policy_group.id')
             ->order('policy_condition.id')
@@ -126,16 +141,19 @@ SQL)
             ->toArray();
 
         $groups = [];
+        $targetSets = [];
         foreach ($rows as $row) {
+            $operationId = (int) $row['resource_operation_id'];
             $groupId = (int) $row['group_id'];
-            $groups[$groupId] ??= [
+            $groups[$operationId][$groupId] ??= [
                 'policy_id' => (int) $row['policy_id'],
                 'role_id' => (int) $row['role_id'],
                 'conditions' => [],
             ];
             $targetSetId = $row['target_set_id'] === null ? null : (int) $row['target_set_id'];
-            [$targetIds, $targetCount] = $targetSetId === null ? [[], 0] : $this->targets($tenantId, $targetSetId);
-            $groups[$groupId]['conditions'][] = new \PeanutAdmin\DataPermission\Policy\EffectiveCondition(
+            [$targetIds, $targetCount] = $targetSetId === null ? [[], 0]
+                : ($targetSets[$targetSetId] ??= $this->targets($tenantId, $targetSetId));
+            $groups[$operationId][$groupId]['conditions'][] = new \PeanutAdmin\DataPermission\Policy\EffectiveCondition(
                 (int) $row['condition_id'],
                 (string) $row['condition_key'],
                 $targetSetId,
@@ -145,20 +163,23 @@ SQL)
             );
         }
 
-        $effectiveGroups = [];
-        foreach ($groups as $groupId => $group) {
-            $effectiveGroups[] = new \PeanutAdmin\DataPermission\Policy\EffectiveConditionGroup(
-                $group['policy_id'],
-                $group['role_id'],
-                $groupId,
-                $group['conditions'],
+        $policySets = [];
+        foreach ($operationIds as $id) {
+            $effectiveGroups = [];
+            foreach ($groups[$id] ?? [] as $groupId => $group) {
+                $effectiveGroups[] = new \PeanutAdmin\DataPermission\Policy\EffectiveConditionGroup(
+                    $group['policy_id'],
+                    $group['role_id'],
+                    $groupId,
+                    $group['conditions'],
+                );
+            }
+            $policySets[$id] = new \PeanutAdmin\DataPermission\Policy\EffectivePolicySet(
+                $effectiveGroups,
+                $memberRow['primary_department_id'] === null ? null : (int) $memberRow['primary_department_id'],
             );
         }
-
-        return new \PeanutAdmin\DataPermission\Policy\EffectivePolicySet(
-            $effectiveGroups,
-            $memberRow['primary_department_id'] === null ? null : (int) $memberRow['primary_department_id'],
-        );
+        return $policySets;
     }
 
     /** @return array{list<string>, int} */

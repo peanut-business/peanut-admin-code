@@ -77,6 +77,7 @@
                     "source": "https://github.com/peanut-business/peanut-admin-core-php"
                 },
                 "require": {
+                    "composer/semver": "^3.4.4",
                     "ext-fileinfo": "*",
                     "ext-json": "*",
                     "ext-openssl": "*",
@@ -100,17 +101,17 @@
                         "PeanutAdmin\\Settings\\": "settings/src/"
                     }
                 },
-                "version": "5.0.3-alpha.1",
+                "version": "5.0.3-alpha.5",
                 "source": {
                     "type": "git",
                     "url": "https://github.com/peanut-business/peanut-admin-core-php.git",
-                    "reference": "62383f26e0128d176bb86080bb031ffb1e018ab1"
+                    "reference": "40f7b0884c8a71fef8c984fb3e9eb40449255626"
                 },
                 "dist": {
                     "type": "zip",
-                    "url": "../packages/core-php/peanut-admin-core-5.0.3-alpha.1.zip",
-                    "reference": "62383f26e0128d176bb86080bb031ffb1e018ab1",
-                    "shasum": "1903d5df8f674cc4ef8251c11ac734e32f1ee9bb"
+                    "url": "../packages/core-php/peanut-admin-core-5.0.3-alpha.5.zip",
+                    "reference": "40f7b0884c8a71fef8c984fb3e9eb40449255626",
+                    "shasum": "24950bc33699a91d815da94edd724218be4e9198"
                 }
             }
         }
@@ -118,7 +119,7 @@
     "license": "Apache-2.0",
     "authors": [
         {
-            "name": "\u82b1\u751f\u79d1\u6280"
+            "name": "花生科技"
         }
     ],
     "require": {
@@ -133,18 +134,18 @@
         "aws/aws-sdk-php": "^3.0",
         "aliyuncs/oss-sdk-php": "^2.4",
         "qcloud/cos-sdk-v5": "^2.5",
-        "peanut-admin/core": "5.0.3-alpha.1",
+        "peanut-admin/core": "5.0.3-alpha.5",
         "symfony/html-sanitizer": "^7.3",
         "composer/semver": "^3.4",
         "opis/json-schema": "^2.6",
         "topthink/think-migration": "3.1.1",
         "peanut-business/peanut-content-tools": "1.0.1",
-        "peanut-business/peanut-identity": "4.0.0-rc.47",
+        "peanut-business/peanut-identity": "4.0.0-rc.48",
         "peanut-business/peanut-file": "1.0.33",
-        "peanut-business/peanut-task": "1.0.26",
+        "peanut-business/peanut-task": "1.0.27",
         "peanut-business/peanut-integration": "1.0.26",
         "peanut-business/peanut-ops": "1.0.29",
-        "peanut-business/peanut-reference-codes": "1.0.24",
+        "peanut-business/peanut-reference-codes": "1.0.25",
         "peanut-business/peanut-settings": "1.0.24"
     },
     "require-dev": {

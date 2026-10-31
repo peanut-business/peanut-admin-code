@@ -10,7 +10,7 @@ use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
 use app\common\execution\AdminExecutionContext;
 use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Modules\Identity\Authorization\ApiPermissionCatalog;
-use app\common\contract\module\ModuleQualificationQuery;
+use PeanutAdmin\Kernel\Module\ModuleAvailability;
 use PeanutAdmin\Modules\Identity\Module\TenantEntitlementService;
 
 /**
@@ -29,7 +29,7 @@ class AuthMiddleware
         private readonly AdminApiAccessRegistry $accessRegistry,
         private readonly DemoAccountPolicy $demoAccounts,
         private readonly ApiPermissionCatalog $apis,
-        private readonly ModuleQualificationQuery $modules,
+        private readonly ModuleAvailability $modules,
         private readonly TenantEntitlementService $entitlements,
     ) {}
 
@@ -44,15 +44,15 @@ class AuthMiddleware
         }
 
         $path = 'adminapi/' . strtolower(trim($request->pathinfo(), '/'));
-        $endpoint = $this->apis->endpoint($request, 'tenant');
+        $tenantContext = $current instanceof AdminExecutionContext ? $current->tenant : null;
+        $endpoint = $this->apis->endpoint($request, 'tenant', $tenantContext);
         if ($endpoint === null) {
             throw \app\common\http\ApiProblem::fromEnvelope('API 未登记或已退役', null, 40300);
         }
-        $tenantContext = $current instanceof AdminExecutionContext ? $current->tenant : null;
         if (!$tenantContext instanceof \PeanutAdmin\Kernel\Auth\TenantContext
             || !$this->apis->moduleAvailable($endpoint, $this->modules)
             || (!in_array($endpoint['module_key'], ['peanut.admin', 'platform', 'member', 'installation'], true)
-                && !$this->entitlements->allowsModule($tenantContext->tenantId, $endpoint['module_key']))) {
+                && !$this->entitlements->allowsModule($tenantContext->tenantId, $endpoint['module_key'], context: $tenantContext))) {
             throw \app\common\http\ApiProblem::fromEnvelope('API 所属模块不可用', null, 40300);
         }
         if ($endpoint['access_mode'] === 'authenticated'
@@ -66,7 +66,7 @@ class AuthMiddleware
                 $request,
                 $tenantContext,
                 $endpoint,
-                $this->apis->permissionKeys($endpoint),
+                $this->apis->permissionKeys($endpoint, context: $tenantContext),
             );
         if (!$decision->allowed) {
             throw \app\common\http\ApiProblem::fromEnvelope('暂无访问权限', null, 40300);

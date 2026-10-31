@@ -216,11 +216,10 @@ final readonly class CoreTenantModuleAdminBridge
         if (!is_string($owner) || $owner === '') {
             return false;
         }
-        $qualification = $this->moduleGovernance->qualification();
         if (!in_array($owner, $this->entitlements->moduleKeys($tenantId), true)) {
             return false;
         }
-        $qualification->installedModule($owner);
+        $this->moduleGovernance->registry()->requireInstalled($owner, false);
         return true;
     }
 
@@ -288,7 +287,7 @@ final readonly class CoreTenantModuleAdminBridge
             }
             if (!array_key_exists($owner, $owners)) {
                 try {
-                    $this->moduleGovernance->qualification()->installedModule($owner);
+                    $this->moduleGovernance->registry()->requireInstalled($owner, false);
                     $owners[$owner] = true;
                 } catch (\PeanutAdmin\Kernel\Module\ModuleException $exception) {
                     if (!in_array($exception->errorCode, ['MODULE_NOT_INSTALLED', 'MODULE_INSTALLATION_FAILED'], true)) {

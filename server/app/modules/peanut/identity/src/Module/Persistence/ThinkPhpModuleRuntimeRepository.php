@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\Identity\Module\Persistence;
 
 use DateTimeImmutable;
+use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Module\ModuleException;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ModuleInstallationRecord;
@@ -13,7 +14,6 @@ use PeanutAdmin\Modules\Identity\Module\Model\ModuleInstallation;
 use PeanutAdmin\Kernel\Module\TenantModuleRecord;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Tenant;
 use PeanutAdmin\Modules\Identity\Module\TenantEntitlementService;
-use think\facade\Db;
 
 final readonly class ThinkPhpModuleRuntimeRepository implements ModuleRuntimeRepository
 {
@@ -59,7 +59,7 @@ final readonly class ThinkPhpModuleRuntimeRepository implements ModuleRuntimeRep
         );
     }
 
-    public function tenantModule(int $tenantId, string $moduleKey): ?TenantModuleRecord
+    public function tenantModule(int $tenantId, string $moduleKey, ?TenantContext $context = null): ?TenantModuleRecord
     {
         if ($this->registry->isRequiredTenantFoundation($moduleKey)) {
             $tenantQuery = Tenant::where('id', $tenantId);
@@ -82,9 +82,10 @@ final readonly class ThinkPhpModuleRuntimeRepository implements ModuleRuntimeRep
                 max(1, (int) $tenant['authorization_revision'] + $installation->revision),
             );
         }
-        $license = $this->entitlements->license($tenantId, $this->lockAvailabilityReads);
-        if ($license === null || Db::name('plan_module')->where('plan_id', $license['plan_id'])
-            ->where('module_key', $moduleKey)->lock($this->lockAvailabilityReads)->find() === null) {
+        $license = $this->entitlements->license($tenantId, $this->lockAvailabilityReads, $context);
+        if ($license === null || !$this->entitlements->planIncludesModule(
+            $tenantId, $license['plan_id'], $moduleKey, $this->lockAvailabilityReads, $context,
+        )) {
             return null;
         }
 

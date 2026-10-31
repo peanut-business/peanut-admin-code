@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\Identity\Contract;
 
 use think\facade\Db;
+use PeanutAdmin\Modules\Identity\Module\Model\ModuleInstallation;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Modules\Identity\Module\TenantEntitlementService;
 
@@ -119,7 +120,9 @@ final readonly class TenantModuleStateQueries
      */
     public function installationIdentity(string $moduleKey, bool $lock = false): ?array
     {
-        $query = Db::name('module_installation')->where('module_key', $moduleKey);
+        $model = new ModuleInstallation();
+        $query = Db::name('module_installation')->pk($model->getPk())
+            ->schema($model->getOption('schema'))->where('module_key', $moduleKey);
         if ($lock) {
             $query->lock(true);
         }
