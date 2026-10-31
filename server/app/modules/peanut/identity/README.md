@@ -40,3 +40,28 @@ final readonly class RecipientLookup
 - 真实角色消费者是宿主 `app/adminapi/controller/auth/RolePermissionController` 与 Web `src/views/system/role/index.vue`，前端正式请求入口为 `web/src/api/system/role.ts` 的 `getRolePermissions`、`getRolePermissionCatalog` 和 `replaceRolePermissions`。HTTP 读取快照含 `role_id/key/revision/permission_keys`；写入携带原 `expected_revision`，不从菜单显示反推授权。目录分页按当前租户已开通模块过滤；页面搜索保留原已选项，固定所有者只读。
 
 完整身份、组织、权限包和数据 Scope 合同见[身份与组织](../../../../../docs/architecture/identity-organization-access.md)，HTTP/SDK 合同见 [API 与 SDK](../../../../../docs/public/api-and-sdk.md)。本说明只定位现有复用入口；源码存在不代表下游已更新或已通过业务验收。
+
+## 自定义管理台的角色预设
+
+管理台可以更换目录、角色和授权表单的布局，仍使用上述 DTO/正式请求入口。成员选择读取 `TenantMemberSummary`；角色预设只产生待审阅的权限键集合，不能从菜单可见性、角色名称或前端开关生成实际授权。宿主现有 API 的组合示例：
+
+```ts
+import {
+  getRolePermissions,
+  replaceRolePermissions,
+} from '@/api/system/role';
+
+// roleId 与 permissionKeys 来自当前租户已授权管理页的选择和确认。
+async function applyPreset(roleId: number, permissionKeys: string[]) {
+  const { data: snapshot } = await getRolePermissions(roleId);
+  return replaceRolePermissions({
+    role_id: snapshot.role_id,
+    expected_revision: snapshot.revision,
+    permission_keys: permissionKeys,
+  });
+}
+```
+
+这是宿主源码 API 入口，不是 Identity 独立前端包导出。界面先通过 `getRolePermissionCatalog` 分页读取当前可分配目录，并让管理员确认预设；不要在替换外壳时自动执行示例写入。若编辑表单已持有读取快照，直接提交该快照的 revision，不在保存前重新读取以掩盖并发修改。HTTP revision 是字符串，PHP `RoleAdminService` 接收经入口校验的整数，不自行宽松转换用户输入。
+
+拒绝例：固定所有者的权限替换返回 `TENANT_OWNER_PERMISSIONS_FIXED`；预设含已退休、平台或不可用模块的权限返回 `PERMISSION_NOT_ASSIGNABLE`。保留错误及草稿，不能过滤掉被拒绝的键后悄悄保存。过期修订按冲突处理，重新读取并由管理员确认；不能无条件重放写入。目录、角色、权限包和 Scope 的服务端校验与审计保持原入口，外观定制不新增授权来源。

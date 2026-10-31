@@ -86,3 +86,39 @@ loading and the extra slot data.
   `setLogFilter(source, severity)`; cursor changes require reapplying the filter.
   The runtime isolates stale event responses and `dispose()` invalidates pending
   responses for the host lifecycle.
+
+## Existing slots and refusal example
+
+`OpsConsolePage` has five unscoped slots: `refresh`, `backup`, `upgrade`,
+`diagnostics` and `providers`. The existing provider and runtime remain in the
+host; slots replace presentation only. For example, beneath that same provider:
+
+```vue
+<OpsConsolePage>
+  <template #refresh>
+    <button
+      type="button"
+      :disabled="runtime.state.loading || runtime.state.mutating"
+      @click="runtime.load()"
+    >Refresh operations</button>
+  </template>
+  <template #upgrade>
+    <p>Application upgrade controls supplied by this platform host.</p>
+  </template>
+</OpsConsolePage>
+```
+
+The custom refresh uses the existing runtime; it does not also load from a new
+HTTP client or create another provider. Slot content receives no implicit
+runtime, task or permission props. Keep the host's existing upgrade/backup
+controls and their authorized operations when replacing the illustrative text.
+No Web tenant layout is an alternative platform authorization source.
+
+For a refusal example, `canRead: () => false` makes `load()` record
+`OPS_PERMISSION_DENIED` with status 403. Display the existing forbidden state;
+a custom refresh button cannot turn it into a successful empty overview.
+Mutation callbacks retain their independent permission checks. For conflicts,
+load current state and obtain a new reviewed operation; do not silently resubmit
+a restore or maintenance command. `refreshTask(task)` observes an accepted task;
+it does not submit that task again. Slots must keep those state and action
+semantics, including queued/running versus succeeded/dead/cancelled.

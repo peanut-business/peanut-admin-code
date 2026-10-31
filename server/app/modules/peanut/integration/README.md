@@ -65,6 +65,71 @@ credentials on disposal. Attempt-detail loading clears prior rows before
 requesting another delivery, so errors cannot leave another delivery's evidence
 under the selected key.
 
+### Custom security page composition
+
+In a source host, reuse the existing relative `runtime/index.ts` barrel (the
+package root exports the route contribution; it does not export a `/runtime`
+package subpath). For example, a sibling custom page can provide the runtime:
+
+```ts
+import { onBeforeUnmount, provide } from 'vue';
+import {
+  createIntegrationSecurityFetchTransport,
+  createIntegrationSecurityRuntime,
+  integrationSecurityRuntimeKey,
+} from './runtime';
+
+// sessionFetch, permissions and logoutCurrentSession belong to this host.
+const runtime = createIntegrationSecurityRuntime({
+  transport: createIntegrationSecurityFetchTransport({ baseUrl, fetch: sessionFetch }),
+  permissions,
+  onCurrentSessionRevoked: logoutCurrentSession,
+});
+provide(integrationSecurityRuntimeKey, runtime);
+onBeforeUnmount(runtime.dispose);
+```
+
+Render the existing `IntegrationSecurityPage` under the provider, or render a
+custom view from `runtime.state` and call its load methods. The built-in page
+already calls `load()` on mount; do not call it again from a parent mount hook.
+The seven live `permissions` callbacks are shown in `RuntimePage.vue` and map to
+the permission table below. Recreate this runtime when identity/tenant changes;
+the logout callback must retain the host's current-session generation guard.
+One-time token/secret disclosure belongs to this instance, is explicitly cleared
+by `clearDisclosure()`, and must not enter general page state or a persistent
+store.
+
+For a refusal example, `canReadWebhooks: () => false` makes `loadWebhooks()`
+clear that surface and report `INTEGRATION_PERMISSION_DENIED` without transport.
+Keep independent machine/session/delivery errors visible; a failed section must
+not become a successful empty result. Replacing a tab or button does not bypass
+server revision checks, exact permissions or current-session revocation rules.
+
+### Channel, callback and Webhook boundaries
+
+Use the existing `ExternalChannelBindings` example above for channel config.
+For callbacks, inject `ExternalTenantResolutionService` and call
+`verifiedCallback($provider, $callbackKey, $operation, $operationId, $verifier)`
+with the owning provider's real verifier. The verifier receives the selected
+binding configuration and returns its verified value (or rejects/returns false).
+The result contains `context`, `binding` and `verifiedValue`; only after successful
+verification may the owner continue its own callback workflow. Never substitute
+an always-true verifier or accept a request tenant ID. A missing/inactive binding
+or rejected verification stays `EXTERNAL_CALLBACK_REJECTED` with existing audit.
+
+The security page's `createWebhook({ name, url, events })`, `rotateWebhook` and
+`disableWebhook` use its existing authenticated runtime and server validation.
+These are Webhook endpoint bindings, not `ExternalChannelBindings` records.
+Trusted business producers use the existing `Webhook/TrustedWebhookPublisher`
+and typed `TrustedWebhookEvent` within the established application composition;
+HTTP clients cannot choose arbitrary producers or private payloads. Endpoint
+creation, enqueue acceptance and successful external delivery are distinct
+results. A custom page reads delivery state and `loadAttempts(deliveryKey)`;
+it must not dispatch a delivery as a preview, configuration check or UI retry.
+Actual external-channel verification/delivery requires configured provider
+credentials and its separately authorized operation; these composition examples
+do not establish that a channel has been configured or verified.
+
 ## Authorization and public boundary
 
 Every user-facing method accepts a Kernel `AuthorizedOperationContext`, checks
