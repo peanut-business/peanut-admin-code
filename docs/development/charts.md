@@ -38,7 +38,7 @@
 
 入口按需登记 Canvas、折线、柱、饼、雷达、散点、仪表盘，以及 grid、tooltip、legend、dataZoom、graphic、title、dataset、aria 组件；没有另一套配置 DSL。直接传 ECharts option。Chart 是原生 vue-echarts 组件的公开重导出，所有 props、slots、事件、实例方法、自动尺寸处理及销毁均由上游维护。容器须有实际高度；隐藏后恢复、加载状态使用原生 `autoresize` 和 `loading`，不另注册 window resize 或手工 dispose。
 
-宿主 `App.vue` 用官方 `THEME_KEY` 提供响应式明暗主题，工作台及未覆盖主题的模块图表自动继承；具体页面可用 `theme` 显式覆盖。实例 ref 类型使用 `InstanceType<typeof Chart>`。上游完整 API、手动更新和其他图形能力见 [vue-echarts 文档](https://github.com/ecomfe/vue-echarts)。新增图形类型时在基础模块的公开入口登记实际所需 ECharts 模块，不向宿主恢复全局 Chart 或重复注册。
+宿主 `App.vue` 用官方 `THEME_KEY` 提供响应式明暗主题，工作台及未覆盖主题的模块图表自动继承；具体页面可用 `theme` 显式覆盖。ECharts 6 的暗色主题名为 `dark`，恢复默认亮色使用 `default`，不要传未注册的 `light`。实例 ref 类型使用 `InstanceType<typeof Chart>`。上游完整 API、手动更新和其他图形能力见 [vue-echarts 文档](https://github.com/ecomfe/vue-echarts)。新增图形类型时在基础模块的公开入口登记实际所需 ECharts 模块，不向宿主恢复全局 Chart 或重复注册。
 
 业务模块应在自己的 `module.json` 声明 `{"module_key":"peanut.chart","version":"^1.0"}`，在前端 `package.json` 声明 `@peanut-admin/peanut-chart: workspace:^1.0.0` 后导入公共子路径。不要跨模块访问源码内部路径。基础模块不导入示例，公共文档位于本文件，不随示例退出。
 

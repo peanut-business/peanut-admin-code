@@ -23,7 +23,7 @@
           <Chart
             :ref="example.title === '折线图' ? setLineChart : undefined"
             :option="example.option"
-            :theme="dark ? 'dark' : 'light'"
+            :theme="dark ? 'dark' : 'default'"
             :loading="loading"
             autoresize
             class="chart-examples__chart"

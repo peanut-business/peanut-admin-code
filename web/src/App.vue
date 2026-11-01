@@ -19,7 +19,7 @@
   provide(
     THEME_KEY,
     computed(() =>
-      appStore.shellAppearance.theme.mode === 'dark' ? 'dark' : 'light'
+      appStore.shellAppearance.theme.mode === 'dark' ? 'dark' : 'default'
     )
   );
   watch(
