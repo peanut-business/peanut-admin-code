@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "2010d56bc41742efd69768815a7549ce",
+    "content-hash": "f426087227e56875564374fe1f4ce23f",
     "packages": [
         {
             "name": "aliyuncs/oss-sdk-php",
@@ -1739,6 +1739,37 @@
             "description": "Peanut Admin technical kernel and ThinkPHP integration",
             "support": {
                 "source": "https://github.com/peanut-business/peanut-admin-core-php"
+            }
+        },
+        {
+            "name": "peanut-business/peanut-chart",
+            "version": "1.0.2",
+            "dist": {
+                "type": "path",
+                "url": "app/modules/peanut/chart",
+                "reference": "f36651ec865accbe42627844153d1ba53cb14e52"
+            },
+            "type": "peanut-admin-module",
+            "extra": {
+                "peanut": {
+                    "editions": [
+                        "multi-tenant",
+                        "standalone"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "PeanutAdmin\\Modules\\Chart\\": "src/"
+                }
+            },
+            "license": [
+                "Apache-2.0"
+            ],
+            "description": "Public ECharts components for application and Module consumers.",
+            "transport-options": {
+                "symlink": false,
+                "relative": true
             }
         },
         {

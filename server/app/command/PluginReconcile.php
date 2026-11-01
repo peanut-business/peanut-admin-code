@@ -8,6 +8,7 @@ use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\exception\plugin\PluginPackageException;
 use app\platform\composition\plugin\ModuleDefinitionRegistryFactory;
 use app\platform\infrastructure\plugin\PluginLockResolver;
+use app\platform\value\plugin\PluginDescriptor;
 use app\common\module\PackageCheck;
 use app\common\execution\ModuleContextualCommand;
 use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
@@ -79,9 +80,11 @@ final class PluginReconcile extends ModuleContextualCommand
                     throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Plugin lock path is not configured.');
                 }
                 $resolver = PluginLockResolver::forRuntime(dirname(__DIR__, 2), $lockPath);
-                $officialKeys = array_values(array_filter(
-                    array_keys($resolver->all()),
-                    static fn(string $key): bool => in_array($key, \InitialInstallationSource::MODULES, true),
+                $officialKeys = array_keys(array_filter(
+                    $resolver->all(),
+                    static fn(PluginDescriptor $plugin): bool => array_intersect(
+                        array_keys($plugin->moduleRoots), \InitialInstallationSource::MODULES,
+                    ) !== [],
                 ));
                 $selection = $releaseLocked
                     ? $this->releasePluginSelection($resolver->all(), $officialKeys)
@@ -133,8 +136,10 @@ final class PluginReconcile extends ModuleContextualCommand
                 throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Plugin lock path is not configured.');
             }
             $resolver = PluginLockResolver::forRuntime(dirname(__DIR__, 2), $lock);
-            $official = array_values(array_filter(array_keys($resolver->all()),
-                static fn(string $key): bool => in_array($key, \InitialInstallationSource::MODULES, true)));
+            $official = array_keys(array_filter($resolver->all(),
+                static fn(PluginDescriptor $plugin): bool => array_intersect(
+                    array_keys($plugin->moduleRoots), \InitialInstallationSource::MODULES,
+                ) !== []));
             $selection = $this->releasePluginSelection($resolver->all(), $official);
             $this->dependencyOrderedPlugins($resolver, $selection['reconcile'], $config);
             $packages = [];

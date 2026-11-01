@@ -609,7 +609,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fab4522a89d4a4cb76afa8d8e51a7224686cacd33644a475c3b80279c37bb05a"
+            "source_sha256": "a84043b5b807ab28b89837ef7519386d2f9b278566581b2e15a94a166f421a8e"
         },
         {
             "path": "docs/architecture/cli-and-recipes.md",
@@ -806,6 +806,19 @@
                 "full"
             ],
             "source_sha256": "612784e8884766df8a01af25e48df47a210898c29617bd5529a6a3f470835052"
+        },
+        {
+            "path": "docs/development/charts.md",
+            "target": "docs/development/charts.md",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
         },
         {
             "path": "docs/development/controller-access-and-namespaces.md",
@@ -2326,7 +2339,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "481f223be7c2581337f405f14c7d44766163d94db5e4cd37f978c9226183936b"
+            "source_sha256": "44baa9f69ea232cd1e4e86be173167740ef2a8bf47024f3737e43e90ba35167f"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2368,6 +2381,34 @@
             ]
         },
         {
+            "path": "plugins/peanut.chart-examples/plugin.json",
+            "target": "plugins/peanut.chart-examples/plugin.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0d626b09668bbed863dcf64e3f1ff2bb88bdb9d23276d4a16e92c4d71abb9361"
+        },
+        {
+            "path": "plugins/peanut.chart/plugin.json",
+            "target": "plugins/peanut.chart/plugin.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "bdb496d6d47b25995a6af8b14bc22987562db086cb53b4abe25e24ca645e1d72"
+        },
+        {
             "path": "plugins/peanut.content-tools/plugin.json",
             "target": "plugins/peanut.content-tools/plugin.json",
             "classification": "managed",
@@ -2407,7 +2448,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f6d672d9869371135327ef300aa7f21cf08b63213e29a2a97e878786f2e016c1"
+            "source_sha256": "bad2168a7ff22bbd4c424f2e84ebee87e266a561ac3868688ac1121d21a7a497"
         },
         {
             "path": "plugins/peanut.integration/plugin.json",
@@ -6660,7 +6701,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bc52d30d8bc0be324a6692c5fd540cfbcd8f8291334a2dc0ad16e29e61cf4832"
+            "source_sha256": "b1e66f15d7f1eae8c117d8c4a47f4ac929654c41b177a854be76ff5806f99235"
         },
         {
             "path": "server/app/command/PluginReleaseComposition.php",
@@ -10238,6 +10279,146 @@
                 "standard",
                 "full"
             ]
+        },
+        {
+            "path": "server/app/modules/peanut/chart/composer.json",
+            "target": "server/app/modules/peanut/chart/composer.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "34bd7ed6b0283f6c97ad5f9f0263b10a5a0507f780929a4e8b896adfef99ad84"
+        },
+        {
+            "path": "server/app/modules/peanut/chart/module.json",
+            "target": "server/app/modules/peanut/chart/module.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "1a2c1a1a0eb7930f0212106c83cb9998fda40e76db4cc6c7f3d1b618680ee5e3"
+        },
+        {
+            "path": "server/app/modules/peanut/chart/resources/menus.json",
+            "target": "server/app/modules/peanut/chart/resources/menus.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+        },
+        {
+            "path": "server/app/modules/peanut/chart/resources/permissions.json",
+            "target": "server/app/modules/peanut/chart/resources/permissions.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+        },
+        {
+            "path": "server/app/modules/peanut/chart/src/ModuleProvider.php",
+            "target": "server/app/modules/peanut/chart/src/ModuleProvider.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "599fed395ea08a5fadda050b5333113e42bdceb52998d68896aed55cd6a1a2ee"
+        },
+        {
+            "path": "server/app/modules/peanut/chart_examples/composer.json",
+            "target": "server/app/modules/peanut/chart_examples/composer.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f0d3883a53901cd1c84053a74740142545337f87067d90b0862af74fe0fffd84"
+        },
+        {
+            "path": "server/app/modules/peanut/chart_examples/module.json",
+            "target": "server/app/modules/peanut/chart_examples/module.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2df92f8632294fad025446d33b958d107e8d12c3d9170c13a8fff3d60b05ec8d"
+        },
+        {
+            "path": "server/app/modules/peanut/chart_examples/resources/menus.json",
+            "target": "server/app/modules/peanut/chart_examples/resources/menus.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2fa06830fff212e3ff296e10d287a08b6518e3c10ecd317e2a7f212361bb66fd"
+        },
+        {
+            "path": "server/app/modules/peanut/chart_examples/resources/permissions.json",
+            "target": "server/app/modules/peanut/chart_examples/resources/permissions.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "bd13e39276f661e25be1ea41e0a245a8a7405043ed8ab7e83ba431512c3faf08"
+        },
+        {
+            "path": "server/app/modules/peanut/chart_examples/src/ModuleProvider.php",
+            "target": "server/app/modules/peanut/chart_examples/src/ModuleProvider.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "572b91909ca94ef39e8741674d9a62def277a33a59c85c97ac4d09dbbc9c0d68"
         },
         {
             "path": "server/app/modules/peanut/content_tools/composer.json",
@@ -18251,7 +18432,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "10e7558b6dbbd247dade1d659d5d54d1b8d16031a216b89d9b967ea89c0857bf"
+            "source_sha256": "7ba045c399001ea4223a66487ee0d446680d8f88ce44897664e32f805cac94d8"
         },
         {
             "path": "server/app/platform/query/PlatformControlPlaneQueryService.php",
@@ -18741,7 +18922,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4b7db28324062c5717939928f7dbb7ee83844f5b276596473416b03d39527913"
+            "source_sha256": "ee0f5be071058d2395fa6bb82a355531c796b1dd293dc4243fe3e838fc8c4332"
         },
         {
             "path": "server/composer.lock",
@@ -18755,7 +18936,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8485d961bdf4089bddbbd317925d25952d47ec00b156f747e45498334cc7f276"
+            "source_sha256": "5c3fd3c196c8a89741d65d235c713811be76b124b596ef49ef94971dd2057c6a"
         },
         {
             "path": "server/config/admin_api_access.php",
@@ -19161,7 +19342,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "13c0f16a22b2d0362c0bf9c9650df0e2ab6cb36cac9426205aa450dbcd5f6a76"
+            "source_sha256": "c28e518e3020842d1da9387b1149b690659ffff4141c2d41240a8af31e1d5c9c"
         },
         {
             "path": "server/database/environment-guard.php",
@@ -19831,7 +20012,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ad2ca2a5f6423bdc7d432242f0d4c572f3400fc654f4ebc659be23d5db6191e1"
+            "source_sha256": "5e44d652e098baa0b1bcdb98855ac79254cd8b3e8f9fae1c7a5fc7207834d091"
         },
         {
             "path": "server/generated/openapi.json",
@@ -28182,7 +28363,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e89e28c13950e1a665212dadd412d70e3987199d3ded0b36b704d0d8254ab374"
+            "source_sha256": "68e38f24ffeb061e2c0bc18646e19429c80273ba84630de4c02a52f7031c337f"
         },
         {
             "path": "web/pnpm-lock.yaml",
@@ -28196,7 +28377,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6dcd07daece0304079a425b9d12e290ab600baf4da4bb1a87cc7d5e2b603a279"
+            "source_sha256": "f9aebe5ef04eeefa8fca8b6a74c4d41a2c154cf98dba9f377119df80486eaf68"
         },
         {
             "path": "web/pnpm-workspace.yaml",
@@ -28210,7 +28391,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "34f42442ed379640d28e3e29a82ad9845fc6dcb9d829acf67d100afb5c1a6379"
+            "source_sha256": "2d7a233af7b33d1fc1573c5f95d1811c5f470fdab081ed8528f2c43e56af0d50"
         },
         {
             "path": "web/public/brand/avatar-admin.svg",
@@ -28350,7 +28531,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c1ba17bab99d1d36eecab6f4afe529a2aa22e9e7e8ca2194adda8accefca87c6"
+            "source_sha256": "6f06e3dbdb4b9ec34a22926e1f80168e52e45790ba2b00e30824d2bf78a0d27f"
         },
         {
             "path": "web/src/api/app.ts",
@@ -28773,20 +28954,6 @@
             "source_sha256": "8e86f6875d715568f4ba1cfb077480488109d1e2f91af35a367d0fae9907e5b8"
         },
         {
-            "path": "web/src/components/chart/index.vue",
-            "target": "web/src/components/chart/index.vue",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "1a7ae88d6d9762455fd7272a94f8f72df1ed8f66ff53f5cf381ae9699aa3f29e"
-        },
-        {
             "path": "web/src/components/file-picker/index.vue",
             "target": "web/src/components/file-picker/index.vue",
             "classification": "managed",
@@ -28868,7 +29035,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5545faf021dd377a8562e57692ce58a4f619b9fa69d90eec6eaeed703746ae09"
+            "source_sha256": "ffac2ae87a23a6198d97ee9a2458ac4ac951604cbe0a679c8d84360c5b37e75a"
         },
         {
             "path": "web/src/components/menu/index.vue",
@@ -29108,20 +29275,6 @@
                 "full"
             ],
             "source_sha256": "1af2c74d96b8f3e85f1b44bd9b496f9590ca2545ab35e922f33dfe069afa6826"
-        },
-        {
-            "path": "web/src/hooks/chart-option.ts",
-            "target": "web/src/hooks/chart-option.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "dd559b10f8b15b744790a2bd7e1ccc3e6de51437ccd2a8a583cfbf3766b2be14"
         },
         {
             "path": "web/src/hooks/loading.ts",
@@ -29506,6 +29659,90 @@
                 "standard",
                 "full"
             ]
+        },
+        {
+            "path": "web/src/modules/peanut-chart-examples/contribution.ts",
+            "target": "web/src/modules/peanut-chart-examples/contribution.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c09c8fdc36c7492d457d5623406c37cb58bf8e375069d7b97d90ca84eb9d6942"
+        },
+        {
+            "path": "web/src/modules/peanut-chart-examples/package.json",
+            "target": "web/src/modules/peanut-chart-examples/package.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "15cac534360762bf404fcf814fdd123d941e797aaaa4f0d426f6242e368b59e0"
+        },
+        {
+            "path": "web/src/modules/peanut-chart-examples/views/index.vue",
+            "target": "web/src/modules/peanut-chart-examples/views/index.vue",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "59b2ea28aedffada0b4a872eaeabfa916a2497bb9168d9888a331b66e3c336e3"
+        },
+        {
+            "path": "web/src/modules/peanut-chart/contribution.ts",
+            "target": "web/src/modules/peanut-chart/contribution.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "80da8411d38cf78a69723f158ea580dc4c5764d481efac725b4a07e224b3c1b6"
+        },
+        {
+            "path": "web/src/modules/peanut-chart/package.json",
+            "target": "web/src/modules/peanut-chart/package.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "cee1db58259df003d6fd2f2f4a6c8adbcd102939c36b4f0aeae46ca1701c91e0"
+        },
+        {
+            "path": "web/src/modules/peanut-chart/src/index.ts",
+            "target": "web/src/modules/peanut-chart/src/index.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "779cf6d9efe852303c6506af590cdeacff0229068f9b825f062edd04718e96d4"
         },
         {
             "path": "web/src/modules/peanut-content-tools/README.md",
@@ -31300,20 +31537,6 @@
             "source_sha256": "7684a9598bb195aea98f6e337275deedc5b060b3321dfd4f57b04c386242aa31"
         },
         {
-            "path": "web/src/types/echarts.ts",
-            "target": "web/src/types/echarts.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "4742da91996d0df37a565fa7a30d90041b0630b63cc7995f193c7fac40771519"
-        },
-        {
             "path": "web/src/types/global.ts",
             "target": "web/src/types/global.ts",
             "classification": "managed",
@@ -31633,7 +31856,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a35371d69feafc2083ccad0b2dec7d436a725e15ba2c3bba6887e1e5e469e405"
+            "source_sha256": "75f77e2b97d0970bb4016d63eadbe0b5500e3ec0358ab08f80155504e15c0143"
         },
         {
             "path": "web/src/views/dashboard/workplace/locale/en-US.ts",

@@ -2,7 +2,9 @@
 
 `peanut.chart` 提供 ECharts 6.1.0 / vue-echarts 8.3.0 的管理端公共入口；引擎依赖属于模块，不进入必装 Core。`peanut.chart-examples` 是独立可选包，只含静态示例、菜单和查看权限，单向依赖 `peanut.chart ^1.0`，没有业务表或 API。两个模块分别通过现有 Module/Plugin 链管理。
 
-基础模块进入首次安装默认选择，示例不进入。源码发现、包安装、租户开通和人员授权仍是四个独立动作。需要示例时，在现有模块管理页面单独安装、为所需租户开通并授予 `peanut.chart-examples.view`，页面为 `/examples/charts`。不需要示例时不安装；其缺席不影响工作台。
+基础模块进入首次安装默认选择，示例不进入。基础模块声明 `tenant.enableable=false`，安装后按现有部署基础能力合同可用，不是套餐或租户业务开通项；`lifecycle.protected=false` 仍允许在无消费者时退出。源码发现、包安装、租户开通和人员授权仍是独立动作。需要示例时，在现有模块管理页面单独安装、为所需租户开通并授予 `peanut.chart-examples.view`，页面为 `/examples/charts`。不需要示例时不安装；其缺席不影响工作台。
+
+联合开发须显式使用包含「部署基础能力与生命周期保护分离」修正的 PHP Core 源码。源码接入及本地包安装不代表公开 Core 渠道或正式发行资格已完成；正式交付须采用包含该修正的固定 Core 发行版本，再核验最终组合。
 
 ## 公共入口
 
@@ -45,9 +47,9 @@
 在应用根已配置工具环境后，分别使用原生入口：
 
 ```sh
-peanut module pack peanut.chart --output=/absolute/release/modules/peanut.chart-1.0.1.tar
+peanut module pack peanut.chart --output=/absolute/release/modules/peanut.chart-1.0.2.tar
 peanut module pack peanut.chart-examples --output=/absolute/release/modules/peanut.chart-examples-1.0.0.tar
-peanut module install /absolute/release/modules/peanut.chart-1.0.1.tar --sha256=<archive-sha256>
+peanut module install /absolute/release/modules/peanut.chart-1.0.2.tar --sha256=<archive-sha256>
 peanut module install /absolute/release/modules/peanut.chart-examples-1.0.0.tar --sha256=<archive-sha256>
 peanut module disable peanut.chart-examples
 peanut module uninstall peanut.chart-examples
