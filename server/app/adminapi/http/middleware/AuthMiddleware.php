@@ -45,7 +45,11 @@ class AuthMiddleware
 
         $path = 'adminapi/' . strtolower(trim($request->pathinfo(), '/'));
         $tenantContext = $current instanceof AdminExecutionContext ? $current->tenant : null;
-        $endpoint = $this->apis->endpoint($request, 'tenant', $tenantContext);
+        $authenticatedOnly = $this->accessRegistry->isAuthenticatedOnly((string) $request->method(), $path);
+        $snapshot = $tenantContext instanceof \PeanutAdmin\Kernel\Auth\TenantContext && !$authenticatedOnly
+            ? $this->apis->tenantEndpointWithPermissions($request, $tenantContext)
+            : null;
+        $endpoint = $snapshot !== null ? $snapshot['endpoint'] : $this->apis->endpoint($request, 'tenant', $tenantContext);
         if ($endpoint === null) {
             throw \app\common\http\ApiProblem::fromEnvelope('API 未登记或已退役', null, 40300);
         }
@@ -56,7 +60,7 @@ class AuthMiddleware
             throw \app\common\http\ApiProblem::fromEnvelope('API 所属模块不可用', null, 40300);
         }
         if ($endpoint['access_mode'] === 'authenticated'
-            && $this->accessRegistry->isAuthenticatedOnly((string) $request->method(), $path)) {
+            && $authenticatedOnly) {
             return $next($request);
         }
         if ($endpoint['access_mode'] !== 'tenant_permission') {
@@ -66,7 +70,7 @@ class AuthMiddleware
                 $request,
                 $tenantContext,
                 $endpoint,
-                $this->apis->permissionKeys($endpoint, context: $tenantContext),
+                $snapshot['permission_keys'] ?? $this->apis->permissionKeys($endpoint, context: $tenantContext),
             );
         if (!$decision->allowed) {
             throw \app\common\http\ApiProblem::fromEnvelope('暂无访问权限', null, 40300);

@@ -131,14 +131,7 @@ final class ApiPermissionCatalog
         $prefix = $audience === 'platform' ? 'platformapi' : 'adminapi';
         $method = strtoupper($request->method());
         $path = '/' . $prefix . '/' . strtolower(trim($template, '/'));
-        $read = static fn(): ?array => Db::name('api_endpoint')->pk('id')->schema([
-            'id' => 'string', 'method' => 'string', 'path' => 'string', 'audience' => 'string',
-            'module_key' => 'string', 'access_mode' => 'string', 'status' => 'string',
-            'default_permission_keys' => 'json', 'prerequisite_permission_keys' => 'json',
-            'created_at' => 'datetime', 'updated_at' => 'datetime', 'retired_at' => 'datetime',
-        ])->where('method', $method)
-            ->where('path', $path)
-            ->where('audience', $audience)->where('status', 'active')->find();
+        $read = fn(): ?array => $this->endpointQuery($method, $path, $audience)->find();
         $pdo = Db::connect()->getPdo();
         if ($context === null || $audience !== 'tenant' || ($pdo !== false && $pdo->inTransaction())) {
             return $read();
@@ -147,6 +140,64 @@ final class ApiPermissionCatalog
             . ':' . hash('sha256', $method . ':' . $path);
         // Wrap absent endpoints so the native store can cache a negative lookup too.
         return Cache::remember($key, static fn(): array => [$read()], 300)[0];
+    }
+
+    /**
+     * Read a permission-protected tenant endpoint and its active bindings in one round trip.
+     * The middleware still checks deployment, entitlements and authorization before admission.
+     * @return array{endpoint: ?array, permission_keys: ?array}
+     */
+    public function tenantEndpointWithPermissions(\think\Request $request, TenantContext $context): array
+    {
+        $pdo = Db::connect()->getPdo();
+        if ($pdo !== false && $pdo->inTransaction()) {
+            // Preserve the original uncached, deferred permission read inside transactions.
+            return ['endpoint' => $this->endpoint($request, 'tenant', $context), 'permission_keys' => null];
+        }
+        $rule = $request->rule()?->getRule();
+        if (!is_string($rule) || $rule === '') {
+            return ['endpoint' => null, 'permission_keys' => []];
+        }
+        $template = preg_replace('/<([A-Za-z_][A-Za-z0-9_]*)>/', '{$1}', $rule);
+        $method = strtoupper($request->method());
+        $path = '/adminapi/' . strtolower(trim($template, '/'));
+        $key = 'identity:api-admission:v1:' . $context->tenantId . ':' . $context->tenantAuthorizationRevision
+            . ':' . hash('sha256', $method . ':' . $path);
+
+        return Cache::remember($key, function () use ($method, $path): array {
+            // Retain the original LIMIT 1 before expanding the endpoint's bindings.
+            $endpointSql = $this->endpointQuery($method, $path, 'tenant')->limit(1)->buildSql();
+            $rows = Db::table($endpointSql)->alias('endpoint')
+                ->leftJoin('permission_api binding', "binding.api_id = endpoint.id AND endpoint.access_mode = 'tenant_permission'")
+                ->leftJoin('permission permission', "permission.id = binding.permission_id AND permission.status = 'active' AND permission.key NOT LIKE 'platform.%' AND permission.module_key <> 'platform'")
+                ->field(['endpoint.*', 'permission.key' => 'resolved_permission_key'])
+                ->order('permission.key')->select()->toArray();
+            if ($rows === []) {
+                return ['endpoint' => null, 'permission_keys' => []];
+            }
+            $endpoint = $rows[0];
+            unset($endpoint['resolved_permission_key']);
+            $keys = [];
+            foreach ($rows as $row) {
+                if ($row['resolved_permission_key'] !== null) {
+                    $keys[] = $row['resolved_permission_key'];
+                }
+            }
+            // Keep a registered endpoint with no eligible bindings distinct from a missing endpoint.
+            return ['endpoint' => $endpoint, 'permission_keys' => $keys];
+        }, 300);
+    }
+
+    private function endpointQuery(string $method, string $path, string $audience): \think\db\Query
+    {
+        return Db::name('api_endpoint')->pk('id')->schema([
+            'id' => 'string', 'method' => 'string', 'path' => 'string', 'audience' => 'string',
+            'module_key' => 'string', 'access_mode' => 'string', 'status' => 'string',
+            'default_permission_keys' => 'json', 'prerequisite_permission_keys' => 'json',
+            'created_at' => 'datetime', 'updated_at' => 'datetime', 'retired_at' => 'datetime',
+        ])->where('method', $method)
+            ->where('path', $path)
+            ->where('audience', $audience)->where('status', 'active');
     }
 
     /** @return list<string> */
