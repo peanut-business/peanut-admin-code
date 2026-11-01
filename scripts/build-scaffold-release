@@ -471,11 +471,8 @@ function releaseProjectWeb(string $application, array $core, string $receipt, st
         $manifest = releaseReadJson($path);
         foreach (['dependencies', 'devDependencies', 'optionalDependencies'] as $section) {
             foreach (($manifest[$section] ?? []) as $name => $specifier) {
-                if (!str_starts_with($name, '@peanut-admin/')) {
-                    continue;
-                }
                 if (!isset($packages[$name])) {
-                    throw new RuntimeException('SCAFFOLD_RELEASE_WEB_PACKAGE_UNKNOWN');
+                    continue;
                 }
                 $manifest[$section][$name] = 'file:../' . $packages[$name]['archive'];
                 $packages[$name]['consumers'][] = $client;

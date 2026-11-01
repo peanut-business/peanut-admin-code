@@ -3509,7 +3509,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4a200617c3c721637b93fd0f1772d4c875a0b279ada6b93d610a07c6d1d1aac4"
+            "source_sha256": "d57e1516003ff44b9cbd9c64641e266dd8f939941b9d4eb71438dc9f4be04a1a"
         },
         {
             "path": "scripts/release-metadata-version.cjs",
