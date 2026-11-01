@@ -1,0 +1,82 @@
+{
+    "schema_version": 1,
+    "key": "peanut.chart",
+    "version": "1.0.1",
+    "source": {
+        "type": "canonical-contents",
+        "reference": "canonical-plugin-contents-v1",
+        "sha256": "68ab674e352c6020ffc1e9d080476151c3e3f4e3cd842d7df0d360e46390949f"
+    },
+    "trust": {
+        "channel": "bundled",
+        "origin": {
+            "type": "repository-contents",
+            "reference": "canonical-plugin-contents-v1"
+        },
+        "archive": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "signature": {
+            "status": "not-issued",
+            "key_id": null
+        },
+        "sbom": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "license": {
+            "identifier": "Apache-2.0",
+            "status": "declared"
+        },
+        "qualification": {
+            "status": "bundled-locked",
+            "review": "not-reviewed",
+            "vulnerability_response": "not-configured",
+            "marketplace": "blocked"
+        },
+        "compatibility": {
+            "modules": [
+                {
+                    "key": "peanut.chart",
+                    "version": "1.0.1",
+                    "kernel_constraint": "^1.0",
+                    "dependencies": [],
+                    "permissions": {
+                        "path": "resources/permissions.json",
+                        "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+                    }
+                }
+            ]
+        }
+    },
+    "composer": [
+        {
+            "name": "peanut-business/peanut-chart",
+            "version": "1.0.1",
+            "sha256": "75ae32c71c587d8ce2bb8be4e9d83c0c6496dc24a5cdde46dc111f75a3bfa831"
+        }
+    ],
+    "npm": [
+        {
+            "name": "@peanut-admin/peanut-chart",
+            "version": "1.0.0",
+            "integrity": "sha256-zuHbWCWd8APW/S8vSmyK280QKTnDa08K6uRsoXAckeA="
+        }
+    ],
+    "frontend": [
+        {
+            "client_key": "admin-web",
+            "package": "@peanut-admin/peanut-chart",
+            "version": "1.0.0",
+            "entry": "web/src/modules/peanut-chart/contribution.ts",
+            "sha256": "80da8411d38cf78a69723f158ea580dc4c5764d481efac725b4a07e224b3c1b6"
+        }
+    ],
+    "modules": [
+        {
+            "key": "peanut.chart",
+            "root": "server/app/modules/peanut/chart"
+        }
+    ]
+}

@@ -6,7 +6,8 @@
 </template>
 
 <script lang="ts" setup>
-  import { computed, watch } from 'vue';
+  import { computed, provide, watch } from 'vue';
+  import { THEME_KEY } from '@peanut-admin/peanut-chart/charts';
   import enUS from 'element-plus/es/locale/lang/en';
   import zhCN from 'element-plus/es/locale/lang/zh-cn';
   import GlobalSetting from '@/components/global-setting/index.vue';
@@ -15,6 +16,12 @@
 
   const { currentLocale } = useLocale();
   const appStore = useAppStore();
+  provide(
+    THEME_KEY,
+    computed(() =>
+      appStore.shellAppearance.theme.mode === 'dark' ? 'dark' : 'light'
+    )
+  );
   watch(
     () => appStore.shellAppearance.theme.mode,
     (mode) => {

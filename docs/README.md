@@ -19,6 +19,8 @@
 
 ## 产品架构与扩展合同
 
+- [图表模块与可选示例](development/charts.md)：公共组件、宿主主题及独立安装卸载。
+
 - [能力地图](architecture/overview.md)、[默认交付与职责](architecture/default-delivery-and-ownership.md)。
 - [Core与应用覆盖](architecture/core-capabilities-and-application-overrides.md)、[框架扩展生命周期](architecture/framework-extension-and-lifecycle.md)、[CLI与可选Recipes](architecture/cli-and-recipes.md)。
 - [身份与组织](architecture/identity-organization-access.md)、[租户模块与Scope](architecture/tenant-modules-and-data-scopes.md)、[模块开发](architecture/module-development-delivery.md)。
