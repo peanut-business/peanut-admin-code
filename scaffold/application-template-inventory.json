@@ -2339,7 +2339,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "44baa9f69ea232cd1e4e86be173167740ef2a8bf47024f3737e43e90ba35167f"
+            "source_sha256": "26cf85f299074ed2328f45ac35d5edc6b065997023bdd0ac85de78d9856d19fd"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2392,7 +2392,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0d626b09668bbed863dcf64e3f1ff2bb88bdb9d23276d4a16e92c4d71abb9361"
+            "source_sha256": "f95bdef9a0a426edcce0652e9efc17d450b765901b06fbaffee6b70e684319cd"
         },
         {
             "path": "plugins/peanut.chart/plugin.json",
@@ -28531,7 +28531,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6f06e3dbdb4b9ec34a22926e1f80168e52e45790ba2b00e30824d2bf78a0d27f"
+            "source_sha256": "d5c8d27bc5e4f24034f31963e587d00eca47624dcea09bdcdecc872d022285fe"
         },
         {
             "path": "web/src/api/app.ts",
@@ -29700,7 +29700,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "59b2ea28aedffada0b4a872eaeabfa916a2497bb9168d9888a331b66e3c336e3"
+            "source_sha256": "dab7e9b1ba22e6a9b8ba2addc4e3d6e01e537fede64c0a32f1597aa8af9e5d02"
         },
         {
             "path": "web/src/modules/peanut-chart/contribution.ts",
