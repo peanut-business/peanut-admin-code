@@ -40,7 +40,7 @@ try {
     foreach ([
         ['dcs.product', 'dcs', 'server/app/modules/dcs/product', 'Dcs\\Modules\\Product\\', 'server/tests/Modules/Dcs/Product'],
         ['acme.customer-record', 'acme', 'server/app/modules/acme/customer_record', 'Acme\\Modules\\CustomerRecord\\', 'server/tests/Modules/Acme/CustomerRecord'],
-        ['official.sample', 'official', 'server/app/modules/official/sample', 'PeanutAdmin\\Modules\\Sample\\', 'server/tests/Modules/Official/Sample'],
+        ['peanut.sample', 'peanut', 'server/app/modules/peanut/sample', 'PeanutAdmin\\Modules\\Sample\\', 'server/tests/Modules/Peanut/Sample'],
     ] as [$key, $vendor, $backend, $namespace, $tests]) {
         $result = $generator->create($key, $vendor, 'admin-web');
         $expect($result['backend_path'] === $backend && $result['test_path'] === $tests, 'KEY_DERIVED_CASE_CHANGED');

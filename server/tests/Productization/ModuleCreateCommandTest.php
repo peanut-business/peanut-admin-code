@@ -95,7 +95,7 @@ $serverRoot = dirname(__DIR__, 2);
 $projectRoot = dirname($serverRoot);
 $layout = new ModuleHostLayout('server/app/modules', 'app\\modules', 'web/src/modules');
 $suffix = bin2hex(random_bytes(6));
-$officialKey = 'official.generated-' . $suffix;
+$officialKey = 'peanut.generated-' . $suffix;
 $customKey = 'acme.custom-generated-' . $suffix;
 $officialModuleKey = ModuleKey::fromString($officialKey);
 $customModuleKey = ModuleKey::fromString($customKey);
@@ -112,7 +112,7 @@ try {
     $official = moduleCreateRun($serverRoot, [$officialKey, '--client=admin-web']);
     moduleCreateExpect($official['code'] === 0, 'default Official Module creation failed: ' . $official['output']);
     moduleCreateExpect(($official['json']['module_key'] ?? null) === $officialKey, 'Official creation returned another key');
-    moduleCreateExpect(($official['json']['vendor'] ?? null) === 'official', 'Official vendor was not derived');
+    moduleCreateExpect(($official['json']['vendor'] ?? null) === 'peanut', 'Official vendor was not derived');
 
     $custom = moduleCreateRun($serverRoot, [$customKey, '--vendor=acme', '--client=admin-web']);
     moduleCreateExpect($custom['code'] === 0, 'custom vendor Module creation failed: ' . $custom['output']);
@@ -186,10 +186,11 @@ try {
     moduleCreateExpect(($duplicate['json']['error'] ?? null) === 'MODULE_CREATE_TARGET_EXISTS', 'duplicate failure code changed');
     moduleCreateExpect($beforeDuplicate === $afterDuplicate, 'duplicate creation changed the existing Module');
 
-    // Official and peanut share PeanutAdmin\\Modules; custom vendors own separate prefixes.
-    $namespaceCollision = moduleCreateRun($serverRoot, ['peanut.generated-' . $suffix, '--vendor=peanut']);
-    moduleCreateExpect($namespaceCollision['code'] === 1, 'cross-vendor PHP namespace collision was accepted');
-    moduleCreateExpect(($namespaceCollision['json']['error'] ?? null) === 'MODULE_CREATE_NAMESPACE_CONFLICT', 'namespace collision failure code changed');
+    // The historical spelling is an ordinary vendor, never an official alias.
+    $historical = moduleCreateRun($serverRoot, ['official.generated-' . $suffix]);
+    moduleCreateExpect($historical['code'] === 0, 'ordinary vendor was treated as an official alias');
+    $historicalComposer = json_decode((string) file_get_contents($projectRoot . '/' . $historical['json']['backend_path'] . '/composer.json'), true, 64, JSON_THROW_ON_ERROR);
+    moduleCreateExpect(isset($historicalComposer['autoload']['psr-4']['Official\\Modules\\Generated' . ucfirst($suffix) . '\\']), 'ordinary vendor prefix changed');
 
     $invalid = moduleCreateRun($serverRoot, ['Invalid/../key']);
     moduleCreateExpect($invalid['code'] === 1, 'invalid Module key was accepted');
@@ -197,6 +198,10 @@ try {
 
     echo "MODULE-CREATE-001 passed official={$officialKey} custom={$customKey}\n";
 } finally {
+    if (isset($historical['json']['backend_path'], $historical['json']['test_path'])) {
+        moduleCreateRemoveTree($projectRoot . '/' . $historical['json']['backend_path']);
+        moduleCreateRemoveTree($projectRoot . '/' . $historical['json']['test_path']);
+    }
     moduleCreateRemoveTree($officialBackend);
     moduleCreateRemoveTree($officialFrontend);
     moduleCreateRemoveTree($customBackend);
