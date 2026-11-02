@@ -216,6 +216,9 @@ final class PluginLockResolver
             }
             $projectRoot = $moduleBase;
             $moduleRoots = $this->resolveModuleRoots($entry['modules'] ?? null, $projectRoot, $serverProjection);
+            if (count($moduleRoots) !== 1 || !array_key_exists($key, $moduleRoots)) {
+                throw new PluginLifecycleException('MODULE_PACKAGE_IDENTITY_MISMATCH', 'A locked artifact must belong to exactly its named Module.');
+            }
             $frontendRoots = $this->frontendRoots($frontend, $moduleRoots, $projectRoot);
             $this->verifyPackageIdentities(
                 $composer,

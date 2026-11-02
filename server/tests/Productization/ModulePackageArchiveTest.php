@@ -9,7 +9,7 @@ use app\platform\infrastructure\plugin\PluginArtifactWriter;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\services\plugin\PluginPackageAdoptionService;
 use app\platform\services\plugin\PluginPackageArchiveService;
-use app\platform\validation\plugin\ModulePackagePreflight;
+use app\common\module\PackageCheck as ModulePackagePreflight;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
@@ -100,13 +100,30 @@ $serverRoot = dirname(__DIR__, 2);
 $projectRoot = dirname($serverRoot);
 $temporary = sys_get_temp_dir() . '/pa-module-package-' . bin2hex(random_bytes(8));
 mkdir($temporary, 0700, true);
+// Source-only adoption still uses the native App configuration for Edition selection.
+$application = new \think\App($temporary . '/test-host/');
+$application->config->set(['mode' => 'multi-tenant'], 'deployment');
 
 try {
-    $service = new PluginPackageArchiveService($serverRoot);
+    // A real private Module namespace participates in the deployment lock; fixture.* is intentionally excluded.
+    $authorRoot = $temporary . '/author';
+    modulePackageCopyTree($projectRoot . '/server/app/modules/fixture/delivery_record', $authorRoot . '/server/app/modules/acme/delivery_record');
+    modulePackageCopyTree($projectRoot . '/web/src/modules/fixture-delivery-record', $authorRoot . '/web/src/modules/acme-delivery-record');
+    $fromNamespace = implode(chr(92), ['PeanutAdmin', 'Fixtures', 'DeliveryRecord']);
+    $toNamespace = implode(chr(92), ['Acme', 'Modules', 'DeliveryRecord']);
+    modulePackageRewriteTree($authorRoot, [
+        'fixture.delivery-record' => 'acme.delivery-record',
+        'fixture-delivery-record' => 'acme-delivery-record',
+        trim(json_encode($fromNamespace), '"') => trim(json_encode($toNamespace), '"'),
+        $fromNamespace => $toNamespace,
+    ]);
+    mkdir($authorRoot . '/server/resources/schemas', 0700, true);
+    copy($serverRoot . '/resources/schemas/plugin.schema.json', $authorRoot . '/server/resources/schemas/plugin.schema.json');
+    $service = new PluginPackageArchiveService($authorRoot . '/server');
     $first = $temporary . '/fixture-a.tar';
     $second = $temporary . '/fixture-b.tar';
-    $packedA = $service->packModule('fixture.delivery-record', $first);
-    $packedB = $service->packModule('fixture.delivery-record', $second);
+    $packedA = $service->packModule('acme.delivery-record', $first);
+    $packedB = $service->packModule('acme.delivery-record', $second);
     modulePackageExpect($packedA['sha256'] === $packedB['sha256'], 'same Module tree did not produce a deterministic tar');
 
     $tar = new DeterministicTarArchive();
@@ -120,8 +137,8 @@ try {
     );
 
     $verified = $service->verify($first, $packedA['sha256'], [], null, []);
-    modulePackageExpect($verified->packageKey === 'fixture.delivery-record', 'verified package identity changed');
-    modulePackageExpect($verified->dependencyOrder === ['fixture.delivery-record'], 'single-Module dependency order changed');
+    modulePackageExpect($verified->packageKey === 'acme.delivery-record', 'verified package identity changed');
+    modulePackageExpect($verified->dependencyOrder === ['acme.delivery-record'], 'single-Module dependency order changed');
     $service->cleanup($verified);
 
     modulePackageRejects(
@@ -137,15 +154,15 @@ try {
     $secret = sodium_crypto_sign_secretkey($keypair);
     $public = sodium_crypto_sign_publickey($keypair);
     $signedPath = $temporary . '/fixture-signed.tar';
-    $service->packModule('fixture.delivery-record', $signedPath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);
+    $service->packModule('acme.delivery-record', $signedPath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);
     $signed = $service->verify($signedPath, null, ['fixture-release' => $public], 'fixture-release', []);
-    modulePackageExpect($signed->packageKey === 'fixture.delivery-record', 'signed package did not verify');
+    modulePackageExpect($signed->packageKey === 'acme.delivery-record', 'signed package did not verify');
     $service->cleanup($signed);
 
     $tamperedEntries = [];
     foreach ($entries as $path => $entry) {
         $contents = $tar->read($first, $entry);
-        if ($path === 'web/src/modules/fixture-delivery-record/contribution.ts') {
+        if ($path === 'web/src/modules/acme-delivery-record/contribution.ts') {
             $contents .= "\n// tampered\n";
         }
         $tamperedEntries[$path] = ['contents' => $contents];
@@ -161,17 +178,17 @@ try {
         'MODULE_PACKAGE_PATH_INVALID',
     );
 
-    $fixtureBackend = $projectRoot . '/server/app/modules/fixture/delivery_record';
-    $fixtureFrontend = $projectRoot . '/web/src/modules/fixture-delivery-record';
+    $fixtureBackend = $authorRoot . '/server/app/modules/acme/delivery_record';
+    $fixtureFrontend = $authorRoot . '/web/src/modules/acme-delivery-record';
     $badRoot = $temporary . '/bad-project';
-    modulePackageCopyTree($fixtureBackend, $badRoot . '/server/app/modules/fixture/delivery_record');
-    modulePackageCopyTree($fixtureFrontend, $badRoot . '/web/src/modules/fixture-delivery-record');
-    $badManifestPath = $badRoot . '/server/app/modules/fixture/delivery_record/module.json';
+    modulePackageCopyTree($fixtureBackend, $badRoot . '/server/app/modules/acme/delivery_record');
+    modulePackageCopyTree($fixtureFrontend, $badRoot . '/web/src/modules/acme-delivery-record');
+    $badManifestPath = $badRoot . '/server/app/modules/acme/delivery_record/module.json';
     $badManifest = json_decode((string) file_get_contents($badManifestPath), true, 64, JSON_THROW_ON_ERROR);
-    $badManifest['frontend']['entry'] = 'web/src/modules/fixture-delivery-record/index.ts';
+    $badManifest['frontend']['entry'] = 'web/src/modules/acme-delivery-record/index.ts';
     file_put_contents($badManifestPath, json_encode($badManifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
     modulePackageRejects(
-        static fn() => (new ModulePackagePreflight($badRoot))->inspect('fixture.delivery-record'),
+        static fn() => (new ModulePackagePreflight($badRoot))->inspect('acme.delivery-record'),
         'MODULE_PACKAGE_FRONTEND_ENTRY_MISMATCH',
     );
 
@@ -188,17 +205,17 @@ try {
         modulePackageCopyTree($fixtureBackend, $backend);
         modulePackageCopyTree($fixtureFrontend, $frontend);
         modulePackageRewriteTree($backend, [
-            'fixture.delivery-record' => $key,
-            'fixture-delivery-record' => str_replace('.', '-', $key),
-            'PeanutAdmin\\\\Fixtures\\\\DeliveryRecord' => 'Acme\\\\Modules\\\\' . $class,
-            'PeanutAdmin\\Fixtures\\DeliveryRecord' => 'Acme\\Modules\\' . $class,
-            'peanut-business/fixture-delivery-record' => 'acme/' . strtolower($class),
+            'acme.delivery-record' => $key,
+            'acme-delivery-record' => str_replace('.', '-', $key),
+            'Acme\\\\Modules\\\\DeliveryRecord' => 'Acme\\\\Modules\\\\' . $class,
+            'Acme\\Modules\\DeliveryRecord' => 'Acme\\Modules\\' . $class,
+            'peanut-business/acme-delivery-record' => 'acme/' . strtolower($class),
             'pa_fixture_delivery_record' => $table,
         ]);
         modulePackageRewriteTree($frontend, [
-            'fixture.delivery-record' => $key,
-            'fixture-delivery-record' => str_replace('.', '-', $key),
-            '@peanut-admin/fixture-delivery-record' => '@acme/' . strtolower($class),
+            'acme.delivery-record' => $key,
+            'acme-delivery-record' => str_replace('.', '-', $key),
+            '@peanut-admin/acme-delivery-record' => '@acme/' . strtolower($class),
         ]);
     }
     $firstManifestPath = $bundleRoot . '/server/app/modules/acme/first/module.json';
@@ -213,21 +230,33 @@ try {
             mkdir(dirname($forbiddenSource), 0700, true);
         }
         file_put_contents($forbiddenSource, "VENDOR_SECRET=must-not-be-packed\n");
-        modulePackageRejects(
-            static fn() => $bundleService->packBundle('acme.bundle', '1.0.0', ['acme.first', 'acme.second'], $bundlePath),
-            'MODULE_PACKAGE_SOURCE_FORBIDDEN',
-        );
+        if ($forbiddenRelative === 'node_modules/vendor-runtime.js') {
+            // Dependencies/caches are intentionally excluded; credentials in source are rejected.
+            $cacheArchive = $temporary . '/acme-first-with-cache.tar';
+            $cacheResult = $bundleService->packModule('acme.first', $cacheArchive);
+            modulePackageExpect(
+                !isset($tar->scan($cacheArchive)['server/app/modules/acme/first/' . $forbiddenRelative]),
+                'Module archive included a dependency cache',
+            );
+            unlink($cacheArchive);
+        } else {
+            modulePackageRejects(
+                static fn() => $bundleService->packModule('acme.first', $bundlePath),
+                'MODULE_PACKAGE_SOURCE_FORBIDDEN',
+            );
+        }
         unlink($forbiddenSource);
         if ($forbiddenRelative === 'node_modules/vendor-runtime.js') {
             rmdir(dirname($forbiddenSource));
         }
     }
-    $bundleResult = $bundleService->packBundle('acme.bundle', '1.0.0', ['acme.first', 'acme.second'], $bundlePath);
+    $bundleResult = $bundleService->packModule('acme.first', $bundlePath);
+    modulePackageExpect($cacheResult['sha256'] === $bundleResult['sha256'], 'ignored dependency cache changed the Module artifact identity');
     $bundleEntries = $tar->scan($bundlePath);
     $bundleExtracted = $temporary . '/bundle-extracted';
     $tar->extract($bundlePath, $bundleEntries, $bundleExtracted);
     $bundleFiles = [];
-    foreach (['server/app/modules/acme/first', 'server/app/modules/acme/second', 'web/src/modules/acme-first', 'web/src/modules/acme-second'] as $root) {
+    foreach (['server/app/modules/acme/first', 'web/src/modules/acme-first'] as $root) {
         $iterator = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($bundleExtracted . '/' . $root, FilesystemIterator::SKIP_DOTS),
         );
@@ -240,7 +269,7 @@ try {
     }
     ksort($bundleFiles, SORT_STRING);
     $bundleSourceFiles = [];
-    foreach (['server/app/modules/acme/first', 'server/app/modules/acme/second', 'web/src/modules/acme-first', 'web/src/modules/acme-second'] as $root) {
+    foreach (['server/app/modules/acme/first', 'web/src/modules/acme-first'] as $root) {
         $iterator = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($bundleRoot . '/' . $root, FilesystemIterator::SKIP_DOTS),
         );
@@ -260,18 +289,26 @@ try {
     foreach ($bundleFiles as $relative => $digest) {
         $bundleCanonical .= $relative . "\0" . $digest . "\n";
     }
-    $bundleManifest = json_decode((string) file_get_contents($bundleExtracted . '/plugins/acme.bundle/plugin.json'), true, 64, JSON_THROW_ON_ERROR);
+    $bundleManifest = json_decode((string) file_get_contents($bundleExtracted . '/plugins/acme.first/plugin.json'), true, 64, JSON_THROW_ON_ERROR);
     $bundleActualSourceDigest = hash('sha256', $bundleCanonical);
     modulePackageExpect(
         $bundleActualSourceDigest === $bundleManifest['source']['sha256'],
         'bundle source digest changed during archive round trip',
     );
-    $bundle = $bundleService->verify($bundlePath, $bundleResult['sha256'], [], null, []);
-    modulePackageExpect(
-        $bundle->dependencyOrder === ['acme.second', 'acme.first'],
-        'bundle dependency order is not topological',
+    modulePackageRejects(
+        static fn() => $bundleService->verify($bundlePath, $bundleResult['sha256'], [], null, []),
+        'MODULE_PACKAGE_DEPENDENCY_MISSING',
     );
-    modulePackageExpect(count($bundle->modules) === 2, 'bundle Module count changed');
+    modulePackageRejects(
+        static fn() => $bundleService->verify($bundlePath, $bundleResult['sha256'], [], null, ['acme.second' => '2.0.0']),
+        'MODULE_PACKAGE_DEPENDENCY_INCOMPATIBLE',
+    );
+    $bundle = $bundleService->verify($bundlePath, $bundleResult['sha256'], [], null, ['acme.second' => '1.0.0']);
+    modulePackageExpect(
+        $bundle->dependencyOrder === ['acme.first'],
+        'an external dependency must not become a second payload Module',
+    );
+    modulePackageExpect(count($bundle->modules) === 1, 'single Module artifact contains more than one Module');
     $bundleService->cleanup($bundle);
 
     // Adoption has no database dependency and applies equally to the source tree of both Editions.
@@ -350,7 +387,7 @@ try {
             modulePackageExpect($exception->errorCode === 'PLUGIN_RELEASE_CURRENT_IDENTITY_INVALID', 'object identity rejection changed');
         }
     }
-    $backendParent = $adoptRoot . '/server/app/modules/fixture';
+    $backendParent = $adoptRoot . '/server/app/modules/acme';
     rename($backendParent, $backendParent . '-real');
     symlink($backendParent . '-real', $backendParent);
     modulePackageRejects(fn() => $adopter->recover(), 'MODULE_PACKAGE_PATH_INVALID');
@@ -361,19 +398,19 @@ try {
     $upgradeRoot = realpath($temporary) . '/upgrade-source';
     mkdir($upgradeRoot . '/server/resources/schemas', 0700, true);
     copy($serverRoot . '/resources/schemas/plugin.schema.json', $upgradeRoot . '/server/resources/schemas/plugin.schema.json');
-    modulePackageCopyTree($fixtureBackend, $upgradeRoot . '/server/app/modules/fixture/delivery_record');
-    modulePackageCopyTree($fixtureFrontend, $upgradeRoot . '/web/src/modules/fixture-delivery-record');
+    modulePackageCopyTree($fixtureBackend, $upgradeRoot . '/server/app/modules/acme/delivery_record');
+    modulePackageCopyTree($fixtureFrontend, $upgradeRoot . '/web/src/modules/acme-delivery-record');
     modulePackageRewriteTree($upgradeRoot, ['"version": "1.0.0"' => '"version": "1.1.0"']);
-    $routeDirectory = $upgradeRoot . '/server/app/modules/fixture/delivery_record/Http';
+    $routeDirectory = $upgradeRoot . '/server/app/modules/acme/delivery_record/Http';
     if (!is_dir($routeDirectory)) {
         mkdir($routeDirectory, 0700, true);
     }
     file_put_contents($routeDirectory . '/routes.php', "<?php\n// Explicit application route composition fixture.\n");
     $upgradePath = $temporary . '/upgrade.tar';
-    $upgrade = (new PluginPackageArchiveService($upgradeRoot . '/server'))->packModule('fixture.delivery-record', $upgradePath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);
+    $upgrade = (new PluginPackageArchiveService($upgradeRoot . '/server'))->packModule('acme.delivery-record', $upgradePath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);
     $oldLock = (string) file_get_contents($adoptRoot . '/plugins.lock');
     $updated = $adopter->adopt($upgradePath, $upgrade['sha256'], 'fixture-release');
-    modulePackageExpect($updated['route_contributions'] === ['server/app/modules/fixture/delivery_record/route/app.php'], 'conventional route contribution was not reported');
+    modulePackageExpect($updated['route_contributions'] === ['server/app/modules/acme/delivery_record/route/app.php'], 'conventional route contribution was not reported');
     $receipts = glob($adoptRoot . '/.local/module-source-adoption/*/transaction.json') ?: [];
     $upgradeReceiptPath = array_values(array_diff($receipts, [$receiptPath]))[0];
     $upgradeReceipt = (string) file_get_contents($upgradeReceiptPath);
@@ -409,15 +446,15 @@ try {
     $creator = new \app\common\infrastructure\scaffold\ApplicationCreator($projectRoot, $projectRoot . '/scaffold/application-template-inventory.json');
     $rebuild = new ReflectionMethod($creator, 'rebuildBundledPluginArtifacts');
     $artifactFiles = [];
-    foreach (['plugins/fixture.delivery-record/plugin.json', 'plugins.lock'] as $relative) {
+    foreach (['plugins/acme.delivery-record/plugin.json', 'plugins.lock'] as $relative) {
         chmod($adoptRoot . '/' . $relative, 0644);
         $artifactFiles[] = ['path' => $relative, 'mode' => 0644];
     }
     $rebuild->invoke($creator, $adoptRoot, $artifactFiles);
-    modulePackageExpect(isset((new PluginLockResolver($adoptRoot . '/server', '../plugins.lock'))->all()['fixture.delivery-record']), 'edition composition discarded private package identity');
+    modulePackageExpect(isset((new PluginLockResolver($adoptRoot . '/server', '../plugins.lock'))->all()['acme.delivery-record']), 'edition composition discarded private package identity');
 
     $officialPath = $temporary . '/official-signed.tar';
-    $official = $service->packModule('official.rich-text', $officialPath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);
+    $official = (new PluginPackageArchiveService($serverRoot))->packModule('peanut.chart', $officialPath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);
     modulePackageRejects(fn() => $adopter->adopt($officialPath, $official['sha256'], 'fixture-release'), 'MODULE_PACKAGE_PRIVATE_REQUIRED');
     if (!$archiveOnly) {
         // An incomplete source must still expose the development recovery CLI while ordinary boot fails closed.

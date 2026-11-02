@@ -749,7 +749,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "90c6a2cb21d0996c27f917ce6a224ef3ccbb547d204e3e81b1944ef6d757d30f"
+            "source_sha256": "a613cc2539c00a9fbb168f8dc002ed405f72b7a953fd193d3ff0e7f2bb4af743"
         },
         {
             "path": "docs/architecture/overview.md",
@@ -1104,7 +1104,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "482c0fc4fc3bd2313211ab75dbed23301c00df4f14a61f8492e30d69bcbcd446"
+            "source_sha256": "49cb1f4539b8bbf5d59d1f1e63a2c53088df96fae905e327fa0e480f770d5f6a"
         },
         {
             "path": "docs/public/release-channels.md",
@@ -6687,7 +6687,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7509a6357c98de87a4bbb77976b08b0e00a5d436ccd2ec064767959aedb7dc14"
+            "source_sha256": "51a301f853550e17d06e299d26dd41459522c85d97ec645df0d4e5b4e89300a5"
         },
         {
             "path": "server/app/command/PluginReconcile.php",
@@ -6701,7 +6701,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b1e66f15d7f1eae8c117d8c4a47f4ac929654c41b177a854be76ff5806f99235"
+            "source_sha256": "e1250f96c2b4b42499387375b3500efba52c70392ae008d669e78c8cd5e743e9"
         },
         {
             "path": "server/app/command/PluginReleaseComposition.php",
@@ -18278,7 +18278,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1a97236a1a7d87bce4b16004fca5e970e1b867aad93dd35cbf440b63b3c58c80"
+            "source_sha256": "7bf556935d52b4ad1317d7b143a7c1867f34c00ed05b0f981c99b8d6ddc1ca1a"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/PluginLockResolver.php",
@@ -18292,7 +18292,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1b83572f26d4e5b4788578391063c3f500235418d2036bd72ec15c0cbba79ec5"
+            "source_sha256": "c237194d313816811dc24b44884c38720c2a1daab39a772de8eac5752abfedaa"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/PluginPackageInstaller.php",
@@ -18446,7 +18446,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7ba045c399001ea4223a66487ee0d446680d8f88ce44897664e32f805cac94d8"
+            "source_sha256": "3fd68b8c43be98d320e1e6d432464ad1ccc01994f6fa321c3b36f0bd3df04b2d"
         },
         {
             "path": "server/app/platform/query/PlatformControlPlaneQueryService.php",
@@ -18656,7 +18656,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fead06bce360ead1941d8e80b0b1011835aff0334179ebd929eedf1ef92a259f"
+            "source_sha256": "791ee59b3a9aad56c807f1a1b09e3b4aba06615a4614b34e84d454ff7a60f8ab"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageArchiveService.php",
@@ -18670,7 +18670,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8e272ed7c8a0f41ff1046735da38f4974fa37ad871162456fb235c97d43762e3"
+            "source_sha256": "dc486bbd5f30e5bb361f8847316c397b030635f65f961fe108210d8559306fe6"
         },
         {
             "path": "server/app/platform/services/plugin/PluginRuntimeGovernanceService.php",
@@ -22462,7 +22462,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7b2e070c855e1548d006267a287450f7b7945e7139a014ef984070de326de08c"
+            "source_sha256": "71c6f7ad2d75a65e11d7a0199da69d99e5dc78fc615130af9d8ccff24c8212ec"
         },
         {
             "path": "server/route/admin.php",
@@ -24867,19 +24867,6 @@
             ]
         },
         {
-            "path": "server/tests/Productization/ModuleBundleLifecycleTest.php",
-            "target": "server/tests/Productization/ModuleBundleLifecycleTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Productization/ModuleCatalogApplierTest.php",
             "target": "server/tests/Productization/ModuleCatalogApplierTest.php",
             "classification": "excluded",
@@ -24932,8 +24919,8 @@
             ]
         },
         {
-            "path": "server/tests/Productization/ModuleDeliveryOperationTest.php",
-            "target": "server/tests/Productization/ModuleDeliveryOperationTest.php",
+            "path": "server/tests/Productization/ModulePackageArchiveTest.php",
+            "target": "server/tests/Productization/ModulePackageArchiveTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -24945,8 +24932,21 @@
             ]
         },
         {
-            "path": "server/tests/Productization/ModulePackageArchiveTest.php",
-            "target": "server/tests/Productization/ModulePackageArchiveTest.php",
+            "path": "server/tests/Productization/ModuleReleaseSelectionTest.php",
+            "target": "server/tests/Productization/ModuleReleaseSelectionTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/ModuleRetirementPolicyTest.php",
+            "target": "server/tests/Productization/ModuleRetirementPolicyTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

@@ -61,10 +61,10 @@ final class TenantModuleStateBoundaryTest extends TestCase
             SQL);
         $manifests = [];
         foreach (['fixture.foundation' => true, 'fixture.current' => false] as $key => $foundation) {
-            $manifest = ManifestDocument::fromArray($temporary, [
+            $manifest = ManifestDocument::fromObject($temporary, json_decode(json_encode([
                 'schema_version' => 1, 'key' => $key, 'name' => $key, 'version' => '1.0.0',
                 'tenant' => ['enableable' => !$foundation], 'lifecycle' => ['protected' => $foundation],
-            ]);
+            ], JSON_THROW_ON_ERROR), false, 64, JSON_THROW_ON_ERROR));
             $manifests[] = $manifest;
             $this->database->prepare('INSERT INTO pa_module_installation VALUES (?,?,?,?,?,?,?,?,?,?)')->execute([
                 $key, '1.0.0', 1, $manifest->digest, 'active', 9, '2031-01-01 00:00:00.000', '2030-01-01 00:00:00.000', '2031-01-01 00:00:00.000', null,
@@ -208,9 +208,7 @@ final class TenantModuleStateBoundaryTest extends TestCase
             'server/app/platform/infrastructure/plugin/PluginPackageInstaller.php',
             'server/fixtures/plugin-module-lifecycle/run.php',
             'server/tests/Productization/ModuleCommandContractTest.php',
-            'server/tests/Productization/ModuleBundleLifecycleTest.php',
             'server/tests/Productization/ModuleRuntimeGovernanceTest.php',
-            'server/tests/Productization/ModuleDeliveryOperationTest.php',
         ] as $path) {
             $traverser = new \PhpParser\NodeTraverser();
             $traverser->addVisitor(new \PhpParser\NodeVisitor\NameResolver());
@@ -222,7 +220,8 @@ final class TenantModuleStateBoundaryTest extends TestCase
                 }
             }
         }
-        self::assertSame(23, $sites);
+        // Eight construction sites belonged to the retired physical multi-Module Bundle fixtures.
+        self::assertSame(15, $sites);
     }
 
     public function testMissingLifecycleLedgerIsNotTreatedAsNoEnabledConsumers(): void
