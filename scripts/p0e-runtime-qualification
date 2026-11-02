@@ -460,25 +460,87 @@ def baseline_identity(root: Path, manifest: dict[str, Any]) -> str:
     return hashlib.sha256(json.dumps(sorted(records), ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
 
 
-def runtime_registration(app: dict[str, Any]) -> dict[str, Any]:
+def runtime_registration(app: dict[str, Any], *, compose: bool = True) -> dict[str, Any]:
     """Bind deployment coordinates before even interpolating an operator's Compose file."""
+    if not compose:
+        runtime = app.get("runtime", {})
+        resources = [r for values in read_json(REGISTRY_PATH)["resources"].values() if isinstance(values, list)
+                     for r in values if isinstance(r, dict)]
+        manifest = read_json(Path(app["root"]) / ".peanut/application-manifest.json")["application"]
+        routes = []
+        for field in ("health_url", "tenant_admin_url", "tenant_beta_url", "platform_url", "docs_url"):
+            if not runtime.get(field):
+                raise NotRun("browser route is not registered for this APP: " + field)
+            url = urlsplit(runtime[field])
+            if (url.scheme not in ("http", "https") or not url.port or url.username or url.password
+                    or url.query or url.fragment or not url.hostname
+                    or not (url.hostname in ("localhost", "127.0.0.1") or url.hostname.endswith(".localhost"))):
+                fail("runtime HTTP/browser URL must use its registered loopback listener")
+            matches = []
+            for resource in resources:
+                for access in resource.get("access_urls", []):
+                    registered_url = urlsplit(access)
+                    prefix = registered_url.path or "/"
+                    if ((url.scheme, url.netloc) == (registered_url.scheme, registered_url.netloc)
+                            and (url.path == prefix.rstrip("/") or url.path.startswith(prefix if prefix.endswith("/") else prefix + "/"))
+                            and url.port == resource.get("port")):
+                        matches.append(resource)
+                        break
+            if len(matches) != 1:
+                raise NotRun("browser URL has no unique registered PSM route: " + field)
+            registered = matches[0]
+            manager = registered.get("service_manager", {})
+            if (registered.get("environment") != "development"
+                    or registered.get("allocation_status") != "INSTALLED_DEVELOPMENT_RUNTIME_REGISTERED"
+                    or not all(manager.get(k) for k in ("project_id", "environment_id", "service_id"))):
+                raise NotRun("browser requires an admitted existing development PSM route: " + field)
+            identity = registered.get("application_identity", {})
+            if (identity.get("observed_HEAD") != app["head"] or identity.get("manifest_sha256") != app["manifest_sha256"]
+                    or any(identity.get(k) != manifest.get(k) for k in ("slug", "edition"))
+                    or registered.get("application_root", app["root"]) != app["root"]):
+                fail("PSM route application identity differs")
+            backend_id = registered.get("backend_resource_id")
+            backends = [r for r in resources if r.get("database_resource_id") == app["resource_id"]
+                        and r.get("application_root") == app["root"]
+                        and r.get("service_manager", {}).get("project_id") == manager["project_id"]
+                        and r.get("service_manager", {}).get("environment_id") == manager["environment_id"]
+                        and (not backend_id or r.get("stable_resource_id") == backend_id)]
+            if len(backends) != 1:
+                fail("PSM route has no unique APP backend/database association")
+            backend = backends[0]
+            if (backend.get("application_identity") != identity or backend.get("environment") != "development"
+                    or backend.get("allocation_status") != "INSTALLED_DEVELOPMENT_RUNTIME_REGISTERED"):
+                fail("PSM backend application/environment identity differs")
+            routes.extend((registered, backend))
+        return {"routes": {r["stable_resource_id"]: r for r in routes}}
     runtime = app.get("runtime", {})
     matches = [r for values in read_json(REGISTRY_PATH)["resources"].values() if isinstance(values, list)
                for r in values if isinstance(r, dict) and r.get("stable_resource_id") == runtime.get("resource_id")]
     if len(matches) != 1:
-        fail("fixed APP runtime resource is missing or ambiguous; runtime NOT_RUN")
+        raise NotRun("fixed APP runtime resource is missing or ambiguous")
     registered = matches[0]
     if registered.get("status") == "planned" or registered.get("application_root") != app["root"]:
-        fail("fixed APP runtime is planned or belongs to another application; runtime NOT_RUN")
-    for field in ("root", "compose_environment", "compose_project", "port", "health_url",
-                  "tenant_admin_url", "tenant_beta_url", "platform_url", "docs_url"):
+        raise NotRun("fixed APP runtime is planned or belongs to another application")
+    fields = ("root", "port", "health_url", "tenant_admin_url", "tenant_beta_url", "platform_url", "docs_url")
+    if compose:
+        if not runtime.get("compose_environment") or not runtime.get("compose_project"):
+            raise NotRun("production-compose requires a registered Compose target; development HTTP does not prove Compose")
+        fields += ("compose_environment", "compose_project")
+    for field in fields:
         if not runtime.get(field) or runtime.get(field) != registered.get(field):
             fail(f"fixed APP runtime registration missing or different: {field}")
     canonical(runtime["root"], directory=True)
-    file_reference(runtime["compose_environment"])
     binding = {key: app[key] for key in ("resource_id", "endpoint_id", "database")}
     if registered.get("database_binding") != binding:
         fail("runtime database association is not registered")
+    for field in ("health_url", "tenant_admin_url", "tenant_beta_url", "platform_url", "docs_url"):
+        url = urlsplit(runtime[field])
+        if (url.scheme not in ("http", "https") or not url.port or url.username or url.password
+                or not url.hostname or not (url.hostname in ("localhost", "127.0.0.1") or url.hostname.endswith(".localhost"))):
+            fail("runtime HTTP/browser URL must use its registered loopback listener")
+    if not compose:
+        return registered
+    file_reference(runtime["compose_environment"])
     if (not re.fullmatch(r"[a-f0-9]{64}", registered.get("compose_config_sha256", ""))
             or not isinstance(registered.get("persistent_mounts"), list) or not registered["persistent_mounts"]
             or not registered.get("owner")):
@@ -502,37 +564,45 @@ def candidate_inputs(value: dict[str, Any], candidate: str, tree: str) -> dict[s
     cli = {**cli, "entry_sha256": sha256(entry)}
     templates_root = canonical(value.get("template_build_root", ""), directory=True)
     templates = template_inputs(templates_root, candidate, tree)
-    return {"cli": cli, "template_artifacts": templates, "template_build_root": str(templates_root)}
+    return {"cli": cli, "template_artifacts": templates, "template_build_root": str(templates_root),
+            "cli_creation": value.get("cli_creation")}
 
 
 def cli_created_applications(inputs: dict[str, Any], candidate: str, tree: str, cache: Path) -> dict[str, Any]:
-    """Run the independent CLI and original creation assertions in both stages."""
-    cli = inputs["cli"]
-    result = {}
+    """Reuse the original native candidate-stage creation assertions, without writes."""
+    reference = inputs.get("cli_creation")
+    if not reference:
+        raise NotRun("CLI create: original candidate/CLI/archive/Edition and no-implicit-install evidence unavailable; "
+                     "an upgraded APP cannot prove creation and no temporary APP will be created")
+    receipt = read_json(file_reference(reference))
+    producer = receipt.get("producer", {})
+    original = command(["git", "show", candidate + ":scripts/p0e-runtime-qualification"], capture=True).stdout
+    # The pre-existing native candidate producer checked the created manifests,
+    # archive/Edition identity and all no-implicit-install paths in one invocation.
+    # Consume that complete result; never accept a hand-written assertion envelope
+    # or the current manifest of an application upgraded since its creation.
+    if (receipt.get("protocol") != "peanut.p0e-candidate-stage.v1"
+            or receipt.get("status") != "candidate-passed" or receipt.get("scope") != "candidate"
+            or receipt.get("candidate") != candidate or receipt.get("candidate_tree") != tree
+            or receipt.get("cli") != inputs["cli"]
+            or receipt.get("template_artifacts") != inputs["template_artifacts"]
+            or producer.get("path") != "scripts/p0e-runtime-qualification"
+            or producer.get("sha256") != hashlib.sha256(original.encode()).hexdigest()
+            or producer.get("verifier_sha256") != sha256(ROOT / "scripts/release-template-artifacts.mjs")
+            or receipt.get("native_check", {}).get("rc") != 0):
+        fail("original native CLI creation evidence does not bind this candidate/CLI/templates/producer")
+    components = receipt.get("groups", {}).get("generated-application", {}).get("components", {})
+    created = receipt.get("cli_created_applications", {})
+    if (components.get("native_template_contract") != "passed"
+            or components.get("cli_create_and_app_identity") != "passed" or set(created) != set(EDITIONS)):
+        raise NotRun("CLI create: original native creation assertions are incomplete")
     for edition in EDITIONS:
-        target = cache / ("cli-create-" + edition)
-        archive = Path(inputs["template_build_root"]) / edition / f"peanut-scaffold-{edition}.tgz"
-        manifest = archive.with_suffix(".json")
-        if target.exists():
-            fail("CLI creation target must be absent; never recreate a permanent APP")
-        process = command(["node", str(Path(cli["root"]) / "bin/peanut.js"), "create", str(target),
-            "--name", "P0E CLI creation", "--slug", "p0e-" + edition,
-            "--package", "p0e/" + edition, "--edition", edition, "--archive", str(archive), "--manifest", str(manifest)],
-            capture=True)
-        created = json.loads(process.stdout)
-        identity = read_json(target / ".peanut/application-manifest.json")
-        if (created.get("status") != "created" or created.get("target") != str(target)
-                or identity.get("template", {}).get("source_commit") != candidate
-                or identity.get("template", {}).get("source_tree") != tree
-                or identity.get("template_package", {}).get("archive_sha256") != sha256(archive)
-                or identity.get("application", {}).get("edition") != edition
-                or identity.get("edition", {}).get("name") != edition
-                or any((target / path).exists() for path in (".git", "node_modules", "server/vendor",
-                    "web/node_modules", "platform/node_modules", "pc/node_modules", "uniapp/node_modules"))):
-            fail("independent CLI create identity or no-implicit-install contract failed")
-        result[edition] = {"manifest_sha256": sha256(target / ".peanut/application-manifest.json"),
-                           "cli_result": created, "documentation": documentation_contract(target, generated=True)}
-    return result
+        result = created[edition]
+        if (not re.fullmatch(r"[a-f0-9]{64}", result.get("manifest_sha256", ""))
+                or result.get("cli_result", {}).get("status") != "created"
+                or not result.get("documentation")):
+            fail("original native CLI creation result is incomplete for " + edition)
+    return created
 
 
 def lifecycle_inputs(args: argparse.Namespace, tree: str) -> dict[str, Any]:
@@ -587,13 +657,18 @@ def lifecycle_inputs(args: argparse.Namespace, tree: str) -> dict[str, Any]:
             fail("APP runtime environment must remain private")
         # Pin the existing installation and upgrade/recovery evidence; never reinstall to manufacture it.
         for name in ("first_install", "upgrade_retention", "recovery"):
-            file_reference(app.get(name, {}))
+            if app.get(name):
+                file_reference(app[name])
     code = value.get("code_runtime", {})
     code_matches = [r for r in resources if r.get("stable_resource_id") == code.get("resource_id")]
-    if (code.get("resource_id") not in ("peanut-admin-mysql84-development", "peanut-admin-mysql84-migration-validation")
+    if (code.get("resource_id") not in ("peanut-admin-mysql84-development", "peanut-admin-mysql84-migration-validation",
+                                            "peanut-admin-scaffold-mt-development-mysql84")
             or len(code_matches) != 1 or code_matches[0].get("database") != code.get("database")
             or code_matches[0].get("upstream_endpoint", {}).get("endpoint_id") != code.get("endpoint_id")):
         fail("Code functional resource identity differs")
+    if (code.get("resource_id") == "peanut-admin-scaffold-mt-development-mysql84"
+            and code.get("database") != "peanut_dev_mt"):
+        fail("Code MT development resource must retain its registered peanut_dev_mt database")
     code_env = file_reference(code.get("environment", {}))
     if code_env.stat().st_mode & 0o777 != 0o600:
         fail("Code runtime environment must remain private")
@@ -636,8 +711,6 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
             fail("unknown terminal group")
         selected = groups[:groups.index(args.through_group) + 1]
         scope = "through-group"
-    if selected[0] != "generated-application":
-        fail("every selection requires native template/CLI creation")
     output = Path(args.output_dir)
     cache = Path(args.cache_dir)
     for path in (output, cache):
@@ -673,22 +746,30 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         runtime = inputs["code_runtime"] if admission["root"] == str(ROOT) else next(
             app for app in inputs["applications"].values() if app["root"] == admission["root"])
         runtime_environment(runtime, admission)
-    # Runtime objects are registered separately; there is no caller-supplied resource list.
-    registry_resources = read_json(REGISTRY_PATH)["resources"]
-    for app in inputs["applications"].values():
+    # Production Compose is admitted by its own group. A browser selection binds
+    # only the existing HTTP route and never requires or starts Compose.
+    for edition, app in inputs["applications"].items():
         runtime = app.get("runtime", {})
-        if any(g in selected for g in ("production-compose", "standalone-browser", "multi-tenant-browser")):
-            registered = runtime_registration(app)
-            resources.append(("resource-id", runtime["resource_id"]))
-            for field, kind in (("port", "port"), ("compose_project", "compose-project")):
-                if runtime.get(field) != registered.get(field):
-                    fail("fixed APP runtime coordinates differ from registry")
-                resources.append((kind, str(runtime[field])))
-            for field in ("health_url", "tenant_admin_url", "tenant_beta_url", "platform_url", "docs_url"):
-                port = urlsplit(runtime[field]).port
-                if port is None:
-                    fail("runtime URLs must use explicit registered ports")
-                resources.append(("port", str(port)))
+        if ("production-compose" in selected and runtime.get("compose_environment")
+                and runtime.get("compose_project")):
+            try:
+                runtime_registration(app)
+            except NotRun:
+                pass  # Missing/planned Compose affects its own group only.
+            else:
+                resources.extend((("resource-id", runtime["resource_id"]),
+                                  ("port", str(runtime["port"])),
+                                  ("compose-project", runtime["compose_project"])))
+        if edition + "-browser" not in selected:
+            continue
+        runtime = app.get("runtime", {})
+        try:
+            registered = runtime_registration(app, compose=False)
+        except NotRun:
+            # Missing browser routes affect that group, not unrelated native groups.
+            continue
+        for resource_id, route in registered["routes"].items():
+            resources.extend((("resource-id", resource_id), ("port", str(route["port"])) ))
     return {"schema_version": 1, "gate": gate, "candidate": args.candidate, "candidate_tree": tree,
         "worktree": str(ROOT), "run_id": args.run_id, "lease": args.lease, "owner": getattr(args, "owner", None),
         "thread": getattr(args, "thread", None), "parent_lease": args.parent_lease,
@@ -791,28 +872,73 @@ def transport(args: argparse.Namespace) -> dict[str, Any]:
             "ci_ingress": "not_run: requires an admitted Actions artifact upload; sealing never publishes or uploads"}
 
 
-def native_evidence(reference: dict[str, Any], app: dict[str, Any], kind: str) -> dict[str, Any]:
+def generated_state(root: Path) -> dict[str, Any]:
+    """Snapshot existing native generated outputs and their current declared inputs."""
+    edition = read_json(root / ".peanut/application-manifest.json")["application"]["edition"]
+    canonical(str(root / "server/public/admin/index.html"))
+    if edition == "multi-tenant":
+        canonical(str(root / "server/public/platform/index.html"))
+    catalog = read_json(root / "server/generated/api-catalog.json")
+    inputs = catalog.get("inputs", [])
+    if catalog.get("schema_version") != 1 or not isinstance(inputs, list) or not inputs:
+        raise NotRun("final API catalog has no native input inventory")
+    for item in inputs:
+        relative = Path(item.get("path", ""))
+        if not relative.parts or relative.is_absolute() or ".." in relative.parts:
+            fail("native API input path is unsafe")
+        file_reference({"path": str(root / relative), "sha256": item.get("sha256")})
+    paths = {root / "server/generated/api-catalog.json", root / "server/generated/openapi.json",
+             root / "web/src/generated/openapi.d.ts"}
+    paths.update((root / "web/src/modules").glob("*/generated/openapi.ts"))
+    for relative in ("server/public/admin", "server/public/platform"):
+        directory = root / relative
+        if directory.is_symlink():
+            fail("native static output directory is unsafe")
+        if directory.is_dir():
+            for path in directory.rglob("*"):
+                if path.is_symlink():
+                    fail("native static output contains a symlink")
+                if not path.is_dir():
+                    paths.add(path)
+    outputs = {}
+    for path in sorted(paths):
+        canonical(str(path))
+        outputs[path.relative_to(root).as_posix()] = {"sha256": sha256(path), "mode": path.stat().st_mode & 0o777}
+    producers = {}
+    for relative in ("scripts/generate-api-contracts.php", "scripts/deploy-update.sh",
+                     "server/app/common/module/Dependencies.php", "web/package.json", "web/vite.config.ts",
+                     "platform/package.json", "platform/vite.config.ts", "server/composer.lock", "plugins.lock",
+                     "web/pnpm-lock.yaml", "platform/package-lock.json", "pc/package-lock.json", "uniapp/package-lock.json"):
+        path = root / relative
+        if path.exists() or path.is_symlink():
+            canonical(str(path))
+            producers[relative] = sha256(path)
+    return {"api_inputs": inputs, "inputs_and_producers": producers, "outputs": outputs}
+
+
+def native_evidence(reference: dict[str, Any], app: dict[str, Any], kind: str,
+                    final_build: dict[str, Any] | None = None) -> dict[str, Any]:
     """Read the native producer's own state, never an operator-written PASS envelope."""
+    if not reference:
+        raise NotRun(kind + ": native evidence is unavailable; no operation replayed")
     path = file_reference(reference)
     state = read_json(path)
     root = Path(app["root"])
     server = root / "server"
     if kind == "first_install":
-        if (path != server / "private/installation/installed.json"
-                or state.get("protocol") != "peanut.installation-receipt.v1" or state.get("state") != "installed"
-                or state.get("deployment_mode") != read_json(root / ".peanut/application-manifest.json")["application"]["edition"]):
+        if path != server / "private/installation/installed.json":
             fail("first-install reference must be the APP's original native installation receipt")
-        baseline_ref = state.get("baseline_manifest", {})
-        if baseline_ref.get("path") != "server/private/installation/baseline.json":
-            fail("installation baseline must be the native private baseline")
-        baseline = read_json(file_reference({**baseline_ref, "path": str(root / baseline_ref["path"])}))
-        if (baseline.get("protocol") != "peanut.installation-baseline.v1"
-                or baseline.get("release") != state.get("release")
-                or baseline.get("official_modules") != state.get("official_modules")
-                or baseline.get("source", {}).get("application_manifest_sha256") != state.get("application_manifest_sha256")
-                or not state.get("application_manifest_sha256")):
-            fail("native installation receipt/baseline/source pairing differs")
-        return {"path": str(path), "sha256": sha256(path), "completed_at": state["completed_at"]}
+        # Use the native historical-source/migration-chain verifier. It deliberately
+        # does not compare the original installation with the current upgrade target.
+        facts = json.loads(command(["php", "-r",
+            "require $argv[1] . '/vendor/autoload.php';"
+            "echo json_encode(\\app\\common\\services\\installation\\InstallationExecutionHost::verifiedInstallationFacts($argv[1]), JSON_THROW_ON_ERROR);",
+            str(server)], cwd=root, capture=True).stdout)
+        if (facts.get("receipt_sha256") != sha256(path) or facts.get("receipt") != state
+                or state.get("deployment_mode") != read_json(root / ".peanut/application-manifest.json")["application"]["edition"]):
+            fail("native historical installation facts differ from the pinned APP receipt")
+        return {"path": str(path), "sha256": facts["receipt_sha256"], "completed_at": state["completed_at"],
+                "historical_source": state["source"], "historical_installation_only": True}
     if kind == "upgrade_retention":
         if (root / ".peanut/upgrades" not in path.parents or state.get("protocol") != "peanut.scaffold-upgrade-plan.v2"
                 or state.get("status") != "ready"):
@@ -841,9 +967,12 @@ def native_evidence(reference: dict[str, Any], app: dict[str, Any], kind: str) -
                 or manifest["template"].get("version") != target.get("version")
                 or manifest.get("generation_source") != identity.get("target_generation_source")
                 or manifest["application"].get("version") != identity.get("application_version")
-                or manifest.get("edition") != identity.get("edition")):
+                or manifest.get("edition") != identity.get("edition")
+                or ("target_template_package" in identity and manifest.get("template_package") != identity["target_template_package"])
+                or ("target_installation_migrations" in identity and manifest.get("installation_migrations") != identity["target_installation_migrations"])):
             fail("committed upgrade target differs from current APP/source identity")
         states = {"managed": {}, "app-owned": {}}
+        generated_changes = []
         for item in manifest["files"]:
             classification = item["classification"]
             category = "managed" if classification in ("managed", "generated-managed") else classification
@@ -861,12 +990,73 @@ def native_evidence(reference: dict[str, Any], app: dict[str, Any], kind: str) -
             states[category][item["path"]] = actual
             if category == "managed" and (not actual["present"] or actual["sha256"] != item.get("sha256")
                     or actual["mode"] != item.get("mode", 0o644)):
-                fail("native committed managed afterimage changed")
+                # API/static producers legitimately replace these outputs after
+                # source apply/verify. Preserve the historical verify digest and
+                # require separate final producer evidence rather than rewriting it.
+                if (item["path"] in ("server/generated/api-catalog.json", "server/generated/openapi.json")
+                        or item["path"].startswith("server/public/admin/")
+                        or item["path"].startswith("server/public/platform/")
+                        or item["path"] == "web/src/generated/openapi.d.ts"
+                        or re.fullmatch(r"web/src/modules/[^/]+/generated/openapi\.ts", item["path"])):
+                    generated_changes.append(item["path"])
+                    states[category][item["path"]] = {"present": True, "sha256": item.get("sha256"),
+                                                    "mode": item.get("mode", 0o644)}
+                else:
+                    fail("native committed managed afterimage changed")
         digests = {k: "sha256:" + hashlib.sha256(json.dumps(v if v else [], sort_keys=True, ensure_ascii=False,
             separators=(",", ":")).encode()).hexdigest() for k, v in states.items()}
-        if (digests["managed"] != matching[-1].get("post_sha256")
-                or digests["app-owned"] != identity.get("app_owned_pre_sha256")):
-            fail("native upgrade postimage or APP-owned preservation differs")
+        if digests["managed"] != matching[-1].get("post_sha256"):
+            fail("native source verify afterimage differs")
+        expected_owned = dict(state.get("app_owned_pre_state", {}))
+        pre_digest = "sha256:" + hashlib.sha256(json.dumps(expected_owned if expected_owned else [],
+            sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
+        if pre_digest != identity.get("app_owned_pre_sha256"):
+            fail("native plan APP-owned pre-state identity differs")
+        original_owned = dict(states["app-owned"])
+        by_path = {item["path"]: item for item in manifest["files"]}
+        for action in state["actions"]:
+            name = action["path"]
+            if (name in expected_owned and action.get("reason") == "conflict_replace_confirmed"
+                    and action.get("action") in ("replace", "regenerate", "rename")):
+                del expected_owned[name]
+            if (action.get("action") == "omit" and action.get("reason") in (
+                    "upstream_removed_preserve_confirmed", "conflict_upstream_delete_confirmed",
+                    "installation_source_retained", "missing_file_preserve_confirmed")
+                    and (action["current"]["present"] or action["reason"] in (
+                        "upstream_removed_preserve_confirmed", "missing_file_preserve_confirmed"))):
+                entry = by_path.get(name, {})
+                actual = states["app-owned"].get(name)
+                if (entry.get("classification") != "app-owned" or entry.get("owner") != "application"
+                        or entry.get("source") != name or actual != action["current"]
+                        or entry.get("sha256") != actual.get("sha256") or entry.get("mode") != actual.get("mode")
+                        or any(k in entry for k in ("baseline_path", "baseline_sha256", "baseline_mode"))):
+                    fail("native retained APP ownership or protected state differs")
+                if name not in state.get("app_owned_pre_state", {}):
+                    original_owned.pop(name, None)
+        if original_owned != expected_owned:
+            fail("native upgrade APP-owned preservation differs")
+        if generated_changes:
+            if not final_build:
+                raise NotRun("upgrade-retention: source apply/verify and APP-owned protection checked; "
+                             "generated-application final output record unavailable for: " + ", ".join(generated_changes))
+            build = final_build.get("editions", {}).get(manifest["application"]["edition"], {}).get("source_build", {})
+            if (final_build.get("candidate") != target.get("source_commit")
+                    or final_build.get("candidate_tree") != target.get("source_tree")
+                    or final_build.get("components", {}).get("source_build") != "passed"
+                    or build.get("application") != app_binding(app)
+                    or build.get("generated_state") != generated_state(root)):
+                fail("final generated outputs or their native inputs differ from the recorded APP build")
+            edition = manifest["application"]["edition"]
+            commands = build.get("commands", [])
+            expected = [(["php", str(ROOT / "scripts/generate-api-contracts.php"), "--application-root=" + str(root)], str(root)),
+                        (["pnpm", "run", "build", "--mode", edition, "--outDir", "../server/public/admin", "--emptyOutDir"], str(root / "web"))]
+            if edition == "multi-tenant":
+                expected.append((["npm", "run", "build", "--", "--outDir", "../server/public/platform", "--emptyOutDir"], str(root / "platform")))
+            if (build.get("api_generator_sha256") != sha256(ROOT / "scripts/generate-api-contracts.php")
+                    or any(not any(row.get("argv") == argv and Path(row.get("cwd", "")) == Path(cwd)
+                                   and row.get("environment") == {"NODE_ENV": "production", "VITE_API_BASE_URL": ""}
+                                   and row.get("exit_code") == 0 for row in commands) for argv, cwd in expected)):
+                raise NotRun("upgrade-retention: final outputs lack matching native API/admin/platform generation commands")
         return {"path": str(path), "sha256": sha256(path), "ledger_sha256": sha256(ledger_path),
                 "completed_at": matching[-1]["recorded_at"], "afterimage_digests": digests}
     # A source rollback never proves database restoration. Consume the existing
@@ -984,13 +1174,19 @@ class Runner:
         self.current_group = group
         self.checkpoint["groups"][group] = {"status": "running", "started_at": int(time.time())}
         self.save_checkpoint()
-        result = operation()
+        try:
+            result = operation()
+        except NotRun as exception:
+            result = {"status": "not_run", "reason": str(exception)}
+        status = result.get("status", "passed")
+        if status not in ("passed", "not_run"):
+            fail("native group returned an invalid qualification status")
         self.assert_inputs()
         path = self.output / "groups" / (group + ".json")
         self.write_json(path, {"schema_version": 1, "status": "passed", "candidate": self.args.candidate,
             "candidate_tree": self.plan["candidate_tree"], "run_id": self.args.run_id,
             "lifecycle_input_sha256": self.inputs["input_sha256"], **result})
-        self.checkpoint["groups"][group].update(status="passed", finished_at=int(time.time()),
+        self.checkpoint["groups"][group].update(status=status, finished_at=int(time.time()),
             receipt={"path": str(path), "sha256": sha256(path)})
         self.save_checkpoint()
 
@@ -999,7 +1195,27 @@ class Runner:
         if templates != self.plan["template_artifacts"]:
             fail("native template member/mode/tooling check changed its inputs")
         cli = self.inputs["cli"]
-        result = cli_created_applications(self.inputs, self.args.candidate, self.plan["candidate_tree"], self.cache)
+        type_generator = ROOT / "web/node_modules/openapi-typescript/bin/cli.js"
+        if not type_generator.is_file():
+            raise NotRun("generated-application: native API type generator is unavailable in fixed Code; no Code dependencies installed")
+        # Guard all native static destinations before dependency/API/build writes.
+        for edition, app in self.apps.items():
+            root = Path(app["root"])
+            destinations = [root / "server/public", root / "server/public/admin"]
+            if edition == "multi-tenant":
+                destinations.append(root / "server/public/platform")
+            for destination in destinations:
+                if (destination.resolve() != destination or destination.is_symlink()
+                        or (destination.exists() and not destination.is_dir())):
+                    fail("native static destination or its ancestor is not an ordinary directory")
+        creation_reason = None
+        try:
+            result = cli_created_applications(self.inputs, self.args.candidate, self.plan["candidate_tree"], self.cache)
+        except NotRun as exception:
+            creation_reason = str(exception)
+            result = {edition: {} for edition in EDITIONS}
+        components = {"native_template_contract": "passed", "cli_create_and_app_identity": "not_run" if creation_reason else "passed",
+                      "source_build": "not_run"}
         for edition in EDITIONS:
             # The CLI contract deliberately stops before dependency installation.
             # Source compilation belongs to the already fixed permanent APP, whose
@@ -1008,32 +1224,57 @@ class Runner:
             app_root = Path(app["root"])
             commands = [(["composer", "install", "--no-scripts", "--no-interaction", "--no-progress", "--prefer-dist"], "server"),
                         (["php", "-r", "require 'vendor/autoload.php';"], "server"),
-                        (["pnpm", "install", "--frozen-lockfile"], "web"), (["pnpm", "run", "build"], "web")]
+                        (["pnpm", "install", "--frozen-lockfile"], "web"), (["pnpm", "run", "build", "--mode", edition, "--outDir", "../server/public/admin", "--emptyOutDir"], "web")]
             if edition == "multi-tenant":
-                commands += [(["npm", "ci"], "platform"), (["npm", "run", "build"], "platform")]
+                commands += [(["npm", "ci"], "platform"), (["npm", "run", "build", "--", "--outDir", "../server/public/platform", "--emptyOutDir"], "platform")]
             commands += [(["npm", "ci"], "pc"), (["npm", "run", "typecheck"], "pc"),
                          (["npm", "run", "generate"], "pc"), (["npm", "ci"], "uniapp"),
                          (["npm", "run", "type-check"], "uniapp"), (["npm", "run", "build:h5"], "uniapp")]
+            commands.insert(3, (["php", str(ROOT / "scripts/generate-api-contracts.php"),
+                                 "--application-root=" + str(app_root)], "."))
             builds = []
             for index, (argv, directory) in enumerate(commands):
                 log = self.output / "groups" / f"{edition}-source-build-{index}.log"
-                command(argv, cwd=app_root / directory, env=self.environment(app), log=log)
-                builds.append({"argv": argv, "cwd": str(app_root / directory), "exit_code": 0, "log_sha256": sha256(log)})
-            result[edition]["source_build"] = {"application": app_binding(app), "commands": builds}
-        return {"template_artifacts": templates, "cli": cli, "editions": result}
+                native_environment = {}
+                if (argv[:2] == ["php", str(ROOT / "scripts/generate-api-contracts.php")]
+                        or (directory in ("web", "platform") and argv[:3] in (["pnpm", "run", "build"], ["npm", "run", "build"]))):
+                    native_environment = {"NODE_ENV": "production", "VITE_API_BASE_URL": ""}
+                command(argv, cwd=app_root / directory, env={**self.environment(app), **native_environment}, log=log)
+                builds.append({"argv": argv, "cwd": str(app_root / directory), "environment": native_environment,
+                               "exit_code": 0, "log_sha256": sha256(log)})
+            result[edition]["source_build"] = {"application": app_binding(app), "commands": builds,
+                                                "api_generator_sha256": sha256(ROOT / "scripts/generate-api-contracts.php"),
+                                                "generated_state": generated_state(app_root)}
+        components["source_build"] = "passed"
+        return {"status": "not_run" if creation_reason else "passed", "reason": creation_reason,
+                "components": components, "template_artifacts": templates, "cli": cli, "editions": result}
 
     def fresh(self, edition: str) -> dict[str, Any]:
         app = self.apps[edition]
-        installed = native_evidence(app["first_install"], app, "first_install")
-        upgrade = native_evidence(app["upgrade_retention"], app, "upgrade_retention")
-        recovery = native_evidence(app["recovery"], app, "recovery")
-        if installed["completed_at"] > upgrade["completed_at"]:
+        facts: dict[str, Any] = {"application": app_binding(app), "components": {}}
+        history = self.output / "groups" / (edition + "-installation-history.json")
+        generated = self.checkpoint["groups"].get("generated-application", {}).get("receipt")
+        final_build = read_json(file_reference(generated)) if generated else None
+        # Missing historical evidence affects its own component. Persist every
+        # available native fact before inspecting another independent component.
+        for kind in ("first_install", "upgrade_retention", "recovery"):
+            try:
+                facts[kind] = native_evidence(app.get(kind, {}), app, kind, final_build)
+                facts["components"][kind] = {"status": "passed", "scope": "historical-native-evidence"}
+            except NotRun as exception:
+                facts["components"][kind] = {"status": "not_run", "reason": str(exception)}
+            self.write_json(history, facts)
+        if ("first_install" in facts and "upgrade_retention" in facts
+                and facts["first_install"]["completed_at"] > facts["upgrade_retention"]["completed_at"]):
             fail("installation, adoption and recovery chronology differs")
-        result = command(["php", "server/database/install.php", "--status"], cwd=Path(app["root"]),
-                         env=self.environment(app), capture=True)
-        status = json.loads(result.stdout)
+        process = command(["php", "server/database/install.php", "--status"], cwd=Path(app["root"]),
+                          env=self.environment(app), capture=True)
+        status = json.loads(process.stdout)
         if status.get("state") != "installed" or int(status.get("health", {}).get("installed_table_count", 0)) <= 0:
             fail("permanent APP installation is not currently healthy; no reinstallation attempted")
+        facts["current_native_installation"] = status
+        facts["components"]["current_health"] = {"status": "passed"}
+        self.write_json(history, facts)
         cli = self.inputs["cli"]
         root = Path(self.inputs["template_build_root"]) / edition
         checked = json.loads(command(["node", str(Path(cli["root"]) / "bin/peanut.js"), "upgrade", "--check",
@@ -1041,9 +1282,13 @@ class Runner:
             "--manifest", str(root / f"peanut-scaffold-{edition}.json")], capture=True).stdout)
         if checked.get("status") != "up_to_date":
             fail("permanent APP source adoption is not current")
-        return {"application": app_binding(app), "first_install": installed, "upgrade_retention": upgrade,
-                "recovery": recovery, "current_native_installation": status, "native_cli_adoption": checked,
-                "reinstalled": False, "database_dropped": False}
+        facts["native_cli_adoption"] = checked
+        facts["components"]["source_adoption"] = {"status": "passed"}
+        facts["components"]["candidate_first_install"] = {"status": "not_run",
+            "reason": "historical installation, current health and upgrade do not prove this candidate first-install"}
+        self.write_json(history, facts)
+        return {"status": "not_run", "reason": "fresh candidate execution evidence unavailable; existing APP not reinstalled",
+                **facts, "reinstalled": False, "database_dropped": False}
 
     def plugin_lifecycle(self) -> dict[str, Any]:
         code = self.inputs["code_runtime"]
@@ -1143,6 +1388,7 @@ class Runner:
 
     def production_compose_at(self, edition: str) -> dict[str, Any]:
         app = self.apps[edition]
+        runtime_registration(app)
         runtime = app["runtime"]
         root = canonical(runtime["root"], directory=True)
         server_identity = self.native_release_identity(root / "server", edition)
@@ -1221,6 +1467,7 @@ class Runner:
 
     def browser_at(self, edition: str) -> dict[str, Any]:
         app = self.apps[edition]
+        runtime_registration(app, compose=False)
         runtime = app["runtime"]
         self.wait_http(runtime["health_url"])
         output = self.output / "browser" / edition
@@ -1282,13 +1529,6 @@ class Runner:
         # Only objects actually created by this invocation are removable. Permanent
         # APPs, runtime containers/volumes, all DBs, source/vendor and restore points remain.
         self.assert_inputs()
-        for edition in EDITIONS:
-            target = self.cache / ("cli-create-" + edition)
-            if target.exists():
-                manifest = read_json(target / ".peanut/application-manifest.json")
-                if manifest.get("template", {}).get("source_commit") != self.args.candidate or target.is_symlink():
-                    fail("temporary CLI output ownership changed")
-                shutil.rmtree(target)
         # Consumer output contains recovery/evidence; preserve it rather than recursively
         # removing an incomplete native Module operation or author APP source.
         if (self.cache / "consumer-module-lifecycle").exists():
@@ -1310,7 +1550,7 @@ class Runner:
                 "lease_released": True, "fixed_apps_preserved": True, "databases_preserved": True,
                 "external_runtime_leases_retained": [a["lease"] for a in self.plan["runtime_admissions"] if a["lease"] != self.args.lease],
                 "runtime_resources_preserved": True, "restore_points_preserved": True, "cache_removed": True},
-            "cleanup_scope": "invocation-owned temporary CLI outputs only; residual counts exclude registered permanent resources"})
+            "cleanup_scope": "invocation-owned cache only; residual counts exclude registered permanent resources"})
 
     def run(self) -> None:
         operations = {"generated-application": self.generated_application, "standalone-fresh": lambda: self.fresh("standalone"),
@@ -1320,12 +1560,14 @@ class Runner:
         for group in self.plan["groups"]:
             self.run_group(group, operations[group])
         if any(self.checkpoint["groups"].get(g, {}).get("status") != "passed" for g in self.plan["groups"]):
-            fail("eight-group closure is incomplete")
+            self.current_group = "closeout"
+            raise NotRun("eight-group closure is incomplete; completed components and native records preserved")
         self.cleanup_success()
 
     def preserve_failure(self, exception: Exception) -> None:
-        state = self.checkpoint["groups"].setdefault(self.current_group, {})
-        state.update(status="not_run" if isinstance(exception, NotRun) else "failed", error=str(exception)[:500], finished_at=int(time.time()))
+        if self.current_group != "closeout":
+            state = self.checkpoint["groups"].setdefault(self.current_group, {})
+            state.update(status="not_run" if isinstance(exception, NotRun) else "failed", error=str(exception)[:500], finished_at=int(time.time()))
         self.save_checkpoint()
         self.write_json(self.summary_path, {"schema_version": 1, "status": "failed-preserved",
             "candidate": self.args.candidate, "candidate_tree": self.plan["candidate_tree"], "groups": self.checkpoint["groups"],
@@ -1339,7 +1581,8 @@ def qualify_candidate(args: argparse.Namespace) -> dict[str, Any]:
     input_path = file_reference({"path": args.candidate_input, "sha256": args.candidate_input_sha256})
     value = read_json(input_path)
     if (value.get("protocol") != "peanut.p0e-candidate-inputs.v1"
-            or set(value) != {"protocol", "source", "cli", "template_build_root"}):
+            or not {"protocol", "source", "cli", "template_build_root"}.issubset(value)
+            or set(value) - {"protocol", "source", "cli", "template_build_root", "cli_creation"}):
         fail("candidate input accepts only fixed Code, CLI and template identities")
     output = Path(args.output_dir)
     if (not output.is_absolute() or output.exists() or output.is_symlink()
@@ -1367,7 +1610,7 @@ def qualify_candidate(args: argparse.Namespace) -> dict[str, Any]:
                "scope": "candidate", "candidate": args.candidate, "candidate_tree": tree, "run_id": args.run_id,
                "full_gate_groups": groups, "source_inventory_sha256": inventory,
                "candidate_input": {"path": str(input_path), "sha256": args.candidate_input_sha256},
-               "cli": inputs["cli"],
+               "cli": inputs["cli"], "qualification_tool_binding": TOOL_BINDING,
                "producer": {"path": "scripts/p0e-runtime-qualification", "sha256": sha256(Path(__file__)),
                             "verifier_sha256": sha256(verifier)},
                "template_build_root": str(roots), "started_at": int(time.time()),
@@ -1393,9 +1636,7 @@ def qualify_candidate(args: argparse.Namespace) -> dict[str, Any]:
                     "commit": args.candidate, "tree": tree, "inventory_sha256": inventory}
                 or checked != inputs["template_artifacts"]):
             fail("native template check returned different candidate inputs")
-        cache = output / "cli-created"
-        cache.mkdir(mode=0o700)
-        created = cli_created_applications(inputs, args.candidate, tree, cache)
+        created = cli_created_applications(inputs, args.candidate, tree, output)
         file_reference({"path": str(input_path), "sha256": args.candidate_input_sha256})
         validate_candidate(args.candidate, require_clean=True)
         cli = inputs["cli"]
@@ -1406,6 +1647,12 @@ def qualify_candidate(args: argparse.Namespace) -> dict[str, Any]:
         receipt.update(status="candidate-passed", template_artifacts=checked, cli_created_applications=created)
         receipt["groups"]["generated-application"]["components"] = {
             "native_template_contract": "passed", "cli_create_and_app_identity": "passed", "source_build": "not_run"}
+    except NotRun as exception:
+        receipt["status"] = "candidate-not-run"
+        receipt["reason"] = str(exception)
+        receipt["template_artifacts"] = checked
+        receipt["groups"]["generated-application"]["components"] = {
+            "native_template_contract": "passed", "cli_create_and_app_identity": "not_run", "source_build": "not_run"}
     except Exception:
         receipt["status"] = "failed-preserved"
         raise
@@ -1442,6 +1689,8 @@ def main() -> int:
     template = subs.add_parser("candidate", help="fixed two-Edition templates and independent CLI creation; no permanent APP/DB")
     for name in ("candidate", "run-id", "candidate-input", "candidate-input-sha256", "output-dir"):
         template.add_argument("--" + name, required=True)
+    for name in ("source-root", "qualification-tool-commit", "qualification-tool-files-sha256"):
+        template.add_argument("--" + name)
     transfer = subs.add_parser("transport", help="seal original full qualification bytes; no upload or publication")
     for name in ("summary", "main-integration", "output"):
         transfer.add_argument("--" + name, required=True)
@@ -1449,8 +1698,10 @@ def main() -> int:
         add_fixed_arguments(subs.add_parser(name))
     args = parser.parse_args()
     if args.command == "candidate":
-        print(json.dumps(qualify_candidate(args), ensure_ascii=False))
-        return 0
+        configure_source(args)
+        result = qualify_candidate(args)
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if result["status"] == "candidate-passed" else 1
     if args.command == "transport":
         print(json.dumps(transport(args), ensure_ascii=False))
         return 0
