@@ -104,9 +104,9 @@ M 不等于 S 时，发布命令还须传入 `--main-integration=/absolute/preme
 ## 固定公开依赖准备
 
 
-`scripts/prepare-product-release-candidate` 只用于Peanut上游源码仓的隔离发行工作树，不随生成APP交付，也不是APP首次安装或线上更新入口。现有 `scripts/package-release.sh` 仅按下文的[既有包技术合同](#既有-app-包与固定-git-输入技术合同)解释，不是产品Git交付的追加步骤。
+`scripts/prepare-product-release-candidate` 只用于Peanut上游源码仓的隔离发行工作树，不随生成APP交付，也不是APP首次安装或线上更新入口。旧 `scripts/package-release.sh` 已退出当前源码；现行[产品交付](#产品交付)由产品自身的 Git 定版与更新流程负责，不再把旧包作为额外步骤。
 
-跨仓第一阶段可按[Core 续作入口](https://github.com/peanut-business/peanut-admin-code/blob/main/docs/development/core-release.md#第一阶段跨仓续作入口)使用 `scripts/continue-product-release`：默认只读计划；`--apply` 才建立任务输出根的状态并调用现有工具。候选依次核公开 Core 身份、原生锁、生产者依赖和库存，经审核提交最终源码封存后，在外部 `scaffold-templates/` 构建双 Edition；不再把生成清单/P0-E 投影提交回源码形成第二个产品提交。制品和资格绑定该最终 commit/tree，部分输出或身份漂移拒绝重放。`--core-web-package-evidence` 仍只替代六包元数据读取，原注释 tag、提交、成功 Action、GitHub Release 和固定摘要检查保留。
+跨仓候选接续可参照[Core 独立发行](../development/core-release.md)的来源与公共渠道边界，使用 `scripts/continue-product-release`：默认只读计划；`--apply` 才建立任务输出根的状态并调用现有工具。候选依次核公开 Core 身份、原生锁、生产者依赖和库存，经审核提交最终源码封存后，在外部 `scaffold-templates/` 构建双 Edition；不再把生成清单/P0-E 投影提交回源码形成第二个产品提交。制品和资格绑定该最终 commit/tree，部分输出或身份漂移拒绝重放。`--core-web-package-evidence` 仍只替代六包元数据读取，原注释 tag、提交、成功 Action、GitHub Release 和固定摘要检查保留。
 
 续发器只在同一获准 CI 内调用唯一发布器。外部结果未知时保留原 publication intent；远端无完整附件不自动重发。发布器创建后和续发核对均要求精确附件集合、Release/channel/size/digest，并实际下载每个 asset 比较本地字节。差异只报告，不覆盖、删除或重新上传远端附件。旧阶段状态不作为新模板流程输入，必须保留原状态和原失败预算。APP 使用正式模板和自身 Git，不依赖此维护者编排或私有 Project。
 
