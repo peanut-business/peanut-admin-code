@@ -24,7 +24,7 @@ $registry = (new \app\platform\composition\plugin\ModuleDefinitionRegistryFactor
     new \app\platform\infrastructure\plugin\PluginLockResolver($serverRoot, $configuration['plugin_lock']),
     $configuration,
 );
-$service = new DeveloperCenterCatalogService($serverRoot, $registry);
+$service = new DeveloperCenterCatalogService($serverRoot, $registry, new \think\App($serverRoot));
 $first = $service->snapshot('official.article');
 $second = $service->snapshot('official.article');
 
@@ -119,7 +119,7 @@ $inputs = [
     ['path' => 'server/config/input.php', 'sha256' => hash_file('sha256', $fixture . '/server/config/input.php')],
 ];
 $freshness = new ReflectionMethod(DeveloperCenterCatalogService::class, 'apiCatalogFreshness');
-$fixtureService = new DeveloperCenterCatalogService($fixture . '/server', $registry);
+$fixtureService = new DeveloperCenterCatalogService($fixture . '/server', $registry, new \think\App($fixture . '/server'));
 try {
     developerCenterExpect(
         $freshness->invoke($fixtureService, $inputs) === null,
