@@ -721,7 +721,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e94320a67fc055be8b4af97a4c1a08b1c8e6ea46434090bffd74e45dbbe537e2"
+            "source_sha256": "a2dca56de4e7ac348aeb5a8f7c9afe8a7c0a20533062007848db699fbd989fde"
         },
         {
             "path": "docs/architecture/identity-organization-access.md",
@@ -25025,6 +25025,19 @@
             ]
         },
         {
+            "path": "server/tests/Productization/NativeNotificationCompositionTest.php",
+            "target": "server/tests/Productization/NativeNotificationCompositionTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Productization/NotificationHostTest.php",
             "target": "server/tests/Productization/NotificationHostTest.php",
             "classification": "excluded",
@@ -26273,6 +26286,19 @@
             ]
         },
         {
+            "path": "server/tests/Unit/NativeExtensionBehaviorTest.php",
+            "target": "server/tests/Unit/NativeExtensionBehaviorTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Unit/OfficialAccountSecretRedactionTest.php",
             "target": "server/tests/Unit/OfficialAccountSecretRedactionTest.php",
             "classification": "excluded",
@@ -27353,7 +27379,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3857b225d824e01d573a87e28bf668e2c801b0e297a33aadab9da8b8482d2957"
+            "source_sha256": "9ee7d5a266d10d508e5cf860ecbafdcdba21cc99604557a372de21ac5fcdf1b3"
         },
         {
             "path": "tools/quality/composer.json",
