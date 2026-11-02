@@ -1,5 +1,6 @@
 import type { AdminOverride } from '@peanut-admin/vue';
 import {
+  defaultShellUserOptions,
   shellPresets,
   type ShellPresentation,
   type ShellUserOptions,
@@ -7,13 +8,7 @@ import {
 
 export const shellPresentation: ShellPresentation = shellPresets.admin;
 
-export const shellUserOptions: ShellUserOptions = {
-  presets: ['admin', 'workspace'],
-  layouts: ['admin', 'workspace'],
-  navigationModes: ['tree', 'grouped', 'top'],
-  densities: ['comfortable', 'compact'],
-  modes: ['light', 'dark'],
-};
+export const shellUserOptions: ShellUserOptions = defaultShellUserOptions;
 
 /** Optional component presets, below explicit application overrides. */
 export const PEANUT_ADMIN_PRESETS: readonly AdminOverride[] = Object.freeze([]);
