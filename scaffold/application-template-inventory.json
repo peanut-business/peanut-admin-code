@@ -749,7 +749,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "66caa3491cef16c4f101af374b71528679f41c3b513869088c9680789d33776a"
+            "source_sha256": "90c6a2cb21d0996c27f917ce6a224ef3ccbb547d204e3e81b1944ef6d757d30f"
         },
         {
             "path": "docs/architecture/overview.md",
@@ -928,7 +928,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5c1e3b5680bca751aa3ec53f8e264a5efc33768dcc66bcdd0ded9199b666513a"
+            "source_sha256": "669ef60daec79ddbe673c64a9834488e59313545b98d55e51386fbe1117851ff"
         },
         {
             "path": "docs/development/standard.md",
@@ -1133,20 +1133,6 @@
                 "full"
             ],
             "source_sha256": "2e76fcb7a2f8c13f94a39232a0ac802215d69f144eacd65f982f9f88d2b1db4f"
-        },
-        {
-            "path": "packages/core-php/peanut-admin-core-5.0.3-alpha.6.zip",
-            "target": "packages/core-php/peanut-admin-core-5.0.3-alpha.6.zip",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "81ddbe3a42e2cceba146112076a47e6615089c9b032d0301cb269f7960c41330"
         },
         {
             "path": "pc/.env.example",
@@ -6340,20 +6326,6 @@
             "source_sha256": "4cd85cef7b87c657a5ead8368b07fc47ea15119fe2925339b9f2d6e522ff2de4"
         },
         {
-            "path": "server/app/command/BundlePack.php",
-            "target": "server/app/command/BundlePack.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "3477de8763e29a8b88fa5643a9e2d32638a882f134609005d20e5f5d0d7eef40"
-        },
-        {
             "path": "server/app/command/Crontab.php",
             "target": "server/app/command/Crontab.php",
             "classification": "managed",
@@ -6715,7 +6687,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3c86f5a2cd3c678c713cfe95ad6d43166815bd17948e690cdaeab33aedfeba3f"
+            "source_sha256": "7509a6357c98de87a4bbb77976b08b0e00a5d436ccd2ec064767959aedb7dc14"
         },
         {
             "path": "server/app/command/PluginReconcile.php",
@@ -18670,7 +18642,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3f7d3f433645d76d9e202c53ed51f0bdca6e8d3ea8d70e1677bb003a69f1b228"
+            "source_sha256": "fcf363347d81906535d08bddceabede75bb390b3652861bfe7f522a248d49ec7"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
@@ -18964,7 +18936,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2b2c4b2813b953fdfb3525ebee7da2f48dda4127c75420273085224614629adf"
+            "source_sha256": "c8b37af1d7b6a29a1a9601dbc44e49dc26e3b743e530f42c4cb9e81535870b9e"
         },
         {
             "path": "server/composer.lock",
@@ -18978,7 +18950,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0a6f6824072eb6f83f7b824666eaa857d163c60a8afc6c6ffdb5a2d5ea061547"
+            "source_sha256": "6eafe5b9d2820cc2a2e0624c4fcab8f8d9489635be589a9f645c3d5556cdfa36"
         },
         {
             "path": "server/config/admin_api_access.php",
@@ -20082,7 +20054,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "795008154f32ec443d5082662345a6d38925dd7eb93d5e945c634b8723282172"
+            "source_sha256": "b214cc67eec950c94034a720a991374afcb18315e63bc1ae72da346fe1e91e4a"
         },
         {
             "path": "server/private/storage/.gitkeep",

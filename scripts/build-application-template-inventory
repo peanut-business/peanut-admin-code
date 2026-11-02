@@ -12,53 +12,7 @@ require_once $root . '/scripts/scaffold-runtime/ScaffoldSourceIdentity.php';
 $versions = \app\common\value\scaffold\VersionContract::load($root . '/release-versions.json');
 $configuration = ScaffoldConfiguration::load();
 
-/** @return array<string,true> */
-function declaredCoreWebArchives(\app\common\value\scaffold\VersionContract $versions): array
-{
-    $packages = $versions->coreWebIdentity()['packages'] ?? null;
-    if (!is_array($packages)) {
-        throw new RuntimeException('application inventory Core Web package identity is invalid');
-    }
-    $archives = [];
-    foreach ($packages as $package => $identity) {
-        if (!is_string($package) || !is_array($identity)) {
-            throw new RuntimeException('application inventory Core Web package identity is invalid');
-        }
-        $archive = $identity['archive'] ?? null;
-        if ($archive === null) {
-            continue;
-        }
-        if (!is_string($archive)
-            || preg_match('#^packages/core-web/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\\.tgz$#D', $archive) !== 1
-            || isset($archives[$archive])) {
-            throw new RuntimeException('application inventory Core Web archive identity is invalid: ' . $package);
-        }
-        $archives[$archive] = true;
-    }
-    return $archives;
-}
-
-/** @return array<string,true> */
-function declaredCorePhpArchives(string $root, \app\common\value\scaffold\VersionContract $versions): array
-{
-    $composer = json_decode((string) file_get_contents($root . '/server/composer.json'), true, 512, JSON_THROW_ON_ERROR);
-    $archives = [];
-    foreach ($composer['repositories'] ?? [] as $repository) {
-        $package = $repository['package'] ?? null;
-        if (($repository['type'] ?? null) !== 'package' || ($package['name'] ?? null) !== 'peanut-admin/core') { continue; }
-        $url = $package['dist']['url'] ?? '';
-        if (!is_string($url) || !str_starts_with($url, '../packages/core-php/')) { continue; }
-        $archive = substr($url, 3);
-        if ($archive !== 'packages/core-php/peanut-admin-core-' . $versions->corePhp() . '.zip'
-            || ($package['dist']['type'] ?? null) !== 'zip') {
-            throw new RuntimeException('application inventory Core PHP archive identity is invalid');
-        }
-        $archives[$archive] = true;
-    }
-    return $archives;
-}
-
-function inventoryGitFiles(string $root, array $declaredCoreWebArchives, array $declaredCorePhpArchives): array
+function inventoryGitFiles(string $root): array
 {
     $local = in_array('--local', array_slice($GLOBALS['argv'], 1), true);
     if ($local) {
@@ -80,12 +34,8 @@ function inventoryGitFiles(string $root, array $declaredCoreWebArchives, array $
     $files = array_values(array_filter(explode("\n", trim($stdout)), 'strlen'));
     }
     $files = array_values(array_filter($files, static fn(string $path): bool => !ScaffoldConfiguration::matches($path, $GLOBALS['configuration']['inventory_omissions'])
-        // Only archives declared by the active Core identity and dependency
-        // declarations belong in APP baselines; stale development inputs do not.
-        && (!str_starts_with($path, 'packages/core-web/') || !str_ends_with($path, '.tgz')
-            || isset($declaredCoreWebArchives[$path]))
-        && (!str_starts_with($path, 'packages/core-php/') || !str_ends_with($path, '.zip')
-            || isset($declaredCorePhpArchives[$path]))
+        // Core release archives are produced outside the Code source tree.
+        && !str_starts_with($path, 'packages/')
         && (file_exists($root . '/' . $path) || is_link($root . '/' . $path))));
     sort($files, SORT_STRING);
     return $files;
@@ -145,9 +95,7 @@ function sourceDigest(string $absolute, string $path, string $transform): string
 }
 
 $entries = [];
-$coreWebArchives = declaredCoreWebArchives($versions);
-$corePhpArchives = declaredCorePhpArchives($root, $versions);
-foreach (inventoryGitFiles($root, $coreWebArchives, $corePhpArchives) as $path) {
+foreach (inventoryGitFiles($root) as $path) {
     $absolute = $root . '/' . $path;
     $mapping = $configuration['file_mappings'][$path] ?? null;
     $target = $mapping['target'] ?? $path;

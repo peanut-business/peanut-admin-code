@@ -113,12 +113,6 @@
                     "type": "git",
                     "url": "https://github.com/peanut-business/peanut-admin-core-php.git",
                     "reference": "7c7d5938922408c02aba88dc1f03147a8c8be11c"
-                },
-                "dist": {
-                    "type": "zip",
-                    "url": "../packages/core-php/peanut-admin-core-5.0.3-alpha.6.zip",
-                    "reference": "7c7d5938922408c02aba88dc1f03147a8c8be11c",
-                    "shasum": "3f62f1804fcbd84539eb41f45eb3a73a12bf0508"
                 }
             }
         }
