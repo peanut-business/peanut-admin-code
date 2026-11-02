@@ -150,6 +150,29 @@ try {
         'MODULE_PACKAGE_SOURCE_UNTRUSTED',
     );
 
+    // Negative fixture: recompute only this synthetic envelope/inventory, retaining valid Module bytes.
+    $splitVersionEntries = [];
+    foreach ($entries as $path => $entry) {
+        if ($path === 'META-INF/files.sha256' || str_starts_with($path, 'META-INF/signatures/')) { continue; }
+        $contents = $tar->read($first, $entry);
+        if ($path === 'plugins/acme.delivery-record/plugin.json') {
+            $document = json_decode($contents, true, 128, JSON_THROW_ON_ERROR);
+            $document['version'] = '999.0.0';
+            $contents = json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
+        }
+        $splitVersionEntries[$path] = ['contents' => $contents];
+    }
+    ksort($splitVersionEntries, SORT_STRING);
+    $splitInventory = '';
+    foreach ($splitVersionEntries as $path => $entry) { $splitInventory .= $path . "\0" . hash('sha256', $entry['contents']) . "\n"; }
+    $splitVersionEntries['META-INF/files.sha256'] = ['contents' => $splitInventory];
+    $splitArchive = $temporary . '/split-version.tar';
+    $tar->write($splitArchive, $splitVersionEntries);
+    modulePackageRejects(
+        static fn() => $service->verify($splitArchive, hash_file('sha256', $splitArchive), [], null, []),
+        'MODULE_PACKAGE_SINGLE_IDENTITY_INVALID',
+    );
+
     $keypair = sodium_crypto_sign_keypair();
     $secret = sodium_crypto_sign_secretkey($keypair);
     $public = sodium_crypto_sign_publickey($keypair);

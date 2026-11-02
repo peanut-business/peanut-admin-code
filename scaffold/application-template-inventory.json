@@ -18292,7 +18292,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c237194d313816811dc24b44884c38720c2a1daab39a772de8eac5752abfedaa"
+            "source_sha256": "395b9c4149f098040da33e760e4d2aec45240ada83c362dc6635583542c8c334"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/PluginPackageInstaller.php",
@@ -18670,7 +18670,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dc486bbd5f30e5bb361f8847316c397b030635f65f961fe108210d8559306fe6"
+            "source_sha256": "89c0c5ef284753e2a7709728ab684f927d6122e85b7dd07ffbd3531f083c9b98"
         },
         {
             "path": "server/app/platform/services/plugin/PluginRuntimeGovernanceService.php",

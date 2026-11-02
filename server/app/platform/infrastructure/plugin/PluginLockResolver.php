@@ -219,6 +219,10 @@ final class PluginLockResolver
             if (count($moduleRoots) !== 1 || !array_key_exists($key, $moduleRoots)) {
                 throw new PluginLifecycleException('MODULE_PACKAGE_IDENTITY_MISMATCH', 'A locked artifact must belong to exactly its named Module.');
             }
+            $moduleIdentity = $this->readJson($moduleRoots[$key] . '/module.json', 'PLUGIN_MANIFEST_INVALID');
+            if (($moduleIdentity['key'] ?? null) !== $key || ($moduleIdentity['version'] ?? null) !== $version) {
+                throw new PluginLifecycleException('MODULE_PACKAGE_IDENTITY_MISMATCH', 'Artifact and Module must have the same key and version.');
+            }
             $frontendRoots = $this->frontendRoots($frontend, $moduleRoots, $projectRoot);
             $this->verifyPackageIdentities(
                 $composer,

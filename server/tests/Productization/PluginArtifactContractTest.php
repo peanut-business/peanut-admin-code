@@ -88,6 +88,19 @@ try {
             pluginArtifactExpect($exception->errorCode === 'PLUGIN_ARTIFACT_MISMATCH', 'Wrong ' . $label . ' rejection: ' . $exception->errorCode);
         }
     }
+    // Valid payload hashes cannot authorize a second version identity in the envelope.
+    $manifest = $validManifest;
+    $lock = $validLock;
+    $manifest['version'] = $lock['plugins'][0]['version'] = '999.0.0';
+    file_put_contents($manifestPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+    $lock['plugins'][0]['manifest_sha256'] = hash_file('sha256', $manifestPath);
+    file_put_contents($lockPath, json_encode($lock, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+    try {
+        (new PluginLockResolver($root . '/server', '../plugins.lock'))->all();
+        throw new RuntimeException('Incoming artifact version differed from its Module but was accepted');
+    } catch (PluginLifecycleException $exception) {
+        pluginArtifactExpect($exception->errorCode === 'MODULE_PACKAGE_IDENTITY_MISMATCH', 'Wrong incoming version rejection');
+    }
     foreach ([
         [$key, $module['version'], []],
         [$key, $module['version'], [$key . '=server/app/modules/peanut/chart', 'acme.second=server/app/modules/acme/second']],

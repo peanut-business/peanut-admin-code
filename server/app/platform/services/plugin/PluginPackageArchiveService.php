@@ -163,8 +163,8 @@ final class PluginPackageArchiveService
                 }
                 $modules[$key] = $inspection;
             }
-            if (array_keys($modules) !== [$packageKey]) {
-                throw new PluginPackageException('MODULE_PACKAGE_SINGLE_IDENTITY_INVALID', 'An artifact contains exactly its named Module.');
+            if (array_keys($modules) !== [$packageKey] || $modules[$packageKey]['version'] !== $packageVersion) {
+                throw new PluginPackageException('MODULE_PACKAGE_SINGLE_IDENTITY_INVALID', 'An artifact contains exactly its named Module and version.');
             }
             $dependencyModules = [];
             foreach ($modules as $key => $inspection) {
