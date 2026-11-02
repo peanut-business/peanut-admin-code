@@ -18670,7 +18670,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "03f360568c73b1513b7295f01855947a78922379b83f37e098952d626056f7c9"
+            "source_sha256": "3f7d3f433645d76d9e202c53ed51f0bdca6e8d3ea8d70e1677bb003a69f1b228"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
