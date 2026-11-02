@@ -651,7 +651,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e24333fb33261a0fb3e58d4355b4cccc6cb3c1677ca8b67dd58fdc81bb7f52a7"
+            "source_sha256": "37cb0a145b04df15b67e2b1d0a8ae0464f8b19547e4256d4b31147d05662b083"
         },
         {
             "path": "docs/architecture/default-delivery-and-ownership.md",
@@ -693,7 +693,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a02fc419c3e83fe54c100deaae6d43a549e8c0ddb1cddc11fe713beefd38dac5"
+            "source_sha256": "81843c4dfbf1f3ee2f2c11d25a75a63c738852e1cf9d3e817ad6c79d8ddd8cc9"
         },
         {
             "path": "docs/architecture/file-visibility-sources.md",
@@ -721,7 +721,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2f5af4049c1a77f0d14c177bc8d07d4356fb78565e38b1a0fda83d317dbee02d"
+            "source_sha256": "e94320a67fc055be8b4af97a4c1a08b1c8e6ea46434090bffd74e45dbbe537e2"
         },
         {
             "path": "docs/architecture/identity-organization-access.md",
@@ -749,7 +749,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "daaabfed96b71fbb8923c2038b1a68ba8a8de8e25fea900fa4afd93459b11320"
+            "source_sha256": "66caa3491cef16c4f101af374b71528679f41c3b513869088c9680789d33776a"
         },
         {
             "path": "docs/architecture/overview.md",
@@ -873,7 +873,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "53678889ef68ee9560673545044859754fdea8cccaac6732d76f4ad50a541f02"
+            "source_sha256": "69b31fe741f0e0588b23ccc1a895a3f3a8e4fd3f96ac4dbbbf8dedef4dbcd69b"
         },
         {
             "path": "docs/development/menu-navigation.md",
@@ -4853,7 +4853,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c35874fe8dbf14cc51ce5de7f1748b88cef35753e7708c7e4cb81ecb6b4a8efc"
+            "source_sha256": "d8751abbd5639fc9f4e9406632c062c83ee470223e6cac1ff44837e29a361939"
         },
         {
             "path": "server/app/BaseController.php",
@@ -6869,7 +6869,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3bc804cff1e1430566f232a4426f55e3f77884411e00ca5aa416e0ed37794a37"
+            "source_sha256": "5503936499eab0bd3aa9cb77d8124404ba07faf70bc0af82ad0a8a35f28be7e1"
         },
         {
             "path": "server/app/common/composition/ModuleExtensionService.php",
@@ -18600,7 +18600,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fbedf2de957f9c5154f95ba280025390f8027d9fe3f60e8133d55d63de58cca8"
+            "source_sha256": "ad4e3df25de3cef3fff9b01b73dd2a65d4a088ae19bc26e58f0b26a97b6b6364"
         },
         {
             "path": "server/app/platform/services/module/ModuleQualificationQueryService.php",
