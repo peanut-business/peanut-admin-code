@@ -3633,7 +3633,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9d26e78f21cdc28b327a89734c77e62a43101b3536900be71463dfdd538dd017"
+            "source_sha256": "98142204dc86c186c814cffe1f43737f0ad52aa1cf85952dfbdbcde850037f54"
         },
         {
             "path": "scripts/scaffold-runtime/ScaffoldPathGuard.php",
@@ -25274,6 +25274,19 @@
         {
             "path": "server/tests/Productization/ProviderQualificationContractTest.php",
             "target": "server/tests/Productization/ProviderQualificationContractTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/RecordedOwnerOnlyBaselineTest.php",
+            "target": "server/tests/Productization/RecordedOwnerOnlyBaselineTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
