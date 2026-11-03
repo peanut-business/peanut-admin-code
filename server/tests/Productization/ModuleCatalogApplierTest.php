@@ -25,8 +25,8 @@ $user = getenv('DB_USER') ?: '';
 $password = getenv('DB_PASS') ?: '';
 moduleCatalogExpect($host !== '' && $port !== '' && $database !== '' && $user !== '', 'registered database environment is required');
 moduleCatalogExpect(
-    preg_match('/^peanut_admin_development_p0e_[a-z0-9]{1,11}_plugin_lifecycle$/D', $database) === 1,
-    'catalog test requires the exact registered P0-E plugin_lifecycle database',
+    preg_match('/^peanut_admin_development_p0e_[a-z0-9]{1,11}_module_lifecycle$/D', $database) === 1,
+    'catalog test requires the exact registered P0-E module_lifecycle database',
 );
 $pdo = new PDO(
     "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",

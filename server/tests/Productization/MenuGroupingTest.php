@@ -65,7 +65,7 @@ function menuVisible(ThinkPhpMenuCatalogRepository $repository, array $permissio
 
 $configured = RegisteredMysqlTestResource::configuredDatabaseName();
 $prefix = substr($configured, 0, -strlen('standalone_fresh'));
-$scenarios = ['standalone_fresh', 'multi_tenant_fresh', 'plugin_lifecycle'];
+$scenarios = ['standalone_fresh', 'multi_tenant_fresh', 'module_lifecycle'];
 if (isset($argv[1])) {
     if (!in_array($argv[1], $scenarios, true)) {
         throw new InvalidArgumentException('Unknown menu verification scenario.');
@@ -116,7 +116,7 @@ foreach ($scenarios as $scenario) {
         $oldIds = [];
         $applier = \ThinkPhpTestConnection::moduleCatalogs($pdo);
         $applier->apply($registry);
-        if ($scenario === 'plugin_lifecycle') {
+        if ($scenario === 'module_lifecycle') {
             $existingMenus = $pdo->query('SELECT `key`,id FROM pa_menu_definition')->fetchAll(PDO::FETCH_KEY_PAIR);
             $oldIds = array_map('intval', $existingMenus);
             $pdo->exec("UPDATE pa_system_menu SET name='我的文件',sort=997,icon='my-icon',is_show=0,is_cache=1 WHERE id=84");
@@ -141,7 +141,7 @@ foreach ($scenarios as $scenario) {
         foreach ($pages as $page) {
             menuExpect($page->parentKey !== null, 'official page remained at root: ' . $page->key);
             $original = array_values(array_filter($registry->menus, static fn(array $row): bool => $row['key'] === $page->key))[0];
-            $expectedPath = $scenario === 'plugin_lifecycle' && $page->key === 'official.oauth.channel' ? '/my-oauth' : $original['route_path'];
+            $expectedPath = $scenario === 'module_lifecycle' && $page->key === 'official.oauth.channel' ? '/my-oauth' : $original['route_path'];
             menuExpect($page->routeName === $original['route_name'] && $page->routePath === $expectedPath && $page->requiredPermission === $original['required_permission'], 'route or permission changed: ' . $page->key);
         }
         foreach ($oldIds as $key => $id) {
@@ -172,7 +172,7 @@ foreach ($scenarios as $scenario) {
                 menuExpect($record['id'] === (int) array_column((new MenuAdministrationService())->records(), 'id', 'key')[$record['menu_key']], 'projection must return the real auto-increment catalog ID');
             }
         }
-        if ($scenario === 'plugin_lifecycle') {
+        if ($scenario === 'module_lifecycle') {
             $legacy = $pdo->query('SELECT * FROM pa_system_menu WHERE id=84')->fetch();
             foreach (array_diff_key($customBefore[0], array_flip(['menu_key','parent_key','module_key'])) as $field => $value) {
                 menuExpect($legacy[$field] === $value, 'legacy custom field overwritten: ' . $field);

@@ -52,7 +52,7 @@ $expect(is_string($candidateInventorySha256) && $candidateInventorySha256 !== ''
 $expectedScenarios = [
     'standalone_fresh',
     'multi_tenant_fresh',
-    'plugin_lifecycle',
+    'module_lifecycle',
     'consumer_module_cycle',
     'standalone_browser',
     'multi_tenant_browser',
@@ -61,7 +61,7 @@ $expectedGroups = [
     'generated-application',
     'standalone-fresh',
     'multi-tenant-fresh',
-    'plugin-lifecycle',
+    'module-lifecycle',
     'consumer-module-lifecycle',
     'production-compose',
     'standalone-browser',
@@ -325,7 +325,7 @@ $unsupportedRunnerFragments = [
     'migration_fault_restore',
     '--adopt-existing',
     'SCAFFOLD_UPGRADE',
-    'upgraded_plugin_lifecycle',
+    'upgraded_module_lifecycle',
     'upgraded_production_compose',
     'upgraded_browser',
     'mysqldump',
@@ -410,10 +410,18 @@ $expect(
 );
 $expect(!str_contains($runnerSource, 'server/database/migrate.php'), 'P0-E runner retained the application migration runner');
 
-$pluginFixture = (string) file_get_contents($root . '/server/fixtures/plugin-module-lifecycle/run.php');
-$expect(str_contains($pluginFixture, "upgrade('fixture.delivery-record', true)"), 'Plugin upgrade dry-run capability left the Gate fixture');
-$expect(str_contains($pluginFixture, "rollbackPlan('fixture.delivery-record')"), 'Plugin rollback-plan capability left the Gate fixture');
-$expect(str_contains($pluginFixture, "uninstall('fixture.delivery-record')"), 'Plugin preserve-data uninstall capability left the Gate fixture');
+$moduleFixture = (string) file_get_contents($root . '/server/fixtures/module-lifecycle/run.php');
+$nativeLifecycle = (string) file_get_contents($root . '/server/tests/Productization/ModuleLifecycleMySqlTest.php');
+$nativeFailure = (string) file_get_contents($root . '/server/tests/Productization/ModuleFailureRecoveryMySqlTest.php');
+$expect(str_contains($nativeLifecycle, "upgrade('acme.lifecycle', true)"), 'Module upgrade dry-run left native qualification');
+$expect(str_contains($nativeLifecycle, "rollbackPlan('acme.lifecycle')"), 'Module rollback-plan left native qualification');
+$expect(str_contains($nativeLifecycle, "uninstall('acme.lifecycle')"), 'Module preserve-data uninstall left native qualification');
+$expect(str_contains($nativeFailure, 'ACCEPTANCE_CONTROLLED_INSTALL_FAILURE')
+    && str_contains($nativeFailure, 'ACCEPTANCE_CONTROLLED_UPGRADE_FAILURE'), 'native lifecycle failures left qualification');
+$expect(str_contains($moduleFixture, 'memberUploadInstalledAssertions(')
+    && str_contains($moduleFixture, 'taskImportExportInstalledAssertions('), 'isolated Member/Task assertions left qualification');
+$expect(!str_contains($moduleFixture, 'SourceApplicationBackup')
+    && !str_contains($moduleFixture, 'pa_tenant_module'), 'Module producer retained retired execution contracts');
 
 $browserFixture = (string) file_get_contents($root . '/server/tests/fixtures/p0e-runtime-qualification/browser-smoke.js');
 $expect(str_contains($browserFixture, "loginTenant(page, tenantAdminUrl, adminEmail, adminPassword, 'admin')"), 'baseline must use the real Tenant email login in both deployment modes');

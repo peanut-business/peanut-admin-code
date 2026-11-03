@@ -83,7 +83,7 @@ $password = IsolatedBackendEnvironment::required('DB_PASS');
 $runId = strtolower(bin2hex(random_bytes(5)));
 $signingKey = hash('sha256', 'crontab-task-' . $runId) . hash('sha256', 'retry-' . $runId);
 expectCrontabTenant(
-    preg_match('/^peanut_admin_development_p0e_[a-z0-9]{1,11}_plugin_lifecycle$/D', $database) === 1,
+    preg_match('/^peanut_admin_development_p0e_[a-z0-9]{1,11}_module_lifecycle$/D', $database) === 1,
     'Crontab Task Gate requires its exact registered P0-E database',
 );
 

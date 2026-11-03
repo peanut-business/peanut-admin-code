@@ -29,9 +29,9 @@
       "deployment_mode": "multi-tenant",
       "action": "fresh"
     },
-    "plugin_lifecycle": {
+    "module_lifecycle": {
       "deployment_mode": "multi-tenant",
-      "action": "plugin"
+      "action": "module"
     },
     "consumer_module_cycle": {
       "deployment_mode": "standalone",
@@ -50,7 +50,7 @@
     "generated-application",
     "standalone-fresh",
     "multi-tenant-fresh",
-    "plugin-lifecycle",
+    "module-lifecycle",
     "consumer-module-lifecycle",
     "production-compose",
     "standalone-browser",

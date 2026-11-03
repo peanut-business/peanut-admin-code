@@ -122,8 +122,8 @@ platformModuleHttpExpect(
 
 $database = $argv[1] ?? '';
 platformModuleHttpExpect(
-    preg_match('/^peanut_admin_development_p0e_[a-z0-9]{1,11}_plugin_lifecycle$/D', $database) === 1,
-    'registered isolated plugin-lifecycle database name is required',
+    preg_match('/^peanut_admin_development_p0e_[a-z0-9]{1,11}_module_lifecycle$/D', $database) === 1,
+    'registered isolated module-lifecycle database name is required',
 );
 $host = IsolatedBackendEnvironment::required('DB_HOST');
 $port = IsolatedBackendEnvironment::required('DB_PORT');

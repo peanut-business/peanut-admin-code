@@ -15,8 +15,25 @@ use app\platform\services\module\ModuleRuntimeGovernanceService;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
 use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
-require dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
+$applicationRootOption = array_values(array_filter(array_slice($argv ?? [], 1), static fn(string $value): bool => str_starts_with($value, '--application-root=')));
+if (count($applicationRootOption) > 1) {
+    throw new RuntimeException('Only one explicit qualification APP root is accepted.');
+}
+$root = realpath($applicationRootOption === [] ? dirname(__DIR__, 3) : substr($applicationRootOption[0], strlen('--application-root=')));
+if ($root === false || !is_dir($root . '/server/app/modules') || !is_file($root . '/server/vendor/autoload.php')) {
+    throw new RuntimeException('Native qualification APP source/dependencies are unavailable.');
+}
+$server = $root . '/server';
+$expectedUuidOption = array_values(array_filter(array_slice($argv ?? [], 1), static fn(string $value): bool => str_starts_with($value, '--expected-server-uuid=')));
+if (count($expectedUuidOption) > 1) { throw new RuntimeException('Only one native MySQL UUID is accepted.'); }
+$expectedServerUuid = $expectedUuidOption === [] ? null : strtolower(substr($expectedUuidOption[0], strlen('--expected-server-uuid=')));
+if ($expectedServerUuid !== null && preg_match('/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/D', $expectedServerUuid) !== 1) {
+    throw new RuntimeException('Explicit native MySQL UUID is invalid.');
+}
+$argv = array_values(array_filter($argv ?? [], static fn(string $value): bool =>
+    !str_starts_with($value, '--application-root=') && !str_starts_with($value, '--expected-server-uuid=')));
+require $server . '/vendor/autoload.php';
+require $server . '/vendor/topthink/framework/src/helper.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
 
 // Explicit manual acceptance entry. It uses the selected checkout's native authoring,
@@ -26,8 +43,6 @@ foreach (['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASS'] as $name) {
         throw new RuntimeException('Explicit empty synthetic MySQL environment is required: ' . $name);
     }
 }
-$root = dirname(__DIR__, 3);
-$server = $root . '/server';
 $state = $root . '/.local/module-lifecycle-mysql';
 $resumeBaseline = array_slice($argv ?? [], 1) === ['--resume-baseline'];
 $resumeSource = array_slice($argv ?? [], 1) === ['--resume-source'];
@@ -39,6 +54,15 @@ if ((!$resume && is_dir($state)) || (!($resumeSource || $resumeRuntime) && is_di
 }
 $dsn = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', getenv('DB_HOST'), getenv('DB_PORT'), getenv('DB_NAME'));
 $pdo = new PDO($dsn, (string) getenv('DB_USER'), (string) getenv('DB_PASS'), [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$databaseRow = $pdo->query('SELECT @@server_uuid AS server_uuid,@@hostname AS server_hostname,@@port AS server_port,DATABASE() AS database_name')->fetch(PDO::FETCH_ASSOC);
+if (!is_array($databaseRow) || ($expectedServerUuid !== null && !hash_equals($expectedServerUuid, strtolower((string) $databaseRow['server_uuid'])))
+    || ($databaseRow['database_name'] ?? null) !== getenv('DB_NAME')) {
+    throw new RuntimeException('Native qualification MySQL UUID/schema differs before the first write.');
+}
+$databaseIdentity = ['server_uuid' => strtolower($databaseRow['server_uuid']), 'server_hostname' => $databaseRow['server_hostname'],
+    'server_port' => (int) $databaseRow['server_port'], 'database' => $databaseRow['database_name'],
+    'transport' => $pdo->getAttribute(PDO::ATTR_CONNECTION_STATUS)];
+
 if (!$resume && $pdo->query('SHOW TABLES')->fetchAll() !== []) { throw new RuntimeException('Synthetic lifecycle database must start empty.'); }
 if ($resume && (!is_file($state . '/source-before.json')
     || (int) $pdo->query('SELECT COUNT(*) FROM pa_migrations WHERE version=20261103230000')->fetchColumn() !== 1
@@ -137,6 +161,11 @@ $expect($plan['action'] === 'preserve_disabled' && $plan['may_apply'] === true, 
 $selection = (new ReflectionMethod(app\command\ModuleReconcile::class, 'releaseModuleSelection'))->invoke(new app\command\ModuleReconcile(), $resolver->all());
 $expect(in_array('acme.lifecycle', $selection['preserved_disabled'], true) && !in_array('acme.lifecycle', $selection['reconcile'], true), 'Release selection resurrects disabled Module');
 $expect($pdo->query("SELECT status FROM pa_module_installation WHERE id={$id}")->fetchColumn() === 'maintenance', 'Release plan reactivated Module');
+$beforePlan = $pdo->query("SELECT * FROM pa_module_installation WHERE id={$id}")->fetch(PDO::FETCH_ASSOC);
+$expect(($service->upgrade('acme.lifecycle', true)['dry_run'] ?? null) === true, 'Native upgrade dry-run is missing');
+$expect(($service->rollbackPlan('acme.lifecycle')['automatic'] ?? null) === false, 'Rollback became automatic');
+$expect($pdo->query("SELECT * FROM pa_module_installation WHERE id={$id}")->fetch(PDO::FETCH_ASSOC) === $beforePlan,
+    'Read-only upgrade/rollback plans changed installed state');
 $result = $service->upgrade('acme.lifecycle', false);
 $expect($result['operation'] === 'upgraded', 'Explicit upgrade did not activate the selected Module');
 $expect((int) $pdo->query('SELECT upgraded FROM pa_acceptance_lifecycle WHERE id=81')->fetchColumn() === 7, 'Native pending migration did not execute');
@@ -210,5 +239,5 @@ $expect($pdo->query("SELECT last_error_code FROM pa_module_installation WHERE id
 $governance->uninstall('acme.lifecycle', true, $purge['confirm_plan'], $purge['plan_digest']);
 $expect($pdo->query("SELECT status FROM pa_module_installation WHERE id={$id}")->fetchColumn() === 'uninstalled', 'Purge recovery deleted the only installation/history row');
 $expect((int) $pdo->query("SELECT COUNT(*) FROM pa_migrations WHERE version IN (20261108000001,20261108000002,20261108000003)")->fetchColumn() === 3, 'Uninstall/purge deleted native migration history');
-file_put_contents($state . '/result.json', json_encode(['assertions' => $assertions, 'module_id' => $id, 'database' => getenv('DB_NAME'), 'status' => 'passed'], JSON_THROW_ON_ERROR));
+file_put_contents($state . '/result.json', json_encode(['assertions' => $assertions, 'module_id' => $id, 'database' => getenv('DB_NAME'), 'status' => 'passed', 'database_identity' => $databaseIdentity], JSON_THROW_ON_ERROR));
 echo "MODULE-LIFECYCLE-MYSQL passed assertions={$assertions}; native dependency/migration/catalog/retire/reinstall/purge-recovery\n";

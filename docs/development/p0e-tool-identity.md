@@ -17,6 +17,11 @@ document:
 - `scripts/consumer-module-reference-chain`
 - `scripts/p0e-browser-smoke`
 - `.github/workflows/scaffold-release.yml`
+- `server/fixtures/module-lifecycle/run.php`
+- `server/tests/Productization/ModuleLifecycleMySqlTest.php`
+- `server/tests/Productization/ModuleFailureRecoveryMySqlTest.php`
+- `server/tests/Multitenancy/MemberUploadTenantWiringTest.php`
+- `server/tests/Multitenancy/TaskImportExportTenantIsolationTest.php`
 
 The tool inventory digest is SHA-256 of those paths in lexical order, each
 encoded as `path + NUL + file SHA-256 + LF`. Product source, native generators,

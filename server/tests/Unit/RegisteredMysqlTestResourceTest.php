@@ -106,7 +106,7 @@ final class RegisteredMysqlTestResourceTest extends TestCase
 
     public function testP0eForeignRunAndScenarioAreRejected(): void
     {
-        foreach (['foreign_plugin_lifecycle', 'run1_unregistered'] as $suffix) {
+        foreach (['foreign_module_lifecycle', 'run1_unregistered'] as $suffix) {
             $fixture = $this->p0eFixture();
             $fixture[2]['DB_NAME'] = 'peanut_admin_development_p0e_' . $suffix;
             $this->assertRejected('REGISTERED_MYSQL_RESOURCE_MISMATCH', $fixture);
@@ -309,7 +309,7 @@ final class RegisteredMysqlTestResourceTest extends TestCase
     {
         $fixture = $this->fixture();
         $environment = &$fixture[2];
-        $environment['DB_NAME'] = 'peanut_admin_development_p0e_run1_plugin_lifecycle';
+        $environment['DB_NAME'] = 'peanut_admin_development_p0e_run1_module_lifecycle';
         $environment['PEANUT_DATABASE_RESOURCE_ID'] = 'peanut-admin-p0e-mysql84-gate';
         $environment['PEANUT_DATABASE_ENVIRONMENT'] = 'development';
         $environment['PEANUT_DATABASE_RESOURCE_SCOPE'] = 'peanut_admin_development_p0e_run1_';
@@ -327,7 +327,7 @@ final class RegisteredMysqlTestResourceTest extends TestCase
         $resource['namespace'] = 'peanut_admin_development_p0e_<run_id>_';
         $resource['run_id_pattern'] = '^[a-z0-9]{1,11}$';
         $resource['database_name_max_length'] = 64;
-        $resource['allowed_scenarios'] = ['plugin_lifecycle'];
+        $resource['allowed_scenarios'] = ['module_lifecycle'];
         $fixture[1]['metadata']['lease'] = $environment['PEANUT_DATABASE_LEASE_ID'];
         $fixture[1]['metadata']['gate'] = $environment['PEANUT_DATABASE_LEASE_GATE'];
         $fixture[1]['metadata']['thread'] = $environment['PEANUT_DATABASE_LEASE_THREAD'];

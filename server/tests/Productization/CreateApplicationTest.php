@@ -467,7 +467,7 @@ try {
     createApplicationExpect(!is_dir($first . '/docs/maintenance'), 'source-only recovery protocols must not become APP tutorials');
     createApplicationExpect(!is_dir($first . '/plugins/fixture.delivery-record'), 'demo Plugin artifact must remain source-only');
     createApplicationExpect(!is_dir($first . '/server/fixtures/modules'), 'demo backend Module must remain source-only');
-    createApplicationExpect(!is_dir($first . '/server/fixtures/plugin-module-lifecycle'), 'demo lifecycle runner must remain source-only');
+    createApplicationExpect(!is_dir($first . '/server/fixtures/module-lifecycle'), 'demo lifecycle runner must remain source-only');
     createApplicationExpect(!is_dir($first . '/web/tests/fixtures'), 'demo frontend Module must remain source-only');
     $sourcePlugins = (new ModuleLockResolver($root . '/server', '../modules.lock'))->all();
     createApplicationExpect($sourcePlugins !== [], 'source fixture lock must resolve at least one fixture Plugin');

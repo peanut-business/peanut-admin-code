@@ -28,7 +28,10 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 TOOL_ROOT = ROOT
-TOOL_FILES = ("scripts/p0e-runtime-qualification", "scripts/consumer-module-reference-chain", "scripts/p0e-browser-smoke", ".github/workflows/scaffold-release.yml")
+TOOL_FILES = ("scripts/p0e-runtime-qualification", "scripts/consumer-module-reference-chain", "scripts/p0e-browser-smoke", ".github/workflows/scaffold-release.yml",
+    "server/fixtures/module-lifecycle/run.php", "server/tests/Productization/ModuleLifecycleMySqlTest.php",
+    "server/tests/Productization/ModuleFailureRecoveryMySqlTest.php", "server/tests/Multitenancy/MemberUploadTenantWiringTest.php",
+    "server/tests/Multitenancy/TaskImportExportTenantIsolationTest.php")
 TOOL_BINDING: dict[str, Any] | None = None
 FIXTURE_PATH = ROOT / "server/tests/fixtures/p0e-runtime-qualification/matrix.json"
 REGISTRY_PATH = Path(os.environ.get("PEANUT_RESOURCE_REGISTRY") or ROOT / "resources/project-resources.json")
@@ -605,6 +608,88 @@ def cli_created_applications(inputs: dict[str, Any], candidate: str, tree: str, 
     return created
 
 
+
+MODULE_QUALIFICATION_KEYS = ("peanut.member", "peanut.file", "peanut.task", "peanut.import-export", "peanut.notification")
+
+
+def module_qualification_inputs(value: dict[str, Any], candidate: str, tree: str, *, executing: bool = False) -> dict[str, Any]:
+    config = value.get("module_qualification")
+    if not isinstance(config, dict) or config.get("protocol") != "peanut.module-qualification-input.v1":
+        fail("module-lifecycle requires explicit isolated Module qualification inputs")
+    if config.get("source") != {"commit": candidate, "tree": tree}:
+        fail("Module qualification inputs must bind the fixed Code candidate")
+    source = config.get("reviewed_module_source", {})
+    source_root = canonical(source.get("root", ""), directory=True)
+    checkout_identity(source_root, source.get("commit", ""), source.get("tree", ""))
+    source_lock = file_reference({"path": str(source_root / "modules.lock"), "sha256": source.get("modules_lock_sha256")})
+    locked = {entry["key"]: entry for entry in read_json(source_lock).get("modules", [])}
+    if not set(MODULE_QUALIFICATION_KEYS) <= set(locked):
+        fail("reviewed Module source lacks the actual Member/File/Task/ImportExport/Notification declarations")
+    source_resource = database_registration(source)
+    roots = {ROOT, source_root}
+    schemas = {(source_resource.get("server_uuid"), source_resource.get("database"))}
+    for key in ("lifecycle_application", "failure_recovery_application", "installed_application"):
+        app = config.get(key, {})
+        root = canonical(app.get("root", ""), directory=True)
+        if any(root == protected or root in protected.parents or protected in root.parents for protected in roots):
+            fail("Module qualification APPs must be separate from Code, reviewed Module source and each other")
+        roots.add(root)
+        checkout_identity(root, app.get("head", ""), app.get("tree", ""),
+                          clean=not (executing and key in ("lifecycle_application", "failure_recovery_application")))
+        registered = database_registration(app)
+        description = str(registered.get("purpose", "")).lower() + " " + str(registered.get("data_source", "")).lower()
+        if "qualification" not in description or "synthetic" not in description:
+            fail("Module qualification requires an explicitly registered synthetic qualification APP/database")
+        schema = (registered.get("server_uuid"), registered.get("database"))
+        if schema in schemas:
+            fail("Module qualification must never write the reviewed source or another APP database")
+        schemas.add(schema)
+        identity = app.get("database_identity", {})
+        if (identity.get("database") != registered.get("database")
+                or identity.get("server_uuid") != registered.get("server_uuid")):
+            fail("Module qualification native MySQL identity differs from the registry")
+        app_manifest = read_json(file_reference({"path": str(root / ".peanut/application-manifest.json"), "sha256": app.get("manifest_sha256")}))
+        if app_manifest.get("application", {}).get("edition") != "multi-tenant":
+            fail("Module qualification APPs must retain their real multi-tenant application identity")
+        environment = file_reference(app.get("environment", {}))
+        if environment.stat().st_mode & 0o777 != 0o600:
+            fail("isolated Module APP environment must remain private")
+        runtime_admission(app, str(root), app["head"])
+        if key == "installed_application":
+            installed_lock = file_reference({"path": str(root / "modules.lock"), "sha256": app.get("modules_lock_sha256")})
+            installed = {entry["key"]: entry for entry in read_json(installed_lock).get("modules", [])}
+            for module in MODULE_QUALIFICATION_KEYS:
+                if (module not in installed or installed[module].get("source") != locked[module].get("source")
+                        or installed[module].get("manifest_sha256") != locked[module].get("manifest_sha256")):
+                    fail("isolated APP Module declaration differs from the reviewed Module source: " + module)
+    tokens = file_reference(config.get("identity_context", {}))
+    if tokens.stat().st_mode & 0o777 != 0o600:
+        fail("native Module identity context must remain private")
+    if any(not isinstance(config.get(key), int) or config[key] < 1 for key in ("other_tenant_id", "alpha_role_id")):
+        fail("Module qualification requires actual existing Tenant/Role selectors")
+    return config
+
+
+def verify_module_context(args: argparse.Namespace) -> dict[str, Any]:
+    plan_path = file_reference({"path": args.plan, "sha256": args.plan_sha256})
+    proof = read_json(plan_path)
+    if "module-lifecycle" not in proof.get("groups", []):
+        fail("the fixed plan does not admit Module lifecycle qualification")
+    binding = proof.get("qualification_tool_binding")
+    if binding is not None:
+        configure_source(argparse.Namespace(candidate=proof["candidate"], source_root=proof["worktree"],
+            qualification_tool_commit=binding["tool_commit"], qualification_tool_files_sha256=binding["tool_files_sha256"]))
+    elif canonical(proof["worktree"], directory=True) != TOOL_ROOT:
+        fail("Module qualifier must use the fixed source checkout or its explicitly bound tool checkout")
+    validate_candidate(proof["candidate"], require_clean=True)
+    inputs = proof["lifecycle_inputs"]
+    module_qualification_inputs(inputs, proof["candidate"], proof["candidate_tree"], executing=True)
+    file_reference({"path": inputs["input_path"], "sha256": inputs["input_sha256"]})
+    verify_lease(argparse.Namespace(**{key: proof[key] for key in
+        ("candidate", "run_id", "lease", "owner", "thread", "parent_lease")}), proof)
+    return {"status": "verified", "candidate": proof["candidate"], "plan_sha256": args.plan_sha256}
+
+
 def lifecycle_inputs(args: argparse.Namespace, tree: str) -> dict[str, Any]:
     input_path = file_reference({"path": args.lifecycle_input, "sha256": args.lifecycle_input_sha256})
     value = read_json(input_path)
@@ -659,29 +744,10 @@ def lifecycle_inputs(args: argparse.Namespace, tree: str) -> dict[str, Any]:
         for name in ("first_install", "upgrade_retention", "recovery"):
             if app.get(name):
                 file_reference(app[name])
-    code = value.get("code_runtime", {})
-    code_matches = [r for r in resources if r.get("stable_resource_id") == code.get("resource_id")]
-    if (code.get("resource_id") not in ("peanut-admin-mysql84-development", "peanut-admin-mysql84-migration-validation",
-                                            "peanut-admin-scaffold-mt-development-mysql84")
-            or len(code_matches) != 1 or code_matches[0].get("database") != code.get("database")
-            or code_matches[0].get("upstream_endpoint", {}).get("endpoint_id") != code.get("endpoint_id")):
-        fail("Code functional resource identity differs")
-    if (code.get("resource_id") == "peanut-admin-scaffold-mt-development-mysql84"
-            and code.get("database") != "peanut_dev_mt"):
-        fail("Code MT development resource must retain its registered peanut_dev_mt database")
-    code_env = file_reference(code.get("environment", {}))
-    if code_env.stat().st_mode & 0o777 != 0o600:
-        fail("Code runtime environment must remain private")
-    installed = value.get("installed_lifecycle", {})
-    if not isinstance(installed, dict) or set(installed) - {"member-upload", "task-import-export", "plugin-module-lifecycle"}:
-        fail("installed lifecycle inputs contain an unknown producer")
-    for producer, reference in installed.items():
-        path = file_reference(reference)
-        if path.stat().st_mode & 0o777 != 0o600:
-            fail("installed lifecycle input must be private")
-        config = read_json(path)
-        if config.get("protocol") != "peanut.installed-lifecycle-input.v1" or config.get("producer") != producer:
-            fail("installed lifecycle producer/input binding differs")
+    if value.get("installed_lifecycle"):
+        fail("retired installed-lifecycle producer inputs must be replaced by isolated module_qualification inputs")
+    if value.get("module_qualification") is not None:
+        module_qualification_inputs(value, args.candidate, tree)
     file_reference(value.get("consumer_identity_seed", {}))
     return {**value, "cli": cli, "template_artifacts": templates,
             "input_path": str(input_path), "input_sha256": args.lifecycle_input_sha256,
@@ -719,6 +785,10 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
             fail("qualification output/cache must be canonical run-specific leaves outside source")
         protected = [ROOT, Path(inputs["cli"]["root"]), Path(inputs["template_build_root"]),
                      *(Path(app["root"]) for app in inputs["applications"].values())]
+        if inputs.get("module_qualification"):
+            qualification = inputs["module_qualification"]
+            protected.extend(Path(qualification[key]["root"]) for key in
+                             ("reviewed_module_source", "lifecycle_application", "failure_recovery_application", "installed_application"))
         for root in protected:
             if path == root or root in path.parents or path in root.parents:
                 fail("temporary paths must not overlap fixed sources, templates or permanent APPs")
@@ -733,18 +803,17 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         fail("fixed lifecycle qualification does not inherit runtime leases")
     admissions = []
     gate = "p0e-runtime-qualification"
-    if "plugin-lifecycle" in selected:
-        code = runtime_admission(inputs["code_runtime"], str(ROOT), args.candidate)
-        if code["lease"] != args.lease:
-            fail("Code runtime/source/output must use one actual owner lease in this checkout")
-        gate = code["gate"]
-        resources.extend((r["type"], r["value"]) for r in code["resources"])
-        admissions.append(code)
+    qualification_apps = []
+    if "module-lifecycle" in selected:
+        qualification = module_qualification_inputs(inputs, args.candidate, tree)
+        qualification_apps = [qualification[key] for key in ("lifecycle_application", "failure_recovery_application", "installed_application")]
+        for app in qualification_apps:
+            admissions.append(runtime_admission(app, app["root"], app["head"]))
     for app in inputs["applications"].values():
         admissions.append(runtime_admission(app, app["root"], app["head"]))
     for admission in admissions:
-        runtime = inputs["code_runtime"] if admission["root"] == str(ROOT) else next(
-            app for app in inputs["applications"].values() if app["root"] == admission["root"])
+        runtime = next(app for app in [*inputs["applications"].values(), *qualification_apps]
+                       if app["root"] == admission["root"])
         runtime_environment(runtime, admission)
     # Production Compose is admitted by its own group. A browser selection binds
     # only the existing HTTP route and never requires or starts Compose.
@@ -1290,71 +1359,69 @@ class Runner:
         return {"status": "not_run", "reason": "fresh candidate execution evidence unavailable; existing APP not reinstalled",
                 **facts, "reinstalled": False, "database_dropped": False}
 
-    def plugin_lifecycle(self) -> dict[str, Any]:
-        code = self.inputs["code_runtime"]
-        producers = {
-            "member-upload": "server/tests/Multitenancy/MemberUploadTenantWiringTest.php",
-            "task-import-export": "server/tests/Multitenancy/TaskImportExportTenantIsolationTest.php",
-            "plugin-module-lifecycle": "server/fixtures/plugin-module-lifecycle/run.php",
-        }
-        inputs = self.inputs.get("installed_lifecycle", {})
-        missing = sorted(set(producers) - set(inputs))
-        if missing:
-            raise NotRun("plugin-lifecycle: missing native installed producer inputs: " + ", ".join(missing))
-        # Verify all three fixed configurations before the first producer writes.
-        for producer in producers:
-            config = read_json(file_reference(inputs[producer]))
-            actor = config.get("actor", {})
-            if (actor.get("owner") != self.args.owner or actor.get("thread") != self.args.thread
-                    or actor.get("gate") != database_registration(code)["lease_gate"]):
-                fail("installed producer must use this real runtime owner's native authority")
-        env = self.environment(code)
+    def module_lifecycle(self) -> dict[str, Any]:
+        config = module_qualification_inputs(self.inputs, self.args.candidate, self.plan["candidate_tree"])
+        output = self.output / "groups" / "module-lifecycle"
+        if output.exists():
+            fail("retain the original Module qualification scene before another attempt")
+        output.mkdir(mode=0o700)
+        plan_path = self.output / "plan.json"
+        plan_digest = sha256(plan_path)
+        source = TOOL_ROOT / "server/fixtures/module-lifecycle/run.php"
+        config_path = output / "input.json"
+        self.write_json(config_path, config)
+        config_path.chmod(0o600)
         results = {}
-        for producer, source in producers.items():
-            reference = inputs[producer]
-            process = command(["php", source, "--input", str(file_reference(reference)),
-                "--input-sha256", reference["sha256"], "--execute"], cwd=ROOT, env=env, capture=True, check=False)
-            log = self.output / "groups" / (Path(source).name + ".log")
+        # Current native source/dependency/migration/retirement and forward-failure
+        # scripts run only in the explicitly registered empty synthetic APP.
+        for producer, app_key, relative, receipt_name in (
+                ("module-lifecycle", "lifecycle_application", "server/tests/Productization/ModuleLifecycleMySqlTest.php", "result.json"),
+                ("module-failure-recovery", "failure_recovery_application", "server/tests/Productization/ModuleFailureRecoveryMySqlTest.php", "failure-recovery-result.json")):
+            lifecycle_app = config[app_key]
+            verify_module_context(argparse.Namespace(plan=str(plan_path), plan_sha256=plan_digest))
+            log = output / (producer + ".log")
+            command(["php", str(TOOL_ROOT / relative), "--application-root=" + lifecycle_app["root"],
+                     "--expected-server-uuid=" + lifecycle_app["database_identity"]["server_uuid"]],
+                    cwd=Path(lifecycle_app["root"]), env=self.environment(lifecycle_app), log=log)
+            receipt = Path(lifecycle_app["root"]) / ".local/module-lifecycle-mysql" / receipt_name
+            value = read_json(receipt)
+            if (value.get("status") != "passed" or not isinstance(value.get("assertions"), int) or value["assertions"] < 1
+                    or value.get("database_identity") != lifecycle_app["database_identity"]):
+                fail("native Module lifecycle script did not produce its own assertion receipt")
+            results[producer] = {"status": "passed", "source_sha256": sha256(TOOL_ROOT / relative),
+                "receipt": {"path": str(receipt), "sha256": sha256(receipt)}, "log_sha256": sha256(log),
+                "application_root": lifecycle_app["root"], "resource_id": lifecycle_app["resource_id"]}
+            self.write_json(output / "results.json", results)
+        installed_app = config["installed_application"]
+        for producer in ("member-upload", "task-import-export"):
+            verify_module_context(argparse.Namespace(plan=str(plan_path), plan_sha256=plan_digest))
+            process = command(["php", str(source), "--action=" + producer,
+                "--input=" + str(config_path), "--input-sha256=" + sha256(config_path),
+                "--plan=" + str(plan_path), "--plan-sha256=" + plan_digest],
+                cwd=Path(installed_app["root"]), env=self.environment(installed_app), capture=True, check=False)
+            log = output / (producer + ".log")
             log.write_text((process.stdout or "") + (process.stderr or ""), encoding="utf-8")
             try:
-                result = json.loads(process.stdout)
+                value = json.loads(process.stdout)
             except (ValueError, TypeError):
-                fail("installed lifecycle producer returned an unknown outcome; retain its native attempt and actual scene")
-            if not isinstance(result, dict) or result.get("producer") != producer:
-                fail("installed producer identity differs")
-            results[producer] = {**result, "source_sha256": sha256(ROOT / source), "log_sha256": sha256(log)}
-            self.write_json(self.output / "groups" / "plugin-lifecycle-producers.json", results)
-            if process.returncode == 3 and result.get("status") == "not_run" and result.get("qualification_writes_started") is False:
-                raise NotRun("plugin-lifecycle: " + producer + ": " + str(result.get("error_code", result.get("reason"))))
-            binding = result.get("binding", {})
-            if (process.returncode != 0 or result.get("status") != "passed"
-                    or result.get("protocol") != "peanut.installed-lifecycle-result.v1"
-                    or result.get("input_sha256") != reference["sha256"]
-                    or binding.get("source", {}).get("head") != self.args.candidate
-                    or binding.get("resource_id") != code["resource_id"]
-                    or binding.get("database", {}).get("database") != code["database"]
-                    or result.get("qualification_writes_started") is not True):
-                fail("installed lifecycle assertion failed or native input binding differs; retain actual DB/storage/source")
-            backup = result.get("backup", {})
-            file_reference(backup)
-            file_reference(backup.get("recovery_references", {}))
-            file_reference(result.get("file_backup", {}))
-            # Reacquire the native source/schema locks and current full maintenance
-            # admission after reading every attachment; a past passed record is insufficient.
-            self.environment(code)
-            verified = command(["php", source, "--input", str(file_reference(reference)),
-                "--input-sha256", reference["sha256"], "--verify-result"], cwd=ROOT, env=env, capture=True, check=False)
-            try:
-                consumption = json.loads(verified.stdout)
-            except (ValueError, TypeError):
-                fail("installed producer consumption admission is unknown; retain actual scene")
-            if (verified.returncode != 0 or consumption.get("protocol") != "peanut.installed-lifecycle-consumption.v1"
-                    or consumption.get("status") != "verified" or consumption.get("producer") != producer
-                    or consumption.get("input_sha256") != reference["sha256"] or consumption.get("binding") != binding):
-                fail("installed producer no longer has current native consumption admission")
-            file_reference(consumption.get("result", {}))
-            results[producer]["current_native_consumption"] = consumption
-        return {"runtime_root": str(ROOT), "resource_id": code["resource_id"], "database": code["database"], "producers": results}
+                fail("Module installed assertion returned an unknown outcome; preserve its isolated scene")
+            if (process.returncode != 0 or value.get("status") != "passed"
+                    or value.get("protocol") != "peanut.module-qualification-result.v1"
+                    or value.get("producer") != producer or value.get("source") != self.inputs["source"]
+                    or value.get("input_sha256") != sha256(config_path) or value.get("plan_sha256") != plan_digest
+                    or value.get("application_root") != installed_app["root"]
+                    or value.get("resource_id") != installed_app["resource_id"]
+                    or value.get("database_identity") != installed_app["database_identity"]
+                    or value.get("native_identity") != "verified-current-session"
+                    or value.get("writes_retained") is not True):
+                fail("Module installed assertion or native identity binding failed; preserve actual source/database/storage")
+            results[producer] = {**value, "source_sha256": sha256(source), "log_sha256": sha256(log)}
+            self.write_json(output / "results.json", results)
+        verify_module_context(argparse.Namespace(plan=str(plan_path), plan_sha256=plan_digest))
+        return {"status": "passed", "protocol": "peanut.module-qualification.v1",
+            "scope": "registered-isolated-applications", "reviewed_module_source": config["reviewed_module_source"],
+            "source": self.inputs["source"], "producers": results}
+
 
     def consumer_module_lifecycle(self) -> dict[str, Any]:
         output = self.cache / "consumer-module-lifecycle"
@@ -1554,7 +1621,7 @@ class Runner:
 
     def run(self) -> None:
         operations = {"generated-application": self.generated_application, "standalone-fresh": lambda: self.fresh("standalone"),
-            "multi-tenant-fresh": lambda: self.fresh("multi-tenant"), "plugin-lifecycle": self.plugin_lifecycle,
+            "multi-tenant-fresh": lambda: self.fresh("multi-tenant"), "module-lifecycle": self.module_lifecycle,
             "consumer-module-lifecycle": self.consumer_module_lifecycle, "production-compose": self.production_compose,
             "standalone-browser": lambda: self.browser_at("standalone"), "multi-tenant-browser": lambda: self.browser_at("multi-tenant")}
         for group in self.plan["groups"]:
@@ -1694,9 +1761,15 @@ def main() -> int:
     transfer = subs.add_parser("transport", help="seal original full qualification bytes; no upload or publication")
     for name in ("summary", "main-integration", "output"):
         transfer.add_argument("--" + name, required=True)
+    verify_module = subs.add_parser("verify-module-context", help="read-only current source/lease/isolated-APP admission")
+    verify_module.add_argument("--plan", required=True)
+    verify_module.add_argument("--plan-sha256", required=True)
     for name in ("plan", "claim", "run", "resume"):
         add_fixed_arguments(subs.add_parser(name))
     args = parser.parse_args()
+    if args.command == "verify-module-context":
+        print(json.dumps(verify_module_context(args), ensure_ascii=False))
+        return 0
     if args.command == "candidate":
         configure_source(args)
         result = qualify_candidate(args)

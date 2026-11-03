@@ -225,7 +225,7 @@ final class RegisteredMysqlTestResource
             $allowedDatabases = [];
             foreach ($resource['allowed_scenarios'] ?? [] as $scenario) {
                 if (!in_array($scenario, [
-                    'standalone_fresh', 'multi_tenant_fresh', 'plugin_lifecycle',
+                    'standalone_fresh', 'multi_tenant_fresh', 'module_lifecycle',
                     'consumer_module_cycle', 'standalone_browser', 'multi_tenant_browser',
                 ], true)) {
                     throw new RuntimeException('REGISTERED_MYSQL_RESOURCE_MISMATCH');

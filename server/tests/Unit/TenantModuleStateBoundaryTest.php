@@ -206,7 +206,7 @@ final class TenantModuleStateBoundaryTest extends TestCase
             'server/app/AppService.php', 'server/app/command/ModuleSync.php',
             'server/app/platform/infrastructure/module/ThinkPhpModuleGovernanceProvider.php',
             'server/app/platform/infrastructure/module/ModulePackageInstaller.php',
-            'server/fixtures/plugin-module-lifecycle/run.php',
+            'server/fixtures/module-lifecycle/run.php',
             'server/tests/Productization/ModuleCommandContractTest.php',
             'server/tests/Productization/ModuleRuntimeGovernanceTest.php',
         ] as $path) {
@@ -221,7 +221,7 @@ final class TenantModuleStateBoundaryTest extends TestCase
             }
         }
         // Eight construction sites belonged to the retired physical multi-Module Bundle fixtures.
-        self::assertSame(15, $sites);
+        self::assertSame(12, $sites);
     }
 
     public function testMissingLifecycleLedgerIsNotTreatedAsNoEnabledConsumers(): void

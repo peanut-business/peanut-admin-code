@@ -90,6 +90,20 @@ CI 的 `scaffold-release.yml` 可显式选 `publish=false, pack_only=true`，并
 
 生产 job 通过原生 `scripts/ci-producer prepare <RUNNER_TEMP下不存在的目录>` 在既有 Ubuntu runner 内构建一次临时工具镜像，再用 `exec <同一目录> -- <原命令>` 执行标准生产器、比较器及默认 candidate。同一次prepare的两轮共用同一实际 image ID，不发布镜像或另设服务。`tools/ci-producer/inputs.json` 固定同 Debian/bookworm、linux/amd64 的官方 PHP/Python 完整镜像 digest、官方 Node 校验和、Composer PHAR 摘要、pnpm 包摘要和 Debian snapshot 的签名 metadata/精确包版本；仅以官方扩展 helper 编译原本必需的 pdo_mysql/zip，不重编 PHP 解释器。Python 复制完整安装并补齐固定 runtime 库；实际五工具、PHP 扩展、解释器及 PHP 子进程路径和 Python 动态库均核对，输入不符即在制包前停止。实际工具/包/路径/库摘要、image ID 和生产工具文件摘要随每个原生 scaffold-build-inputs.json 的 environment.ci_toolchain 封存，在同一次prepare的双轮原生比较中保持全身份相同；这些字段不进入便携模板载荷。独立prepare所得image构建ID与主发行物复现分记，采用前述独立重建口径，不修改或归一化原回执。普通本地开发工具仍由项目工具链合同管理，不把容器环境自报当产品资格。
 
+## Module 生命周期资格输入
+
+完整八组中的当前组名为 `module-lifecycle`。它保留四份相互独立的执行结果：Module 原生安装、禁用保持、显式恢复、升级只读计划、手工回滚计划、退休/重新安装/清除恢复；受控首次安装失败与前向修复；Member 上传所有权与租户隔离；Task/导入导出的拒绝、幂等、原子失败、撤销、私有交付与跨租户隔离。候选模板创建通过不代表这一组通过，组数仍是八，不接受旧 installed-lifecycle 备份框架的输入或通过回执。
+
+生命周期输入使用现有 `peanut.p0e-lifecycle-inputs.v1`，增加 `module_qualification` 对象，协议为 `peanut.module-qualification-input.v1`。其 `source={commit,tree}` 必须等于固定 Code 候选；`reviewed_module_source={root,commit,tree,modules_lock_sha256,resource_id}` 指向受审 Module 专用 APP 的只读源码及权威中央资源登记，不能作为资格写入目标。机器上的主 Module APP、已有业务数据库及未分配的 application 级资源 stub 不构成隔离资格写入许可。
+
+`lifecycle_application`、`failure_recovery_application` 与 `installed_application` 分别提供现有 runtime admission 使用的 `root,head,tree,resource_id,endpoint_id,database,lease,environment={path,sha256},manifest_sha256`，以及实际原生 `database_identity={server_uuid,server_hostname,server_port,database,transport}`。三者须为分别登记的 synthetic qualification APP/schema，使用各自真实 owner/thread 和独占 schema lease，与 Code、受审 Module 源及彼此的根/数据库分开；不能自动创建登记、复制源码到主 APP 或重置现有数据库。中央登记通过显式 `PEANUT_RESOURCE_REGISTRY` 消费，不将维护者机器路径写进产品默认。
+
+前两个 APP 的数据库必须分别为空，各自供既有 `ModuleLifecycleMySqlTest.php` 与 `ModuleFailureRecoveryMySqlTest.php` 使用；第二个独立执行同一 ModuleMigrationRun 原生基线，不复用或清空第一个库。两脚本通过显式 `--application-root=`、`--expected-server-uuid=` 在各自根执行原生依赖、迁移与退休，首次写入前核实际 MySQL UUID/schema，回执包含实际完整数据库身份，不修改调用 Code 树。第三个 APP 必须已经原生安装且为 multi-tenant，并提供固定 `modules_lock_sha256`；Member/File/Task/ImportExport/Notification 的来源与 manifest 摘要须匹配受审 Module 源。默认八模块 Code 不会被补塞这些业务模块。
+
+`identity_context={path,sha256}` 指向 0600 文件，提供 `member_access_token,alpha_access_token,beta_access_token,no_export_access_token,audit_failure_access_token,platform_access_token`；它们必须是该隔离 APP 已有真实原生会话，不接受 JSON 声明的角色或伪造 Context。另显式给出既有 `other_tenant_id,alpha_role_id`。producer 通过原生 CheckTokenMiddleware、TenantAuthService 与 PlatformOperatorSessionService 的 context/assertAllowed 入口取得上下文；不创建账号、不重置密码、不自行发 token 或伪造安装身份。alpha 的许可证套餐必须仅归其一个租户，资格通过当前 PlanLicenseAdminService 按 revision 撤销依赖闭包，只剔除所撤销 owner/API 及丢失前置条件的权限，其余原 permission ceiling 保留，再恢复原选择；共享套餐拒绝执行。原函数以当前具体 TaskImportExportRuntime 资格适配器执行既有断言，不扩张 ImportExportWorkerRuntime 公开合同。每次停止/恢复核 alpha 当前可用性、beta 保持可用、RBAC 原行不变；停止另核原生 ModuleGuard 的 MODULE_TENANT_DISABLED，job 必须以当前签名重授权 fence 的 TASK_PERMISSION_DENIED 结束，不能将任意 dead 当作模块停止证明。
+
+`server/fixtures/module-lifecycle/run.php --help` 只显示合同，不初始化 APP。完整执行仍由原 `scripts/p0e-runtime-qualification run/resume` 在明确授权后消费上述输入，先重核来源、路径、资源及 native admission，再调用四个 producer。输出记录每项真实退出/摘要/APP/数据库身份，失败和未知状态保留实际隔离 APP、数据库、文件与日志，不能回填 passed 或靠恢复旧整库备份掩盖写入。本文及源码静态检查不证明已完成数据库、HTTP 或 full8 执行；这些是发行前独立资格任务。
+
 ## 冻结内部候选
 
 两个 Core 已有有效冻结归档、但需要选用不同批次的 PHP 与 Web 时，使用同一生产者组合固定 Git 输入：`freeze-core-release --reuse-php-inputs=<PHP冻结回执绝对路径> --reuse-web-inputs=<包含六个Web归档的冻结回执绝对路径> --output=<不存在的绝对目录>`。该入口核原生回执状态、来源、版本及归档实际摘要，复用已有 Web 包检查后原字节复制七包，输出同一 schema 的完整 `release-core-inputs.json`；不重建、不重打包、不改版本或既有归档。PHP-only 回执可供 PHP 段选择，其保留的 published Web 字段不替代第二份冻结 Web 输入；两份源回执和归档保持原位。该组合可直接供下述 `--internal-core-inputs` 消费，不需要重新冻结已有效的 Core 源码。

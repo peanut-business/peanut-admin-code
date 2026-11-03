@@ -162,14 +162,13 @@ final class OpsWorkerContractTest extends TestCase
 
     public function testLifecycleFixtureConsumesInitializedContainerWithoutDuplicatingTheConstructor(): void
     {
-        $source = file_get_contents(dirname(__DIR__, 2) . '/fixtures/plugin-module-lifecycle/run.php');
-        self::assertStringNotContainsString('$catalogs = new ModuleCatalogApplier(', $source);
-        self::assertStringContainsString('$catalogs = app(ModuleCatalogApplier::class);', $source);
-        self::assertLessThan(strpos($source, '$catalogs = app('), strpos($source, '(new App($serverRoot))->initialize();'));
-        self::assertStringContainsString('Native lifecycle passes explicit module keys to its scoped catalog applier.', $source);
-        self::assertStringContainsString('$catalogSnapshot = pluginLifecycleCatalogSnapshot($pdo);', $source);
-        self::assertStringContainsString('pluginLifecycleCatalogSnapshot($pdo) === $catalogSnapshot', $source);
-        self::assertStringContainsString('installed non-fixture catalogs changed', $source);
+        $source = file_get_contents(dirname(__DIR__, 2) . '/fixtures/module-lifecycle/run.php');
+        self::assertStringNotContainsString('SourceApplicationBackup', $source);
+        self::assertStringContainsString('$app = (new think\\App($root . \'/server\'))->initialize();', $source);
+        self::assertStringContainsString('memberUploadInstalledAssertions($app, $pdo,', $source);
+        self::assertStringContainsString('taskImportExportInstalledAssertions($app, $pdo,', $source);
+        self::assertStringContainsString('$guard();', $source);
+        self::assertStringContainsString("'native_identity' => 'verified-current-session'", $source);
     }
 
     private function runCommand(string $type, string $port, ?object $worker, array $arguments, ExecutionContextStore $contexts, string $name): array

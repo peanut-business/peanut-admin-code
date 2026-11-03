@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use app\common\infrastructure\module\ModuleScaffoldGenerator;
+use app\common\module\ModuleMigrationRun;
+use PeanutAdmin\Kernel\Module\ManifestLoader;
 use app\platform\composition\module\ModuleDefinitionRegistryFactory;
 use app\platform\infrastructure\module\ModuleArtifactWriter;
 use app\platform\infrastructure\module\ModuleLockResolver;
@@ -10,8 +12,25 @@ use app\platform\services\module\ModuleLifecycleService;
 use app\platform\services\module\ModuleRuntimeGovernanceService;
 use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
-require dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
+$applicationRootOption = array_values(array_filter(array_slice($argv ?? [], 1), static fn(string $value): bool => str_starts_with($value, '--application-root=')));
+if (count($applicationRootOption) > 1) {
+    throw new RuntimeException('Only one explicit qualification APP root is accepted.');
+}
+$root = realpath($applicationRootOption === [] ? dirname(__DIR__, 3) : substr($applicationRootOption[0], strlen('--application-root=')));
+if ($root === false || !is_dir($root . '/server/app/modules') || !is_file($root . '/server/vendor/autoload.php')) {
+    throw new RuntimeException('Native qualification APP source/dependencies are unavailable.');
+}
+$server = $root . '/server';
+$expectedUuidOption = array_values(array_filter(array_slice($argv ?? [], 1), static fn(string $value): bool => str_starts_with($value, '--expected-server-uuid=')));
+if (count($expectedUuidOption) > 1) { throw new RuntimeException('Only one native MySQL UUID is accepted.'); }
+$expectedServerUuid = $expectedUuidOption === [] ? null : strtolower(substr($expectedUuidOption[0], strlen('--expected-server-uuid=')));
+if ($expectedServerUuid !== null && preg_match('/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/D', $expectedServerUuid) !== 1) {
+    throw new RuntimeException('Explicit native MySQL UUID is invalid.');
+}
+$argv = array_values(array_filter($argv ?? [], static fn(string $value): bool =>
+    !str_starts_with($value, '--application-root=') && !str_starts_with($value, '--expected-server-uuid=')));
+require $server . '/vendor/autoload.php';
+require $server . '/vendor/topthink/framework/src/helper.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
 
 foreach (['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASS'] as $key) {
@@ -19,15 +38,31 @@ foreach (['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASS'] as $key) {
         throw new RuntimeException('Explicit synthetic MySQL environment is required: ' . $key);
     }
 }
-$root = dirname(__DIR__, 3);
-$server = $root . '/server';
 $state = $root . '/.local/module-lifecycle-mysql';
 $moduleRoot = $server . '/app/modules/acme/recovery';
-if (!is_file($state . '/source-before.json') || is_dir($moduleRoot)) {
-    throw new RuntimeException('Use the retained native synthetic baseline; never overwrite an existing recovery fixture.');
+if (is_dir($state) || is_dir($moduleRoot)) {
+    throw new RuntimeException('Independent failure-recovery APP/state must be new; preserve every earlier attempt.');
 }
 $pdo = new PDO(sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', getenv('DB_HOST'), getenv('DB_PORT'), getenv('DB_NAME')),
     (string) getenv('DB_USER'), (string) getenv('DB_PASS'), [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$databaseRow = $pdo->query('SELECT @@server_uuid AS server_uuid,@@hostname AS server_hostname,@@port AS server_port,DATABASE() AS database_name')->fetch(PDO::FETCH_ASSOC);
+if (!is_array($databaseRow) || ($expectedServerUuid !== null && !hash_equals($expectedServerUuid, strtolower((string) $databaseRow['server_uuid'])))
+    || ($databaseRow['database_name'] ?? null) !== getenv('DB_NAME')) {
+    throw new RuntimeException('Native qualification MySQL UUID/schema differs before the first write.');
+}
+$databaseIdentity = ['server_uuid' => strtolower($databaseRow['server_uuid']), 'server_hostname' => $databaseRow['server_hostname'],
+    'server_port' => (int) $databaseRow['server_port'], 'database' => $databaseRow['database_name'],
+    'transport' => $pdo->getAttribute(PDO::ATTR_CONNECTION_STATUS)];
+if ($pdo->query('SHOW TABLES')->fetchAll() !== []) {
+    throw new RuntimeException('Independent failure-recovery qualification database must start empty.');
+}
+mkdir($state, 0700, true);
+$original = [];
+foreach (['server/composer.json', 'server/composer.lock', 'modules.lock', 'server/generated/api-catalog.json',
+    'server/generated/openapi.json', 'web/src/generated/openapi.d.ts'] as $file) {
+    $original[$file] = is_file($root . '/' . $file) ? base64_encode((string) file_get_contents($root . '/' . $file)) : null;
+}
+file_put_contents($state . '/source-before.json', json_encode($original, JSON_THROW_ON_ERROR));
 $app = new think\App($server);
 $app->loadEnv('');
 $app->config->set(['default' => 'mysql', 'migration_table' => 'migrations', 'connections' => ['mysql' => [
@@ -40,6 +75,17 @@ $app->config->set(['environment' => 'development'], 'peanut');
 $app->env->set('PEANUT_INSTALLATION_SOURCE_MODE', 'development');
 $app->bind(PeanutAdmin\Kernel\Authorization\Persistence\AuthorizationCatalogRepository::class,
     PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository::class);
+ThinkPhpTestConnection::fromPdo($pdo);
+$manifests = [];
+$baseline = new ModuleLockResolver($server, '../modules.lock');
+foreach ($baseline->all() as $descriptor) {
+    foreach ($descriptor->moduleRoots as $key => $directory) {
+        $manifests[$key] = (new ManifestLoader())->load($directory);
+    }
+}
+$native = new ModuleMigrationRun(ModuleMigrationRun::sources($manifests, $server, true));
+$native->setApp($app);
+$native->run(new think\console\Input([]), new think\console\Output('buffer'));
 $catalogs = ThinkPhpTestConnection::moduleCatalogs($pdo);
 $config = ['roots' => [], 'module_lock' => '../modules.lock', 'kernel_version' => '1.0.0',
     'registered_client_keys' => ['admin-web', 'platform-web', 'pc-web', 'uniapp']];
@@ -114,5 +160,5 @@ $governance = new ModuleRuntimeGovernanceService($server, $config, $catalogs, ne
 $plan = $governance->preview('acme.recovery', false);
 $governance->uninstall('acme.recovery', false, $plan['confirm_plan'], $plan['plan_digest']);
 $expect($pdo->query('SELECT value FROM pa_acceptance_recovery WHERE id=91')->fetchColumn() === 'retain-through-forward-repair', 'Normal retirement after repair removed business data');
-file_put_contents($state . '/failure-recovery-result.json', json_encode(['assertions' => $assertions, 'status' => 'passed'], JSON_THROW_ON_ERROR));
+file_put_contents($state . '/failure-recovery-result.json', json_encode(['assertions' => $assertions, 'status' => 'passed', 'database_identity' => $databaseIdentity], JSON_THROW_ON_ERROR));
 echo "MODULE-FAILURE-RECOVERY-MYSQL passed assertions={$assertions}; same-artifact resume+higher-version repair\n";

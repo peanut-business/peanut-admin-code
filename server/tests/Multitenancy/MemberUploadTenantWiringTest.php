@@ -44,8 +44,8 @@ function memberUploadInstalledAssertions(
     $principal = $pdo->prepare("SELECT COUNT(*) FROM pa_member m JOIN pa_tenant t ON t.id=m.tenant_id WHERE m.id=? AND m.tenant_id=? AND m.status=1 AND m.delete_time IS NULL AND t.status='active'");
     $principal->execute([$memberId, $tenantId]);
     expectMemberUpload((int) $principal->fetchColumn() === 1, 'host member does not match the installed database');
-    $serverRoot = dirname(__DIR__, 2);
-    $routeSource = (string) file_get_contents($serverRoot . '/app/modules/official/file/route/app.php');
+    $serverRoot = rtrim($app->getRootPath(), '/');
+    $routeSource = (string) file_get_contents($serverRoot . '/app/modules/peanut/file/route/app.php');
     $uploadRoute = "Route::post('upload/image', [ApiUploadController::class, 'image'])";
     expectMemberUpload(substr_count($routeSource, $uploadRoute) === 1, 'member upload route is missing or duplicated');
     // Indentation is formatting; the ordered identity and Module middleware remain mandatory.

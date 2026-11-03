@@ -40,7 +40,7 @@ if (in_array('--schema-contract', $argv ?? [], true)) {
 const P0E_FRESH_SCENARIO_MODES = [
     'standalone_fresh' => 'standalone',
     'multi_tenant_fresh' => 'multi-tenant',
-    'plugin_lifecycle' => 'multi-tenant',
+    'module_lifecycle' => 'multi-tenant',
     'consumer_module_cycle' => 'standalone',
     'standalone_browser' => 'standalone',
     'multi_tenant_browser' => 'multi-tenant',
@@ -49,7 +49,7 @@ const P0E_FRESH_GROUPS = [
     'generated-application',
     'standalone-fresh',
     'multi-tenant-fresh',
-    'plugin-lifecycle',
+    'module-lifecycle',
     'consumer-module-lifecycle',
     'production-compose',
     'standalone-browser',

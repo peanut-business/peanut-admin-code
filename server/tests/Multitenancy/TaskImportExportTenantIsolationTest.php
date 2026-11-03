@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use app\common\services\authorization\AdminAuthorizationService;
-use PeanutAdmin\Modules\ImportExport\Contract\ImportExportWorkerRuntime;
+use PeanutAdmin\Modules\ImportExport\Service\TaskImportExportRuntime;
 use PeanutAdmin\Modules\ImportExport\Infrastructure\Authorization\AdminAsyncAuthorization;
 use PeanutAdmin\Modules\ImportExport\Contract\Dto\CsvExportOperation;
 use PeanutAdmin\Modules\File\Service\Storage\StorageService;
@@ -23,7 +23,7 @@ function expectAsyncTenant(bool $condition, string $message): void
     }
 }
 
-function submitOperationLogExport(ImportExportWorkerRuntime $runtime, callable $guard, AuthorizedOperationContext $context, string $idempotencyKey): object
+function submitOperationLogExport(TaskImportExportRuntime $runtime, callable $guard, AuthorizedOperationContext $context, string $idempotencyKey): object
 {
     $guard();
     return $runtime->commands()->submitCsvExport(
@@ -33,7 +33,7 @@ function submitOperationLogExport(ImportExportWorkerRuntime $runtime, callable $
 }
 
 function runAsyncTenant(
-    ImportExportWorkerRuntime $runtime,
+    TaskImportExportRuntime $runtime,
     callable $guard,
     ExecutionContextStore $contexts,
     int $tenantId,
@@ -46,7 +46,8 @@ function runAsyncTenant(
 }
 
 /**
- * Retained real async assertions for an installed Code application. All contexts
+ * Retained real async assertions against the current concrete qualification adapter.
+ * ImportExportWorkerRuntime itself remains the runTenant-only public contract. All contexts
  * must come from the host's existing authenticated sessions. This body is only
  * usable inside a native protected qualification boundary; the CLI stops below.
  * It never installs Modules, creates identities, replaces secrets or clears DBs.
@@ -61,6 +62,7 @@ function taskImportExportInstalledAssertions(
     int $alphaRoleId,
     array $expectedDatabaseIdentity,
     callable $guard,
+    callable $moduleSelection,
 ): void
 {
     $GLOBALS['taskImportExportChecks'] = 0;
@@ -91,7 +93,7 @@ function taskImportExportInstalledAssertions(
         expectAsyncTenant((int) $query->fetchColumn() === 1, 'host session does not match the installed database');
     }
     $runId = strtolower(bin2hex(random_bytes(6)));
-    $exportPermission = (int) $pdo->query("SELECT id FROM pa_permission WHERE `key`='official.import-export.operation-log.export' AND status='active'")->fetchColumn();
+    $exportPermission = (int) $pdo->query("SELECT id FROM pa_permission WHERE `key`='peanut.import-export.operation-log.export' AND status='active'")->fetchColumn();
     expectAsyncTenant($exportPermission > 0 && $alphaRoleId > 0, 'existing native export Permission and Role are required');
     $grant = $pdo->prepare('SELECT * FROM pa_role_permission WHERE tenant_id=? AND role_id=? AND permission_id=?');
     $grant->execute([$tenantId, $alphaRoleId, $exportPermission]);
@@ -100,18 +102,38 @@ function taskImportExportInstalledAssertions(
     $role = $pdo->prepare("SELECT COUNT(*) FROM pa_member_role mr JOIN pa_role r ON r.id=mr.role_id AND r.tenant_id=mr.tenant_id WHERE mr.tenant_id=? AND mr.tenant_member_id=? AND mr.role_id=? AND r.status='active'");
     $role->execute([$tenantId, $memberId, $alphaRoleId]);
     expectAsyncTenant((int) $role->fetchColumn() === 1, 'export grant Role is not assigned to the installed principal');
-    $modules = $pdo->prepare("SELECT COUNT(*) FROM pa_tenant_module tm JOIN pa_module_installation mi ON mi.module_key=tm.module_key WHERE tm.tenant_id IN (?,?) AND tm.module_key IN ('official.task','official.import-export') AND tm.status='enabled' AND mi.status='active'");
-    $modules->execute([$tenantId, $otherTenantId]);
-    expectAsyncTenant((int) $modules->fetchColumn() === 4, 'existing active Task and Import/Export Modules must be enabled for both Tenants');
+    $moduleStates = $app->make(\PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries::class);
+    foreach ([$tenantId, $otherTenantId] as $selectedTenantId) {
+        foreach (['peanut.task', 'peanut.import-export'] as $moduleKey) {
+            expectAsyncTenant($moduleStates->acceptsNewOperations($selectedTenantId, $moduleKey), 'current license must admit installed Task and Import/Export Modules');
+        }
+    }
+    $assertModuleSelection = static function (string $moduleKey, bool $enabled) use ($app, $moduleStates, $tenantId, $otherTenantId, $grant, $alphaRoleId, $exportPermission, $originalGrant): void {
+        expectAsyncTenant($moduleStates->acceptsNewOperations($tenantId, $moduleKey) === $enabled,
+            'alpha license module availability differs from the intended selection');
+        expectAsyncTenant($moduleStates->acceptsNewOperations($otherTenantId, $moduleKey),
+            'alpha license change affected beta availability');
+        $grant->execute([$tenantId, $alphaRoleId, $exportPermission]);
+        expectAsyncTenant($grant->fetch(PDO::FETCH_ASSOC) === $originalGrant,
+            'license qualification changed the native RBAC grant');
+        $moduleGuard = new \PeanutAdmin\Kernel\Module\ModuleGuard($app->make(\PeanutAdmin\Kernel\Module\ModuleRuntimeRepository::class));
+        if ($enabled) {
+            $moduleGuard->assertTenant($tenantId, $moduleKey, new DateTimeImmutable());
+            return;
+        }
+        try {
+            $moduleGuard->assertTenant($tenantId, $moduleKey, new DateTimeImmutable());
+            throw new RuntimeException('native module stop did not reject alpha');
+        } catch (\PeanutAdmin\Kernel\Module\ModuleException $error) {
+            expectAsyncTenant($error->errorCode === 'MODULE_TENANT_DISABLED', 'module stop failed for a different reason');
+        }
+    };
     $pending = $pdo->prepare("SELECT COUNT(*) FROM pa_task_job WHERE tenant_id IN (?,?) AND status IN ('queued','running')");
     $pending->execute([$tenantId, $otherTenantId]);
     expectAsyncTenant((int) $pending->fetchColumn() === 0, 'existing Tenant work must not be claimed by qualification workers');
     $tenantOriginal = $pdo->prepare('SELECT suspended_at FROM pa_tenant WHERE id=?');
     $tenantOriginal->execute([$tenantId]);
     $originalSuspendedAt = $tenantOriginal->fetchColumn();
-    $moduleOriginal = $pdo->prepare("SELECT module_key,disabled_at FROM pa_tenant_module WHERE tenant_id=? AND module_key IN ('official.task','official.import-export') ORDER BY module_key");
-    $moduleOriginal->execute([$tenantId]);
-    $originalDisabledAt = $moduleOriginal->fetchAll(PDO::FETCH_KEY_PAIR);
     // Reject unsuitable existing principals before the first qualification write.
     // Native principal roles are active memberships; native export authorization
     // also verifies the current session and effective Module/Permission state.
@@ -166,7 +188,7 @@ function taskImportExportInstalledAssertions(
         expectAsyncTenant($exception->getMessage() === 'ASYNC_EXPORT_PERMISSION_DENIED', 'native permission denial shape changed');
     }
 
-    $revalidator = new AdminAsyncAuthorization($authorization);
+    $revalidator = $app->make(AdminAsyncAuthorization::class);
     $validEnvelope = new VerifiedJobEnvelope(
         $tenantId,
         $accountId,
@@ -193,24 +215,30 @@ function taskImportExportInstalledAssertions(
         }
     }
 
-    $runtime = $app->make(ImportExportWorkerRuntime::class);
+    $runtime = $app->make(TaskImportExportRuntime::class);
     $executionContexts = $app->make(ExecutionContextStore::class);
     expectAsyncTenant($executionContexts->isEmpty(), 'worker execution context was not initially empty');
     $taskDisabled = submitOperationLogExport($runtime, $guard, $alpha, 'task-disabled-' . $runId);
     $guard();
-    $write("UPDATE pa_tenant_module SET status = 'disabled', disabled_at = UTC_TIMESTAMP(3) WHERE tenant_id = {$tenantId} AND module_key = 'official.task'");
+    $moduleSelection('peanut.task', false);
+    $assertModuleSelection('peanut.task', false);
     expectAsyncTenant(runAsyncTenant($runtime, $guard, $executionContexts, $tenantId, 'installed-task-disabled-' . $runId) === 1, 'disabled Task Module job was not examined');
-    expectAsyncTenant($pdo->query("SELECT status FROM pa_task_job WHERE job_key = " . $pdo->quote((string) $taskDisabled->taskJobKey))->fetchColumn() === 'dead', 'disabled Task Module executed');
+    expectAsyncTenant($pdo->query("SELECT CONCAT(status,':',last_error_code) FROM pa_task_job WHERE job_key = " . $pdo->quote((string) $taskDisabled->taskJobKey))->fetchColumn() === 'dead:TASK_PERMISSION_DENIED', 'Task module revocation did not fail at the native signed authorization fence');
     $guard();
-    $write("UPDATE pa_tenant_module SET status='enabled', disabled_at=? WHERE tenant_id=? AND module_key='official.task'", [$originalDisabledAt['official.task'], $tenantId]);
+    [$alphaTenant, $auditFailureTenant] = $moduleSelection('peanut.task', true);
+    $assertModuleSelection('peanut.task', true);
+    $alpha = $authorization->authorizedAsyncExport($alphaTenant, $authorization->principal($alphaTenant));
 
     $importExportDisabled = submitOperationLogExport($runtime, $guard, $alpha, 'import-export-disabled-' . $runId);
     $guard();
-    $write("UPDATE pa_tenant_module SET status = 'disabled', disabled_at = UTC_TIMESTAMP(3) WHERE tenant_id = {$tenantId} AND module_key = 'official.import-export'");
+    $moduleSelection('peanut.import-export', false);
+    $assertModuleSelection('peanut.import-export', false);
     expectAsyncTenant(runAsyncTenant($runtime, $guard, $executionContexts, $tenantId, 'installed-import-export-disabled-' . $runId) === 1, 'disabled Import/Export Module job was not examined');
-    expectAsyncTenant($pdo->query("SELECT status FROM pa_task_job WHERE job_key = " . $pdo->quote((string) $importExportDisabled->taskJobKey))->fetchColumn() === 'dead', 'disabled Import/Export Module executed');
+    expectAsyncTenant($pdo->query("SELECT CONCAT(status,':',last_error_code) FROM pa_task_job WHERE job_key = " . $pdo->quote((string) $importExportDisabled->taskJobKey))->fetchColumn() === 'dead:TASK_PERMISSION_DENIED', 'Import/Export module revocation did not fail at the native signed authorization fence');
     $guard();
-    $write("UPDATE pa_tenant_module SET status='enabled', disabled_at=? WHERE tenant_id=? AND module_key='official.import-export'", [$originalDisabledAt['official.import-export'], $tenantId]);
+    [$alphaTenant, $auditFailureTenant] = $moduleSelection('peanut.import-export', true);
+    $assertModuleSelection('peanut.import-export', true);
+    $alpha = $authorization->authorizedAsyncExport($alphaTenant, $authorization->principal($alphaTenant));
 
     $operationCountBeforeIdempotency = (int) $pdo->query('SELECT COUNT(*) FROM pa_import_export_operation')->fetchColumn();
     $jobCountBeforeIdempotency = (int) $pdo->query('SELECT COUNT(*) FROM pa_task_job')->fetchColumn();
