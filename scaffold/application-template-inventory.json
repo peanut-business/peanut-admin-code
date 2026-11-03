@@ -710,7 +710,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0a863116c8b6ebe1a4b8f3f9543f6df2cd596067a2bf6774fbd8e53131a4d71f"
+            "source_sha256": "bf0aba5205d799fa1e8c8ea72875fd35748736fdce5a1367287c46674f724e35"
         },
         {
             "path": "docs/architecture/overview.md",
@@ -3499,7 +3499,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1da73b37e3bb535f01b9436742675abce24974fe4c5de1c0e07035b0ed75f4bc"
+            "source_sha256": "73ccdae2fc80ac790afbc5e45a6fb579d8bb2a794e0d3f60b98f56448bf5b0b4"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
