@@ -83,7 +83,7 @@ fixtureHttpExpect($disabledCommands->calls === 1, 'system actor reached the Modu
 fixtureHttpExpect($contexts->isEmpty(), 'system actor refusal leaked execution context');
 
 $routeSource = (string) file_get_contents(dirname(__DIR__, 2)
-    . '/app/modules/fixture/delivery_record/route/app.php');
+    . '/fixtures/modules/delivery_record/route/app.php');
 $routeBootstrap = (string) file_get_contents(dirname(__DIR__, 2)
     . '/route/fixture_delivery_record.php');
 fixtureHttpExpect(

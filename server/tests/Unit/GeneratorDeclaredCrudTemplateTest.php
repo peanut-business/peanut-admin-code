@@ -5,14 +5,28 @@ declare(strict_types=1);
 namespace tests\Unit;
 
 use app\adminapi\services\generator\GeneratorRenderService;
+use Tests\Support\GeneratorFixtureApplication;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
 final class GeneratorDeclaredCrudTemplateTest extends TestCase
 {
+    private GeneratorFixtureApplication $fixtureApplication;
+
+    protected function setUp(): void
+    {
+        require_once dirname(__DIR__) . '/Support/GeneratorFixtureApplication.php';
+        $this->fixtureApplication = new GeneratorFixtureApplication();
+    }
+
+    protected function tearDown(): void
+    {
+        unset($this->fixtureApplication);
+    }
+
     public function testGeneratedCrudUsesRegisteredModuleAndCompleteAssemblyContracts(): void
     {
-        $files = GeneratorRenderService::render(self::definition());
+        $files = GeneratorRenderService::render(self::definition(), $this->fixtureApplication->root);
         $byPath = array_column($files, null, 'path');
 
         $backend = 'server/app/modules/fixture/delivery_record';
@@ -96,7 +110,7 @@ final class GeneratorDeclaredCrudTemplateTest extends TestCase
         $definition = self::definition();
         $definition['module_name'] = 'not-registered';
         try {
-            GeneratorRenderService::render($definition);
+            GeneratorRenderService::render($definition, $this->fixtureApplication->root);
             self::fail('An unregistered target Module must be rejected.');
         } catch (RuntimeException $exception) {
             self::assertStringContainsString('目标模块未登记', $exception->getMessage());
@@ -106,7 +120,7 @@ final class GeneratorDeclaredCrudTemplateTest extends TestCase
         $definition['columns'][1]['is_pk'] = true;
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('不支持复合主键');
-        GeneratorRenderService::render($definition);
+        GeneratorRenderService::render($definition, $this->fixtureApplication->root);
     }
 
     public function testRelationOutputRequiresExplicitSafeSummaryFields(): void
@@ -124,7 +138,7 @@ final class GeneratorDeclaredCrudTemplateTest extends TestCase
             'summary_fields' => ['uuid', 'display_name'],
             'summary_types' => ['uuid' => 'string', 'display_name' => 'string'],
         ]];
-        $files = array_column(GeneratorRenderService::render($definition), 'content', 'path');
+        $files = array_column(GeneratorRenderService::render($definition, $this->fixtureApplication->root), 'content', 'path');
         $service = $files['server/app/modules/fixture/delivery_record/src/Service/GeneratedNoteService.php'];
         self::assertStringContainsString("'owner' =>", $service);
         self::assertStringContainsString("'display_name'", $service);
@@ -136,7 +150,7 @@ final class GeneratorDeclaredCrudTemplateTest extends TestCase
         $definition['relations'][0]['summary_fields'][] = 'api_secret';
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('关联摘要不能公开');
-        GeneratorRenderService::render($definition);
+        GeneratorRenderService::render($definition, $this->fixtureApplication->root);
     }
 
     public function testCrossModuleOrmRelationIsRejectedInFavourOfPublicQueryContract(): void
@@ -157,7 +171,7 @@ final class GeneratorDeclaredCrudTemplateTest extends TestCase
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('不允许跨模块 ORM 关联；请使用目标模块公开 query 合同');
-        GeneratorRenderService::render($definition);
+        GeneratorRenderService::render($definition, $this->fixtureApplication->root);
     }
 
     public function testDefaultIntegerIdContractRemainsExplicit(): void
@@ -168,7 +182,7 @@ final class GeneratorDeclaredCrudTemplateTest extends TestCase
         $definition['columns'][0] = [
             'column_name' => 'id', 'php_type' => 'int', 'is_pk' => true, 'is_required' => true, 'is_lists' => true,
         ];
-        $files = array_column(GeneratorRenderService::render($definition), 'content', 'path');
+        $files = array_column(GeneratorRenderService::render($definition, $this->fixtureApplication->root), 'content', 'path');
         $controller = $files['server/app/modules/fixture/delivery_record/src/Controller/GeneratedIntegerNoteController.php'];
         self::assertStringContainsString("CRUD_PRIMARY_KEY = 'id'", $controller);
         self::assertStringContainsString("CRUD_PRIMARY_KEY_TYPE = 'int'", $controller);

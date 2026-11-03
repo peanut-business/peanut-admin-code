@@ -77,10 +77,10 @@ final class FileTaskInputBoundaryTest extends TestCase
     public function testSchedulesOnlyAcceptCommandsThatTheWorkerCanExecute(): void
     {
         $commands = new CrontabCommandService(
-            ['crontab:demo' => \stdClass::class, 'module:compile' => \stdClass::class],
-            ['crontab:demo' => 'peanut.task'],
+            ['refund:reconcile' => \stdClass::class, 'module:compile' => \stdClass::class],
+            ['refund:reconcile' => 'peanut.payment'],
         );
-        $input = ['name' => 'Boundary check', 'type' => 1, 'command' => 'crontab:demo',
+        $input = ['name' => 'Boundary check', 'type' => 1, 'command' => 'refund:reconcile',
             'status' => 2, 'expression' => '* * * * *'];
         self::assertTrue((new CrontabValidate($commands))->scene('add')->check($input));
         foreach (['module:compile', 'crontab', 'unknown'] as $command) {
@@ -130,7 +130,7 @@ final class FileTaskInputBoundaryTest extends TestCase
                     }
                     protected function configure()
                     {
-                        $this->setName('crontab:demo');
+                        $this->setName('refund:reconcile');
                         $this->addArgument('command', \think\console\input\Argument::REQUIRED);
                     }
                     protected function execute(\think\console\Input $input, \think\console\Output $output)
@@ -144,10 +144,10 @@ final class FileTaskInputBoundaryTest extends TestCase
         $bindings = (new \PeanutAdmin\Modules\Task\ModuleProvider())->bindings();
         $runtime = $bindings[\PeanutAdmin\Modules\Task\Contract\TaskJobRuntime::class]($app);
         $dispatch = (new \ReflectionProperty($runtime, 'dispatch'))->getValue($runtime);
-        self::assertInstanceOf(\think\console\Output::class, $dispatch('crontab:demo'));
+        self::assertInstanceOf(\think\console\Output::class, $dispatch('refund:reconcile'));
         $console->exitCode = 1;
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('CRONTAB_COMMAND_FAILED');
-        $dispatch('crontab:demo');
+        $dispatch('refund:reconcile');
     }
 }

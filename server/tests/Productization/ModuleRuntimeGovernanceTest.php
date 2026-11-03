@@ -54,8 +54,8 @@ function moduleGovernanceRemoveTree(string $path): void
 
 function moduleGovernanceProject(string $sourceRoot, string $targetRoot): void
 {
-    moduleGovernanceCopyTree($sourceRoot . '/server/app/modules/fixture/delivery_record', $targetRoot . '/server/app/modules/fixture/delivery_record');
-    moduleGovernanceCopyTree($sourceRoot . '/web/src/modules/fixture-delivery-record', $targetRoot . '/web/src/modules/fixture-delivery-record');
+    moduleGovernanceCopyTree($sourceRoot . '/server/fixtures/modules/delivery_record', $targetRoot . '/server/app/modules/fixture/delivery_record');
+    moduleGovernanceCopyTree($sourceRoot . '/web/tests/fixtures/modules/fixture-delivery-record', $targetRoot . '/web/src/modules/fixture-delivery-record');
     if (!is_dir($targetRoot . '/server/resources/schemas')) {
         mkdir($targetRoot . '/server/resources/schemas', 0777, true);
     }

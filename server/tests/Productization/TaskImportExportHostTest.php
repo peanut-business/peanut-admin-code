@@ -23,6 +23,7 @@ use think\facade\Db;
 
 require dirname(__DIR__, 2) . '/bootstrap/environment.php';
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once dirname(__DIR__) . '/Support/ScheduledCommandFixture.php';
 
 function expectTaskHost(bool $condition, string $message): void
 {
@@ -58,6 +59,7 @@ set_exception_handler('failTaskHost');
 if (in_array('--verify-failure-propagation', $_SERVER['argv'] ?? [], true)) {
     throw new RuntimeException('TASK_IMPORT_EXPORT_CONTROLLED_FAILURE');
 }
+\Tests\Support\ScheduledCommandFixture::register($app);
 $app->config->set(['mode' => 'multi-tenant'], 'deployment');
 $app->config->set(['signing_key' => hash('sha256', 'PB04-TASK-OPS-HOST-001')], 'async');
 putenv('DEPLOYMENT_MODE=multi-tenant');
@@ -141,7 +143,7 @@ try {
             fn() => app(CrontabApplicationService::class)->add([
                 'name' => $taskName,
                 'type' => 1,
-                'command' => 'crontab:demo',
+                'command' => 'refund:reconcile',
                 'params' => '',
                 'status' => CrontabEnum::START,
                 'expression' => '* * * * *',
@@ -201,7 +203,7 @@ try {
 
     app(ExecutionContextStore::class)->run(
         new \app\common\execution\AdminExecutionContext($context, 'test.task-import-export.crontab.seed-retry'),
-        fn() => Db::name('crontab')->where('id', $taskId)->update(['command' => 'crontab:demo']),
+        fn() => Db::name('crontab')->where('id', $taskId)->update(['command' => 'refund:reconcile']),
     );
     expectTaskHost(
         app(ExecutionContextStore::class)->run(
@@ -235,7 +237,7 @@ try {
         fn() => app(XlsxExportService::class)->create(
             'PB04-task-export-' . $suffix,
             ['任务', '次数', '公式文本'],
-            [['crontab:demo', 2, '=1+1']],
+            [['refund:reconcile', 2, '=1+1']],
         ),
     );
     $exportFileKey = (string) ($file['file_key'] ?? '');
@@ -246,7 +248,7 @@ try {
     expectTaskHost($zip->open($exportPath) === true, 'XLSX export is not a readable ZIP');
     $sheet = $zip->getFromName('xl/worksheets/sheet1.xml');
     expectTaskHost(is_string($sheet), 'XLSX worksheet is missing');
-    expectTaskHost(str_contains($sheet, 'crontab:demo'), 'XLSX text cell is missing');
+    expectTaskHost(str_contains($sheet, 'refund:reconcile'), 'XLSX text cell is missing');
     expectTaskHost(str_contains($sheet, '<v>2</v>'), 'XLSX numeric cell is missing');
     expectTaskHost(str_contains($sheet, '=1+1'), 'formula-shaped input must remain inline text');
     $zip->close();

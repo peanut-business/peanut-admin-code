@@ -111,11 +111,11 @@ final class ModuleAuthoringBootstrapTest extends TestCase
         }
         $this->copyTree($this->repositoryRoot . '/server/config', $server . '/config');
         $this->copyTree(
-            $this->repositoryRoot . '/server/app/modules/fixture/delivery_record',
+            $this->repositoryRoot . '/server/fixtures/modules/delivery_record',
             $server . '/app/modules/fixture/delivery_record',
         );
         $this->copyTree(
-            $this->repositoryRoot . '/web/src/modules/fixture-delivery-record',
+            $this->repositoryRoot . '/web/tests/fixtures/modules/fixture-delivery-record',
             $this->fixtureRoot . '/web/src/modules/fixture-delivery-record',
         );
         $this->copyTree(

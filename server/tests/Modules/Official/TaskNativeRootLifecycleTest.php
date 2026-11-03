@@ -22,6 +22,7 @@ require_once dirname(__DIR__, 3) . '/vendor/autoload.php';
 require_once dirname(__DIR__, 3) . '/database/install.php';
 require_once dirname(__DIR__, 2) . '/Support/RegisteredMysqlTestResource.php';
 require_once dirname(__DIR__, 2) . '/Support/ThinkPhpTestConnection.php';
+require_once dirname(__DIR__, 2) . '/Support/ScheduledCommandFixture.php';
 
 $assertions = 0;
 function documentExpect(bool $condition, string $message): void
@@ -56,7 +57,7 @@ function documentProjection(string $text, ?string $fileKey = null): array
     return ['schemaVersion' => RichTextProjection::SCHEMA,'editorModel' => 'tiptap-prosemirror','content' => ['type' => 'doc','content' => $nodes],'annotations' => []];
 }
 
-final class PreparedNativeCrontabProbe extends \app\command\CrontabDemo
+final class PreparedNativeCrontabProbe extends \Tests\Support\ScheduledCommandFixture
 {
     protected function handle(\think\console\Input $input, \think\console\Output $output): int
     {
@@ -144,9 +145,7 @@ try {
         return $stack->run(new AdminExecutionContext($context, 'prepared.document', $app->make(\app\common\contract\authorization\AdminAuthorizationQuery::class)->principal($context)->toArray()), $call);
     };
 
-    $commandsConfig = $app->config->get('console.commands');
-    $commandsConfig['crontab:demo'] = PreparedNativeCrontabProbe::class;
-    $app->config->set(['commands' => $commandsConfig] + $app->config->get('console'), 'console');
+    \Tests\Support\ScheduledCommandFixture::register($app, PreparedNativeCrontabProbe::class);
     $app->config->set(['signing_key' => bin2hex(random_bytes(32)),'worker_limit' => 25], 'async');
     $runtime = $app->make(\PeanutAdmin\Modules\Task\Contract\TaskJobRuntime::class);
     $scheduler = $app->make(\PeanutAdmin\Modules\Task\Contract\TaskScheduler::class);
@@ -159,7 +158,7 @@ try {
     $pdo->exec('DELETE FROM pa_crontab');
     $ids = [];
     foreach ([$tenant,$beta->tenantId] as $tid) {
-        $q = $pdo->prepare("INSERT INTO pa_crontab(tenant_id,name,type,command,params,status,expression,last_time,create_time,update_time) VALUES(?,'Prepared Native CLI',1,'crontab:demo','',1,'* * * * *',?,?,?)");
+        $q = $pdo->prepare("INSERT INTO pa_crontab(tenant_id,name,type,command,params,status,expression,last_time,create_time,update_time) VALUES(?,'Prepared Native CLI',1,'refund:reconcile','',1,'* * * * *',?,?,?)");
         $q->execute([$tid,time() - 60,time(),time()]);
         $ids[$tid] = (int) $pdo->lastInsertId();
     }

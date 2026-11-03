@@ -31,8 +31,7 @@ $refund = (string) file_get_contents($serverRoot . '/app/command/RefundReconcile
 $refundService = (string) file_get_contents(
     $serverRoot . '/app/modules/official/payment/src/Infrastructure/ThinkPhpRefundReconciliationCommands.php',
 );
-$demo = (string) file_get_contents($serverRoot . '/app/command/CrontabDemo.php');
-expectTenantDiagnostics($refund !== '' && $demo !== '', 'Tenant-aware command source is unavailable');
+expectTenantDiagnostics($refund !== '', 'Tenant-aware refund command source is unavailable');
 
 $refundRequire = strpos($refund, 'ScheduledTenantContext::require()');
 $refundAttributes = strpos($refund, 'PaymentTenantDiagnostics::fromScope($scope)');
@@ -65,20 +64,6 @@ expectTenantDiagnostics(
     !str_contains($refundService, "'receipt' =>") && !str_contains($refundService, "'token' =>")
         && !str_contains($refundService, "'password' =>") && !str_contains($refundService, "'secret' =>"),
     'refund diagnostic attributes contain prohibited sensitive fields',
-);
-
-$demoRequire = strpos($demo, 'ScheduledTenantContext::require()');
-$demoAttributes = strpos($demo, 'TenantDiagnosticAttributes::fromScope($scope)');
-$demoLog = strpos($demo, 'Log::info($msg, $diagnostics)');
-expectTenantDiagnostics(
-    $demoRequire !== false && $demoAttributes !== false && $demoLog !== false
-        && $demoRequire < $demoAttributes && $demoAttributes < $demoLog,
-    'demo command lost fail-closed structured Tenant attribution',
-);
-expectTenantDiagnostics(
-    str_contains($demo, "'[crontab:demo] tenant_id=%d executed at %s'")
-        && str_contains($demo, '$output->writeln($msg)'),
-    'demo command output compatibility changed',
 );
 
 echo "MT03-TENANT-DIAGNOSTICS-ATTRIBUTION-001 passed\n";

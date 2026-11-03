@@ -107,8 +107,8 @@ $application->config->set(['mode' => 'multi-tenant'], 'deployment');
 try {
     // A real private Module namespace participates in the deployment lock; fixture.* is intentionally excluded.
     $authorRoot = $temporary . '/author';
-    modulePackageCopyTree($projectRoot . '/server/app/modules/fixture/delivery_record', $authorRoot . '/server/app/modules/acme/delivery_record');
-    modulePackageCopyTree($projectRoot . '/web/src/modules/fixture-delivery-record', $authorRoot . '/web/src/modules/acme-delivery-record');
+    modulePackageCopyTree($projectRoot . '/server/fixtures/modules/delivery_record', $authorRoot . '/server/app/modules/acme/delivery_record');
+    modulePackageCopyTree($projectRoot . '/web/tests/fixtures/modules/fixture-delivery-record', $authorRoot . '/web/src/modules/acme-delivery-record');
     $fromNamespace = implode(chr(92), ['PeanutAdmin', 'Fixtures', 'DeliveryRecord']);
     $toNamespace = implode(chr(92), ['Acme', 'Modules', 'DeliveryRecord']);
     modulePackageRewriteTree($authorRoot, [

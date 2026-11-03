@@ -178,10 +178,10 @@ $targetFrontend = $releaseRoot . '/web/src/modules/fixture-delivery-record';
 mkdir($temporary, 0700, true);
 try {
     foreach ([
-        [$sourceRoot . '/server/app/modules/fixture/delivery_record', $currentModule],
-        [$sourceRoot . '/web/src/modules/fixture-delivery-record', $currentFrontend],
-        [$sourceRoot . '/server/app/modules/fixture/delivery_record', $targetModule],
-        [$sourceRoot . '/web/src/modules/fixture-delivery-record', $targetFrontend],
+        [$sourceRoot . '/server/fixtures/modules/delivery_record', $currentModule],
+        [$sourceRoot . '/web/tests/fixtures/modules/fixture-delivery-record', $currentFrontend],
+        [$sourceRoot . '/server/fixtures/modules/delivery_record', $targetModule],
+        [$sourceRoot . '/web/tests/fixtures/modules/fixture-delivery-record', $targetFrontend],
     ] as [$source, $target]) {
         upgradeTargetCopyTree($source, $target);
     }
@@ -399,7 +399,7 @@ CREATE TABLE pa_plugin_module (
 );
 SQL);
     $currentManifest = (new ManifestLoader())->load(
-        $sourceRoot . '/server/app/modules/fixture/delivery_record',
+        $sourceRoot . '/server/fixtures/modules/delivery_record',
     );
     $statement = $pdo->prepare(
         'INSERT INTO pa_module_installation '

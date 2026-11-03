@@ -23,11 +23,11 @@ use PeanutAdmin\Modules\Article\Contract\ArticleQueries;
 use think\App;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
-require dirname(__DIR__, 2) . '/app/modules/fixture/delivery_record/src/Contract/DeliveryRecordCommands.php';
-require dirname(__DIR__, 2) . '/app/modules/fixture/delivery_record/src/Service/DeliveryRecordAccess.php';
-require dirname(__DIR__, 2) . '/app/modules/fixture/delivery_record/src/Infrastructure/Authorization/ThinkPhpDeliveryRecordAccess.php';
-require dirname(__DIR__, 2) . '/app/modules/fixture/delivery_record/src/Service/DeliveryRecordService.php';
-require dirname(__DIR__, 2) . '/app/modules/fixture/delivery_record/src/ModuleProvider.php';
+require dirname(__DIR__, 2) . '/fixtures/modules/delivery_record/src/Contract/DeliveryRecordCommands.php';
+require dirname(__DIR__, 2) . '/fixtures/modules/delivery_record/src/Service/DeliveryRecordAccess.php';
+require dirname(__DIR__, 2) . '/fixtures/modules/delivery_record/src/Infrastructure/Authorization/ThinkPhpDeliveryRecordAccess.php';
+require dirname(__DIR__, 2) . '/fixtures/modules/delivery_record/src/Service/DeliveryRecordService.php';
+require dirname(__DIR__, 2) . '/fixtures/modules/delivery_record/src/ModuleProvider.php';
 
 interface ModuleModuleAutowireContract {}
 
@@ -149,7 +149,7 @@ function pluginModuleContractMakeOfficial(App $app, string $abstract, string $co
 }
 
 $serverRoot = dirname(__DIR__, 2);
-$moduleRoot = $serverRoot . '/app/modules/fixture/delivery_record';
+$moduleRoot = $serverRoot . '/fixtures/modules/delivery_record';
 $officialModuleRoots = glob($serverRoot . '/app/modules/official/*', GLOB_ONLYDIR) ?: [];
 sort($officialModuleRoots, SORT_STRING);
 $moduleRoots = [$moduleRoot, ...$officialModuleRoots];

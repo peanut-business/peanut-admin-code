@@ -461,7 +461,9 @@ $generatorDefinition = [
         ['column_name' => 'title', 'php_type' => 'string', 'is_required' => true, 'is_insert' => true, 'is_update' => true],
     ],
 ];
-$generatedFiles = GeneratorRenderService::render($generatorDefinition);
+require_once dirname(__DIR__) . '/Support/GeneratorFixtureApplication.php';
+$generatorFixture = new \Tests\Support\GeneratorFixtureApplication();
+$generatedFiles = GeneratorRenderService::render($generatorDefinition, $generatorFixture->root);
 $assertGeneratedServiceOutput = static function (array $files): void {
     $backend = 'server/app/modules/fixture/delivery_record';
     $frontend = 'web/src/modules/fixture-delivery-record';
@@ -542,7 +544,7 @@ foreach (['module.json', 'resources/permissions.json', 'route/app.php'] as $miss
     }
 }
 try {
-    GeneratorRenderService::render(array_replace($generatorDefinition, ['module_name' => 'demo']));
+    GeneratorRenderService::render(array_replace($generatorDefinition, ['module_name' => 'demo']), $generatorFixture->root);
     throw new RuntimeException('unregistered Module was accepted');
 } catch (RuntimeException $exception) {
     expectTpq51(str_contains($exception->getMessage(), '目标模块未登记'), 'generator did not reject the unregistered Module');

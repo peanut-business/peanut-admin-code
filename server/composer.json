@@ -156,8 +156,7 @@
             "PeanutAdmin\\Modules\\Ops\\": "app/modules/peanut/ops/src/",
             "PeanutAdmin\\Modules\\ReferenceCodes\\": "app/modules/peanut/reference_codes/src/",
             "PeanutAdmin\\Modules\\Settings\\": "app/modules/peanut/settings/src/",
-            "PeanutAdmin\\Modules\\Task\\": "app/modules/peanut/task/src/",
-            "PeanutAdmin\\Fixtures\\DeliveryRecord\\": "app/modules/fixture/delivery_record/src/"
+            "PeanutAdmin\\Modules\\Task\\": "app/modules/peanut/task/src/"
         },
         "exclude-from-classmap": [
             "app/modules/*/*/database/migrations/",
@@ -176,6 +175,8 @@
     },
     "autoload-dev": {
         "psr-4": {
+            "PeanutAdmin\\Fixtures\\DeliveryRecord\\": "fixtures/modules/delivery_record/src/",
+            "PeanutAdmin\\Fixtures\\WorkflowBusiness\\": "fixtures/modules/workflow_business/src/",
             "PeanutAdmin\\Testing\\": [
                 "tests/CoreIntegration/testing/src/",
                 "vendor/peanut-admin/core/testing/src/"

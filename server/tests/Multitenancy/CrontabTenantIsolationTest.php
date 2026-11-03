@@ -19,6 +19,7 @@ use PeanutAdmin\Kernel\Tenancy\TenantScope;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
+require_once __DIR__ . '/../Support/ScheduledCommandFixture.php';
 
 function expectCrontabTenant(bool $condition, string $message): void
 {
@@ -136,13 +137,14 @@ SQL);
 IsolatedBackendEnvironment::activateDatabase($host, $port, $database, $user, $password, 'multi-tenant');
 $app = new think\App($serverRoot);
 $app->initialize();
+\Tests\Support\ScheduledCommandFixture::register($app);
 $alpha = crontabTenantContext(101, 1001, 501, 'crontab-alpha-' . $runId);
 $beta = crontabTenantContext(202, 1002, 502, 'crontab-beta-' . $runId);
 $task = [
     'tenant_id' => 999,
     'name' => 'Same task',
     'type' => 1,
-    'command' => 'crontab:demo',
+    'command' => 'refund:reconcile',
     'params' => '',
     'status' => CrontabEnum::START,
     'expression' => '* * * * *',

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace tests\Unit\GeneratorRuntimeAssembly;
 
 use app\adminapi\services\generator\GeneratorRenderService;
+use Tests\Support\GeneratorFixtureApplication;
 use app\common\contract\authorization\AdminAuthorizationQuery;
 use app\common\exception\BusinessException;
 use app\common\execution\AdminExecutionContext;
@@ -32,6 +33,8 @@ final class GeneratorRuntimeAssemblyTest extends TestCase
         $this->previousContainer = Container::getInstance();
         $this->temporary = sys_get_temp_dir() . '/peanut-generated-runtime-' . bin2hex(random_bytes(8));
         self::assertTrue(mkdir($this->temporary, 0775, true));
+        require_once dirname(__DIR__) . '/Support/GeneratorFixtureApplication.php';
+        new GeneratorFixtureApplication($this->temporary);
     }
 
     protected function tearDown(): void
@@ -42,7 +45,7 @@ final class GeneratorRuntimeAssemblyTest extends TestCase
 
     public function testGeneratedModuleLoadsThroughContainerAndDispatchesTypedCrudResponse(): void
     {
-        $files = GeneratorRenderService::render(self::definition());
+        $files = GeneratorRenderService::render(self::definition(), $this->temporary);
         $byPath = array_column($files, null, 'path');
         foreach ($files as $file) {
             $path = $this->temporary . '/' . $file['path'];
@@ -206,7 +209,7 @@ final class GeneratorRuntimeAssemblyTest extends TestCase
 
     public function testExplicitSoftDeleteRoutesDispatchTypedPurgeThroughContainer(): void
     {
-        $files = GeneratorRenderService::render(self::softDeleteDefinition());
+        $files = GeneratorRenderService::render(self::softDeleteDefinition(), $this->temporary);
         foreach ($files as $file) {
             $path = $this->temporary . '/' . $file['path'];
             self::assertTrue(is_dir(dirname($path)) || mkdir(dirname($path), 0775, true));
