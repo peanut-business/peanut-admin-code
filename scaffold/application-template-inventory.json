@@ -7822,7 +7822,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0e491829a19b57683d55227f557e5a59b725964b64be7aee6a8cf0298bc26dc2"
+            "source_sha256": "304770174e7937019edb8b540c482c60c30aee4cdbee9b71490f5d18d04c498b"
         },
         {
             "path": "server/app/common/module/ModuleSeedRun.php",
@@ -18528,6 +18528,20 @@
                 "full"
             ],
             "source_sha256": "e664dfae0c589d47ac2c3d8cc54396fe5c04d1c07eff36db2c8fea0898fae28a"
+        },
+        {
+            "path": "server/database/migrations/20261103235500_remove_unchanged_host_examples.php",
+            "target": "server/database/migrations/20261103235500_remove_unchanged_host_examples.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "1988322696eccd88658be75d1e4638d1d3b6c57fc496da42eeedb4705a35f0d6"
         },
         {
             "path": "server/database/resource-registry.php",
