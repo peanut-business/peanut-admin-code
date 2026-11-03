@@ -423,8 +423,7 @@ final class ApplicationCreator
             || ($release['workflow'] ?? null) !== $workflow) {
             throw new RuntimeException('CREATE_APP_CANDIDATE_IDENTITY_INVALID');
         }
-        foreach (['build_scaffold_release' => 'scripts/build-scaffold-release',
-            'build_internal_edition_candidate' => 'scripts/build-internal-edition-candidate'] as $key => $path) {
+        foreach (['build_scaffold_release' => 'scripts/build-scaffold-release'] as $key => $path) {
             if (($projection['build_tools_sha256'][$key] ?? null) !== hash_file('sha256', $this->sourceRoot . '/' . $path)) {
                 throw new RuntimeException('CREATE_APP_CANDIDATE_TOOL_CHANGED');
             }
@@ -432,12 +431,22 @@ final class ApplicationCreator
         $core = $projection['core'] ?? null;
         $version = $core['resolved_version'] ?? null;
         $phpPath = 'packages/core-php/peanut-admin-core-' . $version . '.zip';
+        $localPhp = $core['source_identity'] ?? null;
+        $localWeb = $projection['core_web_source_identity'] ?? null;
+        $localCoreIdentity = is_array($localPhp) && is_array($localWeb)
+            && ScaffoldSourceIdentity::validate($localPhp)['kind'] === 'local'
+            && ScaffoldSourceIdentity::validate($localWeb)['kind'] === 'local'
+            && !array_key_exists('source_reference', $core)
+            && !array_key_exists('web_source_reference', $projection);
+        $gitCoreIdentity = is_array($core) && !array_key_exists('source_identity', $core)
+            && !array_key_exists('core_web_source_identity', $projection)
+            && preg_match('/^[a-f0-9]{40}$/D', (string) ($core['source_reference'] ?? '')) === 1
+            && preg_match('/^[a-f0-9]{40}$/D', (string) ($projection['web_source_reference'] ?? '')) === 1;
         if (!is_array($core) || ($core['package'] ?? null) !== 'peanut-admin/core'
             || !ReleaseDependencyIdentity::fixed($version)
             || ($core['archive_path'] ?? null) !== $phpPath
-            || preg_match('/^[a-f0-9]{40}$/D', (string) ($core['source_reference'] ?? '')) !== 1
-            || preg_match('/^[a-f0-9]{64}$/D', (string) ($core['archive_sha256'] ?? '')) !== 1
-            || preg_match('/^[a-f0-9]{40}$/D', (string) ($projection['web_source_reference'] ?? '')) !== 1) {
+            || (!$localCoreIdentity && !$gitCoreIdentity)
+            || preg_match('/^[a-f0-9]{64}$/D', (string) ($core['archive_sha256'] ?? '')) !== 1) {
             throw new RuntimeException('CREATE_APP_CANDIDATE_CORE_INVALID');
         }
         $archives = [$phpPath => $core['archive_sha256']];
