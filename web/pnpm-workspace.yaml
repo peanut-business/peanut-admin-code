@@ -1,5 +1,4 @@
 packages:
-  - "src/modules/peanut-chart"
   - "src/modules/peanut-integration"
   - "src/modules/peanut-reference-codes"
   - "src/modules/peanut-settings"
