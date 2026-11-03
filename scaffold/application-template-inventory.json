@@ -1052,7 +1052,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "49cb1f4539b8bbf5d59d1f1e63a2c53088df96fae905e327fa0e480f770d5f6a"
+            "source_sha256": "24c393a0af11319313f98cae64e0432c16c382e5150bb92d8d4035d36c280010"
         },
         {
             "path": "docs/public/release-channels.md",
@@ -1094,7 +1094,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "11c7188d157405e635d2989957090b9e204d2407b47a91bb3f421207fb07cf3f"
+            "source_sha256": "f9602c06f4ba1188c236f07dbd0d2d970a56387bef60c61a0f6165f49d1e8738"
         },
         {
             "path": "pc/.env.example",
@@ -2627,7 +2627,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "50fa777159a712efabb72d25d23f05804afd7a593131a88bf505d36b9d71de01"
+            "source_sha256": "63e5c597a5f46e103f470bd07e4d915ed12b1e23e8a10c823e76e2483da211ab"
         },
         {
             "path": "scripts/ci-change-classifier",
@@ -3459,7 +3459,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9fd62728b9a3959e86068dc85bebd2373736e891684cb1f2457213e2136f6dba"
+            "source_sha256": "9564c49c5c5ea3799b7c34ae625e2fa226f48d9befc644052bef56a18ee3fe0c"
         },
         {
             "path": "scripts/scaffold-upgrade",
@@ -5116,7 +5116,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "35203361bebc266be4d8a28f8035aec5532a897afd9dcc1b1a6dae18ebc46169"
+            "source_sha256": "368c7511a1149ad3acf3170eb66c3782ff12ecf922d8938fafcf8b0851ce4888"
         },
         {
             "path": "server/app/adminapi/services/generator/GeneratorService.php",
@@ -5621,20 +5621,6 @@
                 "full"
             ],
             "source_sha256": "d1d8f2a975f2bb107bd61f187c8695aa05e49c69869a39f58ba5c1fa2bd6a8b9"
-        },
-        {
-            "path": "server/app/command/CrontabDemo.php",
-            "target": "server/app/command/CrontabDemo.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "dfe42ed9d80e6a497985542517ed26732ba80d970da9aefbec51facfd27d8121"
         },
         {
             "path": "server/app/command/DeveloperCenterCatalog.php",
@@ -7822,7 +7808,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "304770174e7937019edb8b540c482c60c30aee4cdbee9b71490f5d18d04c498b"
+            "source_sha256": "0e491829a19b57683d55227f557e5a59b725964b64be7aee6a8cf0298bc26dc2"
         },
         {
             "path": "server/app/common/module/ModuleSeedRun.php",
@@ -7963,7 +7949,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4147117b9bdbeef433b988630a8fd663b0579f1d279279892fba048aa5c16009"
+            "source_sha256": "cdd8ab65171b3dbc508bdf2b38d3d963f22ba9efa7134a919b40e7ebf4b5517b"
         },
         {
             "path": "server/app/common/services/HtmlSanitizerService.php",
@@ -8749,721 +8735,6 @@
                 "full"
             ],
             "source_sha256": "c17de52e824c939bec94799b56446d4e107a4644d76b96dc66a40ebd8f2e813a"
-        },
-        {
-            "path": "server/app/modules/fixture/delivery_record/composer.json",
-            "target": "server/app/modules/fixture/delivery_record/composer.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/delivery_record/module.json",
-            "target": "server/app/modules/fixture/delivery_record/module.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/delivery_record/resources/menus.json",
-            "target": "server/app/modules/fixture/delivery_record/resources/menus.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/delivery_record/resources/permissions.json",
-            "target": "server/app/modules/fixture/delivery_record/resources/permissions.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/delivery_record/resources/setting-definitions.json",
-            "target": "server/app/modules/fixture/delivery_record/resources/setting-definitions.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/delivery_record/route/app.php",
-            "target": "server/app/modules/fixture/delivery_record/route/app.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/delivery_record/src/Contract/DeliveryRecordCommands.php",
-            "target": "server/app/modules/fixture/delivery_record/src/Contract/DeliveryRecordCommands.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/delivery_record/src/Controller/DeliveryRecordController.php",
-            "target": "server/app/modules/fixture/delivery_record/src/Controller/DeliveryRecordController.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/delivery_record/src/Controller/DeliveryRecordHttpHandler.php",
-            "target": "server/app/modules/fixture/delivery_record/src/Controller/DeliveryRecordHttpHandler.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/delivery_record/src/Database/Migrations/OwnedMigration.php",
-            "target": "server/app/modules/fixture/delivery_record/src/Database/Migrations/OwnedMigration.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/delivery_record/src/Infrastructure/Authorization/ThinkPhpDeliveryRecordAccess.php",
-            "target": "server/app/modules/fixture/delivery_record/src/Infrastructure/Authorization/ThinkPhpDeliveryRecordAccess.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/delivery_record/src/Model/DeliveryRecord.php",
-            "target": "server/app/modules/fixture/delivery_record/src/Model/DeliveryRecord.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/delivery_record/src/ModuleProvider.php",
-            "target": "server/app/modules/fixture/delivery_record/src/ModuleProvider.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/delivery_record/src/Service/DeliveryRecordAccess.php",
-            "target": "server/app/modules/fixture/delivery_record/src/Service/DeliveryRecordAccess.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/delivery_record/src/Service/DeliveryRecordService.php",
-            "target": "server/app/modules/fixture/delivery_record/src/Service/DeliveryRecordService.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/composer.json",
-            "target": "server/app/modules/fixture/workflow_business/composer.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/module.json",
-            "target": "server/app/modules/fixture/workflow_business/module.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/resources/menus.json",
-            "target": "server/app/modules/fixture/workflow_business/resources/menus.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/resources/permissions.json",
-            "target": "server/app/modules/fixture/workflow_business/resources/permissions.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/resources/protected-resources.json",
-            "target": "server/app/modules/fixture/workflow_business/resources/protected-resources.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/resources/workflows/application.json",
-            "target": "server/app/modules/fixture/workflow_business/resources/workflows/application.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/resources/workflows/purchase.json",
-            "target": "server/app/modules/fixture/workflow_business/resources/workflows/purchase.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/resources/workflows/receipt.json",
-            "target": "server/app/modules/fixture/workflow_business/resources/workflows/receipt.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/route/app.php",
-            "target": "server/app/modules/fixture/workflow_business/route/app.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Controller/WorkflowBusinessController.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Controller/WorkflowBusinessController.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Integration/ApplicationNotificationWorkerDefinition.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Integration/ApplicationNotificationWorkerDefinition.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Integration/ApplicationWorkerDefinition.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Integration/ApplicationWorkerDefinition.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Integration/PreparedWorkflowBusinessSnapshot.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Integration/PreparedWorkflowBusinessSnapshot.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Integration/PurchaseNotificationWorkerDefinition.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Integration/PurchaseNotificationWorkerDefinition.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Integration/PurchaseWorkerDefinition.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Integration/PurchaseWorkerDefinition.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Integration/ReceiptNotificationWorkerDefinition.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Integration/ReceiptNotificationWorkerDefinition.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Integration/ReceiptWorkerDefinition.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Integration/ReceiptWorkerDefinition.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessComposition.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessComposition.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessNotificationHandler.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessNotificationHandler.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessNotificationProducer.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessNotificationProducer.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessNotificationWorkerDefinition.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessNotificationWorkerDefinition.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessPolicyProvider.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessPolicyProvider.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessScenarioProvider.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessScenarioProvider.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessTaskAuthorization.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessTaskAuthorization.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessTaskHandler.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessTaskHandler.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessTaskSubmissionProvider.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessTaskSubmissionProvider.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessWorkerDefinition.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessWorkerDefinition.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowTaskSessionRevalidator.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowTaskSessionRevalidator.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Model/BusinessObject.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Model/BusinessObject.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Model/CollaborationEntry.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Model/CollaborationEntry.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Model/EffectReceipt.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Model/EffectReceipt.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Model/StockBalance.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Model/StockBalance.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Model/StockLedger.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Model/StockLedger.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Model/TaskActorReference.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Model/TaskActorReference.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Model/VersionPayload.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Model/VersionPayload.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/ModuleProvider.php",
-            "target": "server/app/modules/fixture/workflow_business/src/ModuleProvider.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Package.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Package.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Service/WorkflowBusinessAccess.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Service/WorkflowBusinessAccess.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Service/WorkflowBusinessService.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Service/WorkflowBusinessService.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/src/Service/WorkflowCollaborationService.php",
-            "target": "server/app/modules/fixture/workflow_business/src/Service/WorkflowCollaborationService.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
         },
         {
             "path": "server/app/modules/peanut/content_tools/composer.json",
@@ -10597,7 +9868,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "88713f24abdd40dfbb1b962d0911ed7d319e11e8aec4e8e82b7a2b0144c27ba0"
+            "source_sha256": "3d7f0e3d7802a5b15d8df3209f6ae9dc301109a343259ecb8d0db6fc9adbe552"
         },
         {
             "path": "server/app/modules/peanut/identity/bin/standalone-entitlements",
@@ -10625,7 +9896,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "573030fbb2435ea4c59ec5ae3466361e7990e5dbdafca2c70a3cbec75d17c2ce"
+            "source_sha256": "c4a98a360ef1a11bb8e909ee95424412824c81ba26cb38d93f9ec706b298a12c"
         },
         {
             "path": "server/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php",
@@ -10712,6 +9983,20 @@
             "source_sha256": "ba05ab596635fce86cd246acd7001ee7d521d9861528029e0e27da490a2318e9"
         },
         {
+            "path": "server/app/modules/peanut/identity/database/migrations/20261107005900_initialize_menu_allocation_metadata.php",
+            "target": "server/app/modules/peanut/identity/database/migrations/20261107005900_initialize_menu_allocation_metadata.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "1345ee56be57cb22e73c8b957557706443ffb4c19a29ff8f88e9ae600be5dd7a"
+        },
+        {
             "path": "server/app/modules/peanut/identity/database/migrations/20261107010000_reserve_custom_menu_ids.php",
             "target": "server/app/modules/peanut/identity/database/migrations/20261107010000_reserve_custom_menu_ids.php",
             "classification": "managed",
@@ -10737,7 +10022,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8a88d0834fe23c92c63acb2f9c5f366dc096dd54bc7004f460f7313611c10dfa"
+            "source_sha256": "36e089d8ba291679581eb6dfdf01578165d82032541d04adc9b6d126e1744dde"
         },
         {
             "path": "server/app/modules/peanut/identity/src/Audit/AuditService.php",
@@ -16065,6 +15350,20 @@
             "source_sha256": "7a420d871e5a7b7069033507c068a14373e1d2014752fe9d5f2f25a2987f53c3"
         },
         {
+            "path": "server/app/modules/peanut/task/README.md",
+            "target": "server/app/modules/peanut/task/README.md",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "07a68e6b5a29cd69763bc004e3d6ebe2212e0fcf4d3590aa95a09e30ca88b460"
+        },
+        {
             "path": "server/app/modules/peanut/task/api/metadata/openapi.php",
             "target": "server/app/modules/peanut/task/api/metadata/openapi.php",
             "classification": "managed",
@@ -16090,7 +15389,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3accd8dc8df6b3c94f49ebf851514d29ea633e3a423f84f9fe0760fb5b9c4fdb"
+            "source_sha256": "318996469f5c924337913e844ef3c49da3c89758410754f8c7ad0157d51e8cdc"
         },
         {
             "path": "server/app/modules/peanut/task/database/migrations/20261101010006_initial_task_schema.php",
@@ -16105,6 +15404,20 @@
                 "full"
             ],
             "source_sha256": "86faa4b485513fd86c97f6964c4a68d9aff7c1260fe22fb7b938513298e468f2"
+        },
+        {
+            "path": "server/app/modules/peanut/task/database/migrations/20261107000004_remove_retired_demo_schedule.php",
+            "target": "server/app/modules/peanut/task/database/migrations/20261107000004_remove_retired_demo_schedule.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2785a9de6dd6a532df1199716d7509fb386a754a8db42785eb43f1830bf6a0ea"
         },
         {
             "path": "server/app/modules/peanut/task/job/README.md",
@@ -16132,7 +15445,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d241b5c2e2fc264087add2fe021691217149e479f1722f8f23bf197bf877e4c2"
+            "source_sha256": "24fdf1f58877f66ead910a87b73b1a295c6a201469c0408963572155177008e7"
         },
         {
             "path": "server/app/modules/peanut/task/resources/menus.json",
@@ -18009,7 +17322,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9ba307340d85cd415200831aa47d86125bf679d027adc2549ac65bebfd7063ae"
+            "source_sha256": "83a38fbbeb9adb58a75e5b6c2c55ed095607665b214c6c8a93889a5e3fe6b124"
         },
         {
             "path": "server/composer.lock",
@@ -18023,7 +17336,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2666fde0cfdf0c109244a248266cc241fa379b3af9efa2f177c4d71840568108"
+            "source_sha256": "3363036e331b6f28dba754cc49ef1aad6fa0a8ef33848dc205848f08d4fbeaa1"
         },
         {
             "path": "server/config/admin_api_access.php",
@@ -18121,7 +17434,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "09f4fa327f86c01d3c91eea7ac624cd601e093156e396ddadcb1efda568cd2a5"
+            "source_sha256": "d9ea7da9fdf0c7756b193b28ab924bc7b843cd285e3b03ef2e5449bcd5ab1d53"
         },
         {
             "path": "server/config/cookie.php",
@@ -18527,7 +17840,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e664dfae0c589d47ac2c3d8cc54396fe5c04d1c07eff36db2c8fea0898fae28a"
+            "source_sha256": "6ae6e84f2c3d5d29919a21377f01ae942765141bd9d46a0c6280d55a84622f4d"
         },
         {
             "path": "server/database/migrations/20261103235500_remove_unchanged_host_examples.php",
@@ -18541,7 +17854,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1988322696eccd88658be75d1e4638d1d3b6c57fc496da42eeedb4705a35f0d6"
+            "source_sha256": "e5aa0df3c21c64d95641a3894954336b9e081c37592f9ca136a2c6ba564d18c1"
         },
         {
             "path": "server/database/resource-registry.php",
@@ -19131,6 +18444,734 @@
             "source_sha256": "5c89a8a9c5af258d02d0bfd3582c75963bea53baa1f5f5132662b80020a63452"
         },
         {
+            "path": "server/fixtures/modules/README.md",
+            "target": "server/fixtures/modules/README.md",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/delivery_record/composer.json",
+            "target": "server/fixtures/modules/delivery_record/composer.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/delivery_record/module.json",
+            "target": "server/fixtures/modules/delivery_record/module.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/delivery_record/resources/menus.json",
+            "target": "server/fixtures/modules/delivery_record/resources/menus.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/delivery_record/resources/permissions.json",
+            "target": "server/fixtures/modules/delivery_record/resources/permissions.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/delivery_record/resources/setting-definitions.json",
+            "target": "server/fixtures/modules/delivery_record/resources/setting-definitions.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/delivery_record/route/app.php",
+            "target": "server/fixtures/modules/delivery_record/route/app.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/delivery_record/src/Contract/DeliveryRecordCommands.php",
+            "target": "server/fixtures/modules/delivery_record/src/Contract/DeliveryRecordCommands.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/delivery_record/src/Controller/DeliveryRecordController.php",
+            "target": "server/fixtures/modules/delivery_record/src/Controller/DeliveryRecordController.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/delivery_record/src/Controller/DeliveryRecordHttpHandler.php",
+            "target": "server/fixtures/modules/delivery_record/src/Controller/DeliveryRecordHttpHandler.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/delivery_record/src/Database/Migrations/OwnedMigration.php",
+            "target": "server/fixtures/modules/delivery_record/src/Database/Migrations/OwnedMigration.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/delivery_record/src/Infrastructure/Authorization/ThinkPhpDeliveryRecordAccess.php",
+            "target": "server/fixtures/modules/delivery_record/src/Infrastructure/Authorization/ThinkPhpDeliveryRecordAccess.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/delivery_record/src/Model/DeliveryRecord.php",
+            "target": "server/fixtures/modules/delivery_record/src/Model/DeliveryRecord.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/delivery_record/src/ModuleProvider.php",
+            "target": "server/fixtures/modules/delivery_record/src/ModuleProvider.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/delivery_record/src/Service/DeliveryRecordAccess.php",
+            "target": "server/fixtures/modules/delivery_record/src/Service/DeliveryRecordAccess.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/delivery_record/src/Service/DeliveryRecordService.php",
+            "target": "server/fixtures/modules/delivery_record/src/Service/DeliveryRecordService.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/composer.json",
+            "target": "server/fixtures/modules/workflow_business/composer.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/module.json",
+            "target": "server/fixtures/modules/workflow_business/module.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/resources/menus.json",
+            "target": "server/fixtures/modules/workflow_business/resources/menus.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/resources/permissions.json",
+            "target": "server/fixtures/modules/workflow_business/resources/permissions.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/resources/protected-resources.json",
+            "target": "server/fixtures/modules/workflow_business/resources/protected-resources.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/resources/workflows/application.json",
+            "target": "server/fixtures/modules/workflow_business/resources/workflows/application.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/resources/workflows/purchase.json",
+            "target": "server/fixtures/modules/workflow_business/resources/workflows/purchase.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/resources/workflows/receipt.json",
+            "target": "server/fixtures/modules/workflow_business/resources/workflows/receipt.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/route/app.php",
+            "target": "server/fixtures/modules/workflow_business/route/app.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Controller/WorkflowBusinessController.php",
+            "target": "server/fixtures/modules/workflow_business/src/Controller/WorkflowBusinessController.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Integration/ApplicationNotificationWorkerDefinition.php",
+            "target": "server/fixtures/modules/workflow_business/src/Integration/ApplicationNotificationWorkerDefinition.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Integration/ApplicationWorkerDefinition.php",
+            "target": "server/fixtures/modules/workflow_business/src/Integration/ApplicationWorkerDefinition.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Integration/PreparedWorkflowBusinessSnapshot.php",
+            "target": "server/fixtures/modules/workflow_business/src/Integration/PreparedWorkflowBusinessSnapshot.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Integration/PurchaseNotificationWorkerDefinition.php",
+            "target": "server/fixtures/modules/workflow_business/src/Integration/PurchaseNotificationWorkerDefinition.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Integration/PurchaseWorkerDefinition.php",
+            "target": "server/fixtures/modules/workflow_business/src/Integration/PurchaseWorkerDefinition.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Integration/ReceiptNotificationWorkerDefinition.php",
+            "target": "server/fixtures/modules/workflow_business/src/Integration/ReceiptNotificationWorkerDefinition.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Integration/ReceiptWorkerDefinition.php",
+            "target": "server/fixtures/modules/workflow_business/src/Integration/ReceiptWorkerDefinition.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessComposition.php",
+            "target": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessComposition.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessNotificationHandler.php",
+            "target": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessNotificationHandler.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessNotificationProducer.php",
+            "target": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessNotificationProducer.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessNotificationWorkerDefinition.php",
+            "target": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessNotificationWorkerDefinition.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessPolicyProvider.php",
+            "target": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessPolicyProvider.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessScenarioProvider.php",
+            "target": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessScenarioProvider.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessTaskAuthorization.php",
+            "target": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessTaskAuthorization.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessTaskHandler.php",
+            "target": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessTaskHandler.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessTaskSubmissionProvider.php",
+            "target": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessTaskSubmissionProvider.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessWorkerDefinition.php",
+            "target": "server/fixtures/modules/workflow_business/src/Integration/WorkflowBusinessWorkerDefinition.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Integration/WorkflowTaskSessionRevalidator.php",
+            "target": "server/fixtures/modules/workflow_business/src/Integration/WorkflowTaskSessionRevalidator.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Model/BusinessObject.php",
+            "target": "server/fixtures/modules/workflow_business/src/Model/BusinessObject.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Model/CollaborationEntry.php",
+            "target": "server/fixtures/modules/workflow_business/src/Model/CollaborationEntry.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Model/EffectReceipt.php",
+            "target": "server/fixtures/modules/workflow_business/src/Model/EffectReceipt.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Model/StockBalance.php",
+            "target": "server/fixtures/modules/workflow_business/src/Model/StockBalance.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Model/StockLedger.php",
+            "target": "server/fixtures/modules/workflow_business/src/Model/StockLedger.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Model/TaskActorReference.php",
+            "target": "server/fixtures/modules/workflow_business/src/Model/TaskActorReference.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Model/VersionPayload.php",
+            "target": "server/fixtures/modules/workflow_business/src/Model/VersionPayload.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/ModuleProvider.php",
+            "target": "server/fixtures/modules/workflow_business/src/ModuleProvider.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Package.php",
+            "target": "server/fixtures/modules/workflow_business/src/Package.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Service/WorkflowBusinessAccess.php",
+            "target": "server/fixtures/modules/workflow_business/src/Service/WorkflowBusinessAccess.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Service/WorkflowBusinessService.php",
+            "target": "server/fixtures/modules/workflow_business/src/Service/WorkflowBusinessService.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/fixtures/modules/workflow_business/src/Service/WorkflowCollaborationService.php",
+            "target": "server/fixtures/modules/workflow_business/src/Service/WorkflowCollaborationService.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/fixtures/plugin-module-lifecycle/run.php",
             "target": "server/fixtures/plugin-module-lifecycle/run.php",
             "classification": "excluded",
@@ -19155,7 +19196,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3de4a8f9b7d7345c6325a1a5b1eef59d0ad29c15dea029214b555c3e15c21b1e"
+            "source_sha256": "66af4e1bbede95a2aa2ec53631fd2462174e3ec7084ffd33f27117489034fbc2"
         },
         {
             "path": "server/generated/openapi.json",
@@ -21168,7 +21209,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a031fd5471aa0fc66dc15b24db290c5655507173946d46216704b58f16c3886b"
+            "source_sha256": "c270aa3aea3e9cbf8011209c08de4c78d19a2ec7307503addd39e8622f766dcf"
         },
         {
             "path": "server/tests/Multitenancy/OperationLogTenantIsolationTest.php",
@@ -22550,6 +22591,19 @@
             ]
         },
         {
+            "path": "server/tests/Support/GeneratorFixtureApplication.php",
+            "target": "server/tests/Support/GeneratorFixtureApplication.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Support/IsolatedBackendEnvironment.php",
             "target": "server/tests/Support/IsolatedBackendEnvironment.php",
             "classification": "excluded",
@@ -22578,6 +22632,19 @@
         {
             "path": "server/tests/Support/RegisteredMysqlTestResource.php",
             "target": "server/tests/Support/RegisteredMysqlTestResource.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Support/ScheduledCommandFixture.php",
+            "target": "server/tests/Support/ScheduledCommandFixture.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -25555,7 +25622,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "446747cf45d9f7f898cc153e72abb4181d210ef8e3f7c1cef334e510e648deb9"
+            "source_sha256": "e39eff81c4e8643fb9141bd829b4c4e4ceacd714879ff4bfd07b0536239433c1"
         },
         {
             "path": "web/pnpm-workspace.yaml",
@@ -25569,7 +25636,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2d7a233af7b33d1fc1573c5f95d1811c5f470fdab081ed8528f2c43e56af0d50"
+            "source_sha256": "20e121f292b523276a4b607810a5f7d2b2d94ca58eed1502ef43de7be4f9d6d6"
         },
         {
             "path": "web/public/brand/avatar-admin.svg",
@@ -26733,110 +26800,6 @@
                 "full"
             ],
             "source_sha256": "05acaff6c92e0ace7e46480303631167caeeb9f2216f29607d380c61bbc107b2"
-        },
-        {
-            "path": "web/src/modules/fixture-delivery-record/contribution.ts",
-            "target": "web/src/modules/fixture-delivery-record/contribution.ts",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "web/src/modules/fixture-delivery-record/package.json",
-            "target": "web/src/modules/fixture-delivery-record/package.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "web/src/modules/fixture-delivery-record/views/index.vue",
-            "target": "web/src/modules/fixture-delivery-record/views/index.vue",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "web/src/modules/fixture-workflow-business/WorkflowBusinessPage.vue",
-            "target": "web/src/modules/fixture-workflow-business/WorkflowBusinessPage.vue",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "web/src/modules/fixture-workflow-business/WorkflowBusinessRuntime.vue",
-            "target": "web/src/modules/fixture-workflow-business/WorkflowBusinessRuntime.vue",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "web/src/modules/fixture-workflow-business/api.ts",
-            "target": "web/src/modules/fixture-workflow-business/api.ts",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "web/src/modules/fixture-workflow-business/contribution.ts",
-            "target": "web/src/modules/fixture-workflow-business/contribution.ts",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "web/src/modules/fixture-workflow-business/package.json",
-            "target": "web/src/modules/fixture-workflow-business/package.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
         },
         {
             "path": "web/src/modules/peanut-content-tools/README.md",
@@ -29778,6 +29741,110 @@
             "source_sha256": "4ba88d9015c7a30e250adcfb8edfd452d5bd90622333f28f43e7968974225093"
         },
         {
+            "path": "web/tests/fixtures/modules/fixture-delivery-record/contribution.ts",
+            "target": "web/tests/fixtures/modules/fixture-delivery-record/contribution.ts",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "web/tests/fixtures/modules/fixture-delivery-record/package.json",
+            "target": "web/tests/fixtures/modules/fixture-delivery-record/package.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "web/tests/fixtures/modules/fixture-delivery-record/views/index.vue",
+            "target": "web/tests/fixtures/modules/fixture-delivery-record/views/index.vue",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "web/tests/fixtures/modules/fixture-workflow-business/WorkflowBusinessPage.vue",
+            "target": "web/tests/fixtures/modules/fixture-workflow-business/WorkflowBusinessPage.vue",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "web/tests/fixtures/modules/fixture-workflow-business/WorkflowBusinessRuntime.vue",
+            "target": "web/tests/fixtures/modules/fixture-workflow-business/WorkflowBusinessRuntime.vue",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "web/tests/fixtures/modules/fixture-workflow-business/api.ts",
+            "target": "web/tests/fixtures/modules/fixture-workflow-business/api.ts",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "web/tests/fixtures/modules/fixture-workflow-business/contribution.ts",
+            "target": "web/tests/fixtures/modules/fixture-workflow-business/contribution.ts",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "web/tests/fixtures/modules/fixture-workflow-business/package.json",
+            "target": "web/tests/fixtures/modules/fixture-workflow-business/package.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "web/tsconfig.json",
             "target": "web/tsconfig.json",
             "classification": "managed",
@@ -29789,7 +29856,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "de34857a4f543ecd4cce67593733e929db3de5defb4f1725ee189fcad2fa0f5b"
+            "source_sha256": "ce54052413d8c6c34ea35c5d442dcbb83dad7ecda9c0b1536aeb1ad1fc54e1dc"
         },
         {
             "path": "web/tsconfig.optional-tests.json",

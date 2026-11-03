@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Phinx\Db\Adapter\WrapperInterface;
 use Phinx\Migration\IrreversibleMigrationException;
 use think\migration\Migrator;
 
@@ -10,7 +11,11 @@ final class RemoveRetiredTransactionSetting extends Migrator
 {
     public function up(): void
     {
-        if ($this->getAdapter()->hasTable('pa_transaction_setting')) {
+        $adapter = $this->getAdapter();
+        while ($adapter instanceof WrapperInterface) {
+            $adapter = $adapter->getAdapter();
+        }
+        if ($adapter->hasTable('pa_transaction_setting')) {
             $this->execute('DROP TABLE pa_transaction_setting');
         }
     }

@@ -9,7 +9,7 @@ use PeanutAdmin\Kernel\Module\ManifestDocument;
 use Phinx\Util\Util;
 use think\migration\command\migrate\Run;
 
-/** Selects sources and current migration metadata; execution, ordering and the ledger remain native. */
+/** Adapts source discovery only; execution, ordering and the ledger remain native. */
 final class ModuleMigrationRun extends Run
 {
     private string $directory = '';
@@ -98,19 +98,6 @@ final class ModuleMigrationRun extends Run
         }
         ksort($sources, SORT_NUMERIC);
         return array_values($sources);
-    }
-
-    protected function getDbConfig(): array
-    {
-        $options = parent::getDbConfig();
-        if (($options['adapter'] ?? null) === 'mysql') {
-            // Migration DDL must read current allocation statistics from its own native PDO.
-            // This does not change the business connection or the server-wide cache policy.
-            $existing = trim((string) ($options['mysql_attr_init_command'] ?? ''));
-            $options['mysql_attr_init_command'] = ($existing === '' ? '' : rtrim($existing, ';') . '; ')
-                . 'SET SESSION information_schema_stats_expiry = 0';
-        }
-        return $options;
     }
 
     protected function getPath()

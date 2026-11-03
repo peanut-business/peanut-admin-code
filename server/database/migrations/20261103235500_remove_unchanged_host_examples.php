@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Phinx\Db\Adapter\WrapperInterface;
 use Phinx\Migration\IrreversibleMigrationException;
 use think\migration\Migrator;
 
@@ -18,7 +19,11 @@ final class RemoveUnchangedHostExamples extends Migrator
 
     public function up(): void
     {
-        if ($this->getAdapter()->hasTable('pa_decorate_page')) {
+        $adapter = $this->getAdapter();
+        while ($adapter instanceof WrapperInterface) {
+            $adapter = $adapter->getAdapter();
+        }
+        if ($adapter->hasTable('pa_decorate_page')) {
             foreach (self::PAGES as [$type, $name, $dataDigest, $metaDigest]) {
                 $this->execute(
                     "UPDATE pa_decorate_page SET data='[]', update_time=UNIX_TIMESTAMP()
@@ -28,7 +33,7 @@ final class RemoveUnchangedHostExamples extends Migrator
                 );
             }
         }
-        if ($this->getAdapter()->hasTable('pa_decorate_tabbar')) {
+        if ($adapter->hasTable('pa_decorate_tabbar')) {
             foreach ([
                 [1, '资讯', '551ed5ffe7042071251e749cf934167d0df3ccb0b41384c84c584f3ddfb53b5e'],
                 [2, '我的', 'b99123bbac05e8e53b005533d848a6953faed4d2d6d5cb3adb2155955618f453'],

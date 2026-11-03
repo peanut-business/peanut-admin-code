@@ -14,8 +14,6 @@
 
 模块安装/升级发现 manifest 中声明的 `backend.migrations`，复用原生 pending 迁移并验证自有表存在；不满足结构则拒绝，不能仅复制模块目录后成功。卸载保留全局原生版本历史；清除表后重新启用须通过未执行过的原生迁移提供结构，不能伪填账本。
 
-MySQL 8.4 的 `INFORMATION_SCHEMA.TABLES.AUTO_INCREMENT` 属于缓存动态统计。[官方统计合同](https://dev.mysql.com/doc/refman/8.4/en/information-schema-optimization.html)允许单连接使用 `information_schema_stats_expiry=0` 直接读取引擎值。`ModuleMigrationRun` 通过官方 Adapter 的 `mysql_attr_init_command` 仅为原生迁移 PDO 设置该 SESSION 值，保留已有初始化命令；不修改全局或业务连接设置，不以固定编号替代真实观测，也不重写已执行迁移。
-
 ### Module 安装实体归并
 
 新安装源不再创建退役的 `pa_transaction_setting`、`pa_plugin_installation`、`pa_plugin_module`。已有实例通过新增的 `20261103235000_remove_retired_transaction_setting.php` 删除无消费者的交易运营设置表及其废弃值；该迁移不可逆，恢复旧值使用配对备份，不重建失效功能。旧 Plugin 两表仍由下面的原生归并迁移按真实记录转换，不修改已执行迁移。新租户的装修只创建空页面、首页导航与必要主题结构，不初始化资讯、收藏、广告或虚构客服时段；模块内容由所选模块贡献。`20261103235500_remove_unchanged_host_examples.php` 仅清理完整旧页面名称、data/meta 字节摘要全部匹配的默认示例，将其 data 置为空数组；只删除名称、链接、显示状态和空图标全部匹配的旧资讯/个人导航。实际写入的 WHERE 保持完整谓词，避免覆盖并发定制。主题、首页导航、不同 JSON 序列化及任何已修改内容保留；不靠 ID、时间或同义 JSON 推断归属。
