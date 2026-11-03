@@ -2999,6 +2999,10 @@ final class ScaffoldUpgradeRunner
 
         foreach ($actions as &$action) {
             $path = (string) $action['path'];
+            if ($action['reason'] === 'module_source_ownership_transition_required') {
+                // Keep the explicit source handoff decision; the installed graph cannot reclaim it.
+                continue;
+            }
             if (isset($current['legacy_artifacts'][$path])) {
                 $action['action'] = 'delete';
                 $action['reason'] = 'versioned_module_declaration_conversion';
