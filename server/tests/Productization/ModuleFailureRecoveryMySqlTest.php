@@ -90,6 +90,20 @@ $catalogs = ThinkPhpTestConnection::moduleCatalogs($pdo);
 $config = ['roots' => [], 'module_lock' => '../modules.lock', 'kernel_version' => '1.0.0',
     'registered_client_keys' => ['admin-web', 'platform-web', 'pc-web', 'uniapp']];
 $app->config->set($config, 'modules');
+$nonCaseCatalogSnapshot = static function () use ($pdo): array {
+    $snapshot = [];
+    foreach (['permission', 'menu_definition', 'setting_definition'] as $table) {
+        $snapshot[$table] = $pdo->query("SELECT * FROM pa_{$table} WHERE module_key NOT IN ('acme.lifecycle','acme.dependent','acme.recovery') ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+    }
+    return $snapshot;
+};
+$baselineRegistry = (new ModuleDefinitionRegistryFactory($server))->fromModuleLock($baseline, $config);
+$catalogs->apply($baselineRegistry, array_keys($manifests));
+$nonCaseCatalogBefore = $nonCaseCatalogSnapshot();
+if (array_sum(array_map('count', $nonCaseCatalogBefore)) === 0) {
+    throw new RuntimeException('Native non-case catalog baseline must not be empty.');
+}
+file_put_contents($state . '/non-case-catalog-before.json', json_encode($nonCaseCatalogBefore, JSON_THROW_ON_ERROR));
 (new ModuleScaffoldGenerator($root))->create('acme.recovery', 'acme', 'none');
 $module = json_decode((string) file_get_contents($moduleRoot . '/module.json'), true, 128, JSON_THROW_ON_ERROR);
 $module['frontend'] = new stdClass();
@@ -160,5 +174,6 @@ $governance = new ModuleRuntimeGovernanceService($server, $config, $catalogs, ne
 $plan = $governance->preview('acme.recovery', false);
 $governance->uninstall('acme.recovery', false, $plan['confirm_plan'], $plan['plan_digest']);
 $expect($pdo->query('SELECT value FROM pa_acceptance_recovery WHERE id=91')->fetchColumn() === 'retain-through-forward-repair', 'Normal retirement after repair removed business data');
-file_put_contents($state . '/failure-recovery-result.json', json_encode(['assertions' => $assertions, 'status' => 'passed', 'database_identity' => $databaseIdentity], JSON_THROW_ON_ERROR));
+$expect($nonCaseCatalogSnapshot() === $nonCaseCatalogBefore, 'Native lifecycle changed non-case permission/menu/setting catalogs');
+file_put_contents($state . '/failure-recovery-result.json', json_encode(['assertions' => $assertions, 'status' => 'passed', 'database_identity' => $databaseIdentity, 'non_case_catalog_sha256' => hash('sha256', json_encode($nonCaseCatalogBefore, JSON_THROW_ON_ERROR))], JSON_THROW_ON_ERROR));
 echo "MODULE-FAILURE-RECOVERY-MYSQL passed assertions={$assertions}; same-artifact resume+higher-version repair\n";

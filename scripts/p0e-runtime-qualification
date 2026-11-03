@@ -1389,7 +1389,8 @@ class Runner:
             receipt = Path(lifecycle_app["root"]) / ".local/module-lifecycle-mysql" / receipt_name
             value = read_json(receipt)
             if (value.get("status") != "passed" or not isinstance(value.get("assertions"), int) or value["assertions"] < 1
-                    or value.get("database_identity") != lifecycle_app["database_identity"]):
+                    or value.get("database_identity") != lifecycle_app["database_identity"]
+                    or not re.fullmatch(r"[a-f0-9]{64}", str(value.get("non_case_catalog_sha256", "")))):
                 fail("native Module lifecycle script did not produce its own assertion receipt")
             results[producer] = {"status": "passed", "source_sha256": sha256(TOOL_ROOT / relative),
                 "receipt": {"path": str(receipt), "sha256": sha256(receipt)}, "log_sha256": sha256(log),

@@ -107,6 +107,25 @@ $catalogs = ThinkPhpTestConnection::moduleCatalogs($pdo);
 $config = ['roots' => [], 'module_lock' => '../modules.lock', 'kernel_version' => '1.0.0',
     'registered_client_keys' => ['admin-web', 'platform-web', 'pc-web', 'uniapp']];
 $app->config->set($config, 'modules');
+$nonCaseCatalogSnapshot = static function () use ($pdo): array {
+    $snapshot = [];
+    foreach (['permission', 'menu_definition', 'setting_definition'] as $table) {
+        $snapshot[$table] = $pdo->query("SELECT * FROM pa_{$table} WHERE module_key NOT IN ('acme.lifecycle','acme.dependent','acme.recovery') ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+    }
+    return $snapshot;
+};
+$catalogBaselinePath = $state . '/non-case-catalog-before.json';
+if (!$resume) {
+    $baselineRegistry = (new ModuleDefinitionRegistryFactory($server))->fromModuleLock($baseline, $config);
+    $catalogs->apply($baselineRegistry, array_keys($manifests));
+    $nonCaseCatalogBefore = $nonCaseCatalogSnapshot();
+    if (array_sum(array_map('count', $nonCaseCatalogBefore)) === 0) {
+        throw new RuntimeException('Native non-case catalog baseline must not be empty.');
+    }
+    file_put_contents($catalogBaselinePath, json_encode($nonCaseCatalogBefore, JSON_THROW_ON_ERROR));
+} else {
+    $nonCaseCatalogBefore = json_decode((string) file_get_contents($catalogBaselinePath), true, 128, JSON_THROW_ON_ERROR);
+}
 $writer = new ModuleArtifactWriter($server);
 $moduleRoot = $server . '/app/modules/acme/lifecycle';
 $resolver = new ModuleLockResolver($server, '../modules.lock');
@@ -239,5 +258,6 @@ $expect($pdo->query("SELECT last_error_code FROM pa_module_installation WHERE id
 $governance->uninstall('acme.lifecycle', true, $purge['confirm_plan'], $purge['plan_digest']);
 $expect($pdo->query("SELECT status FROM pa_module_installation WHERE id={$id}")->fetchColumn() === 'uninstalled', 'Purge recovery deleted the only installation/history row');
 $expect((int) $pdo->query("SELECT COUNT(*) FROM pa_migrations WHERE version IN (20261108000001,20261108000002,20261108000003)")->fetchColumn() === 3, 'Uninstall/purge deleted native migration history');
-file_put_contents($state . '/result.json', json_encode(['assertions' => $assertions, 'module_id' => $id, 'database' => getenv('DB_NAME'), 'status' => 'passed', 'database_identity' => $databaseIdentity], JSON_THROW_ON_ERROR));
+$expect($nonCaseCatalogSnapshot() === $nonCaseCatalogBefore, 'Native lifecycle changed non-case permission/menu/setting catalogs');
+file_put_contents($state . '/result.json', json_encode(['assertions' => $assertions, 'module_id' => $id, 'database' => getenv('DB_NAME'), 'status' => 'passed', 'database_identity' => $databaseIdentity, 'non_case_catalog_sha256' => hash('sha256', json_encode($nonCaseCatalogBefore, JSON_THROW_ON_ERROR))], JSON_THROW_ON_ERROR));
 echo "MODULE-LIFECYCLE-MYSQL passed assertions={$assertions}; native dependency/migration/catalog/retire/reinstall/purge-recovery\n";

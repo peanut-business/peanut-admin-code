@@ -104,6 +104,22 @@ CI 的 `scaffold-release.yml` 可显式选 `publish=false, pack_only=true`，并
 
 `server/fixtures/module-lifecycle/run.php --help` 只显示合同，不初始化 APP。完整执行仍由原 `scripts/p0e-runtime-qualification run/resume` 在明确授权后消费上述输入，先重核来源、路径、资源及 native admission，再调用四个 producer。输出记录每项真实退出/摘要/APP/数据库身份，失败和未知状态保留实际隔离 APP、数据库、文件与日志，不能回填 passed 或靠恢复旧整库备份掩盖写入。本文及源码静态检查不证明已完成数据库、HTTP 或 full8 执行；这些是发行前独立资格任务。
 
+### Module Task 必须补全的独立资格任务
+
+本轮退出四份合同已失效的历史手工入口：TaskImportExportHostTest、CrontabTenantIsolationTest、TaskNativeRootLifecycleTest 及 Task/feature-harness。它们曾受 CI changed-path/broad 的泛型文件选择消费；退役是清除失效实现，不是使 CI 变绿。没有修改 selector 隐藏文件，也没有删除现行八组明确门槛。源码中的通用 Unit/ExecutionRoot 断言和当前 Member/Task 函数保留，但本轮没有运行 CI、数据库、HTTP、full8 或测试套件。
+
+下列是 **正式发行前必须补全并实际执行的 Module 专用资格任务，当前全部 NOT_RUN**。已有相近断言源码不构成 native 场景已通过的证明。
+
+| 任务 | 当前保留的对应源码与边界 | 仍须完成的真实资格 |
+| --- | --- | --- |
+| Cron 到 Task 的调度链 | FileTaskInputBoundary 保留命令准入/非零退出；当前 Task 函数保留真实异步执行和导出幂等 | 用当前原生 Module/许可证、真实会话及自有隔离资源验证 Cron add 忽略伪 tenant_id，跨租户 detail/delete 拒绝；同一到期 window 每租户恰好一个 job，重复窗口及 terminal job 不重跑；未知命令失败、手动 retry 恢复成功，Cron 不保留第二条执行 error/status 通道。 |
+| 重试、trace 和诊断 | 当前 Task 函数验证异步成功、授权/模块撤销、上下文清空；这些不是 Cron retry 资格 | 验证真实三次 retry/dead、5/10 秒 backoff、attempt/event 账本与稳定 job/handler/request trace；ScheduledTenantContext finally 清空；终态失败进入现有诊断聚合，Task worker 启动失败只写允许的诊断字段。 |
+| native CLI、root、lease 与 final fence | A1WorkerAuthorizationLifecycle 的批次撤销/最终 fence 和 ExecutionRootLifecycle 的 opaque root 规则是单元或局部源码断言；新 Task 函数有 before-worker 模块撤销与 tampered envelope 拒绝 | 真正经 Cron CLI、签名 codec、MySQL claim 执行双租户任务，各自具备独立 System root 和真实 job/attempt/handler metadata；ambient worker/scheduler/start 及 handler 内递归调度在 claim/enqueue 前拒绝且队列不变；实置 lease 过期后同 job 真实 reclaim/new attempt/new root；handler 返回后的实时许可证/授权撤销被最终 fence 拒绝；伪 envelope 不进入 native handler/root。不得用 fake unit 或 before-worker revoke 等价替代。 |
+| XLSX 与 caller 边界 | 当前异步 CSV 私有交付/租户隔离和 FileTaskInputBoundary 保留；CSV 不等于 XLSX | 原生生成 XLSX 并解 ZIP 核文本/数值与公式形输入的 inline text；逐个核 Admin、Jobs、Member、Recharge、OperationLog 当前所属 Module 的 Xlsx owner 注入，不能各自造 Zip writer、静态查找或 deep import Task/Engine。业务来源仅消费受审 Module APP，不放回默认八模块 Code。 |
+| 通用 Task producer、账本与恢复 | 当前函数有导出幂等、审计故障原子性、签名/资源/operation/targets 拒绝；不覆盖旧 feature-harness 全部意图 | 以当前构造与真实授权补齐 producer payload/idempotency conflict、外层业务事务回滚连同 job/event 原子撤销、租户/account/member/resource/operation/targets 重授权漂移、target set 顺序规范化、并发 claim 排他、stale lease fencing/恢复账本、payload 与 attempt-token 摘要损坏拒绝、未知 handler 安全错误、cancel optimistic revision、审计不含 envelope/payload/idempotency 明文。两 Edition 沿现行真实租户模型，不恢复旧 InstanceScoped/no-tenant_id 模型。 |
+
+四份旧入口的数据库重建/删除、raw session/tenant_module 引导、旧 official 命名及过时构造不作为替代实现保留。未来资格使用当前明确输入、原生安装/身份/许可证、隔离资源和真实保护链；失败保留现场，不重建旧 SourceApplicationBackup 框架。Module 生命周期两个 native case 仍逐字段比较非 case 的 permission/menu/setting catalog，默认 Module 目录由原生 CatalogApplier 投影，不能用空快照冒充隔离证明。
+
 ## 冻结内部候选
 
 两个 Core 已有有效冻结归档、但需要选用不同批次的 PHP 与 Web 时，使用同一生产者组合固定 Git 输入：`freeze-core-release --reuse-php-inputs=<PHP冻结回执绝对路径> --reuse-web-inputs=<包含六个Web归档的冻结回执绝对路径> --output=<不存在的绝对目录>`。该入口核原生回执状态、来源、版本及归档实际摘要，复用已有 Web 包检查后原字节复制七包，输出同一 schema 的完整 `release-core-inputs.json`；不重建、不重打包、不改版本或既有归档。PHP-only 回执可供 PHP 段选择，其保留的 published Web 字段不替代第二份冻结 Web 输入；两份源回执和归档保持原位。该组合可直接供下述 `--internal-core-inputs` 消费，不需要重新冻结已有效的 Core 源码。
