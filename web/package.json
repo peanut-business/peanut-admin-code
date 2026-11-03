@@ -36,7 +36,6 @@
         ]
     },
     "dependencies": {
-        "@peanut-admin/peanut-chart": "workspace:^1.0.0",
         "@element-plus/icons-vue": "2.3.2",
         "@peanut-admin/ui-vue": "5.0.2",
         "@peanut-admin/vue": "5.0.2",

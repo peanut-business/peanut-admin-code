@@ -1,15 +1,32 @@
-import type { RouteRecordRaw } from 'vue-router';
+import type { ModuleFrontendRoute, ModuleFrontendContribution } from '@peanut-admin/vue';
 import {
   collectModuleContributions,
   routesForTenantModules,
 } from '@peanut-admin/vue';
-import articleContribution from '../../src/modules/official-article/contribution';
+const articleContribution: ModuleFrontendContribution = {
+  moduleKey: 'fixture.article',
+  routes: [{
+    path: '/fixture/article',
+    name: 'fixture-article',
+    redirect: '/fixture/article/list',
+    meta: { tenantModuleKey: 'fixture.article' },
+    children: ['category', 'list'].map((kind) => ({
+      path: kind,
+      name: `fixture-article-${kind}`,
+      redirect: '/',
+      meta: {
+        tenantModuleKey: 'fixture.article',
+        requiredPermissions: kind === 'category' ? 'fixture.article.category.list' : 'fixture.article.list',
+      },
+    })),
+  }],
+};
 
 function expect(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
 }
 
-const route: RouteRecordRaw = {
+const route: ModuleFrontendRoute = {
   path: '/app/fixtures/delivery-records',
   name: 'fixture-delivery-record-list',
   redirect: '/',
@@ -49,8 +66,8 @@ expect(
 expect(
   routesForTenantModules(
     [articleContribution],
-    ['official.article'],
-    ['official.article.category.list', 'official.article.list'],
+    ['fixture.article'],
+    ['fixture.article.category.list', 'fixture.article.list'],
     exact
   ).length === 1,
   'enabled and authorized official Article Module was not visible'
@@ -58,8 +75,8 @@ expect(
 expect(
   routesForTenantModules(
     [articleContribution],
-    ['official.article'],
-    ['official.article.category.list'],
+    ['fixture.article'],
+    ['fixture.article.category.list'],
     exact
   ).length === 1,
   'category-only permission could not enter the official Article Module'
@@ -70,9 +87,9 @@ expect(
 );
 const articleRoot = articleContribution.routes[0];
 expect(
-  articleRoot.meta?.tenantModuleKey === 'official.article' &&
+  articleRoot.meta?.tenantModuleKey === 'fixture.article' &&
     articleRoot.children?.every(
-      (child) => child.meta?.tenantModuleKey === 'official.article'
+      (child) => child.meta?.tenantModuleKey === 'fixture.article'
     ) === true,
   'official Article deep-link child lost TenantModule metadata'
 );
@@ -80,10 +97,10 @@ expect(
   routesForTenantModules(
     [articleContribution],
     [],
-    ['official.article.category.list', 'official.article.list'],
+    ['fixture.article.category.list', 'fixture.article.list'],
     exact
   ).flatMap((route) => route.children || []).length === 0,
   'disabled official Article Module exposed a deep-link child route'
 );
 
-console.log('PLUGIN-FRONTEND-CONTRIBUTION-001 passed');
+console.log('MODULE-FRONTEND-CONTRIBUTION-001 passed');
