@@ -849,6 +849,19 @@ final class ModuleRuntimeGovernanceService
                 || !str_starts_with($resolved, $resolvedRoot . DIRECTORY_SEPARATOR)) {
                 throw new ModuleLifecycleException('MODULE_QUARANTINE_INVALID', 'Module quarantine path is invalid.');
             }
+            $relative = rtrim(ModuleHostLayoutFactory::pathLayout()->backendRelativePath(ModuleKey::fromString($packageKey)), '/');
+            $moduleRoot = $resolved . '/' . $relative;
+            if (!file_exists($moduleRoot) && !is_link($moduleRoot)) { continue; }
+            if (is_link($moduleRoot) || realpath($moduleRoot) !== $moduleRoot
+                || !str_starts_with($moduleRoot, $resolved . DIRECTORY_SEPARATOR)) {
+                throw new ModuleLifecycleException('MODULE_QUARANTINE_INVALID', 'Quarantined Module root is invalid.');
+            }
+            $manifestPath = $moduleRoot . '/module.json';
+            if (!is_file($manifestPath)) { continue; }
+            if (is_link($manifestPath)) {
+                throw new ModuleLifecycleException('MODULE_QUARANTINE_INVALID', 'Quarantined Module declaration must not be linked.');
+            }
+            if ((new ManifestLoader())->load($moduleRoot)->data['key'] !== $packageKey) { continue; }
             $directories[] = $resolved;
         }
         sort($directories, SORT_STRING);
