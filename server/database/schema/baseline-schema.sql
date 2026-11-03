@@ -159,45 +159,6 @@ CREATE TABLE `pa_operation_log` (
   CONSTRAINT `fk_operation_log_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `pa_tenant` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='操作日志';
 
-CREATE TABLE `pa_plugin_installation` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `plugin_key` varchar(96) NOT NULL,
-  `installed_version` varchar(32) NOT NULL,
-  `source` varchar(255) NOT NULL,
-  `artifact_sha256` char(64) NOT NULL,
-  `lock_digest` char(64) NOT NULL,
-  `composer_identity_json` json NOT NULL,
-  `npm_identity_json` json NOT NULL,
-  `frontend_identity_json` json NOT NULL,
-  `status` varchar(24) NOT NULL,
-  `revision` bigint unsigned NOT NULL DEFAULT '1',
-  `installed_at` datetime(3) DEFAULT NULL,
-  `activated_at` datetime(3) DEFAULT NULL,
-  `upgraded_at` datetime(3) DEFAULT NULL,
-  `uninstalled_at` datetime(3) DEFAULT NULL,
-  `last_error_code` varchar(96) DEFAULT NULL,
-  `created_at` datetime(3) NOT NULL,
-  `updated_at` datetime(3) NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_plugin_installation_key` (`plugin_key`),
-  KEY `idx_plugin_installation_status` (`status`,`plugin_key`),
-  CONSTRAINT `chk_plugin_installation_status` CHECK ((`status` in (_utf8mb4'installing',_utf8mb4'active',_utf8mb4'upgrading',_utf8mb4'maintenance',_utf8mb4'failed',_utf8mb4'uninstalled')))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-CREATE TABLE `pa_plugin_module` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `plugin_key` varchar(96) NOT NULL,
-  `module_key` varchar(96) NOT NULL,
-  `module_version` varchar(32) NOT NULL,
-  `manifest_digest` char(64) NOT NULL,
-  `created_at` datetime(3) NOT NULL,
-  `updated_at` datetime(3) NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_plugin_module_key` (`module_key`),
-  KEY `idx_plugin_module_plugin` (`plugin_key`,`module_key`),
-  CONSTRAINT `fk_plugin_module_plugin` FOREIGN KEY (`plugin_key`) REFERENCES `pa_plugin_installation` (`plugin_key`) ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
 CREATE TABLE `pa_provider_qualification_evidence` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `evidence_key` varchar(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
@@ -247,21 +208,3 @@ CREATE TABLE `pa_tenant_idempotency_record` (
   CONSTRAINT `fk_tenant_idempotency_member` FOREIGN KEY (`tenant_id`, `tenant_member_id`) REFERENCES `pa_tenant_member` (`tenant_id`, `id`) ON DELETE RESTRICT,
   CONSTRAINT `chk_tenant_idempotency_status` CHECK ((`status` in (_utf8mb4'processing',_utf8mb4'completed',_utf8mb4'failed')))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-CREATE TABLE `pa_transaction_setting` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `tenant_id` bigint unsigned NOT NULL,
-  `cancel_unpaid_orders` tinyint unsigned NOT NULL DEFAULT '1',
-  `cancel_unpaid_orders_times` int unsigned NOT NULL DEFAULT '30',
-  `verification_orders` tinyint unsigned NOT NULL DEFAULT '1',
-  `verification_orders_times` int unsigned NOT NULL DEFAULT '24',
-  `create_time` int unsigned DEFAULT NULL,
-  `update_time` int unsigned DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_transaction_setting_tenant` (`tenant_id`),
-  CONSTRAINT `fk_transaction_setting_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `pa_tenant` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `chk_transaction_setting_cancel_mode` CHECK ((`cancel_unpaid_orders` in (0,1))),
-  CONSTRAINT `chk_transaction_setting_cancel_time` CHECK ((`cancel_unpaid_orders_times` > 0)),
-  CONSTRAINT `chk_transaction_setting_verify_mode` CHECK ((`verification_orders` in (0,1))),
-  CONSTRAINT `chk_transaction_setting_verify_time` CHECK ((`verification_orders_times` > 0))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Tenant交易运营政策';

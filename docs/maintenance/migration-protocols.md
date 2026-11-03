@@ -16,6 +16,8 @@
 
 ### Module 安装实体归并
 
+新安装源不再创建退役的 `pa_transaction_setting`、`pa_plugin_installation`、`pa_plugin_module`。已有实例通过新增的 `20261103235000_remove_retired_transaction_setting.php` 删除无消费者的交易运营设置表及其废弃值；该迁移不可逆，恢复旧值使用配对备份，不重建失效功能。旧 Plugin 两表仍由下面的原生归并迁移按真实记录转换，不修改已执行迁移。新租户的装修只创建空页面、首页导航与必要主题结构，不初始化资讯、收藏、广告或虚构客服时段；模块内容由所选模块贡献，已有租户页面不被重写。
+
 新安装仍依次执行固定初始来源及其后续原生 Migration；已有安装只运行尚未应用的前向 Migration，不能重放初始基线或 Seeder。`20261103230000_unify_module_installation.php` 把原自有 Plugin 的制品/依赖恢复字段归入 `module_installation`，保留已有 Module 主键、原生迁移账本、业务表及运行状态。原 Plugin active 与 Module maintenance 合并为 maintenance；失败、安装中、升级中及已卸载记录承接其原状态/错误和制品身份，不把失败改为成功。
 
 首装失败可能尚无 Module/归属行，purge 历史也可能已没有 Module 行；迁移保留可验证的原 key、尝试版本、制品身份、原错误和时间，缺失的成功 manifest/schema 身份明确记为 NULL。恢复时仍由正常源核验、安装恢复或更高修复版本入口重新确认，不能凭历史行开放业务。实际多 Module/异名归属明确拒绝转换，原表保留，先审阅其精确历史来源。确认归并后退出两张旧账本，不建立长期双写或第二个安装实体。

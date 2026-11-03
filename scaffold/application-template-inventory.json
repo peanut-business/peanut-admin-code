@@ -17561,7 +17561,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "30d01c00c677fb9e6d158f8ca33a54f50cb3ee586948e8e34071d07d3a0873a4"
+            "source_sha256": "7c6948fa5b3dcd2659f3334bbf353cbd152f40217472b5b973281ebb821cce40"
         },
         {
             "path": "server/app/platform/services/CoreTenantOwnerAdminProvisioner.php",
@@ -18429,7 +18429,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "13c0f16a22b2d0362c0bf9c9650df0e2ab6cb36cac9426205aa450dbcd5f6a76"
+            "source_sha256": "456e1c3cc4281155c0ae276fee9a5aea5834060725d1f6b1b6b8a4fedc70f1a5"
         },
         {
             "path": "server/database/WorkbenchDemoData.php",
@@ -18516,6 +18516,20 @@
             "source_sha256": "5e0b994e51c401dd8abb9a82db82efa8fbf8c39682d3acd20e099f5d409256dc"
         },
         {
+            "path": "server/database/migrations/20261103235000_remove_retired_transaction_setting.php",
+            "target": "server/database/migrations/20261103235000_remove_retired_transaction_setting.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e664dfae0c589d47ac2c3d8cc54396fe5c04d1c07eff36db2c8fea0898fae28a"
+        },
+        {
             "path": "server/database/resource-registry.php",
             "target": "server/database/resource-registry.php",
             "classification": "managed",
@@ -18555,7 +18569,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d86d77048c00f343fe02522401411e7a77e7eca9fab2ab89cd4e537940357abd"
+            "source_sha256": "ff835b6053fab03aacc00d3c7a36305d39f86cc3482125b7ae738408556c7a00"
         },
         {
             "path": "server/database/seed-demo-data.php",
