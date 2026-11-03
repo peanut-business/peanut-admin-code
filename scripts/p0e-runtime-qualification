@@ -640,6 +640,9 @@ def module_qualification_inputs(value: dict[str, Any], candidate: str, tree: str
         description = str(registered.get("purpose", "")).lower() + " " + str(registered.get("data_source", "")).lower()
         if "qualification" not in description or "synthetic" not in description:
             fail("Module qualification requires an explicitly registered synthetic qualification APP/database")
+        if (registered.get("application_runtime") is not False or registered.get("lifecycle") != "ephemeral"
+                or "module_lifecycle" not in registered.get("allowed_scenarios", [])):
+            fail("Module qualification requires the existing ephemeral non-runtime registry contract and its explicit allowed case")
         schema = (registered.get("server_uuid"), registered.get("database"))
         if schema in schemas:
             fail("Module qualification must never write the reviewed source or another APP database")
