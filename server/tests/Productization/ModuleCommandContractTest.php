@@ -10,11 +10,11 @@ use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\InstanceExecutionContext;
-use app\platform\infrastructure\plugin\ModuleCatalogApplier;
-use app\platform\services\plugin\PlatformModuleRuntimeService;
-use app\platform\services\plugin\PluginCatalogSyncService;
-use app\platform\services\plugin\PluginPackageArchiveService;
-use app\platform\services\plugin\PluginRuntimeGovernanceService;
+use app\platform\infrastructure\module\ModuleCatalogApplier;
+use app\platform\services\module\PlatformModuleRuntimeService;
+use app\platform\services\module\ModuleCatalogSyncService;
+use app\platform\services\module\ModulePackageArchiveService;
+use app\platform\services\module\ModuleRuntimeGovernanceService;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use think\App;
@@ -52,7 +52,7 @@ final class ModuleCommandContractTest extends TestCase
     {
         $signingKeypair = sodium_crypto_sign_keypair();
         $archive = $this->temporary . '/signed-fixture.tar';
-        $packed = (new PluginPackageArchiveService(dirname(__DIR__, 2)))->packModule(
+        $packed = (new ModulePackageArchiveService(dirname(__DIR__, 2)))->packModule(
             'fixture.delivery-record',
             $archive,
             [
@@ -235,13 +235,13 @@ final class ModuleCommandContractTest extends TestCase
         $store = new ExecutionContextStore();
         $current = new CurrentExecutionContext($store);
         $catalogs = (new \ReflectionClass(ModuleCatalogApplier::class))->newInstanceWithoutConstructor();
-        $moduleConfig = ['plugin_lock' => '../plugins.lock'];
+        $moduleConfig = ['module_lock' => '../modules.lock'];
         $runtime = new PlatformModuleRuntimeService(
             $this->temporary . '/server',
             $moduleConfig,
             $trustedKeys,
-            new PluginRuntimeGovernanceService($this->temporary . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries()),
-            new PluginCatalogSyncService($this->temporary . '/server', $moduleConfig, $catalogs),
+            new ModuleRuntimeGovernanceService($this->temporary . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries()),
+            new ModuleCatalogSyncService($this->temporary . '/server', $moduleConfig, $catalogs),
             $catalogs,
             new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries(),
         );

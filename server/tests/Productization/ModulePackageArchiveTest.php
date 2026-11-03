@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-use app\platform\exception\plugin\PluginLifecycleException;
-use app\platform\exception\plugin\PluginPackageException;
-use app\platform\infrastructure\plugin\DeterministicTarArchive;
-use app\platform\infrastructure\plugin\PluginArtifactWriter;
-use app\platform\infrastructure\plugin\PluginLockResolver;
-use app\platform\services\plugin\PluginPackageAdoptionService;
-use app\platform\services\plugin\PluginPackageArchiveService;
+use app\platform\exception\module\ModuleLifecycleException;
+use app\platform\exception\module\ModulePackageException;
+use app\platform\infrastructure\module\DeterministicTarArchive;
+use app\platform\infrastructure\module\ModuleArtifactWriter;
+use app\platform\infrastructure\module\ModuleLockResolver;
+use app\platform\services\module\ModulePackageAdoptionService;
+use app\platform\services\module\ModulePackageArchiveService;
 use app\common\module\PackageCheck as ModulePackagePreflight;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
@@ -34,7 +34,7 @@ function modulePackageRejects(callable $operation, string $errorCode): void
     try {
         $operation();
         throw new RuntimeException("Expected package rejection: {$errorCode}");
-    } catch (PluginPackageException $exception) {
+    } catch (ModulePackageException $exception) {
         $previous = $exception->getPrevious();
         modulePackageExpect(
             $exception->errorCode === $errorCode,
@@ -118,8 +118,8 @@ try {
         $fromNamespace => $toNamespace,
     ]);
     mkdir($authorRoot . '/server/resources/schemas', 0700, true);
-    copy($serverRoot . '/resources/schemas/plugin.schema.json', $authorRoot . '/server/resources/schemas/plugin.schema.json');
-    $service = new PluginPackageArchiveService($authorRoot . '/server');
+    copy($serverRoot . '/resources/schemas/module-artifact.schema.json', $authorRoot . '/server/resources/schemas/module-artifact.schema.json');
+    $service = new ModulePackageArchiveService($authorRoot . '/server');
     $first = $temporary . '/fixture-a.tar';
     $second = $temporary . '/fixture-b.tar';
     $packedA = $service->packModule('acme.delivery-record', $first);
@@ -155,9 +155,9 @@ try {
     foreach ($entries as $path => $entry) {
         if ($path === 'META-INF/files.sha256' || str_starts_with($path, 'META-INF/signatures/')) { continue; }
         $contents = $tar->read($first, $entry);
-        if ($path === 'plugins/acme.delivery-record/plugin.json') {
+        if ($path === 'server/app/modules/acme/delivery_record/module.json') {
             $document = json_decode($contents, true, 128, JSON_THROW_ON_ERROR);
-            $document['version'] = '999.0.0';
+            $document['key'] = 'acme.wrong';
             $contents = json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
         }
         $splitVersionEntries[$path] = ['contents' => $contents];
@@ -170,7 +170,7 @@ try {
     $tar->write($splitArchive, $splitVersionEntries);
     modulePackageRejects(
         static fn() => $service->verify($splitArchive, hash_file('sha256', $splitArchive), [], null, []),
-        'MODULE_PACKAGE_SINGLE_IDENTITY_INVALID',
+        'MODULE_PACKAGE_IDENTITY_MISMATCH',
     );
 
     $keypair = sodium_crypto_sign_keypair();
@@ -217,7 +217,7 @@ try {
 
     $bundleRoot = $temporary . '/bundle-project';
     mkdir($bundleRoot . '/server/resources/schemas', 0777, true);
-    copy($serverRoot . '/resources/schemas/plugin.schema.json', $bundleRoot . '/server/resources/schemas/plugin.schema.json');
+    copy($serverRoot . '/resources/schemas/module-artifact.schema.json', $bundleRoot . '/server/resources/schemas/module-artifact.schema.json');
     foreach ([
         'acme.first' => ['First', 'pa_acme_first'],
         'acme.second' => ['Second', 'pa_acme_second'],
@@ -245,7 +245,7 @@ try {
     $firstManifest = json_decode((string) file_get_contents($firstManifestPath), true, 64, JSON_THROW_ON_ERROR);
     $firstManifest['dependencies'] = [['module_key' => 'acme.second', 'version' => '^1.0']];
     file_put_contents($firstManifestPath, json_encode($firstManifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
-    $bundleService = new PluginPackageArchiveService($bundleRoot . '/server');
+    $bundleService = new ModulePackageArchiveService($bundleRoot . '/server');
     $bundlePath = $temporary . '/acme-bundle.tar';
     foreach (['.env.production', 'id_ed25519', 'node_modules/vendor-runtime.js'] as $forbiddenRelative) {
         $forbiddenSource = $bundleRoot . '/server/app/modules/acme/first/' . $forbiddenRelative;
@@ -312,7 +312,8 @@ try {
     foreach ($bundleFiles as $relative => $digest) {
         $bundleCanonical .= $relative . "\0" . $digest . "\n";
     }
-    $bundleManifest = json_decode((string) file_get_contents($bundleExtracted . '/plugins/acme.first/plugin.json'), true, 64, JSON_THROW_ON_ERROR);
+    $bundleDeclaration = json_decode((string) file_get_contents($bundleExtracted . '/server/app/modules/acme/first/module.json'), true, 64, JSON_THROW_ON_ERROR);
+    $bundleManifest = (new ModuleArtifactWriter($bundleExtracted . '/server', false))->build('acme.first', $bundleDeclaration['version'], ['acme.first=server/app/modules/acme/first']);
     $bundleActualSourceDigest = hash('sha256', $bundleCanonical);
     modulePackageExpect(
         $bundleActualSourceDigest === $bundleManifest['source']['sha256'],
@@ -337,18 +338,18 @@ try {
     // Adoption has no database dependency and applies equally to the source tree of both Editions.
     $adoptRoot = realpath($temporary) . '/adopted';
     mkdir($adoptRoot . '/server/resources/schemas', 0700, true);
-    copy($serverRoot . '/resources/schemas/plugin.schema.json', $adoptRoot . '/server/resources/schemas/plugin.schema.json');
-    $adopter = new PluginPackageAdoptionService($adoptRoot . '/server', ['fixture-release' => $public], 'development');
+    copy($serverRoot . '/resources/schemas/module-artifact.schema.json', $adoptRoot . '/server/resources/schemas/module-artifact.schema.json');
+    $adopter = new ModulePackageAdoptionService($adoptRoot . '/server', ['fixture-release' => $public], 'development');
     $pin = hash_file('sha256', $signedPath);
-    modulePackageRejects(fn() => (new PluginPackageAdoptionService($adoptRoot . '/server', [], 'production'))->adopt($signedPath, $pin, 'fixture-release'), 'MODULE_SOURCE_ADOPTION_DISABLED');
+    modulePackageRejects(fn() => (new ModulePackageAdoptionService($adoptRoot . '/server', [], 'production'))->adopt($signedPath, $pin, 'fixture-release'), 'MODULE_SOURCE_ADOPTION_DISABLED');
     modulePackageRejects(fn() => $adopter->adopt($signedPath, null, 'fixture-release'), 'MODULE_PACKAGE_SOURCE_UNTRUSTED');
     modulePackageRejects(fn() => $adopter->adopt($first, $packedA['sha256'], 'fixture-release'), 'MODULE_PACKAGE_SOURCE_UNTRUSTED');
     modulePackageRejects(fn() => $adopter->adopt($signedPath, str_repeat('0', 64), 'fixture-release'), 'MODULE_PACKAGE_ARCHIVE_DIGEST_MISMATCH');
     $adopted = $adopter->adopt($signedPath, $pin, 'fixture-release');
     modulePackageExpect($adopted['status'] === 'development-adopted' && !$adopted['runtime_database_mutated'] && !$adopted['tenant_modules_enabled'] && !$adopted['rbac_granted'], 'adoption crossed Runtime activation boundary');
     modulePackageExpect($adopter->adopt($signedPath, $pin, 'fixture-release')['operation'] === 'unchanged', 'same identity adoption is not idempotent');
-    (new PluginArtifactWriter($adoptRoot . '/server'))->checkLock();
-    modulePackageExpect(count((new PluginLockResolver($adoptRoot . '/server', '../plugins.lock'))->all()) === 1, 'adopted source and lock diverge');
+    (new ModuleArtifactWriter($adoptRoot . '/server'))->checkLock();
+    modulePackageExpect(count((new ModuleLockResolver($adoptRoot . '/server', '../modules.lock'))->all()) === 1, 'adopted source and lock diverge');
 
     // Replay real persisted transaction inputs in fresh processes at each process-crash boundary.
     // The child is killed without catch/finally cleanup after exposing the chosen durable intermediate state.
@@ -368,7 +369,7 @@ try {
                 }
                 rename($adoptRoot . '/' . $entry['scope'], $payload);
             }
-            unlink($adoptRoot . '/plugins.lock');
+            unlink($adoptRoot . '/modules.lock');
             file_put_contents($adoptRoot . '/.local/module-source-adoption/journal.json', $receipt);
             if ($cut !== 'prepared') {
                 foreach ($journal['entries'] as $index => $entry) {
@@ -379,7 +380,7 @@ try {
                 }
             }
             if ($cut === 'lock-committed') {
-                copy($transactionRoot . '/next.lock', $adoptRoot . '/plugins.lock');
+                copy($transactionRoot . '/next.lock', $adoptRoot . '/modules.lock');
             }
             posix_kill(getmypid(), SIGKILL);
             exit(99);
@@ -387,26 +388,26 @@ try {
         pcntl_waitpid($pid, $status);
         modulePackageExpect(pcntl_wifsignaled($status) && pcntl_wtermsig($status) === SIGKILL, 'crash fixture did not terminate abruptly');
         try {
-            (new PluginLockResolver($adoptRoot . '/server', '../plugins.lock'))->all();
+            (new ModuleLockResolver($adoptRoot . '/server', '../modules.lock'))->all();
             throw new RuntimeException('pending adoption was consumed');
-        } catch (PluginLifecycleException $exception) {
+        } catch (ModuleLifecycleException $exception) {
             modulePackageExpect($exception->errorCode === 'MODULE_PACKAGE_RECOVERY_REQUIRED', 'pending adoption did not fail closed');
         }
         modulePackageExpect($adopter->recover()['status'] === 'recovered', 'persistent recovery failed at ' . $cut);
-        (new PluginArtifactWriter($adoptRoot . '/server'))->checkLock();
+        (new ModuleArtifactWriter($adoptRoot . '/server'))->checkLock();
         modulePackageExpect($adopter->recover()['status'] === 'clean', 'recovery is not idempotent');
     }
     $alias = realpath($temporary) . '/adoption-alias';
     symlink($adoptRoot, $alias);
-    modulePackageRejects(fn() => (new PluginPackageAdoptionService($alias . '/server', ['fixture-release' => $public], 'development'))->adopt($signedPath, $pin, 'fixture-release'), 'MODULE_PACKAGE_PATH_INVALID');
+    modulePackageRejects(fn() => (new ModulePackageAdoptionService($alias . '/server', ['fixture-release' => $public], 'development'))->adopt($signedPath, $pin, 'fixture-release'), 'MODULE_PACKAGE_PATH_INVALID');
     unlink($alias);
-    $identities = (new ReflectionClass(\app\platform\validation\plugin\PluginReleaseCompositionGuard::class))->newInstanceWithoutConstructor();
+    $identities = (new ReflectionClass(\app\platform\validation\module\ModuleReleaseCompositionGuard::class))->newInstanceWithoutConstructor();
     $identityColumn = new ReflectionMethod($identities, 'jsonColumn');
     foreach (['{}', '{"0":{"name":"identity"}}'] as $objectIdentity) {
         try {
             $identityColumn->invoke($identities, $objectIdentity);
             throw new RuntimeException('object-shaped identity was accepted');
-        } catch (PluginLifecycleException $exception) {
+        } catch (ModuleLifecycleException $exception) {
             modulePackageExpect($exception->errorCode === 'PLUGIN_RELEASE_CURRENT_IDENTITY_INVALID', 'object identity rejection changed');
         }
     }
@@ -420,7 +421,7 @@ try {
     // Upgrade recovery includes a crash after the old root is backed up, before the new root arrives.
     $upgradeRoot = realpath($temporary) . '/upgrade-source';
     mkdir($upgradeRoot . '/server/resources/schemas', 0700, true);
-    copy($serverRoot . '/resources/schemas/plugin.schema.json', $upgradeRoot . '/server/resources/schemas/plugin.schema.json');
+    copy($serverRoot . '/resources/schemas/module-artifact.schema.json', $upgradeRoot . '/server/resources/schemas/module-artifact.schema.json');
     modulePackageCopyTree($fixtureBackend, $upgradeRoot . '/server/app/modules/acme/delivery_record');
     modulePackageCopyTree($fixtureFrontend, $upgradeRoot . '/web/src/modules/acme-delivery-record');
     modulePackageRewriteTree($upgradeRoot, ['"version": "1.0.0"' => '"version": "1.1.0"']);
@@ -430,8 +431,8 @@ try {
     }
     file_put_contents($routeDirectory . '/routes.php', "<?php\n// Explicit application route composition fixture.\n");
     $upgradePath = $temporary . '/upgrade.tar';
-    $upgrade = (new PluginPackageArchiveService($upgradeRoot . '/server'))->packModule('acme.delivery-record', $upgradePath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);
-    $oldLock = (string) file_get_contents($adoptRoot . '/plugins.lock');
+    $upgrade = (new ModulePackageArchiveService($upgradeRoot . '/server'))->packModule('acme.delivery-record', $upgradePath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);
+    $oldLock = (string) file_get_contents($adoptRoot . '/modules.lock');
     $updated = $adopter->adopt($upgradePath, $upgrade['sha256'], 'fixture-release');
     modulePackageExpect($updated['route_contributions'] === ['server/app/modules/acme/delivery_record/route/app.php'], 'conventional route contribution was not reported');
     $receipts = glob($adoptRoot . '/.local/module-source-adoption/*/transaction.json') ?: [];
@@ -452,32 +453,32 @@ try {
                 rename($upgradeTransaction . '/before/' . $entry['scope'], $adoptRoot . '/' . $entry['scope']);
             }
         }
-        file_put_contents($adoptRoot . '/plugins.lock', $oldLock);
+        file_put_contents($adoptRoot . '/modules.lock', $oldLock);
         file_put_contents($adoptRoot . '/.local/module-source-adoption/journal.json', $upgradeReceipt);
         posix_kill(getmypid(), SIGKILL);
         exit(99);
     }
     pcntl_waitpid($pid, $status);
     modulePackageExpect(pcntl_wifsignaled($status), 'upgrade fixture did not terminate abruptly');
-    file_put_contents($adoptRoot . '/plugins.lock', $oldLock . "\n");
+    file_put_contents($adoptRoot . '/modules.lock', $oldLock . "\n");
     modulePackageRejects(fn() => $adopter->recover(), 'MODULE_PACKAGE_RECOVERY_REQUIRED');
-    file_put_contents($adoptRoot . '/plugins.lock', $oldLock);
+    file_put_contents($adoptRoot . '/modules.lock', $oldLock);
     modulePackageExpect($adopter->recover()['status'] === 'recovered', 'upgrade backup gap did not recover');
-    (new PluginArtifactWriter($adoptRoot . '/server'))->checkLock();
+    (new ModuleArtifactWriter($adoptRoot . '/server'))->checkLock();
     modulePackageRejects(fn() => $adopter->adopt($signedPath, $pin, 'fixture-release'), 'PLUGIN_DOWNGRADE_REJECTED');
     // The same edition generator must retain private manifests when composing the next bundled source lock.
     $creator = new \app\common\infrastructure\scaffold\ApplicationCreator($projectRoot, $projectRoot . '/scaffold/application-template-inventory.json');
-    $rebuild = new ReflectionMethod($creator, 'rebuildBundledPluginArtifacts');
+    $rebuild = new ReflectionMethod($creator, 'rebuildBundledModuleArtifacts');
     $artifactFiles = [];
-    foreach (['plugins/acme.delivery-record/plugin.json', 'plugins.lock'] as $relative) {
+    foreach (['server/app/modules/acme/delivery_record/module.json', 'modules.lock'] as $relative) {
         chmod($adoptRoot . '/' . $relative, 0644);
         $artifactFiles[] = ['path' => $relative, 'mode' => 0644];
     }
     $rebuild->invoke($creator, $adoptRoot, $artifactFiles);
-    modulePackageExpect(isset((new PluginLockResolver($adoptRoot . '/server', '../plugins.lock'))->all()['acme.delivery-record']), 'edition composition discarded private package identity');
+    modulePackageExpect(isset((new ModuleLockResolver($adoptRoot . '/server', '../modules.lock'))->all()['acme.delivery-record']), 'edition composition discarded private package identity');
 
     $officialPath = $temporary . '/official-signed.tar';
-    $official = (new PluginPackageArchiveService($serverRoot))->packModule('peanut.chart', $officialPath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);
+    $official = (new ModulePackageArchiveService($serverRoot))->packModule('peanut.chart', $officialPath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);
     modulePackageRejects(fn() => $adopter->adopt($officialPath, $official['sha256'], 'fixture-release'), 'MODULE_PACKAGE_PRIVATE_REQUIRED');
     if (!$archiveOnly) {
         // An incomplete source must still expose the development recovery CLI while ordinary boot fails closed.
@@ -494,7 +495,7 @@ try {
                 . "PEANUT_DATABASE_RESOURCE_ID=p2-module-package-fixture\n"
                 . "DB_HOST=127.0.0.1\nDB_PORT=1\nDB_NAME=p2_module_package_fixture\n"
                 . "DB_USER=p2\nDB_PASS=p2\nDB_PREFIX=pa_\n"
-                . "PEANUT_PLUGIN_LOCK=../plugins.lock\nPEANUT_MODULE_KERNEL_VERSION=1.0.0\n"
+                . "PEANUT_MODULE_LOCK=../modules.lock\nPEANUT_MODULE_KERNEL_VERSION=1.0.0\n"
                 . "PEANUT_MODULE_TRUSTED_KEYS_JSON={}\n",
         );
         chmod($bootEnvironment, 0600);

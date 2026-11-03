@@ -285,10 +285,10 @@
         "跨应用运营平台"
       ],
       "current_implementation": [
-        "server/app/platform/services/plugin/PluginLifecycleService.php",
-        "server/app/platform/validation/plugin/PluginReleaseCompositionGuard.php",
-        "server/app/platform/infrastructure/plugin/ModuleCatalogApplier.php",
-        "server/app/platform/infrastructure/plugin/DevelopmentModuleDiscovery.php",
+        "server/app/platform/services/module/ModuleLifecycleService.php",
+        "server/app/platform/validation/module/ModuleReleaseCompositionGuard.php",
+        "server/app/platform/infrastructure/module/ModuleCatalogApplier.php",
+        "server/app/platform/infrastructure/module/DevelopmentModuleDiscovery.php",
         "server/app/platform/services/module/PlatformTenantModuleService.php",
         "server/app/common/infrastructure/module/ModuleExecutionBoundary.php",
         "server/app/common/infrastructure/module/OfficialModuleMiddleware.php"
@@ -312,7 +312,7 @@
         "policy": "部署安装与 Tenant 开通分层；Plugin lifecycle 不直接修改 pa_tenant_module"
       },
       "dependencies": ["Admin authorization", "Audit contract"],
-      "recommended_boundary": "PluginLifecycleCommands、TenantModuleCommands、ModuleQualificationQuery 和 ModuleExecutionGuard 四个窄合同，共享一个 verified registry"    },
+      "recommended_boundary": "ModuleLifecycleCommands、TenantModuleCommands、ModuleQualificationQuery 和 ModuleExecutionGuard 四个窄合同，共享一个 verified registry"    },
     {
       "stable_service_id": "PA-SVC-IDEMPOTENCY",
       "name": "Tenant 幂等命令执行服务",

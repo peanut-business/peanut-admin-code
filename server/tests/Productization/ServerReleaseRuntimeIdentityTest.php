@@ -55,8 +55,8 @@ function serverReleaseIdentityFixture(string $root, string $kind): ServerRelease
     }
 
     file_put_contents($server . '/database/install.php', "<?php\n");
-    $plugins = ['schema_version' => 1, 'protocol' => 'peanut.server-plugin-lock.v1', 'plugins' => []];
-    file_put_contents($server . '/plugins.lock', json_encode($plugins, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . "\n");
+    $plugins = ['schema_version' => 1, 'protocol' => 'peanut.server-module-lock.v1', 'modules' => []];
+    file_put_contents($server . '/modules.lock', json_encode($plugins, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . "\n");
     file_put_contents($server . '/resources/project-resources.json', json_encode([
         'schema_version' => 1,
         'project_id' => 'runtime-fixture',
@@ -72,7 +72,7 @@ function serverReleaseIdentityFixture(string $root, string $kind): ServerRelease
     $files = serverReleaseIdentityRows($server, [
         'server/.peanut/RELEASE_METADATA.json',
         'server/database/install.php',
-        'server/plugins.lock',
+        'server/modules.lock',
         'server/resources/project-resources.json',
     ]);
     $appCommit = $kind === 'application' ? str_repeat('a', 40) : null;
@@ -116,10 +116,10 @@ function serverReleaseIdentityFixture(string $root, string $kind): ServerRelease
             'release_sequence_version' => '1.2.3',
             'scaffold_template' => '4.0.0-rc.10',
         ],
-        'plugin_projection' => [
+        'module_projection' => [
             'source_lock_sha256' => str_repeat('6', 64),
-            'projected_lock_sha256' => hash_file('sha256', $server . '/plugins.lock'),
-            'plugins' => [],
+            'projected_lock_sha256' => hash_file('sha256', $server . '/modules.lock'),
+            'modules' => [],
         ],
         'files' => $files,
         'files_sha256' => hash('sha256', json_encode($files, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)),

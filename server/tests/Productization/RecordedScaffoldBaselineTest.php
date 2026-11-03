@@ -111,7 +111,7 @@ try {
         'module_keys' => ['acme.example'], 'module_roots' => [$module], 'frontend_roots' => [],
         'source_contract' => ['type' => 'canonical-contents', 'channel' => 'bundled',
             'origin' => ['type' => 'repository-contents', 'reference' => 'canonical-plugin-contents-v1']]];
-    $current = ['plugins' => ['acme.example' => $plugin]];
+    $current = ['modules' => ['acme.example' => $plugin]];
     $target = ['acme.example' => array_replace($plugin, ['frontend_roots' => [$frontend]])];
     $newFiles = $oldFiles + [$frontend . '/index.ts' => ['classification' => 'managed',
         'template_sha256' => hash('sha256', 'target'), 'mode' => 0644]];
@@ -138,16 +138,16 @@ try {
     $reserved['files'][] = ['path' => $frontend . '/missing.ts', 'classification' => 'app-owned'];
     if ($prove($reserved, $current, $target) !== []) { throw new RuntimeException('absent application-owned path was adopted'); }
     $foreign = $current;
-    $foreign['plugins']['customer.other'] = ['module_roots' => [], 'frontend_roots' => ['web/src/modules']];
+    $foreign['modules']['customer.other'] = ['module_roots' => [], 'frontend_roots' => ['web/src/modules']];
     if ($prove($owned, $foreign, $target) !== []) { throw new RuntimeException('overlapping customer root was adopted'); }
     $unproven = $current;
-    $unproven['plugins']['acme.example']['source_contract']['channel'] = 'private';
+    $unproven['modules']['acme.example']['source_contract']['channel'] = 'private';
     if ($prove($owned, $unproven, $target) !== []) { throw new RuntimeException('private source was adopted'); }
     $membership = $target;
     $membership['acme.example']['module_keys'][] = 'acme.other';
     if ($prove($owned, $current, $membership) !== []) { throw new RuntimeException('backend membership change was adopted'); }
     $removal = $current;
-    $removal['plugins']['acme.example']['frontend_roots'] = [$frontend];
+    $removal['modules']['acme.example']['frontend_roots'] = [$frontend];
     if ($prove($owned, $removal, ['acme.example' => $plugin]) !== []) {
         throw new RuntimeException('unproven old frontend membership was adopted');
     }

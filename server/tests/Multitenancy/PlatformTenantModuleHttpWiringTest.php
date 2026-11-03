@@ -56,7 +56,7 @@ pm01ModuleHttpExpect(
 );
 $composition = (string) file_get_contents(dirname(__DIR__, 2) . '/app/AppService.php');
 $registryFactory = (string) file_get_contents(
-    dirname(__DIR__, 2) . '/app/platform/service/plugin/ModuleDefinitionRegistryFactory.php',
+    dirname(__DIR__, 2) . '/app/platform/service/module/ModuleDefinitionRegistryFactory.php',
 );
 $routes = peanut_route_registry_source(dirname(__DIR__, 2));
 $adminBridge = (string) file_get_contents(

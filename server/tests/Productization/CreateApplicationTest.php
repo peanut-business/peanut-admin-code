@@ -3,16 +3,16 @@
 declare(strict_types=1);
 
 use app\common\infrastructure\scaffold\ApplicationCreator;
-use app\platform\infrastructure\plugin\PluginLockResolver;
+use app\platform\infrastructure\module\ModuleLockResolver;
 
 $root = dirname(__DIR__, 3);
 require_once $root . '/server/vendor/autoload.php';
 require_once $root . '/server/app/common/validation/scaffold/ScaffoldPathGuard.php';
 require_once $root . '/server/app/common/value/scaffold/ScaffoldManifest.php';
 require_once $root . '/server/app/common/infrastructure/scaffold/ApplicationCreator.php';
-require_once $root . '/server/app/platform/exception/plugin/PluginLifecycleException.php';
-require_once $root . '/server/app/platform/value/plugin/PluginDescriptor.php';
-require_once $root . '/server/app/platform/infrastructure/plugin/PluginLockResolver.php';
+require_once $root . '/server/app/platform/exception/module/ModuleLifecycleException.php';
+require_once $root . '/server/app/platform/value/module/ModuleDescriptor.php';
+require_once $root . '/server/app/platform/infrastructure/module/ModuleLockResolver.php';
 
 function createApplicationExpect(bool $condition, string $message): void
 {
@@ -469,14 +469,14 @@ try {
     createApplicationExpect(!is_dir($first . '/server/app/modules/fixture/delivery_record'), 'demo backend Module must remain source-only');
     createApplicationExpect(!is_dir($first . '/server/fixtures/plugin-module-lifecycle'), 'demo lifecycle runner must remain source-only');
     createApplicationExpect(!is_dir($first . '/web/src/modules/fixture-delivery-record'), 'demo frontend Module must remain source-only');
-    $sourcePlugins = (new PluginLockResolver($root . '/server', '../plugins.lock'))->all();
+    $sourcePlugins = (new ModuleLockResolver($root . '/server', '../modules.lock'))->all();
     createApplicationExpect($sourcePlugins !== [], 'source fixture lock must resolve at least one fixture Plugin');
-    $generatedLock = json_decode((string) file_get_contents($first . '/plugins.lock'), true, 64, JSON_THROW_ON_ERROR);
+    $generatedLock = json_decode((string) file_get_contents($first . '/modules.lock'), true, 64, JSON_THROW_ON_ERROR);
     $expectedOfficialPlugins = array_values(array_filter(
         $sourcePlugins,
         static fn(object $plugin): bool => $plugin->key !== 'fixture.delivery-record',
     ));
-    $generatedPlugins = (new PluginLockResolver($first . '/server', '../plugins.lock'))->all();
+    $generatedPlugins = (new ModuleLockResolver($first . '/server', '../modules.lock'))->all();
     createApplicationExpect($expectedOfficialPlugins !== [], 'source lock must contain official Plugins');
     createApplicationExpect(
         array_keys($generatedPlugins) === array_map(static fn(object $plugin): string => $plugin->key, $expectedOfficialPlugins),
@@ -495,7 +495,7 @@ try {
     ) === 1, 'admin builder stage is missing');
     $adminBuild = $adminBuildMatch[1];
     $compilePosition = strpos($adminBuild, 'pnpm exec vite build');
-    foreach (['COPY plugins.lock /build/plugins.lock', 'COPY scripts/client-environment.ts', 'COPY web/ ./',
+    foreach (['COPY modules.lock /build/modules.lock', 'COPY scripts/client-environment.ts', 'COPY web/ ./',
         'pnpm exec vue-tsc --noEmit', 'VITE_DEPLOYMENT_MODE=multi-tenant'] as $requiredInput) {
         $inputPosition = strpos($adminBuild, $requiredInput);
         createApplicationExpect(
@@ -644,8 +644,8 @@ try {
     createApplicationExpect(!str_contains($generatedModulesConfig, 'fixture.delivery-record'), 'demo Module identity leaked into generated deployment config');
     createApplicationExpect(
         str_contains($generatedModulesConfig, "\$serverRelease = file_exists(\$serverIdentity) || is_link(\$serverIdentity);")
-            && str_contains($generatedModulesConfig, "\$pluginLockDefault = \$serverRelease ? 'plugins.lock' : '../plugins.lock';")
-            && str_contains($generatedModulesConfig, "env('PEANUT_PLUGIN_LOCK', \$pluginLockDefault)"),
+            && str_contains($generatedModulesConfig, "\$pluginLockDefault = \$serverRelease ? 'modules.lock' : '../modules.lock';")
+            && str_contains($generatedModulesConfig, "env('PEANUT_MODULE_LOCK', \$pluginLockDefault)"),
         'generated deployment must use the application-root Plugin lock until a Server release identity exists',
     );
     $releaseMetadata = json_decode((string) file_get_contents($first . '/RELEASE_METADATA.json'), true, 512, JSON_THROW_ON_ERROR);

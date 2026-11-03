@@ -3,8 +3,8 @@
 
 declare(strict_types=1);
 
-use app\platform\validation\plugin\ModulePackagePreflight;
-use app\platform\services\plugin\PluginPackageArchiveService;
+use app\platform\validation\module\ModulePackagePreflight;
+use app\platform\services\module\ModulePackageArchiveService;
 
 $root = dirname(__DIR__);
 require $root . '/server/vendor/autoload.php';
@@ -146,12 +146,12 @@ if (trim(packagingEvidenceRun(['git', '-C', $root, 'status', '--porcelain', '--u
     packagingEvidenceFail('source worktree must be clean before generating packaging evidence');
 }
 
-$pluginLock = json_decode((string) file_get_contents($root . '/plugins.lock'), true, 64, JSON_THROW_ON_ERROR);
-if (!is_array($pluginLock['plugins'] ?? null) || !array_is_list($pluginLock['plugins'])) {
+$pluginLock = json_decode((string) file_get_contents($root . '/modules.lock'), true, 64, JSON_THROW_ON_ERROR);
+if (!is_array($pluginLock['modules'] ?? null) || !array_is_list($pluginLock['modules'])) {
     packagingEvidenceFail('Bundled Plugin lock is invalid');
 }
 $moduleKeys = [];
-foreach ($pluginLock['plugins'] as $plugin) {
+foreach ($pluginLock['modules'] as $plugin) {
     if (!is_array($plugin)) {
         packagingEvidenceFail('Bundled Plugin lock entry is invalid');
     }
@@ -176,7 +176,7 @@ $packageDirectory = $outputDirectory . '/packages';
 if (!is_dir($packageDirectory) && !mkdir($packageDirectory, 0775, true) && !is_dir($packageDirectory)) {
     packagingEvidenceFail('Module package output directory is unavailable: ' . $packageDirectory);
 }
-$archiveService = new PluginPackageArchiveService($root . '/server');
+$archiveService = new ModulePackageArchiveService($root . '/server');
 $preflight = new ModulePackagePreflight($root);
 $results = [];
 foreach ($moduleKeys as $moduleKey) {

@@ -66,7 +66,7 @@ try {
         $s = $pdo->prepare('INSERT INTO pa_tenant_module(tenant_id,module_key,status,source,config_revision,authorization_revision,created_at,updated_at) VALUES(?,?,"enabled","manual",1,1,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))');
         $s->execute([$owner->tenantId, $moduleKey]);
     }
-    $app->make(\app\platform\infrastructure\plugin\ModuleCatalogApplier::class)->apply($registry, ['official.identity', 'official.file', 'official.content-tools']);
+    $app->make(\app\platform\infrastructure\module\ModuleCatalogApplier::class)->apply($registry, ['official.identity', 'official.file', 'official.content-tools']);
     $tenant = $owner->tenantId; $account = $owner->accountId; $member = $owner->memberId;
     $sessionKey = '01K00000000000000000000001';
     $s = $pdo->prepare('INSERT INTO pa_tenant_session(session_key,tenant_id,account_id,tenant_member_id,client_key,status,account_security_revision,tenant_security_revision,member_security_revision,issued_at,last_seen_at,idle_expires_at,absolute_expires_at,created_at,updated_at) SELECT ?,m.tenant_id,m.account_id,m.id,"admin-web","active",a.security_revision,t.security_revision,m.security_revision,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 1 HOUR),DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 2 HOUR),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3) FROM pa_tenant_member m JOIN pa_account a ON a.id=m.account_id JOIN pa_tenant t ON t.id=m.tenant_id WHERE m.id=?');

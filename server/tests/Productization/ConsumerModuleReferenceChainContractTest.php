@@ -83,9 +83,9 @@ referenceChainContractExpect(
 
 $helper = referenceChainContractSection($source, 'def lifecycle_helper()', 'def helper_action(');
 foreach ([
-    'PluginPackageInstaller',
+    'ModulePackageInstaller',
     'PlatformModuleRuntimeService',
-    'PluginRuntimeGovernanceService',
+    'ModuleRuntimeGovernanceService',
 ] as $forbidden) {
     referenceChainContractExpect(
         !str_contains($helper, $forbidden),

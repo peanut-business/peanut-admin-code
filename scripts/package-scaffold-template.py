@@ -333,7 +333,7 @@ def main():
         content = file.read_bytes()
         if digest(content) != entry['sha256']:
             raise ValueError('TEMPLATE_FILE_CHANGED: ' + relative)
-        is_frozen = bool(frozen.match(relative)) or relative == 'plugins.lock' or relative.startswith('plugins/')
+        is_frozen = bool(frozen.match(relative)) or relative == 'modules.lock' or relative.startswith('plugins/')
         has_tokens = any(value.encode() in content for value in tokens.values())
         if is_frozen and (has_tokens or re.search(rb'\{\{(?:PRODUCT_NAME|SLUG|PACKAGE_IDENTITY|APPLICATION_VERSION)\}\}', content)):
             raise ValueError('TEMPLATE_MODULE_IDENTITY_MUTABLE: ' + relative)

@@ -3,8 +3,8 @@
     "openapi_version": "3.0.3",
     "inputs": [
         {
-            "path": "plugins.lock",
-            "sha256": "92346367c7afefaf3d665b806bae32a8f1a7e1bc3a0ca9222c7150d6ca53ee43"
+            "path": "modules.lock",
+            "sha256": "36c750817b80d9f1d55301d1db968baa73d6db505c9e17df54477fff779ba444"
         },
         {
             "path": "release-versions.json",
@@ -100,7 +100,7 @@
         },
         {
             "path": "server/route/registry_source.php",
-            "sha256": "51364ea70ed4cf57e3673030118bf159328c72297182d43853f75cfb2457e77d"
+            "sha256": "a5dc51a4436b16e4760996819f32cd2554caf028544f85401f465256507a6c89"
         },
         {
             "path": "server/route/tenant.php",

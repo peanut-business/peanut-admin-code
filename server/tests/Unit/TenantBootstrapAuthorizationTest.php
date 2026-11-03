@@ -116,7 +116,7 @@ final class TenantBootstrapAuthorizationTest extends TestCase
 
     public function testNativeModuleCatalogFixtureConstructsTheCurrentDependencies(): void
     {
-        self::assertInstanceOf(\app\platform\infrastructure\plugin\ModuleCatalogApplier::class, \ThinkPhpTestConnection::moduleCatalogs($this->database));
+        self::assertInstanceOf(\app\platform\infrastructure\module\ModuleCatalogApplier::class, \ThinkPhpTestConnection::moduleCatalogs($this->database));
     }
 
     public function testProvisioningTenantKeepsTheExistingOwnerInvitationContract(): void

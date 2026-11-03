@@ -8,7 +8,7 @@ use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\services\audit\AuditContractHost;
 use app\common\services\installation\InstallationExecutionHost;
-use app\platform\infrastructure\plugin\ModuleCatalogApplier;
+use app\platform\infrastructure\module\ModuleCatalogApplier;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
 use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;

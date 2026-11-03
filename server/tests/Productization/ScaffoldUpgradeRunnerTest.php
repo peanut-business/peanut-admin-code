@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use app\common\infrastructure\scaffold\ScaffoldUpgradeRunner;
 use app\common\value\scaffold\ScaffoldManifest;
-use app\platform\infrastructure\plugin\PluginArtifactWriter;
+use app\platform\infrastructure\module\ModuleArtifactWriter;
 
 $root = dirname(__DIR__, 3);
 require_once $root . '/server/vendor/autoload.php';
@@ -12,12 +12,12 @@ require $root . '/scripts/scaffold-runtime/ScaffoldPathGuard.php';
 require $root . '/scripts/scaffold-runtime/ScaffoldManifest.php';
 require $root . '/scripts/scaffold-runtime/ScaffoldUpgradeLedger.php';
 require $root . '/scripts/scaffold-runtime/Semver.php';
-require $root . '/server/app/platform/exception/plugin/PluginArtifactToolException.php';
-require $root . '/server/app/platform/exception/plugin/PluginLifecycleException.php';
-require $root . '/server/app/platform/value/plugin/ModuleFrontendLayout.php';
-require $root . '/server/app/platform/value/plugin/PluginDescriptor.php';
-require $root . '/server/app/platform/infrastructure/plugin/PluginArtifactWriter.php';
-require $root . '/server/app/platform/infrastructure/plugin/PluginLockResolver.php';
+require $root . '/server/app/platform/exception/module/ModuleArtifactToolException.php';
+require $root . '/server/app/platform/exception/module/ModuleLifecycleException.php';
+require $root . '/server/app/platform/value/module/ModuleFrontendLayout.php';
+require $root . '/server/app/platform/value/module/ModuleDescriptor.php';
+require $root . '/server/app/platform/infrastructure/module/ModuleArtifactWriter.php';
+require $root . '/server/app/platform/infrastructure/module/ModuleLockResolver.php';
 require $root . '/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php';
 
 const SCAFFOLD_FROM_COMMIT = '14412607ba36f1816e39f7117f77eea4a9e7419e';
@@ -238,7 +238,7 @@ try {
     scaffoldCopy($root . '/server/app/modules/official/identity', $projectionRoot . '/server/app/modules/official/identity');
     scaffoldCopy($root . '/server/app/modules/official/ops', $projectionRoot . '/server/app/modules/official/ops');
     scaffoldCopy($root . '/platform/src/modules/official-ops', $projectionRoot . '/platform/src/modules/official-ops');
-    $projectionWriter = new PluginArtifactWriter($projectionRoot . '/server', false);
+    $projectionWriter = new ModuleArtifactWriter($projectionRoot . '/server', false);
     $projectionWriter->make('official.identity', '4.0.0-dev', ['official.identity=server/app/modules/official/identity']);
     $projectionWriter->make('official.ops', '1.0.0', ['official.ops=server/app/modules/official/ops']);
     $projectionWriter->writeLock();
@@ -251,8 +251,8 @@ try {
     scaffoldExpect(is_callable($projectionReader), 'Plugin projection reader is unavailable');
     $projection = $projectionReader($projectionRoot);
     scaffoldExpect(
-        ($projection['plugins']['official.identity']['frontend_roots'] ?? null) === []
-            && ($projection['plugins']['official.ops']['frontend_roots'] ?? null) === ['platform/src/modules/official-ops'],
+        ($projection['modules']['official.identity']['frontend_roots'] ?? null) === []
+            && ($projection['modules']['official.ops']['frontend_roots'] ?? null) === ['platform/src/modules/official-ops'],
         'Plugin projection must derive backend-only and platform-only roots from real Module manifests',
     );
     // Use the immutable release's complete native graph, including real dependencies and catalogs.
@@ -265,7 +265,7 @@ try {
         'APPLICATION_VERSION' => $tokens['application_version'],
     ];
     $moduleTargetReader = Closure::bind(
-        fn(): array => $this->targetPluginIndex($moduleRelease, $moduleParameters, []),
+        fn(): array => $this->targetModuleIndex($moduleRelease, $moduleParameters, []),
         $projectionRunner,
         ScaffoldUpgradeRunner::class,
     );
@@ -285,8 +285,8 @@ try {
         }
     }
     mkdir($moduleRoot . '/server/resources/schemas', 0775, true);
-    copy($moduleRelease->directory . '/files/server/resources/schemas/plugin.schema.json', $moduleRoot . '/server/resources/schemas/plugin.schema.json');
-    $moduleWriter = new PluginArtifactWriter($moduleRoot . '/server');
+    copy($moduleRelease->directory . '/files/server/resources/schemas/module-artifact.schema.json', $moduleRoot . '/server/resources/schemas/module-artifact.schema.json');
+    $moduleWriter = new ModuleArtifactWriter($moduleRoot . '/server');
     foreach ($moduleTarget as $key => $plugin) {
         $specs = array_map(static fn(string $key, string $path): string => $key . '=' . $path, $plugin['module_keys'], $plugin['module_roots']);
         $moduleWriter->make($key, $plugin['version'], $specs);
@@ -339,7 +339,7 @@ PHP,
     $moduleWriter->make('acme.compat', '1.0.0', ['acme.compat=server/app/modules/acme/compat']);
     $moduleWriter->writeLock();
     $moduleProjection = Closure::bind(
-        fn(): array => $this->upstreamPluginProjection($moduleRoot, $this->pluginProjection($moduleRoot), $moduleFiles, [], $moduleTarget, $moduleRelease, $moduleParameters, []),
+        fn(): array => $this->upstreamModuleProjection($moduleRoot, $this->pluginProjection($moduleRoot), $moduleFiles, [], $moduleTarget, $moduleRelease, $moduleParameters, []),
         $projectionRunner,
         ScaffoldUpgradeRunner::class,
     );
@@ -783,13 +783,13 @@ PHP,
     foreach ($patchPlan['actions'] as $action) {
         $patchActions[$action['path']] = $action['action'];
     }
-    scaffoldExpect(($patchActions['plugins.lock'] ?? null) === 'replace', 'patch must replace the broken Plugin lock');
+    scaffoldExpect(($patchActions['modules.lock'] ?? null) === 'replace', 'patch must replace the broken Plugin lock');
     scaffoldExpect(($patchActions['server/fixtures/plugin-module-lifecycle/run.php'] ?? null) === 'delete', 'patch must remove the source-only lifecycle runner');
     $patchApply = $runner->apply($patchApp, scaffoldPlanPath($patchApp, $patchPlan));
     $patchVerify = $runner->verify($patchApp, scaffoldPlanPath($patchApp, $patchPlan));
     scaffoldExpect($patchApply['status'] === 'applied' && $patchVerify['status'] === 'verified', 'v1.1.0 to patch apply/verify must complete');
-    $patchLock = json_decode((string) file_get_contents($patchApp . '/plugins.lock'), true, 64, JSON_THROW_ON_ERROR);
-    scaffoldExpect($patchLock === ['schema_version' => 1,'plugins' => []], 'patch must install an explicitly empty Plugin lock');
+    $patchLock = json_decode((string) file_get_contents($patchApp . '/modules.lock'), true, 64, JSON_THROW_ON_ERROR);
+    scaffoldExpect($patchLock === ['schema_version' => 1,'modules' => []], 'patch must install an explicitly empty Plugin lock');
     scaffoldExpect(!file_exists($patchApp . '/server/fixtures/plugin-module-lifecycle/run.php'), 'patch must not retain the demo lifecycle runner');
     $patchRecover = $runner->recover($patchApp, scaffoldPlanPath($patchApp, $patchPlan));
     scaffoldExpect($patchRecover['status'] === 'recovered' && hash_equals($patchBefore, scaffoldFileTree($patchApp)), 'patch recovery must restore the exact v1.1.0 tree');
@@ -862,7 +862,7 @@ PHP,
     );
     scaffoldExpect(($nextAppliedManifest['last_scaffold_upgrade']['from'] ?? null) === '1.1.2' && ($nextAppliedManifest['last_scaffold_upgrade']['to'] ?? null) === '1.1.3', 'scaffold upgrade must record the v1.1.3 transition');
     scaffoldExpect(hash_equals($nextAppOwnedDigest, (string) hash_file('sha256', $nextApp . '/' . $nextAppOwnedPath)), 'v1.1.3 upgrade must preserve app-owned bytes');
-    scaffoldExpect(str_contains((string) file_get_contents($nextApp . '/deploy/docker/production.Dockerfile'), 'COPY plugins.lock /build/plugins.lock'), 'v1.1.3 upgrade must install the production Plugin lock copy');
+    scaffoldExpect(str_contains((string) file_get_contents($nextApp . '/deploy/docker/production.Dockerfile'), 'COPY modules.lock /build/modules.lock'), 'v1.1.3 upgrade must install the production Plugin lock copy');
     scaffoldExpect(str_contains((string) file_get_contents($nextApp . '/deploy/docker/production.Dockerfile'), 'COPY resources/project-resources.json resources/project-resources.json'), 'v1.1.3 upgrade must install the production resource registry copy');
     $nextRecover = $runner->recover($nextApp, scaffoldPlanPath($nextApp, $nextPlan));
     scaffoldExpect($nextRecover['status'] === 'recovered' && hash_equals($nextBefore, scaffoldFileTree($nextApp)), 'v1.1.3 recovery must restore the exact v1.1.2 tree');

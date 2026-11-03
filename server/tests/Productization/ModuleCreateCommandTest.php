@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use app\platform\infrastructure\plugin\DevelopmentModuleDiscovery;
+use app\platform\infrastructure\module\DevelopmentModuleDiscovery;
 use PeanutAdmin\Kernel\Module\ModuleHostLayout;
 use PeanutAdmin\Kernel\Module\ModuleKey;
 

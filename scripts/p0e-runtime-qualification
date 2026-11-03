@@ -907,7 +907,7 @@ def generated_state(root: Path) -> dict[str, Any]:
     producers = {}
     for relative in ("scripts/generate-api-contracts.php", "scripts/deploy-update.sh",
                      "server/app/common/module/Dependencies.php", "web/package.json", "web/vite.config.ts",
-                     "platform/package.json", "platform/vite.config.ts", "server/composer.lock", "plugins.lock",
+                     "platform/package.json", "platform/vite.config.ts", "server/composer.lock", "modules.lock",
                      "web/pnpm-lock.yaml", "platform/package-lock.json", "pc/package-lock.json", "uniapp/package-lock.json"):
         path = root / relative
         if path.exists() or path.is_symlink():

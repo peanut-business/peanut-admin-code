@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use app\platform\infrastructure\plugin\ModuleCatalogMutationRepository;
+use app\platform\infrastructure\module\ModuleCatalogMutationRepository;
 use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionSynchronizer;
 use PeanutAdmin\Modules\Settings\Service\SettingCatalogService;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
@@ -18,7 +18,7 @@ final class CatalogSettingsLifecycleBoundaryTest extends TestCase
 {
     private PDO $database;
     private SettingCatalogService $settings;
-    private \app\platform\infrastructure\plugin\ModuleCatalogApplier $host;
+    private \app\platform\infrastructure\module\ModuleCatalogApplier $host;
 
     protected function setUp(): void
     {

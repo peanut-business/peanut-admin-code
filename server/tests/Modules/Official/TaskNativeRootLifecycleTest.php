@@ -130,7 +130,7 @@ try {
         $s = $pdo->prepare('INSERT INTO pa_tenant_module(tenant_id,module_key,status,source,config_revision,authorization_revision,created_at,updated_at) VALUES(?,?,"enabled","manual",1,1,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))');
         $s->execute([$owner->tenantId, $moduleKey]);
     }
-    $app->make(\app\platform\infrastructure\plugin\ModuleCatalogApplier::class)->apply($registry, ['official.identity', 'official.task']);
+    $app->make(\app\platform\infrastructure\module\ModuleCatalogApplier::class)->apply($registry, ['official.identity', 'official.task']);
     $tenant = $owner->tenantId;
     $account = $owner->accountId;
     $member = $owner->memberId;

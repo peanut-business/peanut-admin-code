@@ -19,7 +19,7 @@ final class IdentityCatalogBoundaryTest extends TestCase
     private PDO $database;
     private ModuleAuthorizationCatalogSynchronizer $authorization;
     private MenuCatalogSynchronizer $menus;
-    private \app\platform\infrastructure\plugin\ModuleCatalogApplier $host;
+    private \app\platform\infrastructure\module\ModuleCatalogApplier $host;
 
     protected function setUp(): void
     {
@@ -63,7 +63,7 @@ final class IdentityCatalogBoundaryTest extends TestCase
 
     public function testHostDelegatesIdentityReadsAndInvalidationToItsOwner(): void
     {
-        $source = file_get_contents(dirname(__DIR__, 2) . '/app/platform/infrastructure/plugin/ModuleCatalogApplier.php');
+        $source = file_get_contents(dirname(__DIR__, 2) . '/app/platform/infrastructure/module/ModuleCatalogApplier.php');
         foreach (["Db::name('permission')", "Db::name('menu_definition')", "Db::name('tenant_module')", "Db::name('tenant')", "'menus' => 'pa_menu_definition'"] as $privateAccess) {
             self::assertStringNotContainsString($privateAccess, $source);
         }

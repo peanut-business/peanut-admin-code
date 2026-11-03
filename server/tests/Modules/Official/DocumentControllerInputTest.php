@@ -15,8 +15,8 @@ require_once dirname(__DIR__, 3) . '/vendor/autoload.php';
 
 // Compile/load the actual selected modules; no fabricated TenantContext, provider substitute or database.
 $server = dirname(__DIR__, 3);
-$registry = (new \app\platform\composition\plugin\ModuleDefinitionRegistryFactory($server))->fromPluginLock(
-    new \app\platform\infrastructure\plugin\PluginLockResolver($server, '../plugins.lock'),
+$registry = (new \app\platform\composition\module\ModuleDefinitionRegistryFactory($server))->fromModuleLock(
+    new \app\platform\infrastructure\module\ModuleLockResolver($server, '../modules.lock'),
     ['roots'=>[],'kernel_version'=>'1.0.0','registered_client_keys'=>['admin-web','platform-web','pc-web','uniapp']],
 );
 $app = new App();

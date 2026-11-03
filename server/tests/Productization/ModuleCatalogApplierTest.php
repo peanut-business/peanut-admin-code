@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/bootstrap/environment.php';
 
-use app\platform\service\plugin\ModuleCatalogApplier;
-use app\platform\service\plugin\PluginModuleRegistryFactory;
+use app\platform\service\module\ModuleCatalogApplier;
+use app\platform\service\module\ModuleModuleRegistryFactory;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require_once dirname(__DIR__, 2) . '/database/install.php';
@@ -53,7 +53,7 @@ initializeCoreIdentity(
 executeSqlFiles($pdo, [dirname(__DIR__, 2) . '/database/init.sql']);
 
 $serverRoot = dirname(__DIR__, 2);
-$registry = (new PluginModuleRegistryFactory($serverRoot))->fromDeploymentConfig([
+$registry = (new ModuleModuleRegistryFactory($serverRoot))->fromDeploymentConfig([
     'roots' => ['app/modules/fixture/delivery_record'],
     'kernel_version' => '1.0.0',
     'registered_client_keys' => ['admin-web', 'platform-web'],

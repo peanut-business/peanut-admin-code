@@ -10,8 +10,8 @@ use app\common\value\scaffold\ScaffoldManifest;
 use app\common\value\scaffold\ScaffoldSourceIdentity;
 use app\common\value\scaffold\VersionContract;
 use app\common\validation\scaffold\ScaffoldPathGuard;
-use app\platform\infrastructure\plugin\PluginArtifactWriter;
-use app\platform\infrastructure\plugin\PluginLockResolver;
+use app\platform\infrastructure\module\ModuleArtifactWriter;
+use app\platform\infrastructure\module\ModuleLockResolver;
 use RuntimeException;
 
 require_once dirname(__DIR__, 2) . '/value/scaffold/VersionContract.php';
@@ -20,17 +20,17 @@ require_once dirname(__DIR__, 2) . '/value/scaffold/ScaffoldManifest.php';
 require_once dirname(__DIR__, 5) . '/scripts/scaffold-runtime/ScaffoldSourceIdentity.php';
 require_once dirname(__DIR__, 2) . '/validation/scaffold/ScaffoldPathGuard.php';
 require_once __DIR__ . '/EditionProjector.php';
-require_once dirname(__DIR__, 3) . '/platform/exception/plugin/PluginArtifactToolException.php';
-require_once dirname(__DIR__, 3) . '/platform/value/plugin/ModuleFrontendLayout.php';
-require_once dirname(__DIR__, 3) . '/platform/infrastructure/plugin/PluginArtifactWriter.php';
-require_once dirname(__DIR__, 3) . '/platform/exception/plugin/PluginLifecycleException.php';
-require_once dirname(__DIR__, 3) . '/platform/value/plugin/PluginDescriptor.php';
-require_once dirname(__DIR__, 3) . '/platform/infrastructure/plugin/PluginLockResolver.php';
+require_once dirname(__DIR__, 3) . '/platform/exception/module/ModuleArtifactToolException.php';
+require_once dirname(__DIR__, 3) . '/platform/value/module/ModuleFrontendLayout.php';
+require_once dirname(__DIR__, 3) . '/platform/infrastructure/module/ModuleArtifactWriter.php';
+require_once dirname(__DIR__, 3) . '/platform/exception/module/ModuleLifecycleException.php';
+require_once dirname(__DIR__, 3) . '/platform/value/module/ModuleDescriptor.php';
+require_once dirname(__DIR__, 3) . '/platform/infrastructure/module/ModuleLockResolver.php';
 
 final class ApplicationCreator
 {
     private const CLASSIFICATIONS = ['managed', 'generated-managed', 'app-owned', 'excluded'];
-    private const TRANSFORMS = ['copy', 'text', 'brand', 'brand-asset', 'changelog', 'docs-page', 'environment-guard', 'release-metadata', 'resources', 'readme', 'license', 'modules-config', 'package', 'plugins-lock', 'sbom', 'third-party-notices', 'version-contract', 'composer-lock'];
+    private const TRANSFORMS = ['copy', 'text', 'brand', 'brand-asset', 'changelog', 'docs-page', 'environment-guard', 'release-metadata', 'resources', 'readme', 'license', 'modules-config', 'package', 'modules-lock', 'sbom', 'third-party-notices', 'version-contract', 'composer-lock'];
     private const VARIABLES = ['APPLICATION_VERSION', 'PACKAGE_IDENTITY', 'PRODUCT_NAME', 'SLUG'];
     private const PROFILES = ['minimal', 'standard', 'full'];
     private const WRITABLE_DIRECTORIES = [
@@ -204,8 +204,8 @@ final class ApplicationCreator
             $files = $projector->workflow($stage, $files, $workflow);
             $files = $this->materializeUniappPages($stage, $files);
             $files = $this->materializeApiCatalog($stage, $files);
-            $files = $this->rebuildBundledPluginArtifacts($stage, $files);
-            // The catalog records plugins.lock as an input; refreshing only its
+            $files = $this->rebuildBundledModuleArtifacts($stage, $files);
+            // The catalog records modules.lock as an input; refreshing only its
             // metadata after canonicalization leaves Module SDK bytes unchanged.
             $files = $this->materializeApiCatalog($stage, $files, true);
             if ($adoptsEdition) {
@@ -601,7 +601,7 @@ final class ApplicationCreator
         // Content digests cannot be rendered by replacing application identity tokens.
         // These artifacts are rebuilt from the individually verified final managed inputs.
         return $path === 'server/generated/api-catalog.json'
-            || $path === 'plugins.lock'
+            || $path === 'modules.lock'
             || preg_match('#^plugins/[a-z][a-z0-9.-]*/plugin\.json$#D', $path) === 1;
     }
 
@@ -836,7 +836,7 @@ final class ApplicationCreator
             'license' => $this->render($this->license(), $parameters),
             'modules-config' => $this->modulesConfig($content),
             'package' => $this->packageTransform($content, $parameters, (string) $entry['path']),
-            'plugins-lock' => $this->pluginsLock($content),
+            'modules-lock' => $this->modulesLock($content),
             'sbom' => $this->sbom($content, $parameters),
             'third-party-notices' => $this->thirdPartyNotices($content, $parameters),
             'version-contract' => $this->versionContractDocument($parameters),
@@ -1194,15 +1194,15 @@ final class ApplicationCreator
     private function modulesConfig(string $content): string
     {
         if (substr_count($content, "\$serverRelease = file_exists(\$serverIdentity) || is_link(\$serverIdentity);") !== 1
-            || substr_count($content, "\$pluginLockDefault = \$serverRelease || ApplicationSourceIdentity::hasRuntime(\$serverRoot)\n    ? 'plugins.lock'\n    : '../plugins.lock';") !== 1
-            || substr_count($content, "'plugin_lock' => (string) env('PEANUT_PLUGIN_LOCK', \$pluginLockDefault)") !== 1
+            || substr_count($content, "\$pluginLockDefault = \$serverRelease || ApplicationSourceIdentity::hasRuntime(\$serverRoot)\n    ? 'modules.lock'\n    : '../modules.lock';") !== 1
+            || substr_count($content, "'module_lock' => (string) env('PEANUT_MODULE_LOCK', \$pluginLockDefault)") !== 1
         ) {
             throw new RuntimeException('CREATE_APP_MODULES_CONFIG_SOURCE_INVALID');
         }
         return $content;
     }
 
-    private function pluginsLock(string $content): string
+    private function modulesLock(string $content): string
     {
         try {
             $source = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
@@ -1211,14 +1211,14 @@ final class ApplicationCreator
         }
         if (!is_array($source)
             || ($source['schema_version'] ?? null) !== 1
-            || !is_array($source['plugins'] ?? null)
-            || !array_is_list($source['plugins'])
+            || !is_array($source['modules'] ?? null)
+            || !array_is_list($source['modules'])
         ) {
             throw new RuntimeException('CREATE_APP_PLUGIN_LOCK_SOURCE_INVALID');
         }
         $bundled = [];
         $keys = [];
-        foreach ($source['plugins'] as $plugin) {
+        foreach ($source['modules'] as $plugin) {
             $key = is_array($plugin) ? ($plugin['key'] ?? null) : null;
             if (!is_string($key) || $key === '') {
                 throw new RuntimeException('CREATE_APP_PLUGIN_LOCK_SOURCE_INVALID');
@@ -1238,21 +1238,21 @@ final class ApplicationCreator
             throw new RuntimeException('CREATE_APP_PLUGIN_SET_EMPTY');
         }
         return json_encode(
-            ['schema_version' => 1, 'plugins' => $bundled],
+            ['schema_version' => 1, 'modules' => $bundled],
             JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
         ) . "\n";
     }
 
     /** @param list<array<string,mixed>> $files @return list<array<string,mixed>> */
-    private function rebuildBundledPluginArtifacts(string $stage, array $files): array
+    private function rebuildBundledModuleArtifacts(string $stage, array $files): array
     {
         $manifestPaths = [];
         foreach ($files as $file) {
             $path = (string) ($file['path'] ?? '');
-            if (preg_match('#^plugins/([a-z][a-z0-9.-]+)/plugin\.json$#D', $path, $matches) !== 1) {
+            if (preg_match('#^server/app/modules/([a-z][a-z0-9-]*)/([a-z][a-z0-9_]*)/module\.json$#D', $path, $matches) !== 1) {
                 continue;
             }
-            $manifestPaths[$matches[1]] = $path;
+            $manifestPaths[$matches[1] . '.' . str_replace('_', '-', $matches[2])] = $path;
         }
         ksort($manifestPaths, SORT_STRING);
         if ($manifestPaths === []) {
@@ -1263,7 +1263,7 @@ final class ApplicationCreator
         // installed. The canonical Writer uses Core Module identity/layout classes;
         // generated applications also retain the managed canonical Writer dependencies
         // for complete official graph projection through their native upgrader.
-        $writer = new PluginArtifactWriter($stage . '/server', false);
+        $writer = new ModuleArtifactWriter($stage . '/server', false);
         $rewritten = [];
         foreach ($manifestPaths as $directoryKey => $path) {
             $absolute = $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $path);
@@ -1274,20 +1274,10 @@ final class ApplicationCreator
             }
             if (!is_array($manifest) || array_is_list($manifest)
                 || ($manifest['key'] ?? null) !== $directoryKey
-                || !is_string($manifest['version'] ?? null)
-                || !is_array($manifest['modules'] ?? null)
-                || !array_is_list($manifest['modules'])
-                || $manifest['modules'] === []) {
+                || !is_string($manifest['version'] ?? null)) {
                 throw new RuntimeException('CREATE_APP_PLUGIN_MANIFEST_INVALID: ' . $path);
             }
-            $moduleSpecs = [];
-            foreach ($manifest['modules'] as $module) {
-                if (!is_array($module) || array_is_list($module)
-                    || !is_string($module['key'] ?? null) || !is_string($module['root'] ?? null)) {
-                    throw new RuntimeException('CREATE_APP_PLUGIN_MANIFEST_INVALID: ' . $path);
-                }
-                $moduleSpecs[] = $module['key'] . '=' . $module['root'];
-            }
+            $moduleSpecs = [$directoryKey . '=' . dirname($path)];
             $result = $writer->make($directoryKey, $manifest['version'], $moduleSpecs);
             if (($result['path'] ?? null) !== $path) {
                 throw new RuntimeException('CREATE_APP_PLUGIN_MANIFEST_PATH_MISMATCH: ' . $path);
@@ -1295,11 +1285,11 @@ final class ApplicationCreator
             $rewritten[$path] = true;
         }
         $lock = $writer->writeLock();
-        if (($lock['path'] ?? null) !== 'plugins.lock') {
+        if (($lock['path'] ?? null) !== 'modules.lock') {
             throw new RuntimeException('CREATE_APP_PLUGIN_LOCK_PATH_MISMATCH');
         }
-        $rewritten['plugins.lock'] = true;
-        $resolved = (new PluginLockResolver($stage . '/server', '../plugins.lock'))->all();
+        $rewritten['modules.lock'] = true;
+        $resolved = (new ModuleLockResolver($stage . '/server', '../modules.lock'))->all();
         if (array_keys($resolved) !== array_keys($manifestPaths)) {
             throw new RuntimeException('CREATE_APP_PLUGIN_LOCK_SET_MISMATCH');
         }

@@ -162,8 +162,8 @@ final class TenantModuleStateBoundaryTest extends TestCase
 
     public function testLifecycleConsumersKeepTheGuardButDoNotReadThePrivateStateTable(): void
     {
-        $root = dirname(__DIR__, 2) . '/app/platform/services/plugin/';
-        foreach (['PlatformModuleRuntimeService.php', 'PluginRuntimeGovernanceService.php', 'PluginLifecycleService.php'] as $file) {
+        $root = dirname(__DIR__, 2) . '/app/platform/services/module/';
+        foreach (['PlatformModuleRuntimeService.php', 'ModuleRuntimeGovernanceService.php', 'ModuleLifecycleService.php'] as $file) {
             $source = file_get_contents($root . $file);
             self::assertStringContainsString('TenantModuleStateQueries $tenantStates', $source);
             self::assertStringNotContainsString("Db::name('tenant_module')", $source);
@@ -175,17 +175,17 @@ final class TenantModuleStateBoundaryTest extends TestCase
     {
         $root = dirname(__DIR__, 2) . '/app/';
         foreach ([
-            'command/PluginReconcile.php',
+            'command/ModuleReconcile.php',
             'modules/official/ops/src/Infrastructure/ThinkPhpModuleOperationTaskExecutionService.php',
-            'platform/services/plugin/PlatformModuleRuntimeService.php',
-            'platform/services/plugin/PluginLifecycleService.php',
-            'platform/services/plugin/PluginRuntimeGovernanceService.php',
-            'platform/validation/plugin/PluginReleaseCompositionGuard.php',
+            'platform/services/module/PlatformModuleRuntimeService.php',
+            'platform/services/module/ModuleLifecycleService.php',
+            'platform/services/module/ModuleRuntimeGovernanceService.php',
+            'platform/validation/module/ModuleReleaseCompositionGuard.php',
         ] as $file) {
             $source = file_get_contents($root . $file);
             self::assertStringContainsString('TenantModuleStateQueries', $source, $file);
             self::assertStringNotContainsString("Db::name('tenant_module')", $source, $file);
-            if ($file === 'platform/services/plugin/PluginLifecycleService.php') {
+            if ($file === 'platform/services/module/ModuleLifecycleService.php') {
                 self::assertStringContainsString("Db::name('module_installation')->where('module_key', 'official.document')->value('status') !== 'active'", $source);
                 self::assertStringContainsString("Db::name('module_installation')->where('module_key', 'official.notification')", $source);
                 self::assertStringContainsString("'pa_module_installation' => 'module_key,installed_version", $source);
@@ -197,15 +197,15 @@ final class TenantModuleStateBoundaryTest extends TestCase
     {
         $root = dirname(__DIR__, 3);
         $minimum = [
-            \app\platform\services\plugin\PlatformModuleRuntimeService::class => 7,
-            \app\platform\services\plugin\PluginRuntimeGovernanceService::class => 4,
-            \app\platform\services\plugin\PluginLifecycleService::class => 5,
+            \app\platform\services\module\PlatformModuleRuntimeService::class => 7,
+            \app\platform\services\module\ModuleRuntimeGovernanceService::class => 4,
+            \app\platform\services\module\ModuleLifecycleService::class => 5,
         ];
         $sites = 0;
         foreach ([
             'server/app/AppService.php', 'server/app/command/ModuleSync.php',
             'server/app/platform/infrastructure/module/ThinkPhpModuleGovernanceProvider.php',
-            'server/app/platform/infrastructure/plugin/PluginPackageInstaller.php',
+            'server/app/platform/infrastructure/module/ModulePackageInstaller.php',
             'server/fixtures/plugin-module-lifecycle/run.php',
             'server/tests/Productization/ModuleCommandContractTest.php',
             'server/tests/Productization/ModuleRuntimeGovernanceTest.php',

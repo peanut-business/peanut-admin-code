@@ -16,12 +16,12 @@ function developerCenterExpect(bool $condition, string $message): void
 $serverRoot = dirname(__DIR__, 2);
 $configuration = [
     'roots' => [],
-    'plugin_lock' => '../plugins.lock',
+    'module_lock' => '../modules.lock',
     'kernel_version' => '1.0.0',
     'registered_client_keys' => ['admin-web', 'platform-web'],
 ];
-$registry = (new \app\platform\composition\plugin\ModuleDefinitionRegistryFactory($serverRoot))->fromPluginLock(
-    new \app\platform\infrastructure\plugin\PluginLockResolver($serverRoot, $configuration['plugin_lock']),
+$registry = (new \app\platform\composition\module\ModuleDefinitionRegistryFactory($serverRoot))->fromModuleLock(
+    new \app\platform\infrastructure\module\ModuleLockResolver($serverRoot, $configuration['module_lock']),
     $configuration,
 );
 $service = new DeveloperCenterCatalogService($serverRoot, $registry, new \think\App($serverRoot));

@@ -66,7 +66,7 @@ final class OpsModuleRequestContractTest extends TestCase
         self::assertSame(1, $exit);
         self::assertSame(['ok' => false,'error_code' => 'OPS_MODULE_REQUEST_FAILED'], $output);
         $source = file_get_contents((new ReflectionClass(OpsModuleRequest::class))->getFileName());
-        foreach (['new DeploymentModuleRequestService','new PluginRuntimeGovernanceService','Config::get','app('] as $locator) {
+        foreach (['new DeploymentModuleRequestService','new ModuleRuntimeGovernanceService','Config::get','app('] as $locator) {
             self::assertStringNotContainsString($locator, $source);
         }
     }

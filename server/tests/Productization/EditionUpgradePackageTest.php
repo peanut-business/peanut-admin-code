@@ -5,8 +5,8 @@ declare(strict_types=1);
 use app\common\infrastructure\scaffold\EditionUpgradePackage;
 use app\common\infrastructure\scaffold\ScaffoldUpgradeRunner;
 use app\common\value\scaffold\VersionContract;
-use app\platform\infrastructure\plugin\PluginArtifactWriter;
-use app\platform\infrastructure\plugin\PluginLockResolver;
+use app\platform\infrastructure\module\ModuleArtifactWriter;
+use app\platform\infrastructure\module\ModuleLockResolver;
 
 $root = dirname(__DIR__, 3);
 require_once $root . '/scripts/scaffold-runtime/Semver.php';
@@ -21,11 +21,11 @@ require_once $root . '/server/vendor/autoload.php';
 require_once $root . '/scripts/scaffold-runtime/ScaffoldPathGuard.php';
 require_once $root . '/scripts/scaffold-runtime/ScaffoldManifest.php';
 require_once $root . '/scripts/scaffold-runtime/ScaffoldUpgradeLedger.php';
-require_once $root . '/server/app/platform/exception/plugin/PluginLifecycleException.php';
-require_once $root . '/server/app/platform/value/plugin/PluginDescriptor.php';
-require_once $root . '/server/app/platform/infrastructure/plugin/PluginLockResolver.php';
-require_once $root . '/server/app/platform/exception/plugin/PluginArtifactToolException.php';
-require_once $root . '/server/app/platform/infrastructure/plugin/PluginArtifactWriter.php';
+require_once $root . '/server/app/platform/exception/module/ModuleLifecycleException.php';
+require_once $root . '/server/app/platform/value/module/ModuleDescriptor.php';
+require_once $root . '/server/app/platform/infrastructure/module/ModuleLockResolver.php';
+require_once $root . '/server/app/platform/exception/module/ModuleArtifactToolException.php';
+require_once $root . '/server/app/platform/infrastructure/module/ModuleArtifactWriter.php';
 require_once $root . '/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php';
 require_once $root . '/server/app/common/value/scaffold/VersionContract.php';
 
@@ -136,7 +136,7 @@ function editionUpgradeSourceRoot(string $project): array
 }
 
 /** @return array{managed:array<string,string>,app_owned:array<string,string>,module_root:string,frontend_root:string} */
-function editionUpgradePluginTree(
+function editionUpgradeModuleTree(
     string $projectRoot,
     string $key,
     string $moduleRoot,
@@ -186,14 +186,14 @@ function editionUpgradePluginTree(
         $projectRoot . '/' . $frontendRoot . '/contribution.ts',
         "export const marker = '" . $marker . "';\n",
     );
-    $writer = new PluginArtifactWriter($projectRoot . '/server', false);
+    $writer = new ModuleArtifactWriter($projectRoot . '/server', false);
     $writer->make($key, $version, [$key . '=' . $moduleRoot]);
     $writer->writeLock();
     $managedPaths = [
         $frontendRoot . '/package.json',
         $frontendRoot . '/contribution.ts',
         'plugins/' . $key . '/plugin.json',
-        'plugins.lock',
+        'modules.lock',
     ];
     $appOwnedPaths = [$moduleRoot . '/module.json', $moduleRoot . '/composer.json', $moduleRoot . '/src/ModuleProvider.php'];
     $contents = static function (array $paths) use ($projectRoot): array {
@@ -220,7 +220,7 @@ mkdir($project . '/.peanut/scaffold-baseline/4.0.0-dev/files/scripts/scaffold-ru
 mkdir($package, 0775, true);
 
 try {
-    $currentPlugin = editionUpgradePluginTree(
+    $currentPlugin = editionUpgradeModuleTree(
         $project,
         'fixture.upgrade-boundary',
         'server/app/modules/fixture/upgrade_boundary',
@@ -316,9 +316,9 @@ try {
         'core_web' => '4.0.0-dev',
     ]);
 
-    $targetPluginRoot = $temporary . '/target-plugin-template';
-    $targetPlugin = editionUpgradePluginTree(
-        $targetPluginRoot,
+    $targetModuleRoot = $temporary . '/target-plugin-template';
+    $targetPlugin = editionUpgradeModuleTree(
+        $targetModuleRoot,
         'fixture.upgrade-boundary',
         'server/app/modules/fixture/upgrade_boundary',
         '1.1.0',
@@ -492,17 +492,17 @@ try {
         }
     }
     foreach ($pluginActions as $path => $action) {
-        $expectedDigest = $path === 'plugins.lock'
+        $expectedDigest = $path === 'modules.lock'
             ? hash('sha256', $plan['identity']['plugin_target']['lock_contents']) : $pluginDigests[$path];
         editionUpgradeExpect(
             $action['action'] === ($expectedDigest === $pluginDigests[$path] ? 'preserve' : 'replace')
-                && $action['reason'] === ($path === 'plugins.lock' ? 'official_plugin_lock_projection' : 'installed_plugin_projection')
+                && $action['reason'] === ($path === 'modules.lock' ? 'official_module_lock_projection' : 'installed_module_projection')
                 && $action['target_sha256'] === $expectedDigest,
             'installed Plugin projection was not frozen: ' . $path,
         );
     }
     editionUpgradeExpect($plan['identity']['plugin_target']['keys'] === []
-        && $plan['identity']['plugin_target']['projection'] === $plan['identity']['plugin_projection'],
+        && $plan['identity']['plugin_target']['projection'] === $plan['identity']['module_projection'],
         'app-owned customer Module was reinterpreted as an upstream package');
     $planPath = $project . '/' . $plan['plan_path'];
     $modulePath = $currentPlugin['module_root'] . '/module.json';
@@ -519,19 +519,19 @@ try {
     editionUpgradeExpect(hash_equals((string) $secretDigest, (string) hash_file('sha256', $project . '/server/.env')), 'secret changed');
     editionUpgradeExpect(hash_equals((string) $thirdPartyDigest, (string) hash_file('sha256', $project . '/server/app/Modules/ThirdParty/Custom.php')), 'third-party Module changed');
     foreach ($pluginDigests as $path => $digest) {
-        $expectedDigest = $path === 'plugins.lock'
+        $expectedDigest = $path === 'modules.lock'
             ? hash('sha256', $plan['identity']['plugin_target']['lock_contents']) : $digest;
         editionUpgradeExpect(hash_equals((string) $expectedDigest, (string) hash_file('sha256', $project . '/' . $path)), 'installed Plugin changed: ' . $path);
     }
     editionUpgradeExpect(
         hash_equals(
             hash('sha256', $plan['identity']['plugin_target']['lock_contents']),
-            (string) hash_file('sha256', $project . '/.peanut/scaffold-baseline/4.0.0-dev.1/files/plugins.lock'),
+            (string) hash_file('sha256', $project . '/.peanut/scaffold-baseline/4.0.0-dev.1/files/modules.lock'),
         ),
         'next Plugin lock baseline did not use the canonical planned graph bytes',
     );
     editionUpgradeExpect(
-        array_keys((new PluginLockResolver($project . '/server', '../plugins.lock'))->all()) === ['fixture.upgrade-boundary'],
+        array_keys((new ModuleLockResolver($project . '/server', '../modules.lock'))->all()) === ['fixture.upgrade-boundary'],
         'upgraded project Plugin projection is not resolvable',
     );
     $appliedManifest = json_decode((string) file_get_contents($project . '/.peanut/application-manifest.json'), true, 512, JSON_THROW_ON_ERROR);
@@ -541,53 +541,53 @@ try {
         }
     }
     editionUpgradeExpect($runner->recover($project, $planPath)['status'] === 'recovered', 'package recovery failed');
-    editionUpgradeExpect(hash_equals((string) $pluginDigests['plugins.lock'],
-        (string) hash_file('sha256', $project . '/plugins.lock')), 'recovery did not restore the original customer lock bytes');
+    editionUpgradeExpect(hash_equals((string) $pluginDigests['modules.lock'],
+        (string) hash_file('sha256', $project . '/modules.lock')), 'recovery did not restore the original customer lock bytes');
     editionUpgradeExpect((string) file_get_contents($project . '/managed.txt') === "old managed\n", 'managed recovery did not restore the source');
     editionUpgradeExpect(!is_file($project . '/server/database/migrations/20260830-edition-upgrade.sql'), 'recovery retained a target-only migration');
     editionUpgradeExpect(hash_equals((string) $businessDigest, (string) hash_file('sha256', $project . '/business.php')), 'recovery changed app-owned file');
     editionUpgradeExpect(hash_equals((string) $secretDigest, (string) hash_file('sha256', $project . '/server/.env')), 'recovery changed secret');
     editionUpgradeExpect(hash_equals((string) $thirdPartyDigest, (string) hash_file('sha256', $project . '/server/app/Modules/ThirdParty/Custom.php')), 'recovery changed third-party Module');
     editionUpgradeExpect(
-        array_keys((new PluginLockResolver($project . '/server', '../plugins.lock'))->all()) === ['fixture.upgrade-boundary'],
+        array_keys((new ModuleLockResolver($project . '/server', '../modules.lock'))->all()) === ['fixture.upgrade-boundary'],
         'recovered project Plugin projection is not resolvable',
     );
 
-    $newPluginTemplate = $temporary . '/new-plugin-template';
-    editionUpgradePluginTree(
-        $newPluginTemplate,
+    $newModuleTemplate = $temporary . '/new-plugin-template';
+    editionUpgradeModuleTree(
+        $newModuleTemplate,
         'fixture.upgrade-boundary',
         'server/app/modules/fixture/upgrade_boundary',
         '1.1.0',
         'target',
     );
-    $newPlugin = editionUpgradePluginTree(
-        $newPluginTemplate,
+    $newPlugin = editionUpgradeModuleTree(
+        $newModuleTemplate,
         'fixture.new-plugin',
         'server/app/modules/fixture/new_plugin',
         '1.0.0',
         'new-plugin',
     );
-    $newPluginRelease = $temporary . '/new-plugin-release';
-    editionUpgradeCopyTree($package . '/target', $newPluginRelease);
-    $newPluginManaged = $newPlugin['managed'];
-    $newPluginManaged['plugins.lock'] = (string) file_get_contents($newPluginTemplate . '/plugins.lock');
-    foreach ($newPluginManaged as $path => $contents) {
-        editionUpgradeFile($newPluginRelease . '/files/' . $path, $contents);
+    $newModuleRelease = $temporary . '/new-plugin-release';
+    editionUpgradeCopyTree($package . '/target', $newModuleRelease);
+    $newModuleManaged = $newPlugin['managed'];
+    $newModuleManaged['modules.lock'] = (string) file_get_contents($newModuleTemplate . '/modules.lock');
+    foreach ($newModuleManaged as $path => $contents) {
+        editionUpgradeFile($newModuleRelease . '/files/' . $path, $contents);
     }
-    $newPluginManifestPath = $newPluginRelease . '/scaffold-manifest.json';
-    $newPluginManifest = json_decode((string) file_get_contents($newPluginManifestPath), true, 512, JSON_THROW_ON_ERROR);
-    foreach ($newPluginManifest['files'] as &$file) {
-        if ($file['path'] === 'plugins.lock') {
-            $file['template_sha256'] = hash('sha256', $newPluginManaged['plugins.lock']);
+    $newModuleManifestPath = $newModuleRelease . '/scaffold-manifest.json';
+    $newModuleManifest = json_decode((string) file_get_contents($newModuleManifestPath), true, 512, JSON_THROW_ON_ERROR);
+    foreach ($newModuleManifest['files'] as &$file) {
+        if ($file['path'] === 'modules.lock') {
+            $file['template_sha256'] = hash('sha256', $newModuleManaged['modules.lock']);
         }
     }
     unset($file);
     foreach ($newPlugin['managed'] as $path => $contents) {
-        if ($path === 'plugins.lock') {
+        if ($path === 'modules.lock') {
             continue;
         }
-        $newPluginManifest['files'][] = [
+        $newModuleManifest['files'][] = [
             'path' => $path,
             'source' => 'files/' . $path,
             'template_sha256' => hash('sha256', $contents),
@@ -598,13 +598,13 @@ try {
             'owner' => str_starts_with($path, 'web/') ? 'frontend' : 'host',
         ];
     }
-    usort($newPluginManifest['files'], static fn(array $left, array $right): int => strcmp($left['path'], $right['path']));
-    editionUpgradeJson($newPluginManifestPath, $newPluginManifest);
-    $newPluginPlan = $runner->preview($project, $prepared['from_manifest'], $newPluginManifestPath);
+    usort($newModuleManifest['files'], static fn(array $left, array $right): int => strcmp($left['path'], $right['path']));
+    editionUpgradeJson($newModuleManifestPath, $newModuleManifest);
+    $newModulePlan = $runner->preview($project, $prepared['from_manifest'], $newModuleManifestPath);
     editionUpgradeExpect(
-        $newPluginPlan['status'] === 'blocked'
+        $newModulePlan['status'] === 'blocked'
             && count(array_filter(
-                $newPluginPlan['actions'],
+                $newModulePlan['actions'],
                 static fn(array $action): bool => $action['reason'] === 'plugin_adoption_required',
             )) >= 1,
         'a target-only Plugin without installed roots and artifacts must block',
@@ -623,13 +623,13 @@ function editionAdoptionFixture(string $temporary, string $edition, bool $custom
     $package = $temporary . '/package';
     mkdir($project . '/.peanut', 0775, true);
     mkdir($package . '/target/files', 0775, true);
-    $emptyPluginLock = json_encode(
-        ['schema_version' => 1, 'plugins' => []],
+    $emptyModuleLock = json_encode(
+        ['schema_version' => 1, 'modules' => []],
         JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
     ) . "\n";
-    editionUpgradeFile($project . '/plugins.lock', $emptyPluginLock);
-    editionUpgradeFile($project . '/.peanut/scaffold-baseline/3.0.14/files/plugins.lock', $emptyPluginLock);
-    editionUpgradeFile($package . '/target/files/plugins.lock', $emptyPluginLock);
+    editionUpgradeFile($project . '/modules.lock', $emptyModuleLock);
+    editionUpgradeFile($project . '/.peanut/scaffold-baseline/3.0.14/files/modules.lock', $emptyModuleLock);
+    editionUpgradeFile($package . '/target/files/modules.lock', $emptyModuleLock);
     $applicationFiles = [];
     foreach (editionUpgradeSourceRoot($project) as $path => $contents) {
         $applicationFiles[] = [
@@ -672,15 +672,15 @@ function editionAdoptionFixture(string $temporary, string $edition, bool $custom
         ];
     }
     $applicationFiles[] = [
-        'path' => 'plugins.lock', 'sha256' => hash('sha256', $emptyPluginLock), 'mode' => 0644,
-        'classification' => 'managed', 'owner' => 'scaffold', 'source' => 'plugins.lock',
-        'baseline_path' => '.peanut/scaffold-baseline/3.0.14/files/plugins.lock',
-        'baseline_sha256' => hash('sha256', $emptyPluginLock),
+        'path' => 'modules.lock', 'sha256' => hash('sha256', $emptyModuleLock), 'mode' => 0644,
+        'classification' => 'managed', 'owner' => 'scaffold', 'source' => 'modules.lock',
+        'baseline_path' => '.peanut/scaffold-baseline/3.0.14/files/modules.lock',
+        'baseline_sha256' => hash('sha256', $emptyModuleLock),
         'baseline_mode' => 0644,
     ];
     $targetFiles[] = [
-        'path' => 'plugins.lock', 'source' => 'files/plugins.lock',
-        'template_sha256' => hash('sha256', $emptyPluginLock), 'classification' => 'managed',
+        'path' => 'modules.lock', 'source' => 'files/modules.lock',
+        'template_sha256' => hash('sha256', $emptyModuleLock), 'classification' => 'managed',
         'transform' => 'tokens', 'mode' => 0644, 'policy' => 'managed', 'owner' => 'host',
     ];
     usort($applicationFiles, static fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
@@ -699,7 +699,7 @@ function editionAdoptionFixture(string $temporary, string $edition, bool $custom
         'template' => ['version' => '3.0.14', 'inventory_sha256' => str_repeat('c', 64), 'source_commit' => str_repeat('a', 40), 'source_tree' => str_repeat('b', 40)],
         'ownership' => ['baseline_root' => '.peanut/scaffold-baseline/3.0.14/files'],
         'digests' => [
-            'managed_tree_sha256' => hash('sha256', 'plugins.lock' . "\0" . hash('sha256', $emptyPluginLock)),
+            'managed_tree_sha256' => hash('sha256', 'modules.lock' . "\0" . hash('sha256', $emptyModuleLock)),
             'app_owned_tree_sha256' => hash('sha256', implode("\n", $appRows)),
         ],
         'generation_source' => ['kind' => 'edition-installer', 'version' => '3.0.14'],

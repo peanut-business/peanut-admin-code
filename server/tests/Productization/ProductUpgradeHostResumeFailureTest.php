@@ -92,7 +92,7 @@ if command == 'ps':
 if command == 'exec':
     joined = ' '.join(rest)
     if 'environment-guard.php' in joined: log('ENVIRONMENT'); sys.exit(64 if mode == 'environment' else 0)
-    if 'plugin:lock' in joined: log('PLUGIN_LOCK'); sys.exit(65 if mode == 'plugin-lock' else 0)
+    if 'module:lock' in joined: log('PLUGIN_LOCK'); sys.exit(65 if mode == 'plugin-lock' else 0)
     if 'install.php --status' in joined:
         log('INSTALL_STATUS')
         if mode == 'status-command': sys.exit(66)

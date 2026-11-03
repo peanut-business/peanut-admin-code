@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use app\platform\service\plugin\ModulePackagePreflight;
-use app\platform\service\plugin\PluginPackageArchiveService;
+use app\platform\service\module\ModulePackagePreflight;
+use app\platform\service\module\ModulePackageArchiveService;
 use PeanutAdmin\Kernel\Module\ModuleKey;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
@@ -65,17 +65,17 @@ $resultsPath = $argv[1] ?? '/tmp/module-packages-test/packaging-results.json';
 $currentCandidate = allModulesPackagingRun(['git', '-C', $projectRoot, 'rev-parse', 'HEAD^{commit}']);
 $currentTree = allModulesPackagingRun(['git', '-C', $projectRoot, 'rev-parse', 'HEAD^{tree}']);
 $pluginLock = json_decode(
-    (string) file_get_contents($projectRoot . '/plugins.lock'),
+    (string) file_get_contents($projectRoot . '/modules.lock'),
     true,
     64,
     JSON_THROW_ON_ERROR,
 );
 allModulesPackagingExpect(
-    is_array($pluginLock['plugins'] ?? null) && array_is_list($pluginLock['plugins']),
+    is_array($pluginLock['modules'] ?? null) && array_is_list($pluginLock['modules']),
     'Bundled Plugin lock is invalid',
 );
 $expectedModules = [];
-foreach ($pluginLock['plugins'] as $plugin) {
+foreach ($pluginLock['modules'] as $plugin) {
     allModulesPackagingExpect(is_array($plugin), 'Bundled Plugin lock entry is invalid');
     foreach ($plugin['modules'] ?? [] as $module) {
         $moduleKey = is_array($module) ? ($module['key'] ?? null) : null;
@@ -123,7 +123,7 @@ foreach ($expectedModules as $moduleKey) {
     $availableVersions[$moduleKey] = $sourcePreflight->inspect($moduleKey)['version'];
 }
 
-$archiveService = new PluginPackageArchiveService($serverRoot);
+$archiveService = new ModulePackageArchiveService($serverRoot);
 foreach ($expectedModules as $moduleKey) {
     $result = $resultsByModule[$moduleKey];
     allModulesPackagingExpect(($result['exit_code'] ?? null) === 0, "Module package failed: {$moduleKey}");

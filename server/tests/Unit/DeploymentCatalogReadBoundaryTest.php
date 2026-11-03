@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace tests\Unit;
 
 use app\platform\infrastructure\module\DeployedTenantModuleRegistry;
-use app\platform\infrastructure\plugin\ScopedMenuCatalogRepository;
+use app\platform\infrastructure\module\ScopedMenuCatalogRepository;
 use app\platform\services\module\ModuleQualificationQueryService;
 use PDO;
 use PeanutAdmin\Kernel\Menu\MenuCatalogRepository;
@@ -130,8 +130,8 @@ final class DeploymentCatalogReadBoundaryTest extends TestCase
         foreach ([
             'platform/infrastructure/module/DeployedTenantModuleRegistry.php',
             'platform/services/module/ModuleQualificationQueryService.php',
-            'platform/policy/plugin/ModuleLifecyclePolicy.php',
-            'platform/infrastructure/plugin/ScopedMenuCatalogRepository.php',
+            'platform/policy/module/ModuleLifecyclePolicy.php',
+            'platform/infrastructure/module/ScopedMenuCatalogRepository.php',
         ] as $path) {
             $source = file_get_contents($root . $path);
             self::assertStringNotContainsString("Db::name('module_installation')", $source, $path);

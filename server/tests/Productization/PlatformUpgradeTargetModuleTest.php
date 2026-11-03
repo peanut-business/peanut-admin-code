@@ -11,7 +11,7 @@ use app\platform\service\ops\PlatformBackupCenterService;
 use app\platform\service\ops\PlatformOpsPermissionChecker;
 use app\common\service\audit\AuditContractHost;
 use app\platform\service\module\ThinkPhpModuleGovernanceProvider;
-use app\platform\service\plugin\PluginLockResolver;
+use app\platform\service\module\ModuleLockResolver;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
 use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
 use PeanutAdmin\Modules\Identity\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
@@ -26,9 +26,9 @@ use think\facade\Config;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
-require_once dirname(__DIR__, 2) . '/app/platform/service/plugin/PluginLifecycleException.php';
-require_once dirname(__DIR__, 2) . '/app/platform/service/plugin/PluginDescriptor.php';
-require_once dirname(__DIR__, 2) . '/app/platform/service/plugin/PluginLockResolver.php';
+require_once dirname(__DIR__, 2) . '/app/platform/service/module/ModuleLifecycleException.php';
+require_once dirname(__DIR__, 2) . '/app/platform/service/module/ModuleDescriptor.php';
+require_once dirname(__DIR__, 2) . '/app/platform/service/module/ModuleLockResolver.php';
 require_once dirname(__DIR__, 2) . '/app/platform/service/ops/PlatformUpgradeTarget.php';
 require_once dirname(__DIR__, 2) . '/app/platform/service/ops/PlatformUpgradeReadinessService.php';
 
@@ -195,13 +195,13 @@ try {
     upgradeTargetExpect(!is_file($currentModule . '/Application/target-release-proof.txt'), 'target marker leaked into current source');
 
     $sourceLock = json_decode(
-        (string) file_get_contents($sourceRoot . '/plugins.lock'),
+        (string) file_get_contents($sourceRoot . '/modules.lock'),
         true,
         64,
         JSON_THROW_ON_ERROR,
     );
     $plugin = array_values(array_filter(
-        $sourceLock['plugins'],
+        $sourceLock['modules'],
         static fn(array $entry): bool => ($entry['key'] ?? null) === 'fixture.delivery-record',
     ))[0] ?? null;
     upgradeTargetExpect(is_array($plugin), 'fixture Plugin lock entry is unavailable');
@@ -217,8 +217,8 @@ try {
     $pluginManifest['trust'] = $plugin['trust'];
     upgradeTargetWriteJson($pluginManifestPath, $pluginManifest);
     $plugin['manifest_sha256'] = hash_file('sha256', $pluginManifestPath);
-    $targetLockPath = $releaseRoot . '/plugins.lock';
-    upgradeTargetWriteJson($targetLockPath, ['schema_version' => 1, 'plugins' => [$plugin]]);
+    $targetLockPath = $releaseRoot . '/modules.lock';
+    upgradeTargetWriteJson($targetLockPath, ['schema_version' => 1, 'modules' => [$plugin]]);
     file_put_contents($releaseRoot . '/sort.txt', "regular sort fixture\n");
     mkdir($releaseRoot . '/sort', 0700, true);
     file_put_contents($releaseRoot . '/sort/child.txt', "directory sort fixture\n");
@@ -365,7 +365,7 @@ try {
     upgradeTargetExpect($target->releaseRoot === realpath($releaseRoot), 'target release root changed');
     upgradeTargetExpect($target->releaseServerRoot === realpath($releaseRoot . '/server'), 'target server root changed');
     upgradeTargetExpect($target->targetLockPath === realpath($targetLockPath), 'target lock path changed');
-    $resolved = (new PluginLockResolver($target->releaseServerRoot, $target->targetLockPath))
+    $resolved = (new ModuleLockResolver($target->releaseServerRoot, $target->targetLockPath))
         ->require('fixture.delivery-record');
     upgradeTargetExpect(
         $resolved->moduleRoots['fixture.delivery-record'] === realpath($targetModule),

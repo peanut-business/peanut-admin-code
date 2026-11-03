@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use app\platform\exception\plugin\PluginLifecycleException;
-use app\platform\infrastructure\plugin\PluginArtifactWriter;
-use app\platform\infrastructure\plugin\PluginLockResolver;
-use app\platform\policy\plugin\ModuleLifecyclePolicy;
+use app\platform\exception\module\ModuleLifecycleException;
+use app\platform\infrastructure\module\ModuleArtifactWriter;
+use app\platform\infrastructure\module\ModuleLockResolver;
+use app\platform\policy\module\ModuleLifecyclePolicy;
 use PeanutAdmin\Kernel\Module\ManifestDocument;
 use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 
@@ -61,25 +61,25 @@ try {
         file_put_contents($target . '/module.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
     }
     mkdir($root . '/server/resources/schemas', 0700, true);
-    copy($server . '/resources/schemas/plugin.schema.json', $root . '/server/resources/schemas/plugin.schema.json');
-    $writer = new PluginArtifactWriter($root . '/server');
+    copy($server . '/resources/schemas/module-artifact.schema.json', $root . '/server/resources/schemas/module-artifact.schema.json');
+    $writer = new ModuleArtifactWriter($root . '/server');
     foreach (['base', 'child'] as $name) { $writer->make('acme.' . $name, '1.0.0', ['acme.' . $name . '=server/app/modules/acme/' . $name]); }
     $writer->writeLock([]);
-    $resolver = new PluginLockResolver($root . '/server', '../plugins.lock');
+    $resolver = new ModuleLockResolver($root . '/server', '../modules.lock');
     $app = new think\App($root . '/server');
     $pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-    $pdo->exec("CREATE TABLE pa_plugin_installation(plugin_key TEXT PRIMARY KEY,status TEXT); CREATE TABLE pa_plugin_module(plugin_key TEXT,module_key TEXT); CREATE TABLE pa_module_installation(module_key TEXT PRIMARY KEY,status TEXT); CREATE TABLE pa_plan_module(plan_id INTEGER,module_key TEXT); CREATE TABLE pa_business_probe(id INTEGER,value TEXT); CREATE TABLE pa_migrations(version TEXT); INSERT INTO pa_business_probe VALUES (1,'retained'); INSERT INTO pa_migrations VALUES ('20261103010001'); INSERT INTO pa_plugin_installation VALUES ('acme.base','active'),('acme.child','active'); INSERT INTO pa_plugin_module VALUES ('acme.base','acme.base'),('acme.child','acme.child'); INSERT INTO pa_module_installation VALUES ('acme.base','active'),('acme.child','active');");
+    $pdo->exec("CREATE TABLE pa_module_installation(module_key TEXT PRIMARY KEY,status TEXT); CREATE TABLE pa_plan_module(plan_id INTEGER,module_key TEXT); CREATE TABLE pa_business_probe(id INTEGER,value TEXT); CREATE TABLE pa_migrations(version TEXT); INSERT INTO pa_business_probe VALUES (1,'retained'); INSERT INTO pa_migrations VALUES ('20261103010001'); INSERT INTO pa_module_installation VALUES ('acme.base','active'),('acme.child','active');");
     $connection = ThinkPhpTestConnection::fromPdo($pdo);
     $states = new TenantModuleStateQueries();
     retirementExpect(ModuleLifecyclePolicy::activeBusinessDependents($resolver, ['acme.base']) === ['acme.child->acme.base'], 'Active dependent was not reported');
     try { ModuleLifecyclePolicy::assertNoActiveBusinessDependents($resolver, ['acme.base']); throw new RuntimeException('Active dependency removal was admitted'); }
-    catch (PluginLifecycleException $exception) { retirementExpect($exception->errorCode === 'MODULE_DEPENDENT_INSTALLED', 'Unexpected dependency failure'); }
+    catch (ModuleLifecycleException $exception) { retirementExpect($exception->errorCode === 'MODULE_DEPENDENT_INSTALLED', 'Unexpected dependency failure'); }
     $pdo->exec("UPDATE pa_module_installation SET status='maintenance' WHERE module_key='acme.child'");
     retirementExpect(ModuleLifecyclePolicy::activeBusinessDependents($resolver, ['acme.base']) === [], 'Disabled consumer remained active');
     retirementExpect(ModuleLifecyclePolicy::installedBusinessDependents($resolver, ['acme.base'], $states) === ['acme.child->acme.base'], 'Disabled installation must still protect required source/data');
-    $pdo->exec("UPDATE pa_plugin_installation SET status='failed' WHERE plugin_key='acme.child'");
+    $pdo->exec("UPDATE pa_module_installation SET status='failed' WHERE module_key='acme.child'");
     retirementExpect(ModuleLifecyclePolicy::installedBusinessDependents($resolver, ['acme.base'], $states) === ['acme.child->acme.base'], 'Failed installation lost its dependency protection');
-    $pdo->exec("UPDATE pa_plugin_installation SET status='uninstalled' WHERE plugin_key='acme.child'");
+    $pdo->exec("UPDATE pa_module_installation SET status='uninstalled' WHERE module_key='acme.child'");
     retirementExpect(ModuleLifecyclePolicy::installedBusinessDependents($resolver, ['acme.base'], $states) === [], 'Retired history still acts as an installed dependent');
     $pdo->exec("INSERT INTO pa_plan_module VALUES (7,'acme.base')");
     retirementExpect($states->hasEnabledModules(['acme.base']), 'Existing plan reference was ignored');
@@ -88,7 +88,7 @@ try {
     retirementExpect(!$states->hasEnabledModules(['acme.base']), 'Removed plan reference still prevents retirement');
     $protected = ManifestDocument::fromObject($root, (object) ['key' => 'acme.base', 'lifecycle' => (object) ['protected' => true]]);
     try { ModuleLifecyclePolicy::assertMutable(['acme.base' => $protected]); throw new RuntimeException('Protected Module admitted for retirement'); }
-    catch (PluginLifecycleException $exception) { retirementExpect($exception->errorCode === 'MODULE_LIFECYCLE_PROTECTED', 'Unexpected protected Module rejection'); }
+    catch (ModuleLifecycleException $exception) { retirementExpect($exception->errorCode === 'MODULE_LIFECYCLE_PROTECTED', 'Unexpected protected Module rejection'); }
     retirementExpect($pdo->query('SELECT value FROM pa_business_probe WHERE id=1')->fetchColumn() === 'retained', 'Policy modified business data');
     retirementExpect($pdo->query('SELECT version FROM pa_migrations')->fetchColumn() === '20261103010001', 'Policy modified migration history');
     $connection->free(); // SQLite requires the last native query cursor to be released before DDL.

@@ -9,7 +9,7 @@ use app\common\execution\ExecutionContextStore;
 use app\common\service\audit\AuditContractHost;
 use app\platform\service\ops\DeploymentModuleRequestService;
 use app\platform\service\ops\ThinkPhpModuleOperationTaskExecutionService;
-use app\platform\service\plugin\ModuleCatalogApplier;
+use app\platform\service\module\ModuleCatalogApplier;
 use think\App;
 use think\console\Input;
 use think\console\Output;

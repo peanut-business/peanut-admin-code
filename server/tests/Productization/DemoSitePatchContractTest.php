@@ -117,7 +117,7 @@ $overlayBuilder = $read($root . '/scripts/build-demo-site-patch');
 $overlayFiles = [
     'deploy/docker-compose.prod.yml',
     'deploy/docker/production.Dockerfile',
-    'plugins.lock',
+    'modules.lock',
     'plugins/official.notification/plugin.json',
     'plugins/official.task/plugin.json',
     'server/app/modules/official/notification/src/Service/NotificationBootstrapDefaults.php',
@@ -248,8 +248,8 @@ foreach ([
     'mv -f -- "$temporary" "$target_file"',
     'server/database/install.php',
     'server/database/install.php --migrate --target-version="$scaffold_migration_version"',
-    'plugin:reconcile --release-locked',
-    'plugin:release-composition',
+    'module:reconcile --release-locked',
+    'module:release-composition',
     '--current-root=/run/peanut-current-release',
     'tenant-module:apply-profile standalone',
     'tenant-module:apply-profile demo',
@@ -319,29 +319,29 @@ $expect(
 $metadataValidationPosition = strpos($deploy, "jq -e --arg tag \"\$tag\" --arg commit \"\$expected_commit\"");
 $buildPosition = strpos($deploy, '"${candidate_compose[@]}" build');
 $candidatePreflightPosition = strpos($deploy, 'server/database/install.php --preflight', (int) $buildPosition);
-$candidatePluginLockPosition = strpos($deploy, 'server/think plugin:lock --check', (int) $candidatePreflightPosition);
-$candidatePluginCompositionPosition = strpos($deploy, 'server/think plugin:release-composition', (int) $candidatePluginLockPosition);
-$rootCleanupPosition = strpos($deploy, 'sudo -n find "$root" -mindepth 1 -maxdepth 1', (int) $candidatePluginCompositionPosition);
+$candidateModuleLockPosition = strpos($deploy, 'server/think module:lock --check', (int) $candidatePreflightPosition);
+$candidateModuleCompositionPosition = strpos($deploy, 'server/think module:release-composition', (int) $candidateModuleLockPosition);
+$rootCleanupPosition = strpos($deploy, 'sudo -n find "$root" -mindepth 1 -maxdepth 1', (int) $candidateModuleCompositionPosition);
 $destroyPosition = strpos($deploy, '"${current_compose[@]}" down --volumes');
 $expect(
     $metadataValidationPosition !== false
         && $buildPosition !== false
         && $candidatePreflightPosition !== false
-        && $candidatePluginLockPosition !== false
-        && $candidatePluginCompositionPosition !== false
+        && $candidateModuleLockPosition !== false
+        && $candidateModuleCompositionPosition !== false
         && $rootCleanupPosition !== false
         && $destroyPosition !== false
         && $metadataValidationPosition < $buildPosition
         && $buildPosition < $candidatePreflightPosition
-        && $candidatePreflightPosition < $candidatePluginLockPosition
-        && $candidatePluginLockPosition < $candidatePluginCompositionPosition
-        && $candidatePluginCompositionPosition < $rootCleanupPosition,
+        && $candidatePreflightPosition < $candidateModuleLockPosition
+        && $candidateModuleLockPosition < $candidateModuleCompositionPosition
+        && $candidateModuleCompositionPosition < $rootCleanupPosition,
     'fresh deployment does not validate the exact candidate image before destructive work',
 );
 $freshMigration = 'server/database/install.php --migrate --target-version="$migration_target_version"';
 $updateMigration = 'server/database/install.php --migrate --target-version="$scaffold_migration_version"';
 $freshMigrationPosition = strpos($deploy, $freshMigration);
-$reconcilePosition = strpos($deploy, 'server/think plugin:reconcile --release-locked', (int) $freshMigrationPosition);
+$reconcilePosition = strpos($deploy, 'server/think module:reconcile --release-locked', (int) $freshMigrationPosition);
 $expect(
     substr_count($deploy, $freshMigration) === 1
         && substr_count($deploy, $updateMigration) === 1

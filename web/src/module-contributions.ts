@@ -1,9 +1,9 @@
 import type {
   AdminModuleShellSlotContribution,
-  PluginFrontendContribution,
+  ModuleFrontendContribution,
 } from '@peanut-admin/vue';
 
-export interface ModuleFrontendContribution extends PluginFrontendContribution {
+export interface ModuleFrontendContribution extends ModuleFrontendContribution {
   shellSlots?: readonly AdminModuleShellSlotContribution[];
   locales?: Partial<Record<'en-US' | 'zh-CN', Record<string, string>>>;
 }

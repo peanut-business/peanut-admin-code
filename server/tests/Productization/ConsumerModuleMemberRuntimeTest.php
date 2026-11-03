@@ -10,7 +10,7 @@ use app\common\infrastructure\authorization\CoreTenantModuleAdminBridge;
 use app\common\policy\permission\RegisteredAdminPermissionPolicy;
 use app\common\services\authorization\AdminAuthorizationService;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
-use app\platform\infrastructure\plugin\ModuleCatalogApplier;
+use app\platform\infrastructure\module\ModuleCatalogApplier;
 use PeanutAdmin\Kernel\Auth\Clock;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\TokenIssuer;

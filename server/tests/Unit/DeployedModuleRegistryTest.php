@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace tests\Unit;
 
-use app\platform\composition\plugin\ModuleDefinitionRegistryFactory;
+use app\platform\composition\module\ModuleDefinitionRegistryFactory;
 use PeanutAdmin\Kernel\Migration\ModuleSchema;
 use PHPUnit\Framework\TestCase;
 

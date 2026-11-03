@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use app\platform\service\plugin\DevelopmentModuleDiscovery;
-use app\platform\service\plugin\PluginLifecycleException;
+use app\platform\service\module\DevelopmentModuleDiscovery;
+use app\platform\service\module\ModuleLifecycleException;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
@@ -33,7 +33,7 @@ $projectRoot = dirname(__DIR__, 3);
 $first = (new DevelopmentModuleDiscovery($projectRoot))->moduleRoots();
 $second = (new DevelopmentModuleDiscovery($projectRoot))->moduleRoots();
 developmentDiscoveryExpect($first === $second, 'development Module discovery is not deterministic');
-developmentDiscoveryExpect(isset($first['official.article']), 'official.article was not discovered without plugins.lock');
+developmentDiscoveryExpect(isset($first['official.article']), 'official.article was not discovered without modules.lock');
 developmentDiscoveryExpect(
     $first['official.article'] === $projectRoot . '/server/app/modules/official/article',
     'official.article backend path was not derived from its key',
@@ -53,7 +53,7 @@ file_put_contents($wrongRoot . '/module.json', json_encode([
 try {
     (new DevelopmentModuleDiscovery($temporary))->moduleRoots();
     throw new RuntimeException('non-derived development Module path was accepted');
-} catch (PluginLifecycleException $exception) {
+} catch (ModuleLifecycleException $exception) {
     developmentDiscoveryExpect($exception->errorCode === 'MODULE_PATH_INVALID', 'development discovery failure code changed');
 } finally {
     developmentDiscoveryRemoveTree($temporary);

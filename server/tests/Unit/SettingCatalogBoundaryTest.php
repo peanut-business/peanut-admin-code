@@ -52,7 +52,7 @@ final class SettingCatalogBoundaryTest extends TestCase
         $root = dirname(__DIR__, 3);
         $manifest = json_decode(file_get_contents($root . '/server/app/modules/official/settings/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(SettingCatalogService::class, $manifest['contracts']['exports']);
-        $source = file_get_contents($root . '/server/app/platform/infrastructure/plugin/ModuleCatalogApplier.php');
+        $source = file_get_contents($root . '/server/app/platform/infrastructure/module/ModuleCatalogApplier.php');
         foreach (['SettingDefinitionSynchronizer', 'SettingDefinitionRegistry', 'SettingDefinitionLoader', "Db::name('setting_definition')", "'settings' => 'pa_setting_definition'"] as $internal) {
             self::assertStringNotContainsString($internal, $source);
         }

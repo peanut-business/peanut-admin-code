@@ -49,7 +49,7 @@ foreach (['.git', '.peanut'] as $directory) {
     installerExpect(mkdir($fixture . '/' . $directory, 0775, true), 'unable to create source-mode fixture directory');
 }
 installerExpect(mkdir($temporary . '/resources/schemas', 0775, true), 'unable to create Plugin schema fixture directory');
-foreach (['vendor/autoload.php', 'database/init.sql', 'config/brand.json', 'resources/schemas/plugin.schema.json'] as $file) {
+foreach (['vendor/autoload.php', 'database/init.sql', 'config/brand.json', 'resources/schemas/module-artifact.schema.json'] as $file) {
     installerExpect(file_put_contents($temporary . '/' . $file, "fixture\n") !== false, 'unable to create preflight fixture file');
 }
 installerExpect(mkdir($temporary . '/vendor/composer', 0775, true), 'unable to create Composer fixture directory');
@@ -77,7 +77,7 @@ $writeComposerFixture = static function (array $runtime, array $development, arr
     }
 };
 $writeComposerFixture($runtimePackages, [$developmentPackage], $runtimePackages);
-foreach (['RELEASE_METADATA.json', 'plugins.lock'] as $file) {
+foreach (['RELEASE_METADATA.json', 'modules.lock'] as $file) {
     installerExpect(file_put_contents($fixture . '/' . $file, "fixture\n") !== false, 'unable to create release fixture file');
 }
 installerExpect(file_put_contents($fixture . '/release-versions.json', "{}\n") !== false, 'unable to create release versions fixture');

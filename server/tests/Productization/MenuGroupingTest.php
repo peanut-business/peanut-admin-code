@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use app\common\infrastructure\authorization\CoreTenantModuleAdminBridge;
-use app\platform\composition\plugin\PluginModuleRegistryFactory;
+use app\platform\composition\module\ModuleModuleRegistryFactory;
 use PeanutAdmin\Kernel\Menu\MenuRegistry;
 use PeanutAdmin\Modules\Identity\Authorization\ModuleAuthorizationCatalogSynchronizer;
 use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
@@ -24,7 +24,7 @@ $logConfig = require $root . '/server/config/log.php';
 $logConfig['channels']['file']['path'] = $root . '/.local/tmp/menu-grouping/conflicts';
 $app->config->set($logConfig, 'log');
 $server = $root . '/server';
-$registry = (new PluginModuleRegistryFactory($server))->fromDeploymentConfig([
+$registry = (new ModuleModuleRegistryFactory($server))->fromDeploymentConfig([
     'roots' => array_map(static fn(string $path): string => dirname($path), glob($server . '/app/modules/official/*/module.json')),
     'kernel_version' => '1.0.0', 'registered_client_keys' => ['admin-web', 'platform-web'],
 ])->compiled();

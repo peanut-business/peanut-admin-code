@@ -7,12 +7,12 @@ use app\common\execution\AdminExecutionContext;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
-use app\platform\exception\plugin\PluginLifecycleException;
-use app\platform\services\plugin\PluginLifecycleService;
-use app\platform\infrastructure\plugin\PluginLockResolver;
-use app\platform\infrastructure\plugin\PluginArtifactWriter;
-use app\platform\composition\plugin\PluginModuleRegistryFactory;
-use app\platform\infrastructure\plugin\ModuleCatalogApplier;
+use app\platform\exception\module\ModuleLifecycleException;
+use app\platform\services\module\ModuleLifecycleService;
+use app\platform\infrastructure\module\ModuleLockResolver;
+use app\platform\infrastructure\module\ModuleArtifactWriter;
+use app\platform\composition\module\ModuleModuleRegistryFactory;
+use app\platform\infrastructure\module\ModuleCatalogApplier;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Module\ModuleException;
 use think\App;
@@ -39,7 +39,7 @@ function pluginLifecycleFailureArtifact(string $projectRoot, string $directory):
     $migration = $projectRoot
         . '/server/app/modules/fixture/delivery_record/database/migrations/20260814999999_failure_fixture.sql';
     file_put_contents($migration, "THIS IS AN INTENTIONAL FIXTURE FAILURE;\n");
-    $manifest = (new PluginArtifactWriter($projectRoot . '/server'))->build('fixture.delivery-record', '1.0.0',
+    $manifest = (new ModuleArtifactWriter($projectRoot . '/server'))->build('fixture.delivery-record', '1.0.0',
         ['fixture.delivery-record=server/app/modules/fixture/delivery_record']);
     $manifestPath = tempnam($directory, 'failure-manifest-');
     pluginLifecycleExpect(is_string($manifestPath), 'temporary Plugin manifest is unavailable');
@@ -48,12 +48,12 @@ function pluginLifecycleFailureArtifact(string $projectRoot, string $directory):
         json_encode($manifest, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n",
     );
     $lock = json_decode(
-        (string) file_get_contents($projectRoot . '/plugins.lock'),
+        (string) file_get_contents($projectRoot . '/modules.lock'),
         true,
         64,
         JSON_THROW_ON_ERROR,
     );
-    foreach ($lock['plugins'] as &$plugin) {
+    foreach ($lock['modules'] as &$plugin) {
         if (($plugin['key'] ?? null) !== 'fixture.delivery-record') { continue; }
         foreach (['version', 'source', 'trust', 'composer', 'npm', 'frontend', 'modules'] as $field) { $plugin[$field] = $manifest[$field]; }
         $plugin['manifest'] = $manifestPath;
@@ -78,7 +78,7 @@ function pluginLifecycleRepairArtifact(string $projectRoot, string $directory): 
         $migration,
         "-- peanut-admin-repairs: fixture.delivery-record:20260814999999_failure_fixture\nSELECT 1;\n",
     );
-    $manifest = (new PluginArtifactWriter($projectRoot . '/server'))->build('fixture.delivery-record', '1.0.1',
+    $manifest = (new ModuleArtifactWriter($projectRoot . '/server'))->build('fixture.delivery-record', '1.0.1',
         ['fixture.delivery-record=server/app/modules/fixture/delivery_record']);
     $manifestPath = tempnam($directory, 'repair-manifest-');
     pluginLifecycleExpect(is_string($manifestPath), 'temporary repair Plugin manifest is unavailable');
@@ -87,12 +87,12 @@ function pluginLifecycleRepairArtifact(string $projectRoot, string $directory): 
         json_encode($manifest, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n",
     );
     $lock = json_decode(
-        (string) file_get_contents($projectRoot . '/plugins.lock'),
+        (string) file_get_contents($projectRoot . '/modules.lock'),
         true,
         64,
         JSON_THROW_ON_ERROR,
     );
-    foreach ($lock['plugins'] as &$plugin) {
+    foreach ($lock['modules'] as &$plugin) {
         if (($plugin['key'] ?? null) !== 'fixture.delivery-record') {
             continue;
         }
@@ -166,7 +166,7 @@ function pluginLifecycleInstalledAssertions(App $app, PDO $pdo, TenantContext $c
     $catalogSnapshot = pluginLifecycleCatalogSnapshot($pdo);
 
     $config = [
-        'plugin_lock' => '../plugins.lock',
+        'module_lock' => '../modules.lock',
         'kernel_version' => '1.0.0',
         'registered_client_keys' => ['admin-web', 'platform-web'],
     ];
@@ -175,10 +175,10 @@ function pluginLifecycleInstalledAssertions(App $app, PDO $pdo, TenantContext $c
     $artifact = null;
     $repairArtifact = null;
     try {
-        $resolver = new PluginLockResolver($serverRoot, '../plugins.lock');
-        $service = new PluginLifecycleService(
+        $resolver = new ModuleLockResolver($serverRoot, '../modules.lock');
+        $service = new ModuleLifecycleService(
             $resolver,
-            new PluginModuleRegistryFactory($serverRoot),
+            new ModuleModuleRegistryFactory($serverRoot),
             $config,
             $catalogs,
             new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries(),
@@ -269,7 +269,7 @@ function pluginLifecycleInstalledAssertions(App $app, PDO $pdo, TenantContext $c
             $guard();
             $service->uninstall('fixture.delivery-record');
             throw new RuntimeException('uninstall ignored an enabled TenantModule');
-        } catch (PluginLifecycleException $exception) {
+        } catch (ModuleLifecycleException $exception) {
             pluginLifecycleExpect($exception->errorCode === 'PLUGIN_TENANT_MODULE_ACTIVE', 'uninstall refusal code changed');
         }
         $guard();
@@ -289,11 +289,11 @@ function pluginLifecycleInstalledAssertions(App $app, PDO $pdo, TenantContext $c
 
         $guard();
         $artifact = pluginLifecycleFailureArtifact($projectRoot, $artifactDirectory);
-        $failureResolver = new PluginLockResolver($serverRoot, $artifact['lock']);
-        $failureService = new PluginLifecycleService(
+        $failureResolver = new ModuleLockResolver($serverRoot, $artifact['lock']);
+        $failureService = new ModuleLifecycleService(
             $failureResolver,
-            new PluginModuleRegistryFactory($serverRoot),
-            $config + ['plugin_lock' => $artifact['lock']],
+            new ModuleModuleRegistryFactory($serverRoot),
+            $config + ['module_lock' => $artifact['lock']],
             $catalogs,
             new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries(),
         );
@@ -311,7 +311,7 @@ function pluginLifecycleInstalledAssertions(App $app, PDO $pdo, TenantContext $c
             $guard();
             $failureService->install('fixture.delivery-record');
             throw new RuntimeException('uncertain failed migration was replayed');
-        } catch (PluginLifecycleException $exception) {
+        } catch (ModuleLifecycleException $exception) {
             pluginLifecycleExpect(
                 $exception->errorCode === 'MODULE_MIGRATION_REPAIR_REQUIRED',
                 'failed migration retry did not require an append-only repair',
@@ -319,11 +319,11 @@ function pluginLifecycleInstalledAssertions(App $app, PDO $pdo, TenantContext $c
         }
         $guard();
         $repairArtifact = pluginLifecycleRepairArtifact($projectRoot, $artifactDirectory);
-        $repairResolver = new PluginLockResolver($serverRoot, $repairArtifact['lock']);
-        $repairService = new PluginLifecycleService(
+        $repairResolver = new ModuleLockResolver($serverRoot, $repairArtifact['lock']);
+        $repairService = new ModuleLifecycleService(
             $repairResolver,
-            new PluginModuleRegistryFactory($serverRoot),
-            $config + ['plugin_lock' => $repairArtifact['lock']],
+            new ModuleModuleRegistryFactory($serverRoot),
+            $config + ['module_lock' => $repairArtifact['lock']],
             $catalogs,
             new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries(),
         );

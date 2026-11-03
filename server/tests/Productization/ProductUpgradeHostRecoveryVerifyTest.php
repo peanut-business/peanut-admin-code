@@ -79,7 +79,7 @@ function recoveryVerifyFixture(string $directory, string $failure = 'none'): arr
             'probes' => [
                 'healthz' => true,
                 'database_environment' => true,
-                'plugin_lock' => true,
+                'module_lock' => true,
                 'installation_status' => true,
                 'receipt_binding' => true,
             ],
@@ -142,7 +142,7 @@ if command in ['config', 'up', 'stop', 'build', 'run', 'ps']:
 if command == 'exec':
     joined = ' '.join(rest)
     if 'environment-guard.php' in joined: log('ENVIRONMENT'); sys.exit(64 if mode == 'environment' else 0)
-    if 'plugin:lock' in joined: log('PLUGIN_LOCK'); sys.exit(65 if mode == 'plugin' else 0)
+    if 'module:lock' in joined: log('PLUGIN_LOCK'); sys.exit(65 if mode == 'plugin' else 0)
     if 'install.php --status' in joined:
         log('INSTALL_STATUS')
         if mode == 'install-command': sys.exit(66)
@@ -313,7 +313,7 @@ try {
         'environment-check-failed' => ['database_environment', static function (array $fixture): void {
             upgradeHostFile(dirname($fixture['docker_log']) . '/failure', 'environment');
         }],
-        'plugin-check-failed' => ['plugin_lock', static function (array $fixture): void {
+        'plugin-check-failed' => ['module_lock', static function (array $fixture): void {
             upgradeHostFile(dirname($fixture['docker_log']) . '/failure', 'plugin');
         }],
         'installation-check-failed' => ['business state verification', static function (array $fixture): void {

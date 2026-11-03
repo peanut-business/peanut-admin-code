@@ -1,6 +1,6 @@
 import type { RouteRecordRaw } from 'vue-router';
 import {
-  collectPluginContributions,
+  collectModuleContributions,
   routesForTenantModules,
 } from '@peanut-admin/vue';
 import articleContribution from '../../src/modules/official-article/contribution';
@@ -19,7 +19,7 @@ const route: RouteRecordRaw = {
     requiredPermissions: 'fixture.delivery-record.read',
   },
 };
-const contributions = collectPluginContributions({
+const contributions = collectModuleContributions({
   fixture: {
     default: { moduleKey: 'fixture.delivery-record', routes: [route] },
   },

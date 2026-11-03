@@ -133,7 +133,7 @@ Downstream applications retain their own application versions.
 - Adopted the qualified Peanut Admin Core Alpha.13 Composer and npm packages across all clients,
   including the single Core implementation of Local, Aliyun OSS, Tencent COS and Qiniu drivers.
 - Defined fail-closed Module source-package publication states and content rules; all official
-  Modules, including Rich Text, are discovered from `plugins.lock` for deterministic packaging.
+  Modules, including Rich Text, are discovered from `modules.lock` for deterministic packaging.
 - Converged the reviewed Gemini refactor as incremental application changes while preserving the
   ThinkPHP application boundary and isolating the rejected mechanical rewrite.
 

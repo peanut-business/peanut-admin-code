@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use app\common\composition\ModuleComposition;
-use app\platform\composition\plugin\ModuleDefinitionRegistryFactory;
-use app\platform\infrastructure\plugin\PluginLockResolver;
+use app\platform\composition\module\ModuleDefinitionRegistryFactory;
+use app\platform\infrastructure\module\ModuleLockResolver;
 use PeanutAdmin\Modules\ContentTools\Contract\AuthorizedContentContext;
 use PeanutAdmin\Modules\ContentTools\Service\ContentCapabilitiesService;
 use PeanutAdmin\Modules\ContentTools\Service\ContentToolRegistry;
@@ -14,8 +14,8 @@ $root = dirname(__DIR__, 5);
 require $root . '/server/vendor/autoload.php';
 $app = new App($root . '/server');
 $app->config->set(['mode' => 'multi-tenant'], 'deployment');
-$compiled = (new ModuleDefinitionRegistryFactory($root . '/server'))->fromPluginLock(
-    new PluginLockResolver($root . '/server', '../plugins.lock'),
+$compiled = (new ModuleDefinitionRegistryFactory($root . '/server'))->fromModuleLock(
+    new ModuleLockResolver($root . '/server', '../modules.lock'),
     ['roots'=>[],'kernel_version'=>'1.0.0','registered_client_keys'=>['admin-web','platform-web','pc-web','uniapp']],
 );
 (new ModuleComposition($app))->register($compiled);

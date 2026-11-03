@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace tests\Unit;
 
 use app\platform\controller\PlatformModuleLifecycleController;
-use app\platform\exception\plugin\PluginLifecycleException;
+use app\platform\exception\module\ModuleLifecycleException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
@@ -30,7 +30,7 @@ final class ModuleCreateInputTest extends TestCase
     {
         $controller = (new ReflectionClass(PlatformModuleLifecycleController::class))->newInstanceWithoutConstructor();
         (new ReflectionProperty($controller, 'request'))->setValue($controller, (new Request())->withPost($input));
-        $this->expectException(PluginLifecycleException::class);
+        $this->expectException(ModuleLifecycleException::class);
         $this->expectExceptionMessage('only declared string fields');
         $controller->create();
     }

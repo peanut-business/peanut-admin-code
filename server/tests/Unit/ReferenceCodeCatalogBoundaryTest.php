@@ -37,7 +37,7 @@ final class ReferenceCodeCatalogBoundaryTest extends TestCase
         $root = dirname(__DIR__, 3);
         $manifest = json_decode(file_get_contents($root . '/server/app/modules/official/reference_codes/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(ReferenceCodeCatalogService::class, $manifest['contracts']['exports']);
-        $host = file_get_contents($root . '/server/app/platform/infrastructure/plugin/ModuleCatalogApplier.php');
+        $host = file_get_contents($root . '/server/app/platform/infrastructure/module/ModuleCatalogApplier.php');
         foreach (['ReferenceCodeSetLoader', 'ReferenceCodeSetRegistry', 'ReferenceCodeStore', "Db::name('reference_code_set')", "Db::table('pa_reference_code_set')", 'SHOW TABLES LIKE'] as $internal) {
             self::assertStringNotContainsString($internal, $host);
         }
