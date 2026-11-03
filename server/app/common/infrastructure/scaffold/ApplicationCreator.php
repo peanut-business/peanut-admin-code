@@ -71,10 +71,14 @@ final class ApplicationCreator
         ?string $applicationVersion = null,
         string $profile = 'standard',
         string $workflow = 'runtime',
+        string $demo = 'none',
     ): array {
         $journal = $this->sourceRoot . '/.local/module-source-adoption/journal.json';
         if (file_exists($journal) || is_link($journal)) {
             throw new RuntimeException('MODULE_PACKAGE_RECOVERY_REQUIRED');
+        }
+        if (!in_array($demo, ['none', 'workbench'], true)) {
+            throw new RuntimeException('CREATE_APP_DEMO_PRESET_INVALID');
         }
         $inventory = $this->loadInventory();
         if (!in_array($profile, self::PROFILES, true)) {
@@ -174,6 +178,12 @@ final class ApplicationCreator
                     throw new RuntimeException('CREATE_APP_SOURCE_READ_FAILED: ' . $entry['path']);
                 }
                 $content = $this->transform($content, $entry, $parameters, $stage);
+                if ($entry['target'] === 'server/config/peanut.php') {
+                    if (substr_count($content, "'preset' => 'none'") !== 1) {
+                        throw new RuntimeException('CREATE_APP_DEMO_CONFIG_INVALID');
+                    }
+                    $content = str_replace("'preset' => 'none'", "'preset' => '" . $demo . "'", $content);
+                }
                 $destination = $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string) $entry['target']);
                 $this->writeFile($destination, $content, (int) $entry['mode']);
                 $files[] = [
@@ -238,6 +248,7 @@ final class ApplicationCreator
                 $profile,
                 $editionProfile,
                 $workflow,
+                $demo,
             );
             if ($candidate) {
                 $manifest['scaffold_candidate'] = [
@@ -829,7 +840,7 @@ final class ApplicationCreator
             'brand-asset' => $this->brandAsset((string) $entry['path'], $parameters),
             'changelog' => $this->render($this->changelog($parameters['APPLICATION_VERSION']), $parameters),
             'docs-page' => $this->render($content, $parameters),
-            'environment-guard' => $content,
+            'environment-guard' => $this->applicationEnvironmentGuard($content),
             'release-metadata' => $this->releaseMetadata($parameters),
             'resources' => $this->resourceRegistry($parameters),
             'readme' => $this->render($this->readme(), $parameters),
@@ -856,6 +867,34 @@ final class ApplicationCreator
             throw new RuntimeException('CREATE_APP_COMPOSER_COMPANION_MISSING');
         }
         return ScaffoldManifest::renderComposerLock($content, $composer);
+    }
+
+    /** Product runtime guards keep registered DB identity checks; qualification tools stay in Code. */
+    private function applicationEnvironmentGuard(string $content): string
+    {
+        $start = strpos($content, '/** Only an explicitly registered schema policy');
+        $config = strpos($content, 'function guardedDatabaseConfig(');
+        $observation = strpos($content, "/**\n * Closed acceptance observation of persisted collaboration metadata");
+        $connection = strpos($content, 'function guardedConnection(');
+        if ($start === false || $config === false || $observation === false || $connection === false) {
+            throw new RuntimeException('CREATE_APP_ENVIRONMENT_GUARD_SOURCE_INVALID');
+        }
+        $nativeConfig = substr($content, $config, $observation - $config);
+        $nativeConfig = preg_replace(
+            '/    if \\(\\$isTemplated\\) \\{.*?\\n    \\} else \\{\\n/s',
+            "    if (\$isTemplated || \$deploymentTarget === 'development-test') {\n"
+                . "        throw new RuntimeException('Qualification resources are not application runtime databases');\n"
+                . "    } else {\n",
+            $nativeConfig,
+            1,
+            $count,
+        );
+        if ($count !== 1 || !is_string($nativeConfig)) {
+            throw new RuntimeException('CREATE_APP_ENVIRONMENT_GUARD_SOURCE_INVALID');
+        }
+        return substr($content, 0, $start)
+            . "require_once __DIR__ . '/resource-registry.php';\n\n"
+            . $nativeConfig . substr($content, $connection);
     }
 
     /** @param array<string,string> $parameters */
@@ -1506,6 +1545,7 @@ final class ApplicationCreator
         string $profile,
         EditionProfile $editionProfile,
         string $workflow,
+        string $demo,
     ): array {
         $baselineRoot = '.peanut/scaffold-baseline/' . $templateIdentity['version'] . '/files';
         foreach ($files as &$file) {
@@ -1569,6 +1609,7 @@ final class ApplicationCreator
                 'version' => $parameters['APPLICATION_VERSION'],
                 'profile' => $profile,
                 'workflow' => $workflow,
+                'demo' => $demo,
                 'edition' => $editionProfile->edition,
             ],
             'edition' => $editionProfile->identity(),

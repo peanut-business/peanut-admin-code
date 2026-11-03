@@ -790,7 +790,10 @@ try {
     $creator = (new ReflectionClass($creatorClass))->newInstanceArgs($creatorArguments);
     $create = new ReflectionMethod($creator, 'create');
     $createParameters = array_map(static fn(ReflectionParameter $parameter): string => $parameter->getName(), $create->getParameters());
-    if (isset($options['workflow']) && $createParameters !== ['productName','slug','packageIdentity','target','edition','applicationVersion','profile','workflow']) {
+    if (isset($options['workflow']) && !in_array($createParameters, [
+        ['productName','slug','packageIdentity','target','edition','applicationVersion','profile','workflow'],
+        ['productName','slug','packageIdentity','target','edition','applicationVersion','profile','workflow','demo'],
+    ], true)) {
         throw new RuntimeException('SCAFFOLD_RELEASE_WORKFLOW_UNSUPPORTED');
     }
     if ($createParameters === ['productName','slug','packageIdentity','target']) {
@@ -813,7 +816,8 @@ try {
             RELEASE_APPLICATION_VERSION_TOKEN,
         );
     } elseif ($createParameters === ['productName','slug','packageIdentity','target','edition','applicationVersion','profile']
-        || $createParameters === ['productName','slug','packageIdentity','target','edition','applicationVersion','profile','workflow']) {
+        || $createParameters === ['productName','slug','packageIdentity','target','edition','applicationVersion','profile','workflow']
+        || $createParameters === ['productName','slug','packageIdentity','target','edition','applicationVersion','profile','workflow','demo']) {
         // An omitted workflow retains the immutable creator's own default.
         $manifest = $creator->create(
             RELEASE_PRODUCT_TOKEN,

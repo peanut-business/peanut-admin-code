@@ -18,13 +18,13 @@ require $root . '/server/app/common/infrastructure/scaffold/ApplicationCreator.p
 function createAppUsage(): never
 {
     fwrite(STDERR, "Local snapshot identity: --source-snapshot-sha256=<64-hex> (development only; excludes --source-commit/--source-tree)\n");
-    fwrite(STDERR, "Usage: php scripts/create-app --name=<product> --slug=<slug> --package=<vendor/name> --target=/absolute/path --edition=standalone|multi-tenant [--application-version=<semver>] [--profile=minimal|standard|full] [--workflow=none|runtime|full] [--source-repository=peanut-business/peanut-admin-code --source-ref=<ref> --source-channel=development|prerelease|stable --source-commit=<sha> --source-tree=<sha> [--release-version=<semver>]] [--scaffold-manifest=/absolute/path/scaffold-manifest.json]\n");
+    fwrite(STDERR, "Usage: php scripts/create-app --name=<product> --slug=<slug> --package=<vendor/name> --target=/absolute/path --edition=standalone|multi-tenant [--application-version=<semver>] [--profile=minimal|standard|full] [--workflow=none|runtime|full] [--demo=none|workbench] [--source-repository=peanut-business/peanut-admin-code --source-ref=<ref> --source-channel=development|prerelease|stable --source-commit=<sha> --source-tree=<sha> [--release-version=<semver>]] [--scaffold-manifest=/absolute/path/scaffold-manifest.json]\n");
     exit(64);
 }
 
 $options = [];
 foreach (array_slice($argv, 1) as $argument) {
-    if (preg_match('/^--(name|slug|package|target|edition|application-version|profile|workflow|scaffold-manifest|source-repository|source-ref|source-channel|source-commit|source-tree|source-snapshot-sha256|release-version)=(.*)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
+    if (preg_match('/^--(name|slug|package|target|edition|application-version|profile|workflow|demo|scaffold-manifest|source-repository|source-ref|source-channel|source-commit|source-tree|source-snapshot-sha256|release-version)=(.*)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
         createAppUsage();
     }
     $options[$matches[1]] = $matches[2];
@@ -96,7 +96,7 @@ try {
     if (isset($options['source-commit']) !== isset($options['source-tree'])) {
         throw new RuntimeException('CREATE_APP_SOURCE_IDENTITY_INVALID');
     }
-    $provenance = $options === array_intersect_key($options, array_flip(['name', 'slug', 'package', 'target', 'edition', 'application-version', 'profile', 'workflow']))
+    $provenance = $options === array_intersect_key($options, array_flip(['name', 'slug', 'package', 'target', 'edition', 'application-version', 'profile', 'workflow', 'demo']))
         ? null
         : [
             'repository' => $options['source-repository'] ?? null,
@@ -120,6 +120,7 @@ try {
         $options['application-version'] ?? null,
         $options['profile'] ?? 'standard',
         $options['workflow'] ?? 'runtime',
+        $options['demo'] ?? 'none',
     );
     fwrite(STDOUT, json_encode([
         'status' => 'created',
@@ -127,6 +128,7 @@ try {
         'template_version' => $manifest['template']['version'],
         'application_version' => $manifest['application']['version'],
         'profile' => $manifest['application']['profile'],
+        'demo' => $manifest['application']['demo'],
         'edition' => $manifest['application']['edition'],
         'source_identity' => $manifest['template']['source_identity'],
         ...($manifest['template']['source_identity']['kind'] === 'git'

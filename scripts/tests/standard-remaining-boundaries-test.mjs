@@ -432,7 +432,7 @@ test('route collection preserves source order and native deployment filtering wi
         'virtual:peanut-instance-tool-routes': [
           route('tool', { instanceTool: true }),
         ],
-        './plugin-contributions': { pluginRoutes: [route('plugin')] },
+        './module-contributions': { moduleRoutes: [route('module')] },
       },
       {
         __meta: {

@@ -16,6 +16,12 @@ seed、受控迁移维护和固定资格的资源选择使用独立进程输入�
 
 ## 正常模板发行
 
+源码维护、模板生产和应用运行分开：`project-resource-*`、CI编排、Core冻结以及源码仓专用HTTP消费者不交付生成APP。旧MT012、039固定actor操作和Workflow/Task/Article一次性驱动已退役；历史恢复使用当时固定Git版本，不把旧任务授权迁入当前源码。通用资源工具仍由Code维护者入口使用；生成APP的数据库guard只保留APP登记、endpoint、环境和原生连接校验，备份/恢复worker继续消费它，不依赖Project或lease脚本。普通安装和迁移继续走原生入口。
+
+临时截图只应放既有`output/`工作目录。根目录两份旧对比截图同时被Git与版本化`source_snapshot.excluded_paths`排除，防止无Git本地快照将它们当源码。正常品牌资源、许可证与依赖锁保留。
+
+`peanut create --demo=none|workbench`默认`none`，选择写入`.peanut/application-manifest.json`的`application.demo`与app-owned `server/config/peanut.php`的`demo.preset`。`workbench`在正常首次安装中写入持久演示数据并显式标识；升级不会隐式播种。迁出独立Module应用的模块源码从旧受管模板退出时，原生升级计划要求显式preserve/replace决定；preserve沿既有resolve/apply转换为app-owned，旧任务脚本仍按普通三方删除规则处理。
+
 正常本地开发发行由独立`peanut-cli`提供`peanut config`与`peanut release`，环境与路径未变时日常只运行`peanut release`。发行以当前磁盘文件生成受限源码快照，允许dirty、无HEAD及未提交新增源码。默认输出`release/<scaffold版本>/{standalone,multi-tenant}`；显式`--version`必须等于`release-versions.json.scaffold_template`，既有版本拒绝覆盖，只有显式`--overwrite`且目标内容能由原生manifest、构建回执、归档和managed文件逐项验证时才重建。配置/发行测试仍需人工Gate确认后执行。
 
 职责按阶段划分：
