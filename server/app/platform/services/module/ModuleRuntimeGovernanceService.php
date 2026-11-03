@@ -124,7 +124,7 @@ final class ModuleRuntimeGovernanceService
                 $this->saveRemovalPlan($packageKey, $confirmPlan);
                 // The recovery marker commits with the preconditions and Module maintenance states.
                 if (!$resuming) {
-                    $this->markMaintenance($packageKey, $moduleKeys, $marker);
+                    $this->markMaintenance($packageKey, $moduleKeys, $marker, $scope['manifests'] ?? []);
                 }
                 $this->inject('after-marker');
 
@@ -610,15 +610,16 @@ final class ModuleRuntimeGovernanceService
     }
 
     /** @param list<string> $moduleKeys */
-    private function markMaintenance(string $packageKey, array $moduleKeys, string $marker): void
+    private function markMaintenance(string $packageKey, array $moduleKeys, string $marker, array $verifiedTargets): void
     {
         $now = gmdate('Y-m-d H:i:s.v');
-        Db::transaction(function () use ($packageKey, $moduleKeys, $marker, $now): void {
+        Db::transaction(function () use ($packageKey, $moduleKeys, $marker, $now, $verifiedTargets): void {
             $this->tenantStates->lockLifecycleRows($moduleKeys, [$packageKey]);
             $dependents = ModuleLifecyclePolicy::installedBusinessDependents(
                 ModuleLockResolver::forRuntime($this->serverRoot, (string) ($this->moduleConfig['module_lock'] ?? '../modules.lock')),
                 $moduleKeys,
                 $this->tenantStates,
+                $verifiedTargets,
             );
             if ($dependents !== []) {
                 throw new ModuleLifecycleException('MODULE_DEPENDENT_INSTALLED', 'Installed Module dependencies must be removed before uninstall.');
