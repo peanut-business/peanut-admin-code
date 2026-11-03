@@ -56,6 +56,7 @@ final readonly class ApplicationTenantBootstrapService
 
         $operationId = $this->executionContexts->current()?->requestId()
             ?? 'tenant-bootstrap:' . $tenantCode;
+        $selectedModules = app(\PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries::class)->activeModuleKeys($tenantId);
         $execution = new SystemExecutionContext(new TenantSystemContext(
             $tenantId,
             'platform.tenant-bootstrap',
@@ -66,12 +67,13 @@ final readonly class ApplicationTenantBootstrapService
             $execution,
             $tenantId,
             $tenantCode,
+            $selectedModules,
         ): void {
-            $this->seedCrontab($execution->system);
+            $this->seedCrontab($execution->system, $selectedModules);
             $this->seedNoticeScenes($execution);
             $this->seedDecoration();
             $this->seedSettings($execution->system);
-            $this->seedExternalBindings($tenantId, $tenantCode);
+            $this->seedExternalBindings($tenantId, $tenantCode, $selectedModules);
         });
     }
 
@@ -102,7 +104,8 @@ final readonly class ApplicationTenantBootstrapService
         return true;
     }
 
-    private function seedCrontab(TenantSystemContext $context): void
+    /** @param list<string> $selectedModules */
+    private function seedCrontab(TenantSystemContext $context, array $selectedModules): void
     {
         $defaults = [
             [
@@ -122,7 +125,7 @@ final readonly class ApplicationTenantBootstrapService
                 'update_time' => 0,
             ],
         ];
-        if (!in_array('peanut.payment', $this->modules->moduleKeys(), true)) {
+        if (!in_array('peanut.payment', $selectedModules, true)) {
             $defaults = array_values(array_filter(
                 $defaults,
                 static fn(array $row): bool => $row['command'] !== 'refund:reconcile',
@@ -249,7 +252,8 @@ final readonly class ApplicationTenantBootstrapService
         }
     }
 
-    private function seedExternalBindings(int $tenantId, string $tenantCode): void
+    /** @param list<string> $selectedModules */
+    private function seedExternalBindings(int $tenantId, string $tenantCode, array $selectedModules): void
     {
         $execution = new SystemExecutionContext(new TenantSystemContext(
             $tenantId,
@@ -257,11 +261,10 @@ final readonly class ApplicationTenantBootstrapService
             'integration.bootstrap-bindings',
             $this->executionContexts->require()->requestId(),
         ));
-        $this->executionContexts->run($execution, function () use ($tenantId, $tenantCode): void {
-            $selected = $this->modules->moduleKeys();
+        $this->executionContexts->run($execution, function () use ($tenantId, $tenantCode, $selectedModules): void {
             foreach (ExternalIntegrationBootstrapCommands::DEFAULT_PROVIDERS as $provider) {
                 $moduleKey = str_starts_with($provider, 'payment.') ? 'peanut.payment' : 'peanut.oauth';
-                if (!in_array($moduleKey, $selected, true)) {
+                if (!in_array($moduleKey, $selectedModules, true)) {
                     continue;
                 }
                 $this->externalBindings->ensureUnconfiguredBinding($tenantId, $tenantCode, $provider);
