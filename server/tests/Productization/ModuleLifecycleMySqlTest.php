@@ -110,7 +110,7 @@ $app->config->set($config, 'modules');
 $nonCaseCatalogSnapshot = static function () use ($pdo): array {
     $snapshot = [];
     foreach (['permission', 'menu_definition', 'setting_definition'] as $table) {
-        $snapshot[$table] = $pdo->query("SELECT * FROM pa_{$table} WHERE module_key NOT IN ('acme.lifecycle','acme.dependent','acme.recovery') ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+        $snapshot[$table] = $pdo->query("SELECT * FROM pa_{$table} WHERE (module_key IS NULL OR module_key NOT IN ('acme.lifecycle','acme.dependent','acme.recovery')) ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
     }
     return $snapshot;
 };

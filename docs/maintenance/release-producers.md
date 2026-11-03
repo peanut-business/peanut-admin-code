@@ -106,9 +106,9 @@ CI 的 `scaffold-release.yml` 可显式选 `publish=false, pack_only=true`，并
 
 ### Module Task 必须补全的独立资格任务
 
-本轮退出四份合同已失效的历史手工入口：TaskImportExportHostTest、CrontabTenantIsolationTest、TaskNativeRootLifecycleTest 及 Task/feature-harness。它们曾受 CI changed-path/broad 的泛型文件选择消费；退役是清除失效实现，不是使 CI 变绿。没有修改 selector 隐藏文件，也没有删除现行八组明确门槛。源码中的通用 Unit/ExecutionRoot 断言和当前 Member/Task 函数保留，但本轮没有运行 CI、数据库、HTTP、full8 或测试套件。
+本轮退出四份合同已失效的历史手工入口：TaskImportExportHostTest、CrontabTenantIsolationTest、TaskNativeRootLifecycleTest 及 Task/feature-harness。它们曾受 CI changed-path/broad 的泛型文件选择消费；退役是清除失效实现，不是使 CI 变绿。没有修改 selector 隐藏文件，也没有删除现行八组明确门槛。源码中的通用 Unit/ExecutionRoot 断言和当前 Member/Task 函数保留，但这些资格入口本轮未执行数据库/HTTP 资格、full8 或测试套件，也未为此运行 CI。
 
-下列是 **正式发行前必须补全并实际执行的 Module 专用资格任务，当前全部 NOT_RUN**。已有相近断言源码不构成 native 场景已通过的证明。
+下列是 **正式发行前必须补全的 Module 专用资格任务，当前状态为待补实现及实际验证，本节资格全部 NOT_RUN**。已有相近断言源码不构成 native 场景已通过的证明。
 
 | 任务 | 当前保留的对应源码与边界 | 仍须完成的真实资格 |
 | --- | --- | --- |
