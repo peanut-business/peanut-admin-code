@@ -24,6 +24,21 @@ seed、受控迁移维护和固定资格的资源选择使用独立进程输入�
 
 正常本地开发发行由独立`peanut-cli`提供`peanut config`与`peanut release`，环境与路径未变时日常只运行`peanut release`。发行以当前磁盘文件生成受限源码快照，允许dirty、无HEAD及未提交新增源码。默认输出`release/<scaffold版本>/{standalone,multi-tenant}`；显式`--version`必须等于`release-versions.json.scaffold_template`，既有版本拒绝覆盖，只有显式`--overwrite`且目标内容能由原生manifest、构建回执、归档和managed文件逐项验证时才重建。配置/发行测试仍需人工Gate确认后执行。
 
+当前脚本的直接用途与归属：
+
+| 用途 | 入口与实际消费者 | 交付 |
+| --- | --- | --- |
+| 应用开发环境 | `project-env`、`project-composer`、`run-with-environment-file`；原生安装/开发/构建调用 | 保留；不包含本机host或依赖目录 |
+| 本地Core联调 | `core-dev`、`local-core-composer`、`local-core-web`、`local-core-links.mjs`；应用开发者显式选择Core | 保留；不隐式冻结发行 |
+| 原生产品生成物 | `generate-api-contracts.php`、`module-frontend-entries.mjs`、`release-dependency-locks.mjs`、`sync-brand-assets.mjs`；API、模块、锁和品牌生成入口 | 保留 |
+| 安装/升级/部署 | `migrate-installation-state`、`scaffold-doctor`、`scaffold-upgrade`与`scaffold-runtime/`、`deploy-update.sh`；应用生命周期入口 | 保留 |
+| 运维数据保护 | `ops-backup-worker`、`ops-restore-worker`；APP登记的备份/隔离恢复与生成后的`environment-guard.php` | 保留产品所需guard；剥离资格及私有lease工具 |
+| 应用源码检查 | `check-*`、`format-source.mjs`、`run-php-test`；应用开发者按需调用 | 保留；执行测试仍取独立授权 |
+| 模板/Core生产与仓库维护 | create/build/prepare/package/release/qualification入口、`project-resource-*`、CI编排、CodeGraph、专用consumer及维护测试 | 只在Code维护，不随APP交付；CodeGraph的registry也不交付 |
+| 已结束任务 | MT012、039固定操作、Workflow fixture/transition、Task/Notification与Article/Document一次性驱动 | 当前源码退出；原恢复使用固定历史版本 |
+
+生成APP的guard保留`requiredEnvironment`、进程维护选择、APP资源登记、环境/endpoint/数据库/Edition匹配、原生PDO、等待连接、基线表/列/索引及当前安装校验。仅维护侧使用的schema lease、P0-E/consumer-upgrade资格、固定development-test准入和collaboration受控观察不进入APP；产品guard遇资格资源明确拒绝，不能以缺少私有工具降级跳过身份检查。
+
 职责按阶段划分：
 
 - 配置：CLI绑定已安装工具、本地Core与输出路径，保存于`.local/toolchain`；Code的`project-env`提供登记环境。
