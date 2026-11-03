@@ -8,9 +8,9 @@
 
 安装业务保留空库及重复拒绝、动态租户/管理员、权限和模块目录、安装锁、健康与完成身份。先官方结构迁移，再初始化动态身份，然后 `seed:run --seed=InitialSeeder`。种子核实际默认租户及 owner，拒绝非空或部分完成。由于权限目录 repository 使用框架连接，native seed 初始事务提交后才同步目录，再执行后续数据事务；失败可能留下部分初始化，不能重放或声称整段原子。
 
-`schema/baseline-data.sql` 只承载首次真实租户的中性设置；File 的本地存储账号、空间和路由由其 `backend.seeds` 声明的原生 Seeder 在模块首次安装时建立。权限与菜单目录由其所属模块同步，拆出业务模块的默认数据由其模块提供。关联默认租户使用安装实际身份。默认 `PEANUT_DEMO_MODE=disabled`；正常安装不调用示例数据脚本。管理员、平台账号和安装身份由当次安装输入建立，开发库账号、域名、凭据、会话和业务记录不作为安装种子。完整开发库 dump 是独立恢复备份，不能替换这份初始数据或进入模板载荷。四类数据边界与显式示例用法见[安装说明](../public/installation.md#5-初始数据与可选示例)。
+`schema/baseline-data.sql` 只承载首次真实租户的中性设置；File 的本地存储账号、空间和路由由其 `backend.seeds` 声明的原生 Seeder 在模块首次安装时建立。权限与菜单目录由其所属模块同步，拆出业务模块的默认数据由其模块提供。关联默认租户使用安装实际身份。创建应用默认 `--demo=none`。显式 `--demo=workbench` 由同一首次安装入口在原生安装锁内把 `application.workbench-demo` 写入实际默认租户设置；选择同时记录在APP manifest与 `peanut.demo.preset`，不启用弱密码演示账号策略。管理员、平台账号和安装身份由当次安装输入建立，开发库账号、域名、凭据、会话和业务记录不作为安装种子。完整开发库 dump 是独立恢复备份，不能替换这份初始数据或进入模板载荷。四类数据边界与显式示例用法见[安装说明](../public/installation.md#5-初始数据与可选示例)。
 
-首次初始化数据仅由安装器在动态身份建立后调用 `InitialSeeder`；两个 Edition 不另建种子或伪造 applied 账本。[锁定的官方 seed runner](https://github.com/top-think/think-migration/blob/v3.1.1/src/command/seed/Run.php) 不记录种子版本，基线结构 applied 不等于种子或安装已完成，完成身份仍由安装业务管理。后续结构及必要系统数据变更使用新的原生 Migration，不能通过重跑种子覆盖已安装实例的设置、权限或身份。可选合成业务数据继续使用已有显式入口，不加入 Migration 或默认 Seeder。
+首次初始化数据仅由安装器在动态身份建立后调用 `InitialSeeder`；两个 Edition 不另建种子或伪造 applied 账本。[锁定的官方 seed runner](https://github.com/top-think/think-migration/blob/v3.1.1/src/command/seed/Run.php) 不记录种子版本，基线结构 applied 不等于种子或安装已完成，完成身份仍由安装业务管理。后续结构及必要系统数据变更使用新的原生 Migration，不能通过重跑种子覆盖已安装实例的设置、权限或身份。可选工作台示例只消费首次安装前明确选择的preset，不加入版本迁移，也不在升级或安装后通过命令补播种；`scripts/seed-demo-data --plan` 只读预览。
 
 模块安装/升级发现 manifest 中声明的 `backend.migrations`，复用原生 pending 迁移并验证自有表存在；不满足结构则拒绝，不能仅复制模块目录后成功。卸载保留全局原生版本历史；清除表后重新启用须通过未执行过的原生迁移提供结构，不能伪填账本。
 
