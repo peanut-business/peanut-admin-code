@@ -134,7 +134,7 @@
             labels[item]
           }}</el-menu-item>
         </component>
-        ></el-menu
+        </el-menu
       ></el-aside
     ><el-container
       ><el-header
@@ -1510,8 +1510,6 @@
   } from 'vue';
   import {
     ElMessage,
-    ElMenuItemGroup,
-    ElSubMenu,
     ElMessageBox,
     ElButton,
     ElInput,
@@ -1574,8 +1572,8 @@
 
   const navigationGroup = computed(() =>
     platformPresentation.navigationMode === 'grouped'
-      ? ElMenuItemGroup
-      : ElSubMenu
+      ? 'ElMenuItemGroup'
+      : 'ElSubMenu'
   );
 
   const tokenFromUrl = new URLSearchParams(window.location.search).get(

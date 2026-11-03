@@ -1712,7 +1712,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "70e9ce4bcca9ebe401a70810f556138b8a571dd0b0eb3bc78f14c9676e35a9e7"
+            "source_sha256": "7dd3a5194797aed6cbcd5aa0022fa6ff6315ab5ef49f23e470cb93fc40d6be9f"
         },
         {
             "path": "platform/src/api/permission-bundles.ts",
