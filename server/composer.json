@@ -12,13 +12,6 @@
     "repositories": [
         {
             "type": "path",
-            "url": "app/modules/peanut/chart",
-            "options": {
-                "symlink": false
-            }
-        },
-        {
-            "type": "path",
             "url": "app/modules/peanut/settings",
             "options": {
                 "symlink": false
@@ -147,8 +140,7 @@
         "peanut-business/peanut-integration": "1.0.26",
         "peanut-business/peanut-ops": "1.0.30",
         "peanut-business/peanut-reference-codes": "1.0.25",
-        "peanut-business/peanut-settings": "1.0.24",
-        "peanut-business/peanut-chart": "1.0.2"
+        "peanut-business/peanut-settings": "1.0.24"
     },
     "require-dev": {
         "phpunit/phpunit": "12.5.31",

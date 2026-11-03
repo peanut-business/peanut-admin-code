@@ -12,6 +12,7 @@ return [
     'settings' => [],
     'environment' => env('APP_ENV', 'production'),
     'demo' => [
+        'preset' => 'none',
         'enabled' => env('PEANUT_DEMO_MODE', 'disabled') === 'enabled',
         'admin_email' => env('PEANUT_DEMO_ADMIN_EMAIL', ''),
         'platform_email' => env('PEANUT_DEMO_PLATFORM_EMAIL', ''),
