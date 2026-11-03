@@ -122,7 +122,6 @@
         "server/app/common/traits/CrudTrait.php",
         "server/app/common/validate/InputValidator.php",
         "server/app/common/validate/ListsValidate.php",
-        "server/app/common/validate/MemberProfileSelfFieldValidate.php",
         "server/app/common/validate/PageSizeRule.php",
         "server/app/common/validate/TenantContextValidate.php",
         "server/app/common/validate/ValidatedInput.php",

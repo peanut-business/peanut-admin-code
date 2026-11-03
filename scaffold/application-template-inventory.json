@@ -570,7 +570,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a84043b5b807ab28b89837ef7519386d2f9b278566581b2e15a94a166f421a8e"
+            "source_sha256": "65ae4a1ae09470889ca0ddd3fc1c0313c27416f3e3506484dfbed0f63522b316"
         },
         {
             "path": "docs/architecture/cli-and-recipes.md",
@@ -820,7 +820,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b94fe1a0cdb34884cc79283c0227be1ea9b6d1bd32fe40c06ccc642c8e00cf16"
+            "source_sha256": "175dfd5da0b4b80ab1b6b570effb93ba9a8d24497aae9a3ab11c59f4edc2a8bb"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -903,7 +903,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "53d27f081c3e9bcf58194eb9d1288e1cf6fbd71b8e706eabd0fe3b14a1e882be"
+            "source_sha256": "12e7e6447f1633f3778be095077e6ddc6bcb01f8dc6dfabbc8a190f38f2e88bf"
         },
         {
             "path": "docs/maintenance/README.md",
@@ -960,19 +960,6 @@
         {
             "path": "docs/maintenance/retained-installation-recovery.md",
             "target": "docs/maintenance/retained-installation-recovery.md",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "docs/maintenance/workflow-authorized-fixture.md",
-            "target": "docs/maintenance/workflow-authorized-fixture.md",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -1051,7 +1038,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c6066da721321d1aa0e469b939966829eefc369f2578bd802512bd18dd3b3c53"
+            "source_sha256": "3ba91a168529d801a05bc1539d6575bc80bc06ee3a761d00ceb7217f5f06f0c2"
         },
         {
             "path": "docs/public/module-development.md",
@@ -1107,7 +1094,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "36c750817b80d9f1d55301d1db968baa73d6db505c9e17df54477fff779ba444"
+            "source_sha256": "50fa1fa80242bf8985aa29d72b24b52907a6ba17dca2a76c5cccce1718087960"
         },
         {
             "path": "pc/.env.example",
@@ -2440,16 +2427,15 @@
         {
             "path": "scripts/build-demo-site-patch",
             "target": "scripts/build-demo-site-patch",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "c9a9e30b734c70de4592e145c8f94bc57fe950572f3e532e6d89d7a817b4e953"
+            ]
         },
         {
             "path": "scripts/build-scaffold-release",
@@ -2599,35 +2585,33 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4d1708a856d1769481e480620fd3c11c4aeb30cd8545a3a43c06f40f78c50943"
+            "source_sha256": "50fa777159a712efabb72d25d23f05804afd7a593131a88bf505d36b9d71de01"
         },
         {
             "path": "scripts/ci-change-classifier",
             "target": "scripts/ci-change-classifier",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "5015974f193ce8b204d942c72e9a9a7a537d96042fe974fb093dbc0ae47a48e9"
+            ]
         },
         {
             "path": "scripts/ci-checkpoint",
             "target": "scripts/ci-checkpoint",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "0b486a645c0d94d467dc6d83cfef065fb4fa8814b3b2abded0919f0f2ed9e8a3"
+            ]
         },
         {
             "path": "scripts/ci-producer",
@@ -2645,30 +2629,28 @@
         {
             "path": "scripts/ci-server-check.sh",
             "target": "scripts/ci-server-check.sh",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "731d2925f736f262d20502cc26225ec54696b1d1194eab4438b80a87fdad3982"
+            ]
         },
         {
             "path": "scripts/ci-summary",
             "target": "scripts/ci-summary",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "e9940c1eb9bd66ca734e2d5bf616d2043e8420229dbe1c9afabaa1d230995d08"
+            ]
         },
         {
             "path": "scripts/combined-upgrade-qualification",
@@ -2682,34 +2664,6 @@
                 "standard",
                 "full"
             ]
-        },
-        {
-            "path": "scripts/consumer-document-article",
-            "target": "scripts/consumer-document-article",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "06ba3a2c8dc6331010c0c178bfc1f5a0246e12f3d6f68f11d1acd6caa238b5e3"
-        },
-        {
-            "path": "scripts/consumer-document-article.md",
-            "target": "scripts/consumer-document-article.md",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "8a43719acf7b12041a93742c09c1d0e7c5a2ae3479f48a7fa51c5953308a2e96"
         },
         {
             "path": "scripts/consumer-module-reference-chain",
@@ -2753,30 +2707,28 @@
         {
             "path": "scripts/consumers/file-content-ui.md",
             "target": "scripts/consumers/file-content-ui.md",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "ebed8b01ec2702e34b4fe30af24204d017d300a8aba6cf9d9a6d01e353ff2728"
+            ]
         },
         {
             "path": "scripts/consumers/file-content-ui.mjs",
             "target": "scripts/consumers/file-content-ui.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "f596648140f1a8c7bb092f17437c30102137519c5fd8935f3ed860c73708388d"
+            ]
         },
         {
             "path": "scripts/continue-product-release",
@@ -2888,16 +2840,15 @@
         {
             "path": "scripts/freeze-core-release",
             "target": "scripts/freeze-core-release",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "8d35eb397f7daecef86f51182bfca4ca7e612dd9fb15d0d7cca1d7ac78ba18cd"
+            ]
         },
         {
             "path": "scripts/generate-all-modules-packaging-evidence",
@@ -3131,16 +3082,15 @@
         {
             "path": "scripts/project-codegraph",
             "target": "scripts/project-codegraph",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "f06826d89f130c796151229a955b2687f7b9c6eb601cf99474338ed4c0fdd3fb"
+            ]
         },
         {
             "path": "scripts/project-composer",
@@ -3186,72 +3136,54 @@
         {
             "path": "scripts/project-resource-application.py",
             "target": "scripts/project-resource-application.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "3cd9f44eaaa5dcac95e94d21a57053f9b9a9387ce7c1237734159f6e32c91400"
+            ]
         },
         {
             "path": "scripts/project-resource-lease",
             "target": "scripts/project-resource-lease",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "75490e4c917feca4c5162bbc71d3b3767d1f56230f1fddf1926de27dad7d9710"
-        },
-        {
-            "path": "scripts/project-resource-mt012.py",
-            "target": "scripts/project-resource-mt012.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "d0b18a8de5a8861e2e98a9f5e61021d0a150b0506f906898cd34f3068eaeac6e"
+            ]
         },
         {
             "path": "scripts/project-resource-mysql-metadata",
             "target": "scripts/project-resource-mysql-metadata",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "7e466decb4f36c3ed7f7e6f016c3d9edc34511ead798924d4cde079671a0d6c8"
+            ]
         },
         {
             "path": "scripts/project-resource-registry",
             "target": "scripts/project-resource-registry",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "f72b7b449d8f00cc7be111126e36af3d6cbdc1f3cee4f874bb8959977aa4e498"
+            ]
         },
         {
             "path": "scripts/publish-github-release",
@@ -3457,7 +3389,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1da73b37e3bb535f01b9436742675abce24974fe4c5de1c0e07035b0ed75f4bc"
+            "source_sha256": "abdf69fae7b25e3592723bcc75864a791d3491bc99ba5bd11cf3a58c1cd4a6a7"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -3485,7 +3417,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "041e9b88b80950596a3f4df20a27211865b0f2b2453856664b609d50a68e64fd"
+            "source_sha256": "9fd62728b9a3959e86068dc85bebd2373736e891684cb1f2457213e2136f6dba"
         },
         {
             "path": "scripts/scaffold-upgrade",
@@ -3543,48 +3475,6 @@
             "source_sha256": "e1d9f34b55a6887c04407529aea097cb727cd481cf0d49747676b2afc60925b2"
         },
         {
-            "path": "scripts/task-notification-consumer",
-            "target": "scripts/task-notification-consumer",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "3223e72d64781d35e6ed7fe33bcd0635ea1b336a400a71b17c3f6f91943513c6"
-        },
-        {
-            "path": "scripts/task-notification-consumer.md",
-            "target": "scripts/task-notification-consumer.md",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "54b7bb4b6197f77e8ea8ae76170e571217d748e7ae5c788d387ff69e0b33fda6"
-        },
-        {
-            "path": "scripts/task-notification-consumer.schema.json",
-            "target": "scripts/task-notification-consumer.schema.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "581cf87d83e20f6f69a63a6f72b600b73c5ad3be810b4633d8a8ed7a8a1af8af"
-        },
-        {
             "path": "scripts/test-core-upgrade-public-entry-gate",
             "target": "scripts/test-core-upgrade-public-entry-gate",
             "classification": "excluded",
@@ -3600,100 +3490,80 @@
         {
             "path": "scripts/tests/ci-change-classifier-test",
             "target": "scripts/tests/ci-change-classifier-test",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "c6987a3870ba46bf3fc6579c9ed4cc64c2099216b80ab3ac11019b83a87a32e3"
+            ]
         },
         {
             "path": "scripts/tests/ci-checkpoint-test.py",
             "target": "scripts/tests/ci-checkpoint-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "1bd50d493f8b07182c3f17cff7a4fcd0b47c4eec52ff5737c38302906211c209"
+            ]
         },
         {
             "path": "scripts/tests/consumer-module-identity-test.py",
             "target": "scripts/tests/consumer-module-identity-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "5e76496e80c4fcddc4172ebfc9b2266dcf0d836f7411d1d549f32d229ba79451"
+            ]
         },
         {
             "path": "scripts/tests/consumer-module-installer-test.py",
             "target": "scripts/tests/consumer-module-installer-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "835145084504d42b6c24fedc3382628829bb9cdb55b0e6954fe94e7971e7afc1"
+            ]
         },
         {
             "path": "scripts/tests/consumer-module-resource-test.py",
             "target": "scripts/tests/consumer-module-resource-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "b4ca25b466c3f7d479c0fd12f059dd98f8e4cc7b7f9eac832bb49772d225a7f7"
+            ]
         },
         {
             "path": "scripts/tests/consumer-module-sample-test.py",
             "target": "scripts/tests/consumer-module-sample-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "8f6f42ef01cba39f790af6c14f68f43756873bccff85056c2aa2263111ab6aeb"
-        },
-        {
-            "path": "scripts/tests/consumer_document_listener_test.py",
-            "target": "scripts/tests/consumer_document_listener_test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "de4b82d3d6ac10d005dacf081f2a200a88e750d1048c5eb0813a13343b295d4e"
+            ]
         },
         {
             "path": "scripts/tests/continue_product_release_test.py",
@@ -3711,282 +3581,262 @@
         {
             "path": "scripts/tests/core-dev-contract-test.py",
             "target": "scripts/tests/core-dev-contract-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "30f1e25bf8e6e5b23b0d7917163709b9c551365f6c8c50346c6e653a24739200"
+            ]
         },
         {
             "path": "scripts/tests/core-web-installed-consumer.mjs",
             "target": "scripts/tests/core-web-installed-consumer.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "4fb29431287063893b7904c372b9a6e2c46d2255b84d977e81d735ee609cdf21"
+            ]
         },
         {
             "path": "scripts/tests/core-web-installed-consumer.types.ts",
             "target": "scripts/tests/core-web-installed-consumer.types.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "5e40981fee3a4287e05730ef2dccb633aa774951720b42ec5fa80e47f4a7e899"
+            ]
         },
         {
             "path": "scripts/tests/deploy-update-preparation-test.py",
             "target": "scripts/tests/deploy-update-preparation-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "3ccd82dd13fc62f9d9a44593d85cf783664e8ad41e91419d2e382a0e88b1bad3"
+            ]
         },
         {
             "path": "scripts/tests/format-configuration-test.mjs",
             "target": "scripts/tests/format-configuration-test.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "20947ac652add82d101d08f0727054c96162ce4c9579bd9cddba0933ff6704fc"
+            ]
         },
         {
             "path": "scripts/tests/format-json-policy-test.mjs",
             "target": "scripts/tests/format-json-policy-test.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "414fb9cafe7bdc0c6560878209837481511733ce25ea9af15cbb397d73b1ded4"
+            ]
         },
         {
             "path": "scripts/tests/freeze-core-native-types-test.py",
             "target": "scripts/tests/freeze-core-native-types-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "c272fb563c2169e5a710e323912a0b9b90991d4076fd397bdd187490855adec2"
+            ]
         },
         {
             "path": "scripts/tests/freeze-core-release-test.py",
             "target": "scripts/tests/freeze-core-release-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "a1187da0af156cd0ac325538f96044869dafe9c84b0346ebf51e3bca7bf03589"
+            ]
         },
         {
             "path": "scripts/tests/generated-application-preinstall.php",
             "target": "scripts/tests/generated-application-preinstall.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "3fc8fea4b2e52c920d493c0edb377aa67c1b550603e8beb74799b29925db861f"
+            ]
         },
         {
             "path": "scripts/tests/identity-avatar-reference-test.mjs",
             "target": "scripts/tests/identity-avatar-reference-test.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "5821624921ae581dbd22444a4fb5fbb89196113ce1acfc1b774a1f9bb2dfdda5"
+            ]
         },
         {
             "path": "scripts/tests/identity-policy-date-test.mjs",
             "target": "scripts/tests/identity-policy-date-test.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "ba268b83965fd416e1a3e400a3e9053a557c0a5021b2cf59cb65826c0bcff518"
+            ]
         },
         {
             "path": "scripts/tests/installation-response-test.mjs",
             "target": "scripts/tests/installation-response-test.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "ecc6689c65b2c94d3b8df58c7b7e0c19dc4684e0aa2d455c2ff43b6023e8ff12"
+            ]
         },
         {
             "path": "scripts/tests/installed-business-http.py",
             "target": "scripts/tests/installed-business-http.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "20648cd7d85142426542a1941e13581ef33f93ef75bc51f4fe0c9dae05987ef8"
+            ]
         },
         {
             "path": "scripts/tests/internal-candidate-contract-test.py",
             "target": "scripts/tests/internal-candidate-contract-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "c738ba0003f94fca5d581dfdbc8185159739b147fff1b90f31e1cc64ba454b53"
+            ]
         },
         {
             "path": "scripts/tests/local-core-environment-test.py",
             "target": "scripts/tests/local-core-environment-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "db61545de0ff3e9adb2f8c38d94a7e3eb278ded279c9b7c44e775bf028807781"
+            ]
         },
         {
             "path": "scripts/tests/local-core-service-discovery-test.py",
             "target": "scripts/tests/local-core-service-discovery-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "42a8e96794362d348dca7a0336c70bba27f1692c5251715d2473a86e026af4aa"
+            ]
         },
         {
             "path": "scripts/tests/local-runtime-context-test.py",
             "target": "scripts/tests/local-runtime-context-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "a2f1b5a11f7d5db1b26cd73125e2f468f4fba40faeb0b7668565f6eb068e6c8c"
+            ]
         },
         {
             "path": "scripts/tests/local-stack-port-contract-test.py",
             "target": "scripts/tests/local-stack-port-contract-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "87ef1d4a548f7eb790cdc4ce0a733935b087c6fc9eb0009028bd8fb5523444ea"
+            ]
         },
         {
             "path": "scripts/tests/menu-grouping-navigation-test.mjs",
             "target": "scripts/tests/menu-grouping-navigation-test.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "8a912ed9a01e662b13cd595cd275bde21683fb70c9308c5e61d9a2e5d25bbae8"
+            ]
         },
         {
             "path": "scripts/tests/notification-channel-response-test.mjs",
             "target": "scripts/tests/notification-channel-response-test.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "c840f8d78b65de4196d8c8279e5e4b1baeb3c2e2a805d60a43e3e52a50657273"
+            ]
         },
         {
             "path": "scripts/tests/p0e_template_stage_test.py",
@@ -4004,30 +3854,28 @@
         {
             "path": "scripts/tests/pc-rendering-policy-test.mjs",
             "target": "scripts/tests/pc-rendering-policy-test.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "f7b07695f1ff3e42c60958395c043447500e4f196f5cbcdc1666d1eba3720d35"
+            ]
         },
         {
             "path": "scripts/tests/pc-request-options-test.mjs",
             "target": "scripts/tests/pc-request-options-test.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "e5ca47a646b5abe614919e5c4e772f4b167419dffe74e3004f72af7acb36bf21"
+            ]
         },
         {
             "path": "scripts/tests/prepare_product_release_candidate_test.py",
@@ -4045,30 +3893,28 @@
         {
             "path": "scripts/tests/project_resource_application_output_test.py",
             "target": "scripts/tests/project_resource_application_output_test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "4a2d140a6d690633635fad7916c41fe045eda18af32312e5f9d461a5fdadd455"
+            ]
         },
         {
             "path": "scripts/tests/project_resource_failed_install_retirement_test.py",
             "target": "scripts/tests/project_resource_failed_install_retirement_test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "2c54316832fa171e6f7ba97830012107f6f5e7dd88842a81c16aa72afb473448"
+            ]
         },
         {
             "path": "scripts/tests/project_resource_lease_parent_test.py",
@@ -4112,30 +3958,28 @@
         {
             "path": "scripts/tests/release-dependency-locks-test.mjs",
             "target": "scripts/tests/release-dependency-locks-test.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "24dd1a17fbe8555893fee44197a8a9399f41f8bee23ea90d63e3172beed41593"
+            ]
         },
         {
             "path": "scripts/tests/release-public-assets-test.py",
             "target": "scripts/tests/release-public-assets-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "394a53563eb48fcd816a05ec8fdcd142e742e7708e1f437a102109926e75a674"
+            ]
         },
         {
             "path": "scripts/tests/release-template-artifacts-test.mjs",
@@ -4166,16 +4010,15 @@
         {
             "path": "scripts/tests/run-registered-mysql-tests",
             "target": "scripts/tests/run-registered-mysql-tests",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "ccf0e6b8d9fb84fca177659ea4909c7ee8676cee117fc5c1ddd9a722b760f5d4"
+            ]
         },
         {
             "path": "scripts/tests/scaffold-recipe-ownership-transition-test.py",
@@ -4193,282 +4036,262 @@
         {
             "path": "scripts/tests/server-docker-layout-test.py",
             "target": "scripts/tests/server-docker-layout-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "4a8e1033e1c416d8b21af4dac8bada5539b2fbb3372471333e14be61aa122399"
+            ]
         },
         {
             "path": "scripts/tests/server-update-orchestration-test.py",
             "target": "scripts/tests/server-update-orchestration-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "0ecce521deccb7f05ee2616c6c235cd53c01e4e3bcbdf4d9cec057efa875dc41"
+            ]
         },
         {
             "path": "scripts/tests/source-layout-test.php",
             "target": "scripts/tests/source-layout-test.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "9fd1fb9876262c9b9b3ffe4af3e72b9caf3f5bc896fbd4091b805eb0a215abda"
+            ]
         },
         {
             "path": "scripts/tests/standard-client-behavior.test.mjs",
             "target": "scripts/tests/standard-client-behavior.test.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "21e6d1a59afe4d151e7cd5ecb243692b7950f5983e35cc8e0eae2a0b014332b8"
+            ]
         },
         {
             "path": "scripts/tests/standard-remaining-boundaries-test.mjs",
             "target": "scripts/tests/standard-remaining-boundaries-test.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "afe42f80a1b3fff942a564484c1ce3b5f091d1d77a48cdf6f8b7a8ae4c485ae6"
+            ]
         },
         {
             "path": "scripts/tests/thinkphp-alter-coverage-test.py",
             "target": "scripts/tests/thinkphp-alter-coverage-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "ca7c01afc6daa4efdc349bce323f597a6a21e110ec17340e55c4daf0a0e62f8b"
+            ]
         },
         {
             "path": "scripts/tests/thinkphp-current-ownership-test.py",
             "target": "scripts/tests/thinkphp-current-ownership-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "c01d1df9b4d73d95e4ca5fe808faa0913c1f97ae6e44afa6dd87d71e8e11ec80"
+            ]
         },
         {
             "path": "scripts/tests/thinkphp-instance-registration-test.py",
             "target": "scripts/tests/thinkphp-instance-registration-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "278f1ddd1a8e978e13e7e13fd13d386ad1f2d647ef26c8837838c87c2eb21751"
+            ]
         },
         {
             "path": "scripts/tests/thinkphp-migration-coverage-test.py",
             "target": "scripts/tests/thinkphp-migration-coverage-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "9a6f701868c207fd19b5d8688c95288b904672ba099419ed8d2a8fa0a39efcee"
+            ]
         },
         {
             "path": "scripts/tests/thinkphp-named-tenancy-test.py",
             "target": "scripts/tests/thinkphp-named-tenancy-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "d205c7805dd0bebe9f617460061a841fab58633efc41b8cfb41f6059fe831be1"
+            ]
         },
         {
             "path": "scripts/tests/thinkphp-ownership-registration-test.py",
             "target": "scripts/tests/thinkphp-ownership-registration-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "27752ae45473c225029d0cd28d1a6ef24faebeceb08710591b31b3a776d8f584"
+            ]
         },
         {
             "path": "scripts/tests/thinkphp-parent-ownership-test.py",
             "target": "scripts/tests/thinkphp-parent-ownership-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "dc0bdf5224b503b8ab50b78b9f04e3c8dfd29ae181ee5306a287f82af7e96375"
+            ]
         },
         {
             "path": "scripts/tests/thinkphp-parent-runtime-test.php",
             "target": "scripts/tests/thinkphp-parent-runtime-test.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "5c6740eadf5fd83d449e7591eb1166d69766e5241213326f1569f75da72433da"
+            ]
         },
         {
             "path": "scripts/tests/thinkphp-parent-runtime-test.py",
             "target": "scripts/tests/thinkphp-parent-runtime-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "0d997d0a0048b9ee2fc6cb45a4f500a86930db45cf524950a303cdbd5b9b8771"
+            ]
         },
         {
             "path": "scripts/tests/thinkphp-reviewed-modules-test.py",
             "target": "scripts/tests/thinkphp-reviewed-modules-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "ee030a2a036c9a79c7c8a37de62519dd5b0a23242b7c026db365c518d826f30d"
+            ]
         },
         {
             "path": "scripts/tests/thinkphp-scoped-access-test.py",
             "target": "scripts/tests/thinkphp-scoped-access-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "72cf098f83c304c13af000df1b02f07055e6fba9a6cde9fc0d91be2ccc5c8977"
+            ]
         },
         {
             "path": "scripts/tests/thinkphp-source-resolution-test.py",
             "target": "scripts/tests/thinkphp-source-resolution-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "a5673077d9e1d620589901877aca7e0a93a0392c9f6395913bcd9b3c2394d5ce"
+            ]
         },
         {
             "path": "scripts/tests/thinkphp-usecase-registration-test.py",
             "target": "scripts/tests/thinkphp-usecase-registration-test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "c7caa88470c68ea5656d2986cd0c8c2396443f0502b09af4e8486c9a8d7e4149"
+            ]
         },
         {
             "path": "scripts/tests/uniapp-request-boundary-test.mjs",
             "target": "scripts/tests/uniapp-request-boundary-test.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "5deed32cd193d80a2ff023fecac08f91aa24db1e60b88a264ff4bb105f1ed2a5"
+            ]
         },
         {
             "path": "scripts/tests/web-standard-utilities-test.mjs",
             "target": "scripts/tests/web-standard-utilities-test.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "ceffaef321f174e30efdd3252066b8c8b5767468267a842c7aa83e646b3cf9e3"
+            ]
         },
         {
             "path": "scripts/verify-qualified-release-transport.py",
@@ -4482,48 +4305,6 @@
                 "standard",
                 "full"
             ]
-        },
-        {
-            "path": "scripts/workflow-authorized-fixture.py",
-            "target": "scripts/workflow-authorized-fixture.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "802144207c3a0b5510ec1b834753712e4ab030de7c0d6c4f0cbf1a5f8d4f83b2"
-        },
-        {
-            "path": "scripts/workflow-transition-consumer",
-            "target": "scripts/workflow-transition-consumer",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "65241543f7714f901f710e22020868f9949b0b7d8f782e985093ba7283e0b185"
-        },
-        {
-            "path": "scripts/workflow-transition-consumer.md",
-            "target": "scripts/workflow-transition-consumer.md",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "126be2f9b6d04612ec937c09006bb84622c2075c060f10650a24bd854b633498"
         },
         {
             "path": "server/.env.example",
@@ -4621,7 +4402,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e380d672117eac02c7218a31781743e1af96da3fb956207ee99813a79f4c57b9"
+            "source_sha256": "e946ab4a7b6fb158ea65b6487cd2aed9d59ef705f04a43a9f36737db7971110a"
         },
         {
             "path": "server/app/BaseController.php",
@@ -4932,20 +4713,6 @@
             "source_sha256": "2f90d4d1b5003bc5726526a3e6aae4f982ed1329b5877891498704c01bb18f2e"
         },
         {
-            "path": "server/app/adminapi/controller/setting/TransactionSettingsController.php",
-            "target": "server/app/adminapi/controller/setting/TransactionSettingsController.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "5bb68335ae135840dd73be20b057468f75ff33001a4f4a248e614cdabd12063a"
-        },
-        {
             "path": "server/app/adminapi/controller/system/SystemController.php",
             "target": "server/app/adminapi/controller/system/SystemController.php",
             "classification": "managed",
@@ -5139,7 +4906,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8ffeabc0f6800cdca6fbded1070e0a7d8c5178ca2498f9c4aba100d926df734c"
+            "source_sha256": "26734791ad36bc0df92b1e0a42d992bd78b41015f143ab952cd29ea4c4040395"
         },
         {
             "path": "server/app/adminapi/services/auth/AdminApplicationService.php",
@@ -5352,20 +5119,6 @@
             "source_sha256": "6281608884e86d1314a90725a02db8d70e3737525a9c5a4f23b0b190bb90bd11"
         },
         {
-            "path": "server/app/adminapi/services/setting/TransactionSettingsApplicationService.php",
-            "target": "server/app/adminapi/services/setting/TransactionSettingsApplicationService.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "3847cd56f31cb8130f671919c92aaa5bab3c8bae2ea49312a4991a60f5e9b556"
-        },
-        {
             "path": "server/app/adminapi/services/system/SystemApplicationService.php",
             "target": "server/app/adminapi/services/system/SystemApplicationService.php",
             "classification": "managed",
@@ -5492,34 +5245,6 @@
             "source_sha256": "fea9e0970de459a53c2e578dcac37bebfb15852e8eb4c79fffc792af3e819aee"
         },
         {
-            "path": "server/app/api/controller/AccountLogController.php",
-            "target": "server/app/api/controller/AccountLogController.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "7e48221d76aefbcae4daee9e78376d02d9c2972c5f1f1ecd4fe093678ab97de9"
-        },
-        {
-            "path": "server/app/api/controller/ArticleController.php",
-            "target": "server/app/api/controller/ArticleController.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "bd41c0ddcca6ab97f87537ace5f65f737b5c4825f0ff4726b389cce549b56b6b"
-        },
-        {
             "path": "server/app/api/controller/BaseApiController.php",
             "target": "server/app/api/controller/BaseApiController.php",
             "classification": "managed",
@@ -5559,63 +5284,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "59579de3c157775ec6245c4e130b4f6caba45be45b79d7d40a8a5d384948064c"
-        },
-        {
-            "path": "server/app/api/controller/LoginController.php",
-            "target": "server/app/api/controller/LoginController.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "5f3890fa06ee5bdf2032c0ebbedd4dd952fa6e9405f69a92eca0960c1663f95f"
-        },
-        {
-            "path": "server/app/api/controller/OAuthController.php",
-            "target": "server/app/api/controller/OAuthController.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "a157f9af330568da660b9330eb7beeb86702a3e0eac638009ed5d6b8a8e4f525"
-        },
-        {
-            "path": "server/app/api/controller/OfficialAccountController.php",
-            "target": "server/app/api/controller/OfficialAccountController.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "8e57675f5d03d8d664070d57c167ab3093d870a7c930b64ba41fb07bc7b00bb4"
-        },
-        {
-            "path": "server/app/api/controller/PaymentNotifyController.php",
-            "target": "server/app/api/controller/PaymentNotifyController.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "32cba5ec2eee841d075000f2d7002707990f4ee78f20ce6842c64ce88085cefe"
+            "source_sha256": "4e8c92adb3b18d7b242932f5039c45a02a801fcfcbfa8b1bab3578ceb2244356"
         },
         {
             "path": "server/app/api/controller/PcController.php",
@@ -5629,21 +5298,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3716f0383c90f013d213fe05f42e1a1dd195783b90225f91f8df3a1195972796"
-        },
-        {
-            "path": "server/app/api/controller/RechargeController.php",
-            "target": "server/app/api/controller/RechargeController.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "ebece5a6d714f8518f790606da5fd7a7e461242d8aa3ed8c2aea36ac0318c48d"
+            "source_sha256": "748c9d18ccf20ad98fb2305c063b253e8b6020d2a3f9c38ca0bef1816cc5acf3"
         },
         {
             "path": "server/app/api/controller/SearchController.php",
@@ -5658,20 +5313,6 @@
                 "full"
             ],
             "source_sha256": "723cafc6181faf7469563026d14f99476ab297b0c210930fddfad03bf0dfc5f5"
-        },
-        {
-            "path": "server/app/api/controller/SmsController.php",
-            "target": "server/app/api/controller/SmsController.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "62f2cc296984184dc17b3d60fd274673b82e1e457ef6bc91aba5e0d3821359b9"
         },
         {
             "path": "server/app/api/controller/StorageController.php",
@@ -5702,20 +5343,6 @@
             "source_sha256": "4fab71c8604388484126c12ab83a6456fbfed5f203f072ce0d250cda79ddd234"
         },
         {
-            "path": "server/app/api/controller/UserController.php",
-            "target": "server/app/api/controller/UserController.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "660a6d33b89c36be1f256c18d82b40c06c8ab8f9a2319b2143192da0c1e802ae"
-        },
-        {
             "path": "server/app/api/metadata/README.md",
             "target": "server/app/api/metadata/README.md",
             "classification": "managed",
@@ -5741,7 +5368,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cbb1bed1478f2aff8144fbf4c1ddeffcccfd3987608136bf316505860fbeaac3"
+            "source_sha256": "3ed4cd31b01ef7ee411b3628265f85a33eeae46c35e9b64088b5d4c8b58a2d7e"
         },
         {
             "path": "server/app/api/metadata/application/common.php",
@@ -5811,7 +5438,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4b26d794ab4355b1fdcf64c7370f2ef34b7eea83b3000dc544abf74873a53919"
+            "source_sha256": "4c0a0d74e65918dfef76d02463a3ba12a253f870a7e972e5b865e71056772fb2"
         },
         {
             "path": "server/app/api/metadata/contracts/openapi.json",
@@ -5825,7 +5452,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0ce824a4450aa1371a1d47085117da4f62c6548dc0c4fb364dc7507c8427d434"
+            "source_sha256": "0ea05c5c6a554d1b4587cac43ed999e74557a1685480dde9c917937b6d00e733"
         },
         {
             "path": "server/app/api/middleware.php",
@@ -5853,7 +5480,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "863854c01c9e847493e45182ae286e533f70679b9a70c59e7ee0f9da8ce1c933"
+            "source_sha256": "ed481b7aae6c5d9b0c96acc2896480854c57858e0afaeebcb7ec789ffc0df3fb"
         },
         {
             "path": "server/app/api/middleware/PublicTenantModuleMiddleware.php",
@@ -5909,63 +5536,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "867b5ddfd5a9027ef12cc098e3f33d4b31866e4fdb0120bebd3b3cd8b98c1572"
-        },
-        {
-            "path": "server/app/api/services/LoginApplicationService.php",
-            "target": "server/app/api/services/LoginApplicationService.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "6f15c0744f1165e17c35c599c32585a7d6114d860375ef1a2dbcbbc19ab25571"
-        },
-        {
-            "path": "server/app/api/services/OAuthApplicationService.php",
-            "target": "server/app/api/services/OAuthApplicationService.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "2b91695a24695c89fde5d243a4d3fb089fd4ed31ee98f88ed1b475b54162eea3"
-        },
-        {
-            "path": "server/app/api/services/OfficialAccountApplicationService.php",
-            "target": "server/app/api/services/OfficialAccountApplicationService.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "544b69cb820392b640bbbdce004c8c93c7e4404ea31f385532b3322079b1b70c"
-        },
-        {
-            "path": "server/app/api/services/PaymentCallbackApplicationService.php",
-            "target": "server/app/api/services/PaymentCallbackApplicationService.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "eeaac419b9064f7848d19c35a0c8f0976cd3d0f70e3b956e281297250e485b73"
+            "source_sha256": "b5dc338910ec37134386ecf05e76ecae3d6af2a2053519156e85b93c3f53dbbd"
         },
         {
             "path": "server/app/api/services/PcApplicationService.php",
@@ -5979,21 +5550,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b4dac22134b621ce099445a9667b728eb32bdd3d4994e37fbe222a2c6da14669"
-        },
-        {
-            "path": "server/app/api/services/RechargeApplicationService.php",
-            "target": "server/app/api/services/RechargeApplicationService.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "595df0c434dd812389dbe774b20de282d4ef9d42a3eeb3ccc4dcbce3bb6b35e9"
+            "source_sha256": "07b4bc9ea5823a953efc41de9fecf49006ab75b4f58f4baf2415557207683576"
         },
         {
             "path": "server/app/api/services/SearchApplicationService.php",
@@ -6008,104 +5565,6 @@
                 "full"
             ],
             "source_sha256": "cbe86f42cb83c998b8ecdd65f1cd8be3e419fed16bb2746ae327e0e2707c66dd"
-        },
-        {
-            "path": "server/app/api/services/SmsApplicationService.php",
-            "target": "server/app/api/services/SmsApplicationService.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "733870ee06299f3ecc4bd0a098ffe6360305cbcc7bee974771fa445b6e968fc1"
-        },
-        {
-            "path": "server/app/api/services/UserApplicationService.php",
-            "target": "server/app/api/services/UserApplicationService.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "977a151ca68c741b983b6ef3422204a5442c4de98aefb3a0a59cc8960dd5561a"
-        },
-        {
-            "path": "server/app/api/services/UserTokenService.php",
-            "target": "server/app/api/services/UserTokenService.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "e354bf43f02e829cd5f8881763c577a46ddfd7cf713efcc3e0e3ad5e9516aaef"
-        },
-        {
-            "path": "server/app/api/services/VerificationAttemptRateLimiter.php",
-            "target": "server/app/api/services/VerificationAttemptRateLimiter.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "380a675eabd9b03222f71223565cc062e90279d334c33d2943e588e2dfe03ae1"
-        },
-        {
-            "path": "server/app/api/validate/OAuthValidate.php",
-            "target": "server/app/api/validate/OAuthValidate.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "d58b014ebdc71feadd92ad4d066e33def79b721b01cf7cc4157d6f624fec098c"
-        },
-        {
-            "path": "server/app/api/validate/RechargeValidate.php",
-            "target": "server/app/api/validate/RechargeValidate.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "da9fe41082e1b9b2b1b3627fae390048cca483f7492e48f649105be15d8838d4"
-        },
-        {
-            "path": "server/app/api/validate/SmsValidate.php",
-            "target": "server/app/api/validate/SmsValidate.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "4cd85cef7b87c657a5ead8368b07fc47ea15119fe2925339b9f2d6e522ff2de4"
         },
         {
             "path": "server/app/command/Crontab.php",
@@ -7118,20 +6577,6 @@
             "source_sha256": "c341e60cb7af7a98b126e9df378a6eb5b2fe7972390c0b86886ba5de0ca0a715"
         },
         {
-            "path": "server/app/common/enum/AccountLogEnum.php",
-            "target": "server/app/common/enum/AccountLogEnum.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "74028331f5e322dd15277bf222ca8059d30d52769ce5c4a7b7215777715f78f0"
-        },
-        {
             "path": "server/app/common/enum/CrontabEnum.php",
             "target": "server/app/common/enum/CrontabEnum.php",
             "classification": "managed",
@@ -7160,48 +6605,6 @@
             "source_sha256": "b4dca6ef104db342e48388bc9f44a602cc8534874652452ea11fc0b103803717"
         },
         {
-            "path": "server/app/common/enum/MemberChannelEnum.php",
-            "target": "server/app/common/enum/MemberChannelEnum.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "e7bc71f8a40a5568875099c31f553d6efdd1ba250c3b77999fa55a25846e9750"
-        },
-        {
-            "path": "server/app/common/enum/UserTerminalEnum.php",
-            "target": "server/app/common/enum/UserTerminalEnum.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "3d08cc22066010cb34ca5b64c2df10c935608326c0fa1ddafc92a14c6b577ebe"
-        },
-        {
-            "path": "server/app/common/enum/channel/OfficialAccountEnum.php",
-            "target": "server/app/common/enum/channel/OfficialAccountEnum.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "d0ba98939d1722a1316a6b44cec901a55b907b9e1019663b92162376c1b4488a"
-        },
-        {
             "path": "server/app/common/enum/decoration/DecorationEnum.php",
             "target": "server/app/common/enum/decoration/DecorationEnum.php",
             "classification": "managed",
@@ -7228,20 +6631,6 @@
                 "full"
             ],
             "source_sha256": "94cb54a537560d744fa0042375d40346fb60e4e6731dc096451a955e76d68dc8"
-        },
-        {
-            "path": "server/app/common/enum/notice/NoticeSceneEnum.php",
-            "target": "server/app/common/enum/notice/NoticeSceneEnum.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c864f3c69ab1767ac23667d2e96a05adcb3596e63b8529484e69a2ef5f5e5e9e"
         },
         {
             "path": "server/app/common/exception/BusinessException.php",
@@ -8366,20 +7755,6 @@
             "source_sha256": "f77fbec0f852dcf449fac3d5e924fbfaab6ff832c165aac7702db2ec0b8775ad"
         },
         {
-            "path": "server/app/common/model/setting/TransactionSetting.php",
-            "target": "server/app/common/model/setting/TransactionSetting.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "31fbb459b0e68be2375203532e24d86c319c0aedf811d1064de9ae069240fc8a"
-        },
-        {
             "path": "server/app/common/module/Dependencies.php",
             "target": "server/app/common/module/Dependencies.php",
             "classification": "managed",
@@ -8968,20 +8343,6 @@
                 "full"
             ],
             "source_sha256": "86f6c1f1c425802a5f66cafd049674a4509a9cba390382bd8547657ebfb03099"
-        },
-        {
-            "path": "server/app/common/validate/MemberProfileSelfFieldValidate.php",
-            "target": "server/app/common/validate/MemberProfileSelfFieldValidate.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "b08c4c42c453bb4887e2dd069502fb5e804f7f48d0659cf44da7b5c185c83e2f"
         },
         {
             "path": "server/app/common/validate/PageSizeRule.php",
@@ -10061,146 +9422,6 @@
                 "standard",
                 "full"
             ]
-        },
-        {
-            "path": "server/app/modules/peanut/chart/composer.json",
-            "target": "server/app/modules/peanut/chart/composer.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "34bd7ed6b0283f6c97ad5f9f0263b10a5a0507f780929a4e8b896adfef99ad84"
-        },
-        {
-            "path": "server/app/modules/peanut/chart/module.json",
-            "target": "server/app/modules/peanut/chart/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "1a2c1a1a0eb7930f0212106c83cb9998fda40e76db4cc6c7f3d1b618680ee5e3"
-        },
-        {
-            "path": "server/app/modules/peanut/chart/resources/menus.json",
-            "target": "server/app/modules/peanut/chart/resources/menus.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
-        },
-        {
-            "path": "server/app/modules/peanut/chart/resources/permissions.json",
-            "target": "server/app/modules/peanut/chart/resources/permissions.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
-        },
-        {
-            "path": "server/app/modules/peanut/chart/src/ModuleProvider.php",
-            "target": "server/app/modules/peanut/chart/src/ModuleProvider.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "599fed395ea08a5fadda050b5333113e42bdceb52998d68896aed55cd6a1a2ee"
-        },
-        {
-            "path": "server/app/modules/peanut/chart_examples/composer.json",
-            "target": "server/app/modules/peanut/chart_examples/composer.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "cce898fc46fa7d7b2f64cec6f8567558355d4c025493431a864836e2689c8e97"
-        },
-        {
-            "path": "server/app/modules/peanut/chart_examples/module.json",
-            "target": "server/app/modules/peanut/chart_examples/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "8272d52476663df7a5dbdec95257b6ffea6e1c9b25bf1ce11fe85b7908233217"
-        },
-        {
-            "path": "server/app/modules/peanut/chart_examples/resources/menus.json",
-            "target": "server/app/modules/peanut/chart_examples/resources/menus.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "2fa06830fff212e3ff296e10d287a08b6518e3c10ecd317e2a7f212361bb66fd"
-        },
-        {
-            "path": "server/app/modules/peanut/chart_examples/resources/permissions.json",
-            "target": "server/app/modules/peanut/chart_examples/resources/permissions.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "bd13e39276f661e25be1ea41e0a245a8a7405043ed8ab7e83ba431512c3faf08"
-        },
-        {
-            "path": "server/app/modules/peanut/chart_examples/src/ModuleProvider.php",
-            "target": "server/app/modules/peanut/chart_examples/src/ModuleProvider.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "572b91909ca94ef39e8741674d9a62def277a33a59c85c97ac4d09dbbc9c0d68"
         },
         {
             "path": "server/app/modules/peanut/content_tools/composer.json",
@@ -16166,7 +15387,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "97218960dadb2cdd7beea3fc05c16ac4fa3f311e20452d6b553a61232d39f34b"
+            "source_sha256": "7609f40447a606e736c7e82f47197127aee1b37dc74c9335e773ac56553cc538"
         },
         {
             "path": "server/app/modules/peanut/settings/resources/permissions.json",
@@ -18270,7 +17491,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "34c6119bce77c5709eb136b31fd9891282a23a4ab306dd20a0c504449d3aa1b0"
+            "source_sha256": "30d01c00c677fb9e6d158f8ca33a54f50cb3ee586948e8e34071d07d3a0873a4"
         },
         {
             "path": "server/app/platform/services/CoreTenantOwnerAdminProvisioner.php",
@@ -18718,7 +17939,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "24fa24af74ae6d028eb974e696e1eddc04df82f0eee2851ee010e66e7293b1d1"
+            "source_sha256": "f9f7294ddf971dd65711992d92ff0cf573f528bb8fadebd04d25cf9ba5eadb74"
         },
         {
             "path": "server/composer.lock",
@@ -18732,7 +17953,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c91c84280baa6ddc49d5b8a4b16fa404e45382c29d6563c544de70692ebc63a5"
+            "source_sha256": "2a501bc260ce5a512838a46b7aedb03fcf5f6d56434d0e43fbd005221d690dff"
         },
         {
             "path": "server/config/admin_api_access.php",
@@ -19012,7 +18233,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5c79130e0b4cda5981172f053eb7f70051e35179a04c046069ab417b7c87a765"
+            "source_sha256": "3505bda648e8ec7208df58a869359933640c5a4da2d70e8330a6d2558dec3641"
         },
         {
             "path": "server/config/platform_auth.php",
@@ -19138,7 +18359,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c28e518e3020842d1da9387b1149b690659ffff4141c2d41240a8af31e1d5c9c"
+            "source_sha256": "13c0f16a22b2d0362c0bf9c9650df0e2ab6cb36cac9426205aa450dbcd5f6a76"
+        },
+        {
+            "path": "server/database/WorkbenchDemoData.php",
+            "target": "server/database/WorkbenchDemoData.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "731b8eadc4b5661bfe3d6329981d03afd4ed4bbc519be35f70fe07e6a29d63f2"
         },
         {
             "path": "server/database/environment-guard.php",
@@ -19166,7 +18401,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a2fd38c8167d67cdc18441922414c5e5659fe23064b2e7ba0ceefda191dc1ea9"
+            "source_sha256": "d8fb2847344427750d88cc792a2446cac408c7398d9753cc6b72670811f1b706"
         },
         {
             "path": "server/database/installation/20261101020000_initial_scaffold_baseline.php",
@@ -19264,7 +18499,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "901f35a272f7eefafa0964ee788f20408d1f21c798c4f908bea81d5d29035441"
+            "source_sha256": "be1bc3d45d5af06153940f4035c6fd5d0d04e6a67d39553f0849bd4977fd21b3"
         },
         {
             "path": "server/database/seed-multi-tenant-demo.php",
@@ -19822,7 +19057,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b918b95e996d717837d659936ce7edf173f26225bfdbbc39f17357bb26fa7cea"
+            "source_sha256": "204362306e19e0942c9bf05059bd8d9d1c2f0e6f38f74da6265d5debd38a5c3e"
         },
         {
             "path": "server/generated/openapi.json",
@@ -19836,7 +19071,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "67ef2aef95f1ce280257279846fbec5e237bc3e84c2a05be3d00f06ddf694239"
+            "source_sha256": "945a328a5ccdb0aeb10ef6730d5001768925dcfb9fd0378dff670066d114e1df"
         },
         {
             "path": "server/module",
@@ -20242,7 +19477,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f9aae052bbdaf77a1160c2b166ed1888c0ec4942c08490b113bf9cb622c662c5"
+            "source_sha256": "e2c2930391f702967e8d322f041c791a4411bc79754a44bffe7c396794b35ccb"
         },
         {
             "path": "server/route/app.php",
@@ -20284,7 +19519,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "32809e787f14f61d6ca6ae05539ba2624f731c7b13fbcb750a57a4aefefb8fa8"
+            "source_sha256": "e7e586523c4a78d0f8776f774bf3ae15de7d5cdd80e651c9a2538b178c9ca444"
         },
         {
             "path": "server/route/registry_source.php",
@@ -25998,7 +25233,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7521b4d1f6243204555db8a4a10a5028d7431c13a641faa15115d8a5013cdb7f"
+            "source_sha256": "680817b09ade48f4414f0b0f3b2264af7616aefd68cfe8f53106d914456f96f5"
         },
         {
             "path": "web/.gitignore",
@@ -26208,7 +25443,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "68e38f24ffeb061e2c0bc18646e19429c80273ba84630de4c02a52f7031c337f"
+            "source_sha256": "4455bafdd81a556cdc60b6d6850e61426c2487f92a96357382c8cfad0286edfe"
         },
         {
             "path": "web/pnpm-lock.yaml",
@@ -26222,7 +25457,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f9aebe5ef04eeefa8fca8b6a74c4d41a2c154cf98dba9f377119df80486eaf68"
+            "source_sha256": "446747cf45d9f7f898cc153e72abb4181d210ef8e3f7c1cef334e510e648deb9"
         },
         {
             "path": "web/pnpm-workspace.yaml",
@@ -26376,7 +25611,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d5c8d27bc5e4f24034f31963e587d00eca47624dcea09bdcdecc872d022285fe"
+            "source_sha256": "c1ba17bab99d1d36eecab6f4afe529a2aa22e9e7e8ca2194adda8accefca87c6"
         },
         {
             "path": "web/src/api/app.ts",
@@ -26390,7 +25625,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5dc854e29248484e98171cc51b7db9acd56df674bc8580a898c9aaa62142286d"
+            "source_sha256": "776e7f5091010445a96341f53174413ec1a34683677f52f0d27d65000db2876a"
         },
         {
             "path": "web/src/api/decoration-model.ts",
@@ -27077,7 +26312,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1bc4bda2c8af5f251cb77294d8374498080ff7fde9051a345220086e1286ad53"
+            "source_sha256": "5daf61f16e9a591d4d82eb3a53cd7153571255e02e163cd23ff9f6e8f0562c9c"
         },
         {
             "path": "web/src/generated/brand.json",
@@ -27119,7 +26354,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1af2c74d96b8f3e85f1b44bd9b496f9590ca2545ab35e922f33dfe069afa6826"
+            "source_sha256": "9ec12cf8f237f6f47bf0661683ecface4954fcb133fbd5389dca82aa93915e13"
         },
         {
             "path": "web/src/hooks/loading.ts",
@@ -27287,7 +26522,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c4ab3888493a2b9e40321772ddfee8334d6100d420516c1d830a1f4dabb8d7ab"
+            "source_sha256": "dfb41d8745f2245d401177ccea1a8bf1bde101dc0b29ce53aa94ac9fff7a125d"
         },
         {
             "path": "web/src/layout/shell-presets.ts",
@@ -27315,7 +26550,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ac737588706ba79a5d9107752d7eb3aa3db45ddc1dcff5a1c3b8cdbce46d1e99"
+            "source_sha256": "061b2b35cb81eb1efbddb2c69044bf0d7ada78343d402101216899238e8688ac"
         },
         {
             "path": "web/src/locale/en-US/settings.ts",
@@ -27343,7 +26578,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bbe1a64a74476984dd4c8d34536958f91a9c6af7586934c6131d9f107f29829f"
+            "source_sha256": "34a5f6e90f1f3238fb96e5a6a2f6b4b997dbc073a8ca5e16bea8562257e5c420"
         },
         {
             "path": "web/src/locale/zh-CN.ts",
@@ -27357,7 +26592,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "454a306c13252eb428bcfbe30370739732e5f2938ae76d5fe0fc3e2aa9bc0f89"
+            "source_sha256": "1070d182d5418b43d03ebbfd2e2f6b74a87bb271a9ff26824157173d4725dccc"
         },
         {
             "path": "web/src/locale/zh-CN/settings.ts",
@@ -27506,90 +26741,6 @@
             ]
         },
         {
-            "path": "web/src/modules/peanut-chart-examples/contribution.ts",
-            "target": "web/src/modules/peanut-chart-examples/contribution.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "eafbd4f2a9b438ba17f5ee29501edebc7ce9b22fe617035ef00dbe37f778d868"
-        },
-        {
-            "path": "web/src/modules/peanut-chart-examples/package.json",
-            "target": "web/src/modules/peanut-chart-examples/package.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "de11305e07fb7b24564a043ee96a9d69632a4acd2988b394e4fcabbccfbc278c"
-        },
-        {
-            "path": "web/src/modules/peanut-chart-examples/views/index.vue",
-            "target": "web/src/modules/peanut-chart-examples/views/index.vue",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "dab7e9b1ba22e6a9b8ba2addc4e3d6e01e537fede64c0a32f1597aa8af9e5d02"
-        },
-        {
-            "path": "web/src/modules/peanut-chart/contribution.ts",
-            "target": "web/src/modules/peanut-chart/contribution.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "619826c420b809180e0218112a28c7304c4fa7b333f1e655c4945120b148a9f7"
-        },
-        {
-            "path": "web/src/modules/peanut-chart/package.json",
-            "target": "web/src/modules/peanut-chart/package.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "cee1db58259df003d6fd2f2f4a6c8adbcd102939c36b4f0aeae46ca1701c91e0"
-        },
-        {
-            "path": "web/src/modules/peanut-chart/src/index.ts",
-            "target": "web/src/modules/peanut-chart/src/index.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "779cf6d9efe852303c6506af590cdeacff0229068f9b825f062edd04718e96d4"
-        },
-        {
             "path": "web/src/modules/peanut-content-tools/README.md",
             "target": "web/src/modules/peanut-content-tools/README.md",
             "classification": "managed",
@@ -27601,7 +26752,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8c841e95782cc3834bfa0aef20a0dfcbb22a6ba478cf7d95977de84d70fc2518"
+            "source_sha256": "446470c7ad347b4d5d61bb81fb50dd889c23e1b379285d3e3ace96dd695e4dc3"
         },
         {
             "path": "web/src/modules/peanut-content-tools/contribution.ts",
@@ -27741,7 +26892,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "30a9794fd8c6bc4e3f9f23a492cd36358eba422697dec6c6e4c6b71d91f752d1"
+            "source_sha256": "bab37615417d556fdee9ddc53ae5edad14a72acc35a271a7e648e5a9f20036ff"
         },
         {
             "path": "web/src/modules/peanut-content-tools/src/index.ts",
@@ -29099,7 +28250,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "893a762263ee1b6754a2ca0797eaa6ae7dcc621695746efa2fd9aef262b88add"
+            "source_sha256": "9f83e023fcdfaceab97c286f67c0a62e6d5566a4cbef64abab29a434ae5c3082"
+        },
+        {
+            "path": "web/src/router/routes/module-contributions.ts",
+            "target": "web/src/router/routes/module-contributions.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "3a34dd541e70b17ed48e51f240eb067e4372c9b8fa4c063bc2f3775602b3067d"
         },
         {
             "path": "web/src/router/routes/modules/app-setting.ts",
@@ -29113,7 +28278,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1fb42d632d3c7e359ebb91995b1c7dfc423139554416df81ee1062a91a92b849"
+            "source_sha256": "f926ef7266bc298105634262f8f2dbb3c3b1a797eae97c64f891afe4d5bf6e9a"
         },
         {
             "path": "web/src/router/routes/modules/dashboard.ts",
@@ -29158,48 +28323,6 @@
             "source_sha256": "14b0321e8dffe856a931027d17f2f2eeaf4da44b2e82fef0faa94bf40274c833"
         },
         {
-            "path": "web/src/router/routes/modules/finance.ts",
-            "target": "web/src/router/routes/modules/finance.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "d7076912d1c9786ca76231a2a77cef475b7fafbe4950a8ecc430af171422993c"
-        },
-        {
-            "path": "web/src/router/routes/modules/member.ts",
-            "target": "web/src/router/routes/modules/member.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "d7076912d1c9786ca76231a2a77cef475b7fafbe4950a8ecc430af171422993c"
-        },
-        {
-            "path": "web/src/router/routes/modules/notice.ts",
-            "target": "web/src/router/routes/modules/notice.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "d7076912d1c9786ca76231a2a77cef475b7fafbe4950a8ecc430af171422993c"
-        },
-        {
             "path": "web/src/router/routes/modules/system.ts",
             "target": "web/src/router/routes/modules/system.ts",
             "classification": "managed",
@@ -29226,20 +28349,6 @@
                 "full"
             ],
             "source_sha256": "95382600e62b6cde4ede2b40041b57829f14dcf4625068ac013a473dc76d7c71"
-        },
-        {
-            "path": "web/src/router/routes/plugin-contributions.ts",
-            "target": "web/src/router/routes/plugin-contributions.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "7c37f4939877ed149c26124fff0cf8fc45abb3148c79abd79f5f3d36fc36c480"
         },
         {
             "path": "web/src/router/routes/types.ts",
@@ -29634,48 +28743,6 @@
             "source_sha256": "830e955e9041e923f3eea1b8cae6e5372a546805db7e850e3f2fb61fbb40bdb2"
         },
         {
-            "path": "web/src/views/app-setting/transaction/index.vue",
-            "target": "web/src/views/app-setting/transaction/index.vue",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "a8c10938f905a2b511aac73f6388ec1ca3b0921fda30946105837f4f3d847bd0"
-        },
-        {
-            "path": "web/src/views/app-setting/transaction/locale/en-US.ts",
-            "target": "web/src/views/app-setting/transaction/locale/en-US.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "ef44a4a8eaa611cd01e859798bcb4717608664cbe71ab538538e19a86f4d2462"
-        },
-        {
-            "path": "web/src/views/app-setting/transaction/locale/zh-CN.ts",
-            "target": "web/src/views/app-setting/transaction/locale/zh-CN.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "656b89b8ca985e49c0af269e23a6576574033725b84680ad0e403fa4637b467a"
-        },
-        {
             "path": "web/src/views/app-setting/user/index.vue",
             "target": "web/src/views/app-setting/user/index.vue",
             "classification": "managed",
@@ -29701,7 +28768,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "75f77e2b97d0970bb4016d63eadbe0b5500e3ec0358ab08f80155504e15c0143"
+            "source_sha256": "510386f355f2e2a120c27f620d0e6b534901c1cb15264da9222af24c9f6846d4"
         },
         {
             "path": "web/src/views/dashboard/workplace/locale/en-US.ts",
@@ -29715,7 +28782,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4ce4d12e122be723fdbfee64aeb8cbe52b810c2c9670f8262774247fd493bd56"
+            "source_sha256": "668889bf2ab4904aca02ba5b61a7a64cdcd506f2183ca8a9b68f3fc5cdbe52f7"
         },
         {
             "path": "web/src/views/dashboard/workplace/locale/zh-CN.ts",
@@ -29729,7 +28796,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c85054b90e12365847a8b88c1129c7351c59da896712d774fb2cb6eaf61dafca"
+            "source_sha256": "17cae86af85f385fba5eac3f1befd43c974b2f5d0522496e46f90878a7f3e6fd"
         },
         {
             "path": "web/src/views/decoration/mobile/index.vue",
@@ -30544,6 +29611,19 @@
             "source_sha256": "a2548e0227c38d0d669f157642368cc288b76d068623e8bddbc10110198900a7"
         },
         {
+            "path": "web/tests/Productization/module-contribution.test.ts",
+            "target": "web/tests/Productization/module-contribution.test.ts",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "web/tests/Productization/module-dev-discovery.test.mjs",
             "target": "web/tests/Productization/module-dev-discovery.test.mjs",
             "classification": "managed",
@@ -30555,7 +29635,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "22f32d858c0f9f1bc0d693308de795e7acb37275953c355dbf34fa04eecdb8d4"
+            "source_sha256": "37364594b21b8ed3e0e99a2757a96b5d8ee800c7548690ab9f9e956dc6f7934b"
         },
         {
             "path": "web/tests/Productization/navbar-avatar-fallback.test.mjs",
@@ -30584,19 +29664,6 @@
                 "full"
             ],
             "source_sha256": "af513e48070ba7f757107e98ae4dd5ddf5c97b07957d368b0ce27e9bc5a9590b"
-        },
-        {
-            "path": "web/tests/Productization/plugin-contribution.test.ts",
-            "target": "web/tests/Productization/plugin-contribution.test.ts",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
         },
         {
             "path": "web/tests/Productization/vite-allowed-hosts.test.mjs",
@@ -30652,7 +29719,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e97e06d5f448bd67678fbd445d980e15cfe8146915b7bfad03e1b5b426a974fa"
+            "source_sha256": "008876b0422c1693f340e286efdcf6fa2040302a5627eb316bf2761c3177c662"
         },
         {
             "path": "web/vitest.optional.config.mjs",
