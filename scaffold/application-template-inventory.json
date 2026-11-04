@@ -1024,7 +1024,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "44a626417da58baed85b3b0a8391c30ef3563d59361368f0fe9b897568254b70"
+            "source_sha256": "59fe165406c1d29c88979ad4d347d2331c455a89af48bc46f042db4debd8e0a3"
         },
         {
             "path": "docs/public/installation.md",
