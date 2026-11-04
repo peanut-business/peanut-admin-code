@@ -136,7 +136,14 @@ try {
     $replay = $runner->preflight($project, $from, $replayTarget);
     $replayPath = $project . '/' . $replay['plan_path'];
     scaffoldExpect($runner->apply($project, $replayPath)['status'] === 'applied', 'Replay fixture did not apply.');
+    $verified = $runner->verify($project, $replayPath);
+    scaffoldExpect($verified['status'] === 'verified' && $verified['idempotent'] === false,
+        'First verification did not transition the applied plan to verified.');
+    $verifiedAgain = $runner->verify($project, $replayPath);
+    scaffoldExpect($verifiedAgain['status'] === 'verified' && $verifiedAgain['idempotent'] === true,
+        'Verification replay was not idempotent.');
     scaffoldWrite($project . '/managed.txt', "post-apply drift\n");
+    scaffoldFails(fn() => $runner->verify($project, $replayPath), 'SCAFFOLD_VERIFY_MANAGED_MISMATCH: managed.txt');
     scaffoldFails(fn() => $runner->apply($project, $replayPath), 'SCAFFOLD_VERIFY_MANAGED_MISMATCH: managed.txt');
     scaffoldExpect(file_get_contents($project . '/managed.txt') === "post-apply drift\n", 'Replay rewrote drift.');
     $runner->recover($project, $replayPath);
