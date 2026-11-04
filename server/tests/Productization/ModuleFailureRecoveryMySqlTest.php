@@ -169,11 +169,33 @@ $expect($service->install('acme.recovery')['operation'] === 'recovered', 'Higher
 $expect($pdo->query('SELECT value FROM pa_acceptance_recovery WHERE id=91')->fetchColumn() === 'retain-through-forward-repair'
     && (int) $pdo->query('SELECT repaired FROM pa_acceptance_recovery WHERE id=91')->fetchColumn() === 4, 'Forward recovery lost data or skipped native pending migration');
 $expect((int) $pdo->query("SELECT id FROM pa_module_installation WHERE module_key='acme.recovery'")->fetchColumn() === (int) $failed['id'], 'Forward repair changed Module identity');
+// ModuleCatalogApplier scopes the menu revision to the selected manifest digests.
+// This activation selected just the case Module; read it before retirement removes its source.
+$expectedMenuScope = hash('sha256', (new ManifestLoader())->load($moduleRoot)->digest);
 $catalogs->disableActivePackageModules(['acme.recovery']);
 $governance = new ModuleRuntimeGovernanceService($server, $config, $catalogs, new TenantModuleStateQueries());
 $plan = $governance->preview('acme.recovery', false);
 $governance->uninstall('acme.recovery', false, $plan['confirm_plan'], $plan['plan_digest']);
 $expect($pdo->query('SELECT value FROM pa_acceptance_recovery WHERE id=91')->fetchColumn() === 'retain-through-forward-repair', 'Normal retirement after repair removed business data');
-$expect($nonCaseCatalogSnapshot() === $nonCaseCatalogBefore, 'Native lifecycle changed non-case permission/menu/setting catalogs');
+$nonCaseCatalogAfter = $nonCaseCatalogSnapshot();
+$coreMetadataValid = true;
+foreach (['permission', 'menu_definition'] as $table) {
+    $beforeById = array_column($nonCaseCatalogBefore[$table], null, 'id');
+    foreach ($nonCaseCatalogAfter[$table] as &$row) {
+        $before = $beforeById[$row['id']] ?? null;
+        if ($before === null || !in_array($row['module_key'], ['core', 'platform'], true)) {
+            continue;
+        }
+        $coreMetadataValid = $coreMetadataValid && $row['updated_at'] >= $before['updated_at'];
+        $row['updated_at'] = $before['updated_at'];
+        if ($table === 'menu_definition') {
+            $coreMetadataValid = $coreMetadataValid && hash_equals($expectedMenuScope, $row['manifest_digest']);
+            $row['manifest_digest'] = $before['manifest_digest'];
+        }
+    }
+    unset($row);
+}
+$expect($coreMetadataValid && $nonCaseCatalogAfter === $nonCaseCatalogBefore,
+    'Native lifecycle changed non-case catalog contents or produced unexpected Core/Platform metadata');
 file_put_contents($state . '/failure-recovery-result.json', json_encode(['assertions' => $assertions, 'status' => 'passed', 'database_identity' => $databaseIdentity, 'non_case_catalog_sha256' => hash('sha256', json_encode($nonCaseCatalogBefore, JSON_THROW_ON_ERROR))], JSON_THROW_ON_ERROR));
 echo "MODULE-FAILURE-RECOVERY-MYSQL passed assertions={$assertions}; same-artifact resume+higher-version repair\n";

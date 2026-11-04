@@ -248,6 +248,9 @@ $expect($pdo->query('SELECT value FROM pa_acceptance_lifecycle WHERE id=81')->fe
 archiveReinstall:
 (new ModulePackageInstaller($server, $config, [], $catalogs))->install($state . '/lifecycle.tar', $archive['sha256'], null);
 $expect((int) $pdo->query("SELECT id FROM pa_module_installation WHERE module_key='acme.lifecycle'")->fetchColumn() === $id, 'Archive reinstallation changed the preserved identity');
+// ModuleCatalogApplier scopes the menu revision to the selected manifest digests.
+// This activation selected just the case Module; read it before retirement removes its source.
+$expectedMenuScope = hash('sha256', (new ManifestLoader())->load($moduleRoot)->digest);
 $faulting = new ModuleRuntimeGovernanceService($server, $config, $catalogs, new TenantModuleStateQueries(),
     static function (string $point): void { if ($point === 'after-first-drop-statement') { throw new RuntimeException('ACCEPTANCE_CONTROLLED_PURGE_FAILURE'); } });
 $catalogs->disableActivePackageModules(['acme.lifecycle']);
@@ -258,6 +261,25 @@ $expect($pdo->query("SELECT last_error_code FROM pa_module_installation WHERE id
 $governance->uninstall('acme.lifecycle', true, $purge['confirm_plan'], $purge['plan_digest']);
 $expect($pdo->query("SELECT status FROM pa_module_installation WHERE id={$id}")->fetchColumn() === 'uninstalled', 'Purge recovery deleted the only installation/history row');
 $expect((int) $pdo->query("SELECT COUNT(*) FROM pa_migrations WHERE version IN (20261108000001,20261108000002,20261108000003)")->fetchColumn() === 3, 'Uninstall/purge deleted native migration history');
-$expect($nonCaseCatalogSnapshot() === $nonCaseCatalogBefore, 'Native lifecycle changed non-case permission/menu/setting catalogs');
+$nonCaseCatalogAfter = $nonCaseCatalogSnapshot();
+$coreMetadataValid = true;
+foreach (['permission', 'menu_definition'] as $table) {
+    $beforeById = array_column($nonCaseCatalogBefore[$table], null, 'id');
+    foreach ($nonCaseCatalogAfter[$table] as &$row) {
+        $before = $beforeById[$row['id']] ?? null;
+        if ($before === null || !in_array($row['module_key'], ['core', 'platform'], true)) {
+            continue;
+        }
+        $coreMetadataValid = $coreMetadataValid && $row['updated_at'] >= $before['updated_at'];
+        $row['updated_at'] = $before['updated_at'];
+        if ($table === 'menu_definition') {
+            $coreMetadataValid = $coreMetadataValid && hash_equals($expectedMenuScope, $row['manifest_digest']);
+            $row['manifest_digest'] = $before['manifest_digest'];
+        }
+    }
+    unset($row);
+}
+$expect($coreMetadataValid && $nonCaseCatalogAfter === $nonCaseCatalogBefore,
+    'Native lifecycle changed non-case catalog contents or produced unexpected Core/Platform metadata');
 file_put_contents($state . '/result.json', json_encode(['assertions' => $assertions, 'module_id' => $id, 'database' => getenv('DB_NAME'), 'status' => 'passed', 'database_identity' => $databaseIdentity, 'non_case_catalog_sha256' => hash('sha256', json_encode($nonCaseCatalogBefore, JSON_THROW_ON_ERROR))], JSON_THROW_ON_ERROR));
 echo "MODULE-LIFECYCLE-MYSQL passed assertions={$assertions}; native dependency/migration/catalog/retire/reinstall/purge-recovery\n";
