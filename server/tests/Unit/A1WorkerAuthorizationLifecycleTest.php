@@ -61,6 +61,7 @@ final class A1MutableWorkerAuthorization implements AsyncAuthorizationRevalidato
             'admin-async-worker',
             new DateTimeImmutable('2026-09-21T00:00:00Z'),
             $this->calls,
+            1,
         ), $envelope->traceId);
 
         return AuthorizedOperationContext::fromDecision(AuthorizationDecision::allow(
@@ -77,8 +78,8 @@ final class A1MutableModuleRuntimeRepository implements ModuleRuntimeRepository
 {
     /** @var array<string, string> */
     public array $statuses = [
-        'official.task' => 'enabled',
-        'official.import-export' => 'enabled',
+        'peanut.task' => 'enabled',
+        'peanut.import-export' => 'enabled',
     ];
 
     /** @var array<string, int> */
@@ -91,7 +92,7 @@ final class A1MutableModuleRuntimeRepository implements ModuleRuntimeRepository
             : null;
     }
 
-    public function tenantModule(int $tenantId, string $moduleKey): ?TenantModuleRecord
+    public function tenantModule(int $tenantId, string $moduleKey, ?TenantContext $context = null): ?TenantModuleRecord
     {
         $this->tenantReads[$moduleKey] = ($this->tenantReads[$moduleKey] ?? 0) + 1;
         $status = $this->statuses[$moduleKey] ?? null;
@@ -204,7 +205,7 @@ final class A1WorkerAuthorizationLifecycleTest extends TestCase
                 }
                 $execution->checkpoint();
                 ++$this->batches;
-                $this->modules->statuses['official.import-export'] = 'disabled';
+                $this->modules->statuses['peanut.import-export'] = 'disabled';
                 $execution->checkpoint();
                 ++$this->batches;
             }
@@ -220,7 +221,7 @@ final class A1WorkerAuthorizationLifecycleTest extends TestCase
 
         self::assertSame(1, $handler->batches);
         self::assertTrue($contexts->isEmpty());
-        self::assertGreaterThanOrEqual(3, $modules->tenantReads['official.import-export']);
+        self::assertGreaterThanOrEqual(3, $modules->tenantReads['peanut.import-export']);
         self::assertSame(4, $authorization->calls);
     }
 
@@ -339,11 +340,12 @@ final class A1WorkerAuthorizationLifecycleTest extends TestCase
             'admin-web',
             new DateTimeImmutable('2026-09-21T00:00:00Z'),
             1,
+            1,
         ), 'trace-a1-worker');
 
         return AuthorizedOperationContext::fromDecision(AuthorizationDecision::allow(
             $tenant,
-            'official.import-export.operation',
+            'peanut.import-export.operation',
             'create',
             $targets,
             'a1-submission-basis',
@@ -375,7 +377,7 @@ final class A1WorkerAuthorizationLifecycleTest extends TestCase
         return new ModuleAwareTaskHandler(
             new ModuleExecutionBoundary(new CurrentExecutionContext($contexts), $modules, new \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery(new CurrentExecutionContext($contexts))),
             $contexts,
-            'official.import-export',
+            'peanut.import-export',
             $handler,
         );
     }
