@@ -63,7 +63,7 @@ function expectCode(string $code, callable $operation, string $message): void
 }
 function context(string $operation, int $tenantId = 101, int $accountId = 301, int $memberId = 501, string $sessionKey = '01J00000000000000000000000'): AuthorizedOperationContext
 {
-    $session = new ValidatedTenantSession(1, $sessionKey, $tenantId, $accountId, $memberId, 'admin-web', new DateTimeImmutable('2026-07-24T10:00:00Z'), 1);
+    $session = new ValidatedTenantSession(1, $sessionKey, $tenantId, $accountId, $memberId, 'admin-web', new DateTimeImmutable('2026-07-24T10:00:00Z'), 1, 1);
     return AuthorizedOperationContext::fromDecision(AuthorizationDecision::allow(
         TenantContext::fromValidatedSession($session, 'req_integration_feature'),
         Package::RESOURCE_KEY,
