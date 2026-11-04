@@ -127,6 +127,13 @@ try {
     modulePackageExpect($packedA['sha256'] === $packedB['sha256'], 'same Module tree did not produce a deterministic tar');
 
     $tar = new DeterministicTarArchive();
+    $repeated = $service->packModule('acme.delivery-record', $first);
+    modulePackageExpect($repeated['sha256'] === $packedA['sha256'], 'identical output was not reusable');
+    modulePackageRejects(
+        static fn() => $tar->write($first, ['other.txt' => ['contents' => 'different payload']]),
+        'PACKAGE_VERSION_IDENTITY_CONFLICT',
+    );
+    modulePackageExpect(hash_file('sha256', $first) === $packedA['sha256'], 'existing archive was replaced');
     $entries = $tar->scan($first);
     modulePackageExpect(isset($entries['META-INF/files.sha256']), 'package inventory is missing');
     $inventory = $tar->read($first, $entries['META-INF/files.sha256']);
