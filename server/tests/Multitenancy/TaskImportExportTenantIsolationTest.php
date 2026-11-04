@@ -13,6 +13,7 @@ use PeanutAdmin\Kernel\Context\RequestedTargetSet;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Modules\Task\Service\TaskWorkerDefinitionRegistry;
+use app\common\execution\AdminExecutionContext;
 use app\common\execution\ExecutionContextStore;
 
 function expectAsyncTenant(bool $condition, string $message): void
@@ -327,8 +328,15 @@ function taskImportExportInstalledAssertions(
         . ', operation_error=' . ($completed->lastErrorCode ?? 'none')
         . ', job=' . json_encode($jobFailure, JSON_THROW_ON_ERROR),
     );
+    $downloadResult = static function (AuthorizedOperationContext $context, string $fileKey) use ($authorization, $executionContexts, $runtime): array {
+        $actor = $context->tenantContext;
+        return $executionContexts->run(
+            new AdminExecutionContext($actor, 'import-export.operation-log.download', $authorization->principal($actor)->toArray()),
+            static fn (): array => $runtime->download($context, $fileKey),
+        );
+    };
     $guard();
-    $download = $runtime->download($alpha, $completed->resultFileKey);
+    $download = $downloadResult($alpha, $completed->resultFileKey);
     expectAsyncTenant(isset($download['url']) && is_string($download['url']) && str_contains($download['url'], '/api/storage/delivery?'), 'Tenant-gated CSV URL is missing');
     expectAsyncTenant(!str_contains((string) $download['url'], '/public/'), 'CSV was exposed below public/');
     parse_str((string) parse_url((string) $download['url'], PHP_URL_QUERY), $deliveryQuery);
@@ -353,7 +361,7 @@ function taskImportExportInstalledAssertions(
     }
     // 第二条尚未消费的链接，用来独立验证租户暂停/恢复。
     $guard();
-    $secondDownload = $runtime->download($alpha, $completed->resultFileKey);
+    $secondDownload = $downloadResult($alpha, $completed->resultFileKey);
     parse_str((string) parse_url($secondDownload['url'], PHP_URL_QUERY), $deliveryQuery);
     $guard();
     $write("UPDATE pa_tenant SET status = 'suspended', suspended_at = UTC_TIMESTAMP(3) WHERE id = {$tenantId}");
@@ -380,7 +388,7 @@ function taskImportExportInstalledAssertions(
         'reactivation did not restore the still-ready signed file',
     );
     $guard();
-    $thirdDownload = $runtime->download($alpha, $completed->resultFileKey);
+    $thirdDownload = $downloadResult($alpha, $completed->resultFileKey);
     parse_str((string) parse_url($thirdDownload['url'], PHP_URL_QUERY), $deliveryQuery);
     $guard();
     $write("UPDATE pa_file_object SET status='archived', archived_at=UTC_TIMESTAMP(3) WHERE tenant_id={$tenantId} AND file_key=?", [(string) $deliveryQuery['file_key']]);
@@ -397,7 +405,7 @@ function taskImportExportInstalledAssertions(
     }
     try {
         $guard();
-        $runtime->download($beta, $completed->resultFileKey);
+        $downloadResult($beta, $completed->resultFileKey);
         throw new RuntimeException('cross-Tenant result download succeeded');
     } catch (Throwable $exception) {
         expectAsyncTenant($exception->getMessage() === 'IMPORT_EXPORT_FILE_UNAVAILABLE', 'cross-Tenant download enumerated ownership');
