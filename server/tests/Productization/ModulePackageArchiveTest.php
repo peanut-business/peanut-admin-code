@@ -507,20 +507,24 @@ try {
         );
         chmod($bootEnvironment, 0600);
         try {
-            foreach ([['module:adopt-package', '--recover'], ['list']] as $arguments) {
+            foreach ([true, false] as $recover) {
                 $process = proc_open(
-                    [PHP_BINARY, $serverRoot . '/think', ...$arguments],
-                    [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+                    $recover ? [PHP_BINARY, $serverRoot . '/module'] : [PHP_BINARY, $serverRoot . '/think', 'list'],
+                    [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
                     $pipes,
                     $serverRoot,
                     ['PATH' => (string) getenv('PATH'), 'PEANUT_SERVER_ENV_FILE' => $bootEnvironment],
                 );
                 modulePackageExpect(is_resource($process), 'cannot start recovery boot check');
+                if ($recover) {
+                    fwrite($pipes[0], '{"operation":"adopt","arguments":["--recover"]}');
+                }
+                fclose($pipes[0]);
                 $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
                 fclose($pipes[1]);
                 fclose($pipes[2]);
                 modulePackageExpect(proc_close($process) !== 0, 'invalid journal boot unexpectedly succeeded');
-                if ($arguments[0] === 'module:adopt-package') {
+                if ($recover) {
                     modulePackageExpect(
                         trim($output) === '{"error":"MODULE_PACKAGE_RECOVERY_REQUIRED"}',
                         'recovery CLI could not boot without Module composition: ' . trim($output),
