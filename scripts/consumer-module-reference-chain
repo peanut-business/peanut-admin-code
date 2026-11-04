@@ -585,8 +585,8 @@ $writeIdentityBundle = static function (string $path, array $bundle): void {
     }
 };
 $platformContext = static function () use ($app, $identityBundle, $requiredToken, $requestId): PeanutAdmin\Kernel\Context\PlatformContext {
-    $context = $app->make(app\platform\identity\PlatformOperatorIdentityPort::class)
-        ->requireActive($requiredToken($identityBundle(), 'platform_access_token'), $requestId('platform'));
+    $context = $app->make(app\platform\services\PlatformOperatorSessionService::class)
+        ->context($requiredToken($identityBundle(), 'platform_access_token'), $requestId('platform'));
     return $context->core;
 };
 $tenantContext = static function (string $tenantCode) use ($app, $pdo, $identityBundle, $tenantToken, $requestId): PeanutAdmin\Kernel\Auth\TenantContext {
@@ -753,6 +753,11 @@ if ($action === 'provision-default') {
     $changeEntitlement('default', $tenantId, true);
     $ownerContext = $tenantContext('default');
     $roles = $app->make(app\common\runtime\authorization\RoleAdministrationRuntime::class)->service();
+    $execution = $app->make(app\common\execution\ExecutionContextStore::class);
+    $replacePermissions = static fn (array $role, array $keys): array => $execution->run(
+        new app\common\execution\AdminExecutionContext($ownerContext, 'qualification.reference-chain.role.permissions'),
+        static fn (): array => $roles->replacePermissions($ownerContext, (int)$role['id'], $keys, (int)$role['revision']),
+    );
     $members = $app->make(app\common\runtime\org\TenantAdminRuntime::class)->members();
     $authorization = $app->make(app\common\contract\authorization\AdminAuthorizationQuery::class);
     $tenantAuth = $app->make(PeanutAdmin\Modules\Identity\Auth\TenantAuthService::class);
@@ -788,7 +793,7 @@ if ($action === 'provision-default') {
     }
     $records = $app->make(Acme\Modules\ReferenceChain\Contract\ReferenceChainCommands::class);
     $expectReferencePermissionDenied(fn() => $records->create($memberContext, 'tenant-a-denied-before-grant'), $pdo);
-    $role = $roles->replacePermissions($ownerContext, (int)$role['id'], ['acme.reference-chain.write'], (int)$role['revision']);
+    $role = $replacePermissions($role, ['acme.reference-chain.write']);
     $grantedPrincipal = $authorization->principal($memberContext);
     $grantDecision = $authorization->decide($memberContext, $grantedPrincipal, 'acme.reference-chain.write');
     if ($grantedPrincipal->root || !$grantDecision->allowed || !in_array('acme.reference-chain.write', $role['permission_keys'] ?? [], true)) {
@@ -799,14 +804,14 @@ if ($action === 'provision-default') {
     if ((int)($created['tenant_id'] ?? 0) !== $tenantId || count($read['items'] ?? []) !== 1) {
         throw new RuntimeException('CR21_REFERENCE_MEMBER_SERVICE_READ_WRITE_INVALID');
     }
-    $role = $roles->replacePermissions($ownerContext, (int)$role['id'], [], (int)$role['revision']);
+    $role = $replacePermissions($role, []);
     $revokedPrincipal = $authorization->principal($memberContext);
     $revokeDecision = $authorization->decide($memberContext, $revokedPrincipal, 'acme.reference-chain.write');
     if ($revokedPrincipal->root || $revokeDecision->allowed || ($role['permission_keys'] ?? []) !== []) {
         throw new RuntimeException('CR21_REFERENCE_MEMBER_REVOKE_NOT_VISIBLE');
     }
     $expectReferencePermissionDenied(fn() => $records->create($memberContext, 'tenant-a-denied-after-revoke'), $pdo);
-    $role = $roles->replacePermissions($ownerContext, (int)$role['id'], ['acme.reference-chain.write'], (int)$role['revision']);
+    $role = $replacePermissions($role, ['acme.reference-chain.write']);
     echo json_encode($snapshot() + [
         'service_write' => $created,
         'service_read' => $read,
