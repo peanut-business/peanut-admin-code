@@ -16,9 +16,9 @@ class PublicDocsTest(unittest.TestCase):
             ['README', 'release-channels', 'api-and-sdk', 'module-development', 'installation', 'application-release', 'support']]
         for name in self.names:
             self.write(name, '# Public manual\n')
-        self.write('docs/public/release-channels.md', '# Channels\nphp server/database/install.php\nscripts/upgrade plan\n')
+        self.write('docs/public/release-channels.md', '# Channels\nphp server/database/install.php\nscripts/scaffold-upgrade plan\n')
         self.write('docs/public/api-and-sdk.md', '# API\n./scripts/check-openapi\n')
-        self.write('docs/public/application-release.md', '# Release\nPEANUT_UPGRADE_PHP; PHP 8.3; existing workspace\n')
+        self.write('docs/public/application-release.md', '# Release\nscripts/deploy-update.sh --target=<main commit>\n')
         for name in ('AGENTS', 'SECURITY'):
             self.write('server/resources/scaffold-application/' + name + '.md.stub', '# Public application guidance\n')
         self.entries = [{'path': p, 'target': p, 'classification': 'managed'} for p in self.names]
@@ -57,9 +57,9 @@ class PublicDocsTest(unittest.TestCase):
     def test_wrong_case_is_rejected(self):
         self.write('docs/README.md','[case](public/Support.md)\n')
         self.assertNotEqual(0,self.check().returncode)
-    def test_missing_update_php_prerequisite_rejected(self):
-        self.write('docs/public/application-release.md','# Release\nPHP 8.3; workspace\n')
-        self.assertIn('PEANUT_UPGRADE_PHP',self.check().stderr)
+    def test_missing_update_target_prerequisite_rejected(self):
+        self.write('docs/public/application-release.md','# Release\nscripts/deploy-update.sh main\n')
+        self.assertIn('APP update guide lost required prerequisite: --target',self.check().stderr)
     def test_missing_inventory_refuses_source_claim(self):
         (self.root/'scaffold/application-template-inventory.json').unlink();self.assertEqual(2,self.check().returncode)
 

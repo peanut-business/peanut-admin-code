@@ -107,7 +107,7 @@ def maintainer_source(expected_sha256: str) -> Path:
     return target.resolve()
 
 
-def load_registry() -> dict[str, Any]:
+def load_registry(*, allow_unallocated: bool = False) -> dict[str, Any]:
     if not REGISTRY_PATH.is_absolute() or REGISTRY_PATH.is_symlink():
         fail("PEANUT_RESOURCE_REGISTRY must be an absolute, non-symlink file")
     try:
@@ -123,7 +123,7 @@ def load_registry() -> dict[str, Any]:
         fail("resource registry must declare application or maintainer role")
     if role == "maintainer" and not os.environ.get("PEANUT_RESOURCE_REGISTRY"):
         fail("maintainer registry requires an explicit PEANUT_RESOURCE_REGISTRY path")
-    if role == "application" and not any(
+    if role == "application" and not allow_unallocated and not any(
         (isinstance(group, list) and group)
         or (isinstance(group, dict) and group.get("resources"))
         for group in registry.get("resources", {}).values()
@@ -276,7 +276,10 @@ def main() -> int:
     validate_parser.add_argument("--deployment-target")
     validate_parser.add_argument("--consumer", choices=("host", "container"))
     args = parser.parse_args()
-    registry = load_registry()
+    # A source template has no runtime allocation; unscoped validate checks its structure only.
+    registry = load_registry(allow_unallocated=args.command == "validate" and all(
+        value is None for value in (args.resource_id, args.deployment_target, args.consumer)
+    ))
 
     if args.command in ("p0e-maintainer-source", "maintainer-source"):
         source = maintainer_source(args.sha256)

@@ -710,7 +710,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bf0aba5205d799fa1e8c8ea72875fd35748736fdce5a1367287c46674f724e35"
+            "source_sha256": "c222b30858fa2a1900c1901a3e6831b6be54b12c9befae0370069bb716b1d128"
         },
         {
             "path": "docs/architecture/overview.md",
@@ -771,15 +771,16 @@
         {
             "path": "docs/development/charts.md",
             "target": "docs/development/charts.md",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ]
+            ],
+            "source_sha256": "5963416a3c2aa1c3cd94814bc8cbe46b832d06c229ef7c194c4954da6be0b2f6"
         },
         {
             "path": "docs/development/controller-access-and-namespaces.md",
@@ -820,7 +821,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "175dfd5da0b4b80ab1b6b570effb93ba9a8d24497aae9a3ab11c59f4edc2a8bb"
+            "source_sha256": "4ae0af8e5a571877d7a73d336d2d20211f2579a6589a699675c6a6fb0dc488a2"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -889,7 +890,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "669ef60daec79ddbe673c64a9834488e59313545b98d55e51386fbe1117851ff"
+            "source_sha256": "4dd5fcd098ff4dc58167e28e215f53d85d2be75f1ca03ec97580da395cd386c4"
         },
         {
             "path": "docs/development/standard.md",
@@ -1038,7 +1039,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3ba91a168529d801a05bc1539d6575bc80bc06ee3a761d00ceb7217f5f06f0c2"
+            "source_sha256": "89d641abdbcb5aebac5e0633fb8681b29e9a3dd528a9ff9cd31bcbbe5f583ea4"
         },
         {
             "path": "docs/public/module-development.md",
@@ -2518,7 +2519,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d1e8fd2c3e84a98c1a2005e5a0b266f84d1b3427279f4fc55f58c7bb2a41b1ea"
+            "source_sha256": "779b64a5b6e6a574730c81e58a703b03c76c0d6abfc968a09057bc7c7d775c83"
         },
         {
             "path": "scripts/check-local-runtime-contract",
@@ -3459,7 +3460,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "228770545ba01f5bbff1a25fa2b1440db8cd49580feaefc668fbeb2a4ff58a26"
+            "source_sha256": "7748863ae0893a8035d6567aea191c3cc1d067832d5dec8586c17ad3137f04c1"
         },
         {
             "path": "scripts/scaffold-upgrade",

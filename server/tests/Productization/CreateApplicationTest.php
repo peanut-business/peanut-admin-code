@@ -222,7 +222,7 @@ foreach (['SECURITY.md', 'AGENTS.md'] as $targetPath) {
 foreach ([
     'server/database/install.php',
     'server/app/common/services/installation/InstallationExecutionHost.php',
-    'server/database/migrations/20261101000000_initial_baseline.php',
+    'server/database/installation/20261101020000_initial_scaffold_baseline.php',
     'server/database/seeds/InitialSeeder.php',
     'scripts/deploy-update.sh',
     'scripts/scaffold-upgrade',
@@ -547,8 +547,8 @@ try {
         );
     }
     createApplicationExpect(
-        (string) file_get_contents($standalone . '/server/database/migrations/20261101000000_initial_baseline.php')
-            === (string) file_get_contents($first . '/server/database/migrations/20261101000000_initial_baseline.php'),
+        (string) file_get_contents($standalone . '/server/database/installation/20261101020000_initial_scaffold_baseline.php')
+            === (string) file_get_contents($first . '/server/database/installation/20261101020000_initial_scaffold_baseline.php'),
         'Edition projection must not fork migration history',
     );
     createApplicationExpect(
@@ -605,7 +605,7 @@ try {
         'server/database/install.php' => false,
         'server/database/environment-guard.php' => false,
         'server/app/common/services/installation/InstallationExecutionHost.php' => false,
-        'server/database/migrations/20261101000000_initial_baseline.php' => false,
+        'server/database/installation/20261101020000_initial_scaffold_baseline.php' => false,
         'server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php' => false,
         'server/database/seeds/InitialSeeder.php' => false,
         'server/database/schema/baseline-schema.sql' => false,
@@ -805,7 +805,7 @@ try {
     );
     createApplicationExpect(is_file($first . '/server/database/environment-guard.php'), 'production database guard must remain in the deployment inventory');
     $generatedSchema = (string) file_get_contents($first . '/server/database/schema/baseline-schema.sql');
-    createApplicationExpect(is_file($first . '/server/database/migrations/20261101000000_initial_baseline.php') && is_file($first . '/server/database/seeds/InitialSeeder.php'), 'generated application is missing native initial migration or seeder');
+    createApplicationExpect(is_file($first . '/server/database/installation/20261101020000_initial_scaffold_baseline.php') && is_file($first . '/server/database/seeds/InitialSeeder.php'), 'generated application is missing native initial migration or seeder');
     createApplicationExpect(!str_contains((string) file_get_contents($first . '/server/database/install.php'), "'--migrate'"), 'generated fresh installer still exposes the retired upgrade mode');
     createApplicationExpect(is_file($first . '/scripts/deploy-update.sh'), 'generated application is missing the Git deployment update entry');
     foreach ([
