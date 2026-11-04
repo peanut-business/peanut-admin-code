@@ -31,6 +31,16 @@ php server/vendor/bin/phpunit --no-configuration --do-not-cache-result \
 
 覆盖原生App初始化顺序、同一Provider注册/boot/事件、异常传播、上下文恢复、只读目录复用实例/不启动未选模块、事件输入和返回语义，以及实际Notification+Identity+Task+Integration组合接受非Workflow生产者、重复键拒绝、未安装时不执行贡献。测试用到的业务生产者是显式合成对象；执行真实框架与装配类，不创建线上业务、不发送消息，不能据此宣称MySQL事务、队列投递或外部短信已经验收。真实HTTP检查另使用正常开发账号/原生登录、目录读取及退出，禁止伪造会话或直接改权限。
 
+跨仓源码用例由显式定向命令执行，日常及 broad 服务端 CI 不选择这两个用例。可选模块组合用例需要同时固定宿主和模块源码根：
+
+```sh
+PEANUT_COMPOSITION_APPLICATION_ROOT=/path/to/code \
+PEANUT_OPTIONAL_MODULE_APPLICATION_ROOT=/path/to/module-code \
+php server/vendor/bin/phpunit --no-configuration --do-not-cache-result \
+  --fail-on-warning --fail-on-risky --bootstrap server/tests/Support/CiBootstrap.php \
+  server/tests/Productization/OptionalModuleCompositionTest.php
+```
+
 旧TenantModuleEnableHook与ModuleComposition::tenantHooks已不属于现行套餐/许可证合同，原HostComposition检查已替换为现行Provider身份不匹配拒绝，并保留任务owner/处理者冲突、空处理者及平台拒绝先于贡献执行的断言；不恢复旧接口取悦历史测试。
 
 ## 统一前端格式
@@ -193,16 +203,6 @@ node --test uniapp/tests/Productization/h5-browser.test.mjs
 测试记录原生页面异常、只读浏览器异常详情、请求、截图和产物前后摘要；预期503日志与非预期异常分开。测试关闭自己的浏览器/HTTP，调用者核端口、profile并释放租约。截图单独审查仅证明当时可见布局，不能代替运行安全断言。
 
 `node --test uniapp/tests/Productization/decoration-theme.test.mjs` 使用质量工具已锁定的 TypeScript 转译实际 `decoration.ts`，仅以受控页面/Uni API 协作替身验证配置先到、页面尚未建立、页面就绪后应用、同步/异步失败观察及颜色合同；不复制另一套业务实现，也不将替身测试计作原生平台运行。主题 API 在无页面时不调用，页面级配置调用再应用缓存主题；原生失败回调保持可观察。H5 阴影使用应用自有 CSS 渐变，不以第三方 CDN 可用性作为匿名页面运行前提。
-
-## 升级恢复后的旧运行环境失败隔离
-
-`php server/tests/Productization/ProductUpgradeHostResumeFailureTest.php` 实际执行 `scripts/product-upgrade-host resume-old`，以任务内服务状态哨兵注入部分启动、环境/插件/业务状态/健康/运行回执/记录写入失败及TERM中断。检查非零结果、失败后停写、无法确认停写时的人工介入提示、已恢复数据及回执不变；修正失败原因后同计划重试，不重复数据库/文件恢复。已完成操作只返回绑定回执，不再次启动服务；运行中的真实健康状态另由 `recovery-verify` 检查。
-
-测试复用 `ProductUpgradeHostBackupBindingTest.php` 的真实文件fixture，不再次运行其已验收的备份33场景；命令哨兵拒绝未知命令，不调用Docker、MySQL或HTTP。`TMPDIR` 位于本检出 `.local/tmp/m4-resume-failure-20260928/`，缺原生命令前置则失败。该测试证明宿主脚本故障控制与回执顺序，不替代真实服务停写或完整数据库/public/private成对恢复。Linux宿主工具合同不因本机fixture适配而改变。
-
-## 恢复终态的只读复核
-
-`php server/tests/Productization/ProductUpgradeHostRecoveryVerifyTest.php` 单独执行生产 `recovery-verify` 路径，核终态、恢复/启动记录的候选和计划绑定、运行身份及健康探针。测试使用真实文件和显式只读服务哨兵，拒绝任何启停、导库、回灌或未知命令；不是再次执行备份或 `resume-old` 套件，也不代表真实数据库恢复完成。临时目录限当前检出 `.local/tmp/m4-terminal-verify-20260928/`，保留失败对照，测试完成后清理其自有夹具。
 
 ## H5 长文章的滚动末端可达性
 

@@ -436,6 +436,16 @@ try {
     copy($serverRoot . '/resources/schemas/module-artifact.schema.json', $upgradeRoot . '/server/resources/schemas/module-artifact.schema.json');
     modulePackageCopyTree($fixtureBackend, $upgradeRoot . '/server/app/modules/acme/delivery_record');
     modulePackageCopyTree($fixtureFrontend, $upgradeRoot . '/web/src/modules/acme-delivery-record');
+    $changedEntry = '/web/src/modules/acme-delivery-record/contribution.ts';
+    $originalEntry = (string) file_get_contents($upgradeRoot . $changedEntry);
+    file_put_contents($upgradeRoot . $changedEntry, $originalEntry . "\n// same-version source change\n");
+    $changedArchive = $temporary . '/same-version-changed.tar';
+    $changed = (new ModulePackageArchiveService($upgradeRoot . '/server'))->packModule('acme.delivery-record', $changedArchive);
+    $installedLock = hash_file('sha256', $adoptRoot . '/modules.lock');
+    modulePackageRejects(fn() => $adopter->adopt($changedArchive, $changed['sha256'], null), 'PACKAGE_VERSION_IDENTITY_CONFLICT');
+    modulePackageExpect(hash_file('sha256', $adoptRoot . '/modules.lock') === $installedLock
+        && file_get_contents($adoptRoot . $changedEntry) === $originalEntry, 'Rejected same-version source changed the adopted graph.');
+    file_put_contents($upgradeRoot . $changedEntry, $originalEntry);
     modulePackageRewriteTree($upgradeRoot, ['"version": "1.0.0"' => '"version": "1.1.0"']);
     $routeDirectory = $upgradeRoot . '/server/app/modules/acme/delivery_record/Http';
     if (!is_dir($routeDirectory)) {

@@ -47,6 +47,7 @@ final class NativeNotificationCompositionTest extends TestCase
     {
         [$app, $producer] = $this->appWithProducer();
         $registry = $this->registry();
+        $app->instance(CompiledModuleRegistry::class, $registry);
         self::assertNotContains('peanut.workflow', $registry->moduleKeys());
         foreach ($registry->requireManifest('peanut.notification')->data['dependencies'] as $dependency) {
             self::assertContains($dependency['module_key'], $registry->moduleKeys());
@@ -63,6 +64,7 @@ final class NativeNotificationCompositionTest extends TestCase
     {
         [$app] = $this->appWithProducer();
         $registry = $this->registry(true);
+        $app->instance(CompiledModuleRegistry::class, $registry);
         (new ModuleComposition($app))->register($registry);
         $this->expectException(LogicException::class);
         $this->expectExceptionMessage('NOTIFICATION_PRODUCER_CONFLICT');

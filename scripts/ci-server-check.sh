@@ -126,6 +126,10 @@ registered_mysql_test() {
 
 direct_test_target() {
   case "$1" in
+    server/tests/Productization/OptionalModuleCompositionTest.php|\
+    server/tests/Productization/NativeNotificationCompositionTest.php)
+      return 1
+      ;;
     server/tests/fixtures/*|server/tests/Support/*|server/tests/*/Support/*)
       return 1
       ;;

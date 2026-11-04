@@ -72,7 +72,7 @@ final class EditionProjector
             $design = str_starts_with($path, 'web/src/modules/peanut-workflow/designer/')
                 || in_array($path, ['server/app/modules/peanut/workflow/route/design.php', 'server/app/modules/peanut/workflow/src/Controller/WorkflowDefinitionController.php', 'server/app/modules/peanut/workflow/src/Application/WorkflowDefinitionService.php', 'server/app/modules/peanut/workflow/src/Http/WorkflowJsonProjection.php'], true);
             $absolute = $stage . '/' . $path;
-            if (($mode === 'none' && ($workflow || $path === 'server/app/command/WorkflowInstallManaged.php')) || ($mode === 'runtime' && $design)) {
+            if (($mode === 'none' && $workflow) || ($mode === 'runtime' && $design)) {
                 if (!unlink($absolute)) {
                     throw new RuntimeException('CREATE_APP_WORKFLOW_REMOVE_FAILED: ' . $path);
                 }
