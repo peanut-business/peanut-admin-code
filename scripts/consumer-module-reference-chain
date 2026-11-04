@@ -812,6 +812,9 @@ if ($action === 'provision-default') {
     }
     $expectReferencePermissionDenied(fn() => $records->create($memberContext, 'tenant-a-denied-after-revoke'), $pdo);
     $role = $replacePermissions($role, ['acme.reference-chain.write']);
+    $writeIdentityBundle($identityFile, $identityBundle() + [
+        'reference_member_access_token' => $memberLogin->tokens->access->expose(),
+    ]);
     echo json_encode($snapshot() + [
         'service_write' => $created,
         'service_read' => $read,
@@ -892,7 +895,10 @@ if ($action === 'disable-tenants') {
     exit(0);
 }
 if ($action === 'service-read-default') {
-    $records = $app->make(Acme\Modules\ReferenceChain\Contract\ReferenceChainCommands::class)->list($tenantContext('default'));
+    $memberContext = $app->make(PeanutAdmin\Modules\Identity\Auth\TenantAuthService::class)->context(
+        $requiredToken($identityBundle(), 'reference_member_access_token'), $requestId('tenant-member-context'),
+    );
+    $records = $app->make(Acme\Modules\ReferenceChain\Contract\ReferenceChainCommands::class)->list($memberContext);
     echo json_encode($snapshot() + ['service_read' => $records], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
     exit(0);
 }
