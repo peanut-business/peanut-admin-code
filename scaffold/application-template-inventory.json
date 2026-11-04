@@ -18385,7 +18385,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "92697ea66610b73dce5d74cfb7a53930d92391f729da4af1b22dc451e3b17f14"
+            "source_sha256": "27e93ecec9d7781f497569313d4cd4291703d1ba4f1198f50ca5800c18c0faa4"
         },
         {
             "path": "server/docker/tests/test_runtime_configuration.py",
