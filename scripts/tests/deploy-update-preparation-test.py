@@ -30,7 +30,7 @@ namespace app\common\value\installation {
 namespace app\common\infrastructure\scaffold {
     class ReleaseDependencyIdentity { public static function verifyArchives(...$args) {} }
 }
-namespace app\platform\infrastructure\plugin {
+namespace app\platform\infrastructure\module {
     class ModuleLockResolver { public function __construct(...$args) {} public function all() { return []; } }
 }
 namespace app\common\module {
@@ -56,7 +56,7 @@ function ensureThinkPhpApplication($root) {
     shutil.copy2(ROOT / 'scripts/deploy-update.sh', root / 'scripts/deploy-update.sh')
     subprocess.run(['git', 'init', '--quiet', str(root)], check=True)
     marker = root / 'compile-marker'
-    for failure in ('identity', 'build', ''):
+    for failure, expected_error in (('identity', 'identity rejected'), ('build', 'frontend failed'), ('', '')):
         if marker.exists():
             marker.unlink()
         env = dict(os.environ, PREPARE_FAILURE=failure, PREPARE_COMPILE_MARKER=str(marker))
@@ -64,7 +64,7 @@ function ensureThinkPhpApplication($root) {
                                 cwd=root, env=env, text=True, capture_output=True, timeout=20)
         if failure:
             assert result.returncode != 0, (failure, result.stdout, result.stderr)
-            assert '[deploy-update]' in result.stderr, result.stderr
+            assert f'[deploy-update] {expected_error}' in result.stderr.splitlines(), result.stderr
             assert not marker.exists(), 'compile must not follow failed preparation'
             assert '[deploy-update] Prepared' not in result.stdout
         else:
