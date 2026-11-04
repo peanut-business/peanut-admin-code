@@ -4,6 +4,7 @@ import importlib.machinery
 import importlib.util
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -78,15 +79,28 @@ class CheckpointTest(unittest.TestCase):
         result = subprocess.run(['bash', str(ROOT/'scripts/ci-summary'), '--candidate='+'a'*40, '--check=php:success:required', '--check=pc:skipped:false'], env=env, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
 
-    def test_all_integrated_workflows_are_manual_only_and_read_only(self):
+    def test_all_integrated_workflows_are_manual_only_and_default_read_only(self):
         paths = tuple((ROOT/'.github/workflows').glob('*.yml'))
-        self.assertEqual(len(paths), 4)
+        self.assertEqual({path.name for path in paths}, {
+            'ci.yml', 'core-source-development.yml', 'repository-policy.yml',
+            'resource-registry.yml', 'scaffold-release.yml',
+        })
         for path in paths:
             with self.subTest(workflow=path.name):
                 text = path.read_text()
                 triggers = text.split('\non:\n', 1)[1].split('\npermissions:', 1)[0]
-                self.assertEqual(triggers.strip(), 'workflow_dispatch:')
-                self.assertIn('contents: read', text)
+                self.assertEqual(re.findall(r'^  (\S+):', triggers, re.MULTILINE), ['workflow_dispatch'])
+                permissions = text.split('\npermissions:\n', 1)[1].split('\n\n', 1)[0]
+                self.assertEqual(permissions, '  contents: read')
+                if path.name == 'scaffold-release.yml':
+                    # Only explicit publication on main may elevate repository permissions.
+                    before_publish, publish = text.split('\n  publish:\n', 1)
+                    self.assertNotIn('contents: write', before_publish)
+                    self.assertIn("    if: ${{ !inputs.pack_only && inputs.publish && inputs.qualification_ingress_asset_id == '' && github.ref == 'refs/heads/main' }}\n", publish)
+                    self.assertEqual(publish.count('contents: write'), 1)
+                else:
+                    self.assertEqual(triggers.strip(), 'workflow_dispatch:')
+                    self.assertNotIn('contents: write', text)
                 self.assertNotIn('continue-on-error:', text)
 
     def test_main_workflow_preserves_required_results_and_cache_alignment(self):
