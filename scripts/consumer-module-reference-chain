@@ -398,6 +398,7 @@ final class ModuleProvider implements ModuleProviderContract
         "client_keys": ["admin-web"],
     }])
     migration = backend / "database/migrations/20260828010101_create_reference_chain.php"
+    migration.parent.mkdir(parents=True, exist_ok=True)
     migration.write_text(
         "<?php\n\nuse think\\migration\\Migrator;\n\n"
         "final class CreateReferenceChain extends Migrator\n{\n"
@@ -1078,8 +1079,10 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         expect(created.get("module_key") == MODULE_KEY, "module:create returned another identity")
         backend, frontend = author_module_v1(author)
         check_v1 = run_module(author, author_env, "check", [MODULE_KEY], logs / "author.log")
-        expect(check_v1.get("status") == "ready" and len(check_v1.get("checks", [])) == 8,
-               "module:check v1 did not pass all eight checks")
+        expect(check_v1.get("status") == "ready" and
+               {item["id"] for item in check_v1.get("checks", []) if item.get("status") == "passed"}
+               == {"manifest", "version", "dependencies", "permissions", "menus", "frontend", "package"},
+               "module:check v1 did not pass the current native author checks")
         v1_path = output / "acme-reference-chain-v1.tar"
         packed_v1 = run_module(author, author_env, "pack", [MODULE_KEY, f"--output={v1_path}",
         ], logs / "author.log")

@@ -33,7 +33,6 @@ class ConsumerModuleSampleTest(unittest.TestCase):
         self.frontend = self.author / "web/src/modules/acme-reference-chain"
         self.backend.mkdir(parents=True)
         self.frontend.mkdir(parents=True)
-        (self.backend / "database/migrations").mkdir(parents=True)
         (self.backend / "resources").mkdir()
         identity_target = self.author / "server/app/modules/peanut/identity/module.json"
         identity_target.parent.mkdir(parents=True)
