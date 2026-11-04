@@ -989,6 +989,7 @@ def preview_and_execute(
     if purge:
         arguments.append("--purge")
     preview = run_module(consumer, env, "uninstall", arguments, log)
+    expect(preview.get("blockers") == [], "retire/purge preview reported blockers")
     plan = preview.get("confirm_plan")
     digest = preview.get("plan_digest")
     expect(isinstance(plan, dict) and isinstance(digest, str) and re.fullmatch(r"[a-f0-9]{64}", digest) is not None,
@@ -1240,6 +1241,9 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         expect(after_reactivate.get("module_installation", {}).get("status") == "active"
                and rbac_counts(after_reactivate) == {"default": 1},
                "Package reactivation changed RBAC or Module state")
+        disabled_for_retire = package_disable(consumer, consumer_env, logs / "consumer.log")
+        expect(disabled_for_retire.get("operation") == "disabled",
+               "Package did not re-enter maintenance before retirement")
 
         retire_preview, retired = preview_and_execute(
             consumer, consumer_env, output, False, logs / "consumer.log"
