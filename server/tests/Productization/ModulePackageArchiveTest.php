@@ -485,7 +485,7 @@ try {
     modulePackageExpect(isset((new ModuleLockResolver($adoptRoot . '/server', '../modules.lock'))->all()['acme.delivery-record']), 'edition composition discarded private package identity');
 
     $officialPath = $temporary . '/official-signed.tar';
-    $official = (new ModulePackageArchiveService($serverRoot))->packModule('peanut.chart', $officialPath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);
+    $official = (new ModulePackageArchiveService($serverRoot))->packModule('peanut.content-tools', $officialPath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);
     modulePackageRejects(fn() => $adopter->adopt($officialPath, $official['sha256'], 'fixture-release'), 'MODULE_PACKAGE_PRIVATE_REQUIRED');
     if (!$archiveOnly) {
         // An incomplete source must still expose the development recovery CLI while ordinary boot fails closed.
