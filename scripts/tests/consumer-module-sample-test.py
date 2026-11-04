@@ -35,9 +35,9 @@ class ConsumerModuleSampleTest(unittest.TestCase):
         self.frontend.mkdir(parents=True)
         (self.backend / "database/migrations").mkdir(parents=True)
         (self.backend / "resources").mkdir()
-        identity_target = self.author / "server/app/modules/official/identity/module.json"
+        identity_target = self.author / "server/app/modules/peanut/identity/module.json"
         identity_target.parent.mkdir(parents=True)
-        shutil.copy2(ROOT / "server/app/modules/official/identity/module.json", identity_target)
+        shutil.copy2(ROOT / "server/app/modules/peanut/identity/module.json", identity_target)
         (self.backend / "module.json").write_text(
             json.dumps(
                 {
@@ -116,6 +116,16 @@ class ConsumerModuleSampleTest(unittest.TestCase):
                         return $this->allowed ? PermissionDecision::allow($accessUri) : PermissionDecision::deny($accessUri, 'fixture');
                     }}
 
+                    public function decisions(TenantContext $tenantContext, array $accessUris): array
+                    {{
+                        $principal = $this->principal($tenantContext);
+                        $decisions = [];
+                        foreach ($accessUris as $uri) {{
+                            $decisions[$uri] = $this->decide($tenantContext, $principal, $uri);
+                        }}
+                        return $decisions;
+                    }}
+
                     public function assignableMenuRecords(TenantContext $tenantContext): array
                     {{
                         return [];
@@ -186,6 +196,7 @@ class ConsumerModuleSampleTest(unittest.TestCase):
                             2000 + $tenantId,
                             'admin-web',
                             new DateTimeImmutable('2026-09-28T00:00:00+00:00'),
+                            1,
                             1,
                         ),
                         'fixture-request-' . $tenantId,
@@ -279,7 +290,7 @@ class ConsumerModuleSampleTest(unittest.TestCase):
     def test_generated_php_service_enforces_public_contracts(self):
         manifest = json.loads((self.backend / "module.json").read_text(encoding="utf-8"))
         self.assertIn(
-            {"module_key": "official.identity", "version": self.identity_version},
+            {"module_key": "peanut.identity", "version": self.identity_version},
             manifest["dependencies"],
         )
         service_source = (self.backend / "src/Service/ReferenceChainService.php").read_text(encoding="utf-8")
@@ -314,13 +325,13 @@ class ConsumerModuleSampleTest(unittest.TestCase):
         self.assertTrue(output["zero_write_on_overflow"])
 
     def test_generated_migrations_keep_v1_create_and_v2_alter(self):
-        create_migration = self.backend / "database/migrations/20260828010101_create_reference_chain.sql"
+        create_migration = self.backend / "database/migrations/20260828010101_create_reference_chain.php"
         create_sql = create_migration.read_text(encoding="utf-8")
         self.assertIn("CREATE TABLE `pa_acme_reference_chain_record`", create_sql)
         self.assertIn("FOREIGN KEY (`tenant_id`) REFERENCES `pa_tenant` (`id`)", create_sql)
 
         module.author_module_v2(self.backend, self.frontend)
-        alter_migration = self.backend / "database/migrations/20260828010201_add_revision_note.sql"
+        alter_migration = self.backend / "database/migrations/20260828010201_add_revision_note.php"
         self.assertIn(
             "ALTER TABLE `pa_acme_reference_chain_record` ADD COLUMN `revision_note`",
             alter_migration.read_text(encoding="utf-8"),

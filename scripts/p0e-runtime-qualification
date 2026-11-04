@@ -1459,25 +1459,22 @@ class Runner:
 
     def production_compose_at(self, edition: str) -> dict[str, Any]:
         app = self.apps[edition]
-        runtime_registration(app)
+        registered = runtime_registration(app)
         runtime = app["runtime"]
         root = canonical(runtime["root"], directory=True)
-        server_identity = self.native_release_identity(root / "server", edition)
-        external = read_json(file_reference(runtime["package_manifest"]))
-        archive = file_reference(runtime["package"])
-        manifest = read_json(Path(app["root"]) / ".peanut/application-manifest.json")
-        application = external.get("application", {})
-        if (external.get("protocol") != "peanut.server-archive.v1"
-                or external.get("archive", {}).get("sha256") != sha256(archive)
-                or external.get("archive", {}).get("bytes") != archive.stat().st_size
-                or external.get("identity_sha256") != server_identity
-                or any(application.get(key) != manifest["application"].get(key) for key in ("slug", "edition", "version"))
-                or application.get("commit") != app["head"]
-                or application.get("manifest_sha256") != app["manifest_sha256"]
-                or external.get("upstream") != manifest.get("generation_source")
-                or runtime.get("adopted_manifest_sha256") != server_identity):
-            fail("APP-owned server-only package/runtime identity differs")
-        registered = runtime_registration(app)
+        app_root = canonical(app["root"], directory=True)
+        tree = command(["git", "-C", str(app_root), "rev-parse", app["head"] + "^{tree}"],
+                       capture=True).stdout.strip()
+        checkout_identity(root, app["head"], tree)
+        file_reference({"path": str(root / ".peanut/application-manifest.json"), "sha256": app["manifest_sha256"]})
+        server_identity = command(["php", "-r", r"""
+            require $argv[1] . '/vendor/autoload.php';
+            $identity = \app\common\value\installation\ApplicationSourceIdentity::loadGeneratedApp($argv[1]);
+            if ($identity->applicationIdentity()['edition'] !== $argv[2]) { exit(1); }
+            echo $identity->identitySha256();
+        """, str(root / "server"), edition], cwd=root, capture=True).stdout.strip()
+        if not re.fullmatch(r"[a-f0-9]{64}", server_identity):
+            fail("native APP source identity is unavailable")
         resolved = json.loads(self.compose(edition, "config", "--format", "json", capture=True).stdout)
         encoded = json.dumps(resolved, sort_keys=True, separators=(",", ":")).encode()
         if hashlib.sha256(encoded).hexdigest() != registered["compose_config_sha256"]:
@@ -1487,10 +1484,17 @@ class Runner:
                   for mount in services.get(name, {}).get("volumes", []) if mount.get("type") != "tmpfs"]
         if mounts != registered["persistent_mounts"]:
             fail("resolved Compose persistent mounts differ from registry")
-        for service, source, destination, readonly in (
-                ("php", root / "server", "/run/peanut-owner/server", False),
-                ("php", root / "server", "/var/www/peanut-http/server", True),
-                ("nginx", root / "server/public", "/var/www/peanut-admin/server/public", True)):
+        root_files = (".peanut/application-manifest.json", "release-versions.json",
+                      "RELEASE_METADATA.json", "modules.lock")
+        parent_binds = {("php", str(root / relative), f"{target}/{relative}")
+                        for relative in root_files for target in ("/run/peanut-owner", "/var/www/peanut-http")}
+        required_binds = [
+            ("php", str(root / "server"), "/run/peanut-owner/server", False),
+            ("php", str(root / "server"), "/var/www/peanut-http/server", True),
+            ("nginx", str(root / "server/public"), "/var/www/peanut-admin/server/public", True),
+            *((service, source, target, True) for service, source, target in sorted(parent_binds)),
+        ]
+        for service, source, destination, readonly in required_binds:
             selected = [m for m in services.get(service, {}).get("volumes", []) if m.get("target") == destination]
             if (len(selected) != 1 or selected[0].get("type") != "bind"
                     or selected[0].get("source") != str(source)
@@ -1500,8 +1504,9 @@ class Runner:
             for mount in services.get(service, {}).get("volumes", []):
                 if mount.get("type") == "bind":
                     source = canonical(mount["source"], directory=Path(mount["source"]).is_dir())
-                    if source != root / "server" and root / "server" not in source.parents:
-                        fail("Compose bind mount escapes the verified server tree")
+                    if (source != root / "server" and root / "server" not in source.parents
+                            and (service, str(source), mount.get("target")) not in parent_binds):
+                        fail("Compose bind mount escapes the verified APP source")
         # Binding the hash alone is insufficient: bind the actual backend config
         # mounted into this server to the APP's independently registered DB env.
         if sha256(canonical(str(root / "server/.env"))) != app["environment"]["sha256"]:
@@ -1530,8 +1535,8 @@ class Runner:
         self.started_compose.append(edition)
         url = runtime["health_url"]
         self.wait_http(url)
-        return {"application": app_binding(app), "runtime_shape": "native-server-only",
-                "package_sha256": sha256(archive), "server_identity_sha256": server_identity, "health_url": url}
+        return {"application": app_binding(app), "runtime_shape": "git-application",
+                "source_tree": tree, "application_source_identity_sha256": server_identity, "health_url": url}
 
     def production_compose(self) -> dict[str, Any]:
         return {"editions": {edition: self.production_compose_at(edition) for edition in EDITIONS}}
@@ -1555,33 +1560,6 @@ class Runner:
         if summary.get("status") != "passed" or summary.get("candidate") != self.args.candidate or summary.get("candidate_tree") != self.plan["candidate_tree"]:
             fail("fixed APP browser business/permission/isolation assertions did not pass")
         return {"application": app_binding(app), "business_summary_sha256": sha256(output / "business-summary.json")}
-
-    @staticmethod
-    def native_release_identity(server: Path, mode: str) -> str:
-        identity_path = server / ".peanut/release-identity.json"
-        if identity_path.is_symlink() or not identity_path.is_file():
-            fail("native server release identity is unavailable")
-        identity = read_json(identity_path)
-        if (identity.get("protocol") != "peanut.server-release.v1" or identity.get("schema_version") != 1
-                or identity.get("application", {}).get("edition") != mode):
-            fail("native server release mode or protocol changed")
-        files = identity.get("files")
-        if not isinstance(files, list) or not files or hashlib.sha256(
-                json.dumps(files, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest() != identity.get("files_sha256"):
-            fail("native server release file inventory changed")
-        previous = ""
-        for row in files:
-            relative = row.get("path", "")
-            if (not relative.startswith("server/") or relative <= previous or ".." in Path(relative).parts
-                    or row.get("mode") not in (0o644, 0o755)):
-                fail("native server release file identity is unsafe")
-            previous = relative
-            path = server.parent / relative
-            if (path.is_symlink() or not path.is_file() or path.resolve() != path
-                    or sha256(path) != row.get("sha256") or path.stat().st_mode & 0o777 != row["mode"]):
-                fail(f"native server release file changed: {relative}")
-        return sha256(identity_path)
-
 
     @staticmethod
     def wait_http(url: str, seconds: int = 120) -> None:

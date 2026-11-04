@@ -39,6 +39,7 @@ def command(
     cwd: Path | None = None,
     env: dict[str, str] | None = None,
     log: Path | None = None,
+    stdin: str | None = None,
 ) -> str:
     merged = {
         key: value
@@ -52,6 +53,7 @@ def command(
         cwd=ROOT if cwd is None else cwd,
         env=merged,
         text=True,
+        input=stdin,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         check=False,
@@ -169,10 +171,11 @@ def lease_fields(lease_id: str) -> tuple[dict[str, str], list[tuple[str, str]]]:
     return metadata, resources
 
 
-def run_think(project: Path, env: dict[str, str], arguments: list[str], log: Path) -> dict[str, Any]:
+def run_module(project: Path, env: dict[str, str], operation: str, arguments: list[str], log: Path) -> dict[str, Any]:
     return json_output(
-        command([str(PHP), "think", *arguments], cwd=project / "server", env=env, log=log),
-        "think " + " ".join(arguments),
+        command([str(PHP), "module"], cwd=project / "server", env=env, log=log,
+                stdin=json.dumps({"operation": operation, "arguments": arguments})),
+        "module " + operation,
     )
 
 
@@ -182,13 +185,13 @@ def author_module_v1(author: Path) -> tuple[Path, Path]:
     manifest_path = backend / "module.json"
     manifest = read_json(manifest_path)
     manifest["description"] = "CR21 independent consumer reference chain"
-    identity_manifest_path = author / "server/app/modules/official/identity/module.json"
+    identity_manifest_path = author / "server/app/modules/peanut/identity/module.json"
     if not identity_manifest_path.is_file():
-        fail("official.identity module manifest is unavailable in the author application")
+        fail("peanut.identity module manifest is unavailable in the author application")
     identity_manifest = read_json(identity_manifest_path)
     identity_version = identity_manifest.get("version")
     if not isinstance(identity_version, str) or identity_version == "":
-        fail("official.identity module manifest has no valid version")
+        fail("peanut.identity module manifest has no valid version")
     raw_dependencies = manifest.get("dependencies", [])
     if not isinstance(raw_dependencies, list):
         fail("reference-chain dependencies must be a list")
@@ -198,15 +201,16 @@ def author_module_v1(author: Path) -> tuple[Path, Path]:
         if not isinstance(item, dict) or not isinstance(item.get("module_key"), str) or not isinstance(item.get("version"), str):
             fail("reference-chain dependency entries must declare module_key and version")
         dependency = {"module_key": item["module_key"], "version": item["version"]}
-        if dependency["module_key"] == "official.identity":
+        if dependency["module_key"] == "peanut.identity":
             if identity_seen:
-                fail("reference-chain dependencies contain duplicate official.identity entries")
+                fail("reference-chain dependencies contain duplicate peanut.identity entries")
             dependency["version"] = identity_version
             identity_seen = True
         dependencies.append(dependency)
     if not identity_seen:
-        dependencies.append({"module_key": "official.identity", "version": identity_version})
+        dependencies.append({"module_key": "peanut.identity", "version": identity_version})
     manifest["dependencies"] = dependencies
+    manifest["backend"]["migrations"] = "database/migrations"
     manifest["database"]["owned_tables"] = ["pa_acme_reference_chain_record"]
     manifest["contracts"]["exports"] = ["Acme\\Modules\\ReferenceChain\\Contract\\ReferenceChainCommands"]
     for directory in ["src/Contract", "src/Service"]:
@@ -393,8 +397,11 @@ final class ModuleProvider implements ModuleProviderContract
         "sort_order": 900,
         "client_keys": ["admin-web"],
     }])
-    migration = backend / "database/migrations/20260828010101_create_reference_chain.sql"
+    migration = backend / "database/migrations/20260828010101_create_reference_chain.php"
     migration.write_text(
+        "<?php\n\nuse think\\migration\\Migrator;\n\n"
+        "final class CreateReferenceChain extends Migrator\n{\n"
+        "    public function up(): void\n    {\n        $this->execute(<<<'SQL'\n"
         "CREATE TABLE `pa_acme_reference_chain_record` (\n"
         "  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,\n"
         "  `tenant_id` BIGINT UNSIGNED NOT NULL,\n"
@@ -403,7 +410,8 @@ final class ModuleProvider implements ModuleProviderContract
         "  PRIMARY KEY (`id`),\n"
         "  KEY `idx_acme_reference_tenant` (`tenant_id`,`id`),\n"
         "  CONSTRAINT `fk_acme_reference_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `pa_tenant` (`id`) ON DELETE RESTRICT\n"
-        ") ENGINE=InnoDB DEFAULT CHARACTER SET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;\n",
+        ") ENGINE=InnoDB DEFAULT CHARACTER SET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;\n"
+        "SQL\n        );\n    }\n}\n",
         encoding="utf-8",
     )
     return backend, frontend
@@ -414,8 +422,12 @@ def author_module_v2(backend: Path, frontend: Path) -> None:
         document = read_json(path)
         document["version"] = "2.0.0"
         write_json(path, document)
-    (backend / "database/migrations/20260828010201_add_revision_note.sql").write_text(
-        "ALTER TABLE `pa_acme_reference_chain_record` ADD COLUMN `revision_note` VARCHAR(160) NULL AFTER `reference`;\n",
+    (backend / "database/migrations/20260828010201_add_revision_note.php").write_text(
+        "<?php\n\nuse think\\migration\\Migrator;\n\n"
+        "final class AddRevisionNote extends Migrator\n{\n"
+        "    public function up(): void\n    {\n"
+        "        $this->execute('ALTER TABLE `pa_acme_reference_chain_record` ADD COLUMN `revision_note` VARCHAR(160) NULL AFTER `reference`');\n"
+        "    }\n}\n",
         encoding="utf-8",
     )
 
@@ -453,18 +465,22 @@ $tableExists = static function (PDO $pdo): bool {
     return (int)$pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='pa_acme_reference_chain_record'")->fetchColumn() === 1;
 };
 $snapshot = static function () use ($pdo, $module, $tableExists): array {
-    $plugin = $pdo->query("SELECT installed_version,status FROM pa_plugin_installation WHERE plugin_key='acme.reference-chain'")->fetch() ?: null;
     $installation = $pdo->query("SELECT installed_version,status FROM pa_module_installation WHERE module_key='acme.reference-chain'")->fetch() ?: null;
-    $tenantModules = $pdo->query("SELECT t.code,tm.status FROM pa_tenant_module tm JOIN pa_tenant t ON t.id=tm.tenant_id WHERE tm.module_key='acme.reference-chain' ORDER BY t.code")->fetchAll();
+    $tenantModules = $pdo->query("SELECT t.code,IF(pm.module_key IS NOT NULL AND l.status='active'
+        AND l.effective_at <= UTC_TIMESTAMP(3) AND (l.expires_at IS NULL OR l.expires_at > UTC_TIMESTAMP(3)),
+        'enabled','disabled') AS status
+        FROM pa_tenant_license l JOIN pa_tenant t ON t.id=l.tenant_id JOIN pa_plan p ON p.id=l.plan_id
+        LEFT JOIN pa_plan_module pm ON pm.plan_id=p.id AND pm.module_key='acme.reference-chain'
+        WHERE pm.module_key IS NOT NULL OR p.code IN ('cr21-reference-default','cr21-reference-tenant-b')
+        ORDER BY t.code")->fetchAll();
     $rbac = $pdo->query("SELECT t.code,COUNT(*) grants FROM pa_role_permission rp JOIN pa_role r ON r.tenant_id=rp.tenant_id AND r.id=rp.role_id JOIN pa_tenant t ON t.id=rp.tenant_id JOIN pa_permission p ON p.id=rp.permission_id WHERE p.module_key='acme.reference-chain' GROUP BY t.code ORDER BY t.code")->fetchAll();
     $exists = $tableExists($pdo);
     return [
-        'plugin' => $plugin,
         'module_installation' => $installation,
         'tenant_modules' => $tenantModules,
         'rbac' => $rbac,
         'permission_count' => (int)$pdo->query("SELECT COUNT(*) FROM pa_permission WHERE module_key='acme.reference-chain'")->fetchColumn(),
-        'migration_count' => (int)$pdo->query("SELECT COUNT(*) FROM pa_module_migration WHERE module_key='acme.reference-chain' AND status='applied'")->fetchColumn(),
+        'migration_count' => (int)$pdo->query("SELECT COUNT(*) FROM pa_migrations WHERE version IN (20260828010101, 20260828010201)")->fetchColumn(),
         'owned_table' => $exists,
         'owned_rows' => $exists ? (int)$pdo->query('SELECT COUNT(*) FROM pa_acme_reference_chain_record')->fetchColumn() : 0,
         'v2_column' => $exists ? (int)$pdo->query("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='pa_acme_reference_chain_record' AND column_name='revision_note'")->fetchColumn() === 1 : false,
@@ -687,10 +703,53 @@ if ($action === 'issue-identities') {
     ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
     exit(0);
 }
+// Give each synthetic tenant its own plan; preserve its existing selections and license term.
+$changeEntitlement = static function (string $tenantCode, int $tenantId, bool $enable) use ($app, $pdo, $platformContext, $module): void {
+    $service = $app->make(PeanutAdmin\Modules\Identity\Platform\Application\PlanLicenseAdminService::class);
+    $actor = $platformContext();
+    $license = $service->tenantLicense($tenantId)['license'];
+    if (($license === null && (!$enable || $tenantCode !== 'tenant-b')) || ($license !== null && !$license['effective'])) {
+        throw new RuntimeException('CR21_ACTIVE_TENANT_LICENSE_REQUIRED');
+    }
+    $code = 'cr21-reference-' . $tenantCode;
+    $plan = $pdo->prepare('SELECT id,code,name,status,revision FROM pa_plan WHERE ' . ($license === null ? 'code=?' : 'id=?'));
+    $plan->execute([$license['plan_id'] ?? 'application-default']);
+    $current = $plan->fetch();
+    if (!is_array($current) || (!$enable && $current['code'] !== $code)) {
+        throw new RuntimeException('CR21_PLAN_IDENTITY_MISMATCH');
+    }
+    $modules = $pdo->prepare('SELECT module_key FROM pa_plan_module WHERE plan_id=? ORDER BY module_key');
+    $modules->execute([$current['id']]);
+    $permissions = $pdo->prepare('SELECT permission_key FROM pa_plan_permission WHERE plan_id=? ORDER BY permission_key');
+    $permissions->execute([$current['id']]);
+    $moduleKeys = $modules->fetchAll(PDO::FETCH_COLUMN);
+    $permissionKeys = $permissions->fetchAll(PDO::FETCH_COLUMN);
+    $permission = 'acme.reference-chain.write';
+    if ($enable) {
+        $created = $service->savePlan($actor, [
+            'code' => $code, 'name' => $code,
+            'module_keys' => [...$moduleKeys, $module],
+            'permission_keys' => [...$permissionKeys, $permission],
+            'change_reason' => 'CR21 qualification tenant-specific module entitlement',
+        ], true);
+        $service->saveLicense($actor, [
+            'tenant_id' => $tenantId, 'plan_id' => $created['id'],
+            'status' => $license['status'] ?? 'active', 'effective_at' => $license['effective_at'] ?? gmdate('Y-m-d\TH:i:s\Z'),
+            'expires_at' => $license['expires_at'] ?? null, 'expected_revision' => $license['revision'] ?? 0, 'change_reason' => 'CR21 qualification tenant-specific license',
+        ]);
+        return;
+    }
+    $service->savePlan($actor, [
+        'id' => (int)$current['id'], 'expected_revision' => (int)$current['revision'],
+        'name' => $current['name'], 'status' => $current['status'],
+        'module_keys' => array_values(array_diff($moduleKeys, [$module])),
+        'permission_keys' => array_values(array_diff($permissionKeys, [$permission])),
+        'change_reason' => 'CR21 qualification module maintenance prerequisite',
+    ], false);
+};
 if ($action === 'provision-default') {
     $tenantId = (int)$pdo->query("SELECT id FROM pa_tenant WHERE code='default' AND status='active'")->fetchColumn();
-    $app->make(PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService::class)
-        ->enableModule($platformContext(), $tenantId, $module, [], 'manual', null, null, 'CR21 formal service enablement');
+    $changeEntitlement('default', $tenantId, true);
     $ownerContext = $tenantContext('default');
     $roles = $app->make(app\common\runtime\authorization\RoleAdministrationRuntime::class)->service();
     $members = $app->make(app\common\runtime\org\TenantAdminRuntime::class)->members();
@@ -768,8 +827,7 @@ if ($action === 'provision-default') {
 }
 if ($action === 'enable-b') {
     $tenantId = (int)$pdo->query("SELECT id FROM pa_tenant WHERE code='tenant-b' AND status='active'")->fetchColumn();
-    $app->make(PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService::class)
-        ->enableModule($platformContext(), $tenantId, $module, [], 'manual', null, null, 'CR21 second Tenant enablement');
+    $changeEntitlement('tenant-b', $tenantId, true);
     $ownerContext = $tenantContext('tenant-b');
     $roles = $app->make(app\common\runtime\authorization\RoleAdministrationRuntime::class)->service();
     $members = $app->make(app\common\runtime\org\TenantAdminRuntime::class)->members();
@@ -819,9 +877,10 @@ if ($action === 'enable-b') {
     exit(0);
 }
 if ($action === 'disable-tenants') {
-    $service = $app->make(PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService::class);
-    foreach ($pdo->query("SELECT tenant_id FROM pa_tenant_module WHERE module_key='acme.reference-chain' AND status='enabled' ORDER BY tenant_id")->fetchAll() as $row) {
-        $service->disableModule($platformContext(), (int)$row['tenant_id'], $module, 'CR21 Package maintenance prerequisite');
+    $tenants = $pdo->query("SELECT t.id,t.code FROM pa_tenant t JOIN pa_tenant_license l ON l.tenant_id=t.id
+        JOIN pa_plan p ON p.id=l.plan_id WHERE p.code IN ('cr21-reference-default','cr21-reference-tenant-b') ORDER BY t.id")->fetchAll();
+    foreach ($tenants as $row) {
+        $changeEntitlement($row['code'], (int)$row['id'], false);
     }
     echo json_encode($snapshot(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
     exit(0);
@@ -880,9 +939,7 @@ def package_install(
     digest: str,
     log: Path,
 ) -> dict[str, Any]:
-    return run_think(consumer, env, [
-        "module:install-package", str(archive), f"--sha256={digest}",
-    ], log)
+    return run_module(consumer, env, "install", [str(archive), f"--sha256={digest}"], log)
 
 
 def package_update(
@@ -894,11 +951,11 @@ def package_update(
     log: Path,
 ) -> dict[str, Any]:
     arguments = [
-        "module:update-package", str(archive), f"--sha256={digest}",
+        str(archive), f"--sha256={digest}",
     ]
     if dry_run:
         arguments.append("--dry-run")
-    return run_think(consumer, env, arguments, log)
+    return run_module(consumer, env, "upgrade", arguments, log)
 
 
 def package_disable(
@@ -906,7 +963,7 @@ def package_disable(
     env: dict[str, str],
     log: Path,
 ) -> dict[str, Any]:
-    return run_think(consumer, env, ["module:disable-package", MODULE_KEY], log)
+    return run_module(consumer, env, "disable", [MODULE_KEY], log)
 
 
 def preview_and_execute(
@@ -916,10 +973,10 @@ def preview_and_execute(
     purge: bool,
     log: Path,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    arguments = ["module:uninstall-package", MODULE_KEY]
+    arguments = [MODULE_KEY]
     if purge:
         arguments.append("--purge")
-    preview = run_think(consumer, env, arguments, log)
+    preview = run_module(consumer, env, "uninstall", arguments, log)
     plan = preview.get("confirm_plan")
     digest = preview.get("plan_digest")
     expect(isinstance(plan, dict) and isinstance(digest, str) and re.fullmatch(r"[a-f0-9]{64}", digest) is not None,
@@ -927,7 +984,7 @@ def preview_and_execute(
     plan_path = output / ("purge-plan.json" if purge else "retire-plan.json")
     write_json(plan_path, plan, 0o600)
     execute = [*arguments, f"--confirm-plan-file={plan_path}", f"--confirm-plan-digest={digest}"]
-    result = run_think(consumer, env, execute, log)
+    result = run_module(consumer, env, "uninstall", execute, log)
     return preview, result
 
 
@@ -999,7 +1056,7 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
                                  for label, project in (("application_a", author), ("application_b", consumer))}
         owned_before = {"application_a": app_owned_proof(author), "application_b": app_owned_proof(consumer)}
         for project in (author, consumer):
-            for relative in ("server/think", "server/vendor/autoload.php", "server/app/command/ModuleCreate.php",
+            for relative in ("server/module", "server/vendor/autoload.php", "server/app/command/ModuleCreate.php",
                              "server/app/command/ModuleCheck.php", "server/app/command/ModulePack.php",
                              "server/app/command/ModuleInstallPackage.php", "server/app/command/ModuleUpdatePackage.php",
                              "server/app/command/ModuleDisablePackage.php", "server/app/command/ModuleUninstallPackage.php"):
@@ -1012,25 +1069,23 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         helper.write_text(lifecycle_helper(), encoding="utf-8")
         helper.chmod(0o600)
         initial = helper_action(helper, consumer, consumer_env, "snapshot", logs / "consumer.log")
-        expect(initial.get("plugin") is None and initial.get("module_installation") is None
+        expect(initial.get("module_installation") is None
                and initial.get("owned_table") is False and initial.get("migration_count") == 0
                and initial.get("permission_count") == 0 and initial.get("rbac") == [],
                "reference Module has prior state; preserve and reconcile, never reset it")
 
-        created = run_think(author, author_env, ["module:create", MODULE_KEY, "--vendor=acme", "--client=admin-web"], logs / "author.log")
+        created = run_module(author, author_env, "create", [MODULE_KEY, "--vendor=acme", "--client=admin-web"], logs / "author.log")
         expect(created.get("module_key") == MODULE_KEY, "module:create returned another identity")
         backend, frontend = author_module_v1(author)
-        check_v1 = run_think(author, author_env, ["module:check", MODULE_KEY], logs / "author.log")
+        check_v1 = run_module(author, author_env, "check", [MODULE_KEY], logs / "author.log")
         expect(check_v1.get("status") == "ready" and len(check_v1.get("checks", [])) == 8,
                "module:check v1 did not pass all eight checks")
         v1_path = output / "acme-reference-chain-v1.tar"
-        packed_v1 = run_think(author, author_env, [
-            "module:pack", MODULE_KEY, f"--output={v1_path}",
+        packed_v1 = run_module(author, author_env, "pack", [MODULE_KEY, f"--output={v1_path}",
         ], logs / "author.log")
         v1_sha = str(packed_v1.get("sha256", ""))
         expect(v1_sha == sha256(v1_path), "v1 package digest changed")
-        check_v1_package = run_think(author, author_env, [
-            "module:check", MODULE_KEY, f"--package={v1_path}", f"--sha256={v1_sha}",
+        check_v1_package = run_module(author, author_env, "check", [MODULE_KEY, f"--package={v1_path}", f"--sha256={v1_sha}",
         ], logs / "author.log")
         expect(check_v1_package.get("status") == "ready", "module:check did not accept canonical v1 package")
 
@@ -1097,7 +1152,7 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         )
         expect(tenant_statuses(enabled_b) == {"default": "enabled", "tenant-b": "enabled"}
                and rbac_counts(enabled_b) == {"default": 1},
-               "TenantModule enablement changed Package or RBAC state")
+               "Tenant plan entitlement changed Package or RBAC state")
         cross_tenant_member_authorization = enabled_b.get("cross_tenant_member_authorization", {})
         expect(
             cross_tenant_member_authorization.get("entry") == "native_non_root_member_cross_tenant_denied"
@@ -1108,16 +1163,14 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         )
 
         author_module_v2(backend, frontend)
-        check_v2 = run_think(author, author_env, ["module:check", MODULE_KEY], logs / "author.log")
+        check_v2 = run_module(author, author_env, "check", [MODULE_KEY], logs / "author.log")
         expect(check_v2.get("status") == "ready", "module:check v2 failed")
         v2_path = output / "acme-reference-chain-v2.tar"
-        packed_v2 = run_think(author, author_env, [
-            "module:pack", MODULE_KEY, f"--output={v2_path}",
+        packed_v2 = run_module(author, author_env, "pack", [MODULE_KEY, f"--output={v2_path}",
         ], logs / "author.log")
         v2_sha = str(packed_v2.get("sha256", ""))
         expect(v2_sha == sha256(v2_path) and v2_sha != v1_sha, "v2 immutable package identity is invalid")
-        check_v2_package = run_think(author, author_env, [
-            "module:check", MODULE_KEY, f"--package={v2_path}", f"--sha256={v2_sha}",
+        check_v2_package = run_module(author, author_env, "check", [MODULE_KEY, f"--package={v2_path}", f"--sha256={v2_sha}",
         ], logs / "author.log")
         expect(check_v2_package.get("status") == "ready", "module:check did not accept canonical v2 package")
         before_update = helper_action(helper, consumer, consumer_env, "snapshot", logs / "consumer.log")
@@ -1140,14 +1193,14 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
             logs / "consumer.log",
             [str(identity_context)],
         )
-        expect(after_update.get("plugin", {}).get("installed_version") == "2.0.0"
+        expect(after_update.get("module_installation", {}).get("installed_version") == "2.0.0"
                and after_update.get("migration_count") == 2 and after_update.get("v2_column") is True,
                "v2 package, migration, and schema identity diverged")
         expect(tenant_statuses(after_update) == tenant_statuses(enabled_b)
                and rbac_counts(after_update) == rbac_counts(enabled_b)
                and after_update.get("owned_rows") == 1
                and len(after_update.get("service_read", {}).get("items", [])) == 1,
-               "v2 update changed TenantModule/RBAC data or broke the Module service read")
+               "v2 update changed Tenant plan/RBAC data or broke the Module service read")
 
         disabled_tenants = helper_action(
             helper,
@@ -1157,7 +1210,7 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
             logs / "consumer.log",
             [str(identity_context)],
         )
-        expect(set(tenant_statuses(disabled_tenants).values()) == {"disabled"}, "TenantModules were not disabled")
+        expect(set(tenant_statuses(disabled_tenants).values()) == {"disabled"}, "Tenant plan module selections were not removed")
         disabled_package = package_disable(
             consumer, consumer_env, logs / "consumer.log"
         )
@@ -1187,12 +1240,11 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         )
         expect(purged.get("operation") == "purged", "Package Purge failed")
         after_purge = helper_action(helper, consumer, consumer_env, "snapshot", logs / "consumer.log")
-        expect(after_purge.get("plugin", {}).get("status") == "uninstalled"
-               and after_purge.get("module_installation") is None
+        expect(after_purge.get("module_installation", {}).get("status") == "uninstalled"
                and tenant_statuses(after_purge) == {"default": "disabled", "tenant-b": "disabled"}
-               and after_purge.get("owned_table") is False and after_purge.get("migration_count") == 0
+               and after_purge.get("owned_table") is False and after_purge.get("migration_count") == 2
                and after_purge.get("permission_count") == 0 and after_purge.get("rbac") == [],
-               "Purge changed TenantModule or left Package, Module, owned data, migration, catalog, or RBAC state")
+               "Purge changed tenant availability, installation/migration history, or retained owned data, catalog or RBAC")
 
         owned_after = {"application_a": app_owned_proof(author), "application_b": app_owned_proof(consumer)}
         expect(owned_after == owned_before, "consumer lifecycle changed a generated application app-owned file")
@@ -1236,7 +1288,7 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
                 "runtime_mutation_entry": "permanent_application_native_module_cli",
                 "identity_context_entry": "native_auth_service_access_tokens_from_private_file",
                 "tenant_fixture_entry": "native_provision_accept_activate",
-                "tenant_module_entry": "platform_tenant_admin_service",
+                "tenant_module_entry": "native_platform_plan_license_service",
                 "rbac_entry": "role_admin_service",
                 "member_authorization_entry": "native_non_root_member_grant_revoke_cross_tenant_denied",
                 "business_data_entry": "module_contract_service",
