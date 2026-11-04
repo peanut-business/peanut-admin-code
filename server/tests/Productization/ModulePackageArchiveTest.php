@@ -29,7 +29,7 @@ function modulePackageExpect(bool $condition, string $message): void
 }
 
 /** @param callable():void $operation */
-function modulePackageRejects(callable $operation, string $errorCode): void
+function modulePackageRejects(callable $operation, string $errorCode): ModulePackageException
 {
     try {
         $operation();
@@ -41,6 +41,7 @@ function modulePackageRejects(callable $operation, string $errorCode): void
             "Unexpected package rejection: {$exception->errorCode}"
                 . ($previous === null ? '' : ' (' . $previous->getMessage() . ')'),
         );
+        return $exception;
     }
 }
 
@@ -330,9 +331,13 @@ try {
         static fn() => $bundleService->verify($bundlePath, $bundleResult['sha256'], [], null, []),
         'MODULE_PACKAGE_DEPENDENCY_MISSING',
     );
-    modulePackageRejects(
+    $incompatible = modulePackageRejects(
         static fn() => $bundleService->verify($bundlePath, $bundleResult['sha256'], [], null, ['acme.second' => '2.0.0']),
         'MODULE_PACKAGE_DEPENDENCY_INCOMPATIBLE',
+    );
+    modulePackageExpect(
+        $incompatible->getMessage() === 'acme.first requires acme.second ^1.0, but the available version is 2.0.0.',
+        'dependency rejection must identify the module, dependency, constraint and available version',
     );
     $bundle = $bundleService->verify($bundlePath, $bundleResult['sha256'], [], null, ['acme.second' => '1.0.0']);
     modulePackageExpect(

@@ -250,7 +250,10 @@ final readonly class PackageCheck
                     throw new ModulePackageException('MODULE_PACKAGE_DEPENDENCY_MISSING', 'Module package dependency is missing.');
                 }
                 if (!$matcher->matches($version, $dependency['version'])) {
-                    throw new ModulePackageException('MODULE_PACKAGE_DEPENDENCY_INCOMPATIBLE', 'Module package dependency version is incompatible.');
+                    throw new ModulePackageException(
+                        'MODULE_PACKAGE_DEPENDENCY_INCOMPATIBLE',
+                        "{$key} requires {$dependencyKey} {$dependency['version']}, but the available version is {$version}.",
+                    );
                 }
                 if (isset($modules[$dependencyKey])) {
                     $visit($dependencyKey);
