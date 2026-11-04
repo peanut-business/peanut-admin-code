@@ -15,23 +15,23 @@ $configuration = ScaffoldConfiguration::load();
 function inventoryGitFiles(string $root): array
 {
     $local = in_array('--local', array_slice($GLOBALS['argv'], 1), true);
-    if ($local) {
-        $files = \app\common\value\scaffold\ScaffoldSourceIdentity::files($root);
-    } else {
-    $command = ['git', '-C', $root, '-c', 'core.quotepath=false', 'ls-files', '--cached', '--others', '--exclude-standard'];
-    $pipes = [];
-    $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
-    if (!is_resource($process)) {
-        throw new RuntimeException('unable to run git ls-files');
-    }
-    $stdout = stream_get_contents($pipes[1]);
-    $stderr = stream_get_contents($pipes[2]);
-    fclose($pipes[1]);
-    fclose($pipes[2]);
-    if (proc_close($process) !== 0 || !is_string($stdout)) {
-        throw new RuntimeException('git ls-files failed: ' . trim((string) $stderr));
-    }
-    $files = array_values(array_filter(explode("\n", trim($stdout)), 'strlen'));
+    $files = \app\common\value\scaffold\ScaffoldSourceIdentity::files($root);
+    if (!$local) {
+        // Git selects the revision's inputs within the same template source policy.
+        $command = ['git', '-C', $root, 'ls-files', '-z', '--cached', '--others', '--exclude-standard'];
+        $pipes = [];
+        $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        if (!is_resource($process)) {
+            throw new RuntimeException('unable to run git ls-files');
+        }
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        if (proc_close($process) !== 0 || !is_string($stdout)) {
+            throw new RuntimeException('git ls-files failed: ' . trim((string) $stderr));
+        }
+        $files = array_intersect($files, explode("\0", $stdout));
     }
     $files = array_values(array_filter($files, static fn(string $path): bool => !ScaffoldConfiguration::matches($path, $GLOBALS['configuration']['inventory_omissions'])
         // Core release archives are produced outside the Code source tree.
