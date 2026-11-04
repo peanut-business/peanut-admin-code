@@ -48,14 +48,15 @@ def provenance_statement(name: str, version: str, statement: dict) -> dict:
 
 
 class PrepareProductReleaseCandidateTest(unittest.TestCase):
-    def test_mismatched_product_and_core_versions_fail_before_registry_or_writes(self) -> None:
+    def test_product_and_core_versions_are_independent_before_source_writes(self) -> None:
         args = ['prepare-product-release-candidate', '--version', '5.0.0',
                 '--core-php-version', '5.0.0', '--core-php-reference', '1' * 40,
                 '--core-web-version', '4.0.1', '--core-web-reference', '2' * 40]
-        with patch('sys.argv', args), patch.object(candidate, 'check_inputs') as inputs:
-            with self.assertRaisesRegex(SystemExit, 'release versions must be identical'):
+        with patch('sys.argv', args), patch.object(candidate, 'check_inputs',
+                                                    side_effect=RuntimeError('preflight reached')) as inputs:
+            with self.assertRaisesRegex(RuntimeError, 'preflight reached'):
                 candidate.main()
-            inputs.assert_not_called()
+            inputs.assert_called_once_with('5.0.0')
 
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
@@ -74,6 +75,23 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
         target = self.root / path
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(value) + "\n", encoding="utf-8")
+
+    def test_public_core_snapshot_drops_only_development_inline_core_repository(self) -> None:
+        self.write_json("server/composer.json", {
+            "require": {"peanut-admin/core": "5.0.3-alpha.6"},
+            "repositories": [
+                {"type": "path", "url": "app/modules/peanut/task"},
+                {"type": "package", "package": {"name": "peanut-admin/core", "version": "5.0.3-alpha.6"}},
+                {"type": "vcs", "url": "https://example.test/vendor/other.git"},
+            ],
+        })
+        candidate.set_composer_spec("5.0.3")
+        output = candidate.read_json(self.root / "server/composer.json")
+        self.assertEqual(output["require"]["peanut-admin/core"], "5.0.3")
+        self.assertEqual(output["repositories"], [
+            {"type": "path", "url": "app/modules/peanut/task"},
+            {"type": "vcs", "url": "https://example.test/vendor/other.git"},
+        ])
 
     def write_native_locks(self) -> None:
         self.write_json(

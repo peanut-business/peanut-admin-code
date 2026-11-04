@@ -126,6 +126,14 @@ def set_composer_spec(version: str) -> None:
     if "peanut-admin/core" not in require:
         fail("server/composer.json is missing peanut-admin/core")
     require["peanut-admin/core"] = version
+    # The development-only inline Core package is canonical and would shadow
+    # Packagist's exact public release in this disposable release snapshot.
+    data["repositories"] = [
+        item for item in data.get("repositories", [])
+        if not (isinstance(item, dict) and item.get("type") == "package"
+                and isinstance(item.get("package"), dict)
+                and item["package"].get("name") == "peanut-admin/core")
+    ]
     write_json(path, data)
 
 
