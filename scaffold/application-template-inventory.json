@@ -2850,7 +2850,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e2e6be61b0ce9a6bd67354179941ccf67fa9d37c7290b03b8a1710b2af47fff3"
+            "source_sha256": "6cfe18dd263ec238cb1cd0ebe5c30229e2d89a99f1b9b190000fa8739e15cd1f"
         },
         {
             "path": "scripts/export-release-database",
@@ -18371,7 +18371,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7c383889a4cd45a7e055528b8de80e32dc0f39e2b39d469ef6d5cd3e2afdac54"
+            "source_sha256": "8fe786d55650a2554ca00c9b487ca9dd43b88843bc1b1598c4a1d56b15e5e8aa"
         },
         {
             "path": "server/docker/tests/test_first_start_vendor.py",

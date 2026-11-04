@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Regression for preparation failures after a framework exception handler is installed."""
 from pathlib import Path
+import json
 import os
 import shutil
 import subprocess
@@ -14,7 +15,13 @@ with tempfile.TemporaryDirectory(prefix='peanut-prepare-exit-') as name:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(text)
     write('.peanut/application-manifest.json', '{"application":{"edition":"standalone","version":"1.0.0"}}')
-    write('server/docker/scripts/vendor-state.py', 'def check_lock(server): pass\n')
+    vendor_script = Path('server/docker/scripts/vendor-state.py')
+    (root / vendor_script.parent).mkdir(parents=True)
+    shutil.copy2(ROOT / vendor_script, root / vendor_script)
+    module_root = 'app/modules/fixture/example'
+    write('modules.lock', json.dumps({'modules': [{'modules': [{'key': 'fixture.example', 'root': 'server/' + module_root}]}]}))
+    write('server/' + module_root + '/composer.json', '{"name":"fixture/example","version":"1.0.2"}')
+    write('server/composer.json', '{"require":{"fixture/example":"1.0.1"}}')
     write('server/vendor/autoload.php', r'''<?php
 namespace app\common\value\installation {
     class ApplicationSourceIdentity {
@@ -37,7 +44,13 @@ namespace app\common\module {
     class Dependencies {
         public function __construct(...$args) {}
         public function prepareRelease(...$args) {
+            file_put_contents('prepare-marker', 'started');
             if (getenv('PREPARE_FAILURE') === 'build') throw new \RuntimeException('frontend failed');
+            if (getenv('PREPARE_FAILURE') !== 'stale') {
+                $lock = json_decode(file_get_contents('server/composer.lock'), true);
+                $lock['packages'][0]['version'] = '1.0.2';
+                file_put_contents('server/composer.lock', json_encode($lock));
+            }
             return ['operations' => [], 'frontend_adoption' => []];
         }
     }
@@ -56,15 +69,29 @@ function ensureThinkPhpApplication($root) {
     shutil.copy2(ROOT / 'scripts/deploy-update.sh', root / 'scripts/deploy-update.sh')
     subprocess.run(['git', 'init', '--quiet', str(root)], check=True)
     marker = root / 'compile-marker'
-    for failure, expected_error in (('identity', 'identity rejected'), ('build', 'frontend failed'), ('', '')):
+    lock_error = 'ValueError: locked package has a non-HTTPS source'
+    for failure, expected_error in (('identity', '[deploy-update] identity rejected'), ('build', '[deploy-update] frontend failed'),
+                                    ('stale', lock_error), ('wrong-root', lock_error), ('wrong-pin', lock_error),
+                                    ('unselected', lock_error), ('remote-source', lock_error), ('', '')):
+        url = 'elsewhere/fixture' if failure == 'wrong-root' else module_root
+        package = {'name': 'fixture/example', 'version': '1.0.1', 'dist': {'type': 'path', 'url': url}}
+        if failure == 'wrong-pin':
+            package['version'] = '1.0.0'
+        if failure == 'unselected':
+            package['name'] = 'other/example'
+        if failure == 'remote-source':
+            package['source'] = {'type': 'git', 'url': 'http://example.invalid/package'}
+        write('server/composer.lock', json.dumps({'content-hash': '0' * 32, 'packages': [package]}))
+        (root / 'prepare-marker').unlink(missing_ok=True)
         if marker.exists():
             marker.unlink()
         env = dict(os.environ, PREPARE_FAILURE=failure, PREPARE_COMPILE_MARKER=str(marker))
         result = subprocess.run(['bash', 'scripts/deploy-update.sh', '--prepare-release', '--version=1.0.0'],
                                 cwd=root, env=env, text=True, capture_output=True, timeout=20)
+        assert (root / 'prepare-marker').exists() == (failure in ('build', 'stale', '')), failure
         if failure:
             assert result.returncode != 0, (failure, result.stdout, result.stderr)
-            assert f'[deploy-update] {expected_error}' in result.stderr.splitlines(), result.stderr
+            assert expected_error in result.stderr.splitlines(), result.stderr
             assert not marker.exists(), 'compile must not follow failed preparation'
             assert '[deploy-update] Prepared' not in result.stdout
         else:
