@@ -33,7 +33,6 @@ use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer;
 use PeanutAdmin\Modules\Identity\Authorization\ThinkPhpTenantAuthorizationRepository;
 use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
-use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
 use PeanutAdmin\Kernel\Authorization\TenantAuthorizationEvaluator;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
 use think\db\PDOConnection;
@@ -408,7 +407,7 @@ SQL)->fetchColumn();
         return new DataPermissionEngine(
             $this->catalog,
             $this->policies,
-            new TenantAuthorizationEvaluator($this->authorization, new RevisionPermissionCache()),
+            new TenantAuthorizationEvaluator($this->authorization),
             $providers,
             new TargetResolverRegistry(),
             new TargetCatalogProviderRegistry(),

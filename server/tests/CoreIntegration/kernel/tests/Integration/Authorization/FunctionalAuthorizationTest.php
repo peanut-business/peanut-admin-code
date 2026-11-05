@@ -45,6 +45,7 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
             'platform.module.read',
             'platform.module.create',
             'platform.module.install',
+            'platform.module.update',
             'platform.module.uninstall',
             'platform.module.disable',
             'platform.module.sync',
@@ -136,23 +137,31 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
         SET status = 'active', revision = revision + 1
         WHERE status = 'suspended'
         SQL);
+        (new \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationRevisionRepository())->bumpTenant($tenantId);
+        $context = $this->tenantContext($tenantId, $memberId);
         self::assertTrue($evaluator->allows($context, 'example.record.read'));
 
         $this->database->exec(<<<'SQL'
         UPDATE pa_module_installation
         SET status = 'maintenance', revision = revision + 1
-        WHERE status = 'suspended'
+        WHERE module_key = 'example.records'
         SQL);
+        (new \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationRevisionRepository())->bumpTenant($tenantId);
+        $context = $this->tenantContext($tenantId, $memberId);
         self::assertFalse($evaluator->allows($context, 'example.record.read'));
 
         $this->database->exec(<<<'SQL'
         UPDATE pa_module_installation
         SET status = 'active', revision = revision + 1
-        WHERE status = 'suspended'
+        WHERE module_key = 'example.records'
         SQL);
+        (new \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationRevisionRepository())->bumpTenant($tenantId);
+        $context = $this->tenantContext($tenantId, $memberId);
         self::assertTrue($evaluator->allows($context, 'example.record.read'));
 
         $this->database->exec("UPDATE pa_role SET status = 'disabled', authorization_revision = authorization_revision + 1 WHERE id = {$roleId}");
+        (new \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationRevisionRepository())->bumpTenant($tenantId);
+        $context = $this->tenantContext($tenantId, $memberId);
         self::assertFalse($evaluator->allows($context, 'core.member.read'));
     }
 
@@ -212,6 +221,8 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
 
         $this->grantTenantPermission($tenantId, $roleId, $this->permissionId('core.member.update'));
         $this->database->exec("UPDATE pa_role SET authorization_revision = authorization_revision + 1 WHERE id = {$roleId}");
+        (new \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationRevisionRepository())->bumpTenant($tenantId);
+        $context = $this->tenantContext($tenantId, $memberId);
 
         self::assertTrue($evaluator->allows($context, 'core.member.update'));
     }
@@ -375,7 +386,8 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
             'web',
             new DateTimeImmutable(self::NOW),
             1,
-        1), 'request');
+            (int) $this->query("SELECT authorization_revision FROM pa_tenant WHERE id = {$tenantId}")->fetchColumn(),
+        ), 'request');
     }
 
     private function platformContext(int $accountId, int $operatorId): PlatformContext
@@ -394,7 +406,6 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
     {
         return new TenantAuthorizationEvaluator(
             $this->fixtureAuthorizationRepository(['example.records']),
-            new RevisionPermissionCache(),
         );
     }
 

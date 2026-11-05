@@ -93,12 +93,12 @@ final class ModuleRuntimeSchemaTest extends DatabaseTestCase
         ]);
         $this->licenseTenantModules($tenantId, ['example.target']);
         (new ModuleGuard($repository))->assertMemberAccess($tenantId, 'example.target', true, $now);
-        self::assertSame(1, $repository->tenantModule($tenantId, 'example.target')->revision);
+        self::assertSame(1, $repository->tenantModule($tenantId, 'example.target')->authorizationRevision);
 
         $this->database->exec("UPDATE pa_tenant_license SET status = 'suspended', revision = revision + 1 WHERE tenant_id = {$tenantId}");
         $disabled = $repository->tenantModule($tenantId, 'example.target');
         self::assertSame('disabled', $disabled->status);
-        self::assertSame(2, $disabled->revision);
+        self::assertSame(2, $disabled->authorizationRevision);
         $this->expectException(\PeanutAdmin\Kernel\Module\ModuleException::class);
         $this->expectExceptionMessage('disabled for tenant');
         (new ModuleGuard($repository))->assertMemberAccess($tenantId, 'example.target', true, $now);

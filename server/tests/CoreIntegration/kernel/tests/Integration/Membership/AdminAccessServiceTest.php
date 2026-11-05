@@ -181,16 +181,14 @@ final class AdminAccessServiceTest extends DatabaseTestCase
                         }
                         try {
                             ThinkPhpTestConnection::fromPdo($connection);
-                            (new MemberAdminService(new AuditService(), new \PeanutAdmin\Kernel\Identity\PasswordHasher(), new \PeanutAdmin\Kernel\Identity\PasswordPolicy()))->replaceRoles(
+                            $this->memberCommand(
                                 $this->tenantContext(
                                     'owner-race-' . $memberId,
                                     $this->tenantId,
                                     $memberId,
                                     $accountId,
                                 ),
-                                $memberId,
-                                [],
-                                1,
+                                fn(MemberAdminService $service, TenantContext $actor) => $service->replaceRoles($actor, $memberId, [], 1),
                             );
                             $outcome = 'success';
                         } catch (AdminAccessException $exception) {
@@ -219,20 +217,23 @@ final class AdminAccessServiceTest extends DatabaseTestCase
             foreach ($sockets as $socket) {
                 self::assertSame(1, fwrite($socket, 'g'));
             }
-            $waiting = $gate->prepare(<<<'SQL'
-SELECT COUNT(DISTINCT thread_state.PROCESSLIST_ID)
-FROM performance_schema.data_lock_waits lock_wait
-JOIN performance_schema.data_locks requested
-  ON requested.ENGINE_LOCK_ID = lock_wait.REQUESTING_ENGINE_LOCK_ID
-JOIN performance_schema.threads thread_state
-  ON thread_state.THREAD_ID = requested.THREAD_ID
-WHERE requested.OBJECT_SCHEMA = ? AND requested.OBJECT_NAME = 'pa_tenant'
-  AND thread_state.PROCESSLIST_ID IN (?, ?)
-SQL);
             $deadline = microtime(true) + 15;
             do {
-                $waiting->execute([$this->databaseName, ...$connectionIds]);
-                $waitingCount = (int) $waiting->fetchColumn();
+                $waitingIds = [];
+                foreach ($gate->query('SHOW FULL PROCESSLIST')->fetchAll(PDO::FETCH_ASSOC) as $process) {
+                    if (!in_array((int) $process['Id'], $connectionIds, true) || $process['db'] !== $this->databaseName) {
+                        continue;
+                    }
+                    $sql = strtolower(str_replace('`', '', (string) $process['Info']));
+                    if (preg_match('/^select\b.*\bfrom\s+pa_tenant\b/s', $sql) === 1
+                        && preg_match('/\bid\s*=\s*\'?' . $this->tenantId . '\'?(?=\s|$)/', $sql) === 1
+                        && str_contains($sql, 'for update')) {
+                        $waitingIds[] = (int) $process['Id'];
+                    }
+                }
+                // This connection still owns the exact Tenant row, so these two
+                // in-flight locking SELECTs cannot finish before the gate commits.
+                $waitingCount = count(array_unique($waitingIds));
                 if ($waitingCount === 2) {
                     break;
                 }
@@ -338,11 +339,9 @@ SQL)->fetchColumn());
         );
         self::assertCount(MemberAdminService::MAX_ROLE_IDS, $assigned['role_keys']);
 
-        $cleared = $this->members()->replaceRoles(
+        $cleared = $this->memberCommand(
             $this->tenantContext('role-limit-empty'),
-            $this->actorMemberId,
-            [],
-            (int) $assigned['revision'],
+            fn(MemberAdminService $service, TenantContext $actor) => $service->replaceRoles($actor, $this->actorMemberId, [], (int) $assigned['revision']),
         );
         self::assertSame([], $cleared['role_keys']);
         self::assertSame('active', $cleared['status']);
@@ -360,6 +359,8 @@ SQL)->fetchColumn());
                 'Depth ' . $depth,
                 $parentId,
                 $depth,
+                '',
+                '',
             );
             $departments[] = $department;
             $parentId = (int) $department['id'];
@@ -371,6 +372,8 @@ SQL)->fetchColumn());
             'Depth 11',
             $parentId,
             11,
+            '',
+            '',
         ));
         $root = $departments[0];
         $this->assertAdminError('DEPARTMENT_CYCLE', fn() => $service->move(
@@ -387,6 +390,9 @@ SQL)->fetchColumn());
             'Root updated',
             0,
             (int) $root['revision'],
+            '',
+            '',
+            null,
         );
         self::assertSame('2', $updated['revision']);
         $this->assertAdminStatus(412, fn() => $service->update(
@@ -396,6 +402,9 @@ SQL)->fetchColumn());
             'Stale',
             0,
             (int) $root['revision'],
+            '',
+            '',
+            null,
         ));
     }
 
@@ -418,6 +427,11 @@ SQL)->fetchColumn());
             '1.0.0',
         ));
         $this->licenseTenantModules($this->tenantId, ['example.records'], 'suspended');
+        $this->insert('pa_module_installation', [
+            'module_key' => 'example.records', 'installed_version' => '1.0.0', 'manifest_schema_version' => 1,
+            'manifest_digest' => $this->fixtureModuleRegistry(['example.records'])->requireManifest('example.records')->digest,
+            'status' => 'active', 'created_at' => self::NOW, 'updated_at' => self::NOW,
+        ]);
 
         $this->assertAdminError('PERMISSION_NOT_ASSIGNABLE', fn() => $service->replacePermissions(
             $this->tenantContext('request-role-permissions-disabled'),
@@ -511,6 +525,18 @@ SQL)->fetchColumn());
     private function members(): MemberAdminService
     {
         return new MemberAdminService(new AuditService(), new \PeanutAdmin\Kernel\Identity\PasswordHasher(), new \PeanutAdmin\Kernel\Identity\PasswordPolicy());
+    }
+
+    /** @param callable(MemberAdminService,TenantContext):array<string,mixed> $command */
+    private function memberCommand(TenantContext $actor, callable $command): array
+    {
+        $contexts = new \app\common\execution\ExecutionContextStore();
+        $service = new MemberAdminService(
+            new AuditService(new \app\common\execution\CurrentExecutionContext($contexts)),
+            new \PeanutAdmin\Kernel\Identity\PasswordHasher(),
+            new \PeanutAdmin\Kernel\Identity\PasswordPolicy(),
+        );
+        return $contexts->run(new \app\common\execution\AdminExecutionContext($actor, 'core.member.role.assign'), fn() => $command($service, $actor));
     }
 
     private function tenantContext(

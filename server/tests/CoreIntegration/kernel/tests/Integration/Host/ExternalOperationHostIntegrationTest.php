@@ -465,11 +465,15 @@ final class ExternalOperationHostIntegrationTest extends DatabaseTestCase
                         true,
                     );
 
+                    $observer = $this->connect($this->databaseName);
+                    $this->assertTargetLicenseLocked($observer);
+                    $unrelatedRevision = (int) $observer->query('SELECT revision FROM pa_tenant_license WHERE tenant_id = 2')->fetchColumn();
                     fwrite($worker['pipes'][0], "go\n");
                     fflush($worker['pipes'][0]);
                     $unrelated = $this->readTenantDisableWorkerMessage($worker);
-                    $unrelatedCommitObserved = ($unrelated['kind'] ?? null) === 'unrelated_committed';
-                    $targetWaitObserved = $this->waitForConnectionLock($worker['connection_id']);
+                    $unrelatedCommitObserved = ($unrelated['kind'] ?? null) === 'unrelated_committed'
+                        && (int) $observer->query('SELECT revision FROM pa_tenant_license WHERE tenant_id = 2')->fetchColumn() === $unrelatedRevision + 1;
+                    $targetWaitObserved = $this->waitForConnectionLock($observer, $worker['connection_id']);
                 },
             );
 
@@ -530,6 +534,13 @@ final class ExternalOperationHostIntegrationTest extends DatabaseTestCase
                     'fixture.record.status',
                 ]);
             }
+            public function permissionsForKeys(TenantContext $context, array $permissionKeys): EffectivePermissionSet
+            {
+                return new EffectivePermissionSet(array_values(array_intersect(
+                    $permissionKeys,
+                    $this->permissions($context->tenantId, $context->memberId)->keys(),
+                )));
+            }
         };
         $platformRepository = new class implements PlatformAuthorizationRepository {
             public function revision(int $operatorId): string
@@ -542,7 +553,7 @@ final class ExternalOperationHostIntegrationTest extends DatabaseTestCase
             }
         };
         $permissions = new PermissionMiddleware(
-            new TenantAuthorizationEvaluator($tenantRepository, new RevisionPermissionCache()),
+            new TenantAuthorizationEvaluator($tenantRepository),
             new PlatformAuthorizationEvaluator($platformRepository, new RevisionPermissionCache()),
         );
         $dataPermission = new DataPermissionAdapter(
@@ -891,19 +902,40 @@ SQL);
         proc_close($worker['process']);
     }
 
-    private function waitForConnectionLock(int $connectionId): bool
+    private function assertTargetLicenseLocked(PDO $observer): void
     {
-        $statement = $this->admin->prepare(<<<'SQL'
-SELECT COUNT(*)
-FROM performance_schema.data_lock_waits lock_wait
-JOIN performance_schema.threads thread
-  ON thread.THREAD_ID = lock_wait.REQUESTING_THREAD_ID
-WHERE thread.PROCESSLIST_ID = :connection_id
-SQL);
+        $targetId = (int) $observer->query('SELECT id FROM pa_tenant_license WHERE tenant_id = 1')->fetchColumn();
+        self::assertGreaterThan(0, $targetId);
+        $conflict = false;
+        $observer->beginTransaction();
+        try {
+            $observer->query('SELECT id FROM pa_tenant_license WHERE id = ' . $targetId . ' FOR UPDATE NOWAIT')->fetchAll();
+        } catch (\PDOException $exception) {
+            if ((int) ($exception->errorInfo[1] ?? 0) !== 3572) {
+                throw $exception;
+            }
+            $conflict = true;
+        } finally {
+            $observer->rollBack();
+        }
+        self::assertTrue($conflict, 'The parent guard must retain the target license before releasing the worker.');
+    }
+
+    private function waitForConnectionLock(PDO $observer, int $connectionId): bool
+    {
         $deadline = microtime(true) + 5.0;
         do {
-            $statement->execute(['connection_id' => $connectionId]);
-            if ((int) $statement->fetchColumn() > 0) {
+            foreach ($observer->query('SHOW FULL PROCESSLIST')->fetchAll(PDO::FETCH_ASSOC) as $process) {
+                if ((int) $process['Id'] !== $connectionId || $process['db'] !== $this->databaseName) {
+                    continue;
+                }
+                $sql = strtolower(str_replace('`', '', (string) $process['Info']));
+                if (preg_match('/^update\s+pa_tenant_license\b/s', $sql) !== 1
+                    || preg_match('/\btenant_id\s*=\s*\'?1\'?(?=\s|$)/', $sql) !== 1) {
+                    continue;
+                }
+                // Before release, the probe proved only the parent owns this row.
+                // The worker's exact UPDATE cannot complete until that guard commits.
                 return true;
             }
             usleep(10_000);

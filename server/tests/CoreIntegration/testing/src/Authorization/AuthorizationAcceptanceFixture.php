@@ -8,7 +8,6 @@ use DateTimeImmutable;
 use PeanutAdmin\Modules\Identity\DataPermission\Catalog\ThinkPhpResourceOperationCatalog;
 use PeanutAdmin\DataPermission\Constraint\ColumnReference;
 use PeanutAdmin\DataPermission\Engine\DataPermissionEngine;
-use PeanutAdmin\DataPermission\Policy\PolicyCache;
 use PeanutAdmin\Modules\Identity\DataPermission\Policy\ThinkPhpPolicyRepository;
 use PeanutAdmin\DataPermission\Provider\ConditionProviderRegistry;
 use PeanutAdmin\Modules\Identity\DataPermission\Provider\ThinkPhpDepartmentHierarchyProvider;
@@ -28,7 +27,6 @@ use PeanutAdmin\Kernel\Authorization\Persistence\PermissionDefinition;
 use PeanutAdmin\Kernel\Authorization\Persistence\ProtectedResourceDefinition;
 use PeanutAdmin\Kernel\Authorization\Persistence\ResourceOperationDefinition;
 use PeanutAdmin\Kernel\Authorization\Persistence\TargetTypeDefinition;
-use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
 use PeanutAdmin\Kernel\Authorization\TenantAuthorizationEvaluator;
 use RuntimeException;
 use think\db\PDOConnection;
@@ -172,7 +170,7 @@ SQL,
             'module_key' => 'fixture',
             'installed_version' => '1.0.0',
             'manifest_schema_version' => 1,
-            'manifest_digest' => hash('sha256', 'fixture'),
+            'manifest_digest' => $this->registry()->requireManifest('fixture')->digest,
             'status' => 'active',
             'created_at' => self::NOW,
             'updated_at' => self::NOW,
@@ -335,12 +333,18 @@ SQL,
         }
         $this->grant($this->betaTenant, $betaMenuRole, $this->permissions['fixture.record.menu']);
         foreach ([$this->alphaTenant, $this->betaTenant] as $tenantId) {
-            $this->insert('pa_tenant_module', [
-                'tenant_id' => $tenantId,
-                'module_key' => 'fixture',
-                'status' => 'enabled',
+            $planId = $this->insert('pa_plan', [
+                'code' => 'acceptance-' . $tenantId, 'name' => 'Acceptance fixture',
                 'created_at' => self::NOW,
                 'updated_at' => self::NOW,
+            ]);
+            Db::name('plan_module')->insert(['plan_id' => $planId, 'module_key' => 'fixture']);
+            foreach (array_keys($this->permissions) as $permissionKey) {
+                Db::name('plan_permission')->insert(['plan_id' => $planId, 'permission_key' => $permissionKey]);
+            }
+            $this->insert('pa_tenant_license', [
+                'tenant_id' => $tenantId, 'plan_id' => $planId, 'status' => 'active',
+                'effective_at' => self::NOW, 'created_at' => self::NOW, 'updated_at' => self::NOW,
             ]);
         }
     }
@@ -484,13 +488,16 @@ SQL,
         $shared = new SharedMasterScopeProviderRegistry();
         $shared->register('fixture.reference', new FixtureSharedMasterScopeProvider());
 
+        $registry = $this->registry();
+        $entitlements = new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService($registry);
+        $queries = new \PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationQuery(
+            new \PeanutAdmin\Modules\Identity\Membership\Query\ThinkPhpTenantMemberDirectory(), $registry, $entitlements,
+        );
         return new DataPermissionEngine(
-            new ThinkPhpResourceOperationCatalog(),
+            new ThinkPhpResourceOperationCatalog($entitlements),
             new ThinkPhpPolicyRepository(),
-            new PolicyCache(),
             new TenantAuthorizationEvaluator(
-                new ThinkPhpTenantAuthorizationRepository(),
-                new RevisionPermissionCache(),
+                new ThinkPhpTenantAuthorizationRepository($entitlements, $queries, $registry),
             ),
             $providers,
             $resolvers,
@@ -675,7 +682,17 @@ SQL,
             'web',
             new DateTimeImmutable(self::NOW),
             1,
+            (int) Db::name('tenant')->where('id', $tenantId)->value('authorization_revision'),
         ), 'request-' . $suffix);
+    }
+
+    private function registry(): \PeanutAdmin\Kernel\Module\CompiledModuleRegistry
+    {
+        $manifest = \PeanutAdmin\Kernel\Module\ManifestDocument::fromObject('fixtures/fixture', (object) [
+            'key' => 'fixture', 'version' => '1.0.0', 'schema_version' => 1,
+            'tenant' => (object) ['enableable' => true],
+        ]);
+        return new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([$manifest], [], [], [], 'acceptance-fixture');
     }
 
     /** @param array<string, int|string|null> $values */

@@ -795,14 +795,18 @@ SQL);
                     $this->writeSocketLine($passwordSockets[1], (string) $connectionId, $deadline);
                     $this->readSocketLine($passwordSockets[1], $deadline);
                     ThinkPhpTestConnection::fromPdo($passwordConnection);
-                    $passwords = new AccountSelfService(new AuditService(), new PasswordHasher(), new PasswordPolicy());
-                    $passwords->changePassword(
+                    $contexts = new \app\common\execution\ExecutionContextStore();
+                    $passwords = new AccountSelfService(
+                        new AuditService(new \app\common\execution\CurrentExecutionContext($contexts)),
+                        new PasswordHasher(), new PasswordPolicy(),
+                    );
+                    $contexts->run(new \app\common\execution\AdminExecutionContext($context, 'account.password.changed'), fn() => $passwords->changePassword(
                         $context,
                         self::PASSWORD,
                         'Replacement-password-456!',
                         '127.0.0.1',
                         'Test Agent',
-                    );
+                    ));
                     $outcome = 'success';
                 } catch (\Throwable $throwable) {
                     $outcome = $throwable::class;
@@ -820,10 +824,6 @@ SQL);
             $gateConnection = $this->connect($this->databaseName);
             $gateConnection->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
             self::assertTrue($gateConnection->beginTransaction());
-            $gateConnectionIdStatement = $gateConnection->query('SELECT CONNECTION_ID()');
-            self::assertNotFalse($gateConnectionIdStatement);
-            $gateConnectionId = (int) $gateConnectionIdStatement->fetchColumn();
-            self::assertGreaterThan(0, $gateConnectionId);
             $maximumIdStatement = $gateConnection->query('SELECT COALESCE(MAX(id), 0) FROM pa_login_challenge');
             self::assertNotFalse($maximumIdStatement);
             $maximumChallengeId = (int) $maximumIdStatement->fetchColumn();
@@ -838,48 +838,28 @@ SQL);
             $switchConnectionId = (int) $this->readSocketLine($switchParentSocket, $deadline);
             self::assertGreaterThan(0, $switchConnectionId);
             $this->writeSocketLine($switchParentSocket, 'start', $deadline);
-            $insertWait = $gateConnection->prepare(<<<'SQL'
-SELECT COUNT(*)
-FROM performance_schema.data_lock_waits lock_wait
-JOIN performance_schema.threads requesting_thread
-  ON requesting_thread.THREAD_ID = lock_wait.REQUESTING_THREAD_ID
-JOIN performance_schema.threads blocking_thread
-  ON blocking_thread.THREAD_ID = lock_wait.BLOCKING_THREAD_ID
-JOIN performance_schema.data_locks waiting_lock
-  ON waiting_lock.ENGINE = lock_wait.ENGINE
-  AND waiting_lock.ENGINE_LOCK_ID = lock_wait.REQUESTING_ENGINE_LOCK_ID
-WHERE requesting_thread.PROCESSLIST_ID = :switch_connection_id
-  AND blocking_thread.PROCESSLIST_ID = :gate_connection_id
-  AND waiting_lock.OBJECT_SCHEMA = DATABASE()
-  AND waiting_lock.OBJECT_NAME = 'pa_login_challenge'
-  AND waiting_lock.INDEX_NAME = 'PRIMARY'
-  AND waiting_lock.LOCK_TYPE = 'RECORD'
-  AND waiting_lock.LOCK_STATUS = 'WAITING'
-  AND waiting_lock.LOCK_MODE LIKE '%INSERT_INTENTION%'
-SQL);
-            self::assertNotFalse($insertWait);
-            $switchReachedInsert = false;
-            do {
-                $insertWait->execute([
-                    'switch_connection_id' => $switchConnectionId,
-                    'gate_connection_id' => $gateConnectionId,
-                ]);
-                if ((int) $insertWait->fetchColumn() > 0) {
-                    $switchReachedInsert = true;
-                    break;
-                }
-                usleep(10_000);
-            } while (microtime(true) < $deadline);
+            $switchReachedInsert = $this->waitForOwnStatement(
+                $gateConnection, $switchConnectionId, '/^insert\s+into\s+pa_login_challenge\b/s', $deadline,
+            );
             self::assertTrue($switchReachedInsert, 'Tenant switch did not reach the challenge insert gate.');
+            $sessionId = $gateConnection->prepare('SELECT id FROM pa_tenant_session WHERE session_key = ?');
+            $sessionId->execute([$context->sessionKey]);
+            $sourceSessionId = (int) $sessionId->fetchColumn();
+            self::assertGreaterThan(0, $sourceSessionId);
+            $observer = $this->connect($this->databaseName);
+            // Password is not released yet; the parent gate locks only the challenge
+            // gap. These conflicts therefore belong to the switch transaction.
+            $this->assertRowLocked($observer, 'pa_tenant', $context->tenantId);
+            $this->assertRowLocked($observer, 'pa_tenant_session', $sourceSessionId);
 
             $passwordConnectionId = (int) $this->readSocketLine($passwordParentSocket, $deadline);
             self::assertGreaterThan(0, $passwordConnectionId);
             $this->writeSocketLine($passwordParentSocket, 'start', $deadline);
             self::assertTrue(
-                $this->waitForDataLockWait(
+                $this->waitForOwnStatement(
                     $gateConnection,
                     $passwordConnectionId,
-                    $switchConnectionId,
+                    '/^select\b.*\bfrom\s+pa_tenant\b.*\bid\s*=\s*\'?' . $context->tenantId . '\'?(?=\s|$).*\bfor update\b/s',
                     $deadline,
                 ),
                 'Password change did not wait behind the tenant-switch source-session transaction.',
@@ -1111,47 +1091,43 @@ SQL);
         return null;
     }
 
-    private function waitForDataLockWait(
+    private function waitForOwnStatement(
         PDO $pdo,
-        int $requestingConnectionId,
-        int $blockingConnectionId,
+        int $connectionId,
+        string $pattern,
         float $deadline,
     ): bool {
-        $statement = $pdo->prepare(<<<'SQL'
-SELECT COUNT(*)
-FROM performance_schema.data_lock_waits lock_wait
-JOIN performance_schema.threads requesting_thread
-  ON requesting_thread.THREAD_ID = lock_wait.REQUESTING_THREAD_ID
-JOIN performance_schema.threads blocking_thread
-  ON blocking_thread.THREAD_ID = lock_wait.BLOCKING_THREAD_ID
-WHERE requesting_thread.PROCESSLIST_ID = :requesting_connection_id
-  AND blocking_thread.PROCESSLIST_ID = :blocking_connection_id
-  AND EXISTS (
-      SELECT 1
-      FROM performance_schema.data_locks source_session_lock
-      JOIN performance_schema.threads source_session_thread
-        ON source_session_thread.THREAD_ID = source_session_lock.THREAD_ID
-      WHERE source_session_thread.PROCESSLIST_ID = :source_session_connection_id
-        AND source_session_lock.OBJECT_SCHEMA = DATABASE()
-        AND source_session_lock.OBJECT_NAME = 'pa_tenant_session'
-        AND source_session_lock.LOCK_TYPE = 'RECORD'
-        AND source_session_lock.LOCK_STATUS = 'GRANTED'
-  )
-SQL);
-        self::assertNotFalse($statement);
         do {
-            $statement->execute([
-                'requesting_connection_id' => $requestingConnectionId,
-                'blocking_connection_id' => $blockingConnectionId,
-                'source_session_connection_id' => $blockingConnectionId,
-            ]);
-            if ((int) $statement->fetchColumn() > 0) {
-                return true;
+            foreach ($pdo->query('SHOW FULL PROCESSLIST')->fetchAll(PDO::FETCH_ASSOC) as $process) {
+                if ((int) $process['Id'] !== $connectionId || $process['db'] !== $this->databaseName) {
+                    continue;
+                }
+                $sql = strtolower(str_replace('`', '', (string) $process['Info']));
+                if (preg_match($pattern, $sql) === 1) {
+                    return true;
+                }
             }
             usleep(10_000);
         } while (microtime(true) < $deadline);
 
         return false;
+    }
+
+    private function assertRowLocked(PDO $observer, string $table, int $id): void
+    {
+        $conflict = false;
+        $observer->beginTransaction();
+        try {
+            $observer->query('SELECT id FROM ' . $table . ' WHERE id = ' . $id . ' FOR UPDATE NOWAIT')->fetchAll();
+        } catch (\PDOException $exception) {
+            if ((int) ($exception->errorInfo[1] ?? 0) !== 3572) {
+                throw $exception;
+            }
+            $conflict = true;
+        } finally {
+            $observer->rollBack();
+        }
+        self::assertTrue($conflict, 'The switch transaction must retain the exact ' . $table . ' row.');
     }
 
     /** @param resource $socket */

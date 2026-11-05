@@ -36,7 +36,6 @@ use PeanutAdmin\Kernel\Authorization\Persistence\PermissionDefinition;
 use PeanutAdmin\Kernel\Authorization\Persistence\ProtectedResourceDefinition;
 use PeanutAdmin\Kernel\Authorization\Persistence\ResourceOperationDefinition;
 use PeanutAdmin\Kernel\Authorization\Persistence\TargetTypeDefinition;
-use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
 use PeanutAdmin\Kernel\Authorization\TenantAuthorizationEvaluator;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
 use think\db\PDOConnection;
@@ -423,7 +422,6 @@ SQL);
             new ThinkPhpPolicyRepository(),
             new TenantAuthorizationEvaluator(
                 $this->fixtureAuthorizationRepository(['example']),
-                new RevisionPermissionCache(),
             ),
             $providers,
             $resolvers,
