@@ -377,6 +377,7 @@ try {
     createApplicationExpect($manifestOne['template'] === [
         'version' => $release['version'],
         'inventory_sha256' => $release['inventory_sha256'],
+        'source_identity' => ['kind' => 'git', 'commit' => $identity['commit'], 'tree' => $identity['tree']],
         'source_commit' => $release['source_commit'],
         'source_tree' => $release['source_tree'],
     ], 'application template identity must adopt the immutable release');
@@ -385,10 +386,11 @@ try {
         'requested_ref' => $identity['commit'],
         'channel' => 'development',
         'release_version' => null,
-        'commit' => $identity['commit'],
-        'tree' => $identity['tree'],
+        'source_identity' => ['kind' => 'git', 'commit' => $identity['commit'], 'tree' => $identity['tree']],
         'inventory_sha256' => hash_file('sha256', $inventoryPath),
         'edition_profile_sha256' => hash_file('sha256', $root . '/scaffold/edition-profiles.json'),
+        'commit' => $identity['commit'],
+        'tree' => $identity['tree'],
     ], 'generation source must record the actual source identity and current inventory');
     createApplicationExpect($manifestOther['template'] === $manifestOne['template'], 'all parameter groups must adopt the same release identity');
     createApplicationExpect($manifestOther['generation_source'] === $manifestOne['generation_source'], 'all parameter groups must record the same generation source');
