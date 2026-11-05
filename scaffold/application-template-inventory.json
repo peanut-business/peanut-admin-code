@@ -1053,7 +1053,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e3a763fac4ca751791cecd3f107b76ae59702ae780cd6e6be87339a98cdeac20"
+            "source_sha256": "700f341086ac3461df40d4b545e50e20697126b16f0889606349ae7828da0aca"
         },
         {
             "path": "docs/public/release-channels.md",
@@ -1095,7 +1095,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e9d8b154bdbcababc26e99173507ee9bba80e9047e8e4fc281e23dab2a08a745"
+            "source_sha256": "2194aa58e5545382f24a9c2cf7c8942e1066a34bbf685f4cf9bb24e960190002"
         },
         {
             "path": "pc/.env.example",
@@ -7780,7 +7780,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0e491829a19b57683d55227f557e5a59b725964b64be7aee6a8cf0298bc26dc2"
+            "source_sha256": "dfb87fd628ebacf7847bad1e37885cace8283ff57349c24496144034476a8cd9"
         },
         {
             "path": "server/app/common/module/ModuleSeedRun.php",
@@ -8902,7 +8902,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "56b0f305b13f686b62768fa7d17ea3ef6a3b39ad6ac4248787253acfb3cf51ff"
+            "source_sha256": "a14bd7b7b995276216f98bb0a83eb18fa3d67963d175ba4e368d0cae4f943b84"
         },
         {
             "path": "server/app/modules/peanut/file/database/migrations/20261101010003_initial_file_schema.php",
@@ -8944,7 +8944,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bd8759986401bcef3142e2bbe556ca7e32498a584d9e3388bc0994e191b8a9da"
+            "source_sha256": "4931092b44cd70ad37fff113ae4afa4e5845540c7387c3a91ed954ff5a197765"
         },
         {
             "path": "server/app/modules/peanut/file/resources/menus.json",
@@ -9210,7 +9210,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "14ef5c115e1b72ef75340338268d9e22e8d25e95fc6c48c65a15ae9e401457d8"
+            "source_sha256": "7f4603db955f59c402467a334d3367f90f500802cd64c68151410b894bb2a650"
         },
         {
             "path": "server/app/modules/peanut/file/src/Contract/FileUploads.php",
@@ -9784,7 +9784,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8d6a41bcb3a88a84572e08c287c0e430104da5729e9a6de56630215fcd1772a9"
+            "source_sha256": "afc6d68d92447f2841660889d04a80cbdd4928688b709eb8f5edbe1546dbe8df"
         },
         {
             "path": "server/app/modules/peanut/file/src/Validation/FileCateValidate.php",
@@ -9868,7 +9868,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "689b175ea92b5e663ede74d176bc4f3ab57620d099f3ee23d55630b15687e2ed"
+            "source_sha256": "3fa2d8783e4c3b1f418557b79a621ce33f6d2bc62529bf36be9c23282c9b4dac"
         },
         {
             "path": "server/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php",
@@ -9994,7 +9994,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "935552cf638bdd6708182eba9eac3ca1a8b17aec8b42a34a1940a8103268c174"
+            "source_sha256": "c5e7a490415967b707deec19b1fb4242744ea9ce2eaf21ee8f0a2d9dfee907b9"
         },
         {
             "path": "server/app/modules/peanut/identity/src/Audit/AuditService.php",
@@ -12164,7 +12164,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "601f5281b27061ce808e6d4eed7206022617499998ca14a67d4b1a5e8fccfce9"
+            "source_sha256": "010c28f15a4d2d8d2b642a6dc1601e809badde5e8eb7096f69cccb44c45596c0"
         },
         {
             "path": "server/app/modules/peanut/integration/database/migrations/20261101010008_initial_integration_schema.php",
@@ -12181,6 +12181,20 @@
             "source_sha256": "b2cffc8a54dbd953327df003c2c1a0aa4145148bce45874beac00f99a677f0ee"
         },
         {
+            "path": "server/app/modules/peanut/integration/database/migrations/20261107000003_preserve_payment_merchant_bindings.php",
+            "target": "server/app/modules/peanut/integration/database/migrations/20261107000003_preserve_payment_merchant_bindings.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9651c303f8e31c67c55ab4a1e53ff8a4781b2e8539617341a9ea3320d827fa6e"
+        },
+        {
             "path": "server/app/modules/peanut/integration/module.json",
             "target": "server/app/modules/peanut/integration/module.json",
             "classification": "managed",
@@ -12192,7 +12206,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bf5d6ab22d3650fb6d5bb4cbbc8b3ef41d25690f539f77df268de7f2c3e9e649"
+            "source_sha256": "2e46632b79e32bbd5e931b03ccfd581b1379b4bacf54ab9dfe614f3b585aa52f"
         },
         {
             "path": "server/app/modules/peanut/integration/resources/menus.json",
@@ -12514,7 +12528,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b0c4b8fdaef1e67ae3e136b089ba3f4ed06369ddb31947607d1593e8a749141b"
+            "source_sha256": "0030fcb7f6f630aba3e3a9203f657b2d9b43872c4451366e1624076b3ca40bfa"
         },
         {
             "path": "server/app/modules/peanut/integration/src/Contract/ExternalBindingTransfer.php",
@@ -12584,7 +12598,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "01fe7e3f2dc36bf727d4098dda4f89ec9de54ff1d00dccb12df2a4c4d3465d6d"
+            "source_sha256": "1fc1edfd31d39de64febd31441f5054b472b10b083194854ddea9d42232005c2"
         },
         {
             "path": "server/app/modules/peanut/integration/src/Contract/ExternalTenantAudit.php",
@@ -12682,7 +12696,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7d528f0a4b0612bde33c8aadfe20c1505500762186071248de7c9eda85cc18c8"
+            "source_sha256": "7ae77da3e13b5c51d83c7974a0b4ec86c641681019f7be1d59e34e2f68a5f01e"
         },
         {
             "path": "server/app/modules/peanut/integration/src/Contract/IntegrationSecurityRepository.php",
@@ -12864,7 +12878,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4f9b146a4897240ac31d18589d0e8fc7e3d6c234eb814db77d606181966bfd28"
+            "source_sha256": "c47c4dcb5015a932a7bbd65c42b238b68e53ec1af71dda03b9e4f2843bd602b5"
         },
         {
             "path": "server/app/modules/peanut/integration/src/Infrastructure/UnavailableWebhookSecretProtector.php",
@@ -12990,7 +13004,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5d4ee6a44ab09f787f810539e5fb4c7abcac6075f290bd6b56affc27a1504946"
+            "source_sha256": "a7c5d713315f55e61837f2f9d684e09f56248a39c30df228ebad96be39859331"
         },
         {
             "path": "server/app/modules/peanut/integration/src/Service/ExternalChannelBindingService.php",
@@ -13018,7 +13032,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "36bd34f4ac96b637f85465b4d488fa034d0d04eef0fb56a90ccdb60767718862"
+            "source_sha256": "c0e4576c6c49dd0d16bea8b094cd4fe8eb35da9685ff336ecdc98d91f4a1cc9c"
         },
         {
             "path": "server/app/modules/peanut/integration/src/Webhook/TrustedWebhookEvent.php",
@@ -14672,7 +14686,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "059b4092f12a184a30bad6d1ad1a81cfd73c2b36380318fc654c6284b7ec1b9e"
+            "source_sha256": "97da55b22794623931724be2d1a44224e1b2d876fa838e94badc46c81f7c97a0"
         },
         {
             "path": "server/app/modules/peanut/settings/database/migrations/20261101010004_initial_settings_schema.php",
@@ -14700,7 +14714,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3c1269efbc2b0f29416360e50579f0703ffaf65f13627d9ce5135c1ae309cb1f"
+            "source_sha256": "5de1d1f8d1d19059f1667f697b446dee94ed1143165e2b952dd585303136f216"
         },
         {
             "path": "server/app/modules/peanut/settings/resources/menus.json",
@@ -15347,7 +15361,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5735b09db10563c92ac7084334522665cb4a67fad479b9c5c686b36166b70ea5"
+            "source_sha256": "cd8fca784e68aa41ddbf31caaffaeff2789abd75467718d9dbebd3cab43ab9a8"
         },
         {
             "path": "server/app/modules/peanut/task/composer.json",
@@ -15361,7 +15375,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "318996469f5c924337913e844ef3c49da3c89758410754f8c7ad0157d51e8cdc"
+            "source_sha256": "ed74c9c2b14b28805e7d40e9741a3c3888a979634252f178229e55320ae3157f"
         },
         {
             "path": "server/app/modules/peanut/task/database/migrations/20261101010006_initial_task_schema.php",
@@ -15417,7 +15431,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "24fdf1f58877f66ead910a87b73b1a295c6a201469c0408963572155177008e7"
+            "source_sha256": "6752d99d3317dc023ad1812bb48640f80d69ec248251fad44f793d8b0cae60d8"
         },
         {
             "path": "server/app/modules/peanut/task/resources/menus.json",
@@ -15753,7 +15767,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "21f482dce910417b3260f4c35e460dbd3a2b9ddb3b5b018a8a0c0de429d1dd83"
+            "source_sha256": "3ffd0f66446bd94402a9769c4573ad2ad9ca85f80063af2c3cf34be21ecc5f67"
         },
         {
             "path": "server/app/modules/peanut/task/src/Job/Application/TaskJobException.php",
@@ -15963,7 +15977,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "68b4bf77e439eb124ebc40cd8f0634df1f887e3d7ed36f81a7fa6e071e10cd43"
+            "source_sha256": "c71a4b0dfa2b47c7c3ded75ce6723ea6ce3607416e32c3b52cbc94f598acae8f"
         },
         {
             "path": "server/app/modules/peanut/task/src/Service/CrontabApplicationService.php",
@@ -15977,7 +15991,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0e7b70a9fbc35dabbc7b1cd635c6a39e89ef4ffd8fc1da6de1e81cb8d6eee8bf"
+            "source_sha256": "41929bacfeb1987cb8e3d6ae0a45d8c7522e16f47c30b940ea7ce47b2d2e5196"
         },
         {
             "path": "server/app/modules/peanut/task/src/Service/CrontabSchedulerService.php",
@@ -16006,7 +16020,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a0cd23c13197e986840d3d80b35c26b64bf72a4a60375a81f9d09c87dcf76f17"
+            "source_sha256": "887c8308e65fdc2f077ed3fccc801b280ee346bc8ac037f3fa39bb824a79b507"
         },
         {
             "path": "server/app/modules/peanut/task/src/Service/TaskAdminApplicationService.php",
@@ -16636,7 +16650,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0b9bad13ac2a65f4b7bcfd3f99eec6c336e3e068bd89d9c3a7357bb253acf807"
+            "source_sha256": "f6b0dd44367f6f57c43475d41dc4d9fe12b24764b156976b2b4305ec9b404d00"
         },
         {
             "path": "server/app/platform/infrastructure/module/ModulePackageSourcePromoter.php",
@@ -16972,7 +16986,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "51b4f137aa8539982d3ee3d9d77a1beb62feec1bae407dfb5843cc66c5722a19"
+            "source_sha256": "8fe9be71b4b0d79b9a58e1bf433d7bb624f392965a454d673ff9dcca33ee9dc6"
         },
         {
             "path": "server/app/platform/services/module/ModulePackageAdoptionService.php",
@@ -17000,7 +17014,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fa7c37627649c317ba9b62de8cb92dc0d58ea10755494720d69b4e60b411054f"
+            "source_sha256": "e763881be65b9e8d4f451c387dfc73b1acb7d4bbd75014e92a8bcfcb9aaa46fe"
         },
         {
             "path": "server/app/platform/services/module/ModuleQualificationQueryService.php",
@@ -17294,7 +17308,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f7860c0bdf6e1d0d6c0a7070a4b2a79f30fba09b51f797a5beaff86523a3c4ce"
+            "source_sha256": "4c968cf9c71aeb46786db783b2efb6bf8c7b1bf6b7025d19940f2fa339aba260"
         },
         {
             "path": "server/composer.lock",
@@ -17308,7 +17322,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bf2934b9440292e95a3c8941e12a0953bdda474757ac2e99eef3f326fa852f5e"
+            "source_sha256": "901df8dcb3149e1a6a50cc66cd8f9a024844d41583ad64a243cdcc21273ddc85"
         },
         {
             "path": "server/config/admin_api_access.php",
@@ -19168,7 +19182,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "142a6e2dc4c0e89482accc7234d91add26ad101e46a8f3839ce1c48dbbc72474"
+            "source_sha256": "490b659bd4143ce63e814310f7bd1f6e033f89bbc342cf87785da17a760e1c7d"
         },
         {
             "path": "server/generated/openapi.json",
@@ -19182,7 +19196,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d05f72d6da57618105d5ce5af5c96c96ddf20b31def42226b7aea58f3da1eafe"
+            "source_sha256": "43ac28f880df996e4eb5b34b46cc46d39c61eef52d5872cc9e504d682cf24a48"
         },
         {
             "path": "server/module",
@@ -19196,7 +19210,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fe53ac1629baaae01e624a1bf50b9f56014e007f3f0c17cd544d2a26ce2c8a19"
+            "source_sha256": "cf6e874366058b04e7e4823e3ab532b65149435acea410ccc73fc7d02d63d019"
         },
         {
             "path": "server/public/.htaccess",
