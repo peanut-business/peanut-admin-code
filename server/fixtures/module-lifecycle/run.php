@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /** Specific isolated-APP Member/Task qualification consumer; no installation or identity synthesis. */
 if (in_array('--help', $argv ?? [], true)) {
-    echo "Usage: php run.php --action=member-upload|task-import-export --input=FILE --input-sha256=SHA --plan=FILE --plan-sha256=SHA\n";
+    echo "Usage: php run.php --action=member-upload|task-import-export|task-inflight-revocation --input=FILE --input-sha256=SHA --plan=FILE --plan-sha256=SHA\n";
     exit(0);
 }
 umask(0077);
@@ -32,7 +32,7 @@ $planPath = (string) ($options['plan'] ?? '');
 $planDigest = (string) ($options['plan-sha256'] ?? '');
 $plan = $readPinned($planPath, $planDigest);
 $action = (string) ($options['action'] ?? '');
-if (!in_array($action, ['member-upload', 'task-import-export'], true)
+if (!in_array($action, ['member-upload', 'task-import-export', 'task-inflight-revocation'], true)
     || $config !== ($plan['lifecycle_inputs']['module_qualification'] ?? null)) {
     throw new RuntimeException('MODULE_QUALIFICATION_PLAN_INPUT_MISMATCH');
 }
@@ -103,6 +103,36 @@ try {
             throw new RuntimeException('MODULE_QUALIFICATION_ACTIVE_MEMBER_REQUIRED');
         }
         memberUploadInstalledAssertions($app, $pdo, $member, (int) $config['other_tenant_id'], $identity, $guard);
+    } elseif ($action === 'task-inflight-revocation') {
+        require_once $moduleSourceRoot . '/server/tests/Multitenancy/TaskImportExportTenantIsolationTest.php';
+        $GLOBALS['taskImportExportChecks'] = 0;
+        $status = $app->make(app\common\services\installation\InstallationExecutionHost::class)->status();
+        expectAsyncTenant(($status['state'] ?? null) === 'installed' && ($status['deployment_mode'] ?? null) === 'multi-tenant',
+            'healthy installed multi-tenant Code is required');
+        $alpha = $tenant('alpha_access_token');
+        $authorization = $app->make(app\common\services\authorization\AdminAuthorizationService::class);
+        $principal = $authorization->principal($alpha);
+        expectAsyncTenant(!$principal->root, 'revocation assertion requires a non-Root installed principal');
+        $roleIds = array_column($principal->roles, 'id');
+        expectAsyncTenant($roleIds !== [], 'native principal has no active Roles');
+        $permission = (int) $pdo->query("SELECT id FROM pa_permission WHERE `key`='peanut.import-export.operation-log.export' AND status='active'")->fetchColumn();
+        expectAsyncTenant($permission > 0, 'existing native export Permission is required');
+        $sources = $pdo->prepare('SELECT role_id FROM pa_role_permission WHERE tenant_id=? AND permission_id=? AND role_id IN ('
+            . implode(',', array_fill(0, count($roleIds), '?')) . ')');
+        $sources->execute([$alpha->tenantId, $permission, ...$roleIds]);
+        expectAsyncTenant(array_map('intval', $sources->fetchAll(PDO::FETCH_COLUMN)) === [(int) $config['alpha_role_id']],
+            'specified Role must be the sole effective export grant source');
+        $pending = $pdo->prepare("SELECT COUNT(*) FROM pa_task_job WHERE tenant_id IN (?,?) AND status IN ('queued','running')");
+        $pending->execute([$alpha->tenantId, (int) $config['other_tenant_id']]);
+        expectAsyncTenant((int) $pending->fetchColumn() === 0, 'existing Tenant work must not be claimed by qualification workers');
+        assertInFlightExportRevocation($app, $pdo, $app->make(PeanutAdmin\Modules\ImportExport\Service\TaskImportExportRuntime::class),
+            $alpha, $tenant('alpha_manager_access_token'), (int) $config['alpha_role_id'], $guard,
+            static fn(): PeanutAdmin\Kernel\Auth\TenantContext => $tenant('alpha_access_token'), bin2hex(random_bytes(6)));
+        $checks = $GLOBALS['taskImportExportChecks'];
+        if (!is_int($checks) || $checks < 1) {
+            throw new RuntimeException('MODULE_QUALIFICATION_NATIVE_ASSERTIONS_REQUIRED');
+        }
+        echo 'MT03-TASK-IMPORT-EXPORT-INFLIGHT-REVOCATION-001 passed (' . $checks . " checks)\n";
     } else {
         require_once $moduleSourceRoot . '/server/tests/Multitenancy/TaskImportExportTenantIsolationTest.php';
         $alpha = $tenant('alpha_access_token');
@@ -185,7 +215,8 @@ try {
             ];
         };
         taskImportExportInstalledAssertions($app, $pdo, $alpha, $beta, $noExport, $auditFailure,
-            (int) $config['alpha_role_id'], $identity, $guard, $moduleSelection);
+            (int) $config['alpha_role_id'], $identity, $guard, $moduleSelection, $tenant('alpha_manager_access_token'),
+            static fn(): PeanutAdmin\Kernel\Auth\TenantContext => $tenant('alpha_access_token'));
     }
     $assertionOutput = (string) ob_get_clean();
 } catch (Throwable $error) {
