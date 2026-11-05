@@ -125,7 +125,7 @@ jobs:
           version: '9.15.6'
           run_install: false
       - name: Install locked Web API generator dependencies
-        run: pnpm --dir web install --frozen-lockfile --ignore-scripts
+        run: pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy
       - name: Verify source inventory after locked dependencies
         run: php scripts/build-application-template-inventory --check
       - name: Verify create-app contract

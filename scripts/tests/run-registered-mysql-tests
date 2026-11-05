@@ -235,7 +235,8 @@ if [[ "$mode" == --ci-service ]]; then
     --resource "database=$DB_NAME" \
     --resource "resource-scope=$PEANUT_DATABASE_RESOURCE_SCOPE" \
     --resource 'version=8.4.10' \
-    --resource "registry-sha256=$PEANUT_DATABASE_REGISTRY_SHA256" >/dev/null
+    --resource "registry-sha256=$PEANUT_DATABASE_REGISTRY_SHA256" \
+    --resource "registry-tool-sha256=$(shasum -a 256 "$registry_tool" | awk '{print $1}')" >/dev/null
   lease_claimed=1
 fi
 
