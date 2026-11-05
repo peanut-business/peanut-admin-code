@@ -76,6 +76,7 @@ suite_success_pattern() {
     */FileDeliveryEdgeCasesTest.php) printf '%s\n' 'FILE_DELIVERY_EDGE_CASES_OK assertions=[1-9][0-9]*' ;;
     */IntegrationSecurityMysqlTest.php) printf '%s\n' 'integration-security mysql harness: PASS \(40 checks\)' ;;
     */AdminRbacTenantIsolationTest.php) printf '%s\n' 'NATIVE-ADMIN-RBAC-TENANT-ISOLATION-001 passed; assertions=[1-9][0-9]*' ;;
+    */BackendStabilizationHttpTest.php) printf '%s\n' 'BACKEND-STABILIZATION-HTTP-001 slice=d03; requests=[1-9][0-9]*; assertions=[1-9][0-9]*; failures=0' ;;
     */DecorationPageTenantIsolationTest.php) printf '%s\n' 'MT02-DECORATION-PAGE-TENANT-ISOLATION-001 passed' ;;
     */DecorationTabbarTenantIsolationTest.php) printf '%s\n' 'MT03-DECORATION-TABBAR-TENANT-ISOLATION-001 passed' ;;
     */DictTenantIsolationTest.php) printf '%s\n' 'MT02-DICT-TENANT-ISOLATION-001 passed' ;;
@@ -169,6 +170,7 @@ server/tests/Modules/Official/Settings/Integration/Application/SettingResolverTe
 server/tests/Modules/Official/Settings/Integration/Schema/SettingsMigrationTest.php
 server/tests/Modules/Official/Settings/Security/SettingsIsolationTest.php
 server/tests/Multitenancy/AdminRbacTenantIsolationTest.php
+server/tests/Multitenancy/BackendStabilizationHttpTest.php
 server/tests/Multitenancy/DecorationPageTenantIsolationTest.php
 server/tests/Multitenancy/DecorationTabbarTenantIsolationTest.php
 server/tests/Multitenancy/FileTenantIsolationTest.php
