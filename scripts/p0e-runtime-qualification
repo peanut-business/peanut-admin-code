@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parent.parent
 TOOL_ROOT = ROOT
 TOOL_FILES = ("scripts/p0e-runtime-qualification", "scripts/consumer-module-reference-chain", "scripts/p0e-browser-smoke", ".github/workflows/scaffold-release.yml",
     "server/fixtures/module-lifecycle/run.php", "server/tests/Productization/ModuleLifecycleMySqlTest.php",
-    "server/tests/Productization/ModuleFailureRecoveryMySqlTest.php")
+    "server/tests/Productization/ModuleFailureRecoveryMySqlTest.php", "server/tests/Productization/ModuleRuntimeGovernanceTest.php")
 TOOL_BINDING: dict[str, Any] | None = None
 FIXTURE_PATH = ROOT / "server/tests/fixtures/p0e-runtime-qualification/matrix.json"
 REGISTRY_PATH = Path(os.environ.get("PEANUT_RESOURCE_REGISTRY") or ROOT / "resources/project-resources.json")
@@ -727,6 +727,69 @@ def verify_module_context(args: argparse.Namespace) -> dict[str, Any]:
     return {"status": "verified", "candidate": proof["candidate"], "plan_sha256": args.plan_sha256}
 
 
+def fresh_application_inputs(value: dict[str, Any], candidate: str, tree: str,
+                             templates: dict[str, Any]) -> dict[str, Any]:
+    """Bind separately installed candidate APPs without creating or reinstalling them."""
+    fresh = value.get("fresh_applications", {})
+    if not isinstance(fresh, dict) or set(fresh) - set(EDITIONS):
+        fail("fresh applications must select only the two native Editions")
+    if not fresh:
+        return fresh
+    roots = {ROOT, Path(value["cli"]["root"]), Path(value["template_build_root"]),
+             *(Path(app["root"]) for app in value["applications"].values())}
+    schemas = {(database_registration(app).get("server_uuid"), app["database"])
+               for app in value["applications"].values()}
+    versions = read_json(ROOT / "release-versions.json")
+    for edition, app in fresh.items():
+        root = canonical(app.get("root", ""), directory=True)
+        if any(root == protected or root in protected.parents or protected in root.parents for protected in roots):
+            fail("fresh APP roots must be separate from sources, templates and existing APPs")
+        roots.add(root)
+        checkout_identity(root, app.get("head", ""), app.get("tree", ""))
+        registered = database_registration(app)
+        endpoint = registered.get("upstream_endpoint", {})
+        if (registered.get("environment") != "development" or registered.get("application_runtime") is not False
+                or registered.get("lifecycle") != "ephemeral"
+                or "first_install" not in registered.get("allowed_scenarios", [])
+                or registered.get("database") != app.get("database")
+                or endpoint.get("endpoint_id") != app.get("endpoint_id")
+                or edition not in registered.get("deployment_modes", [])):
+            fail("fresh APP requires its registered isolated ephemeral Edition/schema scenario")
+        schema = (registered.get("server_uuid"), app["database"])
+        if (schema in schemas or not registered.get("server_uuid")
+                or app.get("database_identity", {}).get("server_uuid") != schema[0]
+                or app.get("database_identity", {}).get("database") != schema[1]):
+            fail("fresh APP native database identity must be separate and match its registration")
+        schemas.add(schema)
+        manifest = read_json(file_reference({"path": str(root / ".peanut/application-manifest.json"),
+                                             "sha256": app.get("manifest_sha256")}))
+        template = manifest.get("template", {})
+        package = manifest.get("template_package", {})
+        archive = templates["editions"][edition]["archive"]
+        if (manifest.get("application", {}).get("edition") != edition or manifest.get("edition", {}).get("name") != edition
+                or template.get("source_commit") != candidate or template.get("source_tree") != tree
+                or template.get("version") != templates["version"]
+                or template.get("inventory_sha256") != templates["source"]["inventory_sha256"]
+                or app.get("adopted_source") != templates["source"]
+                or package.get("protocol") != "peanut.template-package.v1" or package.get("version") != templates["version"]
+                or package.get("archive_sha256") != templates["assets"][archive]["sha256"]):
+            fail("fresh APP manifest must bind the exact candidate and original qualified Edition archive")
+        if baseline_identity(root, manifest) != app.get("baseline_sha256"):
+            fail("fresh APP native baseline changed")
+        own = [row for row in read_json(root / "resources/project-resources.json").get("resources", {}).get("databases", [])
+               if row.get("stable_resource_id") == app["resource_id"]]
+        if len(own) != 1 or own[0].get("database") != app["database"] or own[0].get("upstream_endpoint") != endpoint:
+            fail("fresh APP-owned database registration differs")
+        actual_versions = read_json(root / "release-versions.json")
+        if any(actual_versions.get(key) != versions.get(key) for key in ("core_php", "core_web")):
+            fail("fresh APP Core contract differs from the final candidate")
+        if file_reference(app.get("environment", {})).stat().st_mode & 0o777 != 0o600:
+            fail("fresh APP environment must remain private")
+        if app.get("first_install"):
+            file_reference(app["first_install"])
+    return fresh
+
+
 def lifecycle_inputs(args: argparse.Namespace, tree: str) -> dict[str, Any]:
     input_path = file_reference({"path": args.lifecycle_input, "sha256": args.lifecycle_input_sha256})
     value = read_json(input_path)
@@ -785,6 +848,7 @@ def lifecycle_inputs(args: argparse.Namespace, tree: str) -> dict[str, Any]:
         fail("retired installed-lifecycle producer inputs must be replaced by isolated module_qualification inputs")
     if value.get("module_qualification") is not None:
         module_qualification_inputs(value, args.candidate, tree)
+    fresh_application_inputs(value, args.candidate, tree, templates)
     file_reference(value.get("consumer_identity_seed", {}))
     return {**value, "cli": cli, "template_artifacts": templates,
             "input_path": str(input_path), "input_sha256": args.lifecycle_input_sha256,
@@ -821,7 +885,8 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
                 or not path.parent.is_dir() or args.run_id not in path.name):
             fail("qualification output/cache must be canonical run-specific leaves outside source")
         protected = [ROOT, Path(inputs["cli"]["root"]), Path(inputs["template_build_root"]),
-                     *(Path(app["root"]) for app in inputs["applications"].values())]
+                     *(Path(app["root"]) for app in inputs["applications"].values()),
+                     *(Path(app["root"]) for app in inputs.get("fresh_applications", {}).values())]
         if inputs.get("module_qualification"):
             qualification = inputs["module_qualification"]
             protected.extend(Path(qualification[key]["root"]) for key in
@@ -848,8 +913,11 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
             admissions.append(runtime_admission(app, app["root"], app["head"]))
     for app in inputs["applications"].values():
         admissions.append(runtime_admission(app, app["root"], app["head"]))
+    fresh_apps = [app for edition, app in inputs.get("fresh_applications", {}).items() if edition + "-fresh" in selected]
+    for app in fresh_apps:
+        admissions.append(runtime_admission(app, app["root"], app["head"]))
     for admission in admissions:
-        runtime = next(app for app in [*inputs["applications"].values(), *qualification_apps]
+        runtime = next(app for app in [*inputs["applications"].values(), *qualification_apps, *fresh_apps]
                        if app["root"] == admission["root"])
         runtime_environment(runtime, admission)
     # Production Compose is admitted by its own group. A browser selection binds
@@ -1390,10 +1458,39 @@ class Runner:
             fail("permanent APP source adoption is not current")
         facts["native_cli_adoption"] = checked
         facts["components"]["source_adoption"] = {"status": "passed"}
-        facts["components"]["candidate_first_install"] = {"status": "not_run",
-            "reason": "historical installation, current health and upgrade do not prove this candidate first-install"}
+        fresh = self.inputs.get("fresh_applications", {}).get(edition)
+        try:
+            if not fresh:
+                raise NotRun("a separately installed exact-candidate fresh APP is unavailable; permanent APP not reinstalled")
+            native = native_evidence(fresh.get("first_install", {}), fresh, "first_install")
+            installed = read_json(file_reference(fresh["first_install"]))
+            source = installed["source"]
+            if (source.get("kind") != "generated-application"
+                    or source.get("application_manifest_sha256") != fresh["manifest_sha256"]
+                    or installed.get("application_manifest_sha256") != fresh["manifest_sha256"]):
+                fail("fresh installation must bind the original generated APP manifest; an upgraded receipt is historical")
+            server = Path(fresh["root"]) / "server"
+            release = json.loads(command(["php", "-r",
+                "require $argv[1] . '/vendor/autoload.php';"
+                "$v=\\app\\common\\value\\installation\\ApplicationReleaseVersions::load(dirname($argv[1]).'/release-versions.json');"
+                "echo json_encode(['source_product_version'=>$v->sourceProductVersion(),"
+                "'release_sequence_version'=>$v->releaseSequenceVersion(),'scaffold_template'=>$v->scaffoldTemplate()],JSON_THROW_ON_ERROR);",
+                str(server)], cwd=Path(fresh["root"]), capture=True).stdout)
+            if installed["release"] != release or installed["deployment_mode"] != edition:
+                fail("fresh native installation release or Edition differs from the candidate APP")
+            status = json.loads(command(["php", "server/database/install.php", "--status"], cwd=Path(fresh["root"]),
+                env=self.environment(fresh), capture=True).stdout)
+            if status.get("state") != "installed" or int(status.get("health", {}).get("installed_table_count", 0)) <= 0:
+                fail("fresh APP native preflight/dependency check or current installation health failed")
+            facts["candidate_first_install"] = {"application": app_binding(fresh), "receipt": {
+                "path": native["path"], "sha256": native["sha256"]}, "installation": installed,
+                "current_native_installation": status}
+            facts["components"]["candidate_first_install"] = {"status": "passed"}
+        except NotRun as exception:
+            facts["components"]["candidate_first_install"] = {"status": "not_run", "reason": str(exception)}
         self.write_json(history, facts)
-        return {"status": "not_run", "reason": "fresh candidate execution evidence unavailable; existing APP not reinstalled",
+        missing = [key for key, value in facts["components"].items() if value["status"] != "passed"]
+        return {"status": "not_run" if missing else "passed", "reason": "missing native components: " + ", ".join(missing) if missing else None,
                 **facts, "reinstalled": False, "database_dropped": False}
 
     def module_lifecycle(self) -> dict[str, Any]:
@@ -1430,6 +1527,24 @@ class Runner:
                 "receipt": {"path": str(receipt), "sha256": sha256(receipt)}, "log_sha256": sha256(log),
                 "application_root": lifecycle_app["root"], "resource_id": lifecycle_app["resource_id"]}
             self.write_json(output / "results.json", results)
+            if producer == "module-lifecycle":
+                verify_module_context(argparse.Namespace(plan=str(plan_path), plan_sha256=plan_digest))
+                runtime_source = TOOL_ROOT / "server/tests/Productization/ModuleRuntimeGovernanceTest.php"
+                runtime_log = output / "module-runtime-governance.log"
+                command(["php", str(runtime_source), "--application-root=" + lifecycle_app["root"],
+                         "--expected-server-uuid=" + lifecycle_app["database_identity"]["server_uuid"]],
+                        cwd=Path(lifecycle_app["root"]), env=self.environment(lifecycle_app), log=runtime_log)
+                lines = runtime_log.read_text().splitlines()
+                marker = re.fullmatch(r"MODULE-RUNTIME-GOVERNANCE-D2-001 passed sha256=([a-f0-9]{64}) plan_digest=([a-f0-9]{64})",
+                                      lines[-1] if lines else "")
+                if marker is None:
+                    fail("native Module runtime governance final completion marker is missing")
+                verify_module_context(argparse.Namespace(plan=str(plan_path), plan_sha256=plan_digest))
+                results["module-runtime-governance"] = {"status": "passed", "source_sha256": sha256(runtime_source),
+                    "log": str(runtime_log), "log_sha256": sha256(runtime_log), "archive_sha256": marker[1],
+                    "plan_digest": marker[2], "application_root": lifecycle_app["root"],
+                    "resource_id": lifecycle_app["resource_id"], "database_identity": lifecycle_app["database_identity"]}
+                self.write_json(output / "results.json", results)
         installed_app = config["installed_application"]
         for producer in ("member-upload", "task-import-export"):
             verify_module_context(argparse.Namespace(plan=str(plan_path), plan_sha256=plan_digest))

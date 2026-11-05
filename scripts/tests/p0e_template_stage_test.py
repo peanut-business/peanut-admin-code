@@ -232,6 +232,226 @@ class TemplateStageTest(unittest.TestCase):
             with self.assertRaisesRegex(stage.GateError, "native lease denied"):
                 stage.runtime_admission(runtime, str(actor), self.candidate)
 
+    def fresh_fixture(self):
+        app_root = self.root / "fresh-standalone"
+        for relative in (".peanut", "resources", "server/private/installation"):
+            (app_root / relative).mkdir(parents=True, exist_ok=True)
+        endpoint = {"endpoint_id": "fresh-endpoint", "host": "synthetic", "port": 1}
+        resource = {"stable_resource_id": "fresh-resource", "environment": "development", "application_runtime": False,
+                    "lifecycle": "ephemeral", "allowed_scenarios": ["first_install"], "database": "fresh_schema",
+                    "upstream_endpoint": endpoint, "deployment_modes": ["standalone"], "server_uuid": "synthetic-server"}
+        self.fresh_templates = self.inputs | {"editions": {"standalone": {"archive": "peanut-scaffold-standalone.tgz"}},
+            "assets": {"peanut-scaffold-standalone.tgz": {"sha256": "a" * 64}}}
+        versions = {"core_php": {"resolved_version": "v5.0.3"}, "core_web": {"source_reference": "b" * 40}}
+        (self.source / "release-versions.json").write_text(json.dumps(versions))
+        (app_root / "release-versions.json").write_text(json.dumps(versions))
+        manifest = {"application": {"edition": "standalone"}, "edition": {"name": "standalone"},
+                    "template": {"source_commit": self.candidate, "source_tree": self.tree, "version": "5.0.2",
+                                 "inventory_sha256": self.inputs["source"]["inventory_sha256"]},
+                    "template_package": {"protocol": "peanut.template-package.v1", "version": "5.0.2", "archive_sha256": "a" * 64}}
+        manifest_file = app_root / ".peanut/application-manifest.json"
+        manifest_file.write_text(json.dumps(manifest))
+        (app_root / "resources/project-resources.json").write_text(json.dumps({"resources": {"databases": [resource]}}))
+        environment = app_root / "server/.env"
+        environment.write_text("SYNTHETIC=1\n")
+        environment.chmod(0o600)
+        receipt = app_root / "server/private/installation/installed.json"
+        self.installation_release = {"source_product_version": "5.0.2", "release_sequence_version": "0.1.0", "scaffold_template": "5.0.2"}
+        receipt.write_text(json.dumps({"source": {"kind": "generated-application", "application_manifest_sha256": stage.sha256(manifest_file)},
+            "application_manifest_sha256": stage.sha256(manifest_file), "release": self.installation_release,
+            "deployment_mode": "standalone", "official_modules": ["peanut.admin"], "database": {"migrations": [{"version": "synthetic"}]}}))
+        receipt.chmod(0o600)
+        app = {"root": str(app_root), "head": "c" * 40, "tree": "d" * 40, "resource_id": "fresh-resource",
+               "database": "fresh_schema", "endpoint_id": "fresh-endpoint", "lease": "fresh-lease",
+               "database_identity": {"database": "fresh_schema", "server_uuid": "synthetic-server"},
+               "manifest_sha256": stage.sha256(manifest_file), "baseline_sha256": "e" * 64,
+               "adopted_source": self.inputs["source"], "environment": {"path": str(environment), "sha256": stage.sha256(environment)},
+               "first_install": {"path": str(receipt), "sha256": stage.sha256(receipt)}}
+        permanent_root = self.root / "permanent"
+        permanent_root.mkdir(exist_ok=True)
+        permanent = app | {"root": str(permanent_root), "resource_id": "permanent-resource", "database": "permanent_schema"}
+        return app, permanent, resource
+
+    def test_fresh_inputs_bind_original_archive_and_isolated_native_resource(self):
+        app, permanent, resource = self.fresh_fixture()
+        value = self.input_value | {"applications": {"standalone": permanent}, "fresh_applications": {"standalone": app}}
+        registry = lambda runtime: resource if runtime["resource_id"] == app["resource_id"] else resource | {"database": "permanent_schema"}
+        with patch.object(stage, "database_registration", side_effect=registry), \
+             patch.object(stage, "checkout_identity") as checkout, \
+             patch.object(stage, "baseline_identity", return_value=app["baseline_sha256"]):
+            self.assertEqual(stage.fresh_application_inputs(value, self.candidate, self.tree, self.fresh_templates), value["fresh_applications"])
+            checkout.assert_called_once_with(Path(app["root"]), app["head"], app["tree"])
+            self.assertEqual(stage.fresh_application_inputs({}, self.candidate, self.tree, self.fresh_templates), {})
+            original = json.loads(Path(app["root"], ".peanut/application-manifest.json").read_text())
+            for field in ("source_commit", "source_tree", "inventory_sha256"):
+                with self.subTest(template=field):
+                    changed = json.loads(json.dumps(original))
+                    changed["template"][field] = "0" * 40
+                    path = Path(app["root"], ".peanut/application-manifest.json")
+                    path.write_text(json.dumps(changed)); app["manifest_sha256"] = stage.sha256(path)
+                    with self.assertRaisesRegex(stage.GateError, "exact candidate"):
+                        stage.fresh_application_inputs(value, self.candidate, self.tree, self.fresh_templates)
+            path.write_text(json.dumps(original)); app["manifest_sha256"] = stage.sha256(path)
+            changed = json.loads(json.dumps(original)); changed["template_package"]["archive_sha256"] = "0" * 64
+            path.write_text(json.dumps(changed)); app["manifest_sha256"] = stage.sha256(path)
+            with self.assertRaisesRegex(stage.GateError, "original qualified Edition archive"):
+                stage.fresh_application_inputs(value, self.candidate, self.tree, self.fresh_templates)
+            path.write_text(json.dumps(original)); app["manifest_sha256"] = stage.sha256(path)
+            for patch_value in ({"application_runtime": True}, {"lifecycle": "persistent"}, {"allowed_scenarios": []}):
+                with self.subTest(registry=patch_value), patch.object(stage, "database_registration", return_value=resource | patch_value):
+                    with self.assertRaisesRegex(stage.GateError, "isolated ephemeral"):
+                        stage.fresh_application_inputs(value, self.candidate, self.tree, self.fresh_templates)
+            with patch.object(stage, "database_registration", return_value=resource):
+                permanent["database"] = app["database"]
+                with self.assertRaisesRegex(stage.GateError, "database identity must be separate"):
+                    stage.fresh_application_inputs(value, self.candidate, self.tree, self.fresh_templates)
+                permanent["database"] = "permanent_schema"
+            app["root"] = permanent["root"]
+            with self.assertRaisesRegex(stage.GateError, "roots must be separate"):
+                stage.fresh_application_inputs(value, self.candidate, self.tree, self.fresh_templates)
+
+    def test_fresh_plan_admits_only_the_selected_fresh_application(self):
+        app, permanent, _ = self.fresh_fixture()
+        inputs = self.input_value | {"applications": {"standalone": permanent}, "fresh_applications": {"standalone": app},
+            "registry_sha256": "f" * 64, "template_artifacts": self.fresh_templates}
+        args = argparse.Namespace(candidate=self.candidate, minimum_release=False, groups="standalone-fresh", through_group=None,
+            run_id="fresh-plan", output_dir=str(self.root / "fresh-plan-output"), cache_dir=str(self.root / "fresh-plan-cache"),
+            lease="native-lease", parent_lease=None, owner="owner", thread="thread")
+
+        def admission(runtime, root, candidate):
+            return {"root": root, "candidate": candidate, "resource_id": runtime["resource_id"], "lease": runtime["lease"]}
+
+        with patch.object(stage, "lifecycle_inputs", return_value=inputs), \
+             patch.object(stage, "validate_candidate", return_value=(self.candidate, self.tree)), \
+             patch.object(stage, "runtime_admission", side_effect=admission), \
+             patch.object(stage, "runtime_environment", return_value={}):
+            selected = stage.plan(args, require_clean=True)
+            self.assertEqual([value["root"] for value in selected["runtime_admissions"]], [permanent["root"], app["root"]])
+            args.groups = "generated-application"
+            other = stage.plan(args, require_clean=True)
+            self.assertEqual([value["root"] for value in other["runtime_admissions"]], [permanent["root"]])
+            args.output_dir = str(Path(app["root"]) / "fresh-plan-output")
+            with self.assertRaisesRegex(stage.GateError, "must not overlap"):
+                stage.plan(args, require_clean=True)
+
+    def test_fresh_group_requires_original_manifest_and_all_permanent_evidence(self):
+        app, permanent, _ = self.fresh_fixture()
+        output = self.root / "fresh-output"
+        (output / "groups").mkdir(parents=True)
+        inputs = {"applications": {"standalone": permanent}, "fresh_applications": {"standalone": app},
+                  "cli": self.cli_binding, "template_build_root": str(self.templates)}
+        args = argparse.Namespace(candidate=self.candidate, run_id="synthetic", lease="synthetic", parent_lease=None)
+        runner = stage.Runner(args, {"paths": {"output-dir": str(output), "cache-dir": str(self.root / "cache")},
+                                    "lifecycle_inputs": inputs, "candidate_tree": self.tree,
+                                    "groups": GROUPS, "template_artifacts": self.fresh_templates})
+        missing = set()
+        calls = []
+
+        def evidence(reference, bound, kind, final_build=None):
+            if bound is permanent and kind in missing:
+                raise stage.NotRun("missing historical " + kind)
+            return {"path": reference.get("path", "historical"), "sha256": reference.get("sha256", "a" * 64), "completed_at": "2026-01-01T00:00:00Z"}
+
+        def execute(arguments, **kwargs):
+            calls.append((arguments, kwargs))
+            if arguments[0] == "node":
+                self.assertEqual(arguments[2:4], ["upgrade", "--check"])
+                result = {"status": "up_to_date"}
+            elif arguments[1] == "-r":
+                self.assertIn("ApplicationReleaseVersions::load", arguments[2])
+                result = self.installation_release
+            else:
+                self.assertEqual(arguments, ["php", "server/database/install.php", "--status"])
+                result = {"state": "installed", "health": {"installed_table_count": 1}, "preflight": {"status": "ready"}}
+            return subprocess.CompletedProcess(arguments, 0, json.dumps(result), "")
+
+        with patch.object(stage, "native_evidence", side_effect=evidence), \
+             patch.object(stage, "command", side_effect=execute), patch.object(runner, "environment", return_value={}):
+            result = runner.fresh("standalone")
+            self.assertEqual(result["status"], "passed")
+            self.assertFalse(result["reinstalled"])
+            self.assertEqual(result["candidate_first_install"]["installation"]["official_modules"], ["peanut.admin"])
+            receipt = Path(app["first_install"]["path"])
+            original = json.loads(receipt.read_text())
+            for patch_value in ({"source": {"kind": "product-source"}}, {"application_manifest_sha256": "0" * 64},
+                                {"source": {"kind": "generated-application", "application_manifest_sha256": "0" * 64}},
+                                {"release": self.installation_release | {"scaffold_template": "old"}}):
+                with self.subTest(receipt=patch_value):
+                    receipt.write_text(json.dumps(original | patch_value)); app["first_install"]["sha256"] = stage.sha256(receipt)
+                    with self.assertRaises(stage.GateError): runner.fresh("standalone")
+            receipt.write_text(json.dumps(original)); app["first_install"]["sha256"] = stage.sha256(receipt)
+            missing.add("recovery")
+            result = runner.fresh("standalone")
+            self.assertEqual(result["status"], "not_run")
+            self.assertEqual(result["components"]["candidate_first_install"]["status"], "passed")
+            missing.clear(); inputs["fresh_applications"] = {}; calls.clear()
+            self.assertEqual(runner.fresh("standalone")["status"], "not_run")
+            self.assertFalse(any(call[1].get("cwd") == Path(app["root"]) for call in calls))
+
+    def test_module_runtime_governance_consumes_native_terminal_marker_in_lifecycle_app(self):
+        self.assertIn("server/tests/Productization/ModuleRuntimeGovernanceTest.php", stage.TOOL_FILES)
+        config = {"reviewed_module_source": {"root": "synthetic-reviewed"}}
+        for key in ("lifecycle_application", "failure_recovery_application", "installed_application"):
+            root = self.root / key
+            root.mkdir()
+            config[key] = {"root": str(root), "resource_id": key, "database_identity": {"server_uuid": "synthetic-uuid", "database": key}}
+        marker = "MODULE-RUNTIME-GOVERNANCE-D2-001 passed sha256=" + "a" * 64 + " plan_digest=" + "b" * 64 + "\n"
+        for index, mode in enumerate(("passed", "nonzero", "missing-marker", "marker-not-final")):
+            with self.subTest(mode=mode):
+                output = self.root / ("runtime-output-" + str(index))
+                (output / "groups").mkdir(parents=True)
+                (output / "plan.json").write_text("{}\n")
+                args = argparse.Namespace(candidate=self.candidate, run_id="synthetic", lease="synthetic", parent_lease=None)
+                runner = stage.Runner(args, {"paths": {"output-dir": str(output), "cache-dir": str(self.root / "cache")},
+                    "candidate_tree": self.tree, "groups": GROUPS, "template_artifacts": self.inputs,
+                    "lifecycle_inputs": {"applications": {}, "source": {"commit": self.candidate, "tree": self.tree}}})
+                events = []
+
+                def execute(arguments, **kwargs):
+                    filename = Path(arguments[1]).name
+                    events.append(filename)
+                    if filename == "ModuleRuntimeGovernanceTest.php":
+                        self.assertEqual(kwargs["cwd"], Path(config["lifecycle_application"]["root"]))
+                        self.assertIn("--application-root=" + config["lifecycle_application"]["root"], arguments)
+                        self.assertIn("--expected-server-uuid=synthetic-uuid", arguments)
+                        self.assertEqual(kwargs["env"], {"native": "environment"})
+                        kwargs["log"].write_text(marker if mode in ("passed", "nonzero") else (marker + "unexpected trailing output\n" if mode == "marker-not-final" else "no completion\n"))
+                        if mode == "nonzero": raise stage.GateError("native nonzero")
+                    elif filename in ("ModuleLifecycleMySqlTest.php", "ModuleFailureRecoveryMySqlTest.php"):
+                        key = "lifecycle_application" if filename == "ModuleLifecycleMySqlTest.php" else "failure_recovery_application"
+                        root = Path(config[key]["root"]) / ".local/module-lifecycle-mysql"
+                        root.mkdir(parents=True, exist_ok=True)
+                        name = "result.json" if key == "lifecycle_application" else "failure-recovery-result.json"
+                        (root / name).write_text(json.dumps({"status": "passed", "assertions": 1,
+                            "database_identity": config[key]["database_identity"], "non_case_catalog_sha256": "c" * 64}))
+                        kwargs["log"].write_text("synthetic native log\n")
+                    else:
+                        producer = next(value.split("=", 1)[1] for value in arguments if value.startswith("--action="))
+                        installed = config["installed_application"]
+                        result = {"status": "passed", "protocol": "peanut.module-qualification-result.v1", "producer": producer,
+                            "source": runner.inputs["source"], "input_sha256": stage.sha256(output / "groups/module-lifecycle/input.json"),
+                            "plan_sha256": stage.sha256(output / "plan.json"), "application_root": installed["root"],
+                            "resource_id": installed["resource_id"], "database_identity": installed["database_identity"],
+                            "native_identity": "verified-current-session", "writes_retained": True}
+                        return subprocess.CompletedProcess(arguments, 0, json.dumps(result), "")
+                    return subprocess.CompletedProcess(arguments, 0, "", "")
+
+                with patch.object(stage, "module_qualification_inputs", return_value=config), \
+                     patch.object(stage, "verify_module_context", side_effect=lambda _: events.append("verify")), \
+                     patch.object(stage, "command", side_effect=execute), patch.object(runner, "environment", return_value={"native": "environment"}):
+                    if mode == "passed":
+                        result = runner.module_lifecycle()
+                        native = result["producers"]["module-runtime-governance"]
+                        self.assertEqual(native["database_identity"], config["lifecycle_application"]["database_identity"])
+                        self.assertEqual((native["archive_sha256"], native["plan_digest"]), ("a" * 64, "b" * 64))
+                        self.assertNotIn("receipt", native)
+                        position = events.index("ModuleRuntimeGovernanceTest.php")
+                        self.assertEqual(events[position - 1:position + 2], ["verify", "ModuleRuntimeGovernanceTest.php", "verify"])
+                        self.assertLess(position, events.index("ModuleFailureRecoveryMySqlTest.php"))
+                    else:
+                        with self.assertRaises(stage.GateError): runner.module_lifecycle()
+                        self.assertNotIn("ModuleFailureRecoveryMySqlTest.php", events)
+
     def test_ci_transport_preserves_hidden_defaults_and_executable_modes(self):
         file = self.templates / "standalone/defaults/.env.example"
         file.parent.mkdir(parents=True)
