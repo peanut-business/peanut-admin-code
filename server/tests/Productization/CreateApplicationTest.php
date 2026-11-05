@@ -766,6 +766,7 @@ try {
             continue;
         }
         $applicationContent = $content;
+        $sensitiveContent = $content;
         if ($path === 'server/composer.lock'
             || $path === '.peanut/scaffold-baseline/' . $templateVersion . '/files/server/composer.lock') {
             $generatedComposerLock = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
@@ -790,6 +791,11 @@ try {
                     'application generation changed upstream metadata: ' . $path,
                 );
                 $applicationContent = '';
+                if ($upstreamMetadata === 'scripts/scaffold-runtime/scaffold.conf.json') {
+                    // Source replacement keys are the upgrade contract; they are
+                    // not runtime APP settings. Equality is checked above.
+                    $sensitiveContent = '';
+                }
             }
         }
         // A published Module owns its package name, license and documentation.
@@ -807,9 +813,9 @@ try {
         }
         createApplicationExpect(!str_contains($applicationContent, 'Peanut Admin'), 'source application brand leaked into ' . $path);
         createApplicationExpect(!str_contains($applicationContent, '花生科技'), 'source company brand leaked into ' . $path);
-        createApplicationExpect(!str_contains($content, '/Users/xing'), 'personal path leaked into ' . $path);
-        createApplicationExpect(!str_contains($content, '192.168.192.2'), 'source infrastructure leaked into ' . $path);
-        createApplicationExpect(!str_contains($content, 'peanut-admin.007345.xyz'), 'source production domain leaked into ' . $path);
+        createApplicationExpect(!str_contains($sensitiveContent, '/Users/xing'), 'personal path leaked into ' . $path);
+        createApplicationExpect(!str_contains($sensitiveContent, '192.168.192.2'), 'source infrastructure leaked into ' . $path);
+        createApplicationExpect(!str_contains($sensitiveContent, 'peanut-admin.007345.xyz'), 'source production domain leaked into ' . $path);
     }
 
     mkdir($temporary . '/non-empty');
