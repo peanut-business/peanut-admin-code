@@ -25,12 +25,17 @@ use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require dirname(__DIR__, 2) . '/database/install.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
-require __DIR__ . '/../Support/ThinkPhpTestConnection.php';
+require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
 require __DIR__ . '/../Support/IdentityMysqlFixture.php';
 require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 
+$cache = require dirname(__DIR__, 2) . '/config/cache.php';
+$cache['stores']['file']['path'] = dirname(__DIR__, 3) . '/.local/tmp/058-PlatformBootstrapInstallerTest-cache-' . bin2hex(random_bytes(6)) . '/';
+think\Container::getInstance()->config->set($cache, 'cache');
+
 function mt05BootstrapExpect(bool $condition, string $message): void
 {
+    $GLOBALS['mt05BootstrapExpectAssertions'] = ($GLOBALS['mt05BootstrapExpectAssertions'] ?? 0) + 1;
     if (!$condition) {
         throw new RuntimeException($message);
     }
@@ -102,6 +107,7 @@ try {
         'ADMIN_INITIAL_EMAIL' => $adminEmail,
         'ADMIN_INITIAL_PASSWORD' => $adminPassword,
         'DEPLOYMENT_MODE' => 'multi-tenant',
+        'PEANUT_INSTALLATION_SOURCE_MODE' => 'development',
         'PLATFORM_INITIAL_EMAIL' => $platformEmail,
         'PLATFORM_INITIAL_PASSWORD' => $platformPassword,
     ]);
@@ -166,7 +172,7 @@ SQL)->fetch();
         'fresh multi-tenant platform operator cannot login',
     );
 
-    echo "MT05-PLATFORM-BOOTSTRAP-001 identity stage passed; full installer not executed\n";
+    echo "MT05-PLATFORM-BOOTSTRAP-001 identity stage passed; full installer not executed; assertions={$GLOBALS['mt05BootstrapExpectAssertions']}\n";
 } finally {
     RegisteredMysqlTestResource::cleanup($install, $installName, $createdDatabase);
 }

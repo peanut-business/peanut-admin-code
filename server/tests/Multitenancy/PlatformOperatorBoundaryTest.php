@@ -42,12 +42,17 @@ use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
-require __DIR__ . '/../Support/ThinkPhpTestConnection.php';
+require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
 require __DIR__ . '/../Support/IdentityMysqlFixture.php';
 require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 
+$cache = require dirname(__DIR__, 2) . '/config/cache.php';
+$cache['stores']['file']['path'] = dirname(__DIR__, 3) . '/.local/tmp/058-PlatformOperatorBoundaryTest-cache-' . bin2hex(random_bytes(6)) . '/';
+think\Container::getInstance()->config->set($cache, 'cache');
+
 function poExpect(bool $condition, string $message): void
 {
+    $GLOBALS['poExpectAssertions'] = ($GLOBALS['poExpectAssertions'] ?? 0) + 1;
     if (!$condition) {
         throw new RuntimeException($message);
     }
@@ -272,21 +277,14 @@ SQL);
     ];
     $updateLicense = array_replace($licenseInput, ['expected_revision' => 1, 'status' => 'suspended']);
     $beforeRollback = $entitlementSnapshot();
-    $pdo->exec(<<<'SQL'
-CREATE TRIGGER pa_plan_license_audit_failure BEFORE INSERT ON pa_platform_audit_event FOR EACH ROW
-BEGIN
-    IF NEW.request_id = 'pm01-entitlement-rollback' THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'SYNTHETIC_ENTITLEMENT_AUDIT_FAILURE';
-    END IF;
-END
-SQL);
+    $pdo->exec("ALTER TABLE pa_platform_audit_event ADD CONSTRAINT chk_entitlement_audit_failure CHECK (request_id <> 'pm01-entitlement-rollback')");
     try {
-        poRejected(static fn() => $writeHttp('PUT', 'plans', 'update', 'platform.plan.manage', $updatePlan, 'pm01-entitlement-rollback'), 'SYNTHETIC_ENTITLEMENT_AUDIT_FAILURE');
+        poRejected(static fn() => $writeHttp('PUT', 'plans', 'update', 'platform.plan.manage', $updatePlan, 'pm01-entitlement-rollback'), 'chk_entitlement_audit_failure');
         poExpect($entitlementSnapshot() === $beforeRollback, 'failed plan audit did not roll back plan/details/tenant revision');
-        poRejected(static fn() => $writeHttp('PUT', 'tenants/license', 'updateLicense', 'platform.tenant.license.manage', $updateLicense, 'pm01-entitlement-rollback'), 'SYNTHETIC_ENTITLEMENT_AUDIT_FAILURE');
+        poRejected(static fn() => $writeHttp('PUT', 'tenants/license', 'updateLicense', 'platform.tenant.license.manage', $updateLicense, 'pm01-entitlement-rollback'), 'chk_entitlement_audit_failure');
         poExpect($entitlementSnapshot() === $beforeRollback, 'failed license audit did not roll back license/tenant revision');
     } finally {
-        $pdo->exec('DROP TRIGGER pa_plan_license_audit_failure');
+        $pdo->exec('ALTER TABLE pa_platform_audit_event DROP CHECK chk_entitlement_audit_failure');
     }
 
     // The external write boundary is the production login/permission/controller chain.
@@ -323,7 +321,7 @@ SQL);
     poExpect(str_contains($routeSource, 'PlatformLoginMiddleware::class'), 'platform routes lack their dedicated login guard');
     poExpect(str_contains($routeSource, "'platform.tenant.read'"), 'platform tenant route lacks explicit RBAC');
 
-    echo "PM01-PLATFORM-OPERATOR-BOUNDARY-001 passed\n";
+    echo "PM01-PLATFORM-OPERATOR-BOUNDARY-001 passed; assertions={$GLOBALS['poExpectAssertions']}\n";
 } finally {
     RegisteredMysqlTestResource::cleanup($pdo, $database, $createdDatabase);
 }

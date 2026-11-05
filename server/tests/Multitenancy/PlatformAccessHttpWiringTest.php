@@ -28,12 +28,17 @@ use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
-require __DIR__ . '/../Support/ThinkPhpTestConnection.php';
+require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
 require __DIR__ . '/../Support/IdentityMysqlFixture.php';
 require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 
+$cache = require dirname(__DIR__, 2) . '/config/cache.php';
+$cache['stores']['file']['path'] = dirname(__DIR__, 3) . '/.local/tmp/058-PlatformAccessHttpWiringTest-cache-' . bin2hex(random_bytes(6)) . '/';
+think\Container::getInstance()->config->set($cache, 'cache');
+
 function platformAccessHttpExpect(bool $condition, string $message): void
 {
+    $GLOBALS['platformAccessHttpExpectAssertions'] = ($GLOBALS['platformAccessHttpExpectAssertions'] ?? 0) + 1;
     if (!$condition) {
         throw new RuntimeException($message);
     }
@@ -161,7 +166,7 @@ try {
         );
     }
 
-    echo "PM01-PLATFORM-ACCESS-HTTP-WIRING-001 passed\n";
+    echo "PM01-PLATFORM-ACCESS-HTTP-WIRING-001 passed; assertions={$GLOBALS['platformAccessHttpExpectAssertions']}\n";
 } finally {
     RegisteredMysqlTestResource::cleanup($pdo, $database, $createdDatabase);
 }

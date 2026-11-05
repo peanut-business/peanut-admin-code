@@ -42,6 +42,7 @@ require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 
 function lifecycleExpect(bool $condition, string $message): void
 {
+    $GLOBALS['lifecycleExpectAssertions'] = ($GLOBALS['lifecycleExpectAssertions'] ?? 0) + 1;
     if (!$condition) {
         throw new RuntimeException($message);
     }
@@ -310,7 +311,7 @@ SQL);
         'specific invitation actions must precede the prefix-sensitive invitation collection route',
     );
 
-    echo "PM01-PLATFORM-TENANT-LIFECYCLE-HTTP-001 passed\n";
+    echo "PM01-PLATFORM-TENANT-LIFECYCLE-HTTP-001 passed; assertions={$GLOBALS['lifecycleExpectAssertions']}\n";
 } finally {
     RegisteredMysqlTestResource::cleanup($pdo, $database, $createdDatabase);
 }

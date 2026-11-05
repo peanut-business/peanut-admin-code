@@ -20,10 +20,15 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require_once __DIR__ . '/../Support/IdentityMysqlFixture.php';
 require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
 require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
+
+$cache = require dirname(__DIR__, 2) . '/config/cache.php';
+$cache['stores']['file']['path'] = dirname(__DIR__, 3) . '/.local/tmp/058-PlatformModuleRuntimeHttpWiringTest-cache-' . bin2hex(random_bytes(6)) . '/';
+think\Container::getInstance()->config->set($cache, 'cache');
 require_once dirname(__DIR__) . '/Support/IsolatedBackendEnvironment.php';
 
 function platformModuleHttpExpect(bool $condition, string $message): void
 {
+    $GLOBALS['platformModuleHttpExpectAssertions'] = ($GLOBALS['platformModuleHttpExpectAssertions'] ?? 0) + 1;
     if (!$condition) {
         throw new RuntimeException($message);
     }
@@ -186,7 +191,7 @@ try {
         'platform.module.unregistered-probe',
     );
 
-    echo "PLATFORM-MODULE-RUNTIME-HTTP-D3-001 passed database={$database}\n";
+    echo "PLATFORM-MODULE-RUNTIME-HTTP-D3-001 passed database={$database}; assertions={$GLOBALS['platformModuleHttpExpectAssertions']}\n";
 } finally {
     RegisteredMysqlTestResource::cleanup($pdo, $database, $createdDatabase);
 }

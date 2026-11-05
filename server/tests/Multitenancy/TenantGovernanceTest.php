@@ -19,12 +19,13 @@ use PeanutAdmin\Modules\Identity\Tenancy\TenantStatus;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
-require __DIR__ . '/../Support/ThinkPhpTestConnection.php';
+require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
 require_once __DIR__ . '/../Support/IdentityMysqlFixture.php';
 require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 
 function pm01Expect(bool $condition, string $message): void
 {
+    $GLOBALS['pm01ExpectAssertions'] = ($GLOBALS['pm01ExpectAssertions'] ?? 0) + 1;
     if (!$condition) {
         throw new RuntimeException($message);
     }
@@ -179,7 +180,7 @@ try {
         'Core tenant governance audit evidence is incomplete',
     );
 
-    echo "PM01-TENANT-GOVERNANCE-001 passed\n";
+    echo "PM01-TENANT-GOVERNANCE-001 passed; assertions={$GLOBALS['pm01ExpectAssertions']}\n";
 } finally {
     RegisteredMysqlTestResource::cleanup($pdo, $database, $createdDatabase);
 }
