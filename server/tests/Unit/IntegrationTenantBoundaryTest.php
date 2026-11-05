@@ -48,7 +48,11 @@ final class IntegrationTenantBoundaryTest extends TestCase
         \ThinkPhpTestConnection::fromPdo($this->database);
         $this->database->exec(<<<'SQL'
             CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY, code TEXT, status TEXT);
-            CREATE TABLE pa_external_channel_binding (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER, provider TEXT, callback_key TEXT, identity_hash TEXT, identity_hint TEXT, config_json TEXT, status INTEGER, create_time INTEGER, update_time INTEGER, UNIQUE(tenant_id, provider));
+            CREATE TABLE pa_external_channel_binding (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER, provider TEXT, callback_key TEXT, identity_hash TEXT, identity_hint TEXT, config_json TEXT, status INTEGER, create_time INTEGER, update_time INTEGER, retired_at INTEGER NULL);
+            -- Native MySQL migration preserves old merchant bindings while
+            -- admitting only one current (non-retired) binding per tenant/provider.
+            CREATE UNIQUE INDEX uk_external_tenant_provider_current
+                ON pa_external_channel_binding(tenant_id, provider) WHERE retired_at IS NULL;
             INSERT INTO pa_tenant VALUES (1, 'alpha', 'active'), (2, 'beta', 'active');
             SQL);
         $this->directory = new AdminDirectoryQuery(new CurrentExecutionContext(new ExecutionContextStore()));
