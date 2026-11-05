@@ -82,6 +82,7 @@ final class DemoAccountPolicyBoundaryTest extends TestCase
             $policy->assertPasswordChangeAllowed($accountId);
         }
         self::assertTrue($policy->mutationLocked(['username' => 'demo@example.test'], '/ADMIN/EDIT/'));
+        self::assertTrue($policy->mutationLocked(['username' => 'demo@example.test'], 'core.menu.manage'));
         self::assertFalse($policy->mutationLocked(['username' => 'normal@example.test'], 'admin/edit'));
         self::assertFalse($policy->mutationLocked(['username' => 'demo@example.test'], 'article/read'));
         $this->expectException(\DomainException::class);

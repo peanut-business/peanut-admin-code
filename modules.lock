@@ -182,7 +182,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "afafee9b55f540773b6c618fa271ce2e06b6119a8d9e9561f4cd4ab9147fc864"
+                "sha256": "beccb07c4621ba14208f972055ee52a61dccd8f9f55b047c4a41a98c868ca75c"
             },
             "trust": {
                 "channel": "bundled",

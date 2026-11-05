@@ -26,6 +26,9 @@ final class GeneratorDeclaredCrudTemplateTest extends TestCase
 
     public function testGeneratedCrudUsesRegisteredModuleAndCompleteAssemblyContracts(): void
     {
+        $hostRoutePath = $this->fixtureApplication->root . '/server/app/adminapi/route/app.php';
+        $hostRouteSource = file_get_contents($hostRoutePath) . "\n// Application-owned host customization.\n";
+        self::assertNotFalse(file_put_contents($hostRoutePath, $hostRouteSource));
         $files = GeneratorRenderService::render(self::definition(), $this->fixtureApplication->root);
         $byPath = array_column($files, null, 'path');
 
@@ -82,8 +85,8 @@ final class GeneratorDeclaredCrudTemplateTest extends TestCase
         self::assertContains('pa_fixture_generated_note', $manifest['database']['owned_tables']);
         self::assertSame('merge', $byPath[$backend . '/route/app.php']['operation']);
         self::assertStringContainsString("require __DIR__ . '/generated/generated-note.php';", $byPath[$backend . '/route/app.php']['content']);
-        self::assertSame('merge', $byPath['server/app/adminapi/route/app.php']['operation']);
-        self::assertStringContainsString("'server/app/modules/fixture/delivery_record/route/app.php',", $byPath['server/app/adminapi/route/app.php']['content']);
+        self::assertArrayNotHasKey('server/app/adminapi/route/app.php', $byPath);
+        self::assertSame($hostRouteSource, file_get_contents($hostRoutePath));
         self::assertStringContainsString('generatedGeneratedNoteContribution', $byPath[$frontend . '/contribution.ts']['content']);
 
         $model = $byPath[$backend . '/src/Model/GeneratedNote.php']['content'];

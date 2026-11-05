@@ -43,7 +43,24 @@ final class ApiMetadataCompletionTest extends TestCase
                     'key' => 'api',
                 ],
             ));
-            self::assertCount(18, $applicationApi);
+            $process = proc_open([
+                PHP_BINARY, '-r',
+                'require $argv[1] . "/server/route/registry_source.php"; echo json_encode(peanut_route_endpoint_inventory($argv[1] . "/server"), JSON_THROW_ON_ERROR);',
+                $root,
+            ], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $root);
+            self::assertIsResource($process);
+            $inventoryJson = stream_get_contents($pipes[1]);
+            $inventoryError = stream_get_contents($pipes[2]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            self::assertSame(0, proc_close($process), $inventoryError);
+            $inventory = json_decode($inventoryJson, true, 512, JSON_THROW_ON_ERROR);
+            $expectedApplicationApi = array_values(array_filter(
+                $inventory['endpoints'],
+                static fn(array $endpoint): bool => $endpoint['owner'] === ['type' => 'application', 'key' => 'api'],
+            ));
+            self::assertNotEmpty($expectedApplicationApi);
+            self::assertSame(array_column($expectedApplicationApi, 'path'), array_column($applicationApi, 'path'));
             foreach ($applicationApi as $endpoint) {
                 self::assertSame('complete', $endpoint['contract_quality']);
                 self::assertSame([], $endpoint['documentation']['requires_owner_contract']);
@@ -54,9 +71,17 @@ final class ApiMetadataCompletionTest extends TestCase
                 static fn(array $endpoint): bool => $endpoint['method'] === 'GET'
                     && $endpoint['path'] === '/api/account_log/lists',
             ));
-            self::assertCount(1, $accountLogs);
-            self::assertSame(['type' => 'module', 'key' => 'official.member'], $accountLogs[0]['owner']);
-            self::assertSame('complete', $accountLogs[0]['contract_quality']);
+            $expectedAccountLogs = array_values(array_filter(
+                $inventory['endpoints'],
+                static fn(array $endpoint): bool => $endpoint['method'] === 'GET'
+                    && $endpoint['path'] === '/api/account_log/lists',
+            ));
+            // An unselected optional Module must not leave its customer API in the catalog.
+            self::assertCount(count($expectedAccountLogs), $accountLogs);
+            foreach ($accountLogs as $index => $endpoint) {
+                self::assertSame($expectedAccountLogs[$index]['owner'], $endpoint['owner']);
+                self::assertSame('complete', $endpoint['contract_quality']);
+            }
         } finally {
             if (is_file($catalog)) {
                 unlink($catalog);

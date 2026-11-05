@@ -50,7 +50,12 @@ final class PublicApiArtifactCheckTest extends TestCase
             JSON_THROW_ON_ERROR,
         );
         self::assertSame('9.8.7-test', $openApi['info']['version']);
-        self::assertSame('2', $openApi['info']['x-peanut-contract-generator']['version']);
+        self::assertSame(1, preg_match(
+            "/^const API_CONTRACT_GENERATOR_VERSION = '([^']+)';$/m",
+            (string) file_get_contents($this->sourceRoot . '/scripts/generate-api-contracts.php'),
+            $generatorVersion,
+        ));
+        self::assertSame($generatorVersion[1], $openApi['info']['x-peanut-contract-generator']['version']);
 
         $catalog = json_decode(
             (string) file_get_contents($this->applicationRoot . '/server/generated/api-catalog.json'),
@@ -238,6 +243,23 @@ final class PublicApiArtifactCheckTest extends TestCase
   "source_product_version": "9.8.7-test"
 }
 JSON);
+        self::writeFile($this->applicationRoot . '/modules.lock', <<<'JSON'
+{
+  "schema_version": 1,
+  "modules": [{
+    "key": "official.sample",
+    "modules": [{"key": "official.sample", "root": "server/app/modules/official/sample"}]
+  }]
+}
+JSON);
+        self::writeFile($this->applicationRoot . '/server/app/modules/official/sample/module.json', <<<'JSON'
+{
+  "schema_version": 1,
+  "key": "official.sample",
+  "version": "1.0.0",
+  "backend": {"provider": "Fixture\\Sample\\ModuleProvider"}
+}
+JSON);
 
         self::writeFile($this->applicationRoot . '/server/route/registry_source.php', <<<'PHP'
 <?php
@@ -245,9 +267,21 @@ declare(strict_types=1);
 
 function peanut_route_endpoint_inventory(string $serverRoot): array
 {
+    $lock = json_decode((string) file_get_contents(dirname($serverRoot) . '/modules.lock'), true, 512, JSON_THROW_ON_ERROR);
+    $modules = [];
+    foreach ($lock['modules'] as $plugin) {
+        foreach ($plugin['modules'] as $module) {
+            $manifest = json_decode((string) file_get_contents(dirname($serverRoot) . '/' . $module['root'] . '/module.json'), true, 512, JSON_THROW_ON_ERROR);
+            if ($manifest['key'] !== $module['key']) {
+                throw new RuntimeException('Fixture locked Module does not match its declaration');
+            }
+            $modules[$module['key']] = $module['root'];
+        }
+    }
     return [
         'schema_version' => 1,
-        'summary' => ['route_count' => 2],
+        'modules' => $modules,
+        'summary' => ['route_count' => 1 + (int) isset($modules['official.sample'])],
         'endpoints' => [
             [
                 'method' => 'GET',
@@ -262,7 +296,7 @@ function peanut_route_endpoint_inventory(string $serverRoot): array
                 'permission' => null,
             ],
             // SAMPLE_ENDPOINT_START
-            [
+            ...(isset($modules['official.sample']) ? [[
                 'method' => 'GET',
                 'path' => '/api/sample',
                 'controller' => 'Fixture\\SampleController',
@@ -273,7 +307,7 @@ function peanut_route_endpoint_inventory(string $serverRoot): array
                 'owner' => ['type' => 'module', 'key' => 'official.sample'],
                 'middleware' => [],
                 'permission' => null,
-            ],
+            ]] : []),
             // SAMPLE_ENDPOINT_END
         ],
     ];
@@ -345,7 +379,7 @@ return ['paths' => [
     ]],
 ]];
 PHP);
-        foreach (['platform.php', 'installation.php', 'common.php'] as $filename) {
+        foreach (['platform.php', 'permission-bundles.php', 'installation.php', 'common.php'] as $filename) {
             self::writeFile(
                 $this->applicationRoot . '/server/app/api/metadata/application/' . $filename,
                 "<?php\ndeclare(strict_types=1);\n\nreturn [];\n",

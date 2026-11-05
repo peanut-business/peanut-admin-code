@@ -4,11 +4,11 @@
     "inputs": [
         {
             "path": "modules.lock",
-            "sha256": "a31899314371a4a3ec7365b8ef7a7b757130a31ec28c2147d0a0742d88620ae9"
+            "sha256": "141b7f0bb008878df7dc8cc8d4e0a03d8df50387f5f604f7f505430d60e5323a"
         },
         {
             "path": "release-versions.json",
-            "sha256": "95c5cb2b3fef68704bc2b4143edb32cf9a5d07b757f728ea1a99f8fb0d3a5366"
+            "sha256": "abb6bfaf23402cb23abacff4d3f849891437425c93b55adac7189e4b92f733fa"
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
@@ -80,11 +80,11 @@
         },
         {
             "path": "server/config/admin_api_access.php",
-            "sha256": "8f1d6dc2610530f8346fc12dac495f63b4b8102a1c5e22308261d697ecb6619c"
+            "sha256": "845edf9ee948592ed86226799354292ab79238b7c772a80dfddfb479e9ded487"
         },
         {
             "path": "server/route/admin.php",
-            "sha256": "e2c2930391f702967e8d322f041c791a4411bc79754a44bffe7c396794b35ccb"
+            "sha256": "f521ff6917b02764f64588dd922250003c5ebc5d68f4111870ed2e636fc51421"
         },
         {
             "path": "server/route/app.php",
@@ -3454,13 +3454,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "generator/detail"
+                "core.generator.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "generator/detail"
+                    "key": "core.generator.read"
                 }
             ],
             "errors": [
@@ -3523,13 +3523,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "generator/download"
+                "core.generator.generate"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "generator/download"
+                    "key": "core.generator.generate"
                 }
             ],
             "errors": [
@@ -3593,13 +3593,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "generator/lists"
+                "core.generator.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "generator/lists"
+                    "key": "core.generator.read"
                 }
             ],
             "errors": [
@@ -3662,13 +3662,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "generator/models"
+                "core.generator.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "generator/models"
+                    "key": "core.generator.read"
                 }
             ],
             "errors": [
@@ -3731,13 +3731,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "generator/source-tables"
+                "core.generator.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "generator/source-tables"
+                    "key": "core.generator.read"
                 }
             ],
             "errors": [
@@ -4138,13 +4138,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "menu/all"
+                "core.menu.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "menu/all"
+                    "key": "core.menu.read"
                 }
             ],
             "errors": [
@@ -4207,13 +4207,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "menu/detail"
+                "core.menu.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "menu/detail"
+                    "key": "core.menu.read"
                 }
             ],
             "errors": [
@@ -4276,13 +4276,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "menu/lists"
+                "core.menu.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "menu/lists"
+                    "key": "core.menu.read"
                 }
             ],
             "errors": [
@@ -5598,13 +5598,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "system/info"
+                "core.system.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "system/info"
+                    "key": "core.system.read"
                 }
             ],
             "errors": [
@@ -11910,13 +11910,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "generator/delete"
+                "core.generator.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "generator/delete"
+                    "key": "core.generator.manage"
                 }
             ],
             "errors": [
@@ -11981,13 +11981,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "generator/generate"
+                "core.generator.generate"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "generator/generate"
+                    "key": "core.generator.generate"
                 }
             ],
             "errors": [
@@ -12052,13 +12052,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "generator/import"
+                "core.generator.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "generator/import"
+                    "key": "core.generator.manage"
                 }
             ],
             "errors": [
@@ -12122,13 +12122,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "generator/preview"
+                "core.generator.read"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "generator/preview"
+                    "key": "core.generator.read"
                 }
             ],
             "errors": [
@@ -12192,13 +12192,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "generator/sync"
+                "core.generator.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "generator/sync"
+                    "key": "core.generator.manage"
                 }
             ],
             "errors": [
@@ -12262,13 +12262,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "generator/update"
+                "core.generator.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "generator/update"
+                    "key": "core.generator.manage"
                 }
             ],
             "errors": [
@@ -12618,13 +12618,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "log/clear"
+                "core.audit.clear"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "log/clear"
+                    "key": "core.audit.clear"
                 }
             ],
             "errors": [
@@ -12688,13 +12688,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "menu/add"
+                "core.menu.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "menu/add"
+                    "key": "core.menu.manage"
                 }
             ],
             "errors": [
@@ -12760,13 +12760,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "menu/delete"
+                "core.menu.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "menu/delete"
+                    "key": "core.menu.manage"
                 }
             ],
             "errors": [
@@ -12832,13 +12832,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "menu/edit"
+                "core.menu.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "menu/edit"
+                    "key": "core.menu.manage"
                 }
             ],
             "errors": [
@@ -12904,13 +12904,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "menu/status"
+                "core.menu.manage"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "menu/status"
+                    "key": "core.menu.manage"
                 }
             ],
             "errors": [
@@ -14409,13 +14409,13 @@
                 "exception_registration": null
             },
             "default_permission_keys": [
-                "system/clearCache"
+                "core.system.cache.clear"
             ],
             "prerequisite_permission_keys": [],
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "system/clearCache"
+                    "key": "core.system.cache.clear"
                 }
             ],
             "errors": [

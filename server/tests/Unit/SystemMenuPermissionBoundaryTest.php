@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 namespace tests\Unit;
 
-use app\common\contract\AdminPermissionPolicy;
 use app\common\contract\module\ModuleQualificationQuery;
-use app\common\execution\CurrentExecutionContext;
-use app\common\execution\ExecutionContextStore;
 use app\common\infrastructure\authorization\CoreTenantModuleAdminBridge;
 use app\common\runtime\authorization\RoleAdministrationRuntime;
 use app\adminapi\services\auth\RoleApplicationService;
-use app\common\services\authorization\AdminAuthorizationService;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
 use PDO;
 use PeanutAdmin\Kernel\Authorization\TenantAuthorizationRepository;
@@ -22,7 +18,9 @@ use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
-use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
+use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
+use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
+use PeanutAdmin\Modules\Identity\Module\TenantEntitlementService;
 use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationQuery;
 use PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
@@ -60,6 +58,11 @@ final class SystemMenuPermissionBoundaryTest extends TestCase
             CREATE TABLE pa_system_menu (id INTEGER PRIMARY KEY, perms TEXT, is_disable INTEGER, menu_key TEXT);
             CREATE TABLE pa_menu_definition (id INTEGER PRIMARY KEY, "key" TEXT, scope TEXT, sort_order INTEGER, required_permission_id INTEGER);
             CREATE TABLE pa_tenant_module (tenant_id INTEGER, module_key TEXT, status TEXT, effective_at TEXT, expires_at TEXT);
+            CREATE TABLE pa_plan (id INTEGER PRIMARY KEY, code TEXT, name TEXT, revision INTEGER);
+            CREATE TABLE pa_tenant_license (id INTEGER PRIMARY KEY, tenant_id INTEGER, plan_id INTEGER, status TEXT, effective_at TEXT, expires_at TEXT, revision INTEGER);
+            CREATE TABLE pa_plan_module (plan_id INTEGER, module_key TEXT);
+            CREATE TABLE pa_plan_permission (plan_id INTEGER, permission_key TEXT);
+            CREATE TABLE pa_module_installation (module_key TEXT, status TEXT);
             CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY, status TEXT, authorization_revision INTEGER, updated_at TEXT);
             CREATE TABLE pa_role (id INTEGER PRIMARY KEY, tenant_id INTEGER, "key" TEXT, name TEXT, description TEXT, is_builtin INTEGER, status TEXT, authorization_revision INTEGER, created_at TEXT, updated_at TEXT);
             CREATE TABLE pa_role_permission (id INTEGER PRIMARY KEY, tenant_id INTEGER, role_id INTEGER, permission_id INTEGER, granted_by_member_id INTEGER, granted_at TEXT);
@@ -67,11 +70,17 @@ final class SystemMenuPermissionBoundaryTest extends TestCase
             INSERT INTO pa_tenant VALUES (101,'active',1,NULL);
             INSERT INTO pa_role VALUES (1,101,'application.reader','Before','Before description',0,'active',1,NULL,NULL);
             INSERT INTO pa_permission VALUES (1,'app.active','peanut.admin','active'),(2,'app.retired','peanut.admin','retired'),(3,'module.unavailable','official.unavailable','active'),(4,'unowned.active',NULL,'active'),(5,'hidden.active','peanut.admin','active');
+            ALTER TABLE pa_permission ADD COLUMN name TEXT;
+            INSERT INTO pa_plan VALUES (1,'menu-boundary','Menu boundary',1);
+            INSERT INTO pa_tenant_license VALUES (1,101,1,'active','2000-01-01',NULL,1);
+            INSERT INTO pa_plan_permission VALUES (1,'app.active'),(1,'app.retired'),(1,'module.unavailable'),(1,'unowned.active'),(1,'hidden.active');
             INSERT INTO pa_system_menu (id,perms,is_disable) VALUES (1,'app.active',0),(2,'app.retired',0),(3,'module.unavailable',0),(4,'legacy.unregistered',0),(5,'unowned.active',0),(6,'hidden.active',1),(7,'',0),(8,'app.active',0);
             UPDATE pa_system_menu SET menu_key='menu.' || id;
             SQL);
         $members = $this->createStub(TenantMemberDirectory::class);
-        $this->identity = new TenantAuthorizationQuery($members);
+        $registry = new CompiledModuleRegistry([], [], [], [], 'menu-boundary');
+        $entitlements = new TenantEntitlementService($registry);
+        $this->identity = new TenantAuthorizationQuery($members, $registry, $entitlements);
         $qualification = $this->createStub(ModuleQualificationQuery::class);
         $qualification->method('installedModules')->willReturn([]);
         $qualification->method('activeTenantModuleKeys')->willReturn(['official.unavailable']);
@@ -85,20 +94,11 @@ final class SystemMenuPermissionBoundaryTest extends TestCase
             $menus,
             $this->identity,
             new MenuAdministrationService(),
-        );
-        $authorization = new AdminAuthorizationService(
-            $this->bridge,
-            $this->createStub(AdminPermissionPolicy::class),
-            $members,
-            new AdminDirectoryQuery(new CurrentExecutionContext(new ExecutionContextStore())),
-            $this->identity,
-            new MenuAdministrationService(),
+            $entitlements,
         );
         $this->roles = new RoleAdministrationRuntime(
-            new RoleAdminService(new AuditService()),
-            $authorization,
+            new RoleAdminService(new AuditService(), $entitlements),
             $this->identity,
-            new MenuAdministrationService(),
         );
     }
 
@@ -107,8 +107,8 @@ final class SystemMenuPermissionBoundaryTest extends TestCase
         foreach ([CoreTenantModuleAdminBridge::class, RoleAdministrationRuntime::class] as $type) {
             $source = file_get_contents((new ReflectionClass($type))->getFileName());
             self::assertStringNotContainsString("->join('permission", $source);
-            self::assertStringContainsString('->permissionStates(', $source);
         }
+        self::assertStringContainsString('->permissionStates(', file_get_contents((new ReflectionClass(CoreTenantModuleAdminBridge::class))->getFileName()));
     }
 
     public function testOwnerReturnsOnlyRequestedDefinitionMetadata(): void
@@ -121,37 +121,48 @@ final class SystemMenuPermissionBoundaryTest extends TestCase
         self::assertSame([], $this->identity->permissionStates([]));
     }
 
-    public function testMenuBridgeKeepsLegacyUnknownButRejectsRetiredAndUninstalledDefinitions(): void
+    public function testMenuBridgeRequiresLicensedActiveOwnedDefinitions(): void
     {
         $actual = $this->bridge->registeredSystemMenuPermissions(101);
         sort($actual, SORT_STRING);
-        self::assertSame(['app.active', 'legacy.unregistered', 'unowned.active'], $actual);
+        self::assertSame(['app.active'], $actual);
         self::assertSame([], $this->bridge->registeredSystemMenuPermissions(0));
     }
 
-    public function testRoleSelectionRequiresAnActiveDefinitionAndKeepsTheOriginalSelectedMenuScope(): void
+    public function testRoleCatalogUsesActiveLicensedDefinitionsIndependentlyOfMenus(): void
     {
-        self::assertSame(['app.active', 'module.unavailable', 'unowned.active'], $this->roles->permissionKeys(101, ['menu.1', 'menu.2', 'menu.3', 'menu.4', 'menu.5', 'menu.7', 'menu.8']));
-        self::assertSame([], $this->roles->permissionKeys(101, ['menu.2', 'menu.4']));
-        self::assertSame([], $this->roles->permissionKeys(101, []));
-        // This projection never grants the role: the existing assignment use case still enforces module/actor policy.
+        $catalog = $this->roles->service()->permissionCatalog(101, new PageRequest(1, 20));
+        self::assertSame(['app.active', 'hidden.active'], array_column($catalog['items'], 'key'));
+        self::assertSame(2, $catalog['total']);
+        self::assertSame([], $this->roles->service()->get(101, 1)['permission_keys']);
     }
 
-    public function testUnknownOrDisabledMenuKeyCannotBeAssigned(): void
+    public function testMenuKeysCannotBeAssignedAsPermissionKeys(): void
     {
-        $this->expectException(\DomainException::class);
-        $this->roles->permissionKeys(101, ['menu.6', 'menu.999']);
+        $before = $this->roleWriteState();
+        try {
+            $this->roles->service()->replacePermissions($this->context(), 1, ['menu.6', 'menu.999'], 1);
+            self::fail('Menu identities must not grant permissions.');
+        } catch (AdminAccessException $exception) {
+            self::assertSame('PERMISSION_NOT_ASSIGNABLE', $exception->errorCode);
+        }
+        self::assertSame($before, $this->roleWriteState());
     }
 
-    public function testApplicationMenuPermissionCanBeAssignedWithoutATenantModule(): void
+    public function testRoleMetadataAndExplicitPermissionAssignmentAreIndependentOfMenus(): void
     {
         $application = new RoleApplicationService($this->roles);
         self::assertTrue($application->edit($this->context(), ['id' => 1, 'name' => 'After', 'menu_keys' => ['menu.1']]));
         $role = $this->roles->service()->get(101, 1);
         self::assertSame('After', $role['name']);
+        self::assertSame([], $role['permission_keys']);
+        self::assertSame('2', $role['revision']);
+        $role = $this->roles->service()->replacePermissions($this->context(), 1, ['app.active'], 2);
         self::assertSame(['app.active'], $role['permission_keys']);
-        self::assertSame(['menu.1', 'menu.8'], $this->roles->menuKeys($this->context(), $role['permission_keys']));
         self::assertSame('3', $role['revision']);
+        $role = $this->roles->service()->replacePermissions($this->context(), 1, ['app.active', 'hidden.active'], 3);
+        self::assertSame(['app.active', 'hidden.active'], $role['permission_keys']);
+        self::assertSame('4', $role['revision']);
         self::assertFalse($this->database->inTransaction());
     }
 
@@ -159,16 +170,16 @@ final class SystemMenuPermissionBoundaryTest extends TestCase
     {
         $this->database->exec('INSERT INTO pa_role_permission VALUES (1,101,1,1,201,NULL)');
         $before = $this->roleWriteState();
-        try {
-            (new RoleApplicationService($this->roles))->edit($this->context(), [
-                'id' => 1, 'name' => 'Must roll back', 'desc' => 'Must roll back', 'menu_keys' => ['menu.3'],
-            ]);
-            self::fail('An unavailable Module permission must be rejected.');
-        } catch (AdminAccessException $exception) {
-            self::assertSame('PERMISSION_NOT_ASSIGNABLE', $exception->errorCode);
+        foreach (['module.unavailable', 'app.retired', 'legacy.unregistered', 'unowned.active'] as $permission) {
+            try {
+                $this->roles->service()->replacePermissions($this->context(), 1, ['app.active', $permission], 1);
+                self::fail('An unavailable permission must be rejected: ' . $permission);
+            } catch (AdminAccessException $exception) {
+                self::assertSame('PERMISSION_NOT_ASSIGNABLE', $exception->errorCode);
+            }
+            self::assertSame($before, $this->roleWriteState());
+            self::assertFalse($this->database->inTransaction());
         }
-        self::assertSame($before, $this->roleWriteState());
-        self::assertFalse($this->database->inTransaction());
     }
 
     public function testStaleRevisionCannotChangeRoleOrPermissionBindings(): void
@@ -200,6 +211,7 @@ final class SystemMenuPermissionBoundaryTest extends TestCase
             201,
             'admin.web',
             new \DateTimeImmutable('2031-01-01'),
+            1,
             1,
         ), 'menu-role-boundary');
     }
@@ -233,7 +245,9 @@ final class SystemMenuPermissionBoundaryTest extends TestCase
     {
         $this->database->exec("INSERT INTO pa_system_menu (id,perms,is_disable) VALUES (9,'APP.RETIRED',0),(10,'APP.ACTIVE',0); UPDATE pa_system_menu SET menu_key='menu.' || id WHERE id IN (9,10)");
         self::assertNotContains('APP.RETIRED', $this->bridge->registeredSystemMenuPermissions(101));
-        self::assertSame(['app.active'], $this->roles->permissionKeys(101, ['menu.9', 'menu.10']));
+        $states = $this->identity->permissionStates(['APP.RETIRED', 'APP.ACTIVE']);
+        self::assertSame('retired', $states['APP.RETIRED']['status']);
+        self::assertSame('app.active', $states['APP.ACTIVE']['key']);
     }
 
     public function testInvalidLookupInputIsNotCoerced(): void

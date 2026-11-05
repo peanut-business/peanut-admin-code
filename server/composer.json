@@ -65,49 +65,6 @@
             "options": {
                 "symlink": false
             }
-        },
-        {
-            "type": "package",
-            "package": {
-                "name": "peanut-admin/core",
-                "description": "Peanut Admin technical kernel and ThinkPHP integration",
-                "type": "library",
-                "license": "Apache-2.0",
-                "support": {
-                    "source": "https://github.com/peanut-business/peanut-admin-core-php"
-                },
-                "require": {
-                    "composer/semver": "^3.4.4",
-                    "ext-fileinfo": "*",
-                    "ext-json": "*",
-                    "ext-openssl": "*",
-                    "ext-pdo": "*",
-                    "ext-sodium": "*",
-                    "opis/json-schema": "^2.6.0",
-                    "php": "^8.3",
-                    "topthink/think-orm": "^4.0.51"
-                },
-                "suggest": {
-                    "aliyuncs/oss-sdk-php": "Required by hosts that construct AliyunStorageDriver.",
-                    "qcloud/cos-sdk-v5": "Required by hosts that construct QcloudStorageDriver.",
-                    "qiniu/php-sdk": "Required by hosts that construct QiniuStorageDriver."
-                },
-                "autoload": {
-                    "psr-4": {
-                        "PeanutAdmin\\DataPermission\\": "data-permission/src/",
-                        "PeanutAdmin\\FileMedia\\": "file-media/src/",
-                        "PeanutAdmin\\IntegrationSecurity\\": "integration-security/src/",
-                        "PeanutAdmin\\Kernel\\": "kernel/src/",
-                        "PeanutAdmin\\Settings\\": "settings/src/"
-                    }
-                },
-                "version": "5.0.3-alpha.6",
-                "source": {
-                    "type": "git",
-                    "url": "https://github.com/peanut-business/peanut-admin-core-php.git",
-                    "reference": "7c7d5938922408c02aba88dc1f03147a8c8be11c"
-                }
-            }
         }
     ],
     "license": "Apache-2.0",
@@ -131,7 +88,7 @@
         "aws/aws-sdk-php": "^3.0",
         "aliyuncs/oss-sdk-php": "^2.4",
         "qcloud/cos-sdk-v5": "^2.5",
-        "peanut-admin/core": "5.0.3-alpha.6",
+        "peanut-admin/core": "5.0.3",
         "symfony/html-sanitizer": "^7.3",
         "composer/semver": "^3.4",
         "opis/json-schema": "^2.6",

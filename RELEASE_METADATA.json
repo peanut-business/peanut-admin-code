@@ -2,10 +2,10 @@
   "schema_version": 3,
   "protocol": "peanut.release-metadata.v3",
   "product": "Peanut Admin",
-  "source_product_version": "5.0.14",
+  "source_product_version": "5.0.15",
   "instance_version": null,
-  "expected_tag": "v5.0.14",
-  "release_date": "2026-10-29",
+  "expected_tag": "v5.0.15",
+  "release_date": "2026-11-05",
   "repository": "https://github.com/peanut-business/peanut-admin-code",
   "license": {
     "type": "Apache-2.0",
@@ -30,56 +30,56 @@
   "public_runtime_dependencies": {
     "composer": {
       "package": "peanut-admin/core",
-      "constraint": "5.0.2",
-      "resolved_version": "v5.0.2",
+      "constraint": "5.0.3",
+      "resolved_version": "v5.0.3",
       "source_type": "git",
       "source_url": "https://github.com/peanut-business/peanut-admin-core-php.git",
-      "source_reference": "9fc72010ec22e798240b9a4a45c1a23743a4bf9c"
+      "source_reference": "f2b0435f577c5119f1dfc58d34c274ccb149c477"
     },
     "npm": {
       "source_type": "git",
       "source_url": "https://github.com/peanut-business/peanut-admin-core-web.git",
-      "source_reference": "d1089961bcc858a9288f044b990aaaae728ba2ae",
+      "source_reference": "73d136722d583f39a59ca4456ec1f452a022349d",
       "packages": {
         "@peanut-admin/client": {
-          "version": "5.0.2",
-          "resolved": "https://registry.npmjs.org/@peanut-admin/client/-/client-5.0.2.tgz",
-          "integrity": "sha512-RSMwa21D072TPmpWT0YIeNH3YDHbB0xSMpuLKyoETjDM+tcyn8mOYWhsgVoZfLyoCV6mfODbEAbwayZNovJzdg=="
+          "version": "5.0.4",
+          "resolved": "https://registry.npmjs.org/@peanut-admin/client/-/client-5.0.4.tgz",
+          "integrity": "sha512-lbNvsGU3Jk+vG3+0mEfEzFT03ZHDkcII3tnpOSfmI1KQ4dUJNH5YxDw20/V6D2+QmL5SB9ZgCrjEddPbdmDdww=="
         },
         "@peanut-admin/vue": {
-          "version": "5.0.2",
-          "resolved": "https://registry.npmjs.org/@peanut-admin/vue/-/vue-5.0.2.tgz",
-          "integrity": "sha512-TLM8YVtxh86qtg5iM6ElhrICGudql+LHFMJfNbgo3AK34BfoKGkojC9CyEMtIuOJtERRLZKTBVFo5xrbjPnlpA=="
+          "version": "5.0.4",
+          "resolved": "https://registry.npmjs.org/@peanut-admin/vue/-/vue-5.0.4.tgz",
+          "integrity": "sha512-ANbtW+oUAArfN8jgyc1vyuIS3mNGhmFya9sccTF+WR4P9p267dCUZ5rgTkaf5K7aPch/7685hwtdP0Tku8MMnw=="
         },
         "@peanut-admin/ui-vue": {
-          "version": "5.0.2",
-          "resolved": "https://registry.npmjs.org/@peanut-admin/ui-vue/-/ui-vue-5.0.2.tgz",
-          "integrity": "sha512-W5ysL4HetnVNurOpR62doBN2ZzOuJ5q6NfzYBeVGW/9JQokYfAZ53ta9yFOe0FCFneP9372yy5MSGna3HsqL7Q=="
+          "version": "5.0.4",
+          "resolved": "https://registry.npmjs.org/@peanut-admin/ui-vue/-/ui-vue-5.0.4.tgz",
+          "integrity": "sha512-GqCqPMzHlFQuxHBOQOd8K9VUEic0MoSVuVmsmMMuqaBvYWj1pvqqpjkL/OK/iuxcCxUwhATu5gvu7m5hM5a1UA=="
         },
         "@peanut-admin/nuxt": {
-          "version": "5.0.2",
-          "resolved": "https://registry.npmjs.org/@peanut-admin/nuxt/-/nuxt-5.0.2.tgz",
-          "integrity": "sha512-Tb1MPHqwfy0sQp08xlWoDiC11ujNpWVGQSoJZLRmit/JyYl666WSo/exNtZid8kar+qtmuYa4O39e/ZjEWeFww=="
+          "version": "5.0.4",
+          "resolved": "https://registry.npmjs.org/@peanut-admin/nuxt/-/nuxt-5.0.4.tgz",
+          "integrity": "sha512-M7Af5tcGTie8zMbQRQ3Q+e8GUb6IgW1A4saX+gCWr/N7hwbb7sCe4jLkokcwApJ2ev3aS4NMefnDZ/iFouJgQw=="
         },
         "@peanut-admin/uniapp": {
-          "version": "5.0.2",
-          "resolved": "https://registry.npmjs.org/@peanut-admin/uniapp/-/uniapp-5.0.2.tgz",
-          "integrity": "sha512-pMu5sqrg8ElpLxgmC3peD16Vl336Uph3jdJa9VI5g4RfzWm0F2fIGVmGNFnmh/bG2WS/5rlge8JTOrZLwf0OtA=="
+          "version": "5.0.4",
+          "resolved": "https://registry.npmjs.org/@peanut-admin/uniapp/-/uniapp-5.0.4.tgz",
+          "integrity": "sha512-chpOOAQTW1WRiT+MtlfGHfi3uRMPP+DJ2cnLnHqty3K7rIkc3Pw3YAE6Lrse8ZRq2g4DrCFtsVjm1fwNgb8Fdw=="
         },
         "@peanut-admin/testing": {
-          "version": "5.0.2",
-          "resolved": "https://registry.npmjs.org/@peanut-admin/testing/-/testing-5.0.2.tgz",
-          "integrity": "sha512-FN4FiWKS95iwEX41SG95Yx2WBc0UKJRURPLjMuPAI77BU2f69JPgd/XZPuUVFfZaqjpAJ9kC0kNGunkZYVC47Q=="
+          "version": "5.0.4",
+          "resolved": "https://registry.npmjs.org/@peanut-admin/testing/-/testing-5.0.4.tgz",
+          "integrity": "sha512-eTg5h6sXw0GPKTGTnbNtlbDPSzZVaf03IbX3bAQayTsoKozaytl9pglbTDLkgLxBnCpORnQf0HgUhwGO3PPHuA=="
         }
       }
     }
   },
   "lockfiles": {
-    "server/composer.lock": "bfa7a729e032e19c30baa9f5086bc4ce714fcf3fcd394e158c419c6d6ad93308",
-    "web/pnpm-lock.yaml": "fc55356738495f1ffda3d178797fe6203472e309593a9568997ded0cdb1b65a9",
-    "platform/package-lock.json": "ae91a5789a005845d55accfc929f8bfe6334289750baad1b283324faf6c45eb2",
-    "pc/package-lock.json": "65a0e9ab8c48bb235362a27ad31f0ccd6a847e51545af32656d47056309cf456",
-    "uniapp/package-lock.json": "8d2e3e9615a80cfe0d9324cdc1a155cfb17d4be89ae1a4b46ede59f1976a0e38"
+    "server/composer.lock": "f996a2bf6a9ad8f85aa27abf49e3317858e0505029e3052cdda2a654e73f504c",
+    "web/pnpm-lock.yaml": "b1df970fc9fe25272b2eef37a28fd198bad434a8438ffcdde6ad45423f9e4a87",
+    "platform/package-lock.json": "06515e2c5340fbf596c473f7a4c02e069d513d6ee794075f2f9e4209d6d16069",
+    "pc/package-lock.json": "5d3ddd6657af4c145f726b43dc2f1bc92ac9519f71ab50dda301d67878dee01c",
+    "uniapp/package-lock.json": "726e4f87a533a49e75ad95e1e165a5fcac62c19e2f4ce9e4ede1a7ee6592d23a"
   },
   "legal_files": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
@@ -88,7 +88,7 @@
     "RELEASE_SBOM.spdx.json": "01153018a1e986197ef8a74fccec43dd27d9912617fa6f8a03e158d5f2b2bd62"
   },
   "technical_qualification": {
-    "phase": "5.0.14-stable-candidate",
+    "phase": "5.0.15-stable-candidate",
     "result": "pending",
     "final_candidate_commit": null,
     "final_candidate_tree": null,
@@ -98,7 +98,7 @@
     "cleanup_residual_count": null,
     "lease_released": false,
     "migrations": 10,
-    "scaffold_version": "5.0.14",
+    "scaffold_version": "5.0.15",
     "application_initial_version": "0.1.0",
     "evidence": "Product stable candidate identity is prepared from public Core registry locks; qualification remains pending.",
     "release_delta": "Adopts the published fixed PHP Core and Web Core package identities recorded in public_runtime_dependencies, separates source product identity from customer-owned instance identity, and prepares one-source deterministic Standalone and Multi-tenant scaffold inputs."

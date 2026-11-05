@@ -15,9 +15,25 @@ use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
 use app\common\policy\permission\RegisteredAdminPermissionPolicy;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
+use app\common\dto\authorization\AdminPrincipal;
+use app\common\infrastructure\authorization\CoreTenantModuleAdminBridge;
+use app\common\services\authorization\EndpointPermissionGrant;
+use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
+use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
+use PeanutAdmin\Kernel\Module\ModuleAvailability;
+use PeanutAdmin\Kernel\Tenancy\TenantScope;
+use PeanutAdmin\Modules\Identity\Authorization\ApiPermissionCatalog;
+use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog;
+use PeanutAdmin\Modules\Identity\Authorization\ThinkPhpTenantAuthorizationRepository;
+use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
+use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationQuery;
+use PeanutAdmin\Modules\Identity\Membership\Query\ThinkPhpTenantMemberDirectory;
+use PeanutAdmin\Modules\Identity\Menu\MenuAdministrationService;
+use PeanutAdmin\Modules\Identity\Menu\ThinkPhpMenuCatalogRepository;
+use PeanutAdmin\Modules\Identity\Module\TenantEntitlementService;
 
-require dirname(__DIR__, 2) . '/bootstrap/environment.php';
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once dirname(__DIR__) . '/Support/CiBootstrap.php';
+require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
 
 function expectAdminApiBoundary(bool $condition, string $message): void
 {
@@ -31,6 +47,7 @@ function problemPayload(callable $operation): array
     try {
         $operation();
     } catch (ApiProblem $problem) {
+        expectAdminApiBoundary($problem->httpStatus === intdiv($problem->apiCode(), 100), 'HTTP denial status differs from the permission envelope');
         return [
             'code' => $problem->apiCode(),
             'msg' => $problem->getMessage(),
@@ -41,21 +58,67 @@ function problemPayload(callable $operation): array
 }
 
 $policy = new RegisteredAdminPermissionPolicy();
-$registered = ['official.article.list', 'admin/status'];
-expectAdminApiBoundary($policy->canAccess(false, 'official.article.list', $registered, ['official.article.list']), 'registered grant must pass');
-expectAdminApiBoundary(!$policy->canAccess(false, 'official.article.list', $registered, []), 'registered unowned route must fail');
+$registered = ['core.generator.read', 'core.member.update'];
+expectAdminApiBoundary($policy->canAccess(false, 'core.generator.read', $registered, ['core.generator.read']), 'registered grant must pass');
+expectAdminApiBoundary(!$policy->canAccess(false, 'core.generator.read', $registered, []), 'registered unowned route must fail');
 expectAdminApiBoundary(!$policy->canAccess(false, 'unknown/detail', $registered, ['unknown/detail']), 'unregistered route must fail even if claimed as granted');
-expectAdminApiBoundary($policy->canAccess(true, 'admin/status', $registered, []), 'root must bypass role ownership for a registered route');
-expectAdminApiBoundary(!$policy->canAccess(true, 'admin/edit', $registered, []), 'root must not bypass route registration');
-expectAdminApiBoundary(!$policy->canAccess(false, 'admin/status', ['admin/edit'], ['admin/edit']), 'status route must not inherit through a runtime alias');
+expectAdminApiBoundary($policy->canAccess(true, 'core.member.update', $registered, []), 'root must bypass role ownership for a registered permission');
+expectAdminApiBoundary(!$policy->canAccess(true, 'core.member.leave', $registered, []), 'root must not bypass permission registration');
+expectAdminApiBoundary(!$policy->canAccess(false, 'core.member.update', ['core.member.leave'], ['core.member.leave']), 'status mutation must not inherit an unrelated grant');
 
 $executionContexts = new ExecutionContextStore();
+$current = new CurrentExecutionContext($executionContexts);
+$root = dirname(__DIR__, 3);
+$temporary = $root . '/.local/tmp/admin-api-permission-boundary';
+if (!is_dir($temporary) && !mkdir($temporary, 0700, true) && !is_dir($temporary)) {
+    throw new RuntimeException('ADMIN_API_TEST_DIRECTORY_UNAVAILABLE');
+}
+$app = new think\App($temporary);
+$database = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+ThinkPhpTestConnection::fromPdo($database);
+$database->exec(<<<'SQL'
+    CREATE TABLE pa_api_endpoint (id TEXT PRIMARY KEY, method TEXT, path TEXT, audience TEXT, module_key TEXT, access_mode TEXT, status TEXT, default_permission_keys TEXT, prerequisite_permission_keys TEXT);
+    CREATE TABLE pa_permission (id INTEGER PRIMARY KEY, "key" TEXT, module_key TEXT, status TEXT);
+    CREATE TABLE pa_permission_api (id INTEGER PRIMARY KEY, permission_id INTEGER, api_id TEXT);
+    SQL);
+// Consume real generated endpoint identities; the instance deliberately has no bundle bindings.
+$catalog = json_decode(file_get_contents(dirname(__DIR__, 2) . '/generated/api-catalog.json'), true, 512, JSON_THROW_ON_ERROR);
+$insert = $database->prepare('INSERT INTO pa_api_endpoint VALUES (?,?,?,?,?,?,?,?,?)');
+foreach ($catalog['endpoints'] as $endpoint) {
+    if ($endpoint['application'] !== 'adminapi' || $endpoint['owner']['type'] !== 'application') {
+        continue;
+    }
+    $insert->execute([$endpoint['api_id'], $endpoint['method'], strtolower($endpoint['path']), $endpoint['audience'], 'peanut.admin',
+        $endpoint['auth']['mode'], 'active', json_encode($endpoint['default_permission_keys'], JSON_THROW_ON_ERROR),
+        json_encode($endpoint['prerequisite_permission_keys'], JSON_THROW_ON_ERROR)]);
+}
+$registry = new CompiledModuleRegistry([], [], [], [], 'admin-api-boundary');
+$entitlements = new TenantEntitlementService($registry);
+$identity = new TenantAuthorizationQuery(new ThinkPhpTenantMemberDirectory(), $registry, $entitlements);
+$bridge = new CoreTenantModuleAdminBridge(
+    new ThinkPhpModuleGovernanceProvider(dirname(__DIR__, 2), [], ThinkPhpTestConnection::moduleCatalogs($database), $registry),
+    new ThinkPhpTenantAuthorizationRepository($entitlements, $identity, $registry),
+    new ThinkPhpMenuCatalogRepository($entitlements), $identity, new MenuAdministrationService(), $entitlements,
+);
+$request = new think\Request();
+$router = new think\Route($app);
+$requestFor = static function (string $method, string $path) use ($request, $router): think\Request {
+    $request->setMethod($method)->setPathinfo($path)->setRule($router->rule($path, static fn() => null, $method));
+    $request->withMiddleware([AdminAuthorizationService::class => null]);
+    return $request;
+};
+$authorization = new AdminAuthorizationService($bridge, $policy, new AdminDirectoryQuery($current), $identity, new EndpointPermissionGrant($request));
+$modules = new class implements ModuleAvailability {
+    public function assertAvailable(TenantScope $scope, string $moduleKey, DateTimeImmutable $now, bool $lock = false): void { throw new LogicException('Unexpected Module admission'); }
+    public function assertDeployment(string $moduleKey, bool $lock = false): void { throw new LogicException('Unexpected Module admission'); }
+    public function assertTenant(TenantScope $scope, string $moduleKey, DateTimeImmutable $now, bool $lock = false): void { throw new LogicException('Unexpected Module admission'); }
+};
 $accessConfig = require dirname(__DIR__, 2) . '/config/admin_api_access.php';
 $middleware = new AuthMiddleware(
-    new CurrentExecutionContext($executionContexts),
-    (new ReflectionClass(AdminAuthorizationService::class))->newInstanceWithoutConstructor(),
+    $current,
+    $authorization,
     new AdminApiAccessRegistry((int) $accessConfig['version'], $accessConfig),
-    (new ReflectionClass(DemoAccountPolicy::class))->newInstanceWithoutConstructor(),
+    new DemoAccountPolicy(false, []), new ApiPermissionCatalog(), $modules, $entitlements,
 );
 $tenant = TenantContext::fromValidatedSession(new ValidatedTenantSession(
     7,
@@ -66,10 +129,11 @@ $tenant = TenantContext::fromValidatedSession(new ValidatedTenantSession(
     'admin-web',
     new DateTimeImmutable('2031-01-01T00:00:00Z'),
     1,
+    1,
 ), 'admin-api-permission-request');
 $execution = new AdminExecutionContext($tenant, 'test.admin-api-permission', [
     'id' => 7,
-    'tenant_id' => 202,
+    'tenant_id' => 101,
     'account_id' => 7007,
     'authorization_revision' => 1,
     'root' => 0,
@@ -80,66 +144,44 @@ $next = static function ($request) use (&$nextCalls): string {
     return 'allowed';
 };
 
-$anonymous = new class {
-    public function pathinfo(): string
-    {
-        return 'admin/self';
-    }
-    public function method(): string
-    {
-        return 'GET';
-    }
-};
+$anonymous = $requestFor('GET', 'admin/self');
 $anonymousDenial = problemPayload(static fn() => $middleware->handle($anonymous, $next));
 expectAdminApiBoundary($anonymousDenial === ['code' => 40100, 'msg' => '请先登录', 'data' => null], 'anonymous denial shape changed');
 
-$authenticated = new class {
-    public array $adminInfo = ['id' => 7, 'tenant_id' => 101, 'root' => 0];
-    public object $tenantContext;
-    public function __construct()
-    {
-        $this->tenantContext = new stdClass();
-    }
-    public function pathinfo(): string
-    {
-        return 'admin/self';
-    }
-    public function method(): string
-    {
-        return 'GET';
-    }
-};
+think\facade\Db::startTrans();
+$authenticated = $requestFor('GET', 'admin/self');
 expectAdminApiBoundary(
     $executionContexts->run($execution, static fn() => $middleware->handle($authenticated, $next)) === 'allowed',
     'authenticated-only route must pass after login',
 );
 expectAdminApiBoundary($nextCalls === 1, 'authenticated-only route did not reach its controller exactly once');
 
-$authenticatedWrongMethod = new class {
-    public array $adminInfo = ['id' => 7, 'tenant_id' => 101, 'root' => 0];
-    public object $tenantContext;
-    public function __construct()
-    {
-        $this->tenantContext = new stdClass();
-    }
-    public function pathinfo(): string
-    {
-        return 'admin/self';
-    }
-    public function method(): string
-    {
-        return 'POST';
-    }
-    public function rule(): ?object
-    {
-        return null;
-    }
-};
+$authenticatedWrongMethod = $requestFor('POST', 'admin/self');
 $wrongMethodDenial = problemPayload(static fn() => $executionContexts->run(
     $execution,
     static fn() => $middleware->handle($authenticatedWrongMethod, $next),
 ));
-expectAdminApiBoundary($wrongMethodDenial === ['code' => 40300, 'msg' => '暂无访问权限', 'data' => null], 'wrong-method denial must keep the generic permission shape');
+expectAdminApiBoundary($wrongMethodDenial === ['code' => 40300, 'msg' => 'API 未登记或已退役', 'data' => null], 'wrong method must fail the exact API registration gate');
+
+$protected = $requestFor('GET', 'menu/lists');
+$principal = AdminPrincipal::fromArray($execution->principal);
+$protected->withMiddleware([AdminAuthorizationService::class => ['context' => $tenant, 'principal' => $principal]]);
+$noGrant = problemPayload(static fn() => $executionContexts->run($execution, static fn() => $middleware->handle($protected, $next)));
+expectAdminApiBoundary($noGrant === ['code' => 40300, 'msg' => '暂无访问权限', 'data' => null], 'registered API with no instance permission bindings must be denied');
+expectAdminApiBoundary($protected->middleware(AdminAuthorizationService::class) === null, 'authorization handoff must be consumed');
+
+// A foreign-tenant principal cannot reuse the trusted request/context handoff.
+$foreignPrincipal = AdminPrincipal::fromArray([...$execution->principal, 'tenant_id' => 202]);
+$protected->withMiddleware([AdminAuthorizationService::class => ['context' => $tenant, 'principal' => $foreignPrincipal]]);
+$foreignDecision = $authorization->decideApiForRequest($protected, $tenant, ['path' => '/adminapi/menu/lists'], ['core.menu.read']);
+expectAdminApiBoundary(!$foreignDecision->allowed && $foreignDecision->reason === 'INVALID_TENANT_ADMIN_CONTEXT', 'foreign principal must fail identity validation before considering API grants');
+$protected->withMiddleware([AdminAuthorizationService::class => ['context' => $tenant, 'principal' => $foreignPrincipal]]);
+$crossTenant = problemPayload(static fn() => $executionContexts->run($execution, static fn() => $middleware->handle($protected, $next)));
+expectAdminApiBoundary($crossTenant === ['code' => 40300, 'msg' => '暂无访问权限', 'data' => null], 'cross-tenant principal must not reach the controller');
+$contextDecision = $authorization->decideApiForRequest($protected, $tenant, ['path' => '/adminapi/menu/lists'], ['core.menu.read']);
+expectAdminApiBoundary(!$contextDecision->allowed && $contextDecision->reason === 'INVALID_TENANT_ADMIN_CONTEXT', 'consumed handoff must not be replayable');
+expectAdminApiBoundary($nextCalls === 1, 'a rejected API reached its controller');
+think\facade\Db::rollback();
 
 $routeSource = peanut_route_registry_source(dirname(__DIR__, 2));
 expectAdminApiBoundary(str_contains($routeSource, "\$peanutRouteApplication = 'adminapi'"), 'Tenant Admin route entry is missing');
@@ -155,15 +197,16 @@ $platformPermissionSource = (string) file_get_contents(dirname(__DIR__, 2) . '/a
 expectAdminApiBoundary(str_contains($platformPermissionSource, "str_starts_with(\$permission, 'platform.')"), 'Platform permission catalog boundary is missing');
 expectAdminApiBoundary(!str_contains($platformLoginSource, 'AdminTokenService'), 'Platform login must not use Tenant Admin sessions');
 
-$schema = strtolower((string) file_get_contents(dirname(__DIR__, 2) . '/database/init.sql'));
-$officialPermissions = $schema
-    . strtolower((string) file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/payment/resources/permissions.json'))
-    . strtolower((string) file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/import_export/resources/permissions.json'));
-foreach (['admin/status', 'official.payment.recharge.refund', 'official.payment.refund.stat', 'official.import-export.operation.status'] as $exactPermission) {
-    expectAdminApiBoundary(str_contains($officialPermissions, $exactPermission), 'exact status permission is missing: ' . $exactPermission);
+$schema = strtolower((string) file_get_contents(dirname(__DIR__, 2) . '/database/schema/baseline-schema.sql'));
+$initialSeeder = (string) file_get_contents(dirname(__DIR__, 2) . '/database/seeds/InitialSeeder.php');
+expectAdminApiBoundary(str_contains($initialSeeder, 'CorePermissionCatalogSynchronizer'), 'fresh installation must synchronize the native Core catalog');
+foreach (['core.member.update', 'core.menu.read', 'core.menu.manage', 'core.generator.generate'] as $exactPermission) {
+    expectAdminApiBoundary(in_array($exactPermission, CorePermissionCatalog::TENANT, true), 'exact Core permission is missing: ' . $exactPermission);
 }
-expectAdminApiBoundary(str_contains($schema, 'insert into `pa_permission`'), 'fresh schema must seed the Core permission catalog');
-expectAdminApiBoundary(str_contains($schema, 'insert ignore into `pa_role_permission`'), 'fresh schema must grant permissions through Core RBAC');
+// Optional retired official.* packages are not part of this application's selected Modules.
+$identitySchema = (string) file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php');
+expectAdminApiBoundary(str_contains($identitySchema, 'CREATE TABLE `pa_role_permission`'), 'Identity must retain independent role-permission storage');
+expectAdminApiBoundary(!str_contains(strtolower($identitySchema), 'pa_system_role_menu'), 'Identity must not restore role-menu storage');
 expectAdminApiBoundary(!str_contains($schema, 'pa_system_role_menu'), 'retired role-menu storage remains in the fresh schema');
 
 echo "ADMIN-API-PERMISSION-BOUNDARY-001 passed\n";

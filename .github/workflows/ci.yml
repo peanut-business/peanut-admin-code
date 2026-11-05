@@ -175,7 +175,8 @@ jobs:
 
       - name: Validate Composer manifest
         working-directory: server
-        run: composer validate --strict
+        # Fixed release inputs deliberately pin exact Core and Module versions.
+        run: composer validate --strict --no-check-all
 
       - name: Install Composer dependencies
         working-directory: server

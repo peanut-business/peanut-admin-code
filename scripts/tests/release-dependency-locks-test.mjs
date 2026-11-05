@@ -45,6 +45,7 @@ function fixture() {
           .digest('base64'),
     };
   const files = new Map();
+  files.set('modules.lock', { schema_version: 1, modules: [] });
   files.set('server/composer.json', {
     require: { 'peanut-admin/core': '9.2.1' },
     repositories: [],
