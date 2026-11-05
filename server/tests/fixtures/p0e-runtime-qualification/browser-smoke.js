@@ -16,7 +16,7 @@ if (profile === 'baseline' && docsUrl === '') throw new Error('missing browser e
 // run-code exposes page, not Node host globals. Resolve URLs in the browser realm.
 const browserUrl = async (targetPage, value, base) => targetPage.evaluate(({ value, base }) => {
   const url = base === undefined ? new URL(value) : new URL(value, base);
-  return { href: url.href, protocol: url.protocol, hostname: url.hostname, port: url.port,
+  return { href: url.href, origin: url.origin, protocol: url.protocol, hostname: url.hostname, port: url.port,
     username: url.username, password: url.password, pathname: url.pathname };
 }, { value, base });
 
@@ -119,72 +119,98 @@ const listItems = (data, label) => {
   return items;
 };
 
+const checkRoleRevocation = async (owner, restricted, origin, roleId, marker) => {
+  const endpoint = '/adminapi/peanut.file.category.add';
+  const permission = 'peanut.file.category.add';
+  const original = assertSuccess(await request(owner, origin, 'GET', '/adminapi/role/permissions', {
+    query: { role_id: roleId },
+  }), 'read revocation fixture role');
+  const replacePermissions = async (keys) => {
+    const current = assertSuccess(await request(owner, origin, 'GET', '/adminapi/role/permissions', {
+      query: { role_id: roleId },
+    }), 'read role permission revision');
+    return assertSuccess(await request(owner, origin, 'PUT', '/adminapi/role/permissions', {
+      data: { role_id: roleId, expected_revision: current.revision, permission_keys: keys },
+    }), 'replace revocation fixture permissions');
+  };
+  const categories = async () => assertSuccess(await request(owner, origin, 'GET', '/adminapi/peanut.file.category.list', {
+    query: { type: 10 },
+  }), 'read revocation fixture categories');
+  const audit = async () => assertSuccess(await request(owner, origin, 'GET', '/adminapi/log/lists', {
+    query: { uri: 'peanut.file.category.add', method: 'POST', page_no: 1, page_size: 100 },
+  }), 'read category write audit');
+  const name = `${marker.slice(-16)}-r`;
+  let categoryId = null;
+  try {
+    await replacePermissions([...new Set([...original.permission_keys, permission])]);
+    assertSuccess(await request(restricted, origin, 'POST', endpoint, {
+      data: { name, type: 10, pid: 0 },
+    }), 'allow category write before role revocation');
+    const tree = await categories();
+    const flatten = (items) => items.flatMap((item) => [item, ...flatten(item.children || [])]);
+    const created = flatten(tree).filter((item) => item.name === name);
+    if (created.length !== 1 || !Number.isInteger(created[0].id)) throw new Error('allowed category write was not retained');
+    categoryId = created[0].id;
+    await replacePermissions(original.permission_keys.filter((key) => key !== permission));
+    const before = { categories: await categories(), audit: await audit() };
+    const denied = await request(restricted, origin, 'POST', endpoint, {
+      data: { name: `${name}-x`, type: 10, pid: 0 },
+    });
+    if (denied.status !== 403 || envelopeSuccess(denied)) throw new Error('existing token survived role permission revocation');
+    const after = { categories: await categories(), audit: await audit() };
+    if (JSON.stringify(before) !== JSON.stringify(after)) throw new Error('denied revoked write changed categories or write audit');
+    return { allowed_before_revocation: true, old_token_denied: true, status: denied.status,
+      business_state_unchanged: true, write_audit_unchanged: true };
+  } finally {
+    await replacePermissions(original.permission_keys);
+    if (categoryId !== null) assertSuccess(await request(owner, origin, 'POST', '/adminapi/peanut.file.category.delete', {
+      data: { id: categoryId },
+    }), 'clean revocation fixture category');
+  }
+};
+
 const checkCategoryAndFile = async (alpha, beta, betaUrl, marker, results) => {
-  assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/official.article.category.add', {
-    data: { name: marker, sort: 0, is_show: 1 },
-  }), 'create soft-delete fixture');
-  const active = listItems(assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/official.article.category.list', {
-    query: { name: marker, page_no: 1, page_size: 20 },
-  }), 'find soft-delete fixture'), 'active category list');
-  const category = active.find((item) => item.name === marker);
-  if (!category || !Number.isInteger(category.id)) throw new Error('created soft-delete fixture is missing');
+  // Article recycle/restore belongs to the optional Article application. This
+  // selected-module browser path exercises File's actual tenant-owned category.
+  const categoryName = marker.slice(-18);
+  const categoryList = async (session, origin) => {
+    const tree = assertSuccess(await request(session, origin, 'GET', '/adminapi/peanut.file.category.list', {
+      query: { type: 10 },
+    }), 'read File categories');
+    if (!Array.isArray(tree)) throw new Error('File category tree is missing');
+    const flatten = (items) => items.flatMap((item) => [item, ...flatten(item.children || [])]);
+    return flatten(tree);
+  };
+  assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/peanut.file.category.add', {
+    data: { name: categoryName, type: 10, pid: 0 },
+  }), 'create File category');
+  const category = (await categoryList(alpha, tenantAdminUrl)).find((item) => item.name === categoryName);
+  if (!category || !Number.isInteger(category.id)) throw new Error('created File category is missing');
   const categoryId = category.id;
-  if (profile === 'baseline') {
-    assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/official.article.category.edit', {
-      data: { id: categoryId, name: marker, sort: 7, is_show: 1 },
-    }), 'update category');
-    const updated = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/official.article.category.detail', {
-      query: { id: categoryId },
-    }), 'read updated category');
-    if (updated?.name !== marker || Number(updated?.sort) !== 7) throw new Error('category update was not retained');
-    if (beta) {
-      const foreignEdit = await request(beta, betaUrl, 'POST', '/adminapi/official.article.category.edit', {
-        data: { id: categoryId, name: `${marker}-foreign`, sort: 0, is_show: 1 },
-      });
-      if (envelopeSuccess(foreignEdit) || !(foreignEdit.status === 404 || foreignEdit.json?.code === 40400)) {
-        const errorCode = foreignEdit.json?.data?.error_code;
-        throw new Error(`foreign Tenant category edit was not hidden: HTTP ${foreignEdit.status} / code ${Number.isInteger(foreignEdit.json?.code) ? foreignEdit.json.code : 'none'} / error_code ${typeof errorCode === 'string' && /^[A-Z0-9_]{1,100}$/u.test(errorCode) ? errorCode : 'none'}`);
-      }
-      const afterForeignEdit = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/official.article.category.detail', {
-        query: { id: categoryId },
-      }), 'read category after foreign Tenant edit rejection');
-      if (afterForeignEdit?.name !== marker || Number(afterForeignEdit?.sort) !== 7) throw new Error('foreign Tenant edit changed the owner category');
-    }
-  }
-  assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/official.article.category.delete', { data: { id: categoryId } }), 'soft delete category');
-  const afterDelete = listItems(assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/official.article.category.list', {
-    query: { name: marker, page_no: 1, page_size: 20 },
-  }), 'list after soft delete'), 'active category list after delete');
-  if (afterDelete.some((item) => item.id === categoryId)) throw new Error('soft-deleted category remained active');
-  const recycled = listItems(assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/official.article.category.recycle.list', {
-    query: { name: marker, page_no: 1, page_size: 20 },
-  }), 'list recycle bin'), 'category recycle list');
-  if (!recycled.some((item) => item.id === categoryId)) throw new Error('soft-deleted category is absent from recycle list');
+  const updatedName = `${categoryName}-u`;
+  assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/peanut.file.category.edit', {
+    data: { id: categoryId, name: updatedName },
+  }), 'update File category');
+  const beforeForeignEdit = await categoryList(alpha, tenantAdminUrl);
+  if (beforeForeignEdit.find((item) => item.id === categoryId)?.name !== updatedName) throw new Error('File category update was not retained');
   if (beta) {
-    const betaRecycle = listItems(assertSuccess(await request(beta, betaUrl, 'GET', '/adminapi/official.article.category.recycle.list', {
-      query: { name: marker, page_no: 1, page_size: 20 },
-    }), 'cross-Tenant recycle list'), 'cross-Tenant category recycle list');
-    if (betaRecycle.some((item) => item.name === marker)) throw new Error('Tenant Beta observed Tenant Alpha recycled data');
-    const betaDetail = assertSuccess(await request(beta, betaUrl, 'GET', '/adminapi/official.article.category.recycle.detail', {
-      query: { id: categoryId },
-    }), 'cross-Tenant recycle detail');
-    if (betaDetail && (Array.isArray(betaDetail) ? betaDetail.length > 0 : Object.keys(betaDetail).length > 0)) {
-      throw new Error('Tenant Beta observed Tenant Alpha recycled detail');
+    if ((await categoryList(beta, betaUrl)).some((item) => item.id === categoryId)) throw new Error('Tenant Beta observed the owner File category');
+    const foreignEdit = await request(beta, betaUrl, 'POST', '/adminapi/peanut.file.category.edit', {
+      data: { id: categoryId, name: 'foreign' },
+    });
+    if (envelopeSuccess(foreignEdit) || ![400, 403, 404].includes(foreignEdit.status)) {
+      throw new Error('foreign Tenant File category edit was not rejected');
     }
+    if (JSON.stringify(await categoryList(alpha, tenantAdminUrl)) !== JSON.stringify(beforeForeignEdit)) throw new Error('foreign Tenant edit changed owner File categories');
   }
-  assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/official.article.category.restore', { data: { ids: [categoryId] } }), 'restore category');
-  const restored = listItems(assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/official.article.category.list', {
-    query: { name: marker, page_no: 1, page_size: 20 },
-  }), 'list restored category'), 'restored category list');
-  if (!restored.some((item) => item.id === categoryId)) throw new Error('restored category did not return to active list');
-  assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/official.article.category.delete', { data: { id: categoryId } }), 'cleanup soft delete');
-  assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/official.article.category.force-delete', { data: { ids: [categoryId] } }), 'cleanup force delete');
-  results.lifecycle = { category_id: categoryId, default_hidden: true, recycle_visible: true, restored: true, cross_tenant_hidden: beta !== null, cleaned: true };
-  if (profile === 'baseline') results.lifecycle.updated = true;
+  assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/peanut.file.category.delete', { data: { id: categoryId } }), 'delete File category');
+  if ((await categoryList(alpha, tenantAdminUrl)).some((item) => item.id === categoryId)) throw new Error('deleted File category remained visible');
+  results.lifecycle = { owner_module: 'peanut.file', category_id: categoryId, updated: true,
+    cross_tenant_hidden: beta !== null, foreign_write_unchanged: beta !== null, cleaned: true };
 
   const png = await alpha.page.screenshot({ type: 'png' });
   const fileName = `${marker}.png`;
-  const upload = assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/official.file.upload.image', {
+  const upload = assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/peanut.file.upload.image', {
     multipart: { cid: '0', file: { name: fileName, mimeType: 'image/png', buffer: png } },
   }), 'upload file');
   if (!Number.isInteger(upload?.id) || typeof upload?.file_key !== 'string' || upload.file_key === ''
@@ -209,26 +235,52 @@ const checkCategoryAndFile = async (alpha, beta, betaUrl, marker, results) => {
   if (delivered.status() < 200 || delivered.status() >= 300 || deliveredBytes === 0) {
     throw new Error(`uploaded file delivery failed with HTTP ${delivered.status()}`);
   }
-  if (profile === 'baseline' && !downloaded.equals(png)) throw new Error('downloaded file bytes differ from the uploaded file');
-  const alphaFiles = listItems(assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/official.file.list', {
+  if (!downloaded.equals(png)) throw new Error('downloaded file bytes differ from the uploaded file');
+  const alphaFiles = listItems(assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/peanut.file.list', {
     query: { type: 10, name: marker, page_no: 1, page_size: 20 },
   }), 'list uploaded file'), 'Alpha file list');
   if (!alphaFiles.some((item) => item.id === upload.id && item.file_key === upload.file_key)) throw new Error('uploaded file is absent from owner list');
   if (beta) {
-    const betaFiles = listItems(assertSuccess(await request(beta, betaUrl, 'GET', '/adminapi/official.file.list', {
+    const betaFiles = listItems(assertSuccess(await request(beta, betaUrl, 'GET', '/adminapi/peanut.file.list', {
       query: { type: 10, name: marker, page_no: 1, page_size: 20 },
     }), 'cross-Tenant file list'), 'Beta file list');
     if (betaFiles.some((item) => item.name === fileName || item.file_key === upload.file_key)) throw new Error('Tenant Beta observed Tenant Alpha file');
   }
-  assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/official.file.delete', { data: { ids: [upload.id] } }), 'delete uploaded file');
+  const visibility = assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/api/v1/files/visibility/preview', {
+    data: { file_keys: [upload.file_key] },
+  }), 'preview fixture private visibility');
+  const restrictedFile = assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/api/v1/files/visibility/batches', {
+    headers: { 'Idempotency-Key': `p0e-private-${marker}` },
+    data: { confirmation: visibility.confirmation, signature: visibility.signature, impact_confirmed: true },
+  }), 'make only the uploaded fixture private');
+  if (restrictedFile.status !== 'completed') throw new Error('fixture visibility conversion did not complete');
+  const afterPrivate = await alpha.page.request.get(deliveryUrl.href, { failOnStatusCode: false });
+  if (afterPrivate.status() >= 200 && afterPrivate.status() < 300) throw new Error('old public delivery URL survived private conversion');
+  const privateAccess = assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/api/v1/files/resolve', {
+    data: { file_key: upload.file_key, operation: 'download_original' },
+  }), 'resolve owner private download');
+  const privateUrl = await browserUrl(alpha.page, privateAccess.url, `${tenantAdminUrl}/`);
+  if (privateUrl.origin !== (await browserUrl(alpha.page, tenantAdminUrl)).origin) throw new Error('private fixture delivery left its registered origin');
+  const privateDelivered = await alpha.page.request.get(privateUrl.href, { failOnStatusCode: false });
+  if (privateDelivered.status() !== 200 || !(await privateDelivered.body()).equals(png)) throw new Error('owner private download did not preserve exact bytes');
+  if (beta) {
+    const deniedPrivate = await request(beta, betaUrl, 'POST', '/adminapi/api/v1/files/resolve', {
+      data: { file_key: upload.file_key, operation: 'download_original' },
+    });
+    if (envelopeSuccess(deniedPrivate) || ![403, 404].includes(deniedPrivate.status)) throw new Error('foreign Tenant resolved a private owner file');
+  }
+  assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/peanut.file.delete', { data: { ids: [upload.id] } }), 'delete uploaded file');
   const afterDeliveryDelete = await alpha.page.request.get(deliveryUrl.href, { failOnStatusCode: false });
   if (afterDeliveryDelete.status() >= 200 && afterDeliveryDelete.status() < 300) throw new Error('deleted file remained available from its delivery URL');
-  const afterFileDelete = listItems(assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/official.file.list', {
+  const afterPrivateDelete = await alpha.page.request.get(privateUrl.href, { failOnStatusCode: false });
+  if (afterPrivateDelete.status() >= 200 && afterPrivateDelete.status() < 300) throw new Error('deleted file retained its private delivery grant');
+  const afterFileDelete = listItems(assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/peanut.file.list', {
     query: { type: 10, name: marker, page_no: 1, page_size: 20 },
   }), 'list after file deletion'), 'file list after deletion');
   if (afterFileDelete.some((item) => item.id === upload.id)) throw new Error('deleted file remained visible');
-  results.file = { file_id: upload.id, delivered_bytes: deliveredBytes, tenant_isolated: beta !== null, deleted: true, delivery_revoked: true };
-  if (profile === 'baseline') results.file.download_exact = true;
+  results.file = { file_id: upload.id, delivered_bytes: deliveredBytes, tenant_isolated: beta !== null,
+    private_conversion_completed: true, old_public_url_revoked: true, owner_private_download_exact: true,
+    deleted: true, delivery_revoked: true, private_grant_revoked: true, download_exact: true };
 
   return { categoryId, upload };
 };
@@ -284,12 +336,17 @@ if (profile === 'baseline') {
       assertSuccess(await request(platform, platformUrl, 'POST', '/platformapi/tenants/activate', {
         data: { tenant_id: issued.tenant_id, expected_revision: tenant.revision, change_reason: marker },
       }), 'activate qualification Tenant Beta');
-      // Required foundations are deployment-managed, without a Tenant switch.
-      for (const moduleKey of ['official.file', 'official.settings', 'official.article']) {
-        assertSuccess(await request(platform, platformUrl, 'POST', '/platformapi/tenants/modules/enable', {
-          data: { tenant_id: issued.tenant_id, module_key: moduleKey, config: {}, change_reason: marker },
-        }), `enable Beta ${moduleKey}`);
-      }
+      // A tenant consumes a current plan/license, never the retired Module switch.
+      const alphaLicense = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/core.tenant.license'), 'read Alpha license').license;
+      const betaLicense = assertSuccess(await request(platform, platformUrl, 'GET', '/platformapi/tenants/license', {
+        query: { tenant_id: issued.tenant_id },
+      }), 'read qualification Beta license').license;
+      if (!Number.isInteger(alphaLicense?.plan_id)) throw new Error('Alpha license has no current plan');
+      assertSuccess(await request(platform, platformUrl, 'PUT', '/platformapi/tenants/license', {
+        data: { tenant_id: issued.tenant_id, plan_id: alphaLicense.plan_id,
+          expected_revision: betaLicense?.revision ?? 0, status: 'active',
+          effective_at: new Date(Date.now() - 60000).toISOString(), expires_at: null, change_reason: marker },
+      }), 'assign qualification Beta plan/license');
       for (const clientKey of ['admin-web', 'member-api']) {
         assertSuccess(await request(platform, platformUrl, 'POST', '/platformapi/tenant-entry-bindings/enable', {
           data: { tenant_id: issued.tenant_id, host: (await browserUrl(platformPage, tenantBetaUrl)).hostname, client_key: clientKey, change_reason: marker },
@@ -308,16 +365,16 @@ if (profile === 'baseline') {
       results.platform = { url: platformPage.url() };
     }
 
-    const menu = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/menu/all'), 'assignable menu tree');
-    const flatten = (items) => items.flatMap((item) => [item, ...flatten(item.children || [])]);
-    if (!Array.isArray(menu)) throw new Error('assignable menu tree is missing');
-    const workbench = flatten(menu).find((item) => item.perms === 'workbench/index');
-    if (typeof workbench?.menu_key !== 'string') throw new Error('workbench has no stable menu key');
+    const permissionCatalog = listItems(assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/role/permissions/catalog', {
+      query: { search: 'workbench/index', page_no: 1, page_size: 20 },
+    }), 'read assignable permission bundles'), 'assignable permission bundles');
+    if (!permissionCatalog.some((permission) => permission.key === 'workbench/index')) throw new Error('workbench permission is not assignable');
+    const restrictedPermissions = ['workbench/index'];
     const restrictedName = `p0e-${runId}-restricted`;
     let roles = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/role/all'), 'read restricted role');
     if (!roles.some((item) => item.name === restrictedName)) {
       assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/role/add', {
-        data: { name: restrictedName, desc: 'P0E restricted business qualification', menu_keys: [workbench.menu_key] },
+        data: { name: restrictedName, desc: 'P0E restricted business qualification', sort: 0 },
       }), 'create restricted role');
       roles = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/role/all'), 'read created restricted role');
     }
@@ -325,9 +382,16 @@ if (profile === 'baseline') {
     if (matchingRoles.length !== 1) throw new Error('restricted role identity is ambiguous');
     const role = matchingRoles[0];
     if (!Number.isInteger(role?.id)) throw new Error('restricted role was not retained');
-    const roleDetail = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/role/detail', { query: { id: role.id } }), 'read assigned role permission');
-    if (!roleDetail.menu_keys.includes(workbench.menu_key)
-      || roleDetail.desc !== 'P0E restricted business qualification' || roleDetail.status !== 'active') throw new Error('stable restricted role identity or menu permission assignment changed');
+    const rolePermissions = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/role/permissions', {
+      query: { role_id: role.id },
+    }), 'read restricted permission revision');
+    const assignedPermissions = assertSuccess(await request(alpha, tenantAdminUrl, 'PUT', '/adminapi/role/permissions', {
+      data: { role_id: role.id, expected_revision: rolePermissions.revision, permission_keys: restrictedPermissions },
+    }), 'assign restricted permission bundles');
+    const roleDetail = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/role/detail', { query: { id: role.id } }), 'read assigned role permissions');
+    if (JSON.stringify(roleDetail.permission_keys) !== JSON.stringify(restrictedPermissions)
+      || assignedPermissions.revision !== rolePermissions.revision + 1
+      || roleDetail.desc !== 'P0E restricted business qualification' || roleDetail.status !== 'active') throw new Error('restricted role identity or permission-bundle assignment changed');
     const restrictedEmail = required('P0E_TENANT_RESTRICTED_EMAIL');
     const restrictedPassword = required('P0E_TENANT_RESTRICTED_PASSWORD');
     let administrators = listItems(assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/admin/lists', {
@@ -351,27 +415,28 @@ if (profile === 'baseline') {
     const restricted = await loginTenant(await isolatedPage(), tenantAdminUrl, restrictedEmail, restrictedPassword, 'restricted');
     if (restricted.token === alpha.token) throw new Error('restricted login shared the owner token');
     const restrictedRoutes = assertSuccess(await request(restricted, tenantAdminUrl, 'GET', '/adminapi/menu/route'), 'restricted navigation');
-    for (const forbidden of ['/system/role', '/app-setting/website', '/article/cate']) {
+    for (const forbidden of ['/system/role', '/app-setting/website', '/system/file']) {
       if (JSON.stringify(restrictedRoutes).includes(forbidden)) throw new Error('restricted menu exposed privileged navigation');
     }
-    results.permissions = { stable_menu_key_assignment: true, restricted_navigation_hidden: true, denied: [] };
+    results.permissions = { stable_permission_assignment: true, restricted_navigation_hidden: true, denied: [] };
     for (const [method, path, data] of [
       ['GET', '/adminapi/role/lists'], ['GET', '/adminapi/config/website'],
       ['POST', '/adminapi/config/website/save', { name: marker }],
-      ['POST', '/adminapi/official.article.category.add', { name: marker, sort: 0, is_show: 1 }],
+      ['POST', '/adminapi/peanut.file.category.add', { name: marker.slice(0, 20), type: 10, pid: 0 }],
     ]) {
       const value = await request(restricted, tenantAdminUrl, method, path, data ? { data } : {});
       if (envelopeSuccess(value) || !(value.status === 403 || value.json?.code === 40300)) throw new Error(`restricted permission was not denied: ${path}`);
       results.permissions.denied.push(path);
     }
-    const deniedUpload = await request(restricted, tenantAdminUrl, 'POST', '/adminapi/official.file.upload.image', {
+    const deniedUpload = await request(restricted, tenantAdminUrl, 'POST', '/adminapi/peanut.file.upload.image', {
       multipart: { cid: '0', file: { name: `${marker}.png`, mimeType: 'image/png', buffer: await restricted.page.screenshot({ type: 'png' }) } },
     });
     if (envelopeSuccess(deniedUpload) || !(deniedUpload.status === 403 || deniedUpload.json?.code === 40300)) throw new Error('restricted file upload was not denied');
-    results.permissions.denied.push('/adminapi/official.file.upload.image');
+    results.permissions.denied.push('/adminapi/peanut.file.upload.image');
+    results.permissions.revocation = await checkRoleRevocation(alpha, restricted, tenantAdminUrl, role.id, marker);
 
     results.navigation = [];
-    for (const [route, api] of [['/system/role', '/adminapi/role/lists'], ['/article/cate', '/adminapi/official.article.category.list'], ['/app-setting/website', '/adminapi/config/website']]) {
+    for (const [route, api] of [['/system/role', '/adminapi/role/lists'], ['/system/file', '/adminapi/peanut.file.category.list'], ['/app-setting/website', '/adminapi/config/website']]) {
       const apiUrl = (await browserUrl(page, api, `${tenantAdminUrl}/`)).href;
       // Retain responses during bounded navigation; the response wait starts after
       // page bootstrap and still validates the actual page's exact GET endpoint.
@@ -551,6 +616,19 @@ try {
   }
 
   const marker = `p0e-${Date.now().toString(36)}`;
+  const restrictedOrigin = identity.tenants.restricted.admin_url.replace(/\/$/u, '');
+  const restrictedOwner = restrictedOrigin === tenantAdminUrl ? alpha : beta;
+  if (!restrictedOwner) throw new Error('restricted account has no registered owner session');
+  const restrictedMembers = listItems(assertSuccess(await request(restrictedOwner, restrictedOrigin, 'GET', '/adminapi/admin/lists', {
+    query: { account: restrictedEmail, page_no: 1, page_size: 20 },
+  }), 'read release restricted administrator'), 'release restricted administrators')
+    .filter((member) => member.account === restrictedEmail);
+  if (restrictedMembers.length !== 1 || restrictedMembers[0].root !== 0
+    || restrictedMembers[0].role_id?.length !== 1 || !Number.isInteger(restrictedMembers[0].role_id[0])) {
+    throw new Error('revocation requires one dedicated non-owner restricted role');
+  }
+  results.role_revocation = await checkRoleRevocation(restrictedOwner, restricted, restrictedOrigin,
+    restrictedMembers[0].role_id[0], marker);
   const { categoryId, upload } = await checkCategoryAndFile(alpha, beta, tenantBetaUrl, marker, results);
 
   const variables = { run_marker: marker, alpha_category_id: categoryId, alpha_file_id: upload.id, alpha_file_key: upload.file_key };

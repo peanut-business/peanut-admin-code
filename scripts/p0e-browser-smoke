@@ -332,8 +332,10 @@ for match in re.finditer(r'\{"schema_version":', text):
 if len(records) != 1: raise ValueError('expected one actual browser completion')
 value = records[0]
 result = value['results']
-if (len(result.get('navigation', [])) != 3 or not result.get('permissions', {}).get('stable_menu_key_assignment')
+if (len(result.get('navigation', [])) != 3 or not result.get('permissions', {}).get('stable_permission_assignment')
     or len(result['permissions'].get('denied', [])) != 5 or not result.get('website', {}).get('original_restored')
+    or not all(result['permissions'].get('revocation', {}).get(key) is True for key in
+               ['allowed_before_revocation', 'old_token_denied', 'business_state_unchanged', 'write_audit_unchanged'])
     or not result.get('lifecycle', {}).get('cleaned') or not result.get('file', {}).get('download_exact')
     or not all(key in result for key in ['pc', 'h5', 'docs'])
     or result['docs'].get('delivery') != 'versioned-markdown-and-openapi'
