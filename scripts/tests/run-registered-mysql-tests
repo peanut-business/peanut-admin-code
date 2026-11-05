@@ -75,14 +75,19 @@ suite_success_pattern() {
     */FileControlledAccessTest.php) printf '%s\n' 'FILE_CONTROLLED_ACCESS_OK assertions=[1-9][0-9]*' ;;
     */FileDeliveryEdgeCasesTest.php) printf '%s\n' 'FILE_DELIVERY_EDGE_CASES_OK assertions=[1-9][0-9]*' ;;
     */IntegrationSecurityMysqlTest.php) printf '%s\n' 'integration-security mysql harness: PASS \(40 checks\)' ;;
+    */AdminRbacTenantIsolationTest.php) printf '%s\n' 'NATIVE-ADMIN-RBAC-TENANT-ISOLATION-001 passed; assertions=[1-9][0-9]*' ;;
+    */DecorationPageTenantIsolationTest.php) printf '%s\n' 'MT02-DECORATION-PAGE-TENANT-ISOLATION-001 passed' ;;
+    */DecorationTabbarTenantIsolationTest.php) printf '%s\n' 'MT03-DECORATION-TABBAR-TENANT-ISOLATION-001 passed' ;;
     */DictTenantIsolationTest.php) printf '%s\n' 'MT02-DICT-TENANT-ISOLATION-001 passed' ;;
     */FileTenantIsolationTest.php) printf '%s\n' 'MT03-FILE-TENANT-OWNERSHIP-001 passed' ;;
+    */HotSearchTenantIsolationTest.php) printf '%s\n' 'MT03-HOT-SEARCH-TENANT-ISOLATION-001 passed' ;;
     */OperationLogTenantIsolationTest.php) printf '%s\n' 'MT03-OPERATION-LOG-TENANT-001 passed' ;;
     */OrgTenantIsolationTest.php) printf '%s\n' 'MT02-ORG-TENANT-ISOLATION-001 passed; assertions=[1-9][0-9]*' ;;
     */PlatformAccessHttpWiringTest.php) printf '%s\n' 'PM01-PLATFORM-ACCESS-HTTP-WIRING-001 passed' ;;
     */PlatformBootstrapInstallerTest.php) printf '%s\n' 'MT05-PLATFORM-BOOTSTRAP-001 identity stage passed; full installer not executed' ;;
     */PlatformModuleRuntimeHttpWiringTest.php) printf '%s\n' 'PLATFORM-MODULE-RUNTIME-HTTP-D3-001 passed' ;;
     */PlatformOperatorBoundaryTest.php) printf '%s\n' 'PM01-PLATFORM-OPERATOR-BOUNDARY-001 passed' ;;
+    */PlatformRetentionMysqlTest.php) printf '%s\n' 'Integration MySQL retention PASS checks=[1-9][0-9]*' ;;
     */PlatformTenantLifecycleApiTest.php) printf '%s\n' 'PM01-PLATFORM-TENANT-LIFECYCLE-HTTP-001 passed' ;;
     */PlatformTenantReadApiTest.php) printf '%s\n' 'PM01-PLATFORM-TENANT-READ-001 passed' ;;
     */TenantGovernanceTest.php) printf '%s\n' 'PM01-TENANT-GOVERNANCE-001 passed' ;;
@@ -163,13 +168,18 @@ server/tests/Modules/Official/Settings/Integration/Application/SettingAdminServi
 server/tests/Modules/Official/Settings/Integration/Application/SettingResolverTest.php
 server/tests/Modules/Official/Settings/Integration/Schema/SettingsMigrationTest.php
 server/tests/Modules/Official/Settings/Security/SettingsIsolationTest.php
+server/tests/Multitenancy/AdminRbacTenantIsolationTest.php
+server/tests/Multitenancy/DecorationPageTenantIsolationTest.php
+server/tests/Multitenancy/DecorationTabbarTenantIsolationTest.php
 server/tests/Multitenancy/FileTenantIsolationTest.php
+server/tests/Multitenancy/HotSearchTenantIsolationTest.php
 server/tests/Multitenancy/OperationLogTenantIsolationTest.php
 server/tests/Multitenancy/OrgTenantIsolationTest.php
 server/tests/Multitenancy/PlatformAccessHttpWiringTest.php
 server/tests/Multitenancy/PlatformBootstrapInstallerTest.php
 server/tests/Multitenancy/PlatformModuleRuntimeHttpWiringTest.php
 server/tests/Multitenancy/PlatformOperatorBoundaryTest.php
+server/tests/Multitenancy/PlatformRetentionMysqlTest.php
 server/tests/Multitenancy/PlatformTenantLifecycleApiTest.php
 server/tests/Multitenancy/PlatformTenantReadApiTest.php
 server/tests/Multitenancy/TenantGovernanceTest.php

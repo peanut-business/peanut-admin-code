@@ -2,22 +2,34 @@
 
 declare(strict_types=1);
 
-use app\adminapi\application\setting\HotSearchApplicationService as AdminHotSearchLogic;
-use app\api\application\SearchApplicationService as ApiSearchLogic;
+use app\adminapi\services\setting\HotSearchApplicationService as AdminHotSearchLogic;
+use app\api\services\SearchApplicationService as ApiSearchLogic;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once __DIR__ . '/../Support/CiBootstrap.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
+require_once __DIR__ . '/../Support/IdentityMysqlFixture.php';
+require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 
 function expectHotSearchTenant(bool $condition, string $message): void
 {
     if (!$condition) {
         throw new RuntimeException($message);
     }
+}
+
+function hotSearchFailure(callable $operation): Throwable
+{
+    try {
+        $operation();
+    } catch (Throwable $exception) {
+        return $exception;
+    }
+    throw new RuntimeException('Expected hot-search operation to be denied.');
 }
 
 function hotSearchTenantContext(int $tenantId, int $memberId, string $requestId): TenantContext
@@ -31,47 +43,25 @@ function hotSearchTenantContext(int $tenantId, int $memberId, string $requestId)
         'admin-web',
         new DateTimeImmutable('2031-01-01T00:00:00Z'),
         1,
+        1,
     ), $requestId);
 }
 
 function createHotSearchTenantSchema(PDO $pdo): void
 {
-    $pdo->exec(<<<'SQL'
-CREATE TABLE pa_tenant (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  status VARCHAR(32) NOT NULL,
-  PRIMARY KEY (id)
-) ENGINE=InnoDB;
-CREATE TABLE pa_hot_search (
-  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  name VARCHAR(200) NOT NULL DEFAULT '',
-  sort SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-  create_time INT UNSIGNED NOT NULL DEFAULT 0,
-  tenant_id BIGINT UNSIGNED NOT NULL,
-  PRIMARY KEY (id),
-  UNIQUE KEY uk_hot_search_tenant_id (tenant_id, id),
-  KEY idx_hot_search_tenant_sort (tenant_id, sort, id),
-  CONSTRAINT fk_hot_search_tenant FOREIGN KEY (tenant_id) REFERENCES pa_tenant (id) ON DELETE RESTRICT
-) ENGINE=InnoDB;
-CREATE TABLE pa_tenant_setting (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  tenant_id BIGINT UNSIGNED NOT NULL,
-  namespace VARCHAR(64) NOT NULL,
-  config_json JSON NOT NULL,
-  revision BIGINT UNSIGNED NOT NULL DEFAULT 1,
-  create_time INT UNSIGNED NOT NULL DEFAULT 0,
-  update_time INT UNSIGNED NOT NULL DEFAULT 0,
-  PRIMARY KEY (id),
-  UNIQUE KEY uk_tenant_setting_namespace (tenant_id, namespace),
-  CONSTRAINT fk_tenant_setting_tenant FOREIGN KEY (tenant_id) REFERENCES pa_tenant (id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-SQL);
+    IdentityMysqlFixture::install($pdo, [
+        dirname(__DIR__, 2) . '/app/modules/peanut/file/database/migrations',
+        dirname(__DIR__, 2) . '/app/modules/peanut/settings/database/migrations',
+        dirname(__DIR__, 2) . '/database/installation',
+    ]);
 }
 
 function seedHotSearchTenantSchema(PDO $pdo): void
 {
     $pdo->exec(<<<'SQL'
-INSERT INTO pa_tenant (id, status) VALUES (101, 'active'), (202, 'active');
+INSERT INTO pa_tenant (id, code, name, display_name, status, created_at, updated_at) VALUES
+  (101, 'alpha', 'Alpha', 'Alpha', 'active', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3)),
+  (202, 'beta', 'Beta', 'Beta', 'active', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3));
 INSERT INTO pa_hot_search (id, tenant_id, name, sort) VALUES
   (11, 101, 'Alpha seed', 10),
   (21, 202, 'Same term', 30),
@@ -87,39 +77,24 @@ $port = (int) IsolatedBackendEnvironment::required('DB_PORT');
 $user = IsolatedBackendEnvironment::required('DB_USER');
 $password = IsolatedBackendEnvironment::required('DB_PASS');
 $runId = strtolower(bin2hex(random_bytes(5)));
-$database = 'peanut_admin_mt03_hot_search_' . $runId;
-$admin = new PDO(
-    "mysql:host={$host};port={$port};charset=utf8mb4",
-    $user,
-    $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true],
-);
-$admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+$database = RegisteredMysqlTestResource::configuredDatabaseName();
+[$pdo, $createdDatabase] = RegisteredMysqlTestResource::openEmptyDatabase($database);
 
 try {
-    $pdo = new PDO(
-        "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
-        $user,
-        $password,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true],
-    );
     createHotSearchTenantSchema($pdo);
     seedHotSearchTenantSchema($pdo);
     IsolatedBackendEnvironment::activateDatabase($host, $port, $database, $user, $password, 'multi-tenant');
-    $app = new think\App();
+    $app = new think\App(dirname(__DIR__, 2));
     $app->initialize();
+    ThinkPhpTestConnection::fromPdo($pdo);
 
     $alpha = hotSearchTenantContext(101, 501, 'mt03-hot-search-alpha-' . $runId);
     $beta = hotSearchTenantContext(202, 502, 'mt03-hot-search-beta-' . $runId);
     $before = $pdo->query("SELECT id, name, sort FROM pa_hot_search WHERE tenant_id = 202 ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
     $statusBefore = (string) $pdo->query("SELECT config_json FROM pa_tenant_setting WHERE tenant_id = 202 AND namespace = 'hot-search'")->fetchColumn();
 
-    try {
-        app(CurrentExecutionContext::class)->tenantAdmin();
-        throw new RuntimeException('missing TenantContext unexpectedly reached hot-search write path');
-    } catch (Throwable $exception) {
-        expectHotSearchTenant($exception->getMessage() !== '', 'missing context denial lost its shape');
-    }
+    $missingContext = hotSearchFailure(fn() => app(CurrentExecutionContext::class)->tenantAdmin());
+    expectHotSearchTenant($missingContext->getMessage() === 'EXECUTION_CONTEXT_REQUIRED', 'missing context denial lost its shape');
     expectHotSearchTenant(
         $pdo->query("SELECT id, name, sort FROM pa_hot_search WHERE tenant_id = 202 ORDER BY id")->fetchAll(PDO::FETCH_ASSOC) === $before,
         'missing context changed Beta terms',
@@ -128,12 +103,21 @@ try {
         (string) $pdo->query("SELECT config_json FROM pa_tenant_setting WHERE tenant_id = 202 AND namespace = 'hot-search'")->fetchColumn() === $statusBefore,
         'missing context changed Beta status',
     );
-    try {
-        app(ApiSearchLogic::class)->hotLists();
-        throw new RuntimeException('missing public TenantContext unexpectedly read hot-search terms');
-    } catch (Throwable $exception) {
-        expectHotSearchTenant($exception->getMessage() !== '', 'missing public context denial lost its shape');
-    }
+    $missingPublicContext = hotSearchFailure(fn() => app(ApiSearchLogic::class)->hotLists());
+    expectHotSearchTenant($missingPublicContext instanceof ArgumentCountError, 'missing public context denial lost its shape');
+
+    $forgedOwner = hotSearchFailure(fn() => app(ExecutionContextStore::class)->run(
+        new \app\common\execution\AdminExecutionContext($alpha, 'test.hot-search.reject-owner'),
+        fn() => app(AdminHotSearchLogic::class)->setConfig($alpha, [
+            'status' => 0,
+            'data' => [['tenant_id' => 202, 'name' => 'Forged owner']],
+        ]),
+    ));
+    expectHotSearchTenant(
+        $forgedOwner instanceof \app\common\exception\BusinessException
+            && $forgedOwner->errorCode === 'HOT_SEARCH_INPUT_INVALID',
+        'protected hot-search tenant field was accepted',
+    );
 
     expectHotSearchTenant(
         app(ExecutionContextStore::class)->run(
@@ -141,8 +125,8 @@ try {
             fn() => app(AdminHotSearchLogic::class)->setConfig($alpha, [
                 'status' => 0,
                 'data' => [
-                    ['tenant_id' => 202, 'name' => 'Same term', 'sort' => 90],
-                    ['tenant_id' => 202, 'name' => 'Alpha only', 'sort' => 80],
+                    ['name' => 'Same term', 'sort' => 90],
+                    ['name' => 'Alpha only', 'sort' => 80],
                 ],
             ]),
         ),
@@ -189,14 +173,12 @@ try {
     expectHotSearchTenant(array_column($publicAlphaResult['data'], 'name') === ['Same term', 'Alpha only'], 'public Alpha read crossed Tenant');
     expectHotSearchTenant(array_column($publicBetaResult['data'], 'name') === ['Same term', 'Beta only'], 'public Beta read crossed Tenant');
     expectHotSearchTenant($publicAlphaResult['status'] === 0 && $publicBetaResult['status'] === 1, 'public status crossed Tenant');
-    try {
-        app(ApiSearchLogic::class)->hotLists(new TenantSystemContext(101, 'untrusted.actor', 'hot-search.lists', 'forged-' . $runId));
-        throw new RuntimeException('untrusted public context unexpectedly read hot-search terms');
-    } catch (Throwable $exception) {
-        expectHotSearchTenant($exception->getMessage() !== '', 'untrusted public denial lost its shape');
-    }
+    $untrustedContext = hotSearchFailure(fn() => app(ApiSearchLogic::class)->hotLists(
+        new TenantSystemContext(101, 'untrusted.actor', 'hot-search.lists', 'forged-' . $runId),
+    ));
+    expectHotSearchTenant($untrustedContext->getMessage() === 'EXECUTION_CONTEXT_REQUIRED', 'untrusted public denial lost its shape');
 } finally {
-    $admin->exec("DROP DATABASE IF EXISTS `{$database}`");
+    RegisteredMysqlTestResource::cleanup($pdo, $database, $createdDatabase);
 }
 
 echo "MT03-HOT-SEARCH-TENANT-ISOLATION-001 passed\n";

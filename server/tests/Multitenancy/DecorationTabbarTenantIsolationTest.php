@@ -2,24 +2,35 @@
 
 declare(strict_types=1);
 
-use app\adminapi\application\decoration\DecorationTabbarApplicationService;
+use app\adminapi\services\decoration\DecorationTabbarApplicationService;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
-use app\common\service\decoration\DecorationReadService;
+use app\common\services\decoration\DecorationReadService;
 use app\common\model\decoration\DecorateTabbar;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
-use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once __DIR__ . '/../Support/CiBootstrap.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
+require_once __DIR__ . '/../Support/IdentityMysqlFixture.php';
+require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 
 function expectTabbarTenant(bool $condition, string $message): void
 {
     if (!$condition) {
         throw new RuntimeException($message);
     }
+}
+
+function tabbarFailure(callable $operation): Throwable
+{
+    try {
+        $operation();
+    } catch (Throwable $exception) {
+        return $exception;
+    }
+    throw new RuntimeException('Expected Tabbar context to be denied.');
 }
 
 function tabbarTenantContext(int $tenantId, int $memberId, string $requestId): TenantContext
@@ -33,41 +44,31 @@ function tabbarTenantContext(int $tenantId, int $memberId, string $requestId): T
         'admin-web',
         new DateTimeImmutable('2031-01-01T00:00:00Z'),
         1,
+        1,
     ), $requestId);
-}
-
-function tabbarDatabase(PDO $admin): string
-{
-    $database = 'peanut_admin_fresh_tabbar_' . strtolower(bin2hex(random_bytes(5)));
-    $admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
-    return $database;
-}
-
-function tabbarPdo(string $host, int $port, string $user, string $password, string $database): PDO
-{
-    return new PDO(
-        "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
-        $user,
-        $password,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true],
-    );
 }
 
 function tabbarFreshSchema(PDO $pdo, string $serverRoot): void
 {
-    foreach (KernelSchema::tableNames() as $table) {
-        $pdo->exec(KernelSchema::createSql($table));
-    }
-    $pdo->exec(KernelSchema::addTenantMemberDepartmentForeignKeySql());
+    IdentityMysqlFixture::install($pdo, [
+        $serverRoot . '/app/modules/peanut/file/database/migrations',
+        $serverRoot . '/app/modules/peanut/settings/database/migrations',
+        $serverRoot . '/database/installation',
+    ]);
     $pdo->exec(<<<'SQL'
 INSERT INTO pa_tenant
   (id, code, name, display_name, status, activated_at, created_at, updated_at)
 VALUES
   (101, 'default', 'Alpha', 'Alpha', 'active', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3), UTC_TIMESTAMP(3));
 SQL);
-    $schema = (string) file_get_contents($serverRoot . '/database/init.sql');
-    expectTabbarTenant($schema !== '', 'canonical application schema is missing');
-    $pdo->exec($schema);
+    $pdo->exec(<<<'SQL'
+INSERT INTO pa_decorate_tabbar_setting (tenant_id, style) VALUES
+  (101, '{"default_color":"#666666","selected_color":"#2F80ED"}');
+INSERT INTO pa_decorate_tabbar (tenant_id, position, name, selected, unselected, link, is_show) VALUES
+  (101, 0, '首页', '', '', '{"target_type":"shop","target":"home"}', 1),
+  (101, 1, 'Alpha News', '', '', '{"target_type":"shop","target":"news"}', 1),
+  (101, 2, 'Alpha Profile', '', '', '{"target_type":"shop","target":"profile"}', 1);
+SQL);
 }
 
 /** @return list<array<string,mixed>> */
@@ -90,16 +91,10 @@ $host = IsolatedBackendEnvironment::required('DB_HOST');
 $port = (int) IsolatedBackendEnvironment::required('DB_PORT');
 $user = IsolatedBackendEnvironment::required('DB_USER');
 $password = IsolatedBackendEnvironment::required('DB_PASS');
-$admin = new PDO(
-    "mysql:host={$host};port={$port};charset=utf8mb4",
-    $user,
-    $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
-);
-$database = tabbarDatabase($admin);
+$database = RegisteredMysqlTestResource::configuredDatabaseName();
+[$pdo, $createdDatabase] = RegisteredMysqlTestResource::openEmptyDatabase($database);
 
 try {
-    $pdo = tabbarPdo($host, $port, $user, $password, $database);
     tabbarFreshSchema($pdo, $serverRoot);
     $pdo->exec(<<<'SQL'
 INSERT INTO pa_tenant
@@ -115,12 +110,12 @@ SQL);
 
     expectTabbarTenant(
         (int) $pdo->query('SELECT COUNT(*) FROM pa_decorate_tabbar WHERE tenant_id = 101')->fetchColumn() === 3,
-        'fresh canonical Tabbar seed is missing',
+        'three-row Alpha Tabbar fixture is missing',
     );
     expectTabbarTenant(
         (string) $pdo->query('SELECT style FROM pa_decorate_tabbar_setting WHERE tenant_id = 101')->fetchColumn()
             === '{"default_color":"#666666","selected_color":"#2F80ED"}',
-        'fresh canonical Tabbar style is missing',
+        'Alpha Tabbar style fixture is missing',
     );
     try {
         $pdo->exec("INSERT INTO pa_decorate_tabbar (tenant_id, position, name, link) VALUES (202, 1, 'Duplicate', '{}')");
@@ -138,6 +133,7 @@ SQL);
     IsolatedBackendEnvironment::activateDatabase($host, $port, $database, $user, $password, 'multi-tenant');
     $app = new think\App($serverRoot);
     $app->initialize();
+    ThinkPhpTestConnection::fromPdo($pdo);
     $decorationReads = app(DecorationReadService::class);
     $alpha = tabbarTenantContext(101, 11, 'fresh-tabbar-alpha');
     $beta = tabbarTenantContext(202, 22, 'fresh-tabbar-beta');
@@ -213,20 +209,12 @@ SQL);
         )['list'][0]['name'] === 'Saved Alpha Home',
         'trusted public Tabbar read selected another Tenant',
     );
-    try {
-        DecorateTabbar::where([])->count();
-        throw new RuntimeException('untrusted public Tabbar context unexpectedly succeeded');
-    } catch (Throwable $exception) {
-        expectTabbarTenant($exception->getMessage() !== '', 'untrusted context denial lost shape');
-    }
-    try {
-        app(CurrentExecutionContext::class)->tenantAdmin();
-        throw new RuntimeException('missing TenantContext unexpectedly reached Tabbar Runtime');
-    } catch (Throwable $exception) {
-        expectTabbarTenant($exception->getMessage() !== '', 'missing context denial lost shape');
-    }
+    $untrustedContext = tabbarFailure(fn() => DecorateTabbar::where([])->count());
+    expectTabbarTenant($untrustedContext->getMessage() === 'EXECUTION_CONTEXT_REQUIRED', 'untrusted context denial lost shape');
+    $missingContext = tabbarFailure(fn() => app(CurrentExecutionContext::class)->tenantAdmin());
+    expectTabbarTenant($missingContext->getMessage() === 'EXECUTION_CONTEXT_REQUIRED', 'missing context denial lost shape');
 
     echo "MT03-DECORATION-TABBAR-TENANT-ISOLATION-001 passed\n";
 } finally {
-    $admin->exec("DROP DATABASE IF EXISTS `{$database}`");
+    RegisteredMysqlTestResource::cleanup($pdo, $database, $createdDatabase);
 }
