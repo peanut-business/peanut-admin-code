@@ -646,7 +646,8 @@ def cli_created_applications(inputs: dict[str, Any], candidate: str, tree: str, 
 MODULE_QUALIFICATION_KEYS = ("peanut.member", "peanut.file", "peanut.task", "peanut.import-export", "peanut.notification")
 
 
-def module_qualification_inputs(value: dict[str, Any], candidate: str, tree: str, *, executing: bool = False) -> dict[str, Any]:
+def module_qualification_inputs(value: dict[str, Any], candidate: str, tree: str, *, executing: bool = False,
+                                installed_only: bool = False) -> dict[str, Any]:
     config = value.get("module_qualification")
     if not isinstance(config, dict) or config.get("protocol") != "peanut.module-qualification-input.v1":
         fail("module-lifecycle requires explicit isolated Module qualification inputs")
@@ -662,7 +663,8 @@ def module_qualification_inputs(value: dict[str, Any], candidate: str, tree: str
     source_resource = database_registration(source)
     roots = {ROOT, source_root}
     schemas = {(source_resource.get("server_uuid"), source_resource.get("database"))}
-    for key in ("lifecycle_application", "failure_recovery_application", "installed_application"):
+    app_keys = ("installed_application",) if installed_only else ("lifecycle_application", "failure_recovery_application", "installed_application")
+    for key in app_keys:
         app = config.get(key, {})
         root = canonical(app.get("root", ""), directory=True)
         if any(root == protected or root in protected.parents or protected in root.parents for protected in roots):
@@ -708,10 +710,15 @@ def module_qualification_inputs(value: dict[str, Any], candidate: str, tree: str
 
 
 def verify_module_context(args: argparse.Namespace) -> dict[str, Any]:
+    global REGISTRY_PATH
     plan_path = file_reference({"path": args.plan, "sha256": args.plan_sha256})
     proof = read_json(plan_path)
     if "module-lifecycle" not in proof.get("groups", []):
         fail("the fixed plan does not admit Module lifecycle qualification")
+    installed_only = proof.get("module_installed_only") is True
+    if installed_only and (proof.get("groups") != ["module-lifecycle"]
+                           or proof.get("selection_scope") != "module-installed-components"):
+        fail("installed Module components require the native closed partial selection")
     binding = proof.get("qualification_tool_binding")
     if binding is not None:
         configure_source(argparse.Namespace(candidate=proof["candidate"], source_root=proof["worktree"],
@@ -719,8 +726,12 @@ def verify_module_context(args: argparse.Namespace) -> dict[str, Any]:
     elif canonical(proof["worktree"], directory=True) != TOOL_ROOT:
         fail("Module qualifier must use the fixed source checkout or its explicitly bound tool checkout")
     validate_candidate(proof["candidate"], require_clean=True)
+    # APP subprocesses intentionally have no private Project environment. Only
+    # this Code maintenance guard restores the plan's pinned registry for leases.
+    REGISTRY_PATH = file_reference({"path": proof["registry_path"], "sha256": proof["registry_sha256"]})
+    os.environ["PEANUT_RESOURCE_REGISTRY"] = str(REGISTRY_PATH)
     inputs = proof["lifecycle_inputs"]
-    module_qualification_inputs(inputs, proof["candidate"], proof["candidate_tree"], executing=True)
+    module_qualification_inputs(inputs, proof["candidate"], proof["candidate_tree"], executing=True, installed_only=installed_only)
     file_reference({"path": inputs["input_path"], "sha256": inputs["input_sha256"]})
     verify_lease(argparse.Namespace(**{key: proof[key] for key in
         ("candidate", "run_id", "lease", "owner", "thread", "parent_lease")}), proof)
@@ -801,6 +812,12 @@ def lifecycle_inputs(args: argparse.Namespace, tree: str) -> dict[str, Any]:
     if registry.get("authority", {}).get("role") != "maintainer":
         fail("maintainer registry authority required")
     command([str(REGISTRY_TOOL), "p0e-maintainer-source", "--sha256", sha256(REGISTRY_PATH)], capture=True)
+    if getattr(args, "module_installed_only", False):
+        if set(value) != {"protocol", "source", "module_qualification"}:
+            fail("installed Module input accepts only its fixed source and native Module inputs")
+        module_qualification_inputs(value, args.candidate, tree, installed_only=True)
+        return {**value, "applications": {}, "template_artifacts": {}, "input_path": str(input_path),
+                "input_sha256": args.lifecycle_input_sha256, "registry_sha256": sha256(REGISTRY_PATH)}
     resources = registry.get("resources", {}).get("databases", [])
     prepared = candidate_inputs(value, args.candidate, tree)
     cli, templates = prepared["cli"], prepared["template_artifacts"]
@@ -856,6 +873,9 @@ def lifecycle_inputs(args: argparse.Namespace, tree: str) -> dict[str, Any]:
 
 
 def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
+    installed_only = getattr(args, "module_installed_only", False)
+    if installed_only and (args.groups != "module-lifecycle" or args.through_group or args.minimum_release):
+        fail("--module-installed-only requires exactly --groups=module-lifecycle")
     _, tree = validate_candidate(args.candidate, require_clean=require_clean)
     inputs = lifecycle_inputs(args, tree)
     groups = read_json(FIXTURE_PATH).get("groups", [])
@@ -878,19 +898,22 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
             fail("unknown terminal group")
         selected = groups[:groups.index(args.through_group) + 1]
         scope = "through-group"
+    if installed_only:
+        scope = "module-installed-components"
+    module_app_keys = ("installed_application",) if installed_only else ("lifecycle_application", "failure_recovery_application", "installed_application")
     output = Path(args.output_dir)
     cache = Path(args.cache_dir)
     for path in (output, cache):
         if (not path.is_absolute() or path == ROOT or ROOT in path.parents or path.resolve() != path
                 or not path.parent.is_dir() or args.run_id not in path.name):
             fail("qualification output/cache must be canonical run-specific leaves outside source")
-        protected = [ROOT, Path(inputs["cli"]["root"]), Path(inputs["template_build_root"]),
+        protected = [ROOT] if installed_only else [ROOT, Path(inputs["cli"]["root"]), Path(inputs["template_build_root"]),
                      *(Path(app["root"]) for app in inputs["applications"].values()),
                      *(Path(app["root"]) for app in inputs.get("fresh_applications", {}).values())]
         if inputs.get("module_qualification"):
             qualification = inputs["module_qualification"]
             protected.extend(Path(qualification[key]["root"]) for key in
-                             ("reviewed_module_source", "lifecycle_application", "failure_recovery_application", "installed_application"))
+                             ("reviewed_module_source", *module_app_keys))
         for root in protected:
             if path == root or root in path.parents or path in root.parents:
                 fail("temporary paths must not overlap fixed sources, templates or permanent APPs")
@@ -907,8 +930,8 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
     gate = "p0e-runtime-qualification"
     qualification_apps = []
     if "module-lifecycle" in selected:
-        qualification = module_qualification_inputs(inputs, args.candidate, tree)
-        qualification_apps = [qualification[key] for key in ("lifecycle_application", "failure_recovery_application", "installed_application")]
+        qualification = module_qualification_inputs(inputs, args.candidate, tree, installed_only=installed_only)
+        qualification_apps = [qualification[key] for key in module_app_keys]
         for app in qualification_apps:
             admissions.append(runtime_admission(app, app["root"], app["head"]))
     for app in inputs["applications"].values():
@@ -950,6 +973,7 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         "registry_path": str(REGISTRY_PATH), "registry_sha256": inputs["registry_sha256"],
         "paths": {"output-dir": str(output), "cache-dir": str(cache)}, "lease_proof_dir": str(lease_dir),
         "groups": selected, "full_gate_groups": groups, "selection_scope": scope, "through_group": args.through_group,
+        **({"module_installed_only": True} if installed_only else {}),
         "lifecycle_inputs": inputs, "template_artifacts": inputs["template_artifacts"], "runtime_admissions": admissions,
         "qualification_tool_binding": TOOL_BINDING,
         "lease_resources": [{"type": k, "value": v} for k, v in sorted(set(resources))]}
@@ -1494,7 +1518,8 @@ class Runner:
                 **facts, "reinstalled": False, "database_dropped": False}
 
     def module_lifecycle(self) -> dict[str, Any]:
-        config = module_qualification_inputs(self.inputs, self.args.candidate, self.plan["candidate_tree"])
+        installed_only = self.plan.get("module_installed_only") is True
+        config = module_qualification_inputs(self.inputs, self.args.candidate, self.plan["candidate_tree"], installed_only=installed_only)
         output = self.output / "groups" / "module-lifecycle"
         if output.exists():
             fail("retain the original Module qualification scene before another attempt")
@@ -1508,9 +1533,10 @@ class Runner:
         results = {}
         # Current native source/dependency/migration/retirement and forward-failure
         # scripts run only in the explicitly registered empty synthetic APP.
-        for producer, app_key, relative, receipt_name in (
+        native_cases = () if installed_only else (
                 ("module-lifecycle", "lifecycle_application", "server/tests/Productization/ModuleLifecycleMySqlTest.php", "result.json"),
-                ("module-failure-recovery", "failure_recovery_application", "server/tests/Productization/ModuleFailureRecoveryMySqlTest.php", "failure-recovery-result.json")):
+                ("module-failure-recovery", "failure_recovery_application", "server/tests/Productization/ModuleFailureRecoveryMySqlTest.php", "failure-recovery-result.json"))
+        for producer, app_key, relative, receipt_name in native_cases:
             lifecycle_app = config[app_key]
             verify_module_context(argparse.Namespace(plan=str(plan_path), plan_sha256=plan_digest))
             log = output / (producer + ".log")
@@ -1571,8 +1597,10 @@ class Runner:
             results[producer] = {**value, "source_sha256": sha256(source), "log_sha256": sha256(log)}
             self.write_json(output / "results.json", results)
         verify_module_context(argparse.Namespace(plan=str(plan_path), plan_sha256=plan_digest))
-        return {"status": "passed", "protocol": "peanut.module-qualification.v1",
-            "scope": "registered-isolated-applications", "reviewed_module_source": config["reviewed_module_source"],
+        return {"status": "not_run" if installed_only else "passed", "protocol": "peanut.module-qualification.v1",
+            "scope": "module-installed-components" if installed_only else "registered-isolated-applications",
+            **({"reason": "installed components completed; Lifecycle, RuntimeGovernance and FailureRecovery were not run"} if installed_only else {}),
+            "reviewed_module_source": config["reviewed_module_source"],
             "source": self.inputs["source"], "producers": results}
 
 
@@ -1873,6 +1901,8 @@ def add_fixed_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--groups")
     parser.add_argument("--through-group")
     parser.add_argument("--minimum-release", action="store_true")
+    parser.add_argument("--module-installed-only", action="store_true",
+                        help="run only native MemberUpload/TaskImportExport components; never qualifies the full Module group")
 
 
 def main() -> int:

@@ -106,6 +106,8 @@ CI 的 `scaffold-release.yml` 可显式选 `publish=false, pack_only=true`，并
 
 `server/fixtures/module-lifecycle/run.php --help` 只显示合同，不初始化 APP。完整执行仍由原 `scripts/p0e-runtime-qualification run/resume` 在明确授权后消费上述输入，先重核来源、路径、资源及 native admission，再调用五个 producer。输出记录每项真实退出/摘要/APP/数据库身份，失败和未知状态保留实际隔离 APP、数据库、文件与日志，不能回填 passed 或靠恢复旧整库备份掩盖写入。本文及源码静态检查不证明已完成数据库、HTTP 或 full8 执行；这些是发行前独立资格任务。
 
+开发期只确认已安装APP的两项业务时，复用同一`plan/claim/run`并显式选`--groups=module-lifecycle --module-installed-only`。该封闭选项只接受原生命周期协议的`protocol,source,module_qualification`；Module对象只需受审来源、`installed_application`及原真实会话/租户/Role选择，仍核干净固定源码、APP原生采用afterimage、模块锁、私有环境、数据库身份和原owner/thread的schema lease。APP环境不注入私有Project；独立Code准入子进程只从原plan的`registry_path/registry_sha256`恢复固定维护登记给原native lease校验。它只调用上面的原`member-upload`、`task-import-export`入口，不重放已填充库上的Lifecycle、RuntimeGovernance或FailureRecovery，也不要求无关CLI模板及两永久APP已采用最终候选。计划scope为`module-installed-components`；即使两项原生结果通过，完整Module组仍为`not_run`，原run以非零保留现场和结果，不能取得full8或transport资格。资源owner核对原两项操作终态后按原租约入口收口，不用此选项绕过真实身份、改写旧证据或自动重试。
+
 ### Module Task 必须补全的独立资格任务
 
 本轮退出四份合同已失效的历史手工入口：TaskImportExportHostTest、CrontabTenantIsolationTest、TaskNativeRootLifecycleTest 及 Task/feature-harness。它们曾受 CI changed-path/broad 的泛型文件选择消费；退役是清除失效实现，不是使 CI 变绿。没有修改 selector 隐藏文件，也没有删除现行八组明确门槛。源码中的通用 Unit/ExecutionRoot 断言和当前 Member/Task 函数保留，但这些资格入口本轮未执行数据库/HTTP 资格、full8 或测试套件，也未为此运行 CI。

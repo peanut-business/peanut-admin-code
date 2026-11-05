@@ -6,6 +6,7 @@ import argparse
 import importlib.machinery
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -451,6 +452,120 @@ class TemplateStageTest(unittest.TestCase):
                     else:
                         with self.assertRaises(stage.GateError): runner.module_lifecycle()
                         self.assertNotIn("ModuleFailureRecoveryMySqlTest.php", events)
+
+    def test_installed_module_plan_is_closed_partial_without_unrelated_applications(self):
+        installed = self.root / "installed-module-app"
+        reviewed = self.root / "reviewed-module-source"
+        installed.mkdir(); reviewed.mkdir()
+        config = {"reviewed_module_source": {"root": str(reviewed)}, "installed_application": {
+            "root": str(installed), "head": self.candidate, "resource_id": "installed-resource", "lease": "installed-lease"}}
+        inputs = {"applications": {}, "template_artifacts": {}, "module_qualification": config, "registry_sha256": "a" * 64}
+        args = argparse.Namespace(candidate=self.candidate, minimum_release=False, groups="module-lifecycle", through_group=None,
+            module_installed_only=True, run_id="installed", output_dir=str(self.root / "installed-output"),
+            cache_dir=str(self.root / "installed-cache"), lease="native-lease", parent_lease=None, owner="owner", thread="thread")
+        source_input = {"protocol": "peanut.p0e-lifecycle-inputs.v1", "source": {"commit": self.candidate, "tree": self.tree},
+                        "module_qualification": config}
+        self.input_path.write_text(json.dumps(source_input))
+        args.lifecycle_input, args.lifecycle_input_sha256 = str(self.input_path), stage.sha256(self.input_path)
+        registry = self.root / "registry.json"
+        registry.write_text(json.dumps({"authority": {"role": "maintainer"}}))
+        with patch.dict("os.environ", {"PEANUT_RESOURCE_REGISTRY": str(registry)}), \
+             patch.object(stage, "REGISTRY_PATH", registry), patch.object(stage, "command"), \
+             patch.object(stage, "candidate_inputs", side_effect=AssertionError("unrelated CLI/templates must not be required")), \
+             patch.object(stage, "module_qualification_inputs", return_value=config) as modules:
+            parsed = stage.lifecycle_inputs(args, self.tree)
+            self.assertEqual(parsed["applications"], {})
+            self.assertEqual(parsed["template_artifacts"], {})
+            self.assertTrue(modules.call_args.kwargs["installed_only"])
+        proof = self.root / "invalid-full-plan.json"
+        proof.write_text(json.dumps({"groups": GROUPS, "module_installed_only": True,
+                                     "selection_scope": "module-installed-components"}))
+        with self.assertRaisesRegex(stage.GateError, "closed partial selection"):
+            stage.verify_module_context(argparse.Namespace(plan=str(proof), plan_sha256=stage.sha256(proof)))
+        with patch.object(stage, "lifecycle_inputs", return_value=inputs), \
+             patch.object(stage, "validate_candidate", return_value=(self.candidate, self.tree)), \
+             patch.object(stage, "module_qualification_inputs", return_value=config) as modules, \
+             patch.object(stage, "runtime_admission", side_effect=lambda app, root, candidate: {
+                 "root": root, "candidate": candidate, "resource_id": app["resource_id"], "lease": app["lease"]}), \
+             patch.object(stage, "runtime_environment", return_value={}):
+            result = stage.plan(args, require_clean=True)
+            self.assertTrue(result["module_installed_only"])
+            self.assertEqual(result["selection_scope"], "module-installed-components")
+            self.assertEqual(result["groups"], ["module-lifecycle"])
+            self.assertEqual(result["full_gate_groups"], GROUPS)
+            self.assertEqual([value["root"] for value in result["runtime_admissions"]], [str(installed)])
+            self.assertTrue(modules.call_args.kwargs["installed_only"])
+            for groups, through in [(None, None), ("generated-application", None), ("module-lifecycle", "module-lifecycle")]:
+                args.groups, args.through_group = groups, through
+                with self.assertRaisesRegex(stage.GateError, "requires exactly"):
+                    stage.plan(args, require_clean=True)
+
+    def test_module_guard_uses_pinned_registry_when_app_environment_is_empty(self):
+        registry = self.root / "maintainer-registry.json"
+        registry.write_text('{"authority":{"role":"maintainer"}}\n')
+        module_input = self.root / "native-module-input.json"
+        module_input.write_text("{}\n")
+        proof = {"groups": ["module-lifecycle"], "module_installed_only": True,
+            "selection_scope": "module-installed-components", "worktree": str(self.source),
+            "candidate": self.candidate, "candidate_tree": self.tree, "run_id": "installed", "lease": "native",
+            "owner": "owner", "thread": "thread", "parent_lease": None,
+            "registry_path": str(registry), "registry_sha256": stage.sha256(registry),
+            "lifecycle_inputs": {"input_path": str(module_input), "input_sha256": stage.sha256(module_input)}}
+        path = self.root / "native-plan.json"
+        path.write_text(json.dumps(proof))
+        args = argparse.Namespace(plan=str(path), plan_sha256=stage.sha256(path))
+
+        def native_lease(*_):
+            self.assertEqual(stage.REGISTRY_PATH, registry)
+            self.assertEqual(os.environ['PEANUT_RESOURCE_REGISTRY'], str(registry))
+
+        with patch.dict("os.environ", {"PEANUT_RESOURCE_REGISTRY": ""}), \
+             patch.object(stage, "REGISTRY_PATH", self.source / "resources/project-resources.json"), \
+             patch.object(stage, "TOOL_ROOT", self.source), patch.object(stage, "validate_candidate"), \
+             patch.object(stage, "module_qualification_inputs") as modules, patch.object(stage, "verify_lease", side_effect=native_lease):
+            self.assertEqual(stage.verify_module_context(args)["status"], "verified")
+            self.assertTrue(modules.call_args.kwargs["installed_only"])
+            registry.write_text("changed\n")
+            with self.assertRaisesRegex(stage.GateError, "fixed native file changed"):
+                stage.verify_module_context(args)
+
+    def test_installed_module_selection_runs_original_actions_without_full_group_pass(self):
+        output = self.root / "installed-components"
+        (output / "groups").mkdir(parents=True)
+        (output / "plan.json").write_text("{}\n")
+        app = {"root": str(self.root / "native-installed"), "resource_id": "native-installed-resource",
+               "database_identity": {"database": "synthetic", "server_uuid": "synthetic-uuid"}}
+        config = {"reviewed_module_source": {"root": "synthetic-reviewed"}, "installed_application": app}
+        args = argparse.Namespace(candidate=self.candidate, run_id="installed", lease="native", parent_lease=None)
+        value = {"paths": {"output-dir": str(output), "cache-dir": str(self.root / "cache")},
+            "candidate_tree": self.tree, "groups": ["module-lifecycle"], "template_artifacts": {}, "module_installed_only": True,
+            "selection_scope": "module-installed-components", "lifecycle_inputs": {"applications": {}, "input_sha256": "a" * 64,
+            "source": {"commit": self.candidate, "tree": self.tree}}}
+        runner = stage.Runner(args, value)
+        called = []
+
+        def execute(arguments, **kwargs):
+            self.assertEqual(Path(arguments[1]).name, "run.php", "must not replay Lifecycle, RuntimeGovernance or FailureRecovery")
+            producer = next(arg.split("=", 1)[1] for arg in arguments if arg.startswith("--action="))
+            called.append(producer)
+            result = {"status": "passed", "protocol": "peanut.module-qualification-result.v1", "producer": producer,
+                "source": runner.inputs["source"], "input_sha256": stage.sha256(output / "groups/module-lifecycle/input.json"),
+                "plan_sha256": stage.sha256(output / "plan.json"), "application_root": app["root"], "resource_id": app["resource_id"],
+                "database_identity": app["database_identity"], "native_identity": "verified-current-session", "writes_retained": True}
+            return subprocess.CompletedProcess(arguments, 0, json.dumps(result), "")
+
+        with patch.object(stage, "module_qualification_inputs", return_value=config) as modules, \
+             patch.object(stage, "verify_module_context"), patch.object(stage, "verify_lease"), \
+             patch.object(stage, "command", side_effect=execute), patch.object(runner, "assert_inputs"), \
+             patch.object(runner, "environment", return_value={}):
+            with self.assertRaises(stage.NotRun): runner.run()
+            self.assertEqual(called, ["member-upload", "task-import-export"])
+            self.assertTrue(modules.call_args.kwargs["installed_only"])
+            result = json.loads((output / "groups/module-lifecycle.json").read_text())
+            self.assertEqual(result["status"], "not_run")
+            self.assertEqual(result["scope"], "module-installed-components")
+            self.assertEqual(set(result["producers"]), set(called))
+            self.assertTrue(all(item["status"] == "passed" for item in result["producers"].values()))
 
     def test_ci_transport_preserves_hidden_defaults_and_executable_modes(self):
         file = self.templates / "standalone/defaults/.env.example"
