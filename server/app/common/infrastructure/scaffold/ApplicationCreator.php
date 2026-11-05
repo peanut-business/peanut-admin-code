@@ -955,6 +955,14 @@ final class ApplicationCreator
         if (isset($document['author']) && is_string($document['author'])) {
             $document['author'] = $this->textTransform($document['author'], $parameters, 'package');
         }
+        if ($path === 'server/composer.json' && is_array($document['authors'] ?? null)) {
+            foreach ($document['authors'] as &$author) {
+                if (is_array($author) && is_string($author['name'] ?? null)) {
+                    $author['name'] = $this->textTransform($author['name'], $parameters, 'package');
+                }
+            }
+            unset($author);
+        }
         // Application package identity is a field; repository references retain their source identity.
         if ($path === 'server/composer.json') {
             $document['name'] = $parameters['PACKAGE_IDENTITY'];
