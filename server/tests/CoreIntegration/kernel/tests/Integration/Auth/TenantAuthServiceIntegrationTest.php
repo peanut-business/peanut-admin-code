@@ -11,6 +11,8 @@ use ThinkPhpTestConnection;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Auth\AuthException;
 use PeanutAdmin\Modules\Identity\Auth\Persistence\ThinkPhpTenantAuthRepository;
+use PeanutAdmin\Modules\Identity\Auth\Persistence\ThinkPhpPlatformAuthRepository;
+use PeanutAdmin\Modules\Identity\Auth\PlatformAuthService;
 use PeanutAdmin\Modules\Identity\Auth\TenantAuthentication;
 use PeanutAdmin\Modules\Identity\Auth\TenantAuthService;
 use PeanutAdmin\Kernel\Auth\TenantClientRegistry;
@@ -22,6 +24,8 @@ use PeanutAdmin\Kernel\Identity\PasswordHasher;
 use PeanutAdmin\Kernel\Identity\PasswordPolicy;
 use PeanutAdmin\Modules\Identity\Identity\SelfService\AccountSelfService;
 use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
+use PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService;
+use PeanutAdmin\Modules\Identity\Tenancy\TenantStatus;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
 
 require_once dirname(__DIR__) . '/Schema/DatabaseTestCase.php';
@@ -626,7 +630,18 @@ SQL);
         );
         self::assertInstanceOf(TenantAuthentication::class, $beta);
 
-        $this->database->exec("UPDATE pa_tenant SET status = 'suspended', security_revision = security_revision + 1, revision = revision + 1 WHERE id = {$this->alphaTenantId}");
+        $platformAuth = new PlatformAuthService(
+            new ThinkPhpPlatformAuthRepository(), new PasswordHasher(), $this->clock,
+            new TokenIssuer(), 'test-identifier-hmac-secret-at-least-32-bytes',
+        );
+        $platform = $platformAuth->login(
+            self::EMAIL, self::PASSWORD, '127.0.0.1', null, 'request-platform-lifecycle',
+        );
+        $tenants = new PlatformTenantAdminService(new AuditService());
+        $revision = (int) $this->query("SELECT revision FROM pa_tenant WHERE id = {$this->alphaTenantId}")->fetchColumn();
+        $suspended = $tenants->transitionTenant(
+            $platform->context, $this->alphaTenantId, $revision, TenantStatus::Suspended, 'Suspend Alpha',
+        );
         self::assertSame(
             'AUTH_TENANT_UNAVAILABLE',
             $this->captureAuthError(fn() => $this->auth->context(
@@ -638,6 +653,21 @@ SQL);
             $this->betaTenantId,
             $this->auth->context($beta->tokens->access->expose(), 'request-beta-valid')->tenantId,
         );
+
+        $tenants->transitionTenant(
+            $platform->context, $this->alphaTenantId, (int) $suspended['revision'], TenantStatus::Active, 'Restore Alpha',
+        );
+        self::assertSame('AUTH_TOKEN_INVALID', $this->captureAuthError(fn() => $this->auth->context(
+            $alpha->tokens->access->expose(), 'request-alpha-old-after-restore',
+        ))->errorCode);
+        $restored = $this->auth->login(
+            self::EMAIL, self::PASSWORD, 'alpha-company', '127.0.0.1', null, 'request-alpha-reauthenticated',
+        );
+        self::assertInstanceOf(TenantAuthentication::class, $restored);
+        self::assertNotSame($alpha->context->sessionKey, $restored->context->sessionKey);
+        self::assertSame($this->alphaTenantId, $this->auth->context(
+            $restored->tokens->access->expose(), 'request-alpha-restored-context',
+        )->tenantId);
 
         $this->disableAccount();
         self::assertSame(

@@ -111,10 +111,10 @@ foreach ($catalog['endpoints'] as $endpoint) {
 }
 $registry = new CompiledModuleRegistry([], [], [], [], 'admin-api-boundary');
 $entitlements = new TenantEntitlementService($registry);
-$identity = new TenantAuthorizationQuery(new ThinkPhpTenantMemberDirectory(), $registry, $entitlements);
+$identity = new TenantAuthorizationQuery(new ThinkPhpTenantMemberDirectory(), $registry);
 $bridge = new CoreTenantModuleAdminBridge(
     new ThinkPhpModuleGovernanceProvider(dirname(__DIR__, 2), [], ThinkPhpTestConnection::moduleCatalogs($database), $registry),
-    new ThinkPhpTenantAuthorizationRepository($entitlements, $identity, $registry),
+    new ThinkPhpTenantAuthorizationRepository($entitlements, $identity),
     new ThinkPhpMenuCatalogRepository($entitlements), $identity, new MenuAdministrationService(), $entitlements,
 );
 $request = new think\Request();

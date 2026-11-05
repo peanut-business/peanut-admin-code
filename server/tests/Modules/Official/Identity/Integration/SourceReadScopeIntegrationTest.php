@@ -110,7 +110,7 @@ SQL);
         ]);
         $entitlements = new TenantEntitlementService($this->modules);
         $repository = new ThinkPhpTenantAuthorizationRepository($entitlements,
-            new TenantAuthorizationQuery(new ThinkPhpTenantMemberDirectory(), $this->modules, $entitlements), $this->modules);
+            new TenantAuthorizationQuery(new ThinkPhpTenantMemberDirectory(), $this->modules));
         $permissions = new TenantAuthorizationEvaluator($repository, new RevisionPermissionCache());
         $modules = new ModuleAvailabilityService($this->modules, $entitlements);
         $grants = new SourceReadGrantAdministrationService(
@@ -258,7 +258,7 @@ SQL);
         ]);
         $entitlements = new TenantEntitlementService($this->modules);
         $repository = new ThinkPhpTenantAuthorizationRepository($entitlements,
-            new TenantAuthorizationQuery(new ThinkPhpTenantMemberDirectory(), $this->modules, $entitlements), $this->modules);
+            new TenantAuthorizationQuery(new ThinkPhpTenantMemberDirectory(), $this->modules));
         $permissions = new TenantAuthorizationEvaluator($repository, new RevisionPermissionCache());
         // 这一组只替换模块状态来源，实际授权存储、租户、权限、SQL 和撤销仍用真实 MySQL。
         $moduleCalls = [];

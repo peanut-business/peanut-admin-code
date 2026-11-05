@@ -74,7 +74,7 @@ final class MemberHostActionPermissionTest extends TestCase
             $tenant === 101 && $member === 601 ? new TenantMemberSummary(101,601,501,'Actor',1,1,1,1) : null);
         $lookup->method('activeMembershipCount')->willReturn(1);
         $registry = new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], 'member-host');
-        $identity = new TenantAuthorizationQuery($lookup, $registry, new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService($registry));
+        $identity = new TenantAuthorizationQuery($lookup, $registry);
         $grants = $this->createStub(TenantAuthorizationRepository::class);
         $grants->method('permissions')->willReturnCallback(fn() => new EffectivePermissionSet($this->permissions));
         $bridge = new CoreTenantModuleAdminBridge(

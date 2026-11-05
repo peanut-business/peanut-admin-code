@@ -491,13 +491,13 @@ SQL,
         $registry = $this->registry();
         $entitlements = new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService($registry);
         $queries = new \PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationQuery(
-            new \PeanutAdmin\Modules\Identity\Membership\Query\ThinkPhpTenantMemberDirectory(), $registry, $entitlements,
+            new \PeanutAdmin\Modules\Identity\Membership\Query\ThinkPhpTenantMemberDirectory(), $registry,
         );
         return new DataPermissionEngine(
             new ThinkPhpResourceOperationCatalog($entitlements),
             new ThinkPhpPolicyRepository(),
             new TenantAuthorizationEvaluator(
-                new ThinkPhpTenantAuthorizationRepository($entitlements, $queries, $registry),
+                new ThinkPhpTenantAuthorizationRepository($entitlements, $queries),
             ),
             $providers,
             $resolvers,

@@ -64,7 +64,7 @@ final class IdentityPublicQueriesTest extends TestCase
             SQL);
         $this->directory = new AdminDirectoryQuery(new CurrentExecutionContext(new ExecutionContextStore()));
         $registry = new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], 'identity-query');
-        $this->authorization = new TenantAuthorizationQuery(new ThinkPhpTenantMemberDirectory(), $registry, new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService($registry));
+        $this->authorization = new TenantAuthorizationQuery(new ThinkPhpTenantMemberDirectory(), $registry);
     }
 
     private function actor(int $tenantId = 1, int $memberId = 11, int $accountId = 101): TenantContext

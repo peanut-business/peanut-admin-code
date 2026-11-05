@@ -80,7 +80,7 @@ final class SystemMenuPermissionBoundaryTest extends TestCase
         $members = $this->createStub(TenantMemberDirectory::class);
         $registry = new CompiledModuleRegistry([], [], [], [], 'menu-boundary');
         $entitlements = new TenantEntitlementService($registry);
-        $this->identity = new TenantAuthorizationQuery($members, $registry, $entitlements);
+        $this->identity = new TenantAuthorizationQuery($members, $registry);
         $qualification = $this->createStub(ModuleQualificationQuery::class);
         $qualification->method('installedModules')->willReturn([]);
         $qualification->method('activeTenantModuleKeys')->willReturn(['official.unavailable']);

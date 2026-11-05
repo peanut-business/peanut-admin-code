@@ -348,11 +348,11 @@ try {
     $app->instance(TenantEntitlementService::class, $entitlements);
     $contexts = new ExecutionContextStore();
     $current = new CurrentExecutionContext($contexts);
-    $tenantAuthorization = new TenantAuthorizationQuery($members, $registry, $entitlements);
+    $tenantAuthorization = new TenantAuthorizationQuery($members, $registry);
     $authorization = new AdminAuthorizationService(
         new CoreTenantModuleAdminBridge(
             $provider,
-            new ThinkPhpTenantAuthorizationRepository($entitlements, $tenantAuthorization, $registry),
+            new ThinkPhpTenantAuthorizationRepository($entitlements, $tenantAuthorization),
             new ThinkPhpMenuCatalogRepository($entitlements),
             $tenantAuthorization,
             new MenuAdministrationService(),

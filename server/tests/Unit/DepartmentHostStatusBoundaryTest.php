@@ -79,7 +79,7 @@ final class DepartmentHostStatusBoundaryTest extends TestCase
             $tenant === 101 && $member === 601 ? new TenantMemberSummary(101, 601, 501, 'Department actor', 1, 1, 1, 1) : null);
         $members->method('activeMembershipCount')->willReturn(1);
         $registry = new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], 'department-host');
-        $identity = new TenantAuthorizationQuery($members, $registry, new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService($registry));
+        $identity = new TenantAuthorizationQuery($members, $registry);
         $grants = $this->createStub(TenantAuthorizationRepository::class);
         $grants->method('permissions')->willReturn(new EffectivePermissionSet([
             'core.department.create', 'core.department.update', 'core.department.move',

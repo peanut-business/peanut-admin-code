@@ -286,8 +286,11 @@ final class AccountSelfServiceIntegrationTest extends DatabaseTestCase
         self::assertSame('password_changed', (string) $this->query(
             'SELECT event_type FROM pa_auth_security_event ORDER BY id DESC LIMIT 1',
         )->fetchColumn());
+        // Revocation facts follow the business audit in this same operation.
         self::assertSame('account.password.changed', (string) $this->query(
-            'SELECT action FROM pa_tenant_audit_event ORDER BY id DESC LIMIT 1',
+            "SELECT action FROM pa_tenant_audit_event WHERE tenant_id = {$this->tenantId} "
+            . "AND request_id = 'request-password-change' AND event_type = 'account.password.changed' "
+            . "AND target_resource_type = 'account' AND target_resource_id = '{$this->accountId}' ORDER BY id DESC LIMIT 1",
         )->fetchColumn());
     }
 

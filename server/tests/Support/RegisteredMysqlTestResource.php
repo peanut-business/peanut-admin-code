@@ -110,7 +110,16 @@ final class RegisteredMysqlTestResource
                 $name = (string) ($row[0] ?? '');
                 $type = strtoupper((string) ($row[1] ?? ''));
                 self::assertFixtureObjectName($name);
-                $pdo->exec(($type === 'VIEW' ? 'DROP VIEW `' : 'DROP TABLE `') . $name . '`');
+                $started = hrtime(true);
+                try {
+                    $pdo->exec(($type === 'VIEW' ? 'DROP VIEW `' : 'DROP TABLE `') . $name . '`');
+                } catch (PDOException $exception) {
+                    throw new RuntimeException(sprintf(
+                        'REGISTERED_MYSQL_CLEANUP_DROP_FAILED object=%s elapsed_ms=%.3f',
+                        $name,
+                        (hrtime(true) - $started) / 1_000_000,
+                    ), 0, $exception);
+                }
             }
         } finally {
             $pdo->exec('SET FOREIGN_KEY_CHECKS=1');

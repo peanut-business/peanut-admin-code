@@ -146,9 +146,9 @@ abstract class DatabaseTestCase extends TestCase
         $registry = $this->fixtureModuleRegistry($moduleKeys);
         $entitlements = new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService($registry);
         $queries = new \PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationQuery(
-            new \PeanutAdmin\Modules\Identity\Membership\Query\ThinkPhpTenantMemberDirectory(), $registry, $entitlements,
+            new \PeanutAdmin\Modules\Identity\Membership\Query\ThinkPhpTenantMemberDirectory(), $registry,
         );
-        return new \PeanutAdmin\Modules\Identity\Authorization\ThinkPhpTenantAuthorizationRepository($entitlements, $queries, $registry);
+        return new \PeanutAdmin\Modules\Identity\Authorization\ThinkPhpTenantAuthorizationRepository($entitlements, $queries);
     }
 
     protected function query(string $sql): PDOStatement
