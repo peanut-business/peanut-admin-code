@@ -181,8 +181,13 @@ SQL);
         'owner membership does not point to the native Tenant role',
     );
     lifecycleExpect(
-        (int) $pdo->query("SELECT COUNT(*) FROM pa_notice_scene WHERE tenant_id={$tenantId}")->fetchColumn() === 4,
-        'provision did not run application-owned Tenant bootstrap',
+        (int) $pdo->query("SELECT COUNT(*) FROM pa_decorate_page WHERE tenant_id={$tenantId}")->fetchColumn() === 5,
+        'provision did not create the required application-owned Tenant page shells',
+    );
+    // Notification's four-scene bootstrap is verified by its module-owned NoticeTenantIsolationTest.
+    lifecycleExpect(
+        (int) $pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='pa_notice_scene'")->fetchColumn() === 0,
+        'required-only Tenant bootstrap installed the optional Notification schema',
     );
 
     $secondCandidate = $service->provision(
