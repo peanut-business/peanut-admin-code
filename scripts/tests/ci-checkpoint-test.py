@@ -103,6 +103,17 @@ class CheckpointTest(unittest.TestCase):
                     self.assertNotIn('contents: write', text)
                 self.assertNotIn('continue-on-error:', text)
 
+    def test_php_ci_uses_the_exact_registered_toolchain_version(self):
+        toolchain = json.loads((ROOT/'tools/toolchain.json').read_text())
+        expected = toolchain['tools']['php']['version']
+        self.assertRegex(expected, r'^8\.3\.\d+$')
+        for workflow in ('ci.yml', 'core-source-development.yml'):
+            with self.subTest(workflow=workflow):
+                contents = (ROOT/'.github/workflows'/workflow).read_text()
+                actual = re.findall(r"(?m)^\s+php-version:\s*['\"]?(8\.3(?:\.\d+)?)", contents)
+                self.assertGreater(len(actual), 0)
+                self.assertEqual(actual, [expected]*len(actual))
+
     def test_main_workflow_preserves_required_results_and_cache_alignment(self):
         text = (ROOT/'.github/workflows/ci.yml').read_text()
         self.assertIn('if: always()', text)
