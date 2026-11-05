@@ -127,7 +127,7 @@ try {
         expectAsyncTenant((int) $pending->fetchColumn() === 0, 'existing Tenant work must not be claimed by qualification workers');
         assertInFlightExportRevocation($app, $pdo, $app->make(PeanutAdmin\Modules\ImportExport\Service\TaskImportExportRuntime::class),
             $alpha, $tenant('alpha_manager_access_token'), (int) $config['alpha_role_id'], $guard,
-            static fn(): PeanutAdmin\Kernel\Auth\TenantContext => $tenant('alpha_access_token'), bin2hex(random_bytes(6)));
+            static fn(): PeanutAdmin\Kernel\Auth\TenantContext => $tenant('alpha_access_token'), bin2hex(random_bytes(6)), dirname($planPath));
         $checks = $GLOBALS['taskImportExportChecks'];
         if (!is_int($checks) || $checks < 1) {
             throw new RuntimeException('MODULE_QUALIFICATION_NATIVE_ASSERTIONS_REQUIRED');
@@ -216,7 +216,7 @@ try {
         };
         taskImportExportInstalledAssertions($app, $pdo, $alpha, $beta, $noExport, $auditFailure,
             (int) $config['alpha_role_id'], $identity, $guard, $moduleSelection, $tenant('alpha_manager_access_token'),
-            static fn(): PeanutAdmin\Kernel\Auth\TenantContext => $tenant('alpha_access_token'));
+            static fn(): PeanutAdmin\Kernel\Auth\TenantContext => $tenant('alpha_access_token'), dirname($planPath));
     }
     $assertionOutput = (string) ob_get_clean();
 } catch (Throwable $error) {
