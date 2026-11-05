@@ -20,14 +20,16 @@ document:
 - `server/fixtures/module-lifecycle/run.php`
 - `server/tests/Productization/ModuleLifecycleMySqlTest.php`
 - `server/tests/Productization/ModuleFailureRecoveryMySqlTest.php`
-- `server/tests/Multitenancy/MemberUploadTenantWiringTest.php`
-- `server/tests/Multitenancy/TaskImportExportTenantIsolationTest.php`
+- `server/tests/Productization/ModuleRuntimeGovernanceTest.php`
 
 The tool inventory digest is SHA-256 of those paths in lexical order, each
 encoded as `path + NUL + file SHA-256 + LF`. Product source, native generators,
 archives, dependency locks and application identities retain their original
 bindings. Tool binding does not authorize qualification, publication or an
 application upgrade.
+
+The installed Member upload and Task/ImportExport consumers are loaded from the
+reviewed Module application source pinned in the qualification input.
 
 ## Existing applications and CLI creation
 
