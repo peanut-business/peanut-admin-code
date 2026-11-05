@@ -12,6 +12,7 @@ use DomainException;
 use PDO;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
+use PeanutAdmin\Modules\Integration\ModuleProvider;
 use PeanutAdmin\Modules\Integration\Contract\ExternalChannelBindingStore;
 use PeanutAdmin\Modules\Integration\Contract\ExternalIntegrationBootstrapCommands;
 use PeanutAdmin\Modules\Integration\Infrastructure\ThinkPhpExternalTenantBindingRepository;
@@ -188,6 +189,8 @@ final class IntegrationBootstrapAuthorizationTest extends TestCase
         $this->application->instance(ExternalChannelBindingStore::class, $this->bindings);
         $this->application->instance(CurrentExecutionContext::class, $this->current);
         $this->application->instance(AdminDirectoryQuery::class, $this->directory);
+        $binding = (new ModuleProvider())->bindings()[ExternalChannelBindingStore::class];
+        self::assertSame(ThinkPhpExternalTenantBindingRepository::class, $binding);
         $command = $this->application->make(ExternalIntegrationBootstrapCommands::class);
         self::assertInstanceOf(ExternalIntegrationBootstrapCommands::class, $command);
         $this->contexts->run($this->system(), fn() => $command->ensureUnconfiguredBinding(1, 'alpha', 'payment.wechat'));
@@ -207,6 +210,17 @@ final class IntegrationBootstrapAuthorizationTest extends TestCase
             self::assertSame($outer, $this->contexts->current());
         });
         self::assertCount(6, $this->rows());
+        self::assertTrue($this->contexts->isEmpty());
+    }
+
+    public function testHostDoesNotSeedBindingsForUnselectedOptionalModules(): void
+    {
+        $host = (new ReflectionClass(ApplicationTenantBootstrapService::class))->newInstanceWithoutConstructor();
+        (new ReflectionProperty($host, 'executionContexts'))->setValue($host, $this->contexts);
+        (new ReflectionProperty($host, 'externalBindings'))->setValue($host, $this->commands);
+        $method = new ReflectionMethod($host, 'seedExternalBindings');
+        $this->contexts->run($this->system(), fn() => $method->invoke($host, 1, 'alpha', []));
+        self::assertSame([], $this->rows());
         self::assertTrue($this->contexts->isEmpty());
     }
 }

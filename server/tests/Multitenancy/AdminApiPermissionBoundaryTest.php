@@ -32,14 +32,31 @@ use PeanutAdmin\Modules\Identity\Menu\MenuAdministrationService;
 use PeanutAdmin\Modules\Identity\Menu\ThinkPhpMenuCatalogRepository;
 use PeanutAdmin\Modules\Identity\Module\TenantEntitlementService;
 
+use app\common\execution\PlatformExecutionContext;
+use app\platform\context\PlatformOperatorContext;
+use app\platform\http\middleware\PlatformPermissionMiddleware;
+use app\platform\services\PlatformApiAuthorization;
+use app\platform\services\PlatformOperatorSessionService;
+use PeanutAdmin\Kernel\Auth\ValidatedPlatformSession;
+use PeanutAdmin\Kernel\Authorization\EffectivePermissionSet;
+use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
+use PeanutAdmin\Kernel\Context\PlatformContext;
+use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
+use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationRepository;
+use PeanutAdmin\Modules\Identity\Auth\PlatformAuthService;
+
 require_once dirname(__DIR__) . '/Support/CiBootstrap.php';
 require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
 
+// Both groups use synthetic sessions and SQLite; network HTTP and LoginMiddleware are separate qualification.
+$checks = 0;
 function expectAdminApiBoundary(bool $condition, string $message): void
 {
+    global $checks;
     if (!$condition) {
         throw new RuntimeException($message);
     }
+    ++$checks;
 }
 
 function problemPayload(callable $operation): array
@@ -209,4 +226,135 @@ expectAdminApiBoundary(str_contains($identitySchema, 'CREATE TABLE `pa_role_perm
 expectAdminApiBoundary(!str_contains(strtolower($identitySchema), 'pa_system_role_menu'), 'Identity must not restore role-menu storage');
 expectAdminApiBoundary(!str_contains($schema, 'pa_system_role_menu'), 'retired role-menu storage remains in the fresh schema');
 
-echo "ADMIN-API-PERMISSION-BOUNDARY-001 passed\n";
+
+
+// Preserve the 059 platform audience, deny-side-effect and identity-release matrix.
+(static function (): void {
+    global $checks;
+$cachePath = dirname(__DIR__, 3) . '/.local/tmp/admin-api-permission-boundary/' . bin2hex(random_bytes(6)) . '/';
+$app = new think\App($cachePath);
+$app->config->set(['default' => 'file', 'stores' => ['file' => ['type' => 'File', 'path' => $cachePath . 'cache/']]], 'cache');
+$pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+ThinkPhpTestConnection::fromPdo($pdo);
+$pdo->exec(<<<'SQL'
+    CREATE TABLE pa_api_endpoint (id TEXT PRIMARY KEY, method TEXT, path TEXT, audience TEXT, module_key TEXT, access_mode TEXT, status TEXT, default_permission_keys TEXT, prerequisite_permission_keys TEXT);
+    CREATE TABLE pa_permission (id INTEGER PRIMARY KEY, "key" TEXT, module_key TEXT, status TEXT);
+    CREATE TABLE pa_permission_api (id INTEGER PRIMARY KEY, permission_id INTEGER, api_id TEXT);
+    CREATE TABLE business_writes (id INTEGER PRIMARY KEY);
+    INSERT INTO pa_api_endpoint VALUES
+      ('self','GET','/adminapi/admin/self','tenant','peanut.admin','authenticated','active','[]','[]'),
+      ('protected','POST','/adminapi/secure','tenant','peanut.admin','tenant_permission','active','["app.write"]','[]'),
+      ('platform','GET','/platformapi/secure','platform','platform','platform_permission','active','["platform.read"]','["platform.prerequisite"]');
+    INSERT INTO pa_permission VALUES (1,'platform.read','platform','active');
+    INSERT INTO pa_permission_api VALUES (1,1,'platform');
+    SQL);
+$catalog = new ApiPermissionCatalog();
+$store = new ExecutionContextStore();
+$current = new CurrentExecutionContext($store);
+$empty = static fn(string $class): object => (new ReflectionClass($class))->newInstanceWithoutConstructor();
+$modules = new class implements ModuleAvailability {
+    public function assertAvailable(\PeanutAdmin\Kernel\Tenancy\TenantScope $scope, string $moduleKey, DateTimeImmutable $now, bool $lock = false): void {}
+    public function assertDeployment(string $moduleKey, bool $lock = false): void {}
+    public function assertTenant(\PeanutAdmin\Kernel\Tenancy\TenantScope $scope, string $moduleKey, DateTimeImmutable $now, bool $lock = false): void {}
+};
+$demo = new DemoAccountPolicy(false, []);
+$admin = new AuthMiddleware($current, $empty(AdminAuthorizationService::class),
+    new AdminApiAccessRegistry(1, require dirname(__DIR__, 2) . '/config/admin_api_access.php'),
+    $demo, $catalog, $modules, new TenantEntitlementService(new CompiledModuleRegistry([], [], [], [], 'security-fixture')));
+$tenant = TenantContext::fromValidatedSession(new ValidatedTenantSession(
+    7, 'synthetic-admin-session', 101, 7007, 7, 'admin-web', new DateTimeImmutable('2031-01-01'), 1, 1,
+), 'admin-api-permission-request');
+$execution = new AdminExecutionContext($tenant, 'test.admin-api-permission', [
+    'id' => 7, 'tenant_id' => 101, 'account_id' => 7007, 'authorization_revision' => 1, 'root' => 1,
+]);
+$platformContext = PlatformOperatorContext::fromValidatedPlatformSession(PlatformContext::fromValidatedSession(
+    new ValidatedPlatformSession(1, 'synthetic-platform-session', 8008, 8, 'platform-web', new DateTimeImmutable('2031-01-01')),
+    'platform-api-permission-request',
+));
+$platformExecution = new PlatformExecutionContext($platformContext, 'test.platform-api-permission');
+$permissions = new class implements PlatformAuthorizationRepository {
+    public array $keys = ['platform.read', 'platform.prerequisite'];
+    public function revision(int $operatorId): string { return implode(',', $this->keys); }
+    public function permissions(int $operatorId): EffectivePermissionSet { return new EffectivePermissionSet($this->keys); }
+};
+$request = static function (string $path, string $method = 'GET') use ($app): think\Request {
+    $request = (new think\Request())->withServer(['REQUEST_METHOD' => $method]);
+    $request->setPathinfo($path);
+    $request->setRule((new think\Route($app))->rule($path, static fn() => null, $method));
+    return $request->withGet(['tenant_id' => 999, 'token' => 'forged']);
+};
+$nextCalls = 0;
+$next = static function () use (&$nextCalls, $pdo): string {
+    ++$nextCalls;
+    $pdo->exec('INSERT INTO business_writes DEFAULT VALUES');
+    return 'allowed';
+};
+$deny = static function (callable $operation, int $status, ?string $message = null) use ($pdo, $store, &$nextCalls): void {
+    $before = $pdo->query('SELECT * FROM business_writes')->fetchAll();
+    $calls = $nextCalls;
+    try {
+        $operation();
+        throw new RuntimeException('middleware denial did not throw ApiProblem');
+    } catch (ApiProblem $problem) {
+        expectAdminApiBoundary($problem->httpStatus === $status, 'wrong denial HTTP status');
+        expectAdminApiBoundary($problem->apiCode() === $status * 100, 'wrong denial envelope code');
+        expectAdminApiBoundary($problem->data() === null, 'wrong denial envelope data');
+        if ($message !== null) {
+            expectAdminApiBoundary($problem->getMessage() === $message, 'wrong denial envelope message');
+        }
+    }
+    expectAdminApiBoundary($nextCalls === $calls, 'denial reached business continuation');
+    expectAdminApiBoundary($before === $pdo->query('SELECT * FROM business_writes')->fetchAll(), 'denial changed business rows');
+    expectAdminApiBoundary($store->isEmpty() && $store->rootIdentity() === null, 'denial leaked execution identity');
+};
+$policy = new RegisteredAdminPermissionPolicy();
+$registered = ['app.write', 'admin/status'];
+expectAdminApiBoundary($policy->canAccess(false, 'app.write', $registered, ['app.write']), 'registered grant must pass');
+expectAdminApiBoundary(!$policy->canAccess(false, 'app.write', $registered, []), 'unowned route must fail');
+expectAdminApiBoundary(!$policy->canAccess(false, 'unknown', $registered, ['unknown']), 'unregistered grant must fail');
+expectAdminApiBoundary($policy->canAccess(true, 'admin/status', $registered, []), 'root registered policy failed');
+expectAdminApiBoundary(!$policy->canAccess(true, 'admin/edit', $registered, []), 'root bypassed registration');
+expectAdminApiBoundary(!$policy->canAccess(false, 'admin/status', ['admin/edit'], ['admin/edit']), 'runtime alias granted permission');
+$deny(fn() => $admin->handle($request('admin/self'), $next), 401, '请先登录');
+$deny(fn() => $store->run($platformExecution, fn() => $admin->handle($request('admin/self'), $next)), 401);
+expectAdminApiBoundary($store->run($execution, fn() => $admin->handle($request('admin/self'), $next)) === 'allowed', 'authenticated endpoint refused');
+expectAdminApiBoundary($nextCalls === 1 && $store->isEmpty(), 'allowed path failed to release context');
+$deny(fn() => $store->run($execution, fn() => $admin->handle($request('admin/self', 'POST'), $next)), 403, 'API 未登记或已退役');
+$deny(fn() => $store->run($execution, fn() => $admin->handle($request('unknown'), $next)), 403);
+// Missing trusted LoginMiddleware handoff must fail even for a root principal.
+$deny(fn() => $store->run($execution, fn() => $admin->handle($request('secure', 'POST'), $next)), 403);
+$pdo->exec("UPDATE pa_api_endpoint SET status='retired' WHERE id='self'");
+$app->cache->clear();
+$deny(fn() => $store->run($execution, fn() => $admin->handle($request('admin/self'), $next)), 403);
+$platformRequest = $request('secure');
+$grant = new EndpointPermissionGrant($platformRequest);
+$sessions = new PlatformOperatorSessionService($empty(PlatformAuthService::class),
+    new PlatformApiAuthorization(new PlatformAuthorizationEvaluator($permissions, new RevisionPermissionCache()), $grant), $permissions);
+$platform = new PlatformPermissionMiddleware($current, $sessions, $demo, $catalog, $grant, $modules);
+$callPlatform = fn() => $platform->handle($platformRequest, $next, 'platform.read');
+$deny($callPlatform, 401);
+$deny(fn() => $store->run($execution, $callPlatform), 401);
+expectAdminApiBoundary($store->run($platformExecution, $callPlatform) === 'allowed', 'granted platform endpoint refused');
+expectAdminApiBoundary($nextCalls === 2 && $store->isEmpty(), 'platform allow leaked context');
+$permissions->keys = ['platform.read'];
+$deny(fn() => $store->run($platformExecution, $callPlatform), 403);
+$permissions->keys = ['platform.prerequisite'];
+$deny(fn() => $store->run($platformExecution, $callPlatform), 403);
+$permissions->keys = ['platform.read', 'platform.prerequisite'];
+$deny(fn() => $store->run($platformExecution, fn() => $platform->handle($platformRequest, $next, 'core.member.read')), 403);
+$pdo->exec("UPDATE pa_api_endpoint SET status='retired' WHERE id='platform'");
+$deny(fn() => $store->run($platformExecution, $callPlatform), 403);
+expectAdminApiBoundary((int) $pdo->query('SELECT COUNT(*) FROM business_writes')->fetchColumn() === 2, 'unexpected business writes');
+$pdo->exec("UPDATE pa_api_endpoint SET status='active' WHERE id='platform'");
+try {
+    $store->run($platformExecution, fn() => $platform->handle($platformRequest,
+        static fn() => throw new RuntimeException('synthetic-controller-failure'), 'platform.read'));
+    throw new LogicException('expected controller failure');
+} catch (RuntimeException $exception) {
+    expectAdminApiBoundary($exception->getMessage() === 'synthetic-controller-failure', 'business exception changed');
+}
+expectAdminApiBoundary($store->isEmpty() && $store->rootIdentity() === null, 'business exception leaked context');
+$app->cache->clear();
+echo "ADMIN-API-PERMISSION-BOUNDARY-001 passed; {$checks} checks; sqlite memory; network HTTP NOT_RUN\n";
+
+})();
