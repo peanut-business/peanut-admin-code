@@ -302,10 +302,13 @@ try {
         hash_file('sha256', $sourceFixture . '/scaffold/application-template-inventory.json') === hash_file('sha256', $inventoryPath),
         'fixture must preserve the exact committed inventory, not rebuild or filter it',
     );
+    // The immutable source fixture does not carry node_modules. Use the
+    // original source-identical, installed generator via its native verifier.
+    $installedApiGenerator = $root . '/scripts/generate-api-contracts.php';
     $root = $sourceFixture;
     $inventoryPath = $root . '/scaffold/application-template-inventory.json';
     $nestedTarget = $root . '/nested-application';
-    $boundaryCreator = new ApplicationCreator($root, $inventoryPath, $identity);
+    $boundaryCreator = new ApplicationCreator($root, $inventoryPath, $identity, apiGeneratorPath: $installedApiGenerator);
     createApplicationFails(
         fn() => $boundaryCreator->create('Acme Console', 'acme-console', 'acme/acme-console', $nestedTarget, 'multi-tenant'),
         'CREATE_APP_TARGET_INSIDE_SOURCE',
@@ -313,7 +316,7 @@ try {
     createApplicationExpect(!file_exists($nestedTarget), 'rejected nested generation must not create output');
     createApplicationExpect(!is_dir($root . '/server/vendor'), 'source snapshot must not copy installed dependencies');
     $minimalTarget = $temporary . '/minimal';
-    $minimalManifest = (new ApplicationCreator($root, $inventoryPath, $identity))->create(
+    $minimalManifest = (new ApplicationCreator($root, $inventoryPath, $identity, apiGeneratorPath: $installedApiGenerator))->create(
         'Acme Console',
         'acme-console',
         'acme/acme-console',
@@ -343,7 +346,7 @@ try {
     );
 
     $standardTarget = $temporary . '/standard-default';
-    $standardManifest = (new ApplicationCreator($root, $inventoryPath, $identity))->create(
+    $standardManifest = (new ApplicationCreator($root, $inventoryPath, $identity, apiGeneratorPath: $installedApiGenerator))->create(
         'Acme Console',
         'acme-console',
         'acme/acme-console',
@@ -360,7 +363,7 @@ try {
             'standard profile omitted a selected Module contribution or multi-tenant Host: ' . $requiredHostPath,
         );
     }
-    $creator = new ApplicationCreator($root, $inventoryPath, $identity, $releasePath);
+    $creator = new ApplicationCreator($root, $inventoryPath, $identity, $releasePath, apiGeneratorPath: $installedApiGenerator);
     $first = $temporary . '/first';
     $second = $temporary . '/second';
     $other = $temporary . '/other';
@@ -823,7 +826,7 @@ try {
     }
 
     $builderTarget = $temporary . '/builder-identity';
-    $builderManifest = (new ApplicationCreator($root, $inventoryPath, $identity))->create(
+    $builderManifest = (new ApplicationCreator($root, $inventoryPath, $identity, apiGeneratorPath: $installedApiGenerator))->create(
         'Builder Token',
         'builder-token',
         'builder/builder-token',
@@ -866,7 +869,7 @@ try {
     $sourceOnlyInventoryPath = $temporary . '/source-only-inventory.json';
     createApplicationWriteJson($sourceOnlyInventoryPath, $sourceOnlyInventory);
     $sourceOnlyTarget = $temporary . '/source-only-allowed';
-    $sourceOnlyManifest = (new ApplicationCreator($root, $sourceOnlyInventoryPath, $identity, $releasePath))->create(
+    $sourceOnlyManifest = (new ApplicationCreator($root, $sourceOnlyInventoryPath, $identity, $releasePath, apiGeneratorPath: $installedApiGenerator))->create(
         'Acme Console',
         'acme-console',
         'acme/acme-console',
@@ -898,7 +901,7 @@ try {
     $managedChangeInventoryPath = $temporary . '/managed-change-inventory.json';
     createApplicationWriteJson($managedChangeInventoryPath, $managedChangeInventory);
     $managedChangeTarget = $temporary . '/managed-change-rejected';
-    $managedChangeCreator = new ApplicationCreator($root, $managedChangeInventoryPath, $identity, $releasePath);
+    $managedChangeCreator = new ApplicationCreator($root, $managedChangeInventoryPath, $identity, $releasePath, apiGeneratorPath: $installedApiGenerator);
     createApplicationFails(
         fn() => $managedChangeCreator->create('Acme Console', 'acme-console', 'acme/acme-console', $managedChangeTarget, 'multi-tenant', null, 'full'),
         'CREATE_APP_ADOPTION_RENDER_MISMATCH',
@@ -1033,14 +1036,14 @@ try {
     unset($entry);
     $unknownPath = $temporary . '/unknown.json';
     file_put_contents($unknownPath, json_encode($unknown, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
-    $unknownCreator = new ApplicationCreator($root, $unknownPath, $identity);
+    $unknownCreator = new ApplicationCreator($root, $unknownPath, $identity, apiGeneratorPath: $installedApiGenerator);
     createApplicationFails(fn() => $unknownCreator->create('Acme Console', 'acme-console', 'acme/acme-console', $temporary . '/unknown', 'multi-tenant'), 'CREATE_APP_INVENTORY_ENTRY_INVALID');
 
     $unknownVariable = $inventory;
     $unknownVariable['variables'][] = 'UNDECLARED_INPUT';
     $unknownVariablePath = $temporary . '/unknown-variable.json';
     file_put_contents($unknownVariablePath, json_encode($unknownVariable, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
-    $unknownVariableCreator = new ApplicationCreator($root, $unknownVariablePath, $identity);
+    $unknownVariableCreator = new ApplicationCreator($root, $unknownVariablePath, $identity, apiGeneratorPath: $installedApiGenerator);
     createApplicationFails(fn() => $unknownVariableCreator->create('Acme Console', 'acme-console', 'acme/acme-console', $temporary . '/unknown-variable', 'multi-tenant'), 'CREATE_APP_INVENTORY_UNKNOWN_VARIABLE');
 } finally {
     createApplicationDelete($temporary);

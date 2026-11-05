@@ -119,6 +119,13 @@ jobs:
       - name: Install locked UniApp generator dependencies
         working-directory: uniapp
         run: npm ci --ignore-scripts
+      - name: Set up pnpm for the installed API generator
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9.15.6'
+          run_install: false
+      - name: Install locked Web API generator dependencies
+        run: pnpm --dir web install --frozen-lockfile --ignore-scripts
       - name: Verify source inventory after locked dependencies
         run: php scripts/build-application-template-inventory --check
       - name: Verify create-app contract
