@@ -849,19 +849,28 @@ try {
     createApplicationExpect(is_file($first . '/server/database/installation/20261101020000_initial_scaffold_baseline.php') && is_file($first . '/server/database/seeds/InitialSeeder.php'), 'generated application is missing native initial migration or seeder');
     createApplicationExpect(!str_contains((string) file_get_contents($first . '/server/database/install.php'), "'--migrate'"), 'generated fresh installer still exposes the retired upgrade mode');
     createApplicationExpect(is_file($first . '/scripts/deploy-update.sh'), 'generated application is missing the Git deployment update entry');
-    foreach ([
-        'pa_tenant_setting',
-        'pa_tenant_entry_binding',
-        'pa_tenant_owner_invitation',
-        'pa_tenant_idempotency_record',
-        'pa_system_dict_type',
-        'pa_system_dict_data',
-    ] as $baselineTable) {
+    // Host installation creates only Host-owned tables; selected Modules
+    // install their own initial migrations before Host dependent tables.
+    foreach (['pa_config', 'pa_generator_table', 'pa_operation_log',
+        'pa_provider_qualification_evidence', 'pa_tenant_idempotency_record',
+        'pa_customer_service_setting'] as $hostTable) {
         createApplicationExpect(
-            str_contains($generatedSchema, 'CREATE TABLE `' . $baselineTable . '`'),
-            'generated application fresh schema is missing: ' . $baselineTable,
+            str_contains($generatedSchema, 'CREATE TABLE `' . $hostTable . '`'),
+            'generated Host initial schema is missing: ' . $hostTable,
         );
     }
+    foreach (['pa_tenant_setting', 'pa_tenant_entry_binding', 'pa_tenant_owner_invitation',
+        'pa_system_dict_type', 'pa_system_dict_data'] as $moduleTable) {
+        createApplicationExpect(
+            !str_contains($generatedSchema, 'CREATE TABLE `' . $moduleTable . '`'),
+            'Module-owned table entered Host initial schema: ' . $moduleTable,
+        );
+    }
+    createApplicationExpect(
+        is_file($first . '/server/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php')
+            && is_file($first . '/server/app/modules/peanut/reference_codes/database/migrations/20261101010005_initial_reference_codes_schema.php'),
+        'generated APP must retain the selected Module schema migration sources',
+    );
 
     $builderTarget = $temporary . '/builder-identity';
     $builderManifest = (new ApplicationCreator($root, $inventoryPath, $identity, apiGeneratorPath: $installedApiGenerator))->create(
