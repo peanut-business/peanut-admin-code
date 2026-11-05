@@ -105,6 +105,9 @@ function publicIdentitySource(string $root, string $target, array $inventory): v
     publicIdentityWriteJson($target . '/scaffold/application-template-inventory.json', $inventory);
     symlink($root . '/server/vendor', $target . '/server/vendor');
     publicIdentityRun(['git', 'init', '--quiet', '--initial-branch=fixture'], $target);
+    $origin = trim(publicIdentityRun(['git', 'remote', 'get-url', 'origin'], $root));
+    publicIdentityExpect($origin !== '', 'candidate source origin unavailable');
+    publicIdentityRun(['git', 'remote', 'add', 'origin', $origin], $target);
     // VersionContract verifies the ignored, prebuilt Core Web archives too; the
     // sealed fixture commit must therefore contain every inventory input.
     publicIdentityRun(['git', 'add', '--force', '--all'], $target);

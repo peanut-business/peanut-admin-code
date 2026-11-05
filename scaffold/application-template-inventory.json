@@ -1095,7 +1095,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "141b7f0bb008878df7dc8cc8d4e0a03d8df50387f5f604f7f505430d60e5323a"
+            "source_sha256": "e9d8b154bdbcababc26e99173507ee9bba80e9047e8e4fc281e23dab2a08a745"
         },
         {
             "path": "pc/.env.example",
@@ -2561,7 +2561,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e043bad5be49a62c03d80a249ff9a22be6891b38cd177b564177b2c8993550db"
+            "source_sha256": "b5e96d8688a70c713126ce0783ba696e7511b86f8547faa3463020cdaa4ddaf9"
         },
         {
             "path": "scripts/check-public-docs",
@@ -3306,7 +3306,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "29a31124dd7be756db242c770e45e276fb2221e740de1910df71199fb8bf4e18"
+            "source_sha256": "185348e9cd9053b910de7d62d4e8b6a528f52daaaa37b883fa88e9e2828a0feb"
         },
         {
             "path": "scripts/run-with-environment-file",
@@ -3432,7 +3432,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0777cff1df5c08d13f6dcc7e50ead9d089a62d989a4c73cdac5ef8fc511f5cb8"
+            "source_sha256": "a0c4bc44fe67d4fc8aad4a632682e6181215f22f1ffc7c5a521d40f5bdfbf6d6"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -3460,7 +3460,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7748863ae0893a8035d6567aea191c3cc1d067832d5dec8586c17ad3137f04c1"
+            "source_sha256": "b9f932a778cdd1c46e2828a03b12009400bee110d781f459c3c38115be8b5b99"
         },
         {
             "path": "scripts/scaffold-upgrade",
@@ -6364,7 +6364,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e8ebb50a3528d30d98401a316eef8de11be419755cb1f5cf049a19334cc28690"
+            "source_sha256": "46c3d5af46d2758d765d0f54feb8474c4e8c48d0330aadd0a466baf431fa64db"
         },
         {
             "path": "server/app/common/contract/module/ModuleQualificationQuery.php",
@@ -7080,21 +7080,6 @@
                 "full"
             ],
             "source_sha256": "6b843ef268013770db4c9a7336eaa9cd8398edf2ab34821624f7cc26d7861856",
-            "adapter_kind": "application-provider"
-        },
-        {
-            "path": "server/app/common/infrastructure/export/OperationLogExportProvider.php",
-            "target": "server/app/common/infrastructure/export/OperationLogExportProvider.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "2f606cb5d85591a9e97d770d93c11c9d95d04bc97461e503dde911fb06b74b0a",
             "adapter_kind": "application-provider"
         },
         {
@@ -8917,7 +8902,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "80298f0adb40c17776f499973ce2dff4b1502169d12731c9077429e0b913380a"
+            "source_sha256": "56b0f305b13f686b62768fa7d17ea3ef6a3b39ad6ac4248787253acfb3cf51ff"
         },
         {
             "path": "server/app/modules/peanut/file/database/migrations/20261101010003_initial_file_schema.php",
@@ -8959,7 +8944,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "421a74bde1de40c3a53eb9f75237b65381e04afe58fb563d914bbd15810fd83e"
+            "source_sha256": "bd8759986401bcef3142e2bbe556ca7e32498a584d9e3388bc0994e191b8a9da"
         },
         {
             "path": "server/app/modules/peanut/file/resources/menus.json",
@@ -9323,7 +9308,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "54ed560cd745c79c2c61949a133f0536a9e0802a85753feab8ecc1ea13711fa8"
+            "source_sha256": "75becb73ae61aa14405eff65b73d2e2e508a34a591cd69ca32a16bc3a2b21fcf"
         },
         {
             "path": "server/app/modules/peanut/file/src/Controller/FileVisibilityController.php",
@@ -9883,7 +9868,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c4a98a360ef1a11bb8e909ee95424412824c81ba26cb38d93f9ec706b298a12c"
+            "source_sha256": "689b175ea92b5e663ede74d176bc4f3ab57620d099f3ee23d55630b15687e2ed"
         },
         {
             "path": "server/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php",
@@ -10009,7 +9994,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "36e089d8ba291679581eb6dfdf01578165d82032541d04adc9b6d126e1744dde"
+            "source_sha256": "935552cf638bdd6708182eba9eac3ca1a8b17aec8b42a34a1940a8103268c174"
         },
         {
             "path": "server/app/modules/peanut/identity/src/Audit/AuditService.php",
@@ -10597,7 +10582,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "40b3edeb69c80674446b003568d0b9cfd932d9fd353b932820a5f593933d08ed"
+            "source_sha256": "45cc6bad2f49c2535b3c968df5245533fe0ebdf5adaf8b45dd6ddb0e01881112"
         },
         {
             "path": "server/app/modules/peanut/identity/src/Console/RevocationFactsCommand.php",
@@ -10779,7 +10764,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5253dba5bbfbcf49a0f9e1f12e240f9a3f59ff2b0002e492d2bc260e016a67c6"
+            "source_sha256": "a209bae77eb4c6c3e5296f24fa9cb4e557d65acb51c9f79dc7c4b5f08b5a7b3c"
         },
         {
             "path": "server/app/modules/peanut/identity/src/Contract/TenantAuthorizationReadFence.php",
@@ -10835,7 +10820,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "de7624948f6470312cc035d61abf13e4601ad7a913aa915b09bda3a3690436f6"
+            "source_sha256": "df3865471b3c091ab267085c3d1aca3560baf4608a6bde912a692516bab133a0"
         },
         {
             "path": "server/app/modules/peanut/identity/src/Contract/TenantOwnerAdminProvisioner.php",
@@ -16203,7 +16188,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "438627d2269d3ca4c6bf68fb81cb61f9a4b44a739a600ad9a5dbf05acefb244c"
+            "source_sha256": "d7969e5a866c054faf36409c7687e0613c438366e64c1c1baaa879d726bd45c5"
         },
         {
             "path": "server/app/platform/controller/PlanLicenseController.php",
@@ -16819,7 +16804,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dd5349ee13d3e3c592abc89990e763ec9600078f68a40facc1e0b63a5dd77e73"
+            "source_sha256": "43a532dec92bc4cf4c0041943d6ca48dd851092e51bf85db5eebce4fbd85286b"
         },
         {
             "path": "server/app/platform/query/PlatformControlPlaneQueryService.php",
@@ -17029,7 +17014,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a382530dd47032ba75dab591ea766063e038270e7d892824e43be97f459edbbf"
+            "source_sha256": "4e9e7d78f43372f93cd3e5b1798da66800f5c655bdc61c32dfe814c1ef298309"
         },
         {
             "path": "server/app/platform/services/module/ModuleRuntimeGovernanceService.php",
@@ -17309,7 +17294,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9229c4a609ad27edb4825c7aa0566c62900a82e0200800785f656cbee7156462"
+            "source_sha256": "f7860c0bdf6e1d0d6c0a7070a4b2a79f30fba09b51f797a5beaff86523a3c4ce"
         },
         {
             "path": "server/composer.lock",
@@ -17323,7 +17308,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f996a2bf6a9ad8f85aa27abf49e3317858e0505029e3052cdda2a654e73f504c"
+            "source_sha256": "bf2934b9440292e95a3c8941e12a0953bdda474757ac2e99eef3f326fa852f5e"
         },
         {
             "path": "server/config/admin_api_access.php",
@@ -19183,7 +19168,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "19f49bcaaaac3193fa3210a3f6280a63c331374a0535adaa00cb2ed7ec17bfa5"
+            "source_sha256": "142a6e2dc4c0e89482accc7234d91add26ad101e46a8f3839ce1c48dbbc72474"
         },
         {
             "path": "server/generated/openapi.json",
@@ -19949,19 +19934,6 @@
             ]
         },
         {
-            "path": "server/tests/CoreIntegration/kernel/tests/Integration/Module/TenantModuleConfigurationServiceTest.php",
-            "target": "server/tests/CoreIntegration/kernel/tests/Integration/Module/TenantModuleConfigurationServiceTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/CoreIntegration/kernel/tests/Integration/Operation/OperationAtomicityPrimitivesTest.php",
             "target": "server/tests/CoreIntegration/kernel/tests/Integration/Operation/OperationAtomicityPrimitivesTest.php",
             "classification": "excluded",
@@ -20248,58 +20220,6 @@
             ]
         },
         {
-            "path": "server/tests/Modules/Official/DocumentActionBoundariesTest.php",
-            "target": "server/tests/Modules/Official/DocumentActionBoundariesTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Official/DocumentControllerInputTest.php",
-            "target": "server/tests/Modules/Official/DocumentControllerInputTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Official/DocumentPersistenceTest.php",
-            "target": "server/tests/Modules/Official/DocumentPersistenceTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Official/DocumentPreparedVersionTest.php",
-            "target": "server/tests/Modules/Official/DocumentPreparedVersionTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Modules/Official/ExecutionRootLifecycleTest.php",
             "target": "server/tests/Modules/Official/ExecutionRootLifecycleTest.php",
             "classification": "excluded",
@@ -20365,19 +20285,6 @@
             ]
         },
         {
-            "path": "server/tests/Modules/Official/ImportExport/feature-harness.php",
-            "target": "server/tests/Modules/Official/ImportExport/feature-harness.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Modules/Official/Integration/IntegrationSecurityFeatureTest.php",
             "target": "server/tests/Modules/Official/Integration/IntegrationSecurityFeatureTest.php",
             "classification": "excluded",
@@ -20393,32 +20300,6 @@
         {
             "path": "server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest.php",
             "target": "server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Official/Notification/feature-harness.php",
-            "target": "server/tests/Modules/Official/Notification/feature-harness.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Official/Notification/mysql-harness.php",
-            "target": "server/tests/Modules/Official/Notification/mysql-harness.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -20677,175 +20558,6 @@
             ]
         },
         {
-            "path": "server/tests/Modules/Peanut/ArtifactRevision/Integration/Application/ArtifactRevisionServiceTest.php",
-            "target": "server/tests/Modules/Peanut/ArtifactRevision/Integration/Application/ArtifactRevisionServiceTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Peanut/ArtifactRevision/Integration/Persistence/ArtifactRevisionStoreTest.php",
-            "target": "server/tests/Modules/Peanut/ArtifactRevision/Integration/Persistence/ArtifactRevisionStoreTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Peanut/ArtifactRevision/Integration/Workflow/ArtifactWorkflowSubjectRevisionResolverTest.php",
-            "target": "server/tests/Modules/Peanut/ArtifactRevision/Integration/Workflow/ArtifactWorkflowSubjectRevisionResolverTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Peanut/ArtifactRevision/Unit/Database/SchemaTest.php",
-            "target": "server/tests/Modules/Peanut/ArtifactRevision/Unit/Database/SchemaTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Peanut/EntitlementQuota/Integration/Application/EntitlementQuotaServiceTest.php",
-            "target": "server/tests/Modules/Peanut/EntitlementQuota/Integration/Application/EntitlementQuotaServiceTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Peanut/EntitlementQuota/Integration/Persistence/EntitlementQuotaStoreTest.php",
-            "target": "server/tests/Modules/Peanut/EntitlementQuota/Integration/Persistence/EntitlementQuotaStoreTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Peanut/EntitlementQuota/Unit/Database/SchemaTest.php",
-            "target": "server/tests/Modules/Peanut/EntitlementQuota/Unit/Database/SchemaTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Peanut/Workflow/Integration/Application/WorkflowCapabilityCompositionTest.php",
-            "target": "server/tests/Modules/Peanut/Workflow/Integration/Application/WorkflowCapabilityCompositionTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Peanut/Workflow/Integration/Application/WorkflowRuntimeTest.php",
-            "target": "server/tests/Modules/Peanut/Workflow/Integration/Application/WorkflowRuntimeTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Peanut/Workflow/Integration/Persistence/WorkflowStoreTest.php",
-            "target": "server/tests/Modules/Peanut/Workflow/Integration/Persistence/WorkflowStoreTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Peanut/Workflow/Unit/Adapter/WorkflowAttachmentTest.php",
-            "target": "server/tests/Modules/Peanut/Workflow/Unit/Adapter/WorkflowAttachmentTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Peanut/Workflow/Unit/Database/SchemaTest.php",
-            "target": "server/tests/Modules/Peanut/Workflow/Unit/Database/SchemaTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Peanut/Workflow/Unit/Definition/WorkflowGraphTest.php",
-            "target": "server/tests/Modules/Peanut/Workflow/Unit/Definition/WorkflowGraphTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Multitenancy/AdminApiPermissionBoundaryTest.php",
             "target": "server/tests/Multitenancy/AdminApiPermissionBoundaryTest.php",
             "classification": "excluded",
@@ -20900,19 +20612,6 @@
         {
             "path": "server/tests/Multitenancy/AdminTenantDomainContextContractTest.php",
             "target": "server/tests/Multitenancy/AdminTenantDomainContextContractTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Multitenancy/ArticleTenantIsolationTest.php",
-            "target": "server/tests/Multitenancy/ArticleTenantIsolationTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -20989,19 +20688,6 @@
             ]
         },
         {
-            "path": "server/tests/Multitenancy/DeploymentModuleInstallCommandTest.php",
-            "target": "server/tests/Multitenancy/DeploymentModuleInstallCommandTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Multitenancy/ExternalCallbackTenantRoutingTest.php",
             "target": "server/tests/Multitenancy/ExternalCallbackTenantRoutingTest.php",
             "classification": "excluded",
@@ -21054,45 +20740,6 @@
             ]
         },
         {
-            "path": "server/tests/Multitenancy/MemberProfileFieldValidationTest.php",
-            "target": "server/tests/Multitenancy/MemberProfileFieldValidationTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Multitenancy/MemberTenantIsolationTest.php",
-            "target": "server/tests/Multitenancy/MemberTenantIsolationTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Multitenancy/MemberUploadTenantWiringTest.php",
-            "target": "server/tests/Multitenancy/MemberUploadTenantWiringTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Multitenancy/NativeAdminIdentityRuntimeContractTest.php",
             "target": "server/tests/Multitenancy/NativeAdminIdentityRuntimeContractTest.php",
             "classification": "managed",
@@ -21104,33 +20751,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "df5c8df198625f8853245c3984939d1ca7c1cfe5c12247fb82b09ce200c7389e"
-        },
-        {
-            "path": "server/tests/Multitenancy/NoticeTenantIsolationTest.php",
-            "target": "server/tests/Multitenancy/NoticeTenantIsolationTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Multitenancy/OAuthTenantIsolationTest.php",
-            "target": "server/tests/Multitenancy/OAuthTenantIsolationTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
+            "source_sha256": "d96392a23fcb0b1bf14130081ee2be5e876bb80fd8dca8cacabd0925e7767453"
         },
         {
             "path": "server/tests/Multitenancy/OfficialCapabilityTenantQualificationTest.php",
@@ -21290,32 +20911,6 @@
             ]
         },
         {
-            "path": "server/tests/Multitenancy/PlatformTenantModuleHttpWiringTest.php",
-            "target": "server/tests/Multitenancy/PlatformTenantModuleHttpWiringTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Multitenancy/PlatformTenantModuleServiceTest.php",
-            "target": "server/tests/Multitenancy/PlatformTenantModuleServiceTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Multitenancy/PlatformTenantReadApiTest.php",
             "target": "server/tests/Multitenancy/PlatformTenantReadApiTest.php",
             "classification": "excluded",
@@ -21329,34 +20924,8 @@
             ]
         },
         {
-            "path": "server/tests/Multitenancy/RechargeRefundTenantIsolationTest.php",
-            "target": "server/tests/Multitenancy/RechargeRefundTenantIsolationTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Multitenancy/RechargeTenantSettingContractTest.php",
             "target": "server/tests/Multitenancy/RechargeTenantSettingContractTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Multitenancy/TaskImportExportTenantIsolationTest.php",
-            "target": "server/tests/Multitenancy/TaskImportExportTenantIsolationTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -21459,32 +21028,6 @@
             ]
         },
         {
-            "path": "server/tests/Multitenancy/TransactionSettingTenantIsolationTest.php",
-            "target": "server/tests/Multitenancy/TransactionSettingTenantIsolationTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Multitenancy/VerificationCodeConcurrentWorker.php",
-            "target": "server/tests/Multitenancy/VerificationCodeConcurrentWorker.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Productization/AdminPermissionHostTest.php",
             "target": "server/tests/Productization/AdminPermissionHostTest.php",
             "classification": "excluded",
@@ -21539,19 +21082,6 @@
         {
             "path": "server/tests/Productization/ArticleValidationScenesTest.php",
             "target": "server/tests/Productization/ArticleValidationScenesTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Productization/AuthClientSchemaContractTest.php",
-            "target": "server/tests/Productization/AuthClientSchemaContractTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -21876,32 +21406,6 @@
             ]
         },
         {
-            "path": "server/tests/Productization/MemberFinanceHostTest.php",
-            "target": "server/tests/Productization/MemberFinanceHostTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Productization/MemberJwtContractTest.php",
-            "target": "server/tests/Productization/MemberJwtContractTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Productization/MenuAllocationObservationContractTest.php",
             "target": "server/tests/Productization/MenuAllocationObservationContractTest.php",
             "classification": "excluded",
@@ -22175,45 +21679,6 @@
             ]
         },
         {
-            "path": "server/tests/Productization/NotificationHostTest.php",
-            "target": "server/tests/Productization/NotificationHostTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Productization/OAuthChannelHostTest.php",
-            "target": "server/tests/Productization/OAuthChannelHostTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Productization/OfficialArticleModuleContractTest.php",
-            "target": "server/tests/Productization/OfficialArticleModuleContractTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Productization/OpsHostTest.php",
             "target": "server/tests/Productization/OpsHostTest.php",
             "classification": "excluded",
@@ -22435,34 +21900,8 @@
             ]
         },
         {
-            "path": "server/tests/Productization/SmsReservationSchemaContractTest.php",
-            "target": "server/tests/Productization/SmsReservationSchemaContractTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php",
             "target": "server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Productization/ThinkPhpEditionIntegrationTest.php",
-            "target": "server/tests/Productization/ThinkPhpEditionIntegrationTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -22489,6 +21928,19 @@
         {
             "path": "server/tests/Support/GeneratorFixtureApplication.php",
             "target": "server/tests/Support/GeneratorFixtureApplication.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Support/IdentityMysqlFixture.php",
+            "target": "server/tests/Support/IdentityMysqlFixture.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -22645,19 +22097,6 @@
         {
             "path": "server/tests/Unit/ApplicationDevelopmentEntryTest.php",
             "target": "server/tests/Unit/ApplicationDevelopmentEntryTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Unit/ArticleExportServiceTest.php",
-            "target": "server/tests/Unit/ArticleExportServiceTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -23007,19 +22446,6 @@
             ]
         },
         {
-            "path": "server/tests/Unit/HostPublicContractsTest.php",
-            "target": "server/tests/Unit/HostPublicContractsTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Unit/HostSettingsBoundaryTest.php",
             "target": "server/tests/Unit/HostSettingsBoundaryTest.php",
             "classification": "excluded",
@@ -23098,60 +22524,8 @@
             ]
         },
         {
-            "path": "server/tests/Unit/ImportExportExtensionBoundaryTest.php",
-            "target": "server/tests/Unit/ImportExportExtensionBoundaryTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Unit/ImportExportJsonHydrationTest.php",
-            "target": "server/tests/Unit/ImportExportJsonHydrationTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Unit/InputValidatorPolicyTest.php",
             "target": "server/tests/Unit/InputValidatorPolicyTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Unit/InstallationAuditDependencyTest.php",
-            "target": "server/tests/Unit/InstallationAuditDependencyTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Unit/InstallationDependencyAssemblyTest.php",
-            "target": "server/tests/Unit/InstallationDependencyAssemblyTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -23345,19 +22719,6 @@
             ]
         },
         {
-            "path": "server/tests/Unit/OfficialAccountSecretRedactionTest.php",
-            "target": "server/tests/Unit/OfficialAccountSecretRedactionTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Unit/OperationLogRedactionBoundaryTest.php",
             "target": "server/tests/Unit/OperationLogRedactionBoundaryTest.php",
             "classification": "excluded",
@@ -23490,19 +22851,6 @@
         {
             "path": "server/tests/Unit/PlatformRetentionMaintenanceTest.php",
             "target": "server/tests/Unit/PlatformRetentionMaintenanceTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Unit/ProductProfileTenantBoundaryTest.php",
-            "target": "server/tests/Unit/ProductProfileTenantBoundaryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -23789,19 +23137,6 @@
         {
             "path": "server/tests/Unit/TenantModuleStateBoundaryTest.php",
             "target": "server/tests/Unit/TenantModuleStateBoundaryTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Unit/TenantModuleTransferBoundaryTest.php",
-            "target": "server/tests/Unit/TenantModuleTransferBoundaryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -24399,7 +23734,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f9e120709bc4f3da427a8c98d9ba5c6ebeca1a9c3c2404312d1b7dd89e9888a1"
+            "source_sha256": "071703a61aff1b364a2eca1af259536265c6d95537cea6b0ddb794d21bccd1ea"
         },
         {
             "path": "tools/quality/composer.json",

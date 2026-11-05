@@ -190,6 +190,7 @@ function tpq51TenantContext(int $tenantId): TenantContext
         'admin-web',
         new DateTimeImmutable('2031-01-01T00:00:00Z'),
         1,
+        1,
     ), 'tpq51-request-' . $tenantId);
 }
 
@@ -426,12 +427,14 @@ foreach ([101, 202] as $jobsTenantId) {
         static fn() => $jobsService->all($jobsContext),
     );
     $jobsSql = $connection->statements[0]['sql'] ?? '';
+    preg_match_all('/`tenant_id`\s*=\s*\'?([0-9]+)\b/', $jobsSql, $tenantPredicates);
     expectTpq51(
         $jobsRows === [] && count($connection->statements) === 1
             && ($connection->statements[0]['operation'] ?? '') === 'select'
             && str_contains($jobsSql, '`pa_jobs`')
-            && tpq51SqlCount($jobsSql, 'tenant_id') === 1
-            && preg_match('/`tenant_id`\s*=\s*\'?' . $jobsTenantId . '\b/', $jobsSql) === 1
+            && $tenantPredicates[1] !== []
+            && count($tenantPredicates[1]) === tpq51SqlCount($jobsSql, 'tenant_id')
+            && array_unique($tenantPredicates[1]) === [(string) $jobsTenantId]
             && preg_match('/`delete_time`\s+IS\s+NULL/i', $jobsSql) === 1,
         'Jobs query lost its current Tenant, soft-delete scope, or public list shape: ' . $jobsSql,
     );

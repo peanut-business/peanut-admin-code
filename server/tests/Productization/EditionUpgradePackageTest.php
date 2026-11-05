@@ -497,10 +497,12 @@ try {
         'app-owned customer Module was reinterpreted as an upstream package');
     $planPath = $project . '/' . $plan['plan_path'];
     $modulePath = $currentPlugin['module_root'] . '/module.json';
-    $moduleBytes = (string) file_get_contents($project . '/' . $modulePath);
-    editionUpgradeFile($project . '/' . $modulePath, $moduleBytes . "\n");
+    $moduleFile = $project . '/' . $modulePath;
+    $moduleBytes = (string) file_get_contents($moduleFile);
+    $moduleMode = fileperms($moduleFile) & 0777;
+    editionUpgradeFile($moduleFile, $moduleBytes . "\n", $moduleMode);
     editionUpgradeFails(fn() => $runner->apply($project, $planPath), 'SCAFFOLD_PLUGIN_PROJECTION_INVALID');
-    editionUpgradeFile($project . '/' . $modulePath, $moduleBytes);
+    editionUpgradeFile($moduleFile, $moduleBytes, $moduleMode);
     editionUpgradeExpect($runner->apply($project, $planPath)['status'] === 'applied', 'package apply failed');
     editionUpgradeExpect($runner->verify($project, $planPath)['status'] === 'verified', 'package verify failed');
     editionUpgradeExpect($runner->apply($project, $planPath)['idempotent'] === true, 'package apply replay not idempotent');

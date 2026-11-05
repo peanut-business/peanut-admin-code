@@ -12,8 +12,11 @@ use PeanutAdmin\Modules\Identity\Auth\PlatformAuthRepository;
 use PeanutAdmin\Modules\Identity\Auth\PlatformAuthService;
 use PeanutAdmin\Modules\Identity\Auth\TenantAuthRepository;
 use PeanutAdmin\Modules\Identity\Auth\TenantAuthService;
+use PDO;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
+use ThinkPhpTestConnection;
+
+require_once dirname(__DIR__, 4) . '/Support/ThinkPhpTestConnection.php';
 
 /** Password hashing is a login cost, never a Token-service construction cost. No database is used. */
 final class AuthRequestPasswordCostTest extends TestCase
@@ -77,37 +80,47 @@ final class AuthRequestPasswordCostTest extends TestCase
         $service->login('person@example.test', 'synthetic-password', '192.0.2.1', null, 'auth-cost-rate');
     }
 
-    public function testTenantPasswordPaddingFollowsRateChecksAndPrecedesCredentialLocks(): void
+    public function testUnknownTenantCredentialUsesTheFixedVerificationHash(): void
     {
+        $connection = ThinkPhpTestConnection::fromPdo(new PDO('sqlite::memory:'));
         $repository = $this->createMock(TenantAuthRepository::class);
         $repository->expects(self::once())->method('failedLoginCountByIp')->willReturn(0);
         $repository->expects(self::once())->method('failedLoginCountByIdentifier')->willReturn(0);
-        $repository->expects(self::never())->method('credentialByEmail');
+        $repository->expects(self::once())->method('credentialByEmail')->willReturnCallback(static function () use ($connection): null {
+            self::assertTrue($connection->getPdo()->inTransaction());
+            return null;
+        });
+        $repository->expects(self::once())->method('registerFailedLogin');
         $passwords = $this->createMock(PasswordHasher::class);
-        $passwords->expects(self::once())->method('hash')
-            ->with('peanut-admin-invalid-credential-pad')
-            ->willThrowException(new RuntimeException('PASSWORD_PADDING_BEFORE_TRANSACTION'));
+        $passwords->expects(self::never())->method('hash');
+        $passwords->expects(self::once())->method('verify')
+            ->with('synthetic-password', PasswordHasher::INVALID_CREDENTIAL_HASH)->willReturn(false);
         $service = $this->tenant($repository, $passwords);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('PASSWORD_PADDING_BEFORE_TRANSACTION');
+        $this->expectException(AuthException::class);
+        $this->expectExceptionMessage('Email or password is incorrect.');
         $service->login('person@example.test', 'synthetic-password', null, '192.0.2.1', null, 'auth-cost-login');
     }
 
-    public function testPlatformPasswordPaddingFollowsRateChecksAndPrecedesCredentialLocks(): void
+    public function testUnknownPlatformPrincipalUsesTheFixedVerificationHash(): void
     {
+        $connection = ThinkPhpTestConnection::fromPdo(new PDO('sqlite::memory:'));
         $repository = $this->createMock(PlatformAuthRepository::class);
         $repository->expects(self::once())->method('failedLoginCountByIp')->willReturn(0);
         $repository->expects(self::once())->method('failedLoginCountByIdentifier')->willReturn(0);
-        $repository->expects(self::never())->method('principalByEmail');
+        $repository->expects(self::once())->method('principalByEmail')->willReturnCallback(static function () use ($connection): null {
+            self::assertTrue($connection->getPdo()->inTransaction());
+            return null;
+        });
+        $repository->expects(self::once())->method('registerFailedLogin');
         $passwords = $this->createMock(PasswordHasher::class);
-        $passwords->expects(self::once())->method('hash')
-            ->with('peanut-admin-platform-invalid-pad')
-            ->willThrowException(new RuntimeException('PASSWORD_PADDING_BEFORE_TRANSACTION'));
+        $passwords->expects(self::never())->method('hash');
+        $passwords->expects(self::once())->method('verify')
+            ->with('synthetic-password', PasswordHasher::INVALID_CREDENTIAL_HASH)->willReturn(false);
         $service = $this->platform($repository, $passwords);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('PASSWORD_PADDING_BEFORE_TRANSACTION');
+        $this->expectException(AuthException::class);
+        $this->expectExceptionMessage('Email or password is incorrect.');
         $service->login('person@example.test', 'synthetic-password', '192.0.2.1', null, 'auth-cost-login');
     }
 

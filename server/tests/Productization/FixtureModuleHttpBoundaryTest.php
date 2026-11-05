@@ -43,6 +43,7 @@ $context = TenantContext::fromValidatedSession(new ValidatedTenantSession(
     'admin-web',
     new DateTimeImmutable('now', new DateTimeZone('UTC')),
     1,
+    1,
 ), 'fixture-http-boundary');
 $disabledCommands = new class implements DeliveryRecordCommands {
     public int $calls = 0;
@@ -85,7 +86,7 @@ fixtureHttpExpect($contexts->isEmpty(), 'system actor refusal leaked execution c
 $routeSource = (string) file_get_contents(dirname(__DIR__, 2)
     . '/fixtures/modules/delivery_record/route/app.php');
 $routeBootstrap = (string) file_get_contents(dirname(__DIR__, 2)
-    . '/route/fixture_delivery_record.php');
+    . '/app/adminapi/route/app.php');
 fixtureHttpExpect(
     substr_count($routeSource, 'LoginMiddleware::class') === 2,
     'fixture HTTP routes lost the Tenant Admin session guard',
@@ -95,7 +96,9 @@ fixtureHttpExpect(
     'fixture HTTP route reintroduced the generic root-bypass permission middleware',
 );
 fixtureHttpExpect(
-    str_contains($routeBootstrap, 'Http/routes.php'),
+    str_contains($routeBootstrap, 'CompiledModuleRegistry::class')
+        && str_contains($routeBootstrap, "\$moduleRoot . '/route/app.php'")
+        && str_contains($routeBootstrap, 'require $moduleRoute'),
     'ThinkPHP route bootstrap lost the Module-owned routes',
 );
 

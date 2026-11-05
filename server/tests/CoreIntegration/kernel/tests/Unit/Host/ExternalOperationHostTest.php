@@ -297,7 +297,7 @@ final class ExternalOperationHostTest extends TestCase
             'X-Request-ID',
         );
         $registry = new CompiledModuleRegistry([
-            ManifestDocument::fromArray('backend/app/Modules/Fixture/Record', ['key' => 'fixture.record']),
+            ManifestDocument::fromObject('backend/app/Modules/Fixture/Record', (object) ['key' => 'fixture.record']),
         ], [], [], [], 'fixture-revision');
         $tenantRepository = new class ($permissionKeys) implements TenantAuthorizationRepository {
             /** @param list<string> $permissionKeys */
@@ -422,6 +422,7 @@ SQL);
             30,
             'fixture-web',
             new DateTimeImmutable('2026-07-19T00:00:00Z'),
+            1,
             1,
         ), $requestId);
     }
