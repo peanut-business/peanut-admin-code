@@ -9,8 +9,11 @@ require_once __DIR__ . '/../Support/IdentityMysqlFixture.php';
 require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 
 use PeanutAdmin\Modules\Identity\Auth\TenantAuthService;
+use PeanutAdmin\Modules\Identity\Authorization\ApiPermissionCatalog;
 use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer;
+use app\common\services\authorization\GeneratedApiCatalog;
 
+ini_set('zend.exception_ignore_args', '1');
 $serverRoot = dirname(__DIR__, 2);
 if (($argv[1] ?? '') === '--request') {
     $input = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
@@ -86,7 +89,7 @@ try {
     if (!mkdir($runtime, 0700)) {
         throw new RuntimeException('Cannot prepare isolated HTTP runtime');
     }
-    IdentityMysqlFixture::install($pdo);
+    IdentityMysqlFixture::install($pdo, [$serverRoot . '/app/modules/peanut/ops/database/migrations']);
     IsolatedBackendEnvironment::activate([
         'DB_NAME' => $database,
         'DEPLOYMENT_MODE' => 'multi-tenant',
@@ -97,6 +100,7 @@ try {
     $app->setRuntimePath($runtime);
     $app->initialize();
     $app->make(CorePermissionCatalogSynchronizer::class)->synchronize();
+    (new ApiPermissionCatalog())->synchronize(GeneratedApiCatalog::load($serverRoot), [], false);
     $pdo->exec("INSERT INTO pa_tenant (id,code,name,display_name,status,activated_at,created_at,updated_at) VALUES (101,'alpha','Alpha','Alpha','active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3)),(202,'beta','Beta','Beta','active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
     $pdo->exec("INSERT INTO pa_tenant_entry_binding (tenant_id,host,client_key) VALUES (101,'alpha.d03.test','admin-web'),(202,'beta.d03.test','admin-web')");
     $hash = app(PeanutAdmin\Kernel\Identity\PasswordHasher::class)->hash('D03HttpPassword2026');
@@ -170,6 +174,9 @@ try {
     $pdo->exec('UPDATE pa_tenant SET authorization_revision=authorization_revision+1 WHERE id=202');
     httpExpect(stabilizationHttp('POST', 'adminapi/role/add', ['name' => 'Permission denied'], $beta, 'beta.d03.test')['status'] === 403, 'D03 permission middleware did not deny removed grant');
     httpExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_role WHERE name='Permission denied'")->fetchColumn() === 0, 'D03 revoked request wrote a role');
+} catch (Throwable $error) {
+    $failures[] = $error::class . ': ' . $error->getMessage();
+    fwrite(STDERR, end($failures) . "\n");
 } finally {
     try {
         RegisteredMysqlTestResource::cleanup($pdo, $database, $createdDatabase);
