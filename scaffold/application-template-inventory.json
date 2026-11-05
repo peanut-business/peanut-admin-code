@@ -1095,7 +1095,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d206d6d3387757df9e66ddcf5ba40951a387610afe0f7586dcbaf9c42ae29733"
+            "source_sha256": "81de44989283999a0a518aaae05f7d7568a9683ff91cbbb80eef8f2e8663a32d"
         },
         {
             "path": "pc/.env.example",
@@ -15376,7 +15376,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5735b09db10563c92ac7084334522665cb4a67fad479b9c5c686b36166b70ea5"
+            "source_sha256": "cd8fca784e68aa41ddbf31caaffaeff2789abd75467718d9dbebd3cab43ab9a8"
         },
         {
             "path": "server/app/modules/peanut/task/composer.json",
@@ -16006,7 +16006,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0e7b70a9fbc35dabbc7b1cd635c6a39e89ef4ffd8fc1da6de1e81cb8d6eee8bf"
+            "source_sha256": "41929bacfeb1987cb8e3d6ae0a45d8c7522e16f47c30b940ea7ce47b2d2e5196"
         },
         {
             "path": "server/app/modules/peanut/task/src/Service/CrontabSchedulerService.php",
@@ -17337,7 +17337,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8471f9c33eff90d78ead7df7161913eb3c89be8f339527cb3a97a06499468ef1"
+            "source_sha256": "901df8dcb3149e1a6a50cc66cd8f9a024844d41583ad64a243cdcc21273ddc85"
         },
         {
             "path": "server/config/admin_api_access.php",
@@ -19197,7 +19197,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "39d4233ed854f9b663a6073a61499ccfc6cefa28b2197b709d623a2c879e38a1"
+            "source_sha256": "45c4b0fe4a901ccd29f543e6ca4aa8d2ac8dae51deebaecf79fa29d2175acc81"
         },
         {
             "path": "server/generated/openapi.json",
@@ -19211,7 +19211,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d05f72d6da57618105d5ce5af5c96c96ddf20b31def42226b7aea58f3da1eafe"
+            "source_sha256": "43ac28f880df996e4eb5b34b46cc46d39c61eef52d5872cc9e504d682cf24a48"
         },
         {
             "path": "server/module",
