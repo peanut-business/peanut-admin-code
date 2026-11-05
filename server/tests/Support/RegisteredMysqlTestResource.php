@@ -657,7 +657,7 @@ final class RegisteredMysqlTestResource
 
     private static function required(string $key): string
     {
-        $value = getenv($key);
+        $value = str_starts_with($key, 'DB_') ? env($key) : getenv($key);
         if (!is_string($value) || trim($value) === '') {
             throw new RuntimeException('REGISTERED_MYSQL_ENVIRONMENT_REQUIRED:' . $key);
         }

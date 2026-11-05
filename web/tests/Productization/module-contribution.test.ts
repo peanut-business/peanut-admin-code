@@ -9,7 +9,10 @@ const articleContribution: ModuleFrontendContribution = {
     path: '/fixture/article',
     name: 'fixture-article',
     redirect: '/fixture/article/list',
-    meta: { tenantModuleKey: 'fixture.article' },
+    meta: {
+      tenantModuleKey: 'fixture.article',
+      requiredPermissions: ['fixture.article.category.list', 'fixture.article.list'],
+    },
     children: ['category', 'list'].map((kind) => ({
       path: kind,
       name: `fixture-article-${kind}`,

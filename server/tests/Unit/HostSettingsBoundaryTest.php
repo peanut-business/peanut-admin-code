@@ -5,14 +5,11 @@ declare(strict_types=1);
 use app\adminapi\services\config\ConfigApplicationService;
 use app\adminapi\services\setting\HotSearchApplicationService;
 use app\api\services\IndexApplicationService;
-use app\api\services\LoginApplicationService;
 use app\api\services\SearchApplicationService;
 use app\common\services\RichTextResourceService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Modules\File\Contract\FileReferences;
-use PeanutAdmin\Modules\Member\Contract\MemberIdentityCommands;
-use PeanutAdmin\Modules\Notification\Contract\VerificationCodeCommands;
 use PeanutAdmin\Modules\Settings\Contract\TenantApplicationSettings;
 use PeanutAdmin\Modules\Settings\ModuleProvider;
 use PeanutAdmin\Modules\Settings\Service\TenantApplicationSettingService;
@@ -30,7 +27,6 @@ final class HostSettingsBoundaryTest extends TestCase
             ConfigApplicationService::class,
             HotSearchApplicationService::class,
             IndexApplicationService::class,
-            LoginApplicationService::class,
             SearchApplicationService::class,
         ]);
     }
@@ -59,7 +55,7 @@ final class HostSettingsBoundaryTest extends TestCase
     {
         $source = file_get_contents(dirname(__DIR__, 2) . '/app/AppService.php');
         self::assertStringNotContainsString('Settings\\Service\\TenantApplicationSettingService::class', $source);
-        self::assertSame(3, substr_count($source, 'Settings\\Contract\\TenantApplicationSettings::class'));
+        self::assertSame(2, substr_count($source, 'Settings\\Contract\\TenantApplicationSettings::class'));
     }
 
     public function testLoginSettingsPreserveReadAndWritePayloads(): void
@@ -90,28 +86,6 @@ final class HostSettingsBoundaryTest extends TestCase
         $this->configuration($settings)->saveStatistics($this->tenant(), ['clarity_code' => ' fixture ']);
     }
 
-    public function testDisabledLoginDoesNotReachIdentityOrTransport(): void
-    {
-        $settings = $this->createMock(TenantApplicationSettings::class);
-        $settings->expects(self::once())->method('login')->willReturn(['login_way' => []]);
-        $identities = $this->createMock(MemberIdentityCommands::class);
-        $identities->expects(self::never())->method('login');
-        $verification = $this->createMock(VerificationCodeCommands::class);
-        $verification->expects(self::never())->method('verifyCode');
-        $files = $this->createMock(FileReferences::class);
-        $files->expects(self::never())->method('getFileUrl');
-        $consumer = new LoginApplicationService(
-            $identities,
-            $verification,
-            $settings,
-            $files,
-            (new ReflectionClass(\app\api\services\UserTokenService::class))->newInstanceWithoutConstructor(),
-            '',
-        );
-        $this->expectException(\app\common\exception\BusinessException::class);
-        $consumer->login(new \PeanutAdmin\Kernel\Context\TenantSystemContext(101, 'fixture', 'fixture.login', 'fixture-request'), ['account' => 'fixture', 'password' => 'fixture'], '127.0.0.1');
-    }
-
     private function configuration(TenantApplicationSettings $settings): ConfigApplicationService
     {
         return new ConfigApplicationService(
@@ -133,6 +107,7 @@ final class HostSettingsBoundaryTest extends TestCase
             501,
             'admin-web',
             new DateTimeImmutable('2031-01-01T00:00:00Z'),
+            1,
             1,
         ), 'host-settings-test');
     }

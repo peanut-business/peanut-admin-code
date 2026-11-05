@@ -110,8 +110,7 @@ function peanutRunTest(array $arguments): int
     $relative = substr($path, strlen($root) + 1);
     fwrite(STDOUT, '[php-test] ' . $kind . ' ' . $relative . "\n");
     if ($kind === 'phpunit') {
-        // PHPUnit starts isolated methods in child processes. Preloading the explicit backend
-        // environment in the parent would pass managed values to a child that loads it again.
+        // Isolated tests own their application bootstrap in each child process.
         $bootstrap = peanutTestRunsInSeparateProcess($source)
             ? $root . '/server/vendor/autoload.php'
             : $root . '/server/tests/Support/CiBootstrap.php';
@@ -120,7 +119,7 @@ function peanutRunTest(array $arguments): int
             '--fail-on-empty-test-suite', '--fail-on-risky', $path];
     } else {
         $bootstrap = getenv('PEANUT_SERVER_ENV_FILE') !== false && getenv('PEANUT_SERVER_ENV_FILE') !== ''
-            ? $root . '/server/bootstrap/environment.php' : '';
+            ? $root . '/server/tests/Support/CiBootstrap.php' : '';
         $command = [PHP_BINARY, '-r',
             'if ($argv[1] !== "") { require_once $argv[1]; } require $argv[2];', $bootstrap, $path];
     }

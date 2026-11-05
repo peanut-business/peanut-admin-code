@@ -12,12 +12,12 @@ final class RegisteredMysqlRunnerEnvironmentTest extends TestCase
 {
     private const SECRET = 'runner-secret-must-not-be-printed-74d11';
 
-    public function testMatchingFileBootstrapsWithoutOverlapAndKeepsLeaseMetadata(): void
+    public function testMatchingFileLoadsNativeEnvAndKeepsAuthorizationMetadata(): void
     {
         $result = $this->runHelper($this->environmentLines(), $this->ambient(), true);
 
         self::assertSame(0, $result['status'], $result['output']);
-        self::assertStringContainsString('PROBE:clean-overlap-and-lease-retained', $result['output']);
+        self::assertStringContainsString('PROBE:native-env-and-authorization-retained', $result['output']);
         $this->assertSecretIsNotPrinted($result['output']);
     }
 
@@ -173,7 +173,7 @@ source "$1"
 environment_file="$3"
 export PEANUT_SERVER_ENV_FILE="$environment_file"
 validate_environment_file "$2" "$environment_file"
-run_php_with_backend_environment "$2" -r "$5" "$ROOT/server/bootstrap/environment.php"
+run_php_with_backend_environment "$2" -r "$5" "$ROOT/server/tests/Support/CiBootstrap.php"
 BASH,
                 'registered-mysql-runner-test',
                 $root . '/scripts/tests/run-registered-mysql-tests',
@@ -181,16 +181,7 @@ BASH,
                 $path,
                 $probe ? 'probe' : 'validate',
                 <<<'PHP'
-$overlap = [
-    "DB_HOST", "DB_PORT", "DB_NAME",
-    "PEANUT_DATABASE_RESOURCE_ID", "PEANUT_DATABASE_ENDPOINT_ID",
-    "PEANUT_DATABASE_CONSUMER",
-];
-foreach ($overlap as $key) {
-    if (getenv($key) !== false) {
-        throw new RuntimeException("PROBE_OVERLAP_RETAINED:" . $key);
-    }
-}
+$ambient = getenv();
 $lease = [
     "PEANUT_DATABASE_ENVIRONMENT" => "continuous-integration",
     "PEANUT_DATABASE_RESOURCE_SCOPE" => "runner-test-scope",
@@ -213,16 +204,40 @@ $loaded = [
     "PEANUT_DATABASE_CONSUMER" => "host",
 ];
 foreach ($loaded as $key => $value) {
-    if (getenv($key) !== $value) {
+    if (env($key) !== $value) {
         throw new RuntimeException("PROBE_ENV_FILE_VALUE_MISSING:" . $key);
     }
+}
+if (env('DB_PASS') !== "runner-secret-must-not-be-printed-74d11"
+    || env('APP_DEBUG') !== false || getenv('DB_PASS') !== false) {
+    throw new RuntimeException("PROBE_NATIVE_ENV_REQUIRED");
+}
+if (getenv() !== $ambient) {
+    throw new RuntimeException("PROBE_PROCESS_ENVIRONMENT_CHANGED");
 }
 foreach ($lease as $key => $value) {
     if (getenv($key) !== $value) {
         throw new RuntimeException("PROBE_LEASE_METADATA_CHANGED:" . $key);
     }
 }
-fwrite(STDOUT, "PROBE:clean-overlap-and-lease-retained\n");
+require __DIR__ . '/server/tests/Support/IsolatedBackendEnvironment.php';
+require __DIR__ . '/server/tests/Support/RegisteredMysqlTestResource.php';
+$isolated = IsolatedBackendEnvironment::activate(['DB_NAME' => 'registered_mysql_isolated_test']);
+if (env('DB_NAME') !== 'registered_mysql_isolated_test'
+    || RegisteredMysqlTestResource::configuredDatabaseName() !== 'registered_mysql_isolated_test'
+    || getenv('DB_NAME') !== $loaded['DB_NAME']) {
+    throw new RuntimeException("PROBE_ISOLATED_NATIVE_ENV_REQUIRED");
+}
+$app = new \think\App(__DIR__ . '/server');
+$app->loadEnv((string) $app->env->get('ENV_NAME', ''));
+if ($app->env->get('DB_NAME') !== 'registered_mysql_isolated_test') {
+    throw new RuntimeException("PROBE_NATIVE_ENV_SELECTOR_REQUIRED");
+}
+IsolatedBackendEnvironment::cleanup();
+if (is_file($isolated)) {
+    throw new RuntimeException("PROBE_ISOLATED_ENV_CLEANUP_FAILED");
+}
+fwrite(STDOUT, "PROBE:native-env-and-authorization-retained\n");
 PHP,
                 $runnerMode,
             ];

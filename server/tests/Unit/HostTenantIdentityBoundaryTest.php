@@ -5,20 +5,18 @@ declare(strict_types=1);
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\SystemExecutionContext;
-use app\common\infrastructure\member\MemberApiTenantContextResolver;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use PeanutAdmin\Kernel\Module\ModuleException;
 use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
 use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 use PeanutAdmin\Modules\Identity\Contract\TenantIdentityQuery;
-use PeanutAdmin\Modules\Member\Contract\MemberSubjectLookup;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use PHPUnit\Framework\TestCase;
 use think\App;
 
-/** Actual Identity model and native contexts with SQLite and a synthetic member-subject provider. */
+/** Actual Identity model and native contexts with SQLite. */
 #[RunTestsInSeparateProcesses]
 #[PreserveGlobalState(false)]
 final class HostTenantIdentityBoundaryTest extends TestCase
@@ -45,7 +43,7 @@ final class HostTenantIdentityBoundaryTest extends TestCase
     public function testHostConsumersDoNotSelectIdentityPrivateTables(): void
     {
         $root = dirname(__DIR__, 2);
-        foreach (['common/infrastructure/member/MemberApiTenantContextResolver.php','common/infrastructure/module/ModuleExecutionBoundary.php'] as $file) {
+        foreach (['common/infrastructure/module/ModuleExecutionBoundary.php'] as $file) {
             $source = file_get_contents($root . '/app/' . $file);
             self::assertStringNotContainsString("Db::name('tenant')", $source);
             self::assertStringContainsString('AdminDirectoryQuery', $source);
@@ -63,44 +61,6 @@ final class HostTenantIdentityBoundaryTest extends TestCase
             self::assertSame('', $query->activeName($id));
         }
         self::assertStringContainsString('/app/modules/peanut/identity/src/Contract/', (new ReflectionClass($query))->getFileName());
-    }
-
-    public function testMemberContextRetainsVerifiedOwnerAndCredentialFingerprint(): void
-    {
-        $lookup = $this->createMock(MemberSubjectLookup::class);
-        $lookup->expects(self::once())->method('tenantId')->with(501)->willReturn(101);
-        $resolver = $this->resolver($lookup);
-        $result = $resolver->resolve(501, 'synthetic-token', 'request-1', 101);
-        self::assertSame([101,501,hash('sha256', 'synthetic-token'),'request-1'], [$result->tenantId,$result->memberId,$result->credentialFingerprint,$result->requestId]);
-        self::assertTrue($this->contexts->isEmpty());
-    }
-
-    public function testUnknownForeignAndInactiveOwnershipNeverCreatesMemberContext(): void
-    {
-        foreach ([[null,101],[101,202],[202,202],[303,303],[404,404],[999,999]] as [$owner,$verified]) {
-            $lookup = $this->createMock(MemberSubjectLookup::class);
-            $lookup->expects(self::once())->method('tenantId')->with(501)->willReturn($owner);
-            try {
-                $this->resolver($lookup)->resolve(501, 'synthetic-token', 'request-1', $verified);
-                self::fail('Invalid tenant identity was accepted.');
-            } catch (DomainException $exception) {
-                self::assertSame('MEMBER_TENANT_CONTEXT_UNAVAILABLE', $exception->getMessage());
-            }
-        }
-    }
-
-    public function testMalformedIdentityDoesNotQueryMemberOwnership(): void
-    {
-        foreach ([[0,'token','request',101],[501,'','request',101],[501,'token','',101],[501,'token','request',0]] as $arguments) {
-            $lookup = $this->createMock(MemberSubjectLookup::class);
-            $lookup->expects(self::never())->method('tenantId');
-            try {
-                $this->resolver($lookup)->resolve(...$arguments);
-                self::fail('Malformed identity was accepted.');
-            } catch (DomainException $exception) {
-                self::assertSame('MEMBER_TENANT_CONTEXT_UNAVAILABLE', $exception->getMessage());
-            }
-        }
     }
 
     public function testCoreAndPlatformBackgroundEntrypointsKeepLifecycleChecksAndContexts(): void
@@ -140,11 +100,8 @@ final class HostTenantIdentityBoundaryTest extends TestCase
     public function testNativeContainerSuppliesExistingDirectoryWithoutManualConstruction(): void
     {
         $this->app->instance(CurrentExecutionContext::class, $this->current);
-        $this->app->instance(MemberSubjectLookup::class, $this->createStub(MemberSubjectLookup::class));
         $this->app->instance(ModuleRuntimeRepository::class, $this->createStub(ModuleRuntimeRepository::class));
-        self::assertCount(2, (new ReflectionClass(MemberApiTenantContextResolver::class))->getConstructor()->getParameters());
         self::assertCount(3, (new ReflectionClass(ModuleExecutionBoundary::class))->getConstructor()->getParameters());
-        self::assertInstanceOf(AdminDirectoryQuery::class, (new ReflectionProperty(MemberApiTenantContextResolver::class, 'tenants'))->getValue($this->app->make(MemberApiTenantContextResolver::class)));
         self::assertInstanceOf(AdminDirectoryQuery::class, (new ReflectionProperty(ModuleExecutionBoundary::class, 'tenants'))->getValue($this->app->make(ModuleExecutionBoundary::class)));
     }
 
@@ -192,12 +149,6 @@ final class HostTenantIdentityBoundaryTest extends TestCase
             self::assertNull((new \app\common\http\ApiProblemMapper())->map($exception));
         }
         self::assertTrue($this->contexts->isEmpty());
-    }
-
-    private function resolver(MemberSubjectLookup $lookup): MemberApiTenantContextResolver
-    {
-        self::assertCount(2, (new ReflectionClass(MemberApiTenantContextResolver::class))->getConstructor()->getParameters());
-        return new MemberApiTenantContextResolver($lookup, $this->directory);
     }
 
     private function boundary(ModuleRuntimeRepository $modules): ModuleExecutionBoundary

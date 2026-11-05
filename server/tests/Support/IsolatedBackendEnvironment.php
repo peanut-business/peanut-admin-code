@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__, 2) . '/bootstrap/environment.php';
+require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 /** Creates one temporary server/.env.<run-id> for an isolated PHP test process. */
 final class IsolatedBackendEnvironment
@@ -38,7 +38,20 @@ final class IsolatedBackendEnvironment
     public static function activate(array $values): string
     {
         $serverRoot = dirname(__DIR__, 2);
-        $basePath = peanutBackendEnvironmentPath();
+        $app = \think\Container::getInstance();
+        if (!$app instanceof \think\App) {
+            $app = new \think\App($serverRoot);
+        }
+        require_once $app->getThinkPath() . 'helper.php';
+        $basePath = getenv('PEANUT_SERVER_ENV_FILE');
+        if (!is_string($basePath) || $basePath === '') {
+            $envName = (string) env('ENV_NAME', '');
+            $basePath = $serverRoot . '/.env' . ($envName === '' ? '' : '.' . $envName);
+        }
+        if (!str_starts_with($basePath, '/') || !is_file($basePath) || is_link($basePath)
+            || !is_readable($basePath)) {
+            throw new RuntimeException('ISOLATED_BACKEND_ENVIRONMENT_BASE_INVALID');
+        }
         $baseValues = parse_ini_file($basePath, false, INI_SCANNER_RAW);
         if (!is_array($baseValues)) {
             throw new RuntimeException('ISOLATED_BACKEND_ENVIRONMENT_BASE_INVALID');
@@ -79,28 +92,9 @@ final class IsolatedBackendEnvironment
         self::$paths[] = $path;
         self::registerCleanup();
         putenv('PEANUT_SERVER_ENV_FILE=' . $path);
-        $_ENV['PEANUT_SERVER_ENV_FILE'] = $path;
-        $_SERVER['PEANUT_SERVER_ENV_FILE'] = $path;
-
-        $managedKeys = array_keys($values);
-        if (function_exists('peanutBackendEnvironmentKeys')) {
-            $managedKeys = array_values(array_unique([...$managedKeys, ...peanutBackendEnvironmentKeys()]));
-        }
-        foreach ($managedKeys as $key) {
-            putenv($key);
-            putenv('PHP_' . $key);
-            unset($_ENV[$key], $_ENV['PHP_' . $key], $_SERVER[$key], $_SERVER['PHP_' . $key]);
-        }
-
-        // 生产 bootstrap 每个进程只加载一次；测试切换到刚写入的独立文件时，
-        // 复用同一键名／值校验器重新应用配置，不能清空后再调用其一次性入口。
-        $isolatedValues = parse_ini_file($path, false, INI_SCANNER_RAW);
-        if (!is_array($isolatedValues)) {
-            throw new RuntimeException('ISOLATED_BACKEND_ENVIRONMENT_PARSE_FAILED');
-        }
-        peanutApplyEnvironmentFile($isolatedValues, peanutBackendEnvironmentKeys(), 'BACKEND');
-        $_ENV['ENV_NAME'] = 'test-' . substr(basename($path), strlen('.env.test-'));
-        $_SERVER['ENV_NAME'] = $_ENV['ENV_NAME'];
+        putenv('PHP_ENV_NAME=' . $runId);
+        $app->env->set('ENV_NAME', $runId);
+        $app->loadEnv($runId);
 
         return $path;
     }
@@ -110,8 +104,8 @@ final class IsolatedBackendEnvironment
         if (preg_match('/^[A-Z][A-Z0-9_]*$/D', $key) !== 1) {
             throw new RuntimeException('ISOLATED_BACKEND_ENVIRONMENT_KEY_INVALID');
         }
-        $value = getenv($key);
-        if ($value === false || trim($value) === '') {
+        $value = str_starts_with($key, 'DB_') ? env($key) : getenv($key);
+        if (!is_string($value) || trim($value) === '') {
             throw new RuntimeException("ISOLATED_BACKEND_ENVIRONMENT_REQUIRED:{$key}");
         }
         return $value;
@@ -181,7 +175,7 @@ final class IsolatedBackendEnvironment
         }
         self::$paths = [];
         putenv('PEANUT_SERVER_ENV_FILE');
-        unset($_ENV['PEANUT_SERVER_ENV_FILE'], $_SERVER['PEANUT_SERVER_ENV_FILE']);
+        putenv('PHP_ENV_NAME');
     }
 
     private static function registerCleanup(): void

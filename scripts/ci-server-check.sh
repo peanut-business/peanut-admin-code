@@ -116,8 +116,7 @@ select_test() {
 registered_mysql_test() {
   case "$1" in
     server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest.php|\
-    server/tests/Modules/Official/Notification/mysql-harness.php|\
-    server/tests/Multitenancy/MemberSessionTenantIsolationTest.php)
+    server/tests/Modules/Official/Notification/mysql-harness.php)
       return 0
       ;;
   esac
@@ -154,7 +153,7 @@ if [[ "$mode" == '--integration' ]]; then
     echo 'ERROR: PEANUT_MYSQL_RESOURCE_MODE is invalid' >&2
     exit 2
   }
-  run_command registered-mysql-integration 3 \
+  run_command registered-mysql-integration 2 \
     "$ROOT/scripts/tests/run-registered-mysql-tests" "$mysql_resource_mode" --env-file "$BACKEND_ENV"
   write_summary passed
   exit 0

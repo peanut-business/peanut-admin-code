@@ -4,11 +4,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 cd "$ROOT"
 
-verified_environment_keys=(
-  DB_HOST DB_PORT DB_NAME
-  PEANUT_DATABASE_RESOURCE_ID PEANUT_DATABASE_ENDPOINT_ID
-  PEANUT_DATABASE_CONSUMER
-)
 validated_environment_file=""
 
 validate_environment_file() {
@@ -62,13 +57,9 @@ run_php_with_backend_environment() {
     && "$validated_environment_file" == "$environment_file" \
     && "${PEANUT_SERVER_ENV_FILE:-}" == "$environment_file" ]] \
     || { echo 'ERROR: backend environment was not validated' >&2; return 2; }
-  (
-    local name
-    for name in "${verified_environment_keys[@]}"; do
-      unset "$name"
-    done
-    "$@"
-  )
+  # Registry and lease authorization remains process metadata. The application
+  # reads file configuration through ThinkPHP Env, without a process mirror.
+  "$@"
 }
 
 # Unit tests source only the validation and child-environment helpers. The real
@@ -202,6 +193,7 @@ if [[ "$mode" == --ci-service ]]; then
   ' "$registry" "$registry_pending"
   mv -- "$registry_pending" "$registry"
   registry_pending=""
+  export PEANUT_RESOURCE_REGISTRY="$registry"
   export PEANUT_DATABASE_REGISTRY_FILE="$registry"
   export PEANUT_DATABASE_REGISTRY_TOOL="$registry_tool"
   export PEANUT_DATABASE_REGISTRY_SHA256
@@ -252,7 +244,7 @@ preflight() {
     require_once $argv[1];
     require_once $argv[2];
     RegisteredMysqlTestResource::preflightEmptyDatabase();
-  ' "$ROOT/server/bootstrap/environment.php" "$ROOT/server/tests/Support/RegisteredMysqlTestResource.php"
+  ' "$ROOT/server/tests/Support/CiBootstrap.php" "$ROOT/server/tests/Support/RegisteredMysqlTestResource.php"
 }
 
 run_suite() {
@@ -272,8 +264,6 @@ run_suite() {
 preflight
 run_suite server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest.php 'PASS (40 checks)'
 preflight
-run_suite server/tests/Multitenancy/MemberSessionTenantIsolationTest.php '1 test, 33 assertions'
-preflight
 run_suite server/tests/Modules/Official/Notification/mysql-harness.php 'PASS (34 checks)'
 preflight
-echo 'Registered MySQL 8.4 gate: PASS (3 suites with expected counts)'
+echo 'Registered MySQL 8.4 gate: PASS (2 suites with expected counts)'

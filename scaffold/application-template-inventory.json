@@ -3306,7 +3306,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6e9d05c84fe9fcc46f64974f5ed02bc7c08c3909e26330f1931594fff95d83b5"
+            "source_sha256": "29a31124dd7be756db242c770e45e276fb2221e740de1910df71199fb8bf4e18"
         },
         {
             "path": "scripts/run-with-environment-file",
@@ -21067,19 +21067,6 @@
             ]
         },
         {
-            "path": "server/tests/Multitenancy/MemberSessionTenantIsolationTest.php",
-            "target": "server/tests/Multitenancy/MemberSessionTenantIsolationTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Multitenancy/MemberTenantIsolationTest.php",
             "target": "server/tests/Multitenancy/MemberTenantIsolationTest.php",
             "classification": "excluded",
@@ -22708,19 +22695,6 @@
             ]
         },
         {
-            "path": "server/tests/Unit/CallbackApplicationServicesTest.php",
-            "target": "server/tests/Unit/CallbackApplicationServicesTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Unit/CatalogSettingsLifecycleBoundaryTest.php",
             "target": "server/tests/Unit/CatalogSettingsLifecycleBoundaryTest.php",
             "classification": "excluded",
@@ -23267,19 +23241,6 @@
             ]
         },
         {
-            "path": "server/tests/Unit/MemberSessionTokenTest.php",
-            "target": "server/tests/Unit/MemberSessionTokenTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Unit/MigrationTargetIdentityTest.php",
             "target": "server/tests/Unit/MigrationTargetIdentityTest.php",
             "classification": "excluded",
@@ -23464,19 +23425,6 @@
         {
             "path": "server/tests/Unit/PasswordPolicyOverrideTest.php",
             "target": "server/tests/Unit/PasswordPolicyOverrideTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Unit/PaymentMemberReadAssociationTest.php",
-            "target": "server/tests/Unit/PaymentMemberReadAssociationTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

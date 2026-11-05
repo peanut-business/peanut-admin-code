@@ -110,6 +110,15 @@ jobs:
       - name: Install the tool's locked dependencies
         working-directory: server
         run: composer install --no-interaction --no-progress --prefer-dist --no-scripts
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.2'
+          cache: npm
+          cache-dependency-path: uniapp/package-lock.json
+      - name: Install locked UniApp generator dependencies
+        working-directory: uniapp
+        run: npm ci --ignore-scripts
       - name: Verify source inventory after locked dependencies
         run: php scripts/build-application-template-inventory --check
       - name: Verify create-app contract
@@ -352,7 +361,7 @@ jobs:
           try {
             for (const test of [
               'permission-policy.test.ts',
-              'plugin-contribution.test.ts',
+              'module-contribution.test.ts',
               'department-parent-options.test.ts',
             ]) {
               await server.ssrLoadModule(`/tests/Productization/${test}`)
