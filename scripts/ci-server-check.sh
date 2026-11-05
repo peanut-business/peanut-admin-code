@@ -113,14 +113,7 @@ select_test() {
   printf '%s\n' "$path" >>"$selected_file"
 }
 
-registered_mysql_test() {
-  case "$1" in
-    server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest.php)
-      return 0
-      ;;
-  esac
-  return 1
-}
+source "$ROOT/scripts/tests/run-registered-mysql-tests"
 
 direct_test_target() {
   case "$1" in
@@ -226,7 +219,7 @@ done < <(find server/tests/Unit -maxdepth 1 -type f -name '*.php' -print | LC_AL
 behavior_selected=0
 while IFS= read -r path; do
   [[ -n "$path" ]] || continue
-  if direct_test_target "$path" && ! registered_mysql_test "$path" && [[ -f "$path" ]]; then
+  if direct_test_target "$path" && ! registered_mysql_test "$path" && ! application_mysql_test "$path" && [[ -f "$path" ]]; then
     select_test "$path"
     behavior_selected=1
   fi

@@ -35,13 +35,18 @@ $argv = array_values(array_filter($argv ?? [], static fn(string $value): bool =>
 require $server . '/vendor/autoload.php';
 require $server . '/vendor/topthink/framework/src/helper.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
+$app = new think\App($server);
+$app->loadEnv((string) $app->env->get('env_name', ''));
 
 // Explicit manual acceptance entry. It uses the selected checkout's native authoring,
 // dependency, migration and lifecycle services; no running application or business data is imported.
+$databaseEnvironment = [];
 foreach (['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASS'] as $name) {
-    if (getenv($name) === false || ($name !== 'DB_PASS' && getenv($name) === '')) {
+    $value = $app->env->get($name);
+    if (!is_string($value) || ($name !== 'DB_PASS' && $value === '')) {
         throw new RuntimeException('Explicit empty synthetic MySQL environment is required: ' . $name);
     }
+    $databaseEnvironment[$name] = $value;
 }
 $state = $root . '/.local/module-lifecycle-mysql';
 $resumeBaseline = array_slice($argv ?? [], 1) === ['--resume-baseline'];
@@ -52,11 +57,11 @@ $resume = $resumeBaseline || $resumeSource || $resumeRuntime || $resumeReinstall
 if ((!$resume && is_dir($state)) || (!($resumeSource || $resumeRuntime) && is_dir($server . '/app/modules/acme/lifecycle')) || is_dir($server . '/app/modules/acme/dependent')) {
     throw new RuntimeException('Retain the previous fixture/result and reconcile it before another acceptance run.');
 }
-$dsn = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', getenv('DB_HOST'), getenv('DB_PORT'), getenv('DB_NAME'));
-$pdo = new PDO($dsn, (string) getenv('DB_USER'), (string) getenv('DB_PASS'), [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$dsn = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', $databaseEnvironment['DB_HOST'], $databaseEnvironment['DB_PORT'], $databaseEnvironment['DB_NAME']);
+$pdo = new PDO($dsn, $databaseEnvironment['DB_USER'], $databaseEnvironment['DB_PASS'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $databaseRow = $pdo->query('SELECT @@server_uuid AS server_uuid,@@hostname AS server_hostname,@@port AS server_port,DATABASE() AS database_name')->fetch(PDO::FETCH_ASSOC);
 if (!is_array($databaseRow) || ($expectedServerUuid !== null && !hash_equals($expectedServerUuid, strtolower((string) $databaseRow['server_uuid'])))
-    || ($databaseRow['database_name'] ?? null) !== getenv('DB_NAME')) {
+    || ($databaseRow['database_name'] ?? null) !== $databaseEnvironment['DB_NAME']) {
     throw new RuntimeException('Native qualification MySQL UUID/schema differs before the first write.');
 }
 $databaseIdentity = ['server_uuid' => strtolower($databaseRow['server_uuid']), 'server_hostname' => $databaseRow['server_hostname'],
@@ -80,11 +85,9 @@ foreach (['server/composer.json', 'server/composer.lock', 'modules.lock', 'serve
     $original[$file] = is_file($root . '/' . $file) ? base64_encode((string) file_get_contents($root . '/' . $file)) : null;
 }
 if (!$resume) { file_put_contents($state . '/source-before.json', json_encode($original, JSON_THROW_ON_ERROR)); }
-$app = new think\App($server);
-$app->loadEnv('');
 $app->config->set(['default' => 'mysql', 'migration_table' => 'migrations', 'connections' => ['mysql' => [
-    'type' => 'mysql', 'hostname' => getenv('DB_HOST'), 'hostport' => getenv('DB_PORT'), 'database' => getenv('DB_NAME'),
-    'username' => getenv('DB_USER'), 'password' => getenv('DB_PASS'), 'charset' => 'utf8mb4', 'prefix' => 'pa_',
+    'type' => 'mysql', 'hostname' => $databaseEnvironment['DB_HOST'], 'hostport' => $databaseEnvironment['DB_PORT'], 'database' => $databaseEnvironment['DB_NAME'],
+    'username' => $databaseEnvironment['DB_USER'], 'password' => $databaseEnvironment['DB_PASS'], 'charset' => 'utf8mb4', 'prefix' => 'pa_',
     'deploy' => 0, 'trigger_sql' => false,
 ]]], 'database');
 $app->config->set(['mode' => 'multi-tenant'], 'deployment');
@@ -281,5 +284,5 @@ foreach (['permission', 'menu_definition'] as $table) {
 }
 $expect($coreMetadataValid && $nonCaseCatalogAfter === $nonCaseCatalogBefore,
     'Native lifecycle changed non-case catalog contents or produced unexpected Core/Platform metadata');
-file_put_contents($state . '/result.json', json_encode(['assertions' => $assertions, 'module_id' => $id, 'database' => getenv('DB_NAME'), 'status' => 'passed', 'database_identity' => $databaseIdentity, 'non_case_catalog_sha256' => hash('sha256', json_encode($nonCaseCatalogBefore, JSON_THROW_ON_ERROR))], JSON_THROW_ON_ERROR));
+file_put_contents($state . '/result.json', json_encode(['assertions' => $assertions, 'module_id' => $id, 'database' => $databaseEnvironment['DB_NAME'], 'status' => 'passed', 'database_identity' => $databaseIdentity, 'non_case_catalog_sha256' => hash('sha256', json_encode($nonCaseCatalogBefore, JSON_THROW_ON_ERROR))], JSON_THROW_ON_ERROR));
 echo "MODULE-LIFECYCLE-MYSQL passed assertions={$assertions}; native dependency/migration/catalog/retire/reinstall/purge-recovery\n";

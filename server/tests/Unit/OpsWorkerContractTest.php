@@ -56,10 +56,27 @@ final class OpsWorkerContractTest extends TestCase
             self::assertNotNull($contexts->current());
             return null;
         });
-        [$exit, $payload] = $this->runCommand($type, $port, $worker, ['claim'], $contexts, $name);
+        [$exit, $payload] = $this->withDatabaseIdentity(fn(): array =>
+            $this->runCommand($type, $port, $worker, ['claim'], $contexts, $name));
         self::assertSame(0, $exit);
         self::assertSame(['ok' => true, 'result' => null], $payload);
         self::assertTrue($contexts->isEmpty());
+    }
+
+    public static function guardedWorkers(): array
+    {
+        return array_intersect_key(self::workers(), array_flip(['backup', 'restore']));
+    }
+
+    #[DataProvider('guardedWorkers')]
+    public function testGuardedClaimRejectsAnotherDatabaseBeforeInvokingWorker(string $type, string $port, string $implementation, string $name, string $prefix): void
+    {
+        $worker = $this->createMock($port);
+        $worker->expects(self::never())->method('claim');
+        [$exit, $payload] = $this->withDatabaseIdentity(fn(): array =>
+            $this->runCommand($type, $port, $worker, ['claim'], new ExecutionContextStore(), $name), false);
+        self::assertSame(1, $exit);
+        self::assertSame(['ok' => false, 'error_code' => $prefix . '_APPLICATION_CONNECTION_MISMATCH'], $payload);
     }
 
     #[DataProvider('workers')]
@@ -173,6 +190,55 @@ final class OpsWorkerContractTest extends TestCase
         self::assertStringContainsString('taskImportExportInstalledAssertions($app, $pdo,', $source);
         self::assertStringContainsString('$guard();', $source);
         self::assertStringContainsString("'native_identity' => 'verified-current-session'", $source);
+    }
+
+    /** Exercise the real identity guard with a synthetic registry and no database connection. */
+    private function withDatabaseIdentity(Closure $run, bool $matches = true): array
+    {
+        $previousApp = \think\Container::getInstance();
+        $app = new App(dirname(__DIR__, 3) . '/.local/tmp/ops-worker-identity');
+        $app->env->set([
+            'APP_ENV' => 'development', 'DEPLOYMENT_MODE' => 'multi-tenant',
+            'DB_HOST' => '127.0.0.1', 'DB_PORT' => '1', 'DB_NAME' => 'ops_worker_fixture',
+            'DB_USER' => 'synthetic', 'DB_PASS' => 'synthetic',
+        ]);
+        $app->config->set(['default' => 'mysql', 'connections' => ['mysql' => [
+            'type' => 'mysql', 'hostname' => '127.0.0.1', 'hostport' => '1',
+            'database' => $matches ? 'ops_worker_fixture' : 'another_fixture',
+        ]]], 'database');
+        $directory = dirname(__DIR__, 3) . '/.local/tmp';
+        if (!is_dir($directory)) {
+            mkdir($directory, 0700, true);
+        }
+        $registry = tempnam($directory, 'ops-worker-registry-');
+        file_put_contents($registry, json_encode([
+            'schema_version' => 1, 'project_id' => 'peanut-admin', 'authority' => ['role' => 'maintainer'],
+            'resources' => ['databases' => [[
+                'stable_resource_id' => 'ops-worker-fixture', 'environment' => 'development',
+                'service_type' => 'mysql', 'fallback' => 'none', 'database' => 'ops_worker_fixture',
+                'deployment_modes' => ['multi-tenant'],
+                'upstream_endpoint' => ['endpoint_id' => 'ops-worker-fixture', 'host' => '127.0.0.1', 'port' => 1, 'consumers' => ['host']],
+            ]]],
+        ], JSON_THROW_ON_ERROR));
+        $environment = [
+            'PEANUT_RESOURCE_REGISTRY' => $registry, 'PEANUT_DATABASE_RESOURCE_ID' => 'ops-worker-fixture',
+            'PEANUT_DEPLOYMENT_TARGET' => 'local-development', 'PEANUT_DATABASE_CONSUMER' => 'host',
+            'PEANUT_DATABASE_ENDPOINT_ID' => 'ops-worker-fixture',
+        ];
+        $previous = [];
+        foreach ($environment as $key => $value) {
+            $previous[$key] = getenv($key);
+            putenv($key . '=' . $value);
+        }
+        try {
+            return $run();
+        } finally {
+            foreach ($previous as $key => $value) {
+                putenv($value === false ? $key : $key . '=' . $value);
+            }
+            unlink($registry);
+            \think\Container::setInstance($previousApp);
+        }
     }
 
     private function runCommand(string $type, string $port, ?object $worker, array $arguments, ExecutionContextStore $contexts, string $name): array

@@ -73,7 +73,7 @@ final class AccountSelfServiceIntegrationTest extends DatabaseTestCase
             'created_at' => self::NOW,
             'updated_at' => self::NOW,
         ]);
-        $this->service = new AccountSelfService(new AuditService(), $this->passwords);
+        $this->service = new AccountSelfService(new AuditService(), $this->passwords, new \PeanutAdmin\Kernel\Identity\PasswordPolicy());
     }
 
     public function testProfileIsSelfScopedMaskedAndAuditedOnUpdate(): void
@@ -522,7 +522,7 @@ SQL)->fetchColumn());
             $this->admin = $this->connect();
             $this->database = $this->connect($this->databaseName);
             ThinkPhpTestConnection::fromPdo($this->database);
-            $this->service = new AccountSelfService(new AuditService(), $this->passwords);
+            $this->service = new AccountSelfService(new AuditService(), $this->passwords, new \PeanutAdmin\Kernel\Identity\PasswordPolicy());
         }
 
         self::assertSame('ready', $firstReady['type'] ?? null);
@@ -729,7 +729,7 @@ SQL);
             'admin-web',
             new DateTimeImmutable(self::NOW, new DateTimeZone('UTC')),
             1,
-        ), $requestId);
+        1), $requestId);
     }
 
     private function passwordChangeIpLockName(string $ipAddress): string
@@ -823,7 +823,7 @@ SQL);
             }
 
             ThinkPhpTestConnection::fromPdo($pdo);
-            $service = new AccountSelfService(new AuditService(), new PasswordHasher());
+            $service = new AccountSelfService(new AuditService(), new PasswordHasher(), new \PeanutAdmin\Kernel\Identity\PasswordPolicy());
             try {
                 $service->changePassword(
                     $this->context(

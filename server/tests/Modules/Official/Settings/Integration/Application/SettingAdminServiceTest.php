@@ -50,7 +50,7 @@ final class SettingAdminServiceTest extends SettingsDatabaseTestCase
         $registry = $this->registry([$this->plainDefinition('display-mode')]);
         $synchronizer = $this->synchronize($registry);
         $definition = $registry->require('example.module', 'display-mode');
-        $service = new SettingAdminService($this->protector());
+        $service = $this->settingAdmin($this->protector());
         $operatorId = $this->operator();
         $now = new DateTimeImmutable('2026-07-19T08:00:00Z');
         $service->replaceDeployment($definition, 'compact', $operatorId, $now, null, null, '*');
@@ -99,7 +99,7 @@ final class SettingAdminServiceTest extends SettingsDatabaseTestCase
         $definition = $registry->require('example.module', 'display-mode');
         $operatorId = $this->operator();
         $now = new DateTimeImmutable('2026-07-19T08:00:00Z');
-        (new SettingAdminService($this->protector()))->replaceDeployment(
+        ($this->settingAdmin($this->protector()))->replaceDeployment(
             $definition,
             'compact',
             $operatorId,
@@ -151,7 +151,7 @@ SQL);
     {
         $registry = $this->registry([$this->plainDefinition('display-mode')]);
         $repository = $this->synchronize($registry);
-        $service = new SettingAdminService($this->protector());
+        $service = $this->settingAdmin($this->protector());
         $definition = $registry->require('example.module', 'display-mode');
         $operatorId = $this->operator();
         $now = new DateTimeImmutable('2026-07-19T08:00:00Z');
@@ -232,8 +232,8 @@ SQL);
         $definition = $registry->require('example.module', 'display-mode');
         $operatorId = $this->operator();
         $now = new DateTimeImmutable('2026-07-19T08:00:00Z');
-        $first = new SettingAdminService($this->protector());
-        $second = new SettingAdminService($this->protector());
+        $first = $this->settingAdmin($this->protector());
+        $second = $this->settingAdmin($this->protector());
 
         $first->replaceDeployment($definition, 'compact', $operatorId, $now, null, null, '*');
         $this->expectSettingError(
@@ -268,7 +268,7 @@ SQL);
     {
         $registry = $this->registry([$this->plainDefinition('display-mode')]);
         $repository = $this->synchronize($registry);
-        $service = new SettingAdminService($this->protector());
+        $service = $this->settingAdmin($this->protector());
         $definition = $registry->require('example.module', 'display-mode');
         $operatorId = $this->operator();
         $tenant = $this->tenant('alpha');
@@ -388,9 +388,6 @@ SQL);
                     PHP_BINARY,
                     $workerPath,
                     dirname(__DIR__, 6),
-                    (string) $this->requiredPort('DB_PORT'),
-                    (string) (getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev'),
-                    self::DATABASE,
                     (string) $operatorId,
                     base64_encode(serialize($definition)),
                 ];
@@ -432,7 +429,7 @@ SQL);
     {
         $registry = $this->registry([$this->plainDefinition('display-mode')]);
         $repository = $this->synchronize($registry);
-        $service = new SettingAdminService($this->protector());
+        $service = $this->settingAdmin($this->protector());
         $definition = $registry->require('example.module', 'display-mode');
         $alpha = $this->tenant('alpha');
         $beta = $this->tenant('beta');
@@ -507,7 +504,7 @@ SQL);
     {
         $registry = $this->registry([$this->plainDefinition('display-mode')]);
         $this->synchronize($registry);
-        $service = new SettingAdminService($this->protector());
+        $service = $this->settingAdmin($this->protector());
         $definition = $registry->require('example.module', 'display-mode');
         $operatorId = $this->operator();
         $exact = new DateTimeImmutable('2026-07-19T08:00:00.123000Z');
@@ -544,7 +541,7 @@ SQL);
     {
         $registry = $this->registry([$this->secretDefinition()]);
         $repository = $this->synchronize($registry);
-        $service = new SettingAdminService($this->protector());
+        $service = $this->settingAdmin($this->protector());
         $definition = $registry->require('example.module', 'api-token');
         $operatorId = $this->operator();
 
@@ -723,34 +720,25 @@ use PeanutAdmin\Settings\Secret\SecretStorageContext;
 
 require $argv[1] . '/vendor/autoload.php';
 
-$manager = new \think\DbManager();
-$manager->setConfig([
-    'default' => 'mysql',
-    'connections' => [
-        'mysql' => [
-            'type' => 'mysql',
-            'hostname' => '127.0.0.1',
-            'database' => $argv[4],
-            'username' => 'root',
-            'password' => $argv[3],
-            'hostport' => (int) $argv[2],
-            'charset' => 'utf8mb4',
-            'prefix' => 'pa_',
-            'fields_strict' => true,
-            'break_reconnect' => false,
-        ],
-    ],
-]);
-$connection = $manager->connect();
-if (!$connection instanceof \think\db\PDOConnection) {
-    throw new \RuntimeException('The settings race worker requires a PDO connection.');
+$environment = getenv('PEANUT_SERVER_ENV_FILE');
+if (!is_string($environment) || $environment === '') {
+    throw new \RuntimeException('The settings worker requires the explicit registered environment.');
 }
-\think\Container::getInstance()->instance(\think\DbManager::class, $manager);
-$pdo = $connection->connect();
+$app = new \think\App($argv[1]);
+require_once $app->getThinkPath() . 'helper.php';
+$app->env->load($environment);
+require_once $argv[1] . '/tests/Support/RegisteredMysqlTestResource.php';
+$pdo = new \PDO(
+    sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', env('DB_HOST'), env('DB_PORT'), RegisteredMysqlTestResource::configuredDatabaseName()),
+    env('DB_USER'),
+    env('DB_PASS'),
+);
+RegisteredMysqlTestResource::assertSelectedDatabase($pdo, RegisteredMysqlTestResource::configuredDatabaseName());
+$connection = \ThinkPhpTestConnection::fromPdo($pdo);
 $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
 $pdo->setAttribute(\PDO::ATTR_DEFAULT_FETCH_MODE, \PDO::FETCH_ASSOC);
 $definition = unserialize(
-    base64_decode($argv[6], true),
+    base64_decode($argv[3], true),
     ['allowed_classes' => [SettingDefinition::class]],
 );
 if (!$definition instanceof SettingDefinition) {
@@ -792,7 +780,7 @@ if (fgets(STDIN) !== "go\n") {
 }
 
 try {
-    (new SettingAdminService(new class implements SecretProtector {
+    $protector = new class implements SecretProtector {
         public function protect(string $plaintext, SecretStorageContext $context): array
         {
             throw new \RuntimeException('Plain settings must not invoke secret protection.');
@@ -806,10 +794,24 @@ try {
         ): string {
             throw new \RuntimeException('Plain settings must not invoke secret protection.');
         }
-    }))->replaceDeployment(
+    };
+    $resolver = new \PeanutAdmin\Modules\Settings\Application\SettingResolver(
+        $protector,
+        new \PeanutAdmin\Modules\Settings\Cache\ArrayRevisionedSettingCache(),
+        new \PeanutAdmin\Modules\Identity\Tenancy\Application\TenantWorkspaceQueryService(
+            new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService(
+                new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], 'settings-worker'),
+            ),
+        ),
+    );
+    (new SettingAdminService(
+        $protector, $resolver,
+        new \PeanutAdmin\Modules\Identity\Membership\Query\ThinkPhpTenantMemberDirectory(),
+        new \PeanutAdmin\Modules\Identity\Identity\Query\ThinkPhpPlatformOperatorIdentityQuery(),
+    ))->replaceDeployment(
         $definition,
         'comfortable',
-        (int) $argv[5],
+        (int) $argv[2],
         new \DateTimeImmutable('2026-07-19T08:00:00Z'),
         null,
         null,

@@ -396,6 +396,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          TRANSPORT_SHA256: ${{ inputs.qualification_transport_sha256 }}
         run: |
           set -Eeuo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
@@ -407,4 +408,5 @@ jobs:
             --qualification "$RUNNER_TEMP/qualified-release/qualification/summary.json" \
             --template-artifacts "$RUNNER_TEMP/qualified-release/scaffold-templates" \
             --main-integration="$RUNNER_TEMP/qualified-release/qualification/main-integration.json" \
+            --qualification-transport-sha256="$TRANSPORT_SHA256" \
             --output "$RUNNER_TEMP/published-release"

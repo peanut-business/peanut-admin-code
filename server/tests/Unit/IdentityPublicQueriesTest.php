@@ -43,7 +43,7 @@ final class IdentityPublicQueriesTest extends TestCase
         $this->database = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         \ThinkPhpTestConnection::fromPdo($this->database);
         $this->database->exec(<<<'SQL'
-            CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY, name TEXT, status TEXT, security_revision INTEGER);
+            CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY, name TEXT, status TEXT, security_revision INTEGER, authorization_revision INTEGER);
             CREATE TABLE pa_account (id INTEGER PRIMARY KEY, display_name TEXT, status TEXT, security_revision INTEGER, avatar_uri TEXT, last_login_at TEXT);
             CREATE TABLE pa_tenant_member (id INTEGER PRIMARY KEY, tenant_id INTEGER, account_id INTEGER, display_name TEXT, primary_department_id INTEGER, status TEXT, security_revision INTEGER, authorization_revision INTEGER);
             CREATE TABLE pa_role (id INTEGER PRIMARY KEY, tenant_id INTEGER, "key" TEXT, name TEXT, is_builtin INTEGER, status TEXT);
@@ -52,7 +52,7 @@ final class IdentityPublicQueriesTest extends TestCase
             CREATE TABLE pa_role_permission (tenant_id INTEGER, role_id INTEGER, permission_id INTEGER);
             CREATE TABLE pa_credential (id INTEGER PRIMARY KEY, account_id INTEGER, kind TEXT, identifier_type TEXT, identifier_normalized TEXT, status TEXT);
             CREATE TABLE pa_tenant_session (id INTEGER PRIMARY KEY, tenant_id INTEGER, account_id INTEGER, tenant_member_id INTEGER, session_key TEXT, status TEXT, account_security_revision INTEGER, tenant_security_revision INTEGER, member_security_revision INTEGER, idle_expires_at TEXT, absolute_expires_at TEXT);
-            INSERT INTO pa_tenant VALUES (1, '合成甲', 'active', 1), (2, '合成乙', 'active', 1);
+            INSERT INTO pa_tenant VALUES (1, '合成甲', 'active', 1, 1), (2, '合成乙', 'active', 1, 1);
             INSERT INTO pa_account VALUES (101, '甲所有者', 'active', 1, 'avatar-a', NULL), (202, '乙所有者', 'active', 1, 'avatar-b', NULL);
             INSERT INTO pa_tenant_member VALUES (11, 1, 101, '甲所有者', NULL, 'active', 1, 3), (22, 2, 202, '乙所有者', NULL, 'active', 1, 3);
             INSERT INTO pa_role VALUES (31, 1, 'core.tenant-owner', '所有者', 1, 'active'), (32, 2, 'core.tenant-owner', '所有者', 1, 'active');
@@ -63,7 +63,8 @@ final class IdentityPublicQueriesTest extends TestCase
             INSERT INTO pa_tenant_session VALUES (61, 1, 101, 11, 'synthetic-a', 'active', 1, 1, 1, '2099-01-01 00:00:00.000', '2099-01-01 00:00:00.000'), (62, 2, 202, 22, 'synthetic-b', 'active', 1, 1, 1, '2099-01-01 00:00:00.000', '2099-01-01 00:00:00.000');
             SQL);
         $this->directory = new AdminDirectoryQuery(new CurrentExecutionContext(new ExecutionContextStore()));
-        $this->authorization = new TenantAuthorizationQuery(new ThinkPhpTenantMemberDirectory());
+        $registry = new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], 'identity-query');
+        $this->authorization = new TenantAuthorizationQuery(new ThinkPhpTenantMemberDirectory(), $registry, new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService($registry));
     }
 
     private function actor(int $tenantId = 1, int $memberId = 11, int $accountId = 101): TenantContext
@@ -77,13 +78,14 @@ final class IdentityPublicQueriesTest extends TestCase
             'test',
             new DateTimeImmutable('2099-01-01T00:00:00Z'),
             3,
+            1,
         ), 'identity-query-test');
     }
 
     public function testOwnerProjectionConvertsAnActualThinkOrmModelIntoStableData(): void
     {
-        self::assertSame(['id' => 11, 'account_id' => 101, 'authorization_revision' => 3], $this->directory->activeTenantOwner(1, 11, 101));
-        self::assertSame(['id' => 22, 'account_id' => 202, 'authorization_revision' => 3], $this->directory->activeTenantOwner(2, null, null));
+        self::assertSame(['id' => 11, 'account_id' => 101, 'authorization_revision' => 3, 'tenant_authorization_revision' => 1], $this->directory->activeTenantOwner(1, 11, 101));
+        self::assertSame(['id' => 22, 'account_id' => 202, 'authorization_revision' => 3, 'tenant_authorization_revision' => 1], $this->directory->activeTenantOwner(2, null, null));
     }
 
     public function testOwnerSelectionDoesNotTreatPartialOrForeignIdentityAsAnyOwner(): void
@@ -124,11 +126,12 @@ final class IdentityPublicQueriesTest extends TestCase
 
     public function testPrincipalProfileIsScopedAndReturnsOnlyItsDeclaredShape(): void
     {
-        self::assertSame([
+        self::assertEquals([
             'tenant_name' => '合成甲',
             'username' => 'owner-a@example.test',
             'avatar' => 'avatar-a',
             'last_login_at' => null,
+            'member' => new \PeanutAdmin\Modules\Identity\Contract\Dto\TenantMemberSummary(1, 11, 101, '甲所有者', 1, 1, 1, 3, 1),
         ], $this->directory->activePrincipalProfile(1, 101));
         self::assertNull($this->directory->activePrincipalProfile(2, 101));
         $this->database->exec("UPDATE pa_credential SET status = 'revoked' WHERE id = 51");

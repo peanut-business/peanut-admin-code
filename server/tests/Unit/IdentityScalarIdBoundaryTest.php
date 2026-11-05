@@ -37,7 +37,7 @@ final class IdentityScalarIdBoundaryTest extends TestCase
             ++$this->databaseAttempts;
             throw new LogicException('FIXTURE_DATABASE_FORBIDDEN');
         });
-        $this->actor = TenantContext::fromValidatedSession(new ValidatedTenantSession(1,'scalar-id',101,501,601,'admin-web',new DateTimeImmutable('2035-01-01'),1),'scalar-id-request');
+        $this->actor = TenantContext::fromValidatedSession(new ValidatedTenantSession(1,'scalar-id',101,501,601,'admin-web',new DateTimeImmutable('2035-01-01'),1,1),'scalar-id-request');
     }
 
     private function call(string $type,string $action,array $params): void

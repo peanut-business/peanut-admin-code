@@ -35,15 +35,14 @@ final class DeploymentCatalogReadBoundaryTest extends TestCase
         \ThinkPhpTestConnection::fromPdo($this->pdo);
         $this->pdo->exec(<<<'SQL'
             CREATE TABLE pa_module_installation (id INTEGER PRIMARY KEY, module_key TEXT UNIQUE, installed_version TEXT, manifest_schema_version INTEGER, manifest_digest TEXT, status TEXT, revision INTEGER, activated_at TEXT, created_at TEXT, updated_at TEXT, private_note TEXT);
-            CREATE TABLE pa_plugin_module (module_key TEXT,plugin_key TEXT);
             CREATE TABLE pa_menu_definition (id INTEGER PRIMARY KEY,"key" TEXT,module_key TEXT,status TEXT,private_note TEXT);
             INSERT INTO pa_menu_definition VALUES (1,'alpha.old','fixture.alpha','active','private'),(2,'beta.live','fixture.beta','active','private'),(3,'beta.old','fixture.beta','retired','private'),(4,'core.root','core','active','private');
             SQL);
         $this->manifests = [];
         foreach (['alpha', 'beta'] as $key) {
-            $document = ManifestDocument::fromArray($root . '/.local/tmp/' . $key, [
+            $document = ManifestDocument::fromObject($root . '/.local/tmp/' . $key, (object) [
                 'key' => 'fixture.' . $key, 'version' => '1.2.3', 'schema_version' => 1,
-                'tenant' => ['enableable' => true], 'dependencies' => [],
+                'tenant' => (object) ['enableable' => true], 'dependencies' => [],
             ]);
             $this->manifests['fixture.' . $key] = $document;
             $this->pdo->prepare('INSERT INTO pa_module_installation VALUES (?,?,?,?,?,?,?,?,?,?,?)')->execute([
@@ -51,6 +50,7 @@ final class DeploymentCatalogReadBoundaryTest extends TestCase
                 $key === 'alpha' ? 'active' : 'disabled', 7, 'activated', 'created', 'updated', 'never-expose',
             ]);
         }
+        $this->pdo->exec("INSERT INTO pa_module_installation (id,module_key,status) VALUES (3,'fixture.removed','uninstalled')");
         $documents = array_values($this->manifests);
         $compiled = new CompiledModuleRegistry($documents, [], [], [], hash('sha256', implode('|', array_map(static fn($doc): string => $doc->digest, $documents))));
         $this->states = new TenantModuleStateQueries();
@@ -65,6 +65,7 @@ final class DeploymentCatalogReadBoundaryTest extends TestCase
         self::assertSame('disabled', $this->states->installationIdentity('fixture.beta')['status']);
         self::assertNull($this->states->installationIdentity('fixture.missing'));
         self::assertSame(['fixture.alpha'], $this->states->activeInstallationKeys());
+        self::assertSame(['fixture.alpha', 'fixture.beta'], $this->states->installedModuleKeys());
         self::assertSame([['module_key' => 'fixture.alpha', 'revision' => 7, 'activated_at' => 'activated', 'created_at' => 'created', 'updated_at' => 'updated']], $this->states->activeInstallationMetadata());
         self::assertSame(1, $this->states->activeInstallationCount(['fixture.alpha', 'fixture.beta']));
         self::assertStringNotContainsString('never-expose', json_encode([$identity, $this->states->activeInstallationMetadata()], JSON_THROW_ON_ERROR));
@@ -90,14 +91,22 @@ final class DeploymentCatalogReadBoundaryTest extends TestCase
         $this->registry->requireInstalled('fixture.alpha');
     }
 
-    public function testHostQualificationUsesOnlyActiveIdentitiesAndKeepsDeploymentFallback(): void
+    public function testHostQualificationUsesOnlyActiveModuleIdentities(): void
     {
         $service = new ModuleQualificationQueryService($this->registry, $this->states);
         $items = $service->installedModules();
         self::assertCount(1, $items);
         self::assertSame('fixture.alpha', $items[0]->moduleKey);
-        self::assertSame('deployment', $items[0]->pluginKey);
         self::assertSame('1.2.3', $items[0]->version);
+        self::assertSame([
+            'module_key' => 'fixture.alpha',
+            'version' => '1.2.3',
+            'schema_version' => 1,
+            'manifest_digest' => $this->manifests['fixture.alpha']->digest,
+            'dependencies' => [],
+            'status' => 'active',
+        ], $items[0]->toArray());
+        self::assertSame($items[0]->toArray(), $service->installedModule('fixture.alpha')->toArray());
     }
 
     public function testScopedMenusKeepOtherModulesAndDoNotResurrectRetiredKeys(): void

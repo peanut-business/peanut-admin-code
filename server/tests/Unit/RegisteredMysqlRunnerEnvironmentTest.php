@@ -12,6 +12,49 @@ final class RegisteredMysqlRunnerEnvironmentTest extends TestCase
 {
     private const SECRET = 'runner-secret-must-not-be-printed-74d11';
 
+    public function testSuiteRequiresPositiveEvidenceAndChecksEmptyStateAfterFailure(): void
+    {
+        $root = dirname(__DIR__, 3);
+        foreach (['passed' => 0, 'missing' => 1, 'skipped' => 1, 'dirty' => 9, 'failed-dirty' => 17] as $case => $expected) {
+            $process = proc_open([
+                $this->bashBinary(), '-c', <<<'BASH'
+source "$1"
+mkdir -p "$ROOT/.local/tmp"
+RUNNER_TEMP=$(mktemp -d "$ROOT/.local/tmp/mysql-runner-evidence.XXXXXX")
+logs=()
+trap 'rm -f -- "${logs[@]}"; rmdir "$RUNNER_TEMP"' EXIT
+php_binary="$3"
+environment_file="$RUNNER_TEMP/synthetic.env"
+case_name="$2"
+run_php_with_backend_environment() {
+  [[ " $* " == *' --fail-on-skipped '* ]] || return 41
+  case "$case_name" in
+    passed|dirty) echo 'integration-security mysql harness: PASS (40 checks)' ;;
+    missing) echo 'ThinkPHP handled an exception without a successful assertion marker' ;;
+    skipped) echo 'Tests: 1, Assertions: 0, Skipped: 1'; return 1 ;;
+    failed-dirty) echo 'actual child failure'; return 17 ;;
+  esac
+}
+preflight() {
+  echo POST_PREFLIGHT_EXECUTED
+  case "$case_name" in dirty|failed-dirty) return 9 ;; esac
+  return 0
+}
+if run_suite server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest.php; then result=0; else result=$?; fi
+exit "$result"
+BASH,
+                'mysql-runner-evidence-fixture', $root . '/scripts/tests/run-registered-mysql-tests', $case, PHP_BINARY,
+            ], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $root);
+            self::assertIsResource($process);
+            fclose($pipes[0]);
+            $output = (string) stream_get_contents($pipes[1]) . (string) stream_get_contents($pipes[2]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            self::assertSame($expected, proc_close($process), $case . ': ' . $output);
+            self::assertSame(1, substr_count($output, 'POST_PREFLIGHT_EXECUTED'), $case . ': ' . $output);
+        }
+    }
+
     public function testMatchingFileLoadsNativeEnvAndKeepsAuthorizationMetadata(): void
     {
         $result = $this->runHelper($this->environmentLines(), $this->ambient(), true);

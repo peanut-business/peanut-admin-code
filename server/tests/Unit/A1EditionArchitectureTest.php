@@ -5,11 +5,9 @@ declare(strict_types=1);
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\SystemExecutionContext;
-use app\common\persistence\TenantPersistenceConfiguration;
 use app\common\tenancy\MultiTenantDataScopePolicy;
 use app\common\value\scaffold\EditionProfile;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
-use PeanutAdmin\Kernel\Persistence\Tenancy\TenantPersistenceMode;
 use PHPUnit\Framework\TestCase;
 
 final class A1EditionArchitectureTest extends TestCase
@@ -42,15 +40,13 @@ final class A1EditionArchitectureTest extends TestCase
         );
     }
 
-    public function testPersistenceConfigurationOnlyAllowsTenantOwnedStorage(): void
+    public function testPolicyRequiresTrustedTenantContext(): void
     {
-        $configuration = new TenantPersistenceConfiguration();
-        self::assertSame(TenantPersistenceMode::TenantScoped, $configuration->mode);
-        self::assertNull($configuration->instanceTenantId);
-
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('TENANTLESS_LEGACY_SCHEMA_MANUAL_MIGRATION_REQUIRED');
-        new TenantPersistenceConfiguration(TenantPersistenceMode::InstanceScoped, 1);
+        $policy = new MultiTenantDataScopePolicy(new CurrentExecutionContext(new ExecutionContextStore()));
+        $model = $this->createMock(think\Model::class);
+        $model->expects(self::never())->method('setAttr');
+        $this->expectException(DomainException::class);
+        $policy->prepareWrite($model);
     }
 
     public function testSharedPolicyInjectsTrustedTenantAndRejectsClientOwnedMismatch(): void
@@ -65,7 +61,6 @@ final class A1EditionArchitectureTest extends TestCase
             new SystemExecutionContext(new TenantSystemContext(71, 'installer', 'a1.install', 'a1-install-71')),
             static fn() => $policy->prepareWrite($model),
         );
-        self::assertTrue($policy->usesTenantColumn());
 
         $mismatched = $this->createMock(think\Model::class);
         $mismatched->expects(self::once())->method('getData')->willReturn(['tenant_id' => 72]);

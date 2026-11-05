@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use app\platform\service\module\ModuleLifecycleException;
-use app\platform\service\module\ModuleLifecycleService;
+use app\platform\exception\module\ModuleLifecycleException;
+use app\common\module\ModuleMigrationRun;
 use PeanutAdmin\Kernel\Module\ManifestDocument;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
@@ -34,50 +34,50 @@ function pluginMigrationDiscoveryRemove(string $path): void
 
 $fixtureRoot = sys_get_temp_dir() . '/pa-plugin-migration-discovery-' . bin2hex(random_bytes(8));
 mkdir($fixtureRoot, 0700, true);
-$service = (new ReflectionClass(ModuleLifecycleService::class))->newInstanceWithoutConstructor();
-$discover = new ReflectionMethod(ModuleLifecycleService::class, 'migrationFiles');
-$identity = new ReflectionMethod(ModuleLifecycleService::class, 'migrationDirectoryIdentity');
-
 try {
     $sameRoot = $fixtureRoot . '/same-root';
-    $physical = $sameRoot . '/physical-migrations';
+    $physical = $sameRoot . '/database/migrations';
     mkdir($physical, 0700, true);
-    file_put_contents($physical . '/20260814050101_same.sql', "SELECT 1;\n");
-    mkdir($sameRoot . '/Database', 0700, true);
+    $source = "<?php\nthrow new RuntimeException('discovery must not execute migration PHP');\n";
+    file_put_contents($physical . '/20260814050101_same.php', $source);
     symlink($physical, $sameRoot . '/manifest-alias');
-    symlink($physical, $sameRoot . '/Database/Migrations');
-
-    pluginMigrationDiscoveryExpect(
-        $identity->invoke(null, $sameRoot . '/manifest-alias')
-            === $identity->invoke(null, $sameRoot . '/Database/Migrations'),
-        'directory aliases did not resolve to one device/inode identity',
-    );
-    $sameManifest = ManifestDocument::fromArray($sameRoot, [
+    $sameManifest = ManifestDocument::fromObject($sameRoot, (object) [
         'key' => 'fixture.same-root',
-        'backend' => ['migrations' => 'manifest-alias'],
+        'backend' => ['migrations' => 'database/migrations'],
     ]);
-    $sameFiles = $discover->invoke($service, $sameRoot, $sameManifest);
+    $sameFiles = ModuleMigrationRun::sources(['fixture.same-root' => $sameManifest], dirname(__DIR__, 2));
     pluginMigrationDiscoveryExpect(
-        array_keys($sameFiles) === ['fixture.same-root:20260814050101_same'],
-        'the same physical migration directory was traversed more than once',
+        count($sameFiles) === 1 && $sameFiles[0]['migration_key'] === '20260814050101'
+            && $sameFiles[0]['module_key'] === 'fixture.same-root'
+            && $sameFiles[0]['sha256'] === hash('sha256', $source),
+        'native migration identity, ownership or source digest changed',
     );
-
-    $differentRoot = $fixtureRoot . '/different-roots';
-    mkdir($differentRoot . '/first', 0700, true);
-    mkdir($differentRoot . '/Database/Migrations', 0700, true);
-    file_put_contents($differentRoot . '/first/20260814050102_duplicate.sql', "SELECT 1;\n");
-    file_put_contents($differentRoot . '/Database/Migrations/20260814050102_duplicate.sql', "SELECT 2;\n");
-    $differentManifest = ManifestDocument::fromArray($differentRoot, [
-        'key' => 'fixture.different-roots',
-        'backend' => ['migrations' => 'first'],
+    $aliasManifest = ManifestDocument::fromObject($sameRoot, (object) [
+        'key' => 'fixture.same-root', 'backend' => ['migrations' => 'manifest-alias'],
     ]);
     try {
-        $discover->invoke($service, $differentRoot, $differentManifest);
+        ModuleMigrationRun::sources(['fixture.same-root' => $aliasManifest], dirname(__DIR__, 2));
+        throw new RuntimeException('noncanonical migration alias was accepted');
+    } catch (ModuleLifecycleException $exception) {
+        pluginMigrationDiscoveryExpect($exception->errorCode === 'MODULE_MIGRATION_PATH_INVALID', 'migration alias error changed');
+    }
+
+    $differentRoot = $fixtureRoot . '/different-roots';
+    mkdir($differentRoot . '/database/migrations', 0700, true);
+    file_put_contents($differentRoot . '/database/migrations/20260814050101_duplicate.php', $source);
+    $differentManifest = ManifestDocument::fromObject($differentRoot, (object) [
+        'key' => 'fixture.different-roots',
+        'backend' => ['migrations' => 'database/migrations'],
+    ]);
+    try {
+        ModuleMigrationRun::sources([
+            'fixture.same-root' => $sameManifest, 'fixture.different-roots' => $differentManifest,
+        ], dirname(__DIR__, 2));
         throw new RuntimeException('different physical roots with the same migration key were accepted');
     } catch (ModuleLifecycleException $exception) {
         pluginMigrationDiscoveryExpect(
-            $exception->errorCode === 'MODULE_MIGRATION_INVALID'
-                && str_contains($exception->getMessage(), 'Duplicate migration key'),
+            $exception->errorCode === 'MODULE_MIGRATION_IDENTITY_CONFLICT'
+                && str_contains($exception->getMessage(), 'Duplicate migration version or class'),
             'different physical roots did not fail closed on a duplicate migration key',
         );
     }

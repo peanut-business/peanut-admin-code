@@ -2,15 +2,23 @@
 
 declare(strict_types=1);
 
-require dirname(__DIR__, 2) . '/bootstrap/environment.php';
+require_once __DIR__ . '/../Support/CiBootstrap.php';
 
-use app\platform\service\PlatformOperatorSessionService;
+use app\platform\services\PlatformOperatorSessionService;
+use app\platform\services\PlatformApiAuthorization;
+use app\common\services\authorization\EndpointPermissionGrant;
 use PeanutAdmin\Modules\Identity\Auth\Persistence\ThinkPhpPlatformAuthRepository;
 use PeanutAdmin\Modules\Identity\Auth\PlatformAuthService;
 use PeanutAdmin\Kernel\Auth\SystemClock;
 use PeanutAdmin\Kernel\Auth\TokenIssuer;
 use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
+use PeanutAdmin\Kernel\Identity\PasswordPolicy;
+use PeanutAdmin\Modules\Identity\Audit\AuditService;
+use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer;
+use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
+use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
+use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
 use PeanutAdmin\Modules\Identity\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
 
@@ -18,46 +26,14 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require dirname(__DIR__, 2) . '/database/install.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
 require __DIR__ . '/../Support/ThinkPhpTestConnection.php';
+require __DIR__ . '/../Support/IdentityMysqlFixture.php';
+require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 
 function mt05BootstrapExpect(bool $condition, string $message): void
 {
     if (!$condition) {
         throw new RuntimeException($message);
     }
-}
-
-function mt05BootstrapAdminConnection(): PDO
-{
-    $host = IsolatedBackendEnvironment::required('DB_HOST');
-    $port = IsolatedBackendEnvironment::required('DB_PORT');
-    $user = IsolatedBackendEnvironment::required('DB_USER');
-    $password = IsolatedBackendEnvironment::required('DB_PASS');
-    return new PDO(
-        "mysql:host={$host};port={$port};charset=utf8mb4",
-        $user,
-        $password,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false],
-    );
-}
-
-function mt05BootstrapDatabase(PDO $admin, string $database): PDO
-{
-    $admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
-    $host = IsolatedBackendEnvironment::required('DB_HOST');
-    $port = IsolatedBackendEnvironment::required('DB_PORT');
-    $user = IsolatedBackendEnvironment::required('DB_USER');
-    $password = IsolatedBackendEnvironment::required('DB_PASS');
-    return new PDO(
-        "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
-        $user,
-        $password,
-        [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-            PDO::MYSQL_ATTR_MULTI_STATEMENTS => true,
-        ],
-    );
 }
 
 /** @param array<string,string> $overrides */
@@ -84,15 +60,15 @@ function mt05BootstrapPlatformSessions(PDO $pdo): PlatformOperatorSessionService
             new TokenIssuer(),
             str_repeat('h', 32),
         ),
-        new PlatformAuthorizationEvaluator($permissions, new RevisionPermissionCache()),
+        new PlatformApiAuthorization(new PlatformAuthorizationEvaluator($permissions, new RevisionPermissionCache()), new EndpointPermissionGrant(new think\Request())),
         $permissions,
     );
 }
 
 $serverDir = dirname(__DIR__, 2);
-$admin = mt05BootstrapAdminConnection();
+$installName = RegisteredMysqlTestResource::configuredDatabaseName();
+[$install, $createdDatabase] = RegisteredMysqlTestResource::openEmptyDatabase($installName);
 $run = strtolower(bin2hex(random_bytes(5)));
-$databases = [];
 $adminEmail = 'owner+' . $run . '@example.test';
 $adminPassword = 'TenantOwner2026';
 $platformEmail = 'platform+' . $run . '@example.test';
@@ -101,7 +77,7 @@ $platformPassword = 'PlatformOperator2026';
 try {
     foreach ([
         'missing_email' => ['', $platformPassword],
-        'weak_password' => [$platformEmail, 'weak-password'],
+        'weak_password' => [$platformEmail, 'weak'],
         'same_email' => [$adminEmail, $platformPassword],
     ] as $case => [$candidateEmail, $candidatePassword]) {
         IsolatedBackendEnvironment::activate([
@@ -122,9 +98,6 @@ try {
         mt05BootstrapExpect($failed, "{$case} must fail closed");
     }
 
-    $installName = 'pa_mt05_platform_install_' . $run;
-    $databases[] = $installName;
-    $install = mt05BootstrapDatabase($admin, $installName);
     mt05BootstrapUseDatabase($installName, [
         'ADMIN_INITIAL_EMAIL' => $adminEmail,
         'ADMIN_INITIAL_PASSWORD' => $adminPassword,
@@ -132,10 +105,18 @@ try {
         'PLATFORM_INITIAL_EMAIL' => $platformEmail,
         'PLATFORM_INITIAL_PASSWORD' => $platformPassword,
     ]);
+    IdentityMysqlFixture::install($install);
+    ThinkPhpTestConnection::fromPdo($install);
+    (new CorePermissionCatalogSynchronizer(new ThinkPhpAuthorizationCatalogRepository()))->synchronize();
+    think\Container::getInstance()->instance(BootstrapService::class,
+        new BootstrapService(new AuditService(), new PasswordHasher(), new PasswordPolicy()));
+    // Exercise the production installer's identity stage without writing shared installation state.
     ob_start();
-    $installCode = main();
+    $installedIdentity = initializeCoreIdentity($install, $adminEmail, $adminPassword,
+        ['email' => $platformEmail, 'password' => $platformPassword],
+        new DemoAccountPolicy(false, []), installationTenantBootstrapContract($serverDir));
     $installOutput = (string) ob_get_clean();
-    mt05BootstrapExpect($installCode === 0, 'multi-tenant fresh installer failed');
+    mt05BootstrapExpect($installedIdentity['tenant_id'] > 0, 'multi-tenant installer identity bootstrap failed');
     mt05BootstrapExpect(
         !str_contains($installOutput, $adminPassword)
             && !str_contains($installOutput, $platformPassword),
@@ -185,9 +166,7 @@ SQL)->fetch();
         'fresh multi-tenant platform operator cannot login',
     );
 
-    echo "MT05-PLATFORM-BOOTSTRAP-001 passed\n";
+    echo "MT05-PLATFORM-BOOTSTRAP-001 identity stage passed; full installer not executed\n";
 } finally {
-    foreach ($databases as $database) {
-        $admin->exec("DROP DATABASE IF EXISTS `{$database}`");
-    }
+    RegisteredMysqlTestResource::cleanup($install, $installName, $createdDatabase);
 }

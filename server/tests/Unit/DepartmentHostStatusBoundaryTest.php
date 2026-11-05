@@ -66,6 +66,11 @@ final class DepartmentHostStatusBoundaryTest extends TestCase
             CREATE TABLE pa_role (id INTEGER PRIMARY KEY,tenant_id INTEGER,"key" TEXT,name TEXT,is_builtin INTEGER,status TEXT);
             CREATE TABLE pa_permission (id INTEGER PRIMARY KEY,"key" TEXT,module_key TEXT,status TEXT);
             INSERT INTO pa_permission VALUES (1,'core.department.create','core','active'),(2,'core.department.update','core','active'),(3,'core.department.move','core','active');
+            ALTER TABLE pa_tenant ADD COLUMN security_revision INTEGER DEFAULT 1;
+            ALTER TABLE pa_account ADD COLUMN display_name TEXT DEFAULT 'Department actor';
+            ALTER TABLE pa_account ADD COLUMN security_revision INTEGER DEFAULT 1;
+            ALTER TABLE pa_tenant_member ADD COLUMN security_revision INTEGER DEFAULT 1;
+            ALTER TABLE pa_tenant_member ADD COLUMN authorization_revision INTEGER DEFAULT 1;
             SQL);
         $this->contexts = new ExecutionContextStore();
         $current = new CurrentExecutionContext($this->contexts);
@@ -73,7 +78,8 @@ final class DepartmentHostStatusBoundaryTest extends TestCase
         $members->method('activeMembership')->willReturnCallback(static fn(int $tenant, int $member): ?TenantMemberSummary =>
             $tenant === 101 && $member === 601 ? new TenantMemberSummary(101, 601, 501, 'Department actor', 1, 1, 1, 1) : null);
         $members->method('activeMembershipCount')->willReturn(1);
-        $identity = new TenantAuthorizationQuery($members);
+        $registry = new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], 'department-host');
+        $identity = new TenantAuthorizationQuery($members, $registry, new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService($registry));
         $grants = $this->createStub(TenantAuthorizationRepository::class);
         $grants->method('permissions')->willReturn(new EffectivePermissionSet([
             'core.department.create', 'core.department.update', 'core.department.move',
@@ -91,10 +97,10 @@ final class DepartmentHostStatusBoundaryTest extends TestCase
             in_array($uri, [...$registered], true) && in_array($uri, [...$granted], true));
         $this->owner = new DepartmentAdminService(new AuditService());
         $this->host = new DeptApplicationService($this->owner, $current, new AdminAuthorizationService(
-            $bridge, $policy, $members, new AdminDirectoryQuery($current), $identity,
+            $bridge, $policy, new AdminDirectoryQuery($current), $identity,
             new \app\common\services\authorization\EndpointPermissionGrant(new \think\Request()),
         ));
-        $this->actor = TenantContext::fromValidatedSession(new ValidatedTenantSession(1, 'dept-status', 101, 501, 601, 'admin-web', new DateTimeImmutable('2035-01-01'), 1), 'dept-status-request');
+        $this->actor = TenantContext::fromValidatedSession(new ValidatedTenantSession(1, 'dept-status', 101, 501, 601, 'admin-web', new DateTimeImmutable('2035-01-01'), 1, 1), 'dept-status-request');
     }
 
     private function runAs(callable $operation): mixed

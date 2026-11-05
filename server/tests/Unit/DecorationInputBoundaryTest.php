@@ -30,7 +30,7 @@ final class DecorationInputBoundaryTest extends TestCase
 {
     public function testDefaultAvatarCanRoundTripEmptyWithoutWritingTheDisplayUrl(): void
     {
-        $context = TenantContext::fromValidatedSession(new ValidatedTenantSession(1, str_repeat('a', 26), 101, 201, 301, 'admin-web', new DateTimeImmutable('+1 hour'), 1), 'default-avatar-input');
+        $context = TenantContext::fromValidatedSession(new ValidatedTenantSession(1, str_repeat('a', 26), 101, 201, 301, 'admin-web', new DateTimeImmutable('+1 hour'), 1, 1), 'default-avatar-input');
         $settings = $this->createMock(TenantApplicationSettings::class);
         $settings->method('memberProfile')->with($context)->willReturn(['user_avatar' => '']);
         $settings->expects(self::once())->method('replaceMemberProfile')->with($context, ['user_avatar' => '']);
@@ -57,7 +57,7 @@ final class DecorationInputBoundaryTest extends TestCase
 
     public function testOnlyTheDeclaredAvatarDefaultBypassesFileStorage(): void
     {
-        $context = TenantContext::fromValidatedSession(new ValidatedTenantSession(1, str_repeat('a', 26), 101, 201, 301, 'admin-web', new DateTimeImmutable('+1 hour'), 1), 'declared-avatar-input');
+        $context = TenantContext::fromValidatedSession(new ValidatedTenantSession(1, str_repeat('a', 26), 101, 201, 301, 'admin-web', new DateTimeImmutable('+1 hour'), 1, 1), 'declared-avatar-input');
         $default = 'brand/avatar-member.svg';
         $settings = $this->createMock(TenantApplicationSettings::class);
         $settings->method('memberProfile')->with($context)->willReturn(['user_avatar' => $default]);
@@ -86,7 +86,7 @@ final class DecorationInputBoundaryTest extends TestCase
 
     public function testUserAvatarEditorKeepsStableReferenceSeparateFromDeliveryUrl(): void
     {
-        $context = TenantContext::fromValidatedSession(new ValidatedTenantSession(1, str_repeat('a', 26), 101, 201, 301, 'admin-web', new DateTimeImmutable('+1 hour'), 1), 'avatar-input');
+        $context = TenantContext::fromValidatedSession(new ValidatedTenantSession(1, str_repeat('a', 26), 101, 201, 301, 'admin-web', new DateTimeImmutable('+1 hour'), 1, 1), 'avatar-input');
         $key = 'file_' . str_repeat('b', 32);
         $settings = $this->createMock(TenantApplicationSettings::class);
         $settings->method('memberProfile')->with($context)->willReturn(['user_avatar' => $key]);
@@ -106,7 +106,7 @@ final class DecorationInputBoundaryTest extends TestCase
 
     public function testAdminImageRoundTripRetainsStableReferenceWhilePublicPresentationUsesUrl(): void
     {
-        $context = TenantContext::fromValidatedSession(new ValidatedTenantSession(1, str_repeat('a', 26), 101, 201, 301, 'admin-web', new DateTimeImmutable('+1 hour'), 1), 'decoration-input');
+        $context = TenantContext::fromValidatedSession(new ValidatedTenantSession(1, str_repeat('a', 26), 101, 201, 301, 'admin-web', new DateTimeImmutable('+1 hour'), 1, 1), 'decoration-input');
         $key = 'file_' . str_repeat('a', 32);
         $url = 'https://assets.example/authorized-image';
         $files = $this->createMock(FileReferences::class);

@@ -6,10 +6,10 @@ use app\command\OpsModuleTask;
 use app\AppService;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
-use app\common\service\audit\AuditContractHost;
-use app\platform\service\ops\DeploymentModuleRequestService;
-use app\platform\service\ops\ThinkPhpModuleOperationTaskExecutionService;
-use app\platform\service\module\ModuleCatalogApplier;
+use app\common\services\audit\AuditContractHost;
+use PeanutAdmin\Modules\Ops\Service\DeploymentModuleRequestService;
+use PeanutAdmin\Modules\Ops\Infrastructure\ThinkPhpModuleOperationTaskExecutionService;
+use app\platform\infrastructure\module\ModuleCatalogApplier;
 use think\App;
 use think\console\Input;
 use think\console\Output;
@@ -28,11 +28,18 @@ $contexts = new ExecutionContextStore();
 $current = new CurrentExecutionContext($contexts);
 $audit = (new ReflectionClass(AuditContractHost::class))->newInstanceWithoutConstructor();
 $trustedKey = str_repeat('k', SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES);
-$app->config->set(['official.article' => ['root' => 'app/modules/official/article']], 'modules');
+$moduleConfig = ['module_lock' => '../modules.lock', 'roots' => ['app/modules/peanut/identity']];
+$app->config->set($moduleConfig, 'modules');
+$app->bind((new \PeanutAdmin\Modules\Identity\ModuleProvider())->bindings());
+$app->bind((new \PeanutAdmin\Modules\Ops\ModuleProvider())->bindings());
 $app->config->set(['trusted_ed25519_keys' => ['c01-test' => base64_encode($trustedKey)]], 'module_packages');
 $app->instance(ExecutionContextStore::class, $contexts);
 $app->instance(CurrentExecutionContext::class, $current);
 $app->instance(AuditContractHost::class, $audit);
+$app->instance(
+    \PeanutAdmin\Kernel\Module\CompiledModuleRegistry::class,
+    new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], 'ops-module-wiring'),
+);
 $app->instance(
     ModuleCatalogApplier::class,
     (new ReflectionClass(ModuleCatalogApplier::class))->newInstanceWithoutConstructor(),
@@ -52,7 +59,7 @@ expectOpsModuleWiring(
 $requests = $app->make(DeploymentModuleRequestService::class);
 $moduleConfigProperty = new ReflectionProperty(DeploymentModuleRequestService::class, 'moduleConfig');
 expectOpsModuleWiring(
-    $moduleConfigProperty->getValue($requests) === ['official.article' => ['root' => 'app/modules/official/article']],
+    $moduleConfigProperty->getValue($requests) === $moduleConfig,
     'AppService did not provide Module configuration to the request service',
 );
 $trustedKeysProperty = new ReflectionProperty(DeploymentModuleRequestService::class, 'trustedKeys');

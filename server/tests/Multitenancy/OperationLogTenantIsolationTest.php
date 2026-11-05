@@ -3,21 +3,24 @@
 declare(strict_types=1);
 
 use app\adminapi\http\middleware\OperationLogMiddleware;
-use app\adminapi\application\log\OperationLogApplicationService;
-use app\adminapi\service\OperationLogService;
+use app\adminapi\services\log\OperationLogApplicationService;
+use app\adminapi\services\OperationLogService;
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\CurrentExecutionContext;
-use app\platform\service\ops\PlatformDiagnosticBundleService;
+use PeanutAdmin\Modules\Identity\Contract\TenantAuditDiagnosticQuery;
 use PeanutAdmin\Kernel\Audit\AuditOutcome;
 use PeanutAdmin\Kernel\Auth\TenantContext;
-use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Modules\Ops\Domain\Logs\TenantDiagnosticAttributes;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
-require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
+require_once __DIR__ . '/../Support/CiBootstrap.php';
+require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
+require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
+require_once __DIR__ . '/../Support/IdentityMysqlFixture.php';
 
 function expectOperationTenant(bool $condition, string $message): void
 {
+    $GLOBALS['operationTenantChecks'] = ($GLOBALS['operationTenantChecks'] ?? 0) + 1;
     if (!$condition) {
         throw new RuntimeException($message);
     }
@@ -25,104 +28,60 @@ function expectOperationTenant(bool $condition, string $message): void
 
 function operationTenantContext(int $tenantId, int $memberId, string $requestId): TenantContext
 {
-    return TenantContext::fromValidatedSession(new ValidatedTenantSession(
-        $memberId,
-        '01JMT03AUDITLOG' . str_pad((string) $memberId, 11, '0', STR_PAD_LEFT),
-        $tenantId,
-        $memberId + 10000,
-        $memberId,
-        'admin-web',
-        new DateTimeImmutable('2031-01-01T00:00:00Z'),
-        1,
-    ), $requestId);
+    return app(\PeanutAdmin\Modules\Identity\Contract\TenantSessionAccess::class)->revalidateSession(
+        $tenantId, $memberId + 10000, $memberId, str_pad((string) $memberId, 26, '0', STR_PAD_LEFT), 'admin-web', $requestId,
+    );
 }
 
 function createOperationTenantSchema(PDO $pdo): void
 {
-    $pdo->exec(<<<'SQL'
-CREATE TABLE pa_tenant (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  status VARCHAR(32) NOT NULL,
-  PRIMARY KEY (id)
-) ENGINE=InnoDB;
-CREATE TABLE pa_operation_log (
-  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  admin_id INT UNSIGNED NOT NULL DEFAULT 0,
-  username VARCHAR(50) NOT NULL DEFAULT '',
-  ip VARCHAR(50) NOT NULL DEFAULT '',
-  uri VARCHAR(200) NOT NULL DEFAULT '',
-  method VARCHAR(10) NOT NULL DEFAULT '',
-  request_id VARCHAR(128) NOT NULL DEFAULT '',
-  params TEXT,
-  create_time INT UNSIGNED NOT NULL DEFAULT 0,
-  tenant_id BIGINT UNSIGNED NOT NULL,
-  PRIMARY KEY (id), UNIQUE KEY uk_operation_log_tenant_id (tenant_id, id),
-  KEY idx_operation_log_tenant_created (tenant_id, create_time, id),
-  CONSTRAINT fk_operation_log_tenant FOREIGN KEY (tenant_id) REFERENCES pa_tenant (id) ON DELETE RESTRICT
-) ENGINE=InnoDB;
-CREATE TABLE pa_tenant_audit_event (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  tenant_id BIGINT UNSIGNED NOT NULL,
-  event_type VARCHAR(128) NOT NULL,
-  action VARCHAR(255) NOT NULL,
-  outcome VARCHAR(32) NOT NULL,
-  reason_code VARCHAR(128) NULL,
-  actor_tenant_id BIGINT UNSIGNED NULL,
-  actor_tenant_member_id BIGINT UNSIGNED NULL,
-  actor_account_id BIGINT UNSIGNED NULL,
-  actor_platform_operator_id BIGINT UNSIGNED NULL,
-  actor_type VARCHAR(64) NOT NULL,
-  target_resource_type VARCHAR(128) NULL,
-  target_resource_id VARCHAR(255) NULL,
-  boundary_target_type VARCHAR(128) NULL,
-  boundary_target_id VARCHAR(255) NULL,
-  target_count INT UNSIGNED NOT NULL DEFAULT 0,
-  target_set_digest VARCHAR(255) NULL,
-  authorization_basis_json TEXT NULL,
-  request_id VARCHAR(128) NOT NULL,
-  operation_id VARCHAR(128) NULL,
-  ip_address VARCHAR(50) NULL,
-  user_agent_hash VARCHAR(255) NULL,
-  before_json TEXT NULL,
-  after_json TEXT NULL,
-  metadata_json TEXT NULL,
-  occurred_at DATETIME(3) NOT NULL,
-  PRIMARY KEY (id)
-) ENGINE=InnoDB;
-SQL);
+    $serverRoot = dirname(__DIR__, 2);
+    IdentityMysqlFixture::install($pdo, [
+        $serverRoot . '/app/modules/peanut/file/database/migrations',
+        $serverRoot . '/app/modules/peanut/settings/database/migrations',
+        $serverRoot . '/app/modules/peanut/reference_codes/database/migrations',
+        $serverRoot . '/database/installation',
+    ]);
+    require_once $serverRoot . '/app/modules/peanut/file/database/seeds/PeanutFileDefaults.php';
+    $seed = new PeanutFileDefaults();
+    $seed->setAdapter(new \Phinx\Db\Adapter\MysqlAdapter(['name' => $pdo->query('SELECT DATABASE()')->fetchColumn(), 'connection' => $pdo]));
+    $seed->run();
 }
 
 $serverRoot = dirname(__DIR__, 2);
-$host = IsolatedBackendEnvironment::required('DB_HOST');
-$port = (int) IsolatedBackendEnvironment::required('DB_PORT');
-$user = IsolatedBackendEnvironment::required('DB_USER');
-$password = IsolatedBackendEnvironment::required('DB_PASS');
 $runId = strtolower(bin2hex(random_bytes(5)));
-$database = IsolatedBackendEnvironment::required('DB_NAME');
-
-$admin = new PDO(
-    "mysql:host={$host};port={$port};charset=utf8mb4",
-    $user,
-    $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true],
-);
-$admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+$database = RegisteredMysqlTestResource::configuredDatabaseName();
+[$pdo, $created] = RegisteredMysqlTestResource::openEmptyDatabase($database);
 
 $exportedPath = null;
 try {
-    $pdo = new PDO(
-        "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
-        $user,
-        $password,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true],
-    );
     createOperationTenantSchema($pdo);
-    $pdo->exec("INSERT INTO pa_tenant (id, status) VALUES (101, 'active'), (202, 'active')");
+    $pdo->exec("INSERT INTO pa_tenant(id,code,name,display_name,status,activated_at,created_at,updated_at) VALUES(101,'alpha','Alpha','Alpha','active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3)),(202,'beta','Beta','Beta','active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
+    $pdo->exec("INSERT INTO pa_account(id,display_name,created_at,updated_at) VALUES(10501,'Alpha',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3)),(10502,'Beta',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3)),(10503,'Projection failure',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
+    $pdo->exec("INSERT INTO pa_tenant_member(id,tenant_id,account_id,display_name,status,joined_at,created_at,updated_at) VALUES(501,101,10501,'Alpha','active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3)),(502,202,10502,'Beta','active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3)),(503,101,10503,'Projection failure','active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
     $pdo->exec("INSERT INTO pa_operation_log (tenant_id, username, uri, method) VALUES (101, 'alpha-seed', 'seed/read', 'GET')");
-    IsolatedBackendEnvironment::activateDatabase($host, $port, $database, $user, $password, 'multi-tenant');
-    $app = new think\App();
+    $app = think\Container::getInstance();
+    $app->env->set(['DEPLOYMENT_MODE' => 'multi-tenant', 'APP_ENV' => 'development', 'APP_DEBUG' => true, 'JWT_SECRET' => str_repeat('f', 32)]);
     $app->initialize();
+    $app->cache->clear();
+    ThinkPhpTestConnection::fromPdo($pdo);
+    $pdo->exec("INSERT INTO pa_credential(account_id,kind,identifier_type,identifier_normalized,secret_hash,status,verified_at,secret_changed_at,created_at,updated_at) SELECT id,'email_password','email',CONCAT('fixture-',id,'@example.test'),'fixture','active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3) FROM pa_account");
+    $registry = $app->make(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry::class);
+    foreach (['peanut.identity', 'peanut.file', 'peanut.content-tools'] as $moduleKey) {
+        $manifest = $registry->requireManifest($moduleKey);
+        $pdo->prepare('INSERT INTO pa_module_installation(module_key,installed_version,manifest_schema_version,manifest_digest,status,installed_at,activated_at,created_at,updated_at) VALUES(?,?,?,?,"active",UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))')
+            ->execute([$moduleKey, $manifest->data['version'], $manifest->data['schema_version'], $manifest->digest]);
+    }
+    $app->make(\app\platform\infrastructure\module\ModuleCatalogApplier::class)->apply($registry, ['peanut.identity', 'peanut.file', 'peanut.content-tools']);
+    $pdo->exec("INSERT INTO pa_plan(id,code,name,status,created_at,updated_at) VALUES(1,'fixture-file','File fixture','active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
+    $pdo->exec("INSERT INTO pa_plan_module(plan_id,module_key) VALUES(1,'peanut.file')");
+    $pdo->exec("INSERT INTO pa_plan_permission(plan_id,permission_key) SELECT 1,`key` FROM pa_permission WHERE module_key='peanut.file'");
+    $pdo->exec("INSERT INTO pa_tenant_license(tenant_id,plan_id,status,effective_at,created_at,updated_at) SELECT id,1,'active','2020-01-01 00:00:00.000',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3) FROM pa_tenant");
+    $pdo->exec("INSERT INTO pa_role(id,tenant_id,`key`,name,is_builtin,status,created_at,updated_at) VALUES(601,101,'core.tenant-owner','Alpha owner',1,'active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3)),(602,202,'core.tenant-owner','Beta owner',1,'active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
+    $pdo->exec("INSERT INTO pa_member_role(tenant_id,tenant_member_id,role_id,assigned_at) VALUES(101,501,601,UTC_TIMESTAMP(3)),(202,502,602,UTC_TIMESTAMP(3)),(101,503,601,UTC_TIMESTAMP(3))");
+    $pdo->exec("INSERT INTO pa_tenant_session(session_key,tenant_id,account_id,tenant_member_id,client_key,status,account_security_revision,tenant_security_revision,member_security_revision,issued_at,last_seen_at,idle_expires_at,absolute_expires_at,created_at,updated_at) SELECT LPAD(m.id,26,'0'),m.tenant_id,m.account_id,m.id,'admin-web','active',a.security_revision,t.security_revision,m.security_revision,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 1 HOUR),DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 2 HOUR),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3) FROM pa_tenant_member m JOIN pa_account a ON a.id=m.account_id JOIN pa_tenant t ON t.id=m.tenant_id");
 
+    $pdo->exec("INSERT INTO pa_role_permission(tenant_id,role_id,permission_id,granted_at) SELECT r.tenant_id,r.id,p.id,UTC_TIMESTAMP(3) FROM pa_role r JOIN pa_permission p ON p.module_key='peanut.file' WHERE r.`key`='core.tenant-owner'");
     $alpha = operationTenantContext(101, 501, 'mt03-audit-alpha-' . $runId);
     $beta = operationTenantContext(202, 502, 'mt03-audit-beta-' . $runId);
     try {
@@ -223,7 +182,7 @@ try {
 
     $projectionFailure = operationTenantContext(101, 503, 'mt03-audit-rollback-' . $runId);
     $operationCountBeforeFailure = (int) $pdo->query('SELECT COUNT(*) FROM pa_operation_log')->fetchColumn();
-    $pdo->exec("CREATE TRIGGER reject_tenant_audit_projection BEFORE INSERT ON pa_tenant_audit_event FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected projection failure'");
+    $pdo->exec("ALTER TABLE pa_tenant_audit_event ADD CONSTRAINT chk_reject_tenant_audit_projection CHECK (request_id <> 'mt03-audit-rollback-{$runId}')");
     try {
         app(ExecutionContextStore::class)->run(
             new \app\common\execution\AdminExecutionContext($projectionFailure, 'test.operation-log.rollback'),
@@ -238,13 +197,13 @@ try {
             ),
         );
         throw new RuntimeException('injected audit projection failure unexpectedly committed');
-    } catch (PDOException $exception) {
+    } catch (PDOException|\think\db\exception\PDOException $exception) {
         expectOperationTenant(
-            str_contains($exception->getMessage(), 'injected projection failure'),
+            str_contains($exception->getMessage(), 'chk_reject_tenant_audit_projection'),
             'atomic projection failure returned another database error',
         );
     } finally {
-        $pdo->exec('DROP TRIGGER reject_tenant_audit_projection');
+        $pdo->exec('ALTER TABLE pa_tenant_audit_event DROP CHECK chk_reject_tenant_audit_projection');
     }
     expectOperationTenant(
         (int) $pdo->query('SELECT COUNT(*) FROM pa_operation_log')->fetchColumn() === $operationCountBeforeFailure
@@ -252,10 +211,9 @@ try {
         'projection failure left a half-persisted Operation Log fact',
     );
 
-    $evidenceMethod = new ReflectionMethod(PlatformDiagnosticBundleService::class, 'operationLogEvidence');
-    $evidence = $evidenceMethod->invoke(
-        $app->make(PlatformDiagnosticBundleService::class),
+    $evidence = $app->make(TenantAuditDiagnosticQuery::class)->recentOperationEvidence(
         new DateTimeImmutable('2000-01-01T00:00:00Z'),
+        100,
     );
     $evidenceByRequest = array_column($evidence, null, 'request_id');
     expectOperationTenant(
@@ -294,13 +252,13 @@ try {
         fn() => app(OperationLogApplicationService::class)->lists($beta, ['tenant_id' => 101, 'uri' => 'same/write']),
     );
     expectOperationTenant(
-        $alphaList->total() === 1
-            && $alphaList->getCollection()->toArray()[0]['username'] === 'alpha',
+        $alphaList->total === 1
+            && $alphaList->items[0]['username'] === 'alpha',
         'Alpha list leaked or lost audit rows',
     );
     expectOperationTenant(
-        $betaList->total() === 1
-            && $betaList->getCollection()->toArray()[0]['username'] === 'beta',
+        $betaList->total === 1
+            && $betaList->items[0]['username'] === 'beta',
         'Beta list leaked or lost audit rows',
     );
 
@@ -327,14 +285,17 @@ try {
         ]),
     );
     $exportUrl = (string) $export['url'];
-    $storageOffset = strpos($exportUrl, 'storage/exports/');
-    expectOperationTenant($storageOffset !== false, 'Alpha export URL lost its storage path');
-    $exportUri = substr($exportUrl, $storageOffset);
-    expectOperationTenant(
-        str_starts_with($exportUri, 'storage/exports/tenants/v1/101/operation-logs/'),
-        'Alpha export escaped its Tenant namespace',
-    );
-    $exportedPath = $serverRoot . '/public/' . $exportUri;
+    parse_str((string) parse_url($exportUrl, PHP_URL_QUERY), $delivery);
+    expectOperationTenant(isset($delivery['file_key'], $delivery['token']), 'Alpha export URL lost its authorized file reference');
+    $objectQuery = $pdo->prepare('SELECT tenant_id,object_key,access_type FROM pa_file_object WHERE file_key=?');
+    $objectQuery->execute([$delivery['file_key']]);
+    $object = $objectQuery->fetch(PDO::FETCH_ASSOC);
+    expectOperationTenant(is_array($object) && (int) $object['tenant_id'] === 101
+        && $object['access_type'] === 'private' && str_starts_with($object['object_key'], 'tenants/v1/101/export/xlsx/'),
+        'Alpha export escaped its private Tenant namespace');
+    $exportedPath = $serverRoot . '/private/storage/' . $object['object_key'];
+    $opened = app(\PeanutAdmin\Modules\File\Service\Storage\StorageService::class)->authorizedDownload(101, $delivery['file_key'], $delivery['token']);
+    expectOperationTenant($opened['path'] === $exportedPath, 'Alpha export delivery did not use the scoped file ledger');
     expectOperationTenant(is_file($exportedPath), 'Alpha export file was not created');
     $zip = new ZipArchive();
     expectOperationTenant($zip->open($exportedPath) === true, 'Alpha export is not a readable XLSX');
@@ -363,10 +324,10 @@ try {
         'operation log write boundary does not require TenantContext',
     );
 
-    echo "MT03-OPERATION-LOG-TENANT-001 passed\n";
+    echo 'MT03-OPERATION-LOG-TENANT-001 passed checks=' . $GLOBALS['operationTenantChecks'] . PHP_EOL;
 } finally {
     if (is_string($exportedPath) && is_file($exportedPath)) {
         unlink($exportedPath);
     }
-    $admin->exec("DROP DATABASE IF EXISTS `{$database}`");
+    RegisteredMysqlTestResource::cleanup($pdo, $database, $created);
 }

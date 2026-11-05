@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
-
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 function pluginMigrationExpect(bool $condition, string $message): void
@@ -29,14 +27,19 @@ function pluginMigrationNormalize(string $sql): string
     return (string) preg_replace('/\s+/', ' ', trim(rtrim($sql, ';')));
 }
 
-$path = dirname(__DIR__, 2) . '/database/init.sql';
-$sql = (string) file_get_contents($path);
-pluginMigrationExpect($sql !== '', 'Plugin lifecycle migration is unavailable');
+$serverRoot = dirname(__DIR__, 2);
+$sql = '';
+foreach ([
+    '/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php',
+    '/app/modules/peanut/settings/database/migrations/20261101010004_initial_settings_schema.php',
+] as $path) {
+    $sql .= (string) file_get_contents($serverRoot . $path);
+}
+pluginMigrationExpect($sql !== '', 'Module lifecycle migration source is unavailable');
 
 $requiredTables = [
-    'pa_plugin_installation',
-    'pa_plugin_module',
-    'pa_module_migration',
+    'pa_module_installation',
+    'pa_permission',
     'pa_protected_resource',
     'pa_target_type',
     'pa_resource_operation',
@@ -55,13 +58,15 @@ foreach ($requiredTables as $table) {
 }
 
 pluginMigrationExpect(
-    !str_contains($sql, 'CREATE TABLE `pa_permission`'),
-    'canonical application schema must leave pa_permission to Core KernelSchema',
+    !str_contains($sql, 'CREATE TABLE `pa_plugin_installation`')
+        && !str_contains($sql, 'CREATE TABLE `pa_plugin_module`')
+        && !str_contains($sql, 'CREATE TABLE `pa_module_migration`'),
+    'initial Module-owned schema must not recreate retired Plugin or custom migration ledgers',
 );
 foreach (['pa_resource_operation_target_type', 'pa_resource_operation_permission', 'pa_menu_definition'] as $table) {
     pluginMigrationExpect(
         str_contains(pluginMigrationTableSql($sql, $table), 'REFERENCES `pa_permission` (`id`)'),
-        "{$table} must reference native Core pa_permission",
+        "{$table} must reference Identity-owned pa_permission",
     );
 }
 foreach (['deployment', 'tenant', 'target'] as $scope) {

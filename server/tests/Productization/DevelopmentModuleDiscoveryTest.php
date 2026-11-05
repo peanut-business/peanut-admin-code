@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use app\platform\service\module\DevelopmentModuleDiscovery;
-use app\platform\service\module\ModuleLifecycleException;
+use app\platform\infrastructure\module\DevelopmentModuleDiscovery;
+use app\platform\exception\module\ModuleLifecycleException;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
@@ -33,19 +33,19 @@ $projectRoot = dirname(__DIR__, 3);
 $first = (new DevelopmentModuleDiscovery($projectRoot))->moduleRoots();
 $second = (new DevelopmentModuleDiscovery($projectRoot))->moduleRoots();
 developmentDiscoveryExpect($first === $second, 'development Module discovery is not deterministic');
-developmentDiscoveryExpect(isset($first['official.article']), 'official.article was not discovered without modules.lock');
+developmentDiscoveryExpect(isset($first['peanut.identity']), 'peanut.identity was not discovered without modules.lock');
 developmentDiscoveryExpect(
-    $first['official.article'] === $projectRoot . '/server/app/modules/official/article',
-    'official.article backend path was not derived from its key',
+    $first['peanut.identity'] === $projectRoot . '/server/app/modules/peanut/identity',
+    'peanut.identity backend path was not derived from its key',
 );
 $manifestCount = iterator_count(new CallbackFilterIterator(
-    new RecursiveIteratorIterator(new RecursiveDirectoryIterator($projectRoot . '/server/app/Modules', FilesystemIterator::SKIP_DOTS)),
+    new RecursiveIteratorIterator(new RecursiveDirectoryIterator($projectRoot . '/server/app/modules', FilesystemIterator::SKIP_DOTS)),
     static fn(SplFileInfo $entry): bool => $entry->isFile() && $entry->getFilename() === 'module.json',
 ));
 developmentDiscoveryExpect(count($first) === $manifestCount, 'development Module discovery omitted a module.json');
 
 $temporary = sys_get_temp_dir() . '/pa-development-module-discovery-' . bin2hex(random_bytes(8));
-$wrongRoot = $temporary . '/server/app/Modules/Wrong/Location';
+$wrongRoot = $temporary . '/server/app/modules/wrong/location';
 mkdir($wrongRoot, 0700, true);
 file_put_contents($wrongRoot . '/module.json', json_encode([
     'key' => 'fixture.invalid-path',

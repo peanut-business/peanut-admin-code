@@ -3,7 +3,7 @@
 
 declare(strict_types=1);
 
-use app\platform\validation\module\ModulePackagePreflight;
+use app\common\module\PackageCheck;
 use app\platform\services\module\ModulePackageArchiveService;
 
 $root = dirname(__DIR__);
@@ -146,25 +146,23 @@ if (trim(packagingEvidenceRun(['git', '-C', $root, 'status', '--porcelain', '--u
     packagingEvidenceFail('source worktree must be clean before generating packaging evidence');
 }
 
-$pluginLock = json_decode((string) file_get_contents($root . '/modules.lock'), true, 64, JSON_THROW_ON_ERROR);
-if (!is_array($pluginLock['modules'] ?? null) || !array_is_list($pluginLock['modules'])) {
-    packagingEvidenceFail('Bundled Plugin lock is invalid');
+$moduleLock = json_decode((string) file_get_contents($root . '/modules.lock'), true, 64, JSON_THROW_ON_ERROR);
+if (!is_array($moduleLock['modules'] ?? null) || !array_is_list($moduleLock['modules'])) {
+    packagingEvidenceFail('Bundled Module lock is invalid');
 }
 $moduleKeys = [];
-foreach ($pluginLock['modules'] as $plugin) {
-    if (!is_array($plugin)) {
-        packagingEvidenceFail('Bundled Plugin lock entry is invalid');
+foreach ($moduleLock['modules'] as $module) {
+    if (!is_array($module)) {
+        packagingEvidenceFail('Bundled Module lock entry is invalid');
     }
-    foreach ($plugin['modules'] ?? [] as $module) {
-        $key = is_array($module) ? ($module['key'] ?? null) : null;
-        if (!is_string($key) || !str_starts_with($key, 'official.')) {
-            continue;
-        }
-        if (isset($moduleKeys[$key])) {
-            packagingEvidenceFail('Bundled official Module is duplicated: ' . $key);
-        }
-        $moduleKeys[$key] = true;
+    $key = $module['key'] ?? null;
+    if (!is_string($key) || !str_starts_with($key, 'peanut.')) {
+        continue;
     }
+    if (isset($moduleKeys[$key])) {
+        packagingEvidenceFail('Bundled official Module is duplicated: ' . $key);
+    }
+    $moduleKeys[$key] = true;
 }
 $moduleKeys = array_keys($moduleKeys);
 sort($moduleKeys, SORT_STRING);
@@ -177,7 +175,7 @@ if (!is_dir($packageDirectory) && !mkdir($packageDirectory, 0775, true) && !is_d
     packagingEvidenceFail('Module package output directory is unavailable: ' . $packageDirectory);
 }
 $archiveService = new ModulePackageArchiveService($root . '/server');
-$preflight = new ModulePackagePreflight($root);
+$preflight = new PackageCheck($root);
 $results = [];
 foreach ($moduleKeys as $moduleKey) {
     $archivePath = $packageDirectory . '/' . str_replace('.', '-', $moduleKey) . '.tar';

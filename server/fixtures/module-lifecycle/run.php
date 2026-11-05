@@ -58,6 +58,7 @@ $guard = static function (bool $transaction = false) use ($toolRoot, $planPath, 
     }
 };
 $guard();
+$moduleSourceRoot = $config['reviewed_module_source']['root'];
 $runtime = $config['installed_application'];
 $root = realpath((string) $runtime['root']);
 if ($root === false || $root === $toolRoot || $root === realpath((string) $config['reviewed_module_source']['root'])) {
@@ -86,7 +87,7 @@ $tenant = static fn(string $key): PeanutAdmin\Kernel\Auth\TenantContext =>
 ob_start();
 try {
     if ($action === 'member-upload') {
-        require_once $toolRoot . '/server/tests/Multitenancy/MemberUploadTenantWiringTest.php';
+        require_once $moduleSourceRoot . '/server/tests/Multitenancy/MemberUploadTenantWiringTest.php';
         $memberToken = $token('member_access_token');
         $member = null;
         $request = $app->request;
@@ -101,7 +102,7 @@ try {
         }
         memberUploadInstalledAssertions($app, $pdo, $member, (int) $config['other_tenant_id'], $identity, $guard);
     } else {
-        require_once $toolRoot . '/server/tests/Multitenancy/TaskImportExportTenantIsolationTest.php';
+        require_once $moduleSourceRoot . '/server/tests/Multitenancy/TaskImportExportTenantIsolationTest.php';
         $alpha = $tenant('alpha_access_token');
         $beta = $tenant('beta_access_token');
         $noExport = $tenant('no_export_access_token');

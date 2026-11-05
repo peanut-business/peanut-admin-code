@@ -137,6 +137,8 @@ jobs:
     if: needs.changes.outputs.validation == 'required' && needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      PEANUT_TEST_COMPOSER: composer
     steps:
       - name: Checkout
         uses: actions/checkout@v4

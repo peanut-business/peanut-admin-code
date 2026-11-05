@@ -4,36 +4,71 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require dirname(__DIR__, 2) . '/database/migrations/20261103230000_unify_module_installation.php';
+require_once dirname(__DIR__) . '/Support/CiBootstrap.php';
+require_once dirname(__DIR__) . '/Support/RegisteredMysqlTestResource.php';
+$app = \think\Container::getInstance();
+if (!$app instanceof \think\App) {
+    $app = new \think\App(dirname(__DIR__, 2));
+}
+require_once $app->getThinkPath() . 'helper.php';
 
 use Phinx\Db\Adapter\MysqlAdapter;
 use Phinx\Migration\Manager\Environment;
 
-foreach (['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASS'] as $key) {
-    if (getenv($key) === false || ($key !== 'DB_PASS' && getenv($key) === '')) {
-        throw new RuntimeException('Explicit isolated test environment is required: ' . $key);
-    }
-}
-$dsn = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', getenv('DB_HOST'), getenv('DB_PORT'), getenv('DB_NAME'));
-$pdo = new PDO($dsn, (string) getenv('DB_USER'), (string) getenv('DB_PASS'), [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-$database = (string) $pdo->query('SELECT DATABASE()')->fetchColumn();
-if ($database !== getenv('DB_NAME')) { throw new RuntimeException('Selected test database differs from the explicit environment.'); }
-if ($pdo->query('SHOW TABLES')->fetchAll() !== []) {
-    throw new RuntimeException('The first migration acceptance run requires the task-owned empty database.');
-}
+$database = RegisteredMysqlTestResource::configuredDatabaseName();
+[$pdo, $databaseCreated] = RegisteredMysqlTestResource::openEmptyDatabase($database);
+$completed = false;
+try {
 $assertions = 0;
 $expect = static function (bool $value, string $message) use (&$assertions): void {
     ++$assertions;
     if (!$value) { throw new RuntimeException($message); }
 };
 $server = dirname(__DIR__, 2);
-$sources = file_get_contents($server . '/database/schema/baseline-schema.sql')
-    . file_get_contents($server . '/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php');
-foreach (['pa_plugin_installation', 'pa_plugin_module', 'pa_module_installation'] as $name) {
+$sources = file_get_contents($server . '/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php');
+foreach (['pa_module_installation'] as $name) {
     if (preg_match('/CREATE TABLE `' . $name . '` \(.*?\n\) ENGINE=.*?;/s', $sources, $match) !== 1) {
         throw new RuntimeException('Missing original baseline definition: ' . $name);
     }
     $pdo->exec($match[0]);
 }
+// Historical inputs to the live UnifyModuleInstallation conversion, fixed from
+// baseline-schema.sql at a7ef1a4a6^; current installation must never recreate these.
+$pdo->exec(<<<'SQL'
+CREATE TABLE pa_plugin_installation (
+  id bigint unsigned NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  plugin_key varchar(96) NOT NULL UNIQUE,
+  installed_version varchar(32) NOT NULL,
+  source varchar(255) NOT NULL,
+  artifact_sha256 char(64) NOT NULL,
+  lock_digest char(64) NOT NULL,
+  composer_identity_json json NOT NULL,
+  npm_identity_json json NOT NULL,
+  frontend_identity_json json NOT NULL,
+  status varchar(24) NOT NULL,
+  revision bigint unsigned NOT NULL DEFAULT 1,
+  installed_at datetime(3) DEFAULT NULL,
+  activated_at datetime(3) DEFAULT NULL,
+  upgraded_at datetime(3) DEFAULT NULL,
+  uninstalled_at datetime(3) DEFAULT NULL,
+  last_error_code varchar(96) DEFAULT NULL,
+  created_at datetime(3) NOT NULL,
+  updated_at datetime(3) NOT NULL,
+  KEY idx_plugin_installation_status (status,plugin_key),
+  CONSTRAINT chk_plugin_installation_status CHECK (status IN ('installing','active','upgrading','maintenance','failed','uninstalled'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+CREATE TABLE pa_plugin_module (
+  id bigint unsigned NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  plugin_key varchar(96) NOT NULL,
+  module_key varchar(96) NOT NULL UNIQUE,
+  module_version varchar(32) NOT NULL,
+  manifest_digest char(64) NOT NULL,
+  created_at datetime(3) NOT NULL,
+  updated_at datetime(3) NOT NULL,
+  KEY idx_plugin_module_plugin (plugin_key,module_key),
+  CONSTRAINT fk_plugin_module_plugin FOREIGN KEY (plugin_key) REFERENCES pa_plugin_installation (plugin_key) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+SQL);
 $pdo->exec("CREATE TABLE fictional_business (id bigint PRIMARY KEY, value varchar(96)); INSERT INTO fictional_business VALUES (7,'keep-business')");
 $digest = str_repeat('a', 64);
 $time = '2026-11-01 01:02:03.004';
@@ -75,3 +110,9 @@ $migration->setAdapter($adapter);
 $migration->up();
 $expect($snapshot === $pdo->query('SELECT * FROM pa_module_installation ORDER BY id')->fetchAll(PDO::FETCH_ASSOC), 'Interrupted migration resume changed history');
 echo 'MODULE-INSTALLATION-MYSQL assertions=' . $assertions . '; MySQL=' . $pdo->query('SELECT VERSION()')->fetchColumn() . "\n";
+$completed = true;
+} finally {
+    if ($completed) {
+        RegisteredMysqlTestResource::cleanup($pdo, $database, $databaseCreated);
+    }
+}

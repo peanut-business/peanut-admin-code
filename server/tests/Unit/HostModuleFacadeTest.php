@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use PeanutAdmin\Modules\File\Contract\FileReferences;
-use PeanutAdmin\Modules\ImportExport\Contract\ImportExportCommands;
-use PeanutAdmin\Modules\OAuth\Service\OAuthBrowserCallbackService;
 use PeanutAdmin\Modules\Settings\Contract\TenantSettingSnapshot;
-use PeanutAdmin\Modules\Settings\Contract\TenantSettingsProvider;
+use PeanutAdmin\Modules\Settings\Contract\WebsiteConfigStore;
+use PeanutAdmin\Modules\Settings\Application\WebsiteConfigService as WebsiteValues;
 use PeanutAdmin\Modules\Settings\Infrastructure\BrandDefaults;
 use PeanutAdmin\Modules\Settings\Service\TenantSettingService;
 use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
@@ -19,8 +18,8 @@ final class HostModuleFacadeTest extends TestCase
 {
     public function testPublishedFacadesDoNotExposeTheirPersistenceCollaborators(): void
     {
-        foreach (['settings' => WebsiteConfigService::class, 'oauth' => OAuthBrowserCallbackService::class] as $module => $facade) {
-            $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/' . $module . '/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        foreach (['settings' => WebsiteConfigService::class] as $module => $facade) {
+            $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/' . $module . '/module.json'), true, 512, JSON_THROW_ON_ERROR);
             self::assertContains($facade, $manifest['contracts']['exports']);
             foreach ($manifest['contracts']['exports'] as $export) {
                 self::assertFalse(\app\platform\validation\module\ModulePublicSurfacePolicy::isInternalPersistence($export));
@@ -44,93 +43,72 @@ final class HostModuleFacadeTest extends TestCase
 
     public function testNativeContainerResolvesTheExistingFacade(): void
     {
-        $provider = $this->createMock(TenantSettingsProvider::class);
-        $provider->expects(self::never())->method('find');
-        $provider->expects(self::never())->method('replace');
         $app = new App(dirname(__DIR__, 2));
-        $app->instance(TenantSettingService::class, new TenantSettingService($provider));
         $app->instance(FileReferences::class, $this->createStub(FileReferences::class));
         self::assertInstanceOf(WebsiteConfigService::class, $app->make(WebsiteConfigService::class));
     }
 
     public function testReadPreservesTenantSelectionAndImageMapping(): void
     {
-        $provider = $this->createMock(TenantSettingsProvider::class);
-        $seen = [];
-        $provider->expects(self::exactly(2))->method('find')->willReturnCallback(static function (int $tenant, string $namespace) use (&$seen): TenantSettingSnapshot {
-            $seen[] = [$tenant, $namespace];
-            return new TenantSettingSnapshot($tenant, $namespace, ['name' => 'Tenant ' . $tenant, 'web_logo' => 'tenant/' . $tenant . '.svg', 'private_extra' => 'not public'], 1, 1, 1);
-        });
-        $provider->expects(self::never())->method('replace');
-        $files = $this->createMock(FileReferences::class);
-        $files->expects(self::exactly(14))->method('getFileUrl')->willReturnCallback(static fn(string $path): string => 'public:' . $path);
-        $service = new WebsiteConfigService(new TenantSettingService($provider), $files);
+        $source = file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/settings/src/Infrastructure/TenantSettingWebsiteStore.php');
+        self::assertStringContainsString('$this->context,', $source);
+        self::assertStringContainsString("'website'", $source);
+        $persistence = file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/settings/src/Service/TenantSettingService.php');
+        self::assertStringContainsString('$tenantId = $context->tenantId;', $persistence);
+        self::assertStringContainsString('$this->provider->find($tenantId, $namespace)', $persistence);
         foreach ([101, 202] as $tenant) {
-            $result = $service->get($this->context($tenant));
+            $store = $this->createMock(WebsiteConfigStore::class);
+            $store->expects(self::once())->method('read')->willReturn(['name' => 'Tenant ' . $tenant, 'web_logo' => 'tenant/' . $tenant . '.svg', 'private_extra' => 'not public']);
+            $store->expects(self::never())->method('replaceAtomically');
+            $service = new WebsiteValues($store, static fn(string $path): string => 'public:' . $path, static fn(string $path): string => $path, BrandDefaults::website());
+            $result = $service->get();
             self::assertSame('Tenant ' . $tenant, $result['name']);
             self::assertSame('public:tenant/' . $tenant . '.svg', $result['web_logo']);
             self::assertArrayNotHasKey('private_extra', $result);
             self::assertSame(WebsiteConfigService::fields(), array_keys($result));
         }
-        self::assertSame([[101, 'website'], [202, 'website']], $seen);
     }
 
     public function testSaveKeepsTenantScopedFileMappingAndOneCompleteWrite(): void
     {
-        $context = $this->context(101);
-        $provider = $this->createMock(TenantSettingsProvider::class);
-        $provider->expects(self::never())->method('find');
-        $provider->expects(self::once())->method('replace')->willReturnCallback(static function (int $tenant, string $namespace, array $document): TenantSettingSnapshot {
-            self::assertSame(101, $tenant);
-            self::assertSame('website', $namespace);
+        $source = file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/settings/src/Service/WebsiteConfigService.php');
+        self::assertStringContainsString('$this->files->setTenantFileUrl($context, $value)', $source);
+        $store = $this->createMock(WebsiteConfigStore::class);
+        $store->expects(self::never())->method('read');
+        $store->expects(self::once())->method('replaceAtomically')->willReturnCallback(static function (array $document): void {
             self::assertSame(WebsiteConfigService::fields(), array_keys($document));
             self::assertSame('Tenant A', $document['name']);
             self::assertSame('stored:logo.svg', $document['web_logo']);
-            self::assertArrayNotHasKey('private_extra', $document);
-            return new TenantSettingSnapshot($tenant, $namespace, $document, 1, 1, 1);
         });
-        $files = $this->createMock(FileReferences::class);
-        $files->expects(self::exactly(7))->method('setTenantFileUrl')->willReturnCallback(static function ($actual, string $path) use ($context): string {
-            self::assertSame($context, $actual);
-            return 'stored:' . $path;
-        });
-        $service = new WebsiteConfigService(new TenantSettingService($provider), $files);
-        $service->save($context, ['name' => ' Tenant A ', 'web_logo' => ' logo.svg ', 'private_extra' => 'ignored']);
+        $service = new WebsiteValues($store, static fn(string $path): string => $path, static fn(string $path): string => 'stored:' . $path, BrandDefaults::website());
+        $service->save(['name' => ' Tenant A ', 'web_logo' => ' logo.svg ']);
     }
 
     public function testInvalidWebsiteInputAndStorageFailureRemainFailures(): void
     {
-        $provider = $this->createMock(TenantSettingsProvider::class);
-        $provider->expects(self::once())->method('replace')->willThrowException(new DomainException('FIXTURE_STORAGE_FAILURE'));
-        $files = $this->createStub(FileReferences::class);
-        $files->method('setTenantFileUrl')->willReturnArgument(1);
-        $service = new WebsiteConfigService(new TenantSettingService($provider), $files);
-        try {
-            $service->save($this->context(101), ['name' => []]);
-            self::fail('Invalid values reached persistence');
-        } catch (InvalidArgumentException) {
-            self::assertTrue(true);
+        $store = $this->createMock(WebsiteConfigStore::class);
+        $store->expects(self::once())->method('replaceAtomically')->willThrowException(new DomainException('FIXTURE_STORAGE_FAILURE'));
+        $service = new WebsiteValues($store, static fn(string $path): string => $path, static fn(string $path): string => $path, BrandDefaults::website());
+        foreach ([['name' => []], ['name' => 'Tenant A', 'tenant_id' => 202], ['name' => 'Tenant A', 'private_extra' => 'rejected']] as $input) {
+            try {
+                $service->save($input);
+                self::fail('Invalid values reached persistence');
+            } catch (InvalidArgumentException) {
+                self::assertTrue(true);
+            }
         }
         $this->expectException(DomainException::class);
         $this->expectExceptionMessage('FIXTURE_STORAGE_FAILURE');
-        $service->save($this->context(101), ['name' => 'Tenant A']);
+        $service->save(['name' => 'Tenant A']);
     }
 
-    public function testBrowserCallbacksKeepRoutesAndDoNotForwardUnapprovedFields(): void
-    {
-        self::assertSame('https://product.test/api/oauth/wechat/redirect/pc', OAuthBrowserCallbackService::callbackUrl('https://product.test/', 'open_pc'));
-        self::assertSame('/pc/oauth/callback?code=code%20value&state=state', OAuthBrowserCallbackService::clientRedirectUrl('pc', ['code' => ' code value ', 'state' => 'state', 'ticket' => 'private', 'redirect' => 'https://other.test', 'error' => ['invalid']]));
-        self::assertSame('/mobile/#/pages/oauth/callback?scene=oa&code=oa', OAuthBrowserCallbackService::clientRedirectUrl('official-account', ['code' => 'oa']));
-        $this->expectException(InvalidArgumentException::class);
-        OAuthBrowserCallbackService::clientRedirectUrl('unregistered', []);
-    }
 
     public function testAuthorizationUsesTheStablePublicResourceIdentifier(): void
     {
-        self::assertSame('peanut.import-export', ImportExportCommands::RESOURCE_KEY);
         $source = file_get_contents(dirname(__DIR__, 2) . '/app/common/services/authorization/AdminAuthorizationService.php');
         self::assertStringNotContainsString('ImportExport\\Engine\\Application\\ImportExportService', $source);
-        self::assertSame(2, substr_count($source, 'ImportExportCommands::RESOURCE_KEY'));
+        self::assertStringContainsString("'peanut.import-export'", $source);
+        self::assertStringContainsString('peanut.import-export.operation-log.export', $source);
     }
 
     private function context(int $tenant): TenantSystemContext

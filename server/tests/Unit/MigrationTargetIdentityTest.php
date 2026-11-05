@@ -13,8 +13,8 @@ final class MigrationTargetIdentityTest extends TestCase
     {
         $result = $this->installerCall(
             '$versions = applicationReleaseVersions($server);'
-            . '$target = applicationMigrationTargetVersion($server, $versions);'
-            . 'echo json_encode([$versions["scaffold_template"], validatedMigrationTargetVersion($server, $target, $versions)], JSON_THROW_ON_ERROR);',
+            . '$contract = \\app\\common\\value\\installation\\ApplicationReleaseVersions::load(dirname($server) . "/release-versions.json");'
+            . 'echo json_encode([$versions["scaffold_template"], $contract->scaffoldTemplate()], JSON_THROW_ON_ERROR);',
         );
         $contract = json_decode(
             (string) file_get_contents(dirname(__DIR__, 3) . '/release-versions.json'),
@@ -30,13 +30,13 @@ final class MigrationTargetIdentityTest extends TestCase
     {
         $result = $this->installerCall(
             '$errors = []; foreach (["", "../schema", "latest", "4.0.0-dev; DROP TABLE x", "4.0.0-dev ", "3.1.0"] as $wrong) {'
-            . 'try { migrateDatabase($server, $wrong, true); $errors[] = "unexpected-success"; }'
+            . 'try { normalizeInstallationCredentials(["target_version" => $wrong]); $errors[] = "unexpected-success"; }'
             . 'catch (RuntimeException $exception) { $errors[] = $exception->getMessage(); }}'
             . 'echo json_encode($errors, JSON_THROW_ON_ERROR);',
         );
         self::assertCount(6, $result);
         foreach ($result as $error) {
-            self::assertSame('MIGRATION_TARGET_CONTRACT_MISMATCH', $error);
+            self::assertSame('安装身份包含不支持的字段', $error);
         }
     }
 
@@ -102,8 +102,8 @@ PHP);
     {
         $result = $this->installerCall(
             '$installer = file_get_contents($server . "/database/install.php");'
-            . '$upgrade = file_get_contents(dirname($server) . "/scripts/upgrade");'
-            . 'echo json_encode([!str_contains($installer, "--migrate"), str_contains($upgrade, "product-upgrade-plan")], JSON_THROW_ON_ERROR);',
+            . '$upgrade = file_get_contents(dirname($server) . "/scripts/scaffold-upgrade");'
+            . 'echo json_encode([!str_contains($installer, "--migrate"), str_contains($upgrade, "template-plan") && str_contains($upgrade, "release-adoption-plan")], JSON_THROW_ON_ERROR);',
         );
         self::assertSame([true, true], $result);
     }
@@ -118,7 +118,7 @@ PHP);
         fwrite($file, "APP_ENV=development\nAPP_DEBUG=false\nPEANUT_INSTALLATION_SOURCE_MODE=development\n");
         fclose($file);
         try {
-            $source = '$server = ' . var_export($server, true) . '; require $server . "/vendor/autoload.php"; require $server . "/database/install.php"; ' . $body;
+            $source = '$server = ' . var_export($server, true) . '; require $server . "/tests/Support/CiBootstrap.php"; require $server . "/database/install.php"; ' . $body;
             $process = proc_open([PHP_BINARY, '-r', $source], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, dirname($server), [
                 'PATH' => (string) getenv('PATH'),
                 'PEANUT_SERVER_ENV_FILE' => $path,

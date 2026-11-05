@@ -15,7 +15,6 @@ use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 use PeanutAdmin\Modules\Integration\Contract\ExternalChannelBindingStore;
 use PeanutAdmin\Modules\Integration\Contract\ExternalIntegrationBootstrapCommands;
 use PeanutAdmin\Modules\Integration\Infrastructure\ThinkPhpExternalTenantBindingRepository;
-use PeanutAdmin\Modules\Integration\ModuleProvider;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
@@ -184,14 +183,13 @@ final class IntegrationBootstrapAuthorizationTest extends TestCase
         self::assertSame($before, $this->rows());
     }
 
-    public function testModuleProviderBuildsTheGuardedCommandWithItsRealDependencies(): void
+    public function testNativeContainerBuildsTheGuardedCommandWithItsRealDependencies(): void
     {
         $this->application->instance(ExternalChannelBindingStore::class, $this->bindings);
         $this->application->instance(CurrentExecutionContext::class, $this->current);
         $this->application->instance(AdminDirectoryQuery::class, $this->directory);
-        $factory = (new ModuleProvider())->bindings()[ExternalIntegrationBootstrapCommands::class];
-        self::assertIsCallable($factory);
-        $command = $factory($this->application);
+        $command = $this->application->make(ExternalIntegrationBootstrapCommands::class);
+        self::assertInstanceOf(ExternalIntegrationBootstrapCommands::class, $command);
         $this->contexts->run($this->system(), fn() => $command->ensureUnconfiguredBinding(1, 'alpha', 'payment.wechat'));
         self::assertCount(1, $this->rows());
     }
@@ -205,7 +203,7 @@ final class IntegrationBootstrapAuthorizationTest extends TestCase
         $method = new ReflectionMethod($host, 'seedExternalBindings');
         $outer = $this->system(operation: 'notification.provision-tenant-defaults');
         $this->contexts->run($outer, function () use ($method, $host, $outer): void {
-            $method->invoke($host, 1, 'alpha');
+            $method->invoke($host, 1, 'alpha', ['peanut.payment', 'peanut.oauth']);
             self::assertSame($outer, $this->contexts->current());
         });
         self::assertCount(6, $this->rows());

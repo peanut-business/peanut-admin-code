@@ -705,6 +705,74 @@ def dedicated_schema_policy_contracts():
             refused("server-management-blocks-whole-schema", claim("schema-behind-manager", complete),
                     "server-exclusive lease conflicts with schema")
             release("server-holder")
+            # A generated Module APP has no maintainer scripts. Calling the
+            # native Code tool must retain its shared locks and the APP actor.
+            actor = root.parent / "module-app"
+            actor.mkdir()
+            run(["git", "init", "-q"], actor)
+            run(["git", "config", "user.email", "fixture@example.invalid"], actor)
+            run(["git", "config", "user.name", "Module APP Fixture"], actor)
+            (actor / "module.json").write_text('{"fixture":true}')
+            run(["git", "add", "."], actor); run(["git", "commit", "-qm", "Module APP"], actor)
+            old_actor_head = run(["git", "rev-parse", "HEAD"], actor).stdout.strip()
+            (actor / "module.json").write_text('{"fixture":true,"revision":2}')
+            run(["git", "add", "."], actor); run(["git", "commit", "-qm", "Current Module APP"], actor)
+            actor_head = run(["git", "rev-parse", "HEAD"], actor).stdout.strip()
+            def actor_claim(lease, head=actor_head):
+                values = {
+                    "resource-id": "fixture-dedicated", "endpoint": "fixture-dedicated-host",
+                    "mysql-db": "fixture_schema", "database": "fixture_schema",
+                    "registry-sha256": hashlib.sha256(registry.read_bytes()).hexdigest(),
+                    "mysql-schema": schema, "mysql-access": json.dumps(complete),
+                }
+                return tool + ["claim", "--lease", lease, "--owner", owner,
+                    "--candidate", head, "--candidate-repository", str(actor), "--gate", "schema-policy"] + [
+                    part for key, value in values.items() for part in ("--resource", key + "=" + value)
+                ]
+            run(actor_claim("external-module-holder"), actor)
+            lease_dir = common / "leases/external-module-holder"
+            expected_show = (lease_dir / "metadata.tsv").read_text() + "resources\n" + "".join(
+                row.split("\t", 1)[1] + "\n" for row in (lease_dir / "resources.tsv").read_text().splitlines())
+            shown = run(tool + ["show", "--lease", "external-module-holder"], actor).stdout
+            verified = run(tool + ["show", "--lease", "external-module-holder", "--verify-locks"], actor).stdout
+            assert shown == verified == expected_show
+            checks.append({"assertion": "default-show-retains-exact-metadata-resource-bytes", "result": "PASS"})
+            proof = run(tool + ["show", "--lease", "external-module-holder", "--verify-locks", "--proof-dir"], actor).stdout
+            assert proof == str(lease_dir.resolve()) + "\n"
+            checks.append({"assertion": "external-actor-proof-dir-is-the-verified-native-domain", "result": "PASS"})
+            before = locks()
+            wrong = run(tool + ["show", "--lease", "external-module-holder", "--proof-dir"], actor, ok=False)
+            assert wrong.stdout == "" and "show requires" in wrong.stderr and locks() == before
+            checks.append({"assertion": "proof-dir-without-explicit-verification-is-rejected", "result": "PASS"})
+            metadata = dict(line.split("\t") for line in
+                (common / "leases/external-module-holder/metadata.tsv").read_text().splitlines())
+            assert metadata["candidate"] == actor_head
+            assert metadata["candidate_repository"] == metadata["worktree"] == str(actor.resolve())
+            assert not (actor / ".git/peanut-admin-resource-leases").exists()
+            checks.append({"assertion": "external-module-keeps-real-actor-and-native-lock-domain", "result": "PASS"})
+            refused("external-module-blocks-source-schema",
+                    claim("source-behind-module", complete), "overlapping/exclusive physical schema access")
+            before = locks()
+            wrong = run(actor_claim("external-stale-candidate", old_actor_head), actor, ok=False)
+            assert "real candidate worktree" in wrong.stderr
+            assert locks() == before and not (common / "leases/external-stale-candidate").exists()
+            checks.append({"assertion": "external-module-rejects-stale-candidate-without-changing-holders", "result": "PASS"})
+            outsider = root.parent / "unrelated-app"
+            outsider.mkdir()
+            run(["git", "init", "-q"], outsider)
+            wrong = run(tool + ["release", "--lease", "external-module-holder", "--owner", owner], outsider, ok=False)
+            assert "lease does not exist" in wrong.stderr and locks() == before
+            checks.append({"assertion": "unrelated-actor-cannot-release-native-schema-holder", "result": "PASS"})
+            run(tool + ["claim", "--lease", "external-module-holder", "--owner", owner,
+                "--candidate", actor_head, "--gate", "actor-control", "--resource", "actor-scope=local"], actor)
+            local = actor / ".git/peanut-admin-resource-leases/leases/external-module-holder"
+            local_bytes = {p.name: p.read_bytes() for p in local.iterdir()}
+            wrong = run(tool + ["release", "--lease", "external-module-holder", "--owner", owner], actor, ok=False)
+            assert "conflicts between actor and native tool lock domains" in wrong.stderr
+            assert locks() == before and {p.name: p.read_bytes() for p in local.iterdir()} == local_bytes
+            checks.append({"assertion": "same-id-domains-remain-protected-on-ambiguity", "result": "PASS"})
+            run(tool + ["release", "--lease", "external-module-holder", "--owner", owner], root)
+            run(tool + ["release", "--lease", "external-module-holder", "--owner", owner], actor)
             release("policy-controller")
             assert not list((common / "leases").glob("*/metadata.tsv"))
             assert not list((common / "resources").glob("*/lease"))
@@ -744,9 +812,25 @@ def retained_application_contracts(code, project, app, operation, descriptor, re
     def register(value):
         raw = json.loads(registry.read_text())
         raw["resources"]["application_operations"] = [value]
+        if value["phase"] == "install":
+            client = {"ssh_command": "/usr/bin/ssh", "ssh_alias": "fixture",
+                      "docker_command": "/fixture/docker", "container_name": "fixture-mysql",
+                      "mysql_command": "/fixture/mysql"}
+            raw["resources"]["databases"][0]["management_entry"] = client
+            sql = __import__("runpy").run_path(str(code / "scripts/project-resource-application.py"))["install_metadata_sql"]("fixture_app")
+            raw["resources"]["tooling"] = [{"stable_resource_id": "fixture-install-metadata",
+                "execution_scope": "same-install-operation-schema", "owner": owner,
+                "database_resource_id": "fixture-app-db", "database": "fixture_app", "namespace": "fixture_app",
+                "port": descriptor["upstream_endpoint"]["port"], "version": "MySQL8.4.10",
+                "transport": "ssh-docker-exec", "fallback": "none", "environments": descriptor["environments"],
+                **client, "SQL_templates": {"metadata_readonly": sql}}]
+            value["metadata_readonly"] = {"tool": "fixture-install-metadata", "session": "wc_sess_fixture",
+                "sql_sha256": hashlib.sha256(sql.encode()).hexdigest()}
         registry.write_text(json.dumps(raw) + "\n")
         run(["git", "add", "resources/project-resources.json"], project)
         run(["git", "commit", "-qm", "Exact isolated retained operation", "--allow-empty"], project)
+        delivered = run(["git", "rev-parse", "HEAD"], project).stdout.strip()
+        run(["git", "update-ref", "refs/remotes/origin/dev", delivered], project)
     def claim(lease="retained-protect", value=None):
         value = value or operation
         return tool + ["claim", "--lease", lease, "--owner", owner, "--thread", owner,
@@ -1018,7 +1102,7 @@ def application_operation_contracts(*, retained_only=False, expiry_case=None):
         app = workspace / "peanut-app-multi"
         for repository in (code, project, app):
             repository.mkdir()
-            run(["git", "init", "-q"], repository)
+            run(["git", "init", "-q", "-b", "dev"], repository)
             run(["git", "config", "user.email", "fixture@example.invalid"], repository)
             run(["git", "config", "user.name", "Lease fixture"], repository)
             run(["git", "remote", "add", "origin",

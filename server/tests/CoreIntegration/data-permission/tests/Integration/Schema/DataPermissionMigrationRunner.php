@@ -5,39 +5,28 @@ declare(strict_types=1);
 namespace PeanutAdmin\DataPermission\Tests\Integration\Schema;
 
 use PDO;
-use RuntimeException;
+use Phinx\Db\Adapter\MysqlAdapter;
 
+/** Data permission tables are owned by the current Identity native migration. */
 final readonly class DataPermissionMigrationRunner
 {
-    public function __construct(
-        private string $database,
-        private string $host,
-        private int $port,
-        private string $username,
-        private string $password,
-    ) {}
+    public function __construct(private PDO $connection) {}
 
     public function migrate(): void
     {
-        $connection = new PDO(
-            sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $this->host, $this->port, $this->database),
-            $this->username,
-            $this->password,
-            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
-        );
-        $directory = dirname(__DIR__, 6) . '/app/modules/official/identity/database/migrations';
-        $files = glob($directory . '/*create_pa_data_permission_*.sql') ?: [];
-        sort($files, SORT_STRING);
-        if ($files === []) {
-            throw new RuntimeException('The locked Identity Module data permission migrations are unavailable.');
-        }
+        require_once dirname(__DIR__, 5) . '/Support/IdentityMysqlFixture.php';
+        \IdentityMysqlFixture::install($this->connection);
+    }
 
-        foreach ($files as $file) {
-            $sql = file_get_contents($file);
-            if (!is_string($sql) || trim($sql) === '') {
-                throw new RuntimeException('The locked Identity Module data permission migration is unreadable.');
-            }
-            $connection->exec($sql);
-        }
+    public function rollbackAll(): void
+    {
+        require_once dirname(__DIR__, 6)
+            . '/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php';
+        $migration = new \InitialIdentitySchema('testing', 20261101010001);
+        $migration->setAdapter(new MysqlAdapter([
+            'name' => $this->connection->query('SELECT DATABASE()')->fetchColumn(),
+            'connection' => $this->connection,
+        ]));
+        $migration->down();
     }
 }

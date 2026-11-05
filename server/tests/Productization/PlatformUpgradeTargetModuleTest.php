@@ -2,17 +2,21 @@
 
 declare(strict_types=1);
 
-use app\platform\service\ops\PlatformUpgradeReadinessService;
-use app\platform\service\ops\PlatformUpgradeTarget;
-use app\platform\service\ops\PairedBackupProvider;
-use app\platform\service\ops\ThinkPhpMaintenanceWindowStore;
-use app\platform\service\ops\ThinkPhpOpsTaskDispatcher;
-use app\platform\service\ops\PlatformBackupCenterService;
-use app\platform\service\ops\PlatformOpsPermissionChecker;
-use app\common\service\audit\AuditContractHost;
-use app\platform\service\module\ThinkPhpModuleGovernanceProvider;
-use app\platform\service\module\ModuleLockResolver;
+use PeanutAdmin\Modules\Ops\Service\PlatformUpgradeReadinessService;
+use app\platform\value\ops\PlatformUpgradeTarget;
+use PeanutAdmin\Modules\Ops\Infrastructure\PairedBackupProvider;
+use PeanutAdmin\Modules\Ops\Infrastructure\ThinkPhpMaintenanceWindowStore;
+use PeanutAdmin\Modules\Ops\Infrastructure\ThinkPhpOpsTaskDispatcher;
+use PeanutAdmin\Modules\Ops\Service\PlatformBackupCenterService;
+use PeanutAdmin\Modules\Ops\Infrastructure\Authorization\PlatformOpsPermissionChecker;
+use app\common\services\audit\AuditContractHost;
+use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
+use app\platform\infrastructure\module\ModuleLockResolver;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
+use app\platform\infrastructure\module\ModuleArtifactWriter;
+use app\platform\composition\module\ModuleDefinitionRegistryFactory;
+use app\platform\services\PlatformApiAuthorization;
+use app\common\services\authorization\EndpointPermissionGrant;
 use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
 use PeanutAdmin\Modules\Identity\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
@@ -26,11 +30,6 @@ use think\facade\Config;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
-require_once dirname(__DIR__, 2) . '/app/platform/service/module/ModuleLifecycleException.php';
-require_once dirname(__DIR__, 2) . '/app/platform/service/module/ModuleDescriptor.php';
-require_once dirname(__DIR__, 2) . '/app/platform/service/module/ModuleLockResolver.php';
-require_once dirname(__DIR__, 2) . '/app/platform/service/ops/PlatformUpgradeTarget.php';
-require_once dirname(__DIR__, 2) . '/app/platform/service/ops/PlatformUpgradeReadinessService.php';
 
 function upgradeTargetExpect(bool $condition, string $message): void
 {
@@ -127,32 +126,6 @@ function upgradeTargetGitTree(string $releaseRoot): string
     return $tree;
 }
 
-/** @param list<string> $roots */
-function upgradeTargetCanonicalDigest(string $projectRoot, array $roots): string
-{
-    $projectRoot = realpath($projectRoot) ?: $projectRoot;
-    $files = [];
-    foreach ($roots as $root) {
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
-        );
-        foreach ($iterator as $file) {
-            if (!$file->isFile() || $file->isLink()) {
-                continue;
-            }
-            $path = $file->getRealPath() ?: $file->getPathname();
-            $relative = str_replace('\\', '/', substr($path, strlen($projectRoot) + 1));
-            $files[$relative] = hash_file('sha256', $file->getPathname());
-        }
-    }
-    ksort($files, SORT_STRING);
-    $canonical = '';
-    foreach ($files as $relative => $digest) {
-        $canonical .= $relative . "\0" . $digest . "\n";
-    }
-    return hash('sha256', $canonical);
-}
-
 /** @param callable():void $operation */
 function upgradeTargetRejects(callable $operation, string $expected): void
 {
@@ -185,40 +158,25 @@ try {
     ] as [$source, $target]) {
         upgradeTargetCopyTree($source, $target);
     }
-    upgradeTargetCopyTree(
-        $sourceRoot . '/plugins/fixture.delivery-record',
-        $releaseRoot . '/plugins/fixture.delivery-record',
-    );
-
-    $targetMarker = $targetModule . '/Application/target-release-proof.txt';
+    $targetMarker = $targetModule . '/src/target-release-proof.txt';
     file_put_contents($targetMarker, "target release module bytes\n");
-    upgradeTargetExpect(!is_file($currentModule . '/Application/target-release-proof.txt'), 'target marker leaked into current source');
+    upgradeTargetExpect(!is_file($currentModule . '/src/target-release-proof.txt'), 'target marker leaked into current source');
 
-    $sourceLock = json_decode(
-        (string) file_get_contents($sourceRoot . '/modules.lock'),
-        true,
-        64,
-        JSON_THROW_ON_ERROR,
+    $moduleManifestPath = $targetModule . '/module.json';
+    $moduleManifest = json_decode((string) file_get_contents($moduleManifestPath), true, 64, JSON_THROW_ON_ERROR);
+    $moduleManifest['kernel_constraint'] = '^2.0';
+    upgradeTargetWriteJson($moduleManifestPath, $moduleManifest);
+    upgradeTargetCopyTree($sourceRoot . '/server/resources/schemas', $releaseRoot . '/server/resources/schemas');
+    $module = (new ModuleArtifactWriter($releaseRoot . '/server'))->build(
+        'fixture.delivery-record',
+        '1.0.0',
+        ['fixture.delivery-record=server/app/modules/fixture/delivery_record'],
     );
-    $plugin = array_values(array_filter(
-        $sourceLock['modules'],
-        static fn(array $entry): bool => ($entry['key'] ?? null) === 'fixture.delivery-record',
-    ))[0] ?? null;
-    upgradeTargetExpect(is_array($plugin), 'fixture Plugin lock entry is unavailable');
-
-    $plugin['source']['sha256'] = upgradeTargetCanonicalDigest(
-        $releaseRoot,
-        [$targetModule, $targetFrontend],
-    );
-    $plugin['trust']['compatibility']['modules'][0]['kernel_constraint'] = '^2.0';
-    $pluginManifestPath = $releaseRoot . '/plugins/fixture.delivery-record/plugin.json';
-    $pluginManifest = json_decode((string) file_get_contents($pluginManifestPath), true, 64, JSON_THROW_ON_ERROR);
-    $pluginManifest['source'] = $plugin['source'];
-    $pluginManifest['trust'] = $plugin['trust'];
-    upgradeTargetWriteJson($pluginManifestPath, $pluginManifest);
-    $plugin['manifest_sha256'] = hash_file('sha256', $pluginManifestPath);
+    unset($module['schema_version']);
+    $module['manifest'] = 'server/app/modules/fixture/delivery_record/module.json';
+    $module['manifest_sha256'] = hash_file('sha256', $moduleManifestPath);
     $targetLockPath = $releaseRoot . '/modules.lock';
-    upgradeTargetWriteJson($targetLockPath, ['schema_version' => 1, 'modules' => [$plugin]]);
+    upgradeTargetWriteJson($targetLockPath, ['schema_version' => 1, 'modules' => [$module]]);
     file_put_contents($releaseRoot . '/sort.txt', "regular sort fixture\n");
     mkdir($releaseRoot . '/sort', 0700, true);
     file_put_contents($releaseRoot . '/sort/child.txt', "directory sort fixture\n");
@@ -381,6 +339,8 @@ try {
         'registered_client_keys' => ['admin-web', 'platform-web'],
     ], 'modules');
 
+    Config::set(['mode' => 'multi-tenant'], 'deployment');
+
     $pdo = new PDO('sqlite::memory:', null, null, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -392,10 +352,6 @@ CREATE TABLE pa_module_installation (
   manifest_schema_version INTEGER NOT NULL,
   manifest_digest TEXT NOT NULL,
   status TEXT NOT NULL
-);
-CREATE TABLE pa_plugin_module (
-  plugin_key TEXT NOT NULL,
-  module_key TEXT NOT NULL
 );
 SQL);
     $currentManifest = (new ManifestLoader())->load(
@@ -416,9 +372,12 @@ SQL);
     $moduleConfig = Config::get('modules', []);
     upgradeTargetExpect(is_array($moduleConfig), 'Module fixture configuration is unavailable');
     $audit = new AuditContractHost(null);
-    $permissions = new PlatformOpsPermissionChecker(new PlatformAuthorizationEvaluator(
-        new ThinkPhpPlatformAuthorizationRepository(),
-        new RevisionPermissionCache(),
+    $permissions = new PlatformOpsPermissionChecker(new PlatformApiAuthorization(
+        new PlatformAuthorizationEvaluator(
+            new ThinkPhpPlatformAuthorizationRepository(),
+            new RevisionPermissionCache(),
+        ),
+        new EndpointPermissionGrant(new \think\Request()),
     ));
     $providers = new BackupRestoreProviderRegistry([new PairedBackupProvider()]);
     $tasks = new OpsTaskService($permissions, $providers, new ThinkPhpOpsTaskDispatcher($audit));
@@ -427,13 +386,19 @@ SQL);
         new MaintenanceReasonRegistry(['planned-upgrade']),
         new ThinkPhpMaintenanceWindowStore($audit),
     );
+    $governance = new ThinkPhpModuleGovernanceProvider(
+        $projectRoot . '/server',
+        $moduleConfig,
+        ThinkPhpTestConnection::moduleCatalogs($pdo),
+        (new ModuleDefinitionRegistryFactory($sourceRoot . '/server'))->fromDeploymentConfig([
+            ...$moduleConfig,
+            'roots' => [$sourceRoot . '/server/fixtures/modules/delivery_record'],
+        ]),
+    );
+    upgradeTargetExpect(count($governance->qualification()->installedModules()) === 1, 'current installed Module fixture is unavailable');
     $service = new PlatformUpgradeReadinessService(
         $projectRoot,
-        new ThinkPhpModuleGovernanceProvider(
-            $projectRoot . '/server',
-            $moduleConfig,
-            ThinkPhpTestConnection::moduleCatalogs($pdo),
-        ),
+        $governance,
         new PlatformBackupCenterService($providers, $tasks, $permissions),
         $maintenance,
         $permissions,

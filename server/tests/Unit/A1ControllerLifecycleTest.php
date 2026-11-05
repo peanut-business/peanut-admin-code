@@ -249,6 +249,7 @@ final class AuthenticatedFixtureMiddleware
             'admin-web',
             new DateTimeImmutable('2031-01-01T00:00:00Z'),
             1,
+            1,
         ), 'fixture-request');
         try {
             return $this->contexts->run(new AdminExecutionContext($tenant, 'fixture.read', [

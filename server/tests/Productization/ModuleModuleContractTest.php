@@ -3,8 +3,6 @@
 declare(strict_types=1);
 
 use app\platform\validation\module\OpisManifestSchemaValidator;
-use app\platform\validation\module\ReflectionContractInspector;
-use app\platform\validation\module\StrictVersionConstraintMatcher;
 use PeanutAdmin\Kernel\Idempotency\IdempotencySchema;
 use PeanutAdmin\Kernel\Migration\ModuleSchema;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
@@ -13,13 +11,8 @@ use PeanutAdmin\Kernel\Module\ManifestLoader;
 use PeanutAdmin\Kernel\Module\ModuleBoundaryChecker;
 use PeanutAdmin\Kernel\Module\ModuleException;
 use PeanutAdmin\Kernel\Module\ModuleRegistryCompiler;
-use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
 use app\common\composition\ModuleComposition;
 use app\common\infrastructure\module\ModuleHostLayoutFactory;
-use app\common\execution\CurrentExecutionContext;
-use app\common\execution\ExecutionContextStore;
-use PeanutAdmin\Modules\Article\Service\ArticleQueryService;
-use PeanutAdmin\Modules\Article\Contract\ArticleQueries;
 use think\App;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
@@ -102,9 +95,9 @@ function pluginModuleContractExpect(bool $condition, string $message): void
 function pluginModuleContractRegistry(string $key, string $provider): CompiledModuleRegistry
 {
     return new CompiledModuleRegistry([
-        ManifestDocument::fromArray('/fixture/' . $key, [
+        ManifestDocument::fromObject('/fixture/' . $key, (object) [
             'key' => $key,
-            'backend' => ['provider' => $provider],
+            'backend' => (object) ['provider' => $provider],
         ]),
     ], [], [], [], 'test');
 }
@@ -150,7 +143,7 @@ function pluginModuleContractMakeOfficial(App $app, string $abstract, string $co
 
 $serverRoot = dirname(__DIR__, 2);
 $moduleRoot = $serverRoot . '/fixtures/modules/delivery_record';
-$officialModuleRoots = glob($serverRoot . '/app/modules/official/*', GLOB_ONLYDIR) ?: [];
+$officialModuleRoots = glob($serverRoot . '/app/modules/peanut/*', GLOB_ONLYDIR) ?: [];
 sort($officialModuleRoots, SORT_STRING);
 $moduleRoots = [$moduleRoot, ...$officialModuleRoots];
 $moduleRootsByKey = [];
@@ -175,7 +168,7 @@ foreach ($moduleRoots as $root) {
 $frontendComponents = array_values(array_unique($frontendComponents));
 sort($frontendComponents, SORT_STRING);
 $historicalTableOwners = [];
-foreach (['official.identity', 'official.ops'] as $protectedKey) {
+foreach (['peanut.identity', 'peanut.ops'] as $protectedKey) {
     $protected = json_decode(
         (string) file_get_contents($moduleRootsByKey[$protectedKey] . '/module.json'),
         true,
@@ -189,18 +182,15 @@ foreach (['official.identity', 'official.ops'] as $protectedKey) {
 $kernelRoot = dirname((new ReflectionClass(\PeanutAdmin\Kernel\Module\ModuleProvider::class))->getFileName(), 3);
 $compiler = new ModuleRegistryCompiler(
     new OpisManifestSchemaValidator($kernelRoot . '/resources/schemas/module-manifest.schema.json'),
-    new StrictVersionConstraintMatcher(),
-    new ReflectionContractInspector(),
     '1.0.0',
     $frontendComponents,
     $layout,
     [
-        ...KernelSchema::tableNames(),
-        ...ModuleSchema::tableNames(),
+        ...array_diff(ModuleSchema::tableNames(), ['pa_module_migration']),
         ...IdempotencySchema::tableNames(),
         ...array_keys($historicalTableOwners),
     ],
-    ['admin-web', 'platform-web'],
+    ['admin-web', 'platform-web', 'pc-web', 'uniapp'],
     [...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::TENANT, ...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::PLATFORM],
     $historicalTableOwners,
 );
@@ -210,15 +200,15 @@ $manifests = array_map(static fn(string $root) => $loader->load($root), $moduleR
 $manifest = $manifests[0];
 $registry = $compiler->compile($manifests);
 pluginModuleContractExpect(
-    ($historicalTableOwners['pa_data_permission_group'] ?? null) === 'official.identity',
+    ($historicalTableOwners['pa_data_permission_group'] ?? null) === 'peanut.identity',
     'current protected Identity manifest lost data-permission table ownership',
 );
-foreach (['pa_data_permission_group', 'pa_file', 'pa_module_migration'] as $claimedTable) {
-    $invalidOwner = $manifest->data;
-    $invalidOwner['database']['owned_tables'][] = $claimedTable;
+foreach (['pa_data_permission_group', 'pa_file', 'pa_tenant_idempotency_record'] as $claimedTable) {
+    $invalidOwner = json_decode(json_encode($manifest->object, JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR);
+    $invalidOwner->database->owned_tables[] = $claimedTable;
     try {
         $compiler->compile([
-            ManifestDocument::fromArray($manifest->root, $invalidOwner),
+            ManifestDocument::fromObject($manifest->root, $invalidOwner),
             ...array_slice($manifests, 1),
         ]);
         throw new RuntimeException("foreign or technical table ownership was accepted: {$claimedTable}");
@@ -242,14 +232,6 @@ pluginModuleContractExpect(
 );
 (new ModuleBoundaryChecker($registry, $layout, ['pa_']))->check();
 
-$app = new App($serverRoot);
-$store = new ExecutionContextStore();
-$app->instance(CurrentExecutionContext::class, new CurrentExecutionContext($store));
-(new ModuleComposition($app))->register($registry);
-pluginModuleContractExpect(
-    $app->make(ArticleQueries::class) === $app->make(ArticleQueryService::class),
-    'native ThinkPHP alias did not preserve ArticleQueries object identity',
-);
 $fixtureProvider = new \PeanutAdmin\Fixtures\DeliveryRecord\ModuleProvider();
 pluginModuleContractExpect(
     !in_array('app\\common\\composition\\Module' . 'BindingContributor', class_implements($fixtureProvider) ?: [], true),
@@ -257,25 +239,11 @@ pluginModuleContractExpect(
 );
 
 $officialAutowireTargets = [
-    \PeanutAdmin\Modules\Article\Contract\PublicArticleQueries::class => \PeanutAdmin\Modules\Article\Service\PublicArticleService::class,
-    \PeanutAdmin\Modules\Article\Contract\ArticleAdministration::class => \PeanutAdmin\Modules\Article\Service\ArticleAdministrationService::class,
-    \PeanutAdmin\Modules\Article\Contract\ArticleCategoryAdministration::class => \PeanutAdmin\Modules\Article\Service\ArticleCategoryAdministrationService::class,
     \PeanutAdmin\Modules\File\Contract\FileAdministration::class => \PeanutAdmin\Modules\File\Service\FileAdministrationService::class,
     \PeanutAdmin\Modules\File\Contract\FileUploads::class => \PeanutAdmin\Modules\File\Service\FileUploadService::class,
-    \PeanutAdmin\Modules\Member\Contract\MemberQueries::class => \PeanutAdmin\Modules\Member\Service\MemberQueryService::class,
-    \PeanutAdmin\Modules\Member\Contract\MemberSubjectLookup::class => \PeanutAdmin\Modules\Member\Infrastructure\Persistence\ThinkPhpMemberSubjectLookup::class,
-    \PeanutAdmin\Modules\Member\Contract\MemberAdministration::class => \PeanutAdmin\Modules\Member\Service\MemberAdministrationService::class,
-    \PeanutAdmin\Modules\ImportExport\Service\TenantConfigurationTransferService::class => \PeanutAdmin\Modules\ImportExport\Service\TenantConfigurationTransferService::class,
-    \PeanutAdmin\Modules\ImportExport\Infrastructure\File\AppFileMediaGateway::class => \PeanutAdmin\Modules\ImportExport\Infrastructure\File\AppFileMediaGateway::class,
-    \PeanutAdmin\Modules\ImportExport\Contract\ImportExportWorkerRuntime::class => \PeanutAdmin\Modules\ImportExport\Service\TaskImportExportRuntime::class,
-    \PeanutAdmin\Modules\ImportExport\Service\OperationLogExportApplicationService::class => \PeanutAdmin\Modules\ImportExport\Service\OperationLogExportApplicationService::class,
-    \app\common\services\notice\NoticeChannelService::class => \app\common\services\notice\NoticeChannelService::class,
-    \PeanutAdmin\Modules\Notification\Contract\NotificationCommands::class => \PeanutAdmin\Modules\Notification\Service\NotificationApplicationService::class,
     \PeanutAdmin\Modules\Integration\Contract\ExternalTenantBindingRepository::class => \PeanutAdmin\Modules\Integration\Infrastructure\ThinkPhpExternalTenantBindingRepository::class,
     \PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionService::class => \PeanutAdmin\Modules\Integration\Service\ExternalTenantResolver::class,
     \PeanutAdmin\Modules\Integration\Contract\ExternalChannelBindings::class => \PeanutAdmin\Modules\Integration\Service\ExternalChannelBindingService::class,
-    \app\common\composition\payment\PaymentServiceFactory::class => \app\common\composition\payment\PaymentServiceFactory::class,
-    \PeanutAdmin\Modules\Payment\Contract\PaymentChannelGrantCommands::class => \PeanutAdmin\Modules\Payment\Infrastructure\ThinkPhpPaymentChannelGrantCommands::class,
 ];
 foreach ($officialAutowireTargets as $abstract => $concrete) {
     $officialApp = new App($serverRoot);
@@ -287,43 +255,6 @@ foreach ($officialAutowireTargets as $abstract => $concrete) {
         "native ThinkPHP alias did not make actual official service: {$abstract}",
     );
 }
-
-$importAliasApp = new App($serverRoot);
-(new ModuleComposition($importAliasApp))->register($registry);
-$importAliasApp->instance(
-    \PeanutAdmin\Modules\ImportExport\Service\ImportExportApplicationService::class,
-    pluginModuleContractControlledObject(\PeanutAdmin\Modules\ImportExport\Service\ImportExportApplicationService::class),
-);
-pluginModuleContractExpect(
-    $importAliasApp->make(\PeanutAdmin\Modules\ImportExport\Contract\ImportExportCommands::class)
-        === $importAliasApp->make(\PeanutAdmin\Modules\ImportExport\Contract\ImportExportQueries::class),
-    'ImportExport Commands and Queries aliases did not share their controlled production implementation',
-);
-
-$configurationAliasApp = new App($serverRoot);
-(new ModuleComposition($configurationAliasApp))->register($registry);
-$configurationAliasApp->instance(
-    \PeanutAdmin\Modules\ImportExport\Service\ConfigurationTransferApplicationService::class,
-    pluginModuleContractControlledObject(\PeanutAdmin\Modules\ImportExport\Service\ConfigurationTransferApplicationService::class),
-);
-pluginModuleContractExpect(
-    $configurationAliasApp->make(\PeanutAdmin\Modules\ImportExport\Contract\ConfigurationTransferCommands::class)
-        === $configurationAliasApp->make(\PeanutAdmin\Modules\ImportExport\Contract\ConfigurationTransferQueries::class),
-    'Configuration transfer Commands and Queries aliases did not share their controlled production implementation',
-);
-
-$notificationAliasApp = new App($serverRoot);
-$notificationAliasApp->bind(require $serverRoot . '/app/adminapi/provider.php');
-(new ModuleComposition($notificationAliasApp))->register($registry);
-$notification = pluginModuleContractMakeOfficial(
-    $notificationAliasApp,
-    \PeanutAdmin\Modules\Notification\Contract\NotificationCommands::class,
-    \PeanutAdmin\Modules\Notification\Service\NotificationApplicationService::class,
-);
-pluginModuleContractExpect(
-    $notification === $notificationAliasApp->make(\PeanutAdmin\Modules\Notification\Contract\NotificationQueries::class),
-    'Notification Commands and Queries aliases did not preserve production object identity',
-);
 
 $autowireApp = new App($serverRoot);
 (new ModuleComposition($autowireApp))->register(
@@ -388,10 +319,10 @@ try {
     );
 }
 
-$missingDependency = $manifests[0]->data;
-$missingDependency['dependencies'] = [['module_key' => 'fixture.missing', 'version' => '^1.0']];
+$missingDependency = json_decode(json_encode($manifests[0]->object, JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR);
+$missingDependency->dependencies = [(object) ['module_key' => 'fixture.missing', 'version' => '^1.0']];
 try {
-    $compiler->compile([ManifestDocument::fromArray($manifest->root, $missingDependency)]);
+    $compiler->compile([ManifestDocument::fromObject($manifest->root, $missingDependency)]);
     throw new RuntimeException('missing Module dependency was accepted');
 } catch (ModuleException $exception) {
     pluginModuleContractExpect(

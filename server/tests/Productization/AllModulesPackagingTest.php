@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use app\platform\service\module\ModulePackagePreflight;
-use app\platform\service\module\ModulePackageArchiveService;
+use app\common\module\PackageCheck;
+use app\platform\services\module\ModulePackageArchiveService;
 use PeanutAdmin\Kernel\Module\ModuleKey;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
@@ -61,30 +61,28 @@ function allModulesPackagingDistFacts(string $root): array
 
 $serverRoot = dirname(__DIR__, 2);
 $projectRoot = dirname($serverRoot);
-$resultsPath = $argv[1] ?? '/tmp/module-packages-test/packaging-results.json';
+$resultsPath = ($argv[1] ?? '') !== '' ? $argv[1] : '/tmp/module-packages-test/packaging-results.json';
 $currentCandidate = allModulesPackagingRun(['git', '-C', $projectRoot, 'rev-parse', 'HEAD^{commit}']);
 $currentTree = allModulesPackagingRun(['git', '-C', $projectRoot, 'rev-parse', 'HEAD^{tree}']);
-$pluginLock = json_decode(
+$moduleLock = json_decode(
     (string) file_get_contents($projectRoot . '/modules.lock'),
     true,
     64,
     JSON_THROW_ON_ERROR,
 );
 allModulesPackagingExpect(
-    is_array($pluginLock['modules'] ?? null) && array_is_list($pluginLock['modules']),
-    'Bundled Plugin lock is invalid',
+    is_array($moduleLock['modules'] ?? null) && array_is_list($moduleLock['modules']),
+    'Bundled Module lock is invalid',
 );
 $expectedModules = [];
-foreach ($pluginLock['modules'] as $plugin) {
-    allModulesPackagingExpect(is_array($plugin), 'Bundled Plugin lock entry is invalid');
-    foreach ($plugin['modules'] ?? [] as $module) {
-        $moduleKey = is_array($module) ? ($module['key'] ?? null) : null;
-        if (!is_string($moduleKey) || !str_starts_with($moduleKey, 'official.')) {
-            continue;
-        }
-        allModulesPackagingExpect(!isset($expectedModules[$moduleKey]), "Bundled official Module is duplicated: {$moduleKey}");
-        $expectedModules[$moduleKey] = true;
+foreach ($moduleLock['modules'] as $module) {
+    allModulesPackagingExpect(is_array($module), 'Bundled Module lock entry is invalid');
+    $moduleKey = $module['key'] ?? null;
+    if (!is_string($moduleKey) || !str_starts_with($moduleKey, 'peanut.')) {
+        continue;
     }
+    allModulesPackagingExpect(!isset($expectedModules[$moduleKey]), "Bundled official Module is duplicated: {$moduleKey}");
+    $expectedModules[$moduleKey] = true;
 }
 $expectedModules = array_keys($expectedModules);
 sort($expectedModules, SORT_STRING);
@@ -118,7 +116,7 @@ sort($resultModules, SORT_STRING);
 allModulesPackagingExpect($resultModules === $expectedModules, 'Official Module packaging evidence is incomplete or contains an unknown Module');
 
 $availableVersions = [];
-$sourcePreflight = new ModulePackagePreflight($projectRoot);
+$sourcePreflight = new PackageCheck($projectRoot);
 foreach ($expectedModules as $moduleKey) {
     $availableVersions[$moduleKey] = $sourcePreflight->inspect($moduleKey)['version'];
 }
@@ -144,7 +142,8 @@ foreach ($expectedModules as $moduleKey) {
     $verified = $archiveService->verify($archivePath, $expectedSha256, [], null, $availableVersions);
     try {
         allModulesPackagingExpect($verified->packageKey === $moduleKey, "Plugin identity differs: {$moduleKey}");
-        allModulesPackagingExpect($verified->manifestRelative === "plugins/{$moduleKey}/plugin.json", "Plugin manifest path differs: {$moduleKey}");
+        $manifestRelative = 'server/app/modules/' . implode('/', ModuleKey::fromString($moduleKey)->snakeSegments()) . '/module.json';
+        allModulesPackagingExpect($verified->manifestRelative === $manifestRelative, "Module manifest path differs: {$moduleKey}");
         allModulesPackagingExpect(isset($verified->inventory[$verified->manifestRelative]), "Plugin manifest is absent from the verified inventory: {$moduleKey}");
         allModulesPackagingExpect(array_keys($verified->modules) === [$moduleKey], "Single-Module package has another Module identity: {$moduleKey}");
 

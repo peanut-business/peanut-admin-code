@@ -22,7 +22,7 @@ final class BootstrapServiceIntegrationTest extends DatabaseTestCase
         parent::setUp();
         $this->runner->migrate();
 
-        $this->bootstrap = new BootstrapService();
+        $this->bootstrap = new BootstrapService(new \PeanutAdmin\Modules\Identity\Audit\AuditService(), new \PeanutAdmin\Kernel\Identity\PasswordHasher(), new \PeanutAdmin\Kernel\Identity\PasswordPolicy());
     }
 
     public function testPlatformBootstrapIsSecretSafeAndCannotBeRepeated(): void

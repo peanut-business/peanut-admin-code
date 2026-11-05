@@ -78,7 +78,7 @@ seed、受控迁移维护和固定资格的资源选择使用独立进程输入�
 
 ## 候选资格阶段与CI保留输入
 
-`python3 scripts/p0e-runtime-qualification candidate --candidate=<完整当前提交> --run-id=<本次唯一ID> --candidate-input=<固定输入JSON绝对路径> --candidate-input-sha256=<该文件SHA-256> --output-dir=<不存在的外部绝对目录>`复用原生`build-scaffold-release --check`核双Edition来源、成员、模式和固定tooling，再调用独立CLI从同一四附件在两个临时空目标创建，核manifest、源码commit/tree、归档摘要、Edition、文档及无Git或隐式依赖安装。最终完整八组的`generated-application`复用同一创建断言helper；常驻APP源码构建和其余断言继续保留，不在候选阶段运行。
+`python3 scripts/p0e-runtime-qualification candidate --candidate=<完整当前提交> --run-id=<本次唯一ID> --candidate-input=<固定输入JSON绝对路径> --candidate-input-sha256=<该文件SHA-256> --output-dir=<不存在的外部绝对目录>`复用原生`build-scaffold-release --check`核双Edition来源、成员、模式和固定tooling，再调用独立CLI从同一四附件在两个临时空目标创建，核manifest、源码commit/tree、归档摘要、Edition、文档及无Git或隐式依赖安装。最终完整八组的`generated-application`只读消费该阶段原始`candidate-stage.json`，通过生命周期输入`cli_creation={path,sha256}`绑定固定候选、CLI、四附件和生产者；不再次创建临时APP。常驻APP源码构建和其余断言继续保留，不在候选阶段运行。
 
 输入协议为`peanut.p0e-candidate-inputs.v1`，只接受`protocol`、`source={commit,tree}`、`cli={root,commit,tree}`和`template_build_root`四项。CLI必须是干净且来源正确的独立源码仓；模板构建根必须是该固定Code来源的完整两Edition原生输出。此入口不读取常驻APP、数据库登记或连接信息，不创建/安装常驻运行APP、不安装依赖、不使用数据库或启动服务／浏览器。输出目录已存在即拒绝；失败保留日志、实际部分创建目标和`candidate-stage.json`，不能覆写或自动重放。
 
@@ -148,11 +148,11 @@ CI 的 `scaffold-release.yml` 可显式选 `publish=false, pack_only=true`，并
 
 导入时显式选择`publish=false`、`qualification_ingress_asset_id=<既有附件数字ID>`、`qualification_source_commit=<本次workflow精确提交>`及独立记录的`qualification_transport_sha256`、`main_integration_sha256`。入口只读固定同仓GitHub API，核附件ID、严格文件名`scaffold-full-qualification.tgz`、uploaded状态、大小上限和GitHub摘要，然后将原件交给与publish共用的`verify-qualified-release-transport.py`：核transport SHA、安全路径/普通成员、精确source/tree、真实八组plan/checkpoint/summary/receipt摘要与lifecycle绑定、原cleanup、main-integration SHA，并复用原生模板检查确认四附件及生产输入仍等于原资格。单独自报passed不能取得资格；它不执行或补做full8，也不加载transport中的脚本。成功后只把同一transport原字节上传为本run的`scaffold-full-qualification-<source>`，由现有publish可信run认证消费。
 
-既有Release附件的准入和对外上传仍需各自授权；此只读导入接口不授权创建临时Release、借其他run token、增加runner/凭据/新存储或任意URL下载。没有合法原full8包及受控附件时，导入成功路径、后续正式发行与真实端到端均NOT_RUN，不能以接口已接线代替实际运行。不得伪造summary、tag或合并凭据；历史固定候选与证据保持原字节。是否已经公开发行以实际渠道核验为准。
+既有Release附件的准入和对外上传仍需各自授权；此只读导入接口不授权创建临时Release、借其他run token、增加runner/凭据/新存储或任意URL下载。已获同一新版正式发行授权时，可在精确目标`v<version>`的draft中暂存原transport；draft须显式以已资格源码S为`target_commitish`、通道一致，且只有该原附件。publish job将原独立SHA通过`--qualification-transport-sha256`传给唯一发布器；发布器核同仓draft ID、源码、tag、transport元数据及下载字节，原生无覆盖上传封存的11个正式附件，再逐个下载核原摘要，重核main/tag后仅删除已绑定transport ID，以原生`gh release edit --draft=false`发布并复用最终11附件校验。既有正式Release、其他tag、其他附件或部分上传现场均拒绝；失败或UNKNOWN保留同draft先对账，不自动重传、覆盖或重建。没有合法原full8包及受控附件时，导入成功路径、后续正式发行与真实端到端均NOT_RUN，不能以接口已接线代替实际运行。不得伪造summary、tag或合并凭据；历史固定候选与证据保持原字节。是否已经公开发行以实际渠道核验为准。
 
 产品 tag、qualification、候选锁、归档及 Edition 制品始终精确绑定已资格确认的源码提交 S 和源码树。实际发布要求实时远端 `main` 与本地 `origin/main` 一致，且等于 S；或等于同仓真实已合并 `dev` → `main` PR 的正常合并提交 M。后一种情况只接受精确父序列 `[B,S]`、B 为 S 祖先、M 与 S 同树，以及 GitHub API 的唯一 PR、merged 状态、提交、仓库和分支身份全部一致。开放 PR 的测试合并、squash/rebase、后续同树提交、未知或歧义 API 证据均拒绝，M 不被重新标为已资格确认的源码。
 
-M 不等于 S 时，发布命令还须传入 `--main-integration=/absolute/premerge.json`。该外部回执只有七个字段：`schema_version=1`、`repository="peanut-business/peanut-admin-code"`、`source_commit=S`、`base_commit=B`、`ready_for_stable=true`、UTC ISO8601 `readiness_at` 与 `premerge_observed_at`；要求资格准备完成时间不晚于合并前观察时间，且观察时间严格早于真实 PR 的 `merged_at`。回执不改写原资格字节，也不代替原生资格检查或发布授权。发布器在输出目录保存独立 `MAIN_INTEGRATION_PROOF.json`，记录实时 main/tag、图、PR 及输入/API 摘要，供外部发布回执使用；它不改变候选锁或发布源码身份。创建 Release 前再次核 live main/tag 与 PR，任何漂移即停止。`--prepare-only` 仍只准备制品；Core 的当前 main 发布规则和候选检查器的 `--require-main` 精确合同保持原状。
+M 不等于 S 时，发布命令还须传入 `--main-integration=/absolute/premerge.json`。该外部回执只有七个字段：`schema_version=1`、`repository="peanut-business/peanut-admin-code"`、`source_commit=S`、`base_commit=B`、`ready_for_stable=true`、UTC ISO8601 `readiness_at` 与 `premerge_observed_at`；要求资格准备完成时间不晚于合并前观察时间，且观察时间严格早于真实 PR 的 `merged_at`。回执不改写原资格字节，也不代替原生资格检查或发布授权。发布器在输出目录保存独立 `MAIN_INTEGRATION_PROOF.json`，记录实时 main/tag、图、PR 及输入/API 摘要，供外部发布回执使用；它不改变候选锁或发布源码身份。正式发布前再次核 live main/tag 与 PR，任何漂移即停止。`--prepare-only` 仍只准备制品；Core 的当前 main 发布规则和候选检查器的 `--require-main` 精确合同保持原状。
 
 ## 固定公开依赖准备
 

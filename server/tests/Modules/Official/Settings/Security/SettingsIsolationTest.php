@@ -8,10 +8,7 @@ use DateTimeImmutable;
 use PeanutAdmin\Kernel\Authorization\PermissionRequirement;
 use PeanutAdmin\Kernel\Host\AuthorizedExternalOperation;
 use PeanutAdmin\Kernel\Host\ExternalOperationDefinition;
-use PeanutAdmin\Kernel\Persistence\Tenancy\TenantPersistenceMode;
-use PeanutAdmin\Modules\Settings\Application\SettingAdminService;
 use PeanutAdmin\Modules\Settings\Application\SettingException;
-use PeanutAdmin\Modules\Settings\Application\SettingResolver;
 use PeanutAdmin\Modules\Settings\Application\TargetSettingWriter;
 use PeanutAdmin\Modules\Settings\Cache\ArrayRevisionedSettingCache;
 use PeanutAdmin\Settings\Secret\SodiumSecretProtector;
@@ -21,68 +18,12 @@ require_once dirname(__DIR__) . '/Integration/Support/SettingsDatabaseTestCase.p
 
 final class SettingsIsolationTest extends SettingsDatabaseTestCase
 {
-    public function testExplicitInstanceScopeRejectsTenantScopedStorageBeforeMutation(): void
-    {
-        $tenant = $this->tenant('alpha');
-        $registry = $this->registry([$this->definition([
-            'allowed_scopes' => ['tenant'],
-            'target_resource_key' => null,
-            'target_operation' => null,
-        ])]);
-        $this->synchronize($registry);
-        $definition = $registry->require('example.module', 'display-mode');
-        $admin = new SettingAdminService(
-            $this->protector(),
-            TenantPersistenceMode::InstanceScoped,
-            $tenant['tenant_id'],
-        );
-
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('TENANT_PERSISTENCE_SCHEMA_MODE_MISMATCH');
-        $admin->replaceTenant(
-            $definition,
-            $tenant['tenant_id'],
-            $tenant['member_id'],
-            'compact',
-            new DateTimeImmutable(self::NOW . ' UTC'),
-            null,
-            null,
-            '*',
-        );
-    }
-
-    public function testExplicitInstanceScopeRejectsTenantScopedStorageBeforeRead(): void
-    {
-        $tenant = $this->tenant('alpha');
-        $registry = $this->registry([$this->definition([
-            'allowed_scopes' => ['tenant'],
-            'target_resource_key' => null,
-            'target_operation' => null,
-        ])]);
-        $this->synchronize($registry);
-        $definition = $registry->require('example.module', 'display-mode');
-        $resolver = new SettingResolver(
-            $this->protector(),
-            new ArrayRevisionedSettingCache(),
-            TenantPersistenceMode::InstanceScoped,
-            $tenant['tenant_id'],
-        );
-
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('TENANT_PERSISTENCE_SCHEMA_MODE_MISMATCH');
-        $resolver->resolveTenant(
-            $definition,
-            $tenant['tenant_id'],
-            new DateTimeImmutable(self::NOW . ' UTC'),
-        );
-    }
-
     public function testTenantReadsAndWritesCannotCrossTenantBoundary(): void
     {
         [$definition, $repository, $protector] = $this->runtime();
         $alpha = $this->tenant('alpha');
         $beta = $this->tenant('beta');
-        $admin = new SettingAdminService($protector);
+        $admin = $this->settingAdmin($protector);
         $now = new DateTimeImmutable('2026-07-19T08:00:00Z');
         $admin->replaceTenant(
             $definition,
@@ -104,7 +45,7 @@ final class SettingsIsolationTest extends SettingsDatabaseTestCase
             null,
             '*',
         );
-        $resolver = new SettingResolver($protector, new ArrayRevisionedSettingCache());
+        $resolver = $this->settingResolver($protector, new ArrayRevisionedSettingCache());
 
         self::assertSame('compact', $resolver->resolveTenant($definition, $alpha['tenant_id'], $now)->value);
         self::assertSame('comfortable', $resolver->resolveTenant($definition, $beta['tenant_id'], $now)->value);
@@ -122,7 +63,7 @@ final class SettingsIsolationTest extends SettingsDatabaseTestCase
         $alpha = $this->tenant('alpha');
         $beta = $this->tenant('beta');
 
-        $this->expectDenied(fn() => (new SettingAdminService($protector))->replaceTenant(
+        $this->expectDenied(fn() => ($this->settingAdmin($protector))->replaceTenant(
             $definition,
             $alpha['tenant_id'],
             $beta['member_id'],
@@ -139,7 +80,7 @@ final class SettingsIsolationTest extends SettingsDatabaseTestCase
     {
         [$definition, $repository, $protector] = $this->runtime();
         $tenant = $this->tenant('alpha');
-        $writer = new TargetSettingWriter(new SettingAdminService($protector));
+        $writer = new TargetSettingWriter($this->settingAdmin($protector));
         $validOperation = $this->operation('example.module', 'example.project', 'updateProjectSetting');
         $validAuthorization = $this->authorization(
             $tenant,
@@ -204,7 +145,7 @@ final class SettingsIsolationTest extends SettingsDatabaseTestCase
             $this->operation('other.module', 'example.project', 'updateProjectSetting'),
         );
 
-        $this->expectDenied(fn() => (new TargetSettingWriter(new SettingAdminService($protector)))->replace(
+        $this->expectDenied(fn() => (new TargetSettingWriter($this->settingAdmin($protector)))->replace(
             $mismatched,
             $definition,
             'compact',
@@ -227,7 +168,7 @@ final class SettingsIsolationTest extends SettingsDatabaseTestCase
             ['hidden-target'],
             $validOperation,
         );
-        (new TargetSettingWriter(new SettingAdminService($protector)))->replace(
+        (new TargetSettingWriter($this->settingAdmin($protector)))->replace(
             $authorization,
             $definition,
             'compact',
@@ -236,7 +177,7 @@ final class SettingsIsolationTest extends SettingsDatabaseTestCase
             null,
             '*',
         );
-        $resolver = new SettingResolver($protector, new ArrayRevisionedSettingCache());
+        $resolver = $this->settingResolver($protector, new ArrayRevisionedSettingCache());
 
         foreach ([
             $this->authorization($tenant, 'example.other', ['hidden-target'], $validOperation),
@@ -259,7 +200,7 @@ final class SettingsIsolationTest extends SettingsDatabaseTestCase
             ['project-1'],
             $this->operation('example.module', 'example.project', 'updateProjectSetting'),
         );
-        $writer = new TargetSettingWriter(new SettingAdminService($protector));
+        $writer = new TargetSettingWriter($this->settingAdmin($protector));
         $exact = new DateTimeImmutable('2026-07-19T08:00:00.123000Z');
         $subMillisecond = new DateTimeImmutable('2026-07-19T08:00:00.123456Z');
 
@@ -303,7 +244,7 @@ final class SettingsIsolationTest extends SettingsDatabaseTestCase
         $asOf = new DateTimeImmutable('2026-07-19T08:00:00Z');
         $activeAt = new DateTimeImmutable('2026-07-19T07:00:00Z');
         $futureAt = new DateTimeImmutable('2026-07-19T09:00:00Z');
-        $admin = new SettingAdminService($protector);
+        $admin = $this->settingAdmin($protector);
         $admin->replaceDeployment(
             $definition,
             'compact',
@@ -325,7 +266,7 @@ final class SettingsIsolationTest extends SettingsDatabaseTestCase
             '*',
             $asOf,
         );
-        $writer = new TargetSettingWriter(new SettingAdminService($protector));
+        $writer = new TargetSettingWriter($this->settingAdmin($protector));
 
         $future = $writer->replace(
             $authorized,
@@ -368,7 +309,7 @@ final class SettingsIsolationTest extends SettingsDatabaseTestCase
         $alpha = $this->tenant('alpha');
         $beta = $this->tenant('beta');
         $now = new DateTimeImmutable('2026-07-19T08:00:00Z');
-        $admin = new SettingAdminService($protector);
+        $admin = $this->settingAdmin($protector);
         $admin->replaceTenant(
             $definition,
             $alpha['tenant_id'],
@@ -396,7 +337,7 @@ final class SettingsIsolationTest extends SettingsDatabaseTestCase
         );
 
         $this->expectSecretTransplantFailure(
-            fn() => (new SettingResolver(
+            fn() => ($this->settingResolver(
                 $protector,
                 new ArrayRevisionedSettingCache(),
             ))->resolveTenant($definition, $beta['tenant_id'], $now),
@@ -415,7 +356,7 @@ final class SettingsIsolationTest extends SettingsDatabaseTestCase
         $protector = $this->secretProtector();
         $tenant = $this->tenant('alpha');
         $now = new DateTimeImmutable('2026-07-19T08:00:00Z');
-        $admin = new SettingAdminService($protector);
+        $admin = $this->settingAdmin($protector);
         $admin->replaceDeployment(
             $definition,
             'deployment-secret',
@@ -442,7 +383,7 @@ final class SettingsIsolationTest extends SettingsDatabaseTestCase
         );
 
         $this->expectSecretTransplantFailure(
-            fn() => (new SettingResolver(
+            fn() => ($this->settingResolver(
                 $protector,
                 new ArrayRevisionedSettingCache(),
             ))->resolveTenant($definition, $tenant['tenant_id'], $now),
@@ -463,7 +404,7 @@ final class SettingsIsolationTest extends SettingsDatabaseTestCase
         $protector = $this->secretProtector();
         $now = new DateTimeImmutable('2026-07-19T08:00:00Z');
         $operatorId = $this->operator();
-        $admin = new SettingAdminService($protector);
+        $admin = $this->settingAdmin($protector);
         $admin->replaceDeployment($donor, 'donor-value', $operatorId, $now, null, null, '*');
         $admin->replaceDeployment($recipient, 'recipient-value', $operatorId, $now, null, null, '*');
         $this->transplantSecret(
@@ -482,7 +423,7 @@ SQL,
         );
 
         $this->expectSecretTransplantFailure(
-            fn() => (new SettingResolver(
+            fn() => ($this->settingResolver(
                 $protector,
                 new ArrayRevisionedSettingCache(),
             ))->resolveDeployment($recipient, $now),
@@ -511,7 +452,7 @@ SQL,
         $projectOne = $this->authorization($tenant, 'example.project', ['project-1'], $operation);
         $projectTwo = $this->authorization($tenant, 'example.project', ['project-2'], $operation);
         $now = new DateTimeImmutable('2026-07-19T08:00:00Z');
-        $writer = new TargetSettingWriter(new SettingAdminService($protector));
+        $writer = new TargetSettingWriter($this->settingAdmin($protector));
         $writer->replace($projectOne, $definition, 'project-one-secret', $now, null, null, '*');
         $writer->replace($projectTwo, $definition, 'project-two-secret', $now, null, null, '*');
         $this->transplantSecret(
@@ -521,7 +462,7 @@ SQL,
         );
 
         $this->expectSecretTransplantFailure(
-            fn() => (new SettingResolver(
+            fn() => ($this->settingResolver(
                 $protector,
                 new ArrayRevisionedSettingCache(),
             ))->resolveTarget($definition, $projectTwo, $now),

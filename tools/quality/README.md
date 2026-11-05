@@ -14,6 +14,14 @@ corepack pnpm --dir tools/quality install --frozen-lockfile --strict-peer-depend
 
 JavaScript 检查工具复用与 Web Core 相同的 TypeScript 5.9.3、Vitest 4.1.10 和 pnpm 10.15.0；完整依赖解析以本目录原生锁为准。它们不替换 Platform/Web/PC/uni-app 各自锁定的应用构建工具。缺依赖应明确失败，不临时改 lock、忽略 peer 冲突或使用未记录的全局版本。
 
+## PHP 单元、真实数据库与安装资格
+
+`php scripts/run-php-test --env-file=<server下的绝对环境文件> <测试路径>` 按实际类型运行 PHPUnit 或原生 PHP 脚本；脚本主入口、退出码和参数保持原生语义。需要脚本参数时使用 `-- --mysql`，分隔符由运行器消费。`--fail-on-skipped` 使 PHPUnit 的未执行数据库用例失败；脚本还须给出其真实成功标记或断言数，进程退出 0 本身不代表断言运行。
+
+`scripts/ci-server-check.sh --broad --env-file <绝对路径>` 执行完整 Unit 和适用的非数据库合同。真实 MySQL 用例统一由 `scripts/tests/run-registered-mysql-tests` 内的目标清单归属，通过 `--integration` 入口调用；每组前后都核对独立登记库的空基线、身份、版本和原生租约，失败或未实际执行不能记为通过。不得把已安装应用、开发库或其他项目的库作为空库夹具。
+
+`ModuleLifecycleMySqlTest`、`ModuleFailureRecoveryMySqlTest` 和 `ModuleRuntimeGovernanceTest` 需要已准备并准入的独立应用及其明确的 fresh、resume 或 installed 状态，归原生 P0-E 安装资格消费，不在静态 broad 或空库组中无参数调用。八个选中模块以外的业务断言由实际装配它们的模块应用执行。
+
 ## 原生生命周期与模块扩展定向检查
 
 以下入口只执行本次扩展合同有关的测试，不启动全量CI、业务数据库或外部渠道。使用本工程已有的PHPUnit/ThinkPHP/Core依赖；Notification是独立可选模块，其实际源码根通过`PEANUT_NOTIFICATION_MODULE_ROOT`显式传入，测试根据该模块自己的composer.json登记命名空间，缺失即失败，不伪造替代接口或静默跳过。

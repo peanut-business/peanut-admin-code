@@ -53,6 +53,10 @@ final class TenantBootstrapSettingsBoundaryTest extends TestCase
         $constructor = (new ReflectionClass(ApplicationTenantBootstrapService::class))->getConstructor();
         $types = [];
         foreach ($constructor->getParameters() as $parameter) {
+            if ($parameter->isDefaultValueAvailable()) {
+                self::assertNull($parameter->getDefaultValue());
+                continue;
+            }
             $type = $parameter->getType()->getName();
             $types[$parameter->getName()] = $type;
             $reflection = new ReflectionClass($type);
@@ -64,6 +68,7 @@ final class TenantBootstrapSettingsBoundaryTest extends TestCase
         $host = $this->application->make(ApplicationTenantBootstrapService::class);
         self::assertInstanceOf(TenantSettingsQuery::class, (new ReflectionProperty($host, 'tenantSettings'))->getValue($host));
         self::assertInstanceOf(TenantSettingsCommands::class, (new ReflectionProperty($host, 'settingCommands'))->getValue($host));
+        self::assertNull((new ReflectionProperty($host, 'notifications'))->getValue($host));
         self::assertSame(0, (int) $this->database->query('SELECT COUNT(*) FROM pa_transaction_setting')->fetchColumn());
     }
 
@@ -89,9 +94,11 @@ final class TenantBootstrapSettingsBoundaryTest extends TestCase
         self::assertSame(['revision' => 7, 'document' => ['name' => 'Existing tenant name']], $stored['101:website']);
         self::assertSame([1, 2], $stored['202:login']['document']['login_way']);
         self::assertSame(['status' => 0], $stored['101:hot-search']['document']);
-        foreach (['customer_service_setting', 'decorate_tabbar_setting', 'transaction_setting'] as $table) {
+        foreach (['customer_service_setting', 'decorate_tabbar_setting'] as $table) {
             self::assertSame([101, 202], array_map('intval', $this->database->query('SELECT tenant_id FROM pa_' . $table . ' ORDER BY tenant_id')->fetchAll(PDO::FETCH_COLUMN)));
         }
+        // Optional business defaults are outside the required-module bootstrap.
+        self::assertSame(0, (int) $this->database->query('SELECT COUNT(*) FROM pa_transaction_setting')->fetchColumn());
         self::assertTrue($this->contexts->isEmpty());
     }
 

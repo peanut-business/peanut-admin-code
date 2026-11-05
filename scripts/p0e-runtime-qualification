@@ -30,8 +30,7 @@ ROOT = Path(__file__).resolve().parent.parent
 TOOL_ROOT = ROOT
 TOOL_FILES = ("scripts/p0e-runtime-qualification", "scripts/consumer-module-reference-chain", "scripts/p0e-browser-smoke", ".github/workflows/scaffold-release.yml",
     "server/fixtures/module-lifecycle/run.php", "server/tests/Productization/ModuleLifecycleMySqlTest.php",
-    "server/tests/Productization/ModuleFailureRecoveryMySqlTest.php", "server/tests/Multitenancy/MemberUploadTenantWiringTest.php",
-    "server/tests/Multitenancy/TaskImportExportTenantIsolationTest.php")
+    "server/tests/Productization/ModuleFailureRecoveryMySqlTest.php")
 TOOL_BINDING: dict[str, Any] | None = None
 FIXTURE_PATH = ROOT / "server/tests/fixtures/p0e-runtime-qualification/matrix.json"
 REGISTRY_PATH = Path(os.environ.get("PEANUT_RESOURCE_REGISTRY") or ROOT / "resources/project-resources.json")
@@ -343,16 +342,17 @@ def runtime_admission(runtime: dict[str, Any], root: str, candidate: str) -> dic
     lease = runtime.get("lease")
     if not isinstance(lease, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", lease):
         fail("runtime owner must supply the real per-checkout lease identity")
-    common = command(["git", "-C", root, "rev-parse", "--path-format=absolute", "--git-common-dir"], capture=True).stdout.strip()
+    proof = command([str(LEASE_TOOL), "show", "--lease", lease, "--verify-locks", "--proof-dir"],
+                    cwd=Path(root), capture=True).stdout.strip()
     return {"lease": lease, "root": root, "candidate": candidate,
             "gate": database_registration(runtime)["lease_gate"], "resource_id": runtime["resource_id"],
-            "proof_dir": str(Path(common) / "peanut-admin-resource-leases/leases" / lease),
+            "proof_dir": str(canonical(proof, directory=True)),
             "resources": [{"type": k, "value": v} for k, v in database_resources(runtime)]}
 
 
 def verify_runtime_admission(admission: dict[str, Any], owner: str, thread: str) -> None:
     root = canonical(admission["root"], directory=True)
-    raw = command([str(root / "scripts/project-resource-lease"), "show", "--lease", admission["lease"],
+    raw = command([str(LEASE_TOOL), "show", "--lease", admission["lease"],
                    "--verify-locks"], cwd=root, capture=True).stdout
     metadata, resources = parse_lease(raw)
     required = {"owner": owner, "thread": thread, "worktree": str(root), "candidate_repository": str(root),
@@ -367,6 +367,10 @@ def verify_runtime_admission(admission: dict[str, Any], owner: str, thread: str)
     for kind in ("database", "mysql-db", "mysql-schema", "mysql-access", "endpoint"):
         if {v for k, v in resources if k == kind} != {v for k, v in expected if k == kind}:
             fail("runtime proof contains another schema, endpoint or access operation")
+    proof = command([str(LEASE_TOOL), "show", "--lease", admission["lease"], "--verify-locks", "--proof-dir"],
+                    cwd=root, capture=True).stdout.strip()
+    if proof != admission["proof_dir"]:
+        fail("runtime proof directory differs from the verified native lease")
 
 
 def runtime_environment(runtime: dict[str, Any], admission: dict[str, Any], *, php: str = "php") -> dict[str, str]:
@@ -569,6 +573,36 @@ def candidate_inputs(value: dict[str, Any], candidate: str, tree: str) -> dict[s
     templates = template_inputs(templates_root, candidate, tree)
     return {"cli": cli, "template_artifacts": templates, "template_build_root": str(templates_root),
             "cli_creation": value.get("cli_creation")}
+
+
+def create_candidate_applications(inputs: dict[str, Any], candidate: str, tree: str, output: Path) -> dict[str, Any]:
+    """Produce the native CLI creation evidence once in the candidate stage."""
+    cli = inputs["cli"]
+    result = {}
+    for edition in EDITIONS:
+        target = output / ("cli-create-" + edition)
+        archive = Path(inputs["template_build_root"]) / edition / f"peanut-scaffold-{edition}.tgz"
+        manifest = archive.with_suffix(".json")
+        if target.exists():
+            fail("CLI creation target must be absent; never recreate a permanent APP")
+        process = command(["node", str(Path(cli["root"]) / "bin/peanut.js"), "create", str(target),
+            "--name", "P0E CLI creation", "--slug", "p0e-" + edition,
+            "--package", "p0e/" + edition, "--edition", edition, "--archive", str(archive), "--manifest", str(manifest)],
+            capture=True)
+        created = json.loads(process.stdout)
+        identity = read_json(target / ".peanut/application-manifest.json")
+        if (created.get("status") != "created" or created.get("target") != str(target)
+                or identity.get("template", {}).get("source_commit") != candidate
+                or identity.get("template", {}).get("source_tree") != tree
+                or identity.get("template_package", {}).get("archive_sha256") != sha256(archive)
+                or identity.get("application", {}).get("edition") != edition
+                or identity.get("edition", {}).get("name") != edition
+                or any((target / path).exists() for path in (".git", "node_modules", "server/vendor",
+                    "web/node_modules", "platform/node_modules", "pc/node_modules", "uniapp/node_modules"))):
+            fail("independent CLI create identity or no-implicit-install contract failed")
+        result[edition] = {"manifest_sha256": sha256(target / ".peanut/application-manifest.json"),
+                           "cli_result": created, "documentation": documentation_contract(target, generated=True)}
+    return result
 
 
 def cli_created_applications(inputs: dict[str, Any], candidate: str, tree: str, cache: Path) -> dict[str, Any]:
@@ -1631,7 +1665,7 @@ def qualify_candidate(args: argparse.Namespace) -> dict[str, Any]:
     value = read_json(input_path)
     if (value.get("protocol") != "peanut.p0e-candidate-inputs.v1"
             or not {"protocol", "source", "cli", "template_build_root"}.issubset(value)
-            or set(value) - {"protocol", "source", "cli", "template_build_root", "cli_creation"}):
+            or set(value) - {"protocol", "source", "cli", "template_build_root"}):
         fail("candidate input accepts only fixed Code, CLI and template identities")
     output = Path(args.output_dir)
     if (not output.is_absolute() or output.exists() or output.is_symlink()
@@ -1685,7 +1719,7 @@ def qualify_candidate(args: argparse.Namespace) -> dict[str, Any]:
                     "commit": args.candidate, "tree": tree, "inventory_sha256": inventory}
                 or checked != inputs["template_artifacts"]):
             fail("native template check returned different candidate inputs")
-        created = cli_created_applications(inputs, args.candidate, tree, output)
+        created = create_candidate_applications(inputs, args.candidate, tree, output)
         file_reference({"path": str(input_path), "sha256": args.candidate_input_sha256})
         validate_candidate(args.candidate, require_clean=True)
         cli = inputs["cli"]
@@ -1696,12 +1730,6 @@ def qualify_candidate(args: argparse.Namespace) -> dict[str, Any]:
         receipt.update(status="candidate-passed", template_artifacts=checked, cli_created_applications=created)
         receipt["groups"]["generated-application"]["components"] = {
             "native_template_contract": "passed", "cli_create_and_app_identity": "passed", "source_build": "not_run"}
-    except NotRun as exception:
-        receipt["status"] = "candidate-not-run"
-        receipt["reason"] = str(exception)
-        receipt["template_artifacts"] = checked
-        receipt["groups"]["generated-application"]["components"] = {
-            "native_template_contract": "passed", "cli_create_and_app_identity": "not_run", "source_build": "not_run"}
     except Exception:
         receipt["status"] = "failed-preserved"
         raise

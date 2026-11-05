@@ -11,7 +11,8 @@ usage() {
 Usage: scripts/publish-github-release <version> --qualification <summary.json> \
   --template-artifacts <absolute-native-build-root> \
   [--prerelease] [--prepare-only] [--output <absolute-dir>] \
-  [--main-integration=<absolute-premerge-receipt>]
+  [--main-integration=<absolute-premerge-receipt>] \
+  [--qualification-transport-sha256=<independently-recorded-sha256>]
 
 Creates the deterministic source archive, legal assets, external manifest and
 release notes from annotated tag v<version>. The build root must contain the
@@ -24,6 +25,9 @@ Release after all checks pass. Stable mode is the default and accepts only
 X.Y.Z, creates a formal GitHub Release and marks it latest. Prerelease mode must
 be explicitly enabled with --prerelease, accepts only X.Y.Z-<prerelease>, creates
 a GitHub prerelease and never marks it latest.
+The CI may continue the same target draft containing only the original admitted
+qualification transport; its independently recorded SHA-256 is required. Existing
+published Releases and drafts containing other assets are never overwritten.
 EOF
 }
 
@@ -40,11 +44,13 @@ QUALIFICATION_FILE=''
 TEMPLATE_ARTIFACTS=''
 PRERELEASE=0
 MAIN_INTEGRATION=''
+QUALIFICATION_TRANSPORT_SHA256=''
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --prepare-only) PREPARE_ONLY=1; shift ;;
     --prerelease) PRERELEASE=1; shift ;;
     --main-integration=*) [[ -z "$MAIN_INTEGRATION" ]] || { usage >&2; exit 2; }; MAIN_INTEGRATION="${1#*=}"; [[ "$MAIN_INTEGRATION" == /* && -f "$MAIN_INTEGRATION" ]] || { usage >&2; exit 2; }; shift ;;
+    --qualification-transport-sha256=*) [[ -z "$QUALIFICATION_TRANSPORT_SHA256" ]] || { usage >&2; exit 2; }; QUALIFICATION_TRANSPORT_SHA256="${1#*=}"; [[ "$QUALIFICATION_TRANSPORT_SHA256" =~ ^[a-f0-9]{64}$ ]] || { usage >&2; exit 2; }; shift ;;
     --output) [[ $# -ge 2 ]] || { usage >&2; exit 2; }; OUTPUT_DIR="$2"; shift 2 ;;
     --qualification) [[ $# -ge 2 ]] || { usage >&2; exit 2; }; QUALIFICATION_FILE="$2"; shift 2 ;;
     --template-artifacts) [[ $# -ge 2 ]] || { usage >&2; exit 2; }; TEMPLATE_ARTIFACTS="$2"; shift 2 ;;
@@ -192,11 +198,6 @@ NODE
 
 if [[ "$PREPARE_ONLY" != 1 ]]; then
   INTEGRATION_MAIN="$(verify_main_integration "$OUTPUT_DIR/MAIN_INTEGRATION_PROOF.json")"
-  EXISTING="$(node "$SCRIPT_DIR/release-asset-verification.mjs" lookup "$VERSION")"
-  [[ "$EXISTING" == '{"exists":false,"release":null}' ]] || {
-    printf 'publish-github-release: GitHub Release already exists: %s\n' "$TAG" >&2
-    exit 1
-  }
 fi
 
 ARCHIVE="$OUTPUT_DIR/peanut-admin-$VERSION.tar.gz"
@@ -307,9 +308,23 @@ if [[ "$PREPARE_ONLY" != 1 ]]; then
   verify_main_integration "$OUTPUT_DIR/MAIN_INTEGRATION_PROOF.json" "$INTEGRATION_MAIN" >/dev/null
 fi
 node "$SCRIPT_DIR/release-asset-verification.mjs" local "$OUTPUT_DIR" "$VERSION" >/dev/null
-gh release create "$TAG" "${release_paths[@]}" \
-  "${release_flags[@]}"
 verification_channel=stable
 [[ "$PRERELEASE" != 1 ]] || verification_channel=prerelease
+draft_identity="$(node "$SCRIPT_DIR/release-asset-verification.mjs" draft "$OUTPUT_DIR" "$VERSION" \
+  "$verification_channel" "$COMMIT" "$QUALIFICATION_TRANSPORT_SHA256")"
+read -r draft_release_id transport_asset_id <<< "$draft_identity"
+if [[ "$draft_release_id" == 0 ]]; then
+  gh release create "$TAG" "${release_paths[@]}" "${release_flags[@]}"
+else
+  # Native upload refuses collisions. A failed/unknown upload is reconciled in
+  # this same draft; it is never retried by overwriting or recreating assets.
+  gh release upload "$TAG" "${release_paths[@]}" --repo "$REPOSITORY"
+  node "$SCRIPT_DIR/release-asset-verification.mjs" draft "$OUTPUT_DIR" "$VERSION" \
+    "$verification_channel" "$COMMIT" "$QUALIFICATION_TRANSPORT_SHA256" \
+    "$draft_release_id" "$transport_asset_id" >/dev/null
+  verify_main_integration "$OUTPUT_DIR/MAIN_INTEGRATION_PROOF.json" "$INTEGRATION_MAIN" >/dev/null
+  gh api --method DELETE "repos/$REPOSITORY/releases/assets/$transport_asset_id"
+  gh release edit "$TAG" --draft=false "${release_flags[@]}"
+fi
 node "$SCRIPT_DIR/release-asset-verification.mjs" "$OUTPUT_DIR" "$VERSION" "$verification_channel"
 printf 'published=%s\nartifacts=%s\n' "$TAG" "$OUTPUT_DIR"

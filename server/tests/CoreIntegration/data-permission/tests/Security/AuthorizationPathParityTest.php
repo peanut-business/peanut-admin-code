@@ -36,13 +36,7 @@ final class AuthorizationPathParityTest extends DatabaseTestCase
     {
         parent::setUp();
         $this->runner->migrate();
-        (new DataPermissionMigrationRunner(
-            self::DATABASE,
-            '127.0.0.1',
-            (int) (getenv('MYSQL_PORT') ?: 3306),
-            'root',
-            getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev',
-        ))->migrate();
+        (new DataPermissionMigrationRunner($this->database))->migrate();
         ThinkPhpTestConnection::fromPdo($this->database);
         $this->fixture = AuthorizationAcceptanceFixture::install();
     }
@@ -322,7 +316,7 @@ SQL);
             'web',
             new DateTimeImmutable('2026-07-16T12:00:00Z'),
             1,
-        ), 'request-sentinel');
+        1), 'request-sentinel');
         $this->expectDataError('AUTHZ_MODULE_UNAVAILABLE', fn() => $this->fixture->engine->queryConstraint(
             $sentinel,
             'fixture.record',

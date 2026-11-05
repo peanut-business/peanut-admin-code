@@ -42,6 +42,8 @@ $releases = $temporary . '/templates';
 $writeJson = static fn(string $path, array $data) => scaffoldWrite($path, json_encode($data, JSON_THROW_ON_ERROR));
 $old = ['managed.txt' => "old\n", 'renamed-old.txt' => "rename source\n"];
 $new = ['managed.txt' => "new\n", 'renamed-new.txt' => "renamed source\n"];
+$exportProvider = 'server/app/common/infrastructure/export/OperationLogExportProvider.php';
+$old[$exportProvider] = $new[$exportProvider] = "application export provider\n";
 $manifest = static function (string $version, string $ref, array $files, array $renames = []) use ($releases, $writeJson): string {
     $rows = [];
     foreach ($files as $path => $bytes) {
@@ -147,6 +149,31 @@ try {
     scaffoldFails(fn() => $runner->apply($project, $replayPath), 'SCAFFOLD_VERIFY_MANAGED_MISMATCH: managed.txt');
     scaffoldExpect(file_get_contents($project . '/managed.txt') === "post-apply drift\n", 'Replay rewrote drift.');
     $runner->recover($project, $replayPath);
+
+    $removedProviderFiles = $old;
+    unset($removedProviderFiles[$exportProvider]);
+    $removedProviderTarget = $manifest('1.4.0', 'e', $removedProviderFiles);
+    $ownership = $runner->preflight($project, $from, $removedProviderTarget);
+    $providerAction = array_column($ownership['actions'], null, 'path')[$exportProvider];
+    scaffoldExpect($ownership['status'] === 'blocked'
+        && $providerAction['action'] === 'conflict'
+        && $providerAction['reason'] === 'module_source_ownership_transition_required',
+        'Removing the consumed export adapter did not require an ownership decision.');
+    $ownershipPath = $project . '/' . $ownership['plan_path'];
+    scaffoldFails(fn() => $runner->apply($project, $ownershipPath), 'SCAFFOLD_PLAN_BLOCKED');
+    $preserved = $runner->resolve($project, $ownershipPath, $ownership['plan_sha256'], [$exportProvider], []);
+    $preservedPath = $project . '/' . $preserved['plan_path'];
+    scaffoldExpect($runner->apply($project, $preservedPath)['status'] === 'applied', 'Export adapter preservation did not apply.');
+    $adoptedFiles = json_decode((string) file_get_contents($appManifest), true, 512, JSON_THROW_ON_ERROR)['files'];
+    $adoptedProvider = array_column($adoptedFiles, null, 'path')[$exportProvider];
+    scaffoldExpect(file_get_contents($project . '/' . $exportProvider) === $old[$exportProvider]
+        && $adoptedProvider['classification'] === 'app-owned'
+        && $adoptedProvider['owner'] === 'application'
+        && !isset($adoptedProvider['baseline_path'])
+        && !isset($adoptedProvider['baseline_sha256']),
+        'Preservation did not retain adapter bytes with application ownership.');
+    scaffoldExpect($runner->verify($project, $preservedPath)['status'] === 'verified', 'Preserved export adapter failed verification.');
+    $runner->recover($project, $preservedPath);
 
     $outside = $temporary . '/outside.txt';
     scaffoldWrite($outside, "outside\n");

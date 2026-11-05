@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../Support/CiBootstrap.php';
+
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
 
-require dirname(__DIR__, 2) . '/bootstrap/environment.php';
-
-use app\platform\service\PlatformOperatorSessionService;
-use app\platform\service\PlatformTenantQueryService;
+use app\platform\services\PlatformOperatorSessionService;
+use app\platform\services\PlatformTenantQueryService;
+use app\platform\services\PlatformApiAuthorization;
+use app\common\services\authorization\EndpointPermissionGrant;
 use PeanutAdmin\Modules\Identity\Auth\Persistence\ThinkPhpPlatformAuthRepository;
 use PeanutAdmin\Modules\Identity\Auth\PlatformAuthService;
 use PeanutAdmin\Kernel\Auth\SystemClock;
@@ -16,11 +18,10 @@ use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer;
 use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
-use PeanutAdmin\Modules\Identity\Authorization\Persistence\Schema\AuthorizationSchema;
+use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
-use PeanutAdmin\Kernel\Migration\ModuleSchema;
-use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
+use PeanutAdmin\Kernel\Identity\PasswordPolicy;
 use PeanutAdmin\Modules\Identity\Platform\Application\PlatformWorkspaceQueryService;
 use PeanutAdmin\Modules\Identity\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
@@ -29,6 +30,8 @@ use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
 require __DIR__ . '/../Support/ThinkPhpTestConnection.php';
+require __DIR__ . '/../Support/IdentityMysqlFixture.php';
+require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 
 function platformTenantReadExpect(bool $condition, string $message): void
 {
@@ -39,7 +42,7 @@ function platformTenantReadExpect(bool $condition, string $message): void
 
 function platformTenantReadBootstrap(): BootstrapService
 {
-    return new BootstrapService(passwords: new PasswordHasher());
+    return new BootstrapService(new AuditService(), new PasswordHasher(), new PasswordPolicy());
 }
 
 function platformTenantReadSessions(): PlatformOperatorSessionService
@@ -53,7 +56,7 @@ function platformTenantReadSessions(): PlatformOperatorSessionService
             new TokenIssuer(),
             str_repeat('r', 32),
         ),
-        new PlatformAuthorizationEvaluator($repository, new RevisionPermissionCache()),
+        new PlatformApiAuthorization(new PlatformAuthorizationEvaluator($repository, new RevisionPermissionCache()), new EndpointPermissionGrant(new think\Request())),
         $repository,
     );
 }
@@ -84,40 +87,11 @@ SQL);
     $pdo->exec("INSERT INTO pa_platform_operator (account_id,display_name,status,created_at,updated_at) VALUES ({$accountId},'No Access','active','{$now}','{$now}')");
 }
 
-$host = IsolatedBackendEnvironment::required('DB_HOST');
-$port = IsolatedBackendEnvironment::required('DB_PORT');
-$user = IsolatedBackendEnvironment::required('DB_USER');
-$password = IsolatedBackendEnvironment::required('DB_PASS');
-$admin = new PDO(
-    "mysql:host={$host};port={$port};charset=utf8mb4",
-    $user,
-    $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false],
-);
-$database = 'pa_pm01_tenant_read_' . strtolower(bin2hex(random_bytes(6)));
-$admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
+$database = RegisteredMysqlTestResource::configuredDatabaseName();
+[$pdo, $createdDatabase] = RegisteredMysqlTestResource::openEmptyDatabase($database);
 
 try {
-    $pdo = new PDO(
-        "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
-        $user,
-        $password,
-        [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-        ],
-    );
-    foreach (KernelSchema::tableNames() as $table) {
-        $pdo->exec(KernelSchema::createSql($table));
-    }
-    $pdo->exec(KernelSchema::addTenantMemberDepartmentForeignKeySql());
-    foreach (ModuleSchema::tableNames() as $table) {
-        $pdo->exec(ModuleSchema::createSql($table));
-    }
-    foreach (AuthorizationSchema::tableNames() as $table) {
-        $pdo->exec(AuthorizationSchema::createSql($table));
-    }
+    IdentityMysqlFixture::install($pdo);
     ThinkPhpTestConnection::fromPdo($pdo);
     (new CorePermissionCatalogSynchronizer(new ThinkPhpAuthorizationCatalogRepository()))->synchronize();
 
@@ -165,7 +139,7 @@ SQL);
     );
 
     $before = [];
-    foreach (['pa_tenant', 'pa_tenant_member', 'pa_tenant_module', 'pa_platform_audit_event', 'pa_tenant_audit_event'] as $table) {
+    foreach (['pa_tenant', 'pa_tenant_member', 'pa_plan', 'pa_plan_module', 'pa_tenant_license', 'pa_platform_audit_event', 'pa_tenant_audit_event'] as $table) {
         $before[$table] = (int) $pdo->query("SELECT COUNT(*) FROM {$table}")->fetchColumn();
     }
 
@@ -246,5 +220,5 @@ SQL);
 
     echo "PM01-PLATFORM-TENANT-READ-001 passed\n";
 } finally {
-    $admin->exec("DROP DATABASE IF EXISTS `{$database}`");
+    RegisteredMysqlTestResource::cleanup($pdo, $database, $createdDatabase);
 }

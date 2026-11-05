@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use app\common\execution\AdminExecutionContext;
 use app\common\execution\ExecutionContextStore;
-use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Modules\File\Contract\FileAccess;
 use PeanutAdmin\Modules\File\Contract\FileReferenceCommands;
@@ -12,9 +11,9 @@ use PeanutAdmin\Modules\File\Service\Storage\StorageService;
 use PeanutAdmin\Modules\Identity\Contract\TenantSessionAccess;
 
 require_once dirname(__DIR__, 3) . '/vendor/autoload.php';
-require_once dirname(__DIR__, 3) . '/database/install.php';
 require_once dirname(__DIR__, 2) . '/Support/RegisteredMysqlTestResource.php';
 require_once dirname(__DIR__, 2) . '/Support/ThinkPhpTestConnection.php';
+require_once dirname(__DIR__, 2) . '/Support/IdentityMysqlFixture.php';
 
 $assertions = 0;
 function fileAccessExpect(bool $condition, string $message): void
@@ -43,11 +42,17 @@ $database = RegisteredMysqlTestResource::configuredDatabaseName();
 $paths = [];
 $storedPaths = [];
 try {
-    foreach (KernelSchema::tableNames() as $table) {
-        $pdo->exec(KernelSchema::createSql($table));
-    }
-    $pdo->exec(KernelSchema::addTenantMemberDepartmentForeignKeySql());
-    ensureTenantChallengeClientKey($pdo);
+    $serverRoot = dirname(__DIR__, 3);
+    IdentityMysqlFixture::install($pdo, [
+        $serverRoot . '/app/modules/peanut/file/database/migrations',
+        $serverRoot . '/app/modules/peanut/settings/database/migrations',
+        $serverRoot . '/app/modules/peanut/reference_codes/database/migrations',
+        $serverRoot . '/database/installation',
+    ]);
+    require_once $serverRoot . '/app/modules/peanut/file/database/seeds/PeanutFileDefaults.php';
+    $seed = new PeanutFileDefaults();
+    $seed->setAdapter(new \Phinx\Db\Adapter\MysqlAdapter(['name' => $database, 'connection' => $pdo]));
+    $seed->run();
     ThinkPhpTestConnection::fromPdo($pdo);
     $bootstrap = new \PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService(
         new \PeanutAdmin\Modules\Identity\Audit\AuditService(),
@@ -59,39 +64,41 @@ try {
     $bootstrap->activateTenantOwner($platform->operatorId, $owner->tenantId, $owner->memberId, 'r0-owner-active');
     $bootstrap->activateTenant($platform->operatorId, $owner->tenantId, 'r0-tenant-active');
     $serverRoot = dirname(__DIR__, 3);
-    executeSqlFile($pdo, $serverRoot . '/database/init.sql');
-    executeSqlFiles($pdo, applicationMigrationFiles($serverRoot . '/database'));
+    $catalog = new \PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer(
+        new \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository(),
+    );
+    $catalog->synchronize();
     $opsIds = $pdo->query("SELECT id,`key` FROM pa_permission WHERE `key` IN ('platform.ops.module.manage','platform.ops.upgrade.manage') ORDER BY `key`")->fetchAll(PDO::FETCH_ASSOC);
     $opsBindings = (int) $pdo->query('SELECT COUNT(*) FROM pa_platform_role_permission')->fetchColumn();
-    $opsMigration = $serverRoot . '/database/migrations/20261012-align-platform-ops-permission-ownership.sql';
-    executeSqlFile($pdo, $opsMigration);
+    $catalog->synchronize();
     fileAccessExpect($opsIds === $pdo->query("SELECT id,`key` FROM pa_permission WHERE `key` IN ('platform.ops.module.manage','platform.ops.upgrade.manage') ORDER BY `key`")->fetchAll(PDO::FETCH_ASSOC)
         && $opsBindings === (int) $pdo->query('SELECT COUNT(*) FROM pa_platform_role_permission')->fetchColumn(), 'owner alignment is idempotent and preserves permission identities/bindings');
     $pdo->exec("UPDATE pa_permission SET module_key='unknown.synthetic' WHERE `key`='platform.ops.module.manage'");
     try {
-        executeSqlFile($pdo, $opsMigration);
+        $catalog->synchronize();
         throw new RuntimeException('unknown catalog owner accepted');
-    } catch (RuntimeException $error) {
-        fileAccessExpect($error->getPrevious() instanceof PDOException && str_contains($error->getMessage(), '3819'), 'unknown catalog owner fails CHECK before update');
+    } catch (DomainException $error) {
+        fileAccessExpect($error->getMessage() === 'Catalog key is already owned by another module.', 'unknown catalog owner fails before update');
     }
-    $pdo->exec('DROP TEMPORARY TABLE IF EXISTS pa_platform_ops_permission_owner_assertion');
     fileAccessExpect($pdo->query("SELECT module_key FROM pa_permission WHERE `key`='platform.ops.module.manage'")->fetchColumn() === 'unknown.synthetic', 'unknown catalog owner is not taken over');
     $pdo->exec("UPDATE pa_permission SET module_key='platform' WHERE `key`='platform.ops.module.manage'");
-    $migrations = glob($serverRoot . '/app/modules/official/file/database/migrations/*.sql');
-    sort($migrations);
-    executeSqlFiles($pdo, $migrations);
-    $app = new think\App();
+    $app = think\Container::getInstance();
+    $app->env->set(['DEPLOYMENT_MODE' => 'multi-tenant', 'APP_ENV' => 'development', 'APP_DEBUG' => true, 'JWT_SECRET' => str_repeat('f', 32)]);
     $app->initialize();
+    $app->cache->clear();
     ThinkPhpTestConnection::fromPdo($pdo);
     $registry = $app->make(CompiledModuleRegistry::class);
-    foreach (['official.identity', 'official.file', 'official.content-tools'] as $moduleKey) {
+    foreach (['peanut.identity', 'peanut.file', 'peanut.content-tools'] as $moduleKey) {
         $manifest = $registry->requireManifest($moduleKey);
         $s = $pdo->prepare('INSERT INTO pa_module_installation(module_key,installed_version,manifest_schema_version,manifest_digest,status,revision,installed_at,activated_at,created_at,updated_at) VALUES(?,?,?,?,"active",1,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))');
         $s->execute([$moduleKey, $manifest->data['version'], $manifest->data['schema_version'], $manifest->digest]);
-        $s = $pdo->prepare('INSERT INTO pa_tenant_module(tenant_id,module_key,status,source,config_revision,authorization_revision,created_at,updated_at) VALUES(?,?,"enabled","manual",1,1,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))');
-        $s->execute([$owner->tenantId, $moduleKey]);
     }
-    $app->make(\app\platform\infrastructure\module\ModuleCatalogApplier::class)->apply($registry, ['official.identity', 'official.file', 'official.content-tools']);
+    $pdo->exec("INSERT INTO pa_plan(id,code,name,status,created_at,updated_at) VALUES(1,'fixture-file','File fixture','active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
+    $pdo->exec("INSERT INTO pa_plan_module(plan_id,module_key) VALUES(1,'peanut.file'),(1,'peanut.content-tools')");
+    $pdo->exec("INSERT INTO pa_tenant_license(tenant_id,plan_id,status,effective_at,created_at,updated_at) VALUES({$owner->tenantId},1,'active','2020-01-01 00:00:00.000',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
+    $app->make(\app\platform\infrastructure\module\ModuleCatalogApplier::class)->apply($registry, ['peanut.identity', 'peanut.file', 'peanut.content-tools']);
+    $pdo->exec("INSERT INTO pa_plan_permission(plan_id,permission_key) SELECT 1,`key` FROM pa_permission WHERE module_key='peanut.file'");
+    $pdo->exec("INSERT INTO pa_role_permission(tenant_id,role_id,permission_id,granted_at) SELECT r.tenant_id,r.id,p.id,UTC_TIMESTAMP(3) FROM pa_role r JOIN pa_permission p ON p.module_key='peanut.file' WHERE r.`key`='core.tenant-owner'");
     $tenant = $owner->tenantId;
     $account = $owner->accountId;
     $member = $owner->memberId;
@@ -151,7 +158,8 @@ try {
     $unsupported = $run(fn() => $access->resolve($context, $source['file_key'], 'preview', null, null, 'unregistered.viewer'));
     fileAccessExpect($unsupported['url'] === null && $unsupported['state'] === 'preview_unavailable', 'unsupported tool is explicit');
     $pdo->exec("UPDATE pa_role SET is_builtin=0 WHERE tenant_id={$tenant} AND `key`='core.tenant-owner'");
-    $pdo->exec("INSERT IGNORE INTO pa_role_permission(tenant_id,role_id,permission_id,granted_by_member_id,granted_at) SELECT {$tenant},r.id,p.id,{$member},UTC_TIMESTAMP(3) FROM pa_role r JOIN pa_permission p ON p.`key`='official.file.list' WHERE r.tenant_id={$tenant} AND r.`key`='core.tenant-owner'");
+    $pdo->exec("DELETE rp FROM pa_role_permission rp JOIN pa_role r ON r.id=rp.role_id AND r.tenant_id=rp.tenant_id WHERE rp.tenant_id={$tenant} AND r.`key`='core.tenant-owner'");
+    $pdo->exec("INSERT IGNORE INTO pa_role_permission(tenant_id,role_id,permission_id,granted_by_member_id,granted_at) SELECT {$tenant},r.id,p.id,{$member},UTC_TIMESTAMP(3) FROM pa_role r JOIN pa_permission p ON p.`key`='peanut.file.list' WHERE r.tenant_id={$tenant} AND r.`key`='core.tenant-owner'");
     $pdo->exec("UPDATE pa_tenant_member SET authorization_revision=authorization_revision+1 WHERE id={$member}");
     $context = $sessions->revalidateSession($tenant, $account, $member, $sessionKey, 'admin-web', 'r0-preview-only');
     $run = fn(callable $call) => $stack->run(new AdminExecutionContext($context, 'r0.file'), $call);
@@ -167,7 +175,7 @@ try {
     $opened = $storage->authorizedDownload($tenant, $previewDelivery['file_key'], $previewDelivery['token']);
     fileAccessExpect($opened['disposition'] === 'inline' && hash_file('sha256', $opened['path']) === hash_file('sha256', $derivative) && hash_file('sha256', $opened['path']) !== hash_file('sha256', $original), 'actual derivative bytes without download right');
     fileAccessDenied(fn() => $run(fn() => $storage->delete($tenant, $source['file_key'])), 'upload/preview permission is not ordinary delete permission');
-    $pdo->exec("INSERT IGNORE INTO pa_role_permission(tenant_id,role_id,permission_id,granted_by_member_id,granted_at) SELECT {$tenant},r.id,p.id,{$member},UTC_TIMESTAMP(3) FROM pa_role r JOIN pa_permission p ON p.`key`='official.file.upload.image' WHERE r.tenant_id={$tenant} AND r.`key`='core.tenant-owner'");
+    $pdo->exec("INSERT IGNORE INTO pa_role_permission(tenant_id,role_id,permission_id,granted_by_member_id,granted_at) SELECT {$tenant},r.id,p.id,{$member},UTC_TIMESTAMP(3) FROM pa_role r JOIN pa_permission p ON p.`key`='peanut.file.upload.image' WHERE r.tenant_id={$tenant} AND r.`key`='core.tenant-owner'");
     $pdo->exec("ALTER TABLE pa_file ADD CONSTRAINT chk_r0_upload_metadata_failure CHECK (name <> 'r0-failed.png')");
     try {
         $run(fn() => $app->make(\PeanutAdmin\Modules\File\Contract\FileUploads::class)->image(
@@ -187,6 +195,7 @@ try {
         && (int) $pdo->query("SELECT COUNT(*) FROM pa_file WHERE file_key='{$failedUpload['file_key']}'")->fetchColumn() === 0, 'failed metadata write rolls back and exact new upload is physically compensated');
     fileAccessExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE event_type='file.upload.compensated'")->fetchColumn() === 1, 'upload compensation has accurate audit');
     $pdo->exec("UPDATE pa_role SET is_builtin=1 WHERE tenant_id={$tenant} AND `key`='core.tenant-owner'");
+    $pdo->exec("INSERT IGNORE INTO pa_role_permission(tenant_id,role_id,permission_id,granted_at) SELECT r.tenant_id,r.id,p.id,UTC_TIMESTAMP(3) FROM pa_role r JOIN pa_permission p ON p.module_key='peanut.file' WHERE r.tenant_id={$tenant} AND r.`key`='core.tenant-owner'");
     $pdo->exec("UPDATE pa_tenant_member SET authorization_revision=authorization_revision+1 WHERE id={$member}");
     $context = $sessions->revalidateSession($tenant, $account, $member, $sessionKey, 'admin-web', 'r0-owner-restored');
     $run = fn(callable $call) => $stack->run(new AdminExecutionContext($context, 'r0.file'), $call);
@@ -195,7 +204,7 @@ try {
     foreach ([$fresh['url'],'https://external.invalid/a.png','storage/tenants/v1/1/a.png','../private/a'] as $invalid) {
         fileAccessDenied(fn() => $storage->normalizePublicReference($tenant, $invalid), 'unstable reference rejected');
     }
-    $s = $pdo->prepare('INSERT INTO pa_file_reference(tenant_id,file_key,owner_module_key,owner_type,owner_id,reference_digest,updated_at) VALUES(?,?,"official.document","document","39","synthetic-current-reference",UTC_TIMESTAMP(3))');
+    $s = $pdo->prepare('INSERT INTO pa_file_reference(tenant_id,file_key,owner_module_key,owner_type,owner_id,reference_digest,updated_at) VALUES(?,?,"peanut.document","document","39","synthetic-current-reference",UTC_TIMESTAMP(3))');
     $s->execute([$tenant,$source['file_key']]);
     $before = (int) $pdo->query('SELECT COUNT(*) FROM pa_tenant_audit_event')->fetchColumn();
     fileAccessDenied(fn() => $run(fn() => $storage->delete($tenant, $source['file_key'])), 'referenced deletion protected');
@@ -218,9 +227,9 @@ try {
     fileAccessDenied(fn() => $storage->authorizedDownload($tenant + 1, $old['file_key'], $old['token']), 'cross-tenant old grant rejected');
     $fresh = $run(fn() => $access->resolve($context, $source['file_key'], 'download_original'));
     parse_str((string) parse_url($fresh['url'], PHP_URL_QUERY), $old);
-    $pdo->exec("UPDATE pa_tenant_module SET status='disabled',authorization_revision=authorization_revision+1 WHERE tenant_id={$tenant} AND module_key='official.file'");
+    $pdo->exec("UPDATE pa_tenant_license SET status='suspended',revision=revision+1 WHERE tenant_id={$tenant}");
     fileAccessDenied(fn() => $storage->authorizedDownload($tenant, $old['file_key'], $old['token']), 'disabled File rejects old grant');
-    $pdo->exec("UPDATE pa_tenant_module SET status='enabled',authorization_revision=authorization_revision+1 WHERE tenant_id={$tenant} AND module_key='official.file'");
+    $pdo->exec("UPDATE pa_tenant_license SET status='active',revision=revision+1 WHERE tenant_id={$tenant}");
     $fresh = $run(fn() => $access->resolve($context, $source['file_key'], 'download_original'));
     parse_str((string) parse_url($fresh['url'],PHP_URL_QUERY),$old);
     $pdo->exec("UPDATE pa_tenant_session SET status='revoked',revoked_at=UTC_TIMESTAMP(3) WHERE session_key='{$sessionKey}'");

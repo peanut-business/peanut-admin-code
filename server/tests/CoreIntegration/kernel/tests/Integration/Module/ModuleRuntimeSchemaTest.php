@@ -22,8 +22,13 @@ final class ModuleRuntimeSchemaTest extends DatabaseTestCase
         }
 
         $this->runner->migrate();
-        $this->runner->rollbackAll();
-        self::assertFalse($this->query("SHOW TABLES LIKE 'pa_module_installation'")->fetchColumn());
+        try {
+            $this->runner->rollbackAll();
+            self::fail('The owning initial migration must retain its module state.');
+        } catch (\Phinx\Migration\IrreversibleMigrationException $exception) {
+            self::assertStringContainsString('Module data is retained', $exception->getMessage());
+        }
+        self::assertSame('pa_module_installation', $this->query("SHOW TABLES LIKE 'pa_module_installation'")->fetchColumn());
     }
 
     public function testModuleInstallationAndMenuConstraintsRejectInvalidStates(): void
@@ -52,7 +57,7 @@ final class ModuleRuntimeSchemaTest extends DatabaseTestCase
         ]));
     }
 
-    public function testPdoRuntimeEnablesGuardsAndDisablesTenantModule(): void
+    public function testPdoRuntimeGuardsTheCurrentLicenseAndSuspension(): void
     {
         $this->runner->migrate();
         $now = new DateTimeImmutable('2026-07-16T12:00:00Z');
@@ -81,14 +86,21 @@ final class ModuleRuntimeSchemaTest extends DatabaseTestCase
             'created_at' => $timestamp,
             'updated_at' => $timestamp,
         ]);
-        $repository = new ThinkPhpModuleRuntimeRepository();
+        $repository = new ThinkPhpModuleRuntimeRepository($this->fixtureModuleRegistry(['example.target']), $this->fixtureEntitlements(['example.target']));
 
-        $repository->enable($tenantId, 'example.target', ['mode' => 'fixture'], $now);
+        $this->database->prepare('UPDATE pa_module_installation SET manifest_digest = ? WHERE module_key = ?')->execute([
+            $this->fixtureModuleRegistry(['example.target'])->requireManifest('example.target')->digest, 'example.target',
+        ]);
+        $this->licenseTenantModules($tenantId, ['example.target']);
         (new ModuleGuard($repository))->assertMemberAccess($tenantId, 'example.target', true, $now);
-        self::assertSame(2, (int) $this->query("SELECT authorization_revision FROM pa_tenant WHERE id = {$tenantId}")->fetchColumn());
+        self::assertSame(1, $repository->tenantModule($tenantId, 'example.target')->revision);
 
-        $disabled = $repository->disable($tenantId, 'example.target', $now);
+        $this->database->exec("UPDATE pa_tenant_license SET status = 'suspended', revision = revision + 1 WHERE tenant_id = {$tenantId}");
+        $disabled = $repository->tenantModule($tenantId, 'example.target');
         self::assertSame('disabled', $disabled->status);
-        self::assertSame(3, (int) $this->query("SELECT authorization_revision FROM pa_tenant WHERE id = {$tenantId}")->fetchColumn());
+        self::assertSame(2, $disabled->revision);
+        $this->expectException(\PeanutAdmin\Kernel\Module\ModuleException::class);
+        $this->expectExceptionMessage('disabled for tenant');
+        (new ModuleGuard($repository))->assertMemberAccess($tenantId, 'example.target', true, $now);
     }
 }

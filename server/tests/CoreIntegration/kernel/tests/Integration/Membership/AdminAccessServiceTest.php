@@ -181,7 +181,7 @@ final class AdminAccessServiceTest extends DatabaseTestCase
                         }
                         try {
                             ThinkPhpTestConnection::fromPdo($connection);
-                            (new MemberAdminService(new AuditService()))->replaceRoles(
+                            (new MemberAdminService(new AuditService(), new \PeanutAdmin\Kernel\Identity\PasswordHasher(), new \PeanutAdmin\Kernel\Identity\PasswordPolicy()))->replaceRoles(
                                 $this->tenantContext(
                                     'owner-race-' . $memberId,
                                     $this->tenantId,
@@ -231,7 +231,7 @@ WHERE requested.OBJECT_SCHEMA = ? AND requested.OBJECT_NAME = 'pa_tenant'
 SQL);
             $deadline = microtime(true) + 15;
             do {
-                $waiting->execute([self::DATABASE, ...$connectionIds]);
+                $waiting->execute([$this->databaseName, ...$connectionIds]);
                 $waitingCount = (int) $waiting->fetchColumn();
                 if ($waitingCount === 2) {
                     break;
@@ -280,21 +280,12 @@ SQL)->fetchColumn());
     /** Creates an independent native-PDO connection for the owner-lock regression. */
     private function ownerRaceConnection(): PDO
     {
-        return new PDO(
-            sprintf('mysql:host=127.0.0.1;port=%d;dbname=%s;charset=utf8mb4', (int) getenv('MYSQL_PORT'), self::DATABASE),
-            'root',
-            getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev',
-            [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
-            ],
-        );
+        return $this->connect($this->databaseName);
     }
 
     public function testOversizedRoleCommandsFailBeforeTransactionsOrSql(): void
     {
-        $service = new MemberAdminService(new AuditService());
+        $service = new MemberAdminService(new AuditService(), new \PeanutAdmin\Kernel\Identity\PasswordHasher(), new \PeanutAdmin\Kernel\Identity\PasswordPolicy());
         // Count the original array: repeated identifiers must not bypass the work bound.
         $roleIds = array_fill(0, MemberAdminService::MAX_ROLE_IDS + 1, 1);
         foreach ([
@@ -410,7 +401,7 @@ SQL)->fetchColumn());
 
     public function testRolePermissionAssignmentRequiresAnAvailableTenantModule(): void
     {
-        $service = new RoleAdminService(new AuditService());
+        $service = new RoleAdminService(new AuditService(), $this->fixtureEntitlements(['example.records']));
         $role = $service->create(
             $this->tenantContext('request-role-create'),
             'example-reader',
@@ -426,13 +417,7 @@ SQL)->fetchColumn());
             'normal',
             '1.0.0',
         ));
-        $this->insert('pa_tenant_module', [
-            'tenant_id' => $this->tenantId,
-            'module_key' => 'example.records',
-            'status' => 'disabled',
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
+        $this->licenseTenantModules($this->tenantId, ['example.records'], 'suspended');
 
         $this->assertAdminError('PERMISSION_NOT_ASSIGNABLE', fn() => $service->replacePermissions(
             $this->tenantContext('request-role-permissions-disabled'),
@@ -440,7 +425,7 @@ SQL)->fetchColumn());
             ['example.record.read'],
             (int) $role['revision'],
         ));
-        $this->database->exec("UPDATE pa_tenant_module SET status = 'enabled' WHERE tenant_id = {$this->tenantId} AND module_key = 'example.records'");
+        $this->database->exec("UPDATE pa_tenant_license SET status = 'active', revision = revision + 1 WHERE tenant_id = {$this->tenantId}");
         $updated = $service->replacePermissions(
             $this->tenantContext('request-role-permissions'),
             (int) $role['id'],
@@ -475,7 +460,7 @@ SQL)->fetchColumn());
             'created_at' => self::NOW,
             'updated_at' => self::NOW,
         ]);
-        $service = new TenantOwnerAdminService(new AuditService());
+        $service = new TenantOwnerAdminService(new AuditService(), new \PeanutAdmin\Kernel\Identity\PasswordHasher(), new \PeanutAdmin\Kernel\Identity\PasswordPolicy());
         $candidate = $service->createCandidate(
             $this->platformContext('request-owner-candidate', $operatorAccountId, $operatorId),
             $tenantId,
@@ -525,7 +510,7 @@ SQL)->fetchColumn());
 
     private function members(): MemberAdminService
     {
-        return new MemberAdminService(new AuditService());
+        return new MemberAdminService(new AuditService(), new \PeanutAdmin\Kernel\Identity\PasswordHasher(), new \PeanutAdmin\Kernel\Identity\PasswordPolicy());
     }
 
     private function tenantContext(
@@ -543,7 +528,7 @@ SQL)->fetchColumn());
             'admin-web',
             new DateTimeImmutable(self::NOW, new DateTimeZone('UTC')),
             1,
-        ), $requestId);
+        1), $requestId);
     }
 
     private function platformContext(string $requestId, int $accountId, int $operatorId): PlatformContext

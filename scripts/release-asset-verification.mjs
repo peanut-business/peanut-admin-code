@@ -10,14 +10,29 @@ const repository = 'peanut-business/peanut-admin-code'
 const digest = bytes => createHash('sha256').update(bytes).digest('hex')
 const fail = message => { throw new Error(`release-asset-verification: ${message}`) }
 
-export function lookupRelease(version) {
+export function lookupRelease(version, includeDraft = false) {
   if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) fail('invalid version')
   const visible = JSON.parse(execFileSync('gh', ['api', `repos/${repository}`], { encoding: 'utf8', timeout: 60000 }))
   if (visible.full_name !== repository) fail('repository visibility identity differs')
   const result = spawnSync('gh', ['api', `repos/${repository}/releases/tags/v${version}`],
     { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 60000 })
   if (result.error || result.signal) fail('Release lookup has unknown transport result')
-  if (result.status === 1 && result.stderr.includes('(HTTP 404)')) return null
+  if (result.status === 1 && result.stderr.includes('(HTTP 404)')) {
+    if (!includeDraft) return null
+    // REST's tag endpoint only finds published releases. Use the same exact-tag
+    // GraphQL discovery as gh's native draft lookup, then read its REST identity.
+    const response = JSON.parse(execFileSync('gh', ['api', 'graphql', '-f',
+      'query=query($tag:String!){repository(owner:"peanut-business",name:"peanut-admin-code"){release(tagName:$tag){databaseId isDraft}}}',
+      '-f', `tag=v${version}`], { encoding: 'utf8', timeout: 60000 }))
+    if (response.errors || !response.data?.repository || !Object.hasOwn(response.data.repository, 'release')) fail('draft lookup result is unknown')
+    const draft = response.data.repository.release
+    if (draft === null) return null
+    if (draft.isDraft !== true || !Number.isSafeInteger(draft.databaseId) || draft.databaseId <= 0) fail('draft lookup identity differs')
+    const release = JSON.parse(execFileSync('gh', ['api', `repos/${repository}/releases/${draft.databaseId}`],
+      { encoding: 'utf8', timeout: 60000 }))
+    if (release.id !== draft.databaseId || release.tag_name !== `v${version}` || release.draft !== true) fail('draft REST identity differs')
+    return release
+  }
   if (result.status !== 0) fail(`Release lookup failed with exit ${result.status}; absence not established`)
   const release = JSON.parse(result.stdout)
   if (release.tag_name !== `v${version}` || !Number.isSafeInteger(release.id) || release.id <= 0) fail('Release lookup identity differs')
@@ -65,17 +80,12 @@ export function verifyLocalAssets(publication, version) {
   return files
 }
 
-/** Read-only reconciliation. Never uploads, deletes or overwrites a remote asset. */
-export function verifyPublishedAssets(publication, version, prerelease, suppliedRelease = null) {
-  const files = verifyLocalAssets(publication, version)
-  const expected = publicationAssets(version)
-  const release = suppliedRelease ?? JSON.parse(execFileSync('gh', ['api', `repos/${repository}/releases/tags/v${version}`], { encoding: 'utf8', timeout: 60000 }))
-  if (release.tag_name !== `v${version}` || release.draft !== false || release.prerelease !== prerelease
-    || !Number.isSafeInteger(release.id) || release.id <= 0) fail('remote Release identity/channel differs')
-  if (!Array.isArray(release.assets) || release.assets.length !== expected.length
-    || new Set(release.assets.map(asset => asset.name)).size !== expected.length
-    || release.assets.some(asset => !expected.includes(asset.name))) fail('remote attachment set differs')
-  for (const asset of release.assets) {
+function verifyRemoteAssets(files, assets) {
+  const expected = Object.keys(files)
+  if (!Array.isArray(assets) || assets.length !== expected.length
+    || new Set(assets.map(asset => asset.name)).size !== expected.length
+    || assets.some(asset => !expected.includes(asset.name))) fail('remote attachment set differs')
+  for (const asset of assets) {
     const local = files[asset.name]
     if (!Number.isSafeInteger(asset.id) || asset.id <= 0 || asset.size !== local.size
       || asset.state !== 'uploaded' || asset.digest !== `sha256:${local.sha256}`) fail(`remote asset metadata differs: ${asset.name}`)
@@ -83,7 +93,45 @@ export function verifyPublishedAssets(publication, version, prerelease, supplied
       '-H', 'Accept: application/octet-stream'], { maxBuffer: 128 * 1024 * 1024, timeout: 60000 })
     if (bytes.length !== local.size || digest(bytes) !== local.sha256) fail(`downloaded asset bytes differ: ${asset.name}`)
   }
+}
+
+/** Read-only reconciliation. Never uploads, deletes or overwrites a remote asset. */
+export function verifyPublishedAssets(publication, version, prerelease, suppliedRelease = null) {
+  const files = verifyLocalAssets(publication, version)
+  const expected = publicationAssets(version)
+  const release = suppliedRelease ?? JSON.parse(execFileSync('gh', ['api', `repos/${repository}/releases/tags/v${version}`], { encoding: 'utf8', timeout: 60000 }))
+  if (release.tag_name !== `v${version}` || release.draft !== false || release.prerelease !== prerelease
+    || !Number.isSafeInteger(release.id) || release.id <= 0) fail('remote Release identity/channel differs')
+  verifyRemoteAssets(files, release.assets)
   return { release_id: release.id, assets: Object.fromEntries(expected.map(name => [name, files[name].sha256])) }
+}
+
+/** Only the target draft holding the original admitted transport may be continued. */
+export function verifyDraftRelease(publication, version, prerelease, source, transportSha256, release, expectedReleaseId = null, transportId = null) {
+  const files = verifyLocalAssets(publication, version)
+  if (release === null && expectedReleaseId === null) return { release_id: 0, transport_id: 0 }
+  if (!/^[a-f0-9]{40}$/.test(source) || !/^[a-f0-9]{64}$/.test(transportSha256)
+    || !release || release.tag_name !== `v${version}` || release.draft !== true || release.prerelease !== prerelease
+    || release.target_commitish !== source || !Number.isSafeInteger(release.id) || release.id <= 0
+    || release.url !== `https://api.github.com/repos/${repository}/releases/${release.id}`
+    || (expectedReleaseId !== null && release.id !== expectedReleaseId)) fail('target draft identity/channel/source differs')
+  const assets = release.assets
+  const transport = assets?.find(asset => asset.name === 'scaffold-full-qualification.tgz')
+  if (!Array.isArray(assets) || assets.length !== (transportId === null ? 1 : Object.keys(files).length + 1)
+    || assets.filter(asset => asset.name === 'scaffold-full-qualification.tgz').length !== 1
+    || !transport || !Number.isSafeInteger(transport.id) || transport.id <= 0
+    || transport.url !== `https://api.github.com/repos/${repository}/releases/assets/${transport.id}`
+    || transport.state !== 'uploaded' || !Number.isSafeInteger(transport.size) || transport.size <= 0
+    || transport.size > 512 * 1024 * 1024 || transport.digest !== `sha256:${transportSha256}`
+    || (transportId !== null && transport.id !== transportId)) fail('target draft original transport differs')
+  if (transportId === null) {
+    const bytes = execFileSync('gh', ['api', `repos/${repository}/releases/assets/${transport.id}`,
+      '-H', 'Accept: application/octet-stream'], { maxBuffer: 512 * 1024 * 1024, timeout: 60000 })
+    if (bytes.length !== transport.size || digest(bytes) !== transportSha256) fail('target draft downloaded transport differs')
+  } else {
+    verifyRemoteAssets(files, assets.filter(asset => asset.id !== transportId))
+  }
+  return { release_id: release.id, transport_id: transport.id }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
@@ -94,6 +142,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   } else if (process.argv[2] === 'local') {
     if (process.argv.length !== 5) fail('expected local publication/version')
     console.log(JSON.stringify(verifyLocalAssets(process.argv[3], process.argv[4])))
+  } else if (process.argv[2] === 'draft') {
+    const [publication, version, channel, source, transportSha256, releaseId, transportId] = process.argv.slice(3)
+    if (!publication || !version || !['stable', 'prerelease'].includes(channel)
+      || (releaseId !== undefined && (!/^[1-9][0-9]*$/.test(releaseId) || !/^[1-9][0-9]*$/.test(transportId ?? '')))) fail('expected draft publication/version/channel/source/transport-sha256 and optional release/transport IDs')
+    const result = verifyDraftRelease(publication, version, channel === 'prerelease', source, transportSha256,
+      lookupRelease(version, true), releaseId === undefined ? null : Number(releaseId), transportId === undefined ? null : Number(transportId))
+    console.log(`${result.release_id} ${result.transport_id}`)
   } else {
   const [publication, version, channel, supplied] = process.argv.slice(2)
   if (!publication || !version || !['stable', 'prerelease'].includes(channel)

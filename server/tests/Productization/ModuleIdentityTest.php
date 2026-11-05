@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use app\platform\service\module\ModuleDescriptor;
-use app\platform\service\module\ModuleLifecycleService;
+use app\platform\value\module\ModuleDescriptor;
+use app\platform\services\module\ModuleLifecycleService;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
@@ -59,7 +59,6 @@ pluginIdentityExpect(
 $drifts = [
     'version' => ['installed_version', '1.2.4'],
     'artifact' => ['artifact_sha256', str_repeat('f', 64)],
-    'lock' => ['lock_digest', str_repeat('f', 64)],
 ];
 foreach ($drifts as $name => [$field, $value]) {
     $drifted = $current;
@@ -69,6 +68,13 @@ foreach ($drifts as $name => [$field, $value]) {
         "{$name} identity drift was treated as unchanged",
     );
 }
+
+$otherLock = $current;
+$otherLock['lock_digest'] = str_repeat('f', 64);
+pluginIdentityExpect(
+    $sameIdentity->invoke($service, $descriptor, $otherLock) === true,
+    'unrelated deployment lock changes must not change the Module payload identity',
+);
 
 foreach (['composer_identity_json', 'npm_identity_json', 'frontend_identity_json'] as $field) {
     $drifted = $current;
@@ -82,11 +88,15 @@ foreach (['composer_identity_json', 'npm_identity_json', 'frontend_identity_json
 }
 
 $installSource = (string) file_get_contents(
-    dirname(__DIR__, 2) . '/app/platform/service/module/ModuleLifecycleService.php',
+    dirname(__DIR__, 2) . '/app/platform/services/module/ModuleLifecycleService.php',
 );
 pluginIdentityExpect(
     str_contains($installSource, "\$current['status'] === 'active'"),
     'unchanged identity no longer requires an active installation state',
+);
+pluginIdentityExpect(
+    str_contains($installSource, "hash_equals((string) \$current['lock_digest'], \$plugin->lockDigest)"),
+    'interrupted upgrade continuation must still require the exact lock identity',
 );
 
 echo "PLUGIN-IDENTITY-001 passed\n";

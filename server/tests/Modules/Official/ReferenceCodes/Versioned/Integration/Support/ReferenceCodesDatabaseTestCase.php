@@ -24,16 +24,18 @@ use Tests\Modules\Official\ReferenceCodes\Versioned\Integration\Schema\Reference
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use think\db\PDOConnection;
-use think\DbManager;
+
+require_once dirname(__DIR__, 6) . '/Support/RegisteredMysqlTestResource.php';
+require_once dirname(__DIR__, 6) . '/Support/IdentityMysqlFixture.php';
 
 require_once dirname(__DIR__) . '/Schema/ReferenceCodesMigrationRunner.php';
 
 abstract class ReferenceCodesDatabaseTestCase extends TestCase
 {
-    protected const DATABASE = 'peanut_admin_p1_b04_reference_codes_test';
     protected const NOW = '2026-07-20T08:00:00.000Z';
 
-    protected PDO $admin;
+    private string $databaseName;
+    private bool $databaseCreated;
     protected PDO $database;
     protected PDOConnection $connection;
     protected ReferenceCodesMigrationRunner $runner;
@@ -44,28 +46,11 @@ abstract class ReferenceCodesDatabaseTestCase extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        if (getenv('PEANUT_INTEGRATION') !== '1') {
-            self::markTestSkipped('Integrator runs the MySQL-focused reference-code suites.');
-        }
-        if (getenv('DB_HOST') !== '127.0.0.1') {
-            throw new RuntimeException('DB_HOST must be 127.0.0.1.');
-        }
-        $mysqlPort = $this->requiredPort('MYSQL_PORT');
-        $dbPort = $this->requiredPort('DB_PORT');
-        if ($mysqlPort !== $dbPort) {
-            throw new RuntimeException('Reference Codes MYSQL_PORT and DB_PORT must match.');
-        }
-
-        $this->admin = $this->connect();
-        $this->admin->exec('DROP DATABASE IF EXISTS `' . self::DATABASE . '`');
-        $this->admin->exec(
-            'CREATE DATABASE `' . self::DATABASE . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci',
-        );
-        $this->database = $this->connect(self::DATABASE);
-        $this->connection = $this->thinkPhpConnection(self::DATABASE);
-        $this->createParentTables();
+        $this->databaseName = \RegisteredMysqlTestResource::configuredDatabaseName();
+        [$this->database, $this->databaseCreated] = \RegisteredMysqlTestResource::openEmptyDatabase($this->databaseName);
         $this->runner = new ReferenceCodesMigrationRunner($this->database);
         $this->runner->migrate();
+        $this->connection = \ThinkPhpTestConnection::fromPdo($this->database);
     }
 
     protected function tearDown(): void
@@ -73,8 +58,11 @@ abstract class ReferenceCodesDatabaseTestCase extends TestCase
         foreach ($this->temporaryFiles as $file) {
             @unlink($file);
         }
-        if (isset($this->admin)) {
-            $this->admin->exec('DROP DATABASE IF EXISTS `' . self::DATABASE . '`');
+        if (isset($this->database, $this->databaseCreated)) {
+            if ($this->database->inTransaction()) {
+                $this->database->rollBack();
+            }
+            \RegisteredMysqlTestResource::cleanup($this->database, $this->databaseName, $this->databaseCreated);
         }
         parent::tearDown();
     }
@@ -137,13 +125,15 @@ abstract class ReferenceCodesDatabaseTestCase extends TestCase
     /** @return array{tenant_id: int, member_id: int, context: TenantContext} */
     protected function tenant(string $code): array
     {
-        $statement = $this->database->prepare('INSERT INTO pa_tenant (code) VALUES (:code)');
-        $statement->execute(['code' => $code]);
+        $now = (new DateTimeImmutable(self::NOW))->format('Y-m-d H:i:s.v');
+        $statement = $this->database->prepare("INSERT INTO pa_tenant (code, name, display_name, status, created_at, updated_at) VALUES (:code, 'Reference tenant', 'Reference tenant', 'active', :created_at, :updated_at)");
+        $statement->execute(['code' => $code, 'created_at' => $now, 'updated_at' => $now]);
         $tenantId = (int) $this->database->lastInsertId();
+        $this->database->exec("INSERT IGNORE INTO pa_account (id, display_name, created_at, updated_at) VALUES (1, 'Reference actor', '" . $now . "', '" . $now . "')");
         $statement = $this->database->prepare(
-            'INSERT INTO pa_tenant_member (tenant_id) VALUES (:tenant_id)',
+            "INSERT INTO pa_tenant_member (tenant_id, account_id, display_name, status, created_at, updated_at) VALUES (:tenant_id, 1, 'Reference member', 'active', :created_at, :updated_at)",
         );
-        $statement->execute(['tenant_id' => $tenantId]);
+        $statement->execute(['tenant_id' => $tenantId, 'created_at' => $now, 'updated_at' => $now]);
         $memberId = (int) $this->database->lastInsertId();
 
         return [
@@ -238,107 +228,4 @@ abstract class ReferenceCodesDatabaseTestCase extends TestCase
         self::fail('Expected MySQL to reject the invalid row.');
     }
 
-    private function createParentTables(): void
-    {
-        $this->database->exec(<<<'SQL'
-CREATE TABLE pa_tenant (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  code VARCHAR(64) NOT NULL,
-  status VARCHAR(16) NOT NULL DEFAULT 'active',
-  security_revision BIGINT UNSIGNED NOT NULL DEFAULT 1,
-  PRIMARY KEY (id),
-  UNIQUE KEY uk_tenant_code (code)
-) ENGINE=InnoDB
-SQL);
-        $this->database->exec(<<<'SQL'
-CREATE TABLE pa_account (
-  id BIGINT UNSIGNED NOT NULL,
-  status VARCHAR(16) NOT NULL DEFAULT 'active',
-  display_name VARCHAR(160) NOT NULL,
-  security_revision BIGINT UNSIGNED NOT NULL DEFAULT 1,
-  PRIMARY KEY (id)
-) ENGINE=InnoDB
-SQL);
-        // All synthetic contexts intentionally use one account with separate memberships.
-        $this->database->exec("INSERT INTO pa_account (id, display_name) VALUES (1, 'Reference fixture')");
-        $this->database->exec(<<<'SQL'
-CREATE TABLE pa_tenant_member (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  tenant_id BIGINT UNSIGNED NOT NULL,
-  account_id BIGINT UNSIGNED NOT NULL DEFAULT 1,
-  display_name VARCHAR(160) NOT NULL DEFAULT 'Reference fixture member',
-  status VARCHAR(16) NOT NULL DEFAULT 'active',
-  primary_department_id BIGINT UNSIGNED NULL,
-  security_revision BIGINT UNSIGNED NOT NULL DEFAULT 1,
-  authorization_revision BIGINT UNSIGNED NOT NULL DEFAULT 1,
-  PRIMARY KEY (id),
-  UNIQUE KEY uk_tenant_member_tenant_id (tenant_id, id),
-  CONSTRAINT fk_reference_test_member_tenant FOREIGN KEY (tenant_id) REFERENCES pa_tenant (id) ON DELETE RESTRICT
-) ENGINE=InnoDB
-SQL);
-    }
-
-    private function connect(?string $database = null): PDO
-    {
-        $dsn = sprintf(
-            'mysql:host=127.0.0.1;port=%d%s;charset=utf8mb4',
-            $this->requiredPort('DB_PORT'),
-            $database === null ? '' : ';dbname=' . $database,
-        );
-
-        return new PDO(
-            $dsn,
-            'root',
-            getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev',
-            [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
-            ],
-        );
-    }
-
-    private function thinkPhpConnection(string $database): PDOConnection
-    {
-        $manager = new DbManager();
-        $manager->setConfig([
-            'default' => 'mysql',
-            'connections' => [
-                'mysql' => [
-                    'type' => 'mysql',
-                    'hostname' => '127.0.0.1',
-                    'database' => $database,
-                    'username' => 'root',
-                    'password' => getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev',
-                    'hostport' => $this->requiredPort('DB_PORT'),
-                    'charset' => 'utf8mb4',
-                    'prefix' => 'pa_',
-                    'fields_strict' => true,
-                    'break_reconnect' => false,
-                ],
-            ],
-        ]);
-        \think\Container::getInstance()->instance(DbManager::class, $manager);
-        $connection = $manager->connect();
-        if (!$connection instanceof PDOConnection) {
-            throw new RuntimeException('Reference Codes requires a ThinkPHP PDO connection.');
-        }
-
-        return $connection;
-    }
-
-    private function requiredPort(string $name): int
-    {
-        $value = getenv($name);
-        if (!is_string($value) || preg_match('/^[0-9]+$/D', $value) !== 1) {
-            throw new RuntimeException("Missing required environment variable: {$name}.");
-        }
-
-        $port = (int) $value;
-        if ($port < 1 || $port > 65535) {
-            throw new RuntimeException("Invalid port in environment variable: {$name}.");
-        }
-
-        return $port;
-    }
 }

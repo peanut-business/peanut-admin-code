@@ -8,7 +8,6 @@ use DateTimeImmutable;
 use PDO;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
-use PeanutAdmin\Modules\ImportExport\Infrastructure\configuration\TenantSettingsConfigurationAdapter;
 use PeanutAdmin\Modules\Settings\Contract\TenantSettingsTransfer;
 use PeanutAdmin\Modules\Settings\ModuleProvider;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -72,19 +71,6 @@ final class TenantSettingsTransferBoundaryTest extends TestCase
         ), 'settings-transfer-test');
     }
 
-    public function testAdapterCannotAccessSettingsPersistenceDirectly(): void
-    {
-        $adapter = $this->app->make(TenantSettingsConfigurationAdapter::class);
-        $source = file_get_contents((new \ReflectionClass($adapter))->getFileName());
-        self::assertIsString($source);
-        self::assertStringNotContainsString('think\\facade\\Db', $source);
-        self::assertStringNotContainsString('Db::', $source);
-        self::assertStringContainsString('Settings\\Contract\\TenantSettingsTransfer', $source);
-        $constructor = (new \ReflectionClass($adapter))->getConstructor();
-        self::assertNotNull($constructor);
-        self::assertSame(TenantSettingsTransfer::class, (string) $constructor->getParameters()[0]->getType());
-    }
-
     public function testOwnerPublishesAndBindsOnlyTheBusinessTransferContract(): void
     {
         $bindings = (new ModuleProvider())->bindings();
@@ -95,31 +81,6 @@ final class TenantSettingsTransferBoundaryTest extends TestCase
         $manifest = json_decode(file_get_contents(dirname(__DIR__, 3) . '/server/app/modules/peanut/settings/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(TenantSettingsTransfer::class, $manifest['contracts']['exports']);
         self::assertNotContains(get_class($owner), $manifest['contracts']['exports']);
-    }
-
-    public function testCurrentPreservesExistenceRevisionAndSecretRedaction(): void
-    {
-        $adapter = $this->app->make(TenantSettingsConfigurationAdapter::class);
-        $current = $adapter->current($this->actor(), 'website');
-        self::assertTrue($current['exists']);
-        self::assertSame(3, $current['revision']);
-        self::assertSame('first', $current['value']['title']);
-        self::assertSame('configured', $current['value']['password']['$secret']['state']);
-        self::assertStringNotContainsString('synthetic-secret-a', json_encode($current, JSON_THROW_ON_ERROR));
-        self::assertSame(['exists' => false, 'value' => null, 'revision' => null], $adapter->current($this->actor(), 'missing'));
-    }
-
-    public function testExportIsOrderedRedactedAndNeverIncludesAnotherTenant(): void
-    {
-        $this->database->exec("INSERT INTO pa_tenant_setting VALUES (3, 1, 'agreement', '{\"text\":\"a\"}', 1, 100, 100)");
-        $adapter = $this->app->make(TenantSettingsConfigurationAdapter::class);
-        $entries = $adapter->export($this->actor());
-        self::assertSame(['agreement', 'website'], array_column($entries, 'key'));
-        $encoded = json_encode($entries, JSON_THROW_ON_ERROR);
-        self::assertStringNotContainsString('synthetic-secret-', $encoded);
-        self::assertStringNotContainsString('second', $encoded);
-        self::assertStringNotContainsString('tenant_id', $encoded);
-        self::assertCount(1, $entries[1]['secrets']);
     }
 
     public function testCreateAndConditionalReplacePreserveTenantAndCreationTime(): void

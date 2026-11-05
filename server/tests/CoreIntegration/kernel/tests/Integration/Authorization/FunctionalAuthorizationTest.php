@@ -81,7 +81,7 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
             "UPDATE pa_role SET status = 'disabled' WHERE id = {$roleB}",
         );
 
-        $repository = new ThinkPhpTenantAuthorizationRepository();
+        $repository = $this->fixtureAuthorizationRepository(['example.records']);
         $member = $repository->member($tenantId, $memberId);
 
         self::assertSame($memberId, $member['id'] ?? null);
@@ -123,13 +123,7 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
             'created_at' => self::NOW,
             'updated_at' => self::NOW,
         ]);
-        $this->insert('pa_tenant_module', [
-            'tenant_id' => $tenantId,
-            'module_key' => 'example.records',
-            'status' => 'disabled',
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
+        $this->licenseTenantModules($tenantId, ['example.records'], 'suspended');
 
         $evaluator = $this->tenantEvaluator();
         $context = $this->tenantContext($tenantId, $memberId);
@@ -138,23 +132,23 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
         self::assertFalse($evaluator->allows($context, 'platform.tenant.read'));
 
         $this->database->exec(<<<'SQL'
-        UPDATE pa_tenant_module
-        SET status = 'enabled', authorization_revision = authorization_revision + 1
-        WHERE module_key = 'example.records'
+        UPDATE pa_tenant_license
+        SET status = 'active', revision = revision + 1
+        WHERE status = 'suspended'
         SQL);
         self::assertTrue($evaluator->allows($context, 'example.record.read'));
 
         $this->database->exec(<<<'SQL'
         UPDATE pa_module_installation
         SET status = 'maintenance', revision = revision + 1
-        WHERE module_key = 'example.records'
+        WHERE status = 'suspended'
         SQL);
         self::assertFalse($evaluator->allows($context, 'example.record.read'));
 
         $this->database->exec(<<<'SQL'
         UPDATE pa_module_installation
         SET status = 'active', revision = revision + 1
-        WHERE module_key = 'example.records'
+        WHERE status = 'suspended'
         SQL);
         self::assertTrue($evaluator->allows($context, 'example.record.read'));
 
@@ -174,13 +168,7 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
             'sensitive',
             '1.0.0',
         ));
-        $this->insert('pa_tenant_module', [
-            'tenant_id' => $tenantId,
-            'module_key' => 'example.records',
-            'status' => 'enabled',
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
+        $this->licenseTenantModules($tenantId, ['example.records'], 'active');
 
         $evaluator = $this->tenantEvaluator();
         $context = $this->tenantContext($tenantId, $memberId);
@@ -387,7 +375,7 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
             'web',
             new DateTimeImmutable(self::NOW),
             1,
-        ), 'request');
+        1), 'request');
     }
 
     private function platformContext(int $accountId, int $operatorId): PlatformContext
@@ -405,7 +393,7 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
     private function tenantEvaluator(): TenantAuthorizationEvaluator
     {
         return new TenantAuthorizationEvaluator(
-            new ThinkPhpTenantAuthorizationRepository(),
+            $this->fixtureAuthorizationRepository(['example.records']),
             new RevisionPermissionCache(),
         );
     }

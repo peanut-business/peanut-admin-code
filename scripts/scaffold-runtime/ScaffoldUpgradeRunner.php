@@ -1811,10 +1811,11 @@ final class ScaffoldUpgradeRunner
                 continue;
             }
             if ($after === null) {
-                // These Module sources moved to the independent Module application.
+                // These Module sources and their consumed host export adapter moved to the independent Module application.
                 // A template removal cannot consent to deleting an application's development source.
                 if (preg_match('#^server/app/modules/peanut/(?:chart|chart_examples|article|member|payment|oauth|document|rich_text|collaboration|workflow|import_export|notification|entitlement_quota|artifact_revision)/#D', $path) === 1
-                    || preg_match('#^(?:(?:web|platform|uniapp)/src/modules|pc/modules)/peanut-(?:chart|chart-examples|article|member|payment|oauth|document|rich-text|collaboration|workflow|import-export|notification|entitlement-quota|artifact-revision)/#D', $path) === 1) {
+                    || preg_match('#^(?:(?:web|platform|uniapp)/src/modules|pc/modules)/peanut-(?:chart|chart-examples|article|member|payment|oauth|document|rich-text|collaboration|workflow|import-export|notification|entitlement-quota|artifact-revision)/#D', $path) === 1
+                    || $path === 'server/app/common/infrastructure/export/OperationLogExportProvider.php') {
                     $actions[] = $this->action($path, $before ?? [], 'conflict', 'module_source_ownership_transition_required', true, $current, null);
                     continue;
                 }

@@ -192,7 +192,6 @@ function editionUpgradeModuleTree(
     $managedPaths = [
         $frontendRoot . '/package.json',
         $frontendRoot . '/contribution.ts',
-        'plugins/' . $key . '/plugin.json',
         'modules.lock',
     ];
     $appOwnedPaths = [$moduleRoot . '/module.json', $moduleRoot . '/composer.json', $moduleRoot . '/src/ModuleProvider.php'];
@@ -222,8 +221,8 @@ mkdir($package, 0775, true);
 try {
     $currentPlugin = editionUpgradeModuleTree(
         $project,
-        'fixture.upgrade-boundary',
-        'server/app/modules/fixture/upgrade_boundary',
+        'acme.upgrade-boundary',
+        'server/app/modules/acme/upgrade_boundary',
         '1.0.0',
         'installed',
     );
@@ -316,20 +315,13 @@ try {
         'core_web' => '4.0.0-dev',
     ]);
 
-    $targetModuleRoot = $temporary . '/target-plugin-template';
-    $targetPlugin = editionUpgradeModuleTree(
-        $targetModuleRoot,
-        'fixture.upgrade-boundary',
-        'server/app/modules/fixture/upgrade_boundary',
-        '1.1.0',
-        'target',
-    );
     $targetContents = [
         'managed.txt' => "new managed\n",
         'scripts/scaffold-upgrade' => "<?php // new cli\n",
         'scripts/scaffold-runtime/EditionUpgradePackage.php' => "<?php // new loader\n",
         'server/database/migrations/20260830-edition-upgrade.sql' => "SELECT 1;\n",
-    ] + $targetPlugin['managed'];
+        'modules.lock' => json_encode(['schema_version' => 1, 'modules' => []], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n",
+    ];
     $targetFiles = [];
     foreach ($targetContents as $path => $contents) {
         editionUpgradeFile($package . '/target/files/' . $path, $contents, $path === 'scripts/scaffold-upgrade' ? 0755 : 0644);
@@ -396,7 +388,7 @@ try {
             'scaffold_manifest_sha256' => hash_file('sha256', $package . '/target/scaffold-manifest.json'),
             'managed_tree_sha256' => $targetTree,
         ],
-        'upgrader' => ['scope' => 'source', 'installed_entrypoint' => 'scripts/upgrade', 'internal_scaffold_engine' => 'scripts/scaffold-upgrade'],
+        'upgrader' => ['scope' => 'source', 'installed_entrypoint' => 'scripts/scaffold-upgrade', 'internal_scaffold_engine' => 'scripts/scaffold-upgrade'],
         'migration_chain' => [
             'strategy' => 'append-only-ledger',
             'files' => [[
@@ -444,8 +436,8 @@ try {
     // Source adoption no longer runs the historical mixed source/host/DB phase probe.
     // Exercise the real explicit source entry; server host recovery has its own contract checks.
     $pipes = [];
-    $process = proc_open([PHP_BINARY, $root . '/scripts/upgrade', 'plan', '--scope=source',
-        '--instance-root=' . $project, '--package=' . $package],
+    $process = proc_open([PHP_BINARY, $root . '/scripts/scaffold-upgrade', 'preflight',
+        '--project-root=' . $project, '--package=' . $package],
         [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
     editionUpgradeExpect(is_resource($process), 'native source coordinator did not start');
     $nativeOutput = stream_get_contents($pipes[1]);
@@ -455,7 +447,6 @@ try {
     $nativePlan = json_decode($nativeOutput, true);
     editionUpgradeExpect($nativeCode === 0 && $nativeError === ''
         && ($nativePlan['status'] ?? null) === 'ready'
-        && ($nativePlan['scope'] ?? null) === 'source' && ($nativePlan['source_only'] ?? null) === true
         && !file_exists($project . '/.fixture-host'),
         'native source plan unexpectedly required host/DB maintenance: ' . $nativeError);
 
@@ -531,7 +522,7 @@ try {
         'next Plugin lock baseline did not use the canonical planned graph bytes',
     );
     editionUpgradeExpect(
-        array_keys((new ModuleLockResolver($project . '/server', '../modules.lock'))->all()) === ['fixture.upgrade-boundary'],
+        array_keys((new ModuleLockResolver($project . '/server', '../modules.lock'))->all()) === ['acme.upgrade-boundary'],
         'upgraded project Plugin projection is not resolvable',
     );
     $appliedManifest = json_decode((string) file_get_contents($project . '/.peanut/application-manifest.json'), true, 512, JSON_THROW_ON_ERROR);
@@ -549,28 +540,29 @@ try {
     editionUpgradeExpect(hash_equals((string) $secretDigest, (string) hash_file('sha256', $project . '/server/.env')), 'recovery changed secret');
     editionUpgradeExpect(hash_equals((string) $thirdPartyDigest, (string) hash_file('sha256', $project . '/server/app/Modules/ThirdParty/Custom.php')), 'recovery changed third-party Module');
     editionUpgradeExpect(
-        array_keys((new ModuleLockResolver($project . '/server', '../modules.lock'))->all()) === ['fixture.upgrade-boundary'],
+        array_keys((new ModuleLockResolver($project . '/server', '../modules.lock'))->all()) === ['acme.upgrade-boundary'],
         'recovered project Plugin projection is not resolvable',
     );
 
     $newModuleTemplate = $temporary . '/new-plugin-template';
-    editionUpgradeModuleTree(
+    $existingTargetModule = editionUpgradeModuleTree(
         $newModuleTemplate,
-        'fixture.upgrade-boundary',
-        'server/app/modules/fixture/upgrade_boundary',
+        'acme.upgrade-boundary',
+        'server/app/modules/acme/upgrade_boundary',
         '1.1.0',
         'target',
     );
     $newPlugin = editionUpgradeModuleTree(
         $newModuleTemplate,
-        'fixture.new-plugin',
-        'server/app/modules/fixture/new_plugin',
+        'acme.new-module',
+        'server/app/modules/acme/new_module',
         '1.0.0',
         'new-plugin',
     );
     $newModuleRelease = $temporary . '/new-plugin-release';
     editionUpgradeCopyTree($package . '/target', $newModuleRelease);
-    $newModuleManaged = $newPlugin['managed'];
+    $newModuleManaged = $newPlugin['managed'] + $newPlugin['app_owned']
+        + $existingTargetModule['managed'] + $existingTargetModule['app_owned'];
     $newModuleManaged['modules.lock'] = (string) file_get_contents($newModuleTemplate . '/modules.lock');
     foreach ($newModuleManaged as $path => $contents) {
         editionUpgradeFile($newModuleRelease . '/files/' . $path, $contents);
@@ -583,7 +575,7 @@ try {
         }
     }
     unset($file);
-    foreach ($newPlugin['managed'] as $path => $contents) {
+    foreach ($newModuleManaged as $path => $contents) {
         if ($path === 'modules.lock') {
             continue;
         }
@@ -736,7 +728,7 @@ function editionAdoptionFixture(string $temporary, string $edition, bool $custom
         'compatibility' => ['source' => ['minimum_inclusive' => '3.0.14', 'maximum_exclusive' => '3.1.0'], 'major_policy' => 'same-major', 'edition_conversion' => false],
         'build_source' => ['commit' => str_repeat('d', 40), 'tree' => str_repeat('e', 40), 'inventory_sha256' => str_repeat('1', 64)],
         'target' => ['version' => '3.1.0', 'scaffold_manifest' => 'target/scaffold-manifest.json', 'scaffold_manifest_sha256' => hash_file('sha256', $package . '/target/scaffold-manifest.json'), 'managed_tree_sha256' => str_repeat('f', 64)],
-        'upgrader' => ['scope' => 'source', 'installed_entrypoint' => 'scripts/upgrade', 'internal_scaffold_engine' => 'scripts/scaffold-upgrade'],
+        'upgrader' => ['scope' => 'source', 'installed_entrypoint' => 'scripts/scaffold-upgrade', 'internal_scaffold_engine' => 'scripts/scaffold-upgrade'],
         'migration_chain' => ['strategy' => 'append-only-ledger', 'files' => []],
         'ownership' => [
             'automatic' => ['managed', 'generated-managed'], 'preserved' => ['app-owned', 'third-party-module', 'secret'],

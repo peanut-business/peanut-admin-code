@@ -310,7 +310,7 @@ SQL)->fetchAll();
             '127.0.0.1',
             'Test Agent',
             'request-untrusted-origin',
-        ));
+        $this->alphaTenantId));
         self::assertSame('AUTH_TOKEN_INVALID', $untrustedOrigin->errorCode);
     }
 
@@ -402,7 +402,7 @@ SQL)->fetchAll();
             '127.0.0.1',
             'Single Client',
             'request-single-refresh',
-        );
+        $this->alphaTenantId);
         self::assertSame(
             $this->alphaTenantId,
             $multi->context($multiAuth->tokens->access->expose(), 'request-multi-still-valid')->tenantId,
@@ -466,7 +466,7 @@ SQL)->fetchColumn());
             '127.0.0.1',
             'Test Agent',
             'request-refresh-after-access-expiry',
-        );
+        $this->alphaTenantId);
         self::assertSame(
             $this->alphaTenantId,
             $this->auth->context(
@@ -490,12 +490,12 @@ SQL)->fetchColumn());
             '127.0.0.1',
             'Test Agent',
             'request-foreign-refresh-cookie',
-        ));
+        $this->alphaTenantId));
         self::assertSame('AUTH_TOKEN_INVALID', $error->errorCode);
         self::assertSame($first->context->sessionKey, $this->auth->context($firstAccess, 'request-first-unaffected')->sessionKey);
         self::assertSame($second->context->sessionKey, $this->auth->context($secondAccess, 'request-second-unaffected')->sessionKey);
 
-        $rotated = $this->auth->refresh($foreignRefresh, $secondAccess, '127.0.0.1', 'Test Agent', 'request-matching-refresh');
+        $rotated = $this->auth->refresh($foreignRefresh, $secondAccess, '127.0.0.1', 'Test Agent', 'request-matching-refresh', $this->alphaTenantId);
         self::assertSame($second->context->sessionKey, $rotated->context->sessionKey);
     }
 
@@ -511,7 +511,7 @@ SQL)->fetchColumn());
             '127.0.0.1',
             'Test Agent',
             'request-refresh',
-        );
+        $this->alphaTenantId);
         self::assertNotSame($oldAccess, $rotated->tokens->access->expose());
         self::assertSame(
             'AUTH_TOKEN_INVALID',
@@ -533,7 +533,7 @@ SQL)->fetchColumn());
             '127.0.0.1',
             'Test Agent',
             'request-reuse',
-        ));
+        $this->alphaTenantId));
         self::assertSame('AUTH_REFRESH_REUSED', $reuse->errorCode);
         self::assertSame(
             'AUTH_TOKEN_INVALID',
@@ -1292,7 +1292,7 @@ SQL);
         string $requestId,
     ): string {
         try {
-            $service->refresh($refreshToken, $accessToken, '127.0.0.1', null, $requestId);
+            $service->refresh($refreshToken, $accessToken, '127.0.0.1', null, $requestId, $this->alphaTenantId);
 
             return 'success';
         } catch (AuthException $exception) {

@@ -113,10 +113,39 @@ PHP);
         self::assertStringContainsString('[php-test] script', $output);
         [$failed, $error] = $this->runFixture('FailedContract.php', '<?php fwrite(STDERR, "INTENTIONAL_FAILURE"); exit(17);');
         self::assertSame(17, $failed, $error);
+        [$guarded, $guardedOutput] = $this->runFixture('GuardedContract.php', '<?php if (realpath($_SERVER["SCRIPT_FILENAME"]) === __FILE__) { fwrite(STDERR, "GUARDED_MAIN_EXECUTED"); exit(19); }');
+        self::assertSame(19, $guarded, $guardedOutput);
+        self::assertStringContainsString('GUARDED_MAIN_EXECUTED', $guardedOutput);
+    }
+
+    public function testExecutableScriptReceivesNativeArgumentsAfterRunnerSeparator(): void
+    {
+        [$code, $output] = $this->runFixture('Arguments.php', <<<'PHP'
+<?php
+if (getopt('', ['mode:']) !== ['mode' => 'fixture'] || $argc !== 2 || $argv[0] !== __FILE__) {
+    throw new RuntimeException('SCRIPT_ARGUMENTS_CHANGED');
+}
+echo "NATIVE_ARGUMENTS_EXECUTED\n";
+PHP, null, ['--', '--mode=fixture']);
+        self::assertSame(0, $code, $output);
+        self::assertStringContainsString('NATIVE_ARGUMENTS_EXECUTED', $output);
+    }
+
+    public function testRequiredMysqlPhpunitCannotSucceedBySkipping(): void
+    {
+        [$code, $output] = $this->runFixture('SkippedTest.php', <<<'PHP'
+<?php
+final class SkippedTest extends \PHPUnit\Framework\TestCase
+{
+    public function testRequiredDatabase(): void { self::markTestSkipped('fixture database unavailable'); }
+}
+PHP, null, ['--fail-on-skipped']);
+        self::assertNotSame(0, $code, $output);
+        self::assertStringContainsString('Skipped: 1', $output);
     }
 
     /** @return array{int,string} */
-    private function runFixture(string $name, string $source, ?string $environmentFile = null): array
+    private function runFixture(string $name, string $source, ?string $environmentFile = null, array $arguments = []): array
     {
         $file = $this->directory . '/' . $name;
         self::assertNotFalse(file_put_contents($file, $source));
@@ -128,7 +157,7 @@ PHP);
             unset($environment[$key], $environment['PHP_' . $key]);
         }
         $process = proc_open(
-            [PHP_BINARY, $root . '/scripts/run-php-test', ...($environmentFile === null ? [] : ['--env-file=' . $environmentFile]), $file],
+            [PHP_BINARY, $root . '/scripts/run-php-test', ...($environmentFile === null ? [] : ['--env-file=' . $environmentFile]), $file, ...$arguments],
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             $root,

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace tests\Unit;
 
+use app\common\value\scaffold\ScaffoldConfiguration;
+use app\common\value\scaffold\ScaffoldSourceIdentity;
 use PhpParser\Node;
 use PhpParser\NodeFinder;
 use PhpParser\ParserFactory;
@@ -18,15 +20,20 @@ final class PublicDevelopmentInventoryPolicyTest extends TestCase
 
     public static function setUpBeforeClass(): void
     {
+        require_once dirname(__DIR__, 3) . '/scripts/scaffold-runtime/ScaffoldSourceIdentity.php';
         $file = dirname(__DIR__, 3) . '/scripts/build-application-template-inventory';
         $nodes = (new ParserFactory())->createForHostVersion()->parse((string) file_get_contents($file));
         $functions = array_values(array_filter(
             (new NodeFinder())->findInstanceOf($nodes ?? [], Node\Stmt\Function_::class),
-            static fn(Node\Stmt\Function_ $node): bool => in_array($node->name->toString(), ['excluded', 'classification', 'transform', 'sourceDigest'], true),
+            static fn(Node\Stmt\Function_ $node): bool => in_array($node->name->toString(), ['classification', 'transform', 'sourceDigest'], true),
         ));
-        self::assertCount(4, $functions);
+        self::assertCount(3, $functions);
+        $GLOBALS['configuration'] = ScaffoldConfiguration::load();
         // Trusted checked-in function bodies only; no builder entry, package or request code is evaluated.
-        $namespace = new Node\Stmt\Namespace_(new Node\Name('tests\\Unit\\InventoryPolicyUnderTest'), $functions);
+        $namespace = new Node\Stmt\Namespace_(new Node\Name('tests\\Unit\\InventoryPolicyUnderTest'), [
+            ...array_filter($nodes, static fn(Node $node): bool => $node instanceof Node\Stmt\Use_),
+            ...$functions,
+        ]);
         eval((new Standard())->prettyPrint([$namespace]));
     }
 
@@ -73,7 +80,8 @@ final class PublicDevelopmentInventoryPolicyTest extends TestCase
     public function testPublicContractBytesParticipateInTheSourceBaseline(string $path): void
     {
         self::assertFileExists(dirname(__DIR__, 3) . '/' . $path, 'The selected public source must exist in this candidate.');
-        self::assertFalse(InventoryPolicyUnderTest\excluded($path), 'Public development rules must actually ship.');
+        self::assertFalse((new \ReflectionMethod(ScaffoldSourceIdentity::class, 'excluded'))->invoke(null, $path, false, []), 'Public development rules must participate in the source snapshot.');
+        self::assertFalse(ScaffoldConfiguration::matches($path, $GLOBALS['configuration']['inventory_omissions']), 'Public development rules must actually ship.');
         self::assertSame('managed', InventoryPolicyUnderTest\classification($path));
         $transform = InventoryPolicyUnderTest\transform($path, 'managed');
         self::assertSame('text', $transform, 'A public contract must not use reconstructed-doc semantics.');

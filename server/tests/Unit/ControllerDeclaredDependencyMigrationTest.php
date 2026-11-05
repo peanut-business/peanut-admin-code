@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace tests\Unit\ControllerDeclaredDependencyMigration;
 
 use app\BaseController;
-use app\common\infrastructure\module\ModuleHostLayoutFactory;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use LogicException;
@@ -29,11 +28,6 @@ final class ControllerDeclaredDependencyMigrationTest extends TestCase
     protected function setUp(): void
     {
         $this->previousContainer = Container::getInstance();
-        $server = dirname(__DIR__, 2);
-        ModuleHostLayoutFactory::registerRuntimeAutoload([
-            'official.collaboration' => $server . '/app/modules/official/collaboration',
-            'official.document' => $server . '/app/modules/official/document',
-        ], $server);
     }
 
     protected function tearDown(): void
@@ -44,14 +38,20 @@ final class ControllerDeclaredDependencyMigrationTest extends TestCase
     public function testAllOwnedControllerDeclarationsAreTypedDocumentedConflictFreeAndResolvable(): void
     {
         $controllers = $this->controllerDeclarations();
-        self::assertCount(80, $controllers, 'All current Controllers with declared dependencies must be scanned.');
+        self::assertCount(42, $controllers, 'All current Code Controllers with declared dependencies must be scanned.');
 
         foreach ($controllers as $className => $declarations) {
             $controller = new ReflectionClass($className);
             self::assertTrue($controller->isSubclassOf(BaseController::class), $className);
-            self::assertSame(BaseController::class, $controller->getConstructor()?->getDeclaringClass()->getName(), $className);
-
             $app = $this->app();
+            foreach ($controller->getConstructor()?->getParameters() ?? [] as $parameter) {
+                $type = $parameter->getType();
+                self::assertInstanceOf(ReflectionNamedType::class, $type, $className);
+                self::assertFalse($type->isBuiltin(), $className);
+                if ($type->getName() !== App::class) {
+                    $app->instance($type->getName(), $this->dependencyInstance($type->getName()));
+                }
+            }
             $expected = [];
             foreach ($declarations as $name => $declaration) {
                 $property = $controller->getProperty($name . 'Class');
@@ -76,7 +76,7 @@ final class ControllerDeclaredDependencyMigrationTest extends TestCase
             }
 
             Container::setInstance($app);
-            $instance = $controller->newInstance($app);
+            $instance = $app->make($className);
             foreach ($expected as $name => $dependency) {
                 self::assertSame($dependency, $instance->{$name}, $className . '::$' . $name);
             }
@@ -90,7 +90,7 @@ final class ControllerDeclaredDependencyMigrationTest extends TestCase
 
         $this->expectException(LogicException::class);
         $this->expectExceptionMessage('is not bound in the current App');
-        new \app\api\controller\ArticleController($app);
+        new \app\api\controller\UploadController($app);
     }
 
     /**

@@ -11,7 +11,6 @@ use PDO;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
-use PeanutAdmin\Modules\ImportExport\Infrastructure\configuration\ExternalBindingConfigurationAdapter;
 use PeanutAdmin\Modules\Integration\Contract\ExternalBindingTransfer;
 use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionException;
 use PeanutAdmin\Modules\Integration\ModuleProvider;
@@ -19,7 +18,6 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use PHPUnit\Framework\TestCase;
-use ReflectionClass;
 use RuntimeException;
 use think\App;
 use think\facade\Db;
@@ -85,34 +83,12 @@ final class ExternalBindingTransferBoundaryTest extends TestCase
         return $this->database->query('SELECT * FROM pa_external_channel_binding ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function testAdapterUsesTheExportedIntegrationCapabilityAndNoPersistence(): void
+    public function testOwnerPublishesAndBindsTheBusinessTransferContract(): void
     {
-        $adapter = $this->app->make(ExternalBindingConfigurationAdapter::class);
-        $constructor = (new ReflectionClass($adapter))->getConstructor();
-        self::assertNotNull($constructor);
-        self::assertSame(ExternalBindingTransfer::class, $constructor->getParameters()[0]->getType()?->getName());
-        $source = (string) file_get_contents((new ReflectionClass($adapter))->getFileName());
-        self::assertStringNotContainsString('Db::', $source);
-        self::assertStringNotContainsString('external_channel_binding', $source);
         $root = dirname(__DIR__, 3);
         $manifest = json_decode((string) file_get_contents($root . '/server/app/modules/peanut/integration/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(ExternalBindingTransfer::class, $manifest['contracts']['exports']);
         self::assertInstanceOf(ExternalBindingTransfer::class, $this->app->make(ExternalBindingTransfer::class));
-    }
-
-    public function testExportKeepsTenantScopeAndOnlySecretReferences(): void
-    {
-        $this->apply($this->value('alpha'));
-        $this->apply($this->value('beta'), tenantId: 2);
-        $adapter = $this->app->make(ExternalBindingConfigurationAdapter::class);
-        $entries = $adapter->export($this->actor());
-        self::assertCount(1, $entries);
-        self::assertSame('alpha', $entries[0]['value']['config']['app_id']);
-        self::assertArrayHasKey('$secret', $entries[0]['value']['config']['api_secret']);
-        $encoded = json_encode($entries, JSON_THROW_ON_ERROR);
-        self::assertStringNotContainsString('synthetic-test-secret', $encoded);
-        self::assertStringNotContainsString('callback_key', $encoded);
-        self::assertStringNotContainsString($this->rows()[0]['callback_key'], $encoded);
     }
 
     public function testUpdateKeepsCallbackCreationTimeAndOtherTenantUnchanged(): void

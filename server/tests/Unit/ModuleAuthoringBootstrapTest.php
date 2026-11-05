@@ -32,40 +32,40 @@ final class ModuleAuthoringBootstrapTest extends TestCase
 
         $ordinary = $this->runThink(['list', '--raw'], $development);
         self::assertNotSame(0, $ordinary['status']);
-        self::assertStringContainsString('Canonical Plugin contents digest differs.', $ordinary['output']);
+        self::assertStringContainsString('manifest digest', $ordinary['output']);
 
         $http = $this->runPhp([$this->fixtureRoot . '/server/http-entry.php'], $development);
         self::assertNotSame(0, $http['status']);
-        self::assertStringContainsString('Canonical Plugin contents digest differs.', $http['output']);
+        self::assertStringContainsString('manifest digest', $http['output']);
 
         $productionAuthoring = $this->runThink([
             'module:make',
-            'fixture.delivery-record',
+            'acme.authoring',
             '1.0.0',
-            '--module=fixture.delivery-record=server/app/modules/fixture/delivery_record',
+            '--module=acme.authoring=server/app/modules/acme/authoring',
         ], $production);
         self::assertNotSame(0, $productionAuthoring['status']);
-        self::assertStringContainsString('Canonical Plugin contents digest differs.', $productionAuthoring['output']);
+        self::assertStringContainsString('manifest digest', $productionAuthoring['output']);
 
         $invalidPath = $this->runThink([
             'module:make',
-            'fixture.delivery-record',
+            'acme.authoring',
             '1.0.0',
-            '--module=fixture.delivery-record=server/app/modules/fixture/not_the_key_path',
+            '--module=acme.authoring=server/app/modules/acme/not_the_key_path',
         ], $development);
         self::assertSame(1, $invalidPath['status']);
         self::assertStringContainsString('Module root is not key-derived', $invalidPath['output']);
 
-        $moduleManifest = $this->fixtureRoot . '/server/app/modules/fixture/delivery_record/module.json';
+        $moduleManifest = $this->fixtureRoot . '/server/app/modules/acme/authoring/module.json';
         $validDefinition = file_get_contents($moduleManifest);
         self::assertIsString($validDefinition);
         file_put_contents($moduleManifest, "{\n");
         try {
             $invalidDefinition = $this->runThink([
                 'module:make',
-                'fixture.delivery-record',
+                'acme.authoring',
                 '1.0.0',
-                '--module=fixture.delivery-record=server/app/modules/fixture/delivery_record',
+                '--module=acme.authoring=server/app/modules/acme/authoring',
             ], $development);
         } finally {
             file_put_contents($moduleManifest, $validDefinition);
@@ -73,15 +73,15 @@ final class ModuleAuthoringBootstrapTest extends TestCase
         self::assertSame(1, $invalidDefinition['status']);
         self::assertStringContainsString('JSON file is invalid:', $invalidDefinition['output']);
 
-        $staleLock = $this->runThink(['module:lock', '--write'], $development);
+        $staleLock = $this->runThink(['module:lock', '--check'], $development);
         self::assertSame(1, $staleLock['status']);
-        self::assertStringContainsString('Plugin manifest is not canonical', $staleLock['output']);
+        self::assertStringContainsString('modules.lock is not canonical', $staleLock['output']);
 
         $make = $this->runThink([
             'module:make',
-            'fixture.delivery-record',
+            'acme.authoring',
             '1.0.0',
-            '--module=fixture.delivery-record=server/app/modules/fixture/delivery_record',
+            '--module=acme.authoring=server/app/modules/acme/authoring',
         ], $development);
         self::assertSame(0, $make['status'], $make['output']);
 
@@ -93,14 +93,17 @@ final class ModuleAuthoringBootstrapTest extends TestCase
     private function prepareSourceFixture(): void
     {
         $server = $this->fixtureRoot . '/server';
-        foreach (['app/command', 'bootstrap', 'config', 'resources/schemas', 'vendor', 'app/modules/fixture'] as $directory) {
+        foreach (['app/command', 'config', 'resources/schemas', 'vendor', 'app/modules/acme/authoring/src'] as $directory) {
             self::assertTrue(mkdir($server . '/' . $directory, 0700, true) || is_dir($server . '/' . $directory));
         }
 
         foreach ([
             'release-versions.json',
             'server/think',
-            'server/bootstrap/environment.php',
+            'server/module',
+            'server/composer.json',
+            'server/composer.lock',
+            'server/vendor/composer/installed.json',
             'server/app/AppService.php',
             'server/app/service.php',
             'server/app/command/ModuleMake.php',
@@ -110,54 +113,57 @@ final class ModuleAuthoringBootstrapTest extends TestCase
             $this->copyFile($relative);
         }
         $this->copyTree($this->repositoryRoot . '/server/config', $server . '/config');
-        $this->copyTree(
-            $this->repositoryRoot . '/server/fixtures/modules/delivery_record',
-            $server . '/app/modules/fixture/delivery_record',
-        );
-        $this->copyTree(
-            $this->repositoryRoot . '/web/tests/fixtures/modules/fixture-delivery-record',
-            $this->fixtureRoot . '/web/src/modules/fixture-delivery-record',
-        );
-        $this->copyTree(
-            $this->repositoryRoot . '/plugins/fixture.delivery-record',
-            $this->fixtureRoot . '/plugins/fixture.delivery-record',
-        );
-
-        $lock = json_decode(
-            (string) file_get_contents($this->repositoryRoot . '/modules.lock'),
-            true,
-            64,
-            JSON_THROW_ON_ERROR,
-        );
-        $entry = null;
-        foreach ((array) ($lock['modules'] ?? []) as $candidate) {
-            if (is_array($candidate) && ($candidate['key'] ?? null) === 'fixture.delivery-record') {
-                $entry = $candidate;
-                break;
+        // Native compilation requires the shipped protected owners and their selected graph.
+        foreach (glob($this->repositoryRoot . '/server/app/modules/peanut/*/module.json') as $manifestPath) {
+            $manifest = json_decode((string) file_get_contents($manifestPath), true, 64, JSON_THROW_ON_ERROR);
+            $relative = substr(dirname($manifestPath), strlen($this->repositoryRoot) + 1);
+            $this->copyTree(dirname($manifestPath), $this->fixtureRoot . '/' . $relative);
+            foreach (\app\platform\value\module\ModuleFrontendLayout::contributions($manifest['frontend'] ?? [], $manifest['key']) as $frontend) {
+                $this->copyTree($this->repositoryRoot . '/' . $frontend['root'], $this->fixtureRoot . '/' . $frontend['root']);
             }
         }
-        self::assertIsArray($entry);
-        file_put_contents(
-            $this->fixtureRoot . '/modules.lock',
-            json_encode(['schema_version' => 1, 'modules' => [$entry]], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n",
-        );
+        $moduleRoot = $server . '/app/modules/acme/authoring';
+        file_put_contents($moduleRoot . '/module.json', json_encode([
+            'schema_version' => 1, 'key' => 'acme.authoring', 'name' => 'Authoring fixture',
+            'description' => 'Native source authoring contract fixture', 'version' => '1.0.0',
+            'kernel_constraint' => '^1.0', 'license' => 'MIT', 'dependencies' => [],
+            'php_package' => 'acme/authoring',
+            'backend' => ['provider' => 'Acme\\Modules\\Authoring\\ModuleProvider'],
+            'frontend' => (object) [], 'database' => ['owned_tables' => []],
+            'contracts' => ['exports' => [], 'events' => []],
+            'tenant' => ['enableable' => true, 'disable_behavior' => 'reject_new_operations', 'requires' => []],
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+        file_put_contents($moduleRoot . '/composer.json', json_encode([
+            'name' => 'acme/authoring', 'version' => '1.0.0', 'type' => 'library',
+            'autoload' => ['psr-4' => ['Acme\\Modules\\Authoring\\' => 'src/']],
+            'extra' => ['peanut' => ['editions' => ['multi-tenant', 'standalone']]],
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+        file_put_contents($moduleRoot . '/src/ModuleProvider.php', <<<'PHP'
+<?php
+namespace Acme\Modules\Authoring;
+final class ModuleProvider implements \PeanutAdmin\Kernel\Module\ModuleProvider
+{
+    public function moduleKey(): string { return 'acme.authoring'; }
+    public function bindings(): array { return []; }
+}
+PHP);
+        (new \app\platform\infrastructure\module\ModuleArtifactWriter($server))->writeLock();
 
         $loader = var_export($this->repositoryRoot . '/server/vendor/autoload.php', true);
         file_put_contents(
             $server . '/vendor/autoload.php',
-            "<?php\n\$loader = require {$loader};\n\$loader->addPsr4('app\\\\', __DIR__ . '/../app/', true);\nreturn \$loader;\n",
+            "<?php\nrequire {$loader};\n\$loader = new Composer\\Autoload\\ClassLoader(__DIR__);\n\$loader->addPsr4('app\\\\', __DIR__ . '/../app/');\n\$loader->register(true);\nreturn \$loader;\n",
         );
         file_put_contents(
             $server . '/http-entry.php',
-            "<?php\nrequire __DIR__ . '/bootstrap/environment.php';\nrequire __DIR__ . '/vendor/autoload.php';\n(new think\\App(__DIR__))->http->run();\n",
+            "<?php\nrequire __DIR__ . '/vendor/autoload.php';\n(new think\\App(__DIR__))->http->run();\n",
         );
         chmod($server . '/think', 0700);
 
-        file_put_contents(
-            $server . '/app/modules/fixture/delivery_record/src/ModuleProvider.php',
-            "\n// Stale source fixture: the locked canonical digest intentionally predates this line.\n",
-            FILE_APPEND,
-        );
+        $manifestPath = $moduleRoot . '/module.json';
+        $manifest = json_decode((string) file_get_contents($manifestPath), false, 64, JSON_THROW_ON_ERROR);
+        $manifest->name = 'Edited authoring fixture';
+        file_put_contents($manifestPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
     }
 
     private function environment(string $environment, bool $debug): string
@@ -181,20 +187,31 @@ final class ModuleAuthoringBootstrapTest extends TestCase
     /** @param list<string> $arguments @return array{status:int,output:string} */
     private function runThink(array $arguments, string $environment): array
     {
+        if (in_array($arguments[0], ['module:make', 'module:lock'], true)) {
+            return $this->runPhp([$this->fixtureRoot . '/server/module'], $environment, json_encode([
+                'operation' => substr($arguments[0], 7), 'arguments' => array_slice($arguments, 1),
+            ], JSON_THROW_ON_ERROR));
+        }
         return $this->runPhp([$this->fixtureRoot . '/server/think', ...$arguments], $environment);
     }
 
     /** @param list<string> $arguments @return array{status:int,output:string} */
-    private function runPhp(array $arguments, string $environment): array
+    private function runPhp(array $arguments, string $environment, string $input = ''): array
     {
+        $nativeEnvironment = ['PATH' => (string) getenv('PATH')];
+        foreach (parse_ini_file($environment, false, INI_SCANNER_RAW) as $key => $value) {
+            $nativeEnvironment['PHP_' . $key] = $value;
+        }
         $process = proc_open(
             [PHP_BINARY, ...$arguments],
-            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             $this->fixtureRoot . '/server',
-            ['PATH' => (string) getenv('PATH'), 'PEANUT_SERVER_ENV_FILE' => $environment],
+            $nativeEnvironment,
         );
         self::assertIsResource($process);
+        fwrite($pipes[0], $input);
+        fclose($pipes[0]);
         $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
         fclose($pipes[1]);
         fclose($pipes[2]);

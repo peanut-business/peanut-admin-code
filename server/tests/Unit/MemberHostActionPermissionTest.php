@@ -58,6 +58,9 @@ final class MemberHostActionPermissionTest extends TestCase
             CREATE TABLE pa_plan (id INTEGER PRIMARY KEY,code TEXT,name TEXT,revision INTEGER);
             CREATE TABLE pa_tenant_license (id INTEGER PRIMARY KEY,tenant_id INTEGER,plan_id INTEGER);
             CREATE TABLE pa_tenant_audit_event (id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER,actor_type TEXT,tenant_member_id INTEGER,platform_operator_id INTEGER,account_id INTEGER,event_type TEXT,action TEXT,outcome TEXT,reason_code TEXT,target_resource_type TEXT,target_resource_id TEXT,request_id TEXT,operation_id TEXT,ip_address TEXT,user_agent_hash TEXT,before_json TEXT,after_json TEXT,metadata_json TEXT,occurred_at TEXT);
+            ALTER TABLE pa_tenant ADD COLUMN security_revision INTEGER DEFAULT 1;
+            ALTER TABLE pa_account ADD COLUMN display_name TEXT DEFAULT 'Actor';
+            ALTER TABLE pa_account ADD COLUMN security_revision INTEGER DEFAULT 1;
             SQL);
         foreach (['create','update','role.assign','activate','suspend','leave'] as $index => $operation) {
             $this->pdo->prepare('INSERT INTO pa_permission VALUES (?,?,?,?)')->execute([$index + 1, 'core.member.' . $operation, 'core', 'active']);
@@ -70,7 +73,8 @@ final class MemberHostActionPermissionTest extends TestCase
         $lookup->method('activeMembership')->willReturnCallback(static fn(int $tenant, int $member): ?TenantMemberSummary =>
             $tenant === 101 && $member === 601 ? new TenantMemberSummary(101,601,501,'Actor',1,1,1,1) : null);
         $lookup->method('activeMembershipCount')->willReturn(1);
-        $identity = new TenantAuthorizationQuery($lookup);
+        $registry = new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], 'member-host');
+        $identity = new TenantAuthorizationQuery($lookup, $registry, new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService($registry));
         $grants = $this->createStub(TenantAuthorizationRepository::class);
         $grants->method('permissions')->willReturnCallback(fn() => new EffectivePermissionSet($this->permissions));
         $bridge = new CoreTenantModuleAdminBridge(
@@ -79,7 +83,7 @@ final class MemberHostActionPermissionTest extends TestCase
             new \PeanutAdmin\Modules\Identity\Menu\MenuAdministrationService(),
             new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService(new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([],[],[],[],'fixture-member')),
         );
-        $authorization = new AdminAuthorizationService($bridge, new \app\common\policy\permission\RegisteredAdminPermissionPolicy(), $lookup, $directory, $identity,
+        $authorization = new AdminAuthorizationService($bridge, new \app\common\policy\permission\RegisteredAdminPermissionPolicy(), $directory, $identity,
             new \app\common\services\authorization\EndpointPermissionGrant(new \think\Request()));
         $this->members = new MemberAdminService(new AuditService($current), new \PeanutAdmin\Kernel\Identity\PasswordHasher(), new \PeanutAdmin\Kernel\Identity\PasswordPolicy());
         $runtime = new \app\common\runtime\org\TenantAdminRuntime($this->members,
@@ -90,7 +94,7 @@ final class MemberHostActionPermissionTest extends TestCase
             $directory, $runtime, $this->createStub(\PeanutAdmin\Modules\File\Contract\FileReferences::class),
             new \PeanutAdmin\Kernel\Identity\PasswordPolicy(), $current, $authorization,
         );
-        $this->actor = TenantContext::fromValidatedSession(new ValidatedTenantSession(1,'member-host',101,501,601,'admin-web',new DateTimeImmutable('2035-01-01'),1),'member-host-request');
+        $this->actor = TenantContext::fromValidatedSession(new ValidatedTenantSession(1,'member-host',101,501,601,'admin-web',new DateTimeImmutable('2035-01-01'),1,1),'member-host-request');
     }
 
     private function runAs(callable $operation): mixed
@@ -200,7 +204,7 @@ final class MemberHostActionPermissionTest extends TestCase
 
     public function testPendingAdministratorStaysPendingUntilExplicitlyAuthorizedActivation(): void
     {
-        $this->pdo->exec("INSERT INTO pa_account VALUES (504,'active','',NULL)");
+        $this->pdo->exec("INSERT INTO pa_account(id,status,avatar_uri,last_login_at) VALUES (504,'active','',NULL)");
         $this->pdo->exec("INSERT INTO pa_credential VALUES (2,504,'email_password','email','active','pending@example.test')");
         $this->pdo->exec('ALTER TABLE pa_tenant_member ADD COLUMN created_at TEXT');
         $this->pdo->exec('CREATE TABLE pa_member_job(tenant_id INTEGER,tenant_member_id INTEGER,job_id INTEGER)');

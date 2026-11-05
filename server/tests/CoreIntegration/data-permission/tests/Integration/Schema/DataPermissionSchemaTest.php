@@ -19,26 +19,25 @@ final class DataPermissionSchemaTest extends DatabaseTestCase
     {
         parent::setUp();
         $this->runner->migrate();
-        $this->dataRunner = new DataPermissionMigrationRunner(
-            self::DATABASE,
-            '127.0.0.1',
-            (int) (getenv('MYSQL_PORT') ?: 3306),
-            'root',
-            getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev',
-        );
+        $this->dataRunner = new DataPermissionMigrationRunner($this->database);
         $this->dataRunner->migrate();
     }
 
     public function testDataPermissionMigrationsInstallRepeatAndRollback(): void
     {
         $this->dataRunner->migrate();
-        self::assertSame(5, (int) $this->query(
-            'SELECT COUNT(*) FROM pa_data_permission_migration',
+        self::assertSame(1, (int) $this->query(
+            'SELECT COUNT(*) FROM pa_migrations WHERE version = 20261101010001',
         )->fetchColumn());
 
-        $this->dataRunner->rollbackAll();
-        self::assertFalse($this->tableExists('pa_data_permission_policy'));
-        self::assertFalse($this->tableExists('pa_data_permission_target'));
+        try {
+            $this->dataRunner->rollbackAll();
+            self::fail('Identity initial schema rollback must retain data permission storage.');
+        } catch (\Phinx\Migration\IrreversibleMigrationException $exception) {
+            self::assertSame('Module data is retained. This initial schema migration cannot be rolled back.', $exception->getMessage());
+        }
+        self::assertTrue($this->tableExists('pa_data_permission_policy'));
+        self::assertTrue($this->tableExists('pa_data_permission_target'));
         self::assertTrue($this->tableExists('pa_tenant'));
     }
 
@@ -252,7 +251,7 @@ final class DataPermissionSchemaTest extends DatabaseTestCase
 SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = :schema AND table_name = :table
 SQL);
         self::assertNotFalse($statement);
-        $statement->execute(['schema' => self::DATABASE, 'table' => $table]);
+        $statement->execute(['schema' => $this->databaseName, 'table' => $table]);
 
         return (int) $statement->fetchColumn() === 1;
     }

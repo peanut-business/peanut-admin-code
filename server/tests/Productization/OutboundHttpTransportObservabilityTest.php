@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
-use app\common\service\http\GuzzleOutboundHttpTransport;
-use app\common\service\http\OutboundHttpException;
-use app\common\service\http\OutboundHttpRequest;
+use app\common\infrastructure\http\GuzzleOutboundHttpTransport;
+use app\common\exception\http\OutboundHttpException;
+use app\common\value\http\OutboundHttpRequest;
 use PeanutAdmin\Modules\File\Composition\Storage\QcloudStorageClientFactory;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
@@ -47,6 +47,7 @@ function outboundHttpContext(int $tenantId, string $requestId): TenantContext
         'admin-web',
         new DateTimeImmutable('now', new DateTimeZone('UTC')),
         1,
+        1,
     ), $requestId);
 }
 
@@ -66,7 +67,7 @@ function outboundHttpEvents(OutboundHttpLogTestApp $app): array
 
 function outboundHttpTransport(array $queue): GuzzleOutboundHttpTransport
 {
-    return new GuzzleOutboundHttpTransport(new Client([
+    return new GuzzleOutboundHttpTransport(app(CurrentExecutionContext::class), new Client([
         'handler' => MockHandler::createWithMiddleware($queue),
     ]));
 }

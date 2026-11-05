@@ -37,7 +37,7 @@ final class PlatformAccessAdminServiceTest extends DatabaseTestCase
         $this->actorOperatorId = $this->operator($this->actorAccountId, 'Control Owner');
         $this->controlRoleId = $this->role('platform.bootstrap-owner', 'Bootstrap Owner', true);
         $this->assignRole($this->actorOperatorId, $this->controlRoleId, null);
-        $this->service = new PlatformAccessAdminService(new AuditService());
+        $this->service = new PlatformAccessAdminService(new AuditService(), new \PeanutAdmin\Kernel\Identity\PasswordHasher(), new \PeanutAdmin\Kernel\Identity\PasswordPolicy());
     }
 
     public function testOperatorLifecycleRolesAndSessionsCannotLockOutControlPlane(): void

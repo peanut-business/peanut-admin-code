@@ -135,7 +135,7 @@ final class PublicSettingsAuthorizationTest extends TestCase
 
     private function tenant(int $tenantId = 101, int $revision = 1): TenantContext
     {
-        return TenantContext::fromValidatedSession(new ValidatedTenantSession(1, '01J00000000000000000000000', $tenantId, 301, 501, 'admin-web', new DateTimeImmutable('2031-01-01T00:00:00Z'), $revision), 'settings-test');
+        return TenantContext::fromValidatedSession(new ValidatedTenantSession(1, '01J00000000000000000000000', $tenantId, 301, 501, 'admin-web', new DateTimeImmutable('2031-01-01T00:00:00Z'), $revision, 1), 'settings-test');
     }
 
     private function principal(): array

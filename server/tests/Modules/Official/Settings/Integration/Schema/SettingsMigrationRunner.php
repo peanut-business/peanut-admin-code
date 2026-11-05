@@ -5,23 +5,19 @@ declare(strict_types=1);
 namespace Tests\Modules\Official\Settings\Integration\Schema;
 
 use PDO;
-use PeanutAdmin\Kernel\Persistence\Tenancy\TenantPersistenceMode;
 use PeanutAdmin\Modules\Settings\Database\Schema;
 
 final readonly class SettingsMigrationRunner
 {
     public function __construct(
         private PDO $pdo,
-        private TenantPersistenceMode $mode = TenantPersistenceMode::TenantScoped,
     ) {}
 
     public function migrate(): void
     {
-        foreach (Schema::tableNames() as $table) {
-            if (!$this->exists($table)) {
-                $this->pdo->exec(Schema::createSql($table, $this->mode));
-            }
-        }
+        \IdentityMysqlFixture::install($this->pdo, [
+            dirname(__DIR__, 6) . '/app/modules/peanut/settings/database/migrations',
+        ]);
     }
 
     public function rollbackAll(): void
@@ -29,16 +25,5 @@ final readonly class SettingsMigrationRunner
         foreach (array_reverse(Schema::tableNames()) as $table) {
             $this->pdo->exec(Schema::dropSql($table));
         }
-    }
-
-    private function exists(string $table): bool
-    {
-        $statement = $this->pdo->prepare(<<<'SQL'
-SELECT COUNT(*) FROM information_schema.tables
-WHERE table_schema = DATABASE() AND table_name = :table_name
-SQL);
-        $statement->execute(['table_name' => $table]);
-
-        return (int) $statement->fetchColumn() === 1;
     }
 }

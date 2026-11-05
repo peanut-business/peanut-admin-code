@@ -10,6 +10,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import tarfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -176,6 +177,61 @@ class TemplateStageTest(unittest.TestCase):
         self.assertEqual(self.receipt()["status"], "failed-preserved")
         self.assertEqual(len([call for call in self.calls if call[2] == "create"]), 1)
 
+    def test_runtime_admission_uses_code_native_proof_and_preserves_actor_schema_checks(self):
+        actor = self.root / "application"
+        actor.mkdir()
+        proof = self.root / "native-tool-domain/leases/runtime-proof"
+        proof.mkdir(parents=True)
+        runtime = {"lease": "runtime-proof", "resource_id": "synthetic-database"}
+        required = [("database", "synthetic_schema"), ("mysql-db", "synthetic_schema"),
+                    ("mysql-schema", "synthetic-server/synthetic_schema"), ("endpoint", "synthetic-endpoint")]
+        metadata = {"owner": "native-owner", "thread": "native-thread", "worktree": str(actor),
+                    "candidate_repository": str(actor), "candidate": self.candidate, "gate": "native-gate",
+                    "parent_lease": "", "status": "ACTIVE", "expires_at": str(int(time.time()) + 600)}
+        state = {"metadata": metadata, "resources": required, "proof": str(proof), "denied": False}
+        native_calls = []
+
+        def native_command(arguments, **kwargs):
+            native_calls.append((arguments, kwargs))
+            if arguments[:2] == [str(stage.LEASE_TOOL), "show"]:
+                self.assertEqual(kwargs, {"cwd": actor, "capture": True})
+                self.assertEqual(arguments[2:5], ["--lease", "runtime-proof", "--verify-locks"])
+                if state["denied"]:
+                    raise stage.GateError("native lease denied")
+                if arguments[5:] == ["--proof-dir"]:
+                    text = state["proof"] + "\n"
+                else:
+                    self.assertEqual(len(arguments), 5)
+                    text = "".join(f"{key}\t{value}\n" for key, value in state["metadata"].items())
+                    text += "resources\n" + "".join(f"{key}\t{value}\n" for key, value in state["resources"])
+                return subprocess.CompletedProcess(arguments, 0, text, "")
+            self.assertEqual(arguments, ["git", "-C", str(actor), "rev-parse", "HEAD"])
+            return subprocess.CompletedProcess(arguments, 0, self.candidate + "\n", "")
+
+        with patch.object(stage, "command", side_effect=native_command), \
+             patch.object(stage, "database_registration", return_value={"lease_gate": "native-gate"}), \
+             patch.object(stage, "database_resources", return_value=required):
+            admission = stage.runtime_admission(runtime, str(actor), self.candidate)
+            self.assertEqual(admission["proof_dir"], str(proof))
+            self.assertFalse((actor / "scripts/project-resource-lease").exists())
+            stage.verify_runtime_admission(admission, "native-owner", "native-thread")
+            self.assertTrue(all(call[0][0] == str(stage.LEASE_TOOL) for call in native_calls if call[0][0] != "git"))
+            self.assertEqual(native_calls[0][0][-1], "--proof-dir")
+            with self.assertRaisesRegex(stage.GateError, "directory differs"):
+                stage.verify_runtime_admission(admission | {"proof_dir": str(actor / "wrong-domain")}, "native-owner", "native-thread")
+            for field in ("owner", "thread", "worktree", "candidate_repository", "candidate", "gate", "parent_lease", "status"):
+                with self.subTest(metadata=field):
+                    state["metadata"] = metadata | {field: "wrong"}
+                    with self.assertRaisesRegex(stage.GateError, "owner/thread/source/gate"):
+                        stage.verify_runtime_admission(admission, "native-owner", "native-thread")
+            state["metadata"] = metadata
+            state["resources"] = required + [("mysql-schema", "another-server/another-schema")]
+            with self.assertRaisesRegex(stage.GateError, "another schema"):
+                stage.verify_runtime_admission(admission, "native-owner", "native-thread")
+            state["denied"] = True
+            with self.assertRaisesRegex(stage.GateError, "native lease denied"):
+                stage.runtime_admission(runtime, str(actor), self.candidate)
+
     def test_ci_transport_preserves_hidden_defaults_and_executable_modes(self):
         file = self.templates / "standalone/defaults/.env.example"
         file.parent.mkdir(parents=True)
@@ -197,13 +253,13 @@ class TemplateStageTest(unittest.TestCase):
             self.assertEqual(package.extractfile(hidden).read(), file.read_bytes())
             self.assertEqual(package.extractfile(script).read(), executable.read_bytes())
         workflow = (SCRIPT.parent.parent / ".github/workflows/scaffold-release.yml").read_text()
-        self.assertIn('scaffold-templates template-qualification', workflow)
-        self.assertIn('sha256sum scaffold-template-qualification.tgz', workflow)
+        self.assertIn('transport_name=scaffold-template-qualification', workflow)
+        self.assertIn('sha256sum "$transport_name.tgz"', workflow)
         self.assertIn('scripts/p0e-runtime-qualification candidate', workflow)
         self.assertIn('repository: peanut-business/peanut-cli', workflow)
         self.assertIn('if: ${{ always() }}', workflow)
         self.assertIn("always() && steps.preserve_candidate.outputs.available == 'true'", workflow)
-        self.assertIn('for name in scaffold-templates template-qualification candidate-inputs.json', workflow)
+        self.assertIn('for name in scaffold-templates scaffold-rebuild rebuild-comparison.json producer-tools.json producer-tools-actual.json template-qualification candidate-inputs.json', workflow)
         self.assertNotIn('continue-on-error:', workflow)
 
 

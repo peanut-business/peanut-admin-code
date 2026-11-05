@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use app\common\execution\AdminExecutionContext;
 use app\common\execution\ExecutionContextStore;
-use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Modules\File\Contract\FileAccess;
 use PeanutAdmin\Modules\File\Contract\FileReferenceCommands;
@@ -12,9 +11,9 @@ use PeanutAdmin\Modules\File\Service\Storage\StorageService;
 use PeanutAdmin\Modules\Identity\Contract\TenantSessionAccess;
 
 require_once dirname(__DIR__, 3) . '/vendor/autoload.php';
-require_once dirname(__DIR__, 3) . '/database/install.php';
 require_once dirname(__DIR__, 2) . '/Support/RegisteredMysqlTestResource.php';
 require_once dirname(__DIR__, 2) . '/Support/ThinkPhpTestConnection.php';
+require_once dirname(__DIR__, 2) . '/Support/IdentityMysqlFixture.php';
 
 $assertions = 0;
 function fileAccessExpect(bool $condition, string $message): void
@@ -39,9 +38,17 @@ $database = RegisteredMysqlTestResource::configuredDatabaseName();
 $paths = [];
 $storedPaths = [];
 try {
-    foreach (KernelSchema::tableNames() as $table) { $pdo->exec(KernelSchema::createSql($table)); }
-    $pdo->exec(KernelSchema::addTenantMemberDepartmentForeignKeySql());
-    ensureTenantChallengeClientKey($pdo);
+    $serverRoot = dirname(__DIR__, 3);
+    IdentityMysqlFixture::install($pdo, [
+        $serverRoot . '/app/modules/peanut/file/database/migrations',
+        $serverRoot . '/app/modules/peanut/settings/database/migrations',
+        $serverRoot . '/app/modules/peanut/reference_codes/database/migrations',
+        $serverRoot . '/database/installation',
+    ]);
+    require_once $serverRoot . '/app/modules/peanut/file/database/seeds/PeanutFileDefaults.php';
+    $seed = new PeanutFileDefaults();
+    $seed->setAdapter(new \Phinx\Db\Adapter\MysqlAdapter(['name' => $database, 'connection' => $pdo]));
+    $seed->run();
     ThinkPhpTestConnection::fromPdo($pdo);
     $bootstrap = new \PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService(
         new \PeanutAdmin\Modules\Identity\Audit\AuditService(), new \PeanutAdmin\Kernel\Identity\PasswordHasher(), new \PeanutAdmin\Kernel\Identity\PasswordPolicy(),
@@ -51,22 +58,23 @@ try {
     $bootstrap->activateTenantOwner($platform->operatorId, $owner->tenantId, $owner->memberId, 'r0-owner-active');
     $bootstrap->activateTenant($platform->operatorId, $owner->tenantId, 'r0-tenant-active');
     $serverRoot = dirname(__DIR__, 3);
-    executeSqlFile($pdo, $serverRoot . '/database/init.sql');
-    executeSqlFiles($pdo, applicationMigrationFiles($serverRoot . '/database'));
-    $migrations = glob($serverRoot . '/app/modules/official/file/database/migrations/*.sql');
-    sort($migrations);
-    executeSqlFiles($pdo, $migrations);
-    $app = new think\App(); $app->initialize();
+    $app = think\Container::getInstance();
+    $app->env->set(['DEPLOYMENT_MODE' => 'multi-tenant', 'APP_ENV' => 'development', 'APP_DEBUG' => true, 'JWT_SECRET' => str_repeat('f', 32)]);
+    $app->initialize();
+    $app->cache->clear();
     ThinkPhpTestConnection::fromPdo($pdo);
     $registry = $app->make(CompiledModuleRegistry::class);
-    foreach (['official.identity', 'official.file', 'official.content-tools'] as $moduleKey) {
+    foreach (['peanut.identity', 'peanut.file', 'peanut.content-tools'] as $moduleKey) {
         $manifest = $registry->requireManifest($moduleKey);
         $s = $pdo->prepare('INSERT INTO pa_module_installation(module_key,installed_version,manifest_schema_version,manifest_digest,status,revision,installed_at,activated_at,created_at,updated_at) VALUES(?,?,?,?,"active",1,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))');
         $s->execute([$moduleKey, $manifest->data['version'], $manifest->data['schema_version'], $manifest->digest]);
-        $s = $pdo->prepare('INSERT INTO pa_tenant_module(tenant_id,module_key,status,source,config_revision,authorization_revision,created_at,updated_at) VALUES(?,?,"enabled","manual",1,1,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))');
-        $s->execute([$owner->tenantId, $moduleKey]);
     }
-    $app->make(\app\platform\infrastructure\module\ModuleCatalogApplier::class)->apply($registry, ['official.identity', 'official.file', 'official.content-tools']);
+    $pdo->exec("INSERT INTO pa_plan(id,code,name,status,created_at,updated_at) VALUES(1,'fixture-file','File fixture','active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
+    $pdo->exec("INSERT INTO pa_plan_module(plan_id,module_key) VALUES(1,'peanut.file'),(1,'peanut.content-tools')");
+    $pdo->exec("INSERT INTO pa_tenant_license(tenant_id,plan_id,status,effective_at,created_at,updated_at) VALUES({$owner->tenantId},1,'active','2020-01-01 00:00:00.000',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
+    $app->make(\app\platform\infrastructure\module\ModuleCatalogApplier::class)->apply($registry, ['peanut.identity', 'peanut.file', 'peanut.content-tools']);
+    $pdo->exec("INSERT INTO pa_plan_permission(plan_id,permission_key) SELECT 1,`key` FROM pa_permission WHERE module_key='peanut.file'");
+    $pdo->exec("INSERT INTO pa_role_permission(tenant_id,role_id,permission_id,granted_at) SELECT r.tenant_id,r.id,p.id,UTC_TIMESTAMP(3) FROM pa_role r JOIN pa_permission p ON p.module_key='peanut.file' WHERE r.`key`='core.tenant-owner'");
     $tenant = $owner->tenantId; $account = $owner->accountId; $member = $owner->memberId;
     $sessionKey = '01K00000000000000000000001';
     $s = $pdo->prepare('INSERT INTO pa_tenant_session(session_key,tenant_id,account_id,tenant_member_id,client_key,status,account_security_revision,tenant_security_revision,member_security_revision,issued_at,last_seen_at,idle_expires_at,absolute_expires_at,created_at,updated_at) SELECT ?,m.tenant_id,m.account_id,m.id,"admin-web","active",a.security_revision,t.security_revision,m.security_revision,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 1 HOUR),DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 2 HOUR),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3) FROM pa_tenant_member m JOIN pa_account a ON a.id=m.account_id JOIN pa_tenant t ON t.id=m.tenant_id WHERE m.id=?');
@@ -81,9 +89,17 @@ try {
     $image = imagecreatetruecolor(4,4); imagepng($image,$original); imagedestroy($image);
     $objectCount = (int)$pdo->query('SELECT COUNT(*) FROM pa_file_object')->fetchColumn();
     $pdo->exec("UPDATE pa_role SET is_builtin=0 WHERE tenant_id={$tenant} AND `key`='core.tenant-owner'");
+    $pdo->exec("DELETE rp FROM pa_role_permission rp JOIN pa_permission p ON p.id=rp.permission_id WHERE rp.tenant_id={$tenant} AND p.`key`='peanut.file.download-original'");
+    $pdo->exec("UPDATE pa_tenant_member SET authorization_revision=authorization_revision+1 WHERE id={$member}");
+    $context = $sessions->revalidateSession($tenant,$account,$member,$sessionKey,'admin-web','r0-export-denied');
+    $run = fn(callable $call) => $stack->run(new AdminExecutionContext($context,'r0.file.edges'),$call);
     fileAccessDenied(fn()=>$run(fn()=>$xlsx->create('denied-export',['name'],[['synthetic']])), 'export needs independent original-download right');
     fileAccessExpect((int)$pdo->query('SELECT COUNT(*) FROM pa_file_object')->fetchColumn()===$objectCount, 'denied export creates no object');
     $pdo->exec("UPDATE pa_role SET is_builtin=1 WHERE tenant_id={$tenant} AND `key`='core.tenant-owner'");
+    $pdo->exec("INSERT INTO pa_role_permission(tenant_id,role_id,permission_id,granted_at) SELECT r.tenant_id,r.id,p.id,UTC_TIMESTAMP(3) FROM pa_role r JOIN pa_permission p ON p.`key`='peanut.file.download-original' WHERE r.tenant_id={$tenant} AND r.`key`='core.tenant-owner'");
+    $pdo->exec("UPDATE pa_tenant_member SET authorization_revision=authorization_revision+1 WHERE id={$member}");
+    $context = $sessions->revalidateSession($tenant,$account,$member,$sessionKey,'admin-web','r0-export-allowed');
+    $run = fn(callable $call) => $stack->run(new AdminExecutionContext($context,'r0.file.edges'),$call);
     $export = $run(fn()=>$xlsx->create('accepted-export',['name'],[['synthetic']]));
     $storedPaths[]=$serverRoot.'/private/storage/'.$export['object_key'];
     fileAccessExpect($export['access_type']==='private' && $export['url']!=='' && preg_match('/^file_[0-9a-f]{32}$/D',$export['file_key'])===1, 'export retains stable key and returns independent authorized download');

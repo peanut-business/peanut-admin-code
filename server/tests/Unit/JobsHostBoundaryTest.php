@@ -54,7 +54,7 @@ final class JobsHostBoundaryTest extends TestCase
 
     private function context(int $tenant, int $member): TenantContext
     {
-        return TenantContext::fromValidatedSession(new ValidatedTenantSession(1,'jobs-'.$tenant,$tenant,$member,$member,'admin-web',new DateTimeImmutable('2035-01-01'),1),'jobs-'.$tenant);
+        return TenantContext::fromValidatedSession(new ValidatedTenantSession(1,'jobs-'.$tenant,$tenant,$member,$member,'admin-web',new DateTimeImmutable('2035-01-01'),1,1),'jobs-'.$tenant);
     }
 
     private function runAs(TenantContext $context, callable $operation): mixed

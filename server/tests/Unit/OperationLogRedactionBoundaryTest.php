@@ -45,7 +45,7 @@ final class OperationLogRedactionBoundaryTest extends TestCase
         Model::maker(static function(Model $model) use($scope): void {
             if ($model instanceof TenantOwnedModel) { $model->setDataScopePolicy($scope); }
         });
-        $this->actor = TenantContext::fromValidatedSession(new ValidatedTenantSession(1,'log-redaction',101,501,601,'admin-web',new DateTimeImmutable('2035-01-01'),1),'log-redaction-request');
+        $this->actor = TenantContext::fromValidatedSession(new ValidatedTenantSession(1,'log-redaction',101,501,601,'admin-web',new DateTimeImmutable('2035-01-01'),1,1),'log-redaction-request');
     }
 
     private function params(): array
