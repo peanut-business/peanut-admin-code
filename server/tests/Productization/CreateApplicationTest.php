@@ -450,10 +450,15 @@ try {
     createApplicationExpect(!is_dir($first . '/docs/product-status'), 'source product capability ledger must be excluded');
     createApplicationExpect(!is_file($first . '/docs-site/.vitepress/theme/ProductStatus.vue'), 'source product status component must be excluded');
     createApplicationExpect(!is_file($first . '/docs-site/product-status.md'), 'source product status page must be excluded');
+    // Production APP data-protection workers are managed runtime tools.
+    foreach (['scripts/ops-backup-worker', 'scripts/ops-restore-worker'] as $appWorker) {
+        createApplicationExpect(
+            is_file($first . '/' . $appWorker) && is_executable($first . '/' . $appWorker),
+            'registered APP data-protection worker is missing: ' . $appWorker,
+        );
+    }
     foreach ([
         'scripts/deploy-release',
-        'scripts/ops-backup-worker',
-        'scripts/ops-restore-worker',
         'scripts/ops-upgrade-worker',
         'scripts/ops-module-worker',
     ] as $maintainerOperation) {
