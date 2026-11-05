@@ -156,6 +156,7 @@ function memberRuntimeModuleRoot(string $root): string
         throw new RuntimeException('runtime module root unavailable');
     }
     file_put_contents($moduleRoot . '/composer.json', json_encode([
+        'name' => 'acme/reference-chain',
         'autoload' => ['psr-4' => ['Acme\\Modules\\ReferenceChain\\' => 'src/']],
         'extra' => ['peanut' => ['editions' => ['multi-tenant']]],
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
@@ -253,7 +254,6 @@ if ($mode === '--mysql') {
     $pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
     $pdo->sqliteCreateFunction('UTC_TIMESTAMP', static fn(): string => '2026-09-28 00:00:00');
 }
-$completed = false;
 try {
     $app = Container::getInstance();
     if (!$app instanceof think\App) {
@@ -344,6 +344,10 @@ try {
     $members = new ThinkPhpTenantMemberDirectory();
     $registry = $provider->registry()->compiled();
     $entitlements = new TenantEntitlementService($registry);
+    $app->instance(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry::class, $registry);
+    $app->instance(TenantEntitlementService::class, $entitlements);
+    $contexts = new ExecutionContextStore();
+    $current = new CurrentExecutionContext($contexts);
     $tenantAuthorization = new TenantAuthorizationQuery($members, $registry, $entitlements);
     $authorization = new AdminAuthorizationService(
         new CoreTenantModuleAdminBridge(
@@ -355,7 +359,7 @@ try {
             $entitlements,
         ),
         new RegisteredAdminPermissionPolicy(),
-        new AdminDirectoryQuery(new CurrentExecutionContext(new ExecutionContextStore())),
+        new AdminDirectoryQuery($current),
         $tenantAuthorization,
         new EndpointPermissionGrant(new think\Request()),
     );
@@ -370,8 +374,9 @@ try {
     memberRuntimeExpect($ownerLogin instanceof TenantAuthentication, 'owner login did not authenticate');
     $ownerContext = $ownerLogin->context;
 
-    $roleService = new RoleAdminService(new AuditService(), $entitlements);
-    $memberService = new MemberAdminService(new AuditService(), $passwords, new PasswordPolicy());
+    $audit = new AuditService($current);
+    $roleService = new RoleAdminService($audit, $entitlements);
+    $memberService = new MemberAdminService($audit, $passwords, new PasswordPolicy());
     $business = new Acme\Modules\ReferenceChain\Service\ReferenceChainService($authorization, $provider->qualification());
 
     $role = $roleService->create($ownerContext, 'reference-member', 'Reference Member', null);
@@ -400,7 +405,10 @@ try {
     memberRuntimeExpect($created['tenant_id'] === $tenantA, 'business write used the wrong tenant');
     memberRuntimeExpect(count($business->list($memberContext)['items']) === 1, 'business read did not return granted member row');
 
-    $role = $roleService->replacePermissions($ownerContext, (int) $role['id'], [], (int) $role['revision']);
+    $role = $contexts->run(
+        new \app\common\execution\AdminExecutionContext($ownerContext, 'peanut.identity.role.permissions.replace'),
+        fn() => $roleService->replacePermissions($ownerContext, (int) $role['id'], [], (int) $role['revision']),
+    );
     memberRuntimeExpect($role['permission_keys'] === [], 'role revoke was not visible');
     memberRuntimeDeny(fn() => $business->create($memberContext, 'after-revoke'), $pdo);
     memberRuntimeDeny(fn() => $business->list($memberContext), $pdo);
@@ -437,7 +445,6 @@ try {
     memberRuntimeDeny(fn() => $business->create($tenantBLogin->context, 'tenant-b-denied'), $pdo);
     memberRuntimeDeny(fn() => $business->list($tenantBLogin->context), $pdo);
     memberRuntimeExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE actor_type='member' AND outcome='success' AND actor_tenant_member_id=" . $ownerMember)->fetchColumn() > 0, 'native audit actor/outcome fields missing');
-    $completed = true;
 
     echo json_encode([
         'status' => 'passed',
@@ -460,7 +467,7 @@ try {
     echo "CONSUMER-MEMBER-RUNTIME-001 passed (7 checks)\n";
 
 } finally {
-    if ($mode === '--mysql' && $completed) {
+    if ($mode === '--mysql') {
         RegisteredMysqlTestResource::cleanup($pdo, $databaseName, $databaseCreated);
     }
 }

@@ -24,14 +24,17 @@ use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorization
 use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
 use think\facade\Db;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
-require __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
-require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
-require __DIR__ . '/../Support/ThinkPhpTestConnection.php';
-require __DIR__ . '/../Support/IdentityMysqlFixture.php';
+require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
+require_once __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
+require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
+require_once __DIR__ . '/../Support/IdentityMysqlFixture.php';
 
+$crudAssertions = 0;
 function expectCrud(bool $condition, string $message): void
 {
+    global $crudAssertions;
+    $crudAssertions++;
     if (!$condition) { throw new RuntimeException($message); }
 }
 
@@ -48,6 +51,7 @@ function expectCrudFailure(Closure $operation, string $errorCode): void
 
 $database = RegisteredMysqlTestResource::configuredDatabaseName();
 [$pdo, $created] = RegisteredMysqlTestResource::openEmptyDatabase($database);
+$failure = null;
 try {
     IsolatedBackendEnvironment::activateDatabase(
         IsolatedBackendEnvironment::required('DB_HOST'), IsolatedBackendEnvironment::required('DB_PORT'),
@@ -57,6 +61,8 @@ try {
     $app = think\Container::getInstance();
     expectCrud($app instanceof think\App, 'Explicit environment did not establish the native App');
     $app->initialize();
+    // File's unused export dependency still requires its ordinary signing configuration.
+    $app->config->set(['secret' => str_repeat('fixture-only-', 4)], 'jwt');
     ThinkPhpTestConnection::fromPdo($pdo);
     (new CorePermissionCatalogSynchronizer(new ThinkPhpAuthorizationCatalogRepository()))->synchronize();
     $contexts = $app->make(ExecutionContextStore::class);
@@ -153,7 +159,13 @@ try {
     expectCrud($menus->edit(array_replace($childInput, ['menu_key' => $childKey, 'perms' => ''])), 'Menu binding edit failed');
     expectCrud($menus->delete($childKey) && $menus->delete($parentKey), 'Custom menu deletion failed');
     expectCrud(Db::name('system_menu')->whereIn('menu_key', [$parentKey, $childKey])->count() === 0, 'Custom menu rows remained');
-    echo "PB04-AUTH-CRUD-001 current IAM CRUD and rejection contracts passed\n";
+} catch (Throwable $exception) {
+    $failure = $exception;
 } finally {
     RegisteredMysqlTestResource::cleanup($pdo, $database, $created);
 }
+if ($failure !== null) {
+    fwrite(STDERR, $failure::class . ': ' . $failure->getMessage() . ' at ' . $failure->getFile() . ':' . $failure->getLine() . "\n");
+    exit(1);
+}
+echo "PB04-AUTH-CRUD-001 current IAM CRUD and rejection contracts passed; assertions={$crudAssertions}\n";

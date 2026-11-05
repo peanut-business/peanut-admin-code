@@ -27,7 +27,6 @@ function moduleCatalogExpect(bool $condition, string $message): void
 
 $database = RegisteredMysqlTestResource::configuredDatabaseName();
 [$pdo, $databaseCreated] = RegisteredMysqlTestResource::openEmptyDatabase($database);
-$completed = false;
 try {
 IdentityMysqlFixture::install($pdo, [
     $serverRoot . '/app/modules/peanut/settings/database/migrations',
@@ -84,9 +83,6 @@ moduleCatalogExpect((string) $pdo->query("SELECT status FROM pa_permission WHERE
 
 echo 'MODULE-CATALOG-APPLIER-B-001 passed first=' . $first['catalog_revision']
     . ' reactivated=' . $reactivated['catalog_revision'] . "\n";
-$completed = true;
 } finally {
-    if ($completed) {
-        RegisteredMysqlTestResource::cleanup($pdo, $database, $databaseCreated);
-    }
+    RegisteredMysqlTestResource::cleanup($pdo, $database, $databaseCreated);
 }

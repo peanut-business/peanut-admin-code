@@ -17,7 +17,6 @@ use Phinx\Migration\Manager\Environment;
 
 $database = RegisteredMysqlTestResource::configuredDatabaseName();
 [$pdo, $databaseCreated] = RegisteredMysqlTestResource::openEmptyDatabase($database);
-$completed = false;
 try {
 $assertions = 0;
 $expect = static function (bool $value, string $message) use (&$assertions): void {
@@ -110,9 +109,6 @@ $migration->setAdapter($adapter);
 $migration->up();
 $expect($snapshot === $pdo->query('SELECT * FROM pa_module_installation ORDER BY id')->fetchAll(PDO::FETCH_ASSOC), 'Interrupted migration resume changed history');
 echo 'MODULE-INSTALLATION-MYSQL assertions=' . $assertions . '; MySQL=' . $pdo->query('SELECT VERSION()')->fetchColumn() . "\n";
-$completed = true;
 } finally {
-    if ($completed) {
-        RegisteredMysqlTestResource::cleanup($pdo, $database, $databaseCreated);
-    }
+    RegisteredMysqlTestResource::cleanup($pdo, $database, $databaseCreated);
 }
