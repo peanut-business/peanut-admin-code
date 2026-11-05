@@ -798,16 +798,18 @@ try {
                 }
             }
         }
-        // A published Module owns its package name, license and documentation.
-        // Preserve those bytes rather than rewriting them to the APP brand.
+        // Published Modules and the fixed initial SQL/migration ledger retain
+        // upstream identities; rewriting either would invalidate package or DB
+        // history. Check exact bytes, not application-brand substitutions.
         $baselinePrefix = '.peanut/scaffold-baseline/' . $templateVersion . '/files/';
-        $moduleSource = str_starts_with($path, $baselinePrefix)
+        $immutableSource = str_starts_with($path, $baselinePrefix)
             ? substr($path, strlen($baselinePrefix)) : $path;
-        if (preg_match('#^(?:server/app/modules|(?:web|platform|uniapp)/src/modules|pc/modules)/#D', $moduleSource) === 1) {
+        if (preg_match('#^(?:server/app/modules|(?:web|platform|uniapp)/src/modules|pc/modules)/#D', $immutableSource) === 1
+            || preg_match('#^server/database/(?:schema|migrations|installation|seeds)/#D', $immutableSource) === 1) {
             createApplicationExpect(
-                is_file($root . '/' . $moduleSource)
-                    && $content === (string) file_get_contents($root . '/' . $moduleSource),
-                'generated application changed an immutable selected Module: ' . $path,
+                is_file($root . '/' . $immutableSource)
+                    && $content === (string) file_get_contents($root . '/' . $immutableSource),
+                'generated application changed immutable upstream bytes: ' . $path,
             );
             $applicationContent = '';
         }
