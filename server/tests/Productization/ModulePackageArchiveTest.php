@@ -548,6 +548,31 @@ try {
                     modulePackageExpect(str_contains($output, 'Run module:adopt-package --recover'), 'ordinary Runtime consumed incomplete source');
                 }
             }
+            // The recovery-only bootstrap cannot turn a production process
+            // into a development source writer, even with an invalid journal.
+            $journalBefore = hash_file('sha256', $bootJournal);
+            file_put_contents($bootEnvironment, str_replace(
+                'APP_ENV=development', 'APP_ENV=production',
+                (string) file_get_contents($bootEnvironment),
+            ));
+            $process = proc_open(
+                [PHP_BINARY, $serverRoot . '/module'],
+                [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+                $pipes, $serverRoot,
+                ['PATH' => (string) getenv('PATH'), 'PEANUT_SERVER_ENV_FILE' => $bootEnvironment],
+            );
+            modulePackageExpect(is_resource($process), 'production recovery denial process did not start');
+            fwrite($pipes[0], '{"operation":"adopt","arguments":["--recover"]}');
+            fclose($pipes[0]);
+            $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            modulePackageExpect(
+                proc_close($process) !== 0
+                    && trim($output) === '{"error":"MODULE_SOURCE_ADOPTION_DISABLED"}'
+                    && hash_file('sha256', $bootJournal) === $journalBefore,
+                'production recovery bypassed the native development-only source gate',
+            );
         } finally {
             unlink($bootJournal);
             unlink($bootEnvironment);

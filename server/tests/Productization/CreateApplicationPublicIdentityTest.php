@@ -40,6 +40,31 @@ function publicIdentityDelete(string $path): void
     }
 }
 
+/** Stage actual sealed fixture bytes under the public channel's canonical path. */
+function publicIdentityStageRelease(string $source, string $destination): void
+{
+    publicIdentityDelete($destination);
+    if (!is_dir(dirname($destination))) {
+        mkdir(dirname($destination), 0775, true);
+    }
+    mkdir($destination, 0775, true);
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST,
+    );
+    foreach ($iterator as $entry) {
+        $relative = substr($entry->getPathname(), strlen($source) + 1);
+        $target = $destination . '/' . $relative;
+        publicIdentityExpect(!$entry->isLink(), 'synthetic release may not contain links');
+        if ($entry->isDir()) {
+            if (!is_dir($target)) mkdir($target, 0775, true);
+        } else {
+            publicIdentityExpect(copy($entry->getPathname(), $target), 'sealed fixture copy failed');
+            chmod($target, fileperms($entry->getPathname()) & 0777);
+        }
+    }
+}
+
 /** @param array<string,mixed> $data */
 function publicIdentityWriteJson(string $path, array $data): void
 {
@@ -55,7 +80,11 @@ function publicIdentityCatalog(string $target): void
     $openapi = json_decode((string) file_get_contents($target . '/server/generated/openapi.json'), true, 512, JSON_THROW_ON_ERROR);
     $catalog = json_decode((string) file_get_contents($target . '/server/generated/api-catalog.json'), true, 512, JSON_THROW_ON_ERROR);
     publicIdentityExpect(($openapi['info']['version'] ?? null) === $versions['source_product_version'], 'generated APP API version lost its source-product identity');
-    publicIdentityExpect(($catalog['inputs'][0]['path'] ?? null) === 'release-versions.json', 'generated APP catalog omitted its version authority');
+    publicIdentityExpect(
+        count(array_filter($catalog['inputs'] ?? [], static fn(array $input): bool =>
+            ($input['path'] ?? null) === 'release-versions.json')) === 1,
+        'generated APP catalog omitted or duplicated its version authority',
+    );
     foreach ($catalog['inputs'] as $input) {
         publicIdentityExpect(hash_file('sha256', $target . '/' . $input['path']) === $input['sha256'], 'generated APP catalog retained a source-template hash: ' . $input['path']);
     }
@@ -112,6 +141,26 @@ function publicIdentitySource(string $root, string $target, array $inventory): v
     // sealed fixture commit must therefore contain every inventory input.
     publicIdentityRun(['git', 'add', '--force', '--all'], $target);
     publicIdentityRun(['git', '-c', 'user.name=Peanut Fixture', '-c', 'user.email=fixture@example.test', 'commit', '--quiet', '-m', 'sealed source fixture'], $target);
+    // The synthetic source is immutable, but create-app requires its original
+    // exact-lock UniApp generator to resolve Vite. Keep dependencies ignored
+    // and outside both the fixed source commit and generated APP inventory.
+    publicIdentityExpect(
+        is_file($root . '/uniapp/node_modules/vite/package.json')
+            && is_dir($target . '/uniapp')
+            && symlink($root . '/uniapp/node_modules', $target . '/uniapp/node_modules'),
+        'original locked UniApp fixture toolchain is unavailable',
+    );
+    // The API generator's source/path guard forbids out-of-repository and
+    // hard-linked packages. Materialize the fixture Web toolchain with the
+    // native frozen lock and independent package files, never copy node_modules.
+    publicIdentityRun([
+        'pnpm', '--dir', $target . '/web', 'install', '--frozen-lockfile',
+        '--ignore-scripts', '--package-import-method=copy',
+    ], $target);
+    publicIdentityExpect(
+        trim(publicIdentityRun(['git', 'status', '--porcelain=v1', '--untracked-files=all'], $target)) === '',
+        'ignored UniApp toolchain must not alter the immutable source identity',
+    );
 }
 
 $root = dirname(__DIR__, 3);
@@ -126,37 +175,43 @@ try {
     $source = $temporary . '/source';
     publicIdentitySource($root, $source, $inventory);
 
-    $releaseRoot = $temporary . '/release';
-    $releasePath = $releaseRoot . '/scaffold-manifest.json';
     $templateCommit = trim(publicIdentityRun(['git', 'rev-parse', 'HEAD'], $source));
     $templateTree = trim(publicIdentityRun(['git', 'rev-parse', 'HEAD^{tree}'], $source));
+    $releaseRoot = $temporary . '/release';
     publicIdentityRun([
         'php', $source . '/scripts/build-scaffold-release', '--version=' . $version,
         '--source-commit=' . $templateCommit, '--output=' . $releaseRoot,
+        '--api-tool-root=' . $root,
     ], $source);
-
-    $appOwnedPath = $source . '/server/config/peanut.php';
-    file_put_contents($appOwnedPath, (string) file_get_contents($appOwnedPath) . "\n// later app-owned source\n");
-    $inventoryPath = $source . '/scaffold/application-template-inventory.json';
-    $changedInventory = json_decode((string) file_get_contents($inventoryPath), true, 512, JSON_THROW_ON_ERROR);
-    foreach ($changedInventory['files'] as &$entry) {
-        if (($entry['path'] ?? null) === 'server/config/peanut.php') {
-            $entry['source_sha256'] = hash_file('sha256', $appOwnedPath);
-            break;
-        }
+    $editionReleases = [];
+    foreach (['standalone', 'multi-tenant'] as $edition) {
+        $editionReleases[$edition] = $temporary . '/release-' . $edition;
+        publicIdentityRun([
+            'php', $source . '/scripts/build-scaffold-release', '--version=' . $version,
+            '--source-commit=' . $templateCommit, '--edition=' . $edition,
+            '--output=' . $editionReleases[$edition], '--api-tool-root=' . $root,
+        ], $source);
     }
-    unset($entry);
-    publicIdentityWriteJson($inventoryPath, $changedInventory);
-    publicIdentityRun(['git', 'add', 'server/config/peanut.php', 'scaffold/application-template-inventory.json'], $source);
-    publicIdentityRun(['git', '-c', 'user.name=Peanut Fixture', '-c', 'user.email=fixture@example.test', 'commit', '--quiet', '-m', 'later app-owned source'], $source);
+    // This is a local protocol fixture, not a claim of a GitHub publication.
+    // The real published-adoption contract only accepts canonical Edition
+    // release bytes, never an arbitrary local manifest as 'stable'.
+    $canonicalRelease = $source . '/scaffold/releases/v' . $version;
+    publicIdentityStageRelease($releaseRoot, $canonicalRelease);
+    file_put_contents($source . '/source-only-generation-note.txt', "source-only generation commit\n");
+    publicIdentityRun(['git', 'add', '--force', '--all', 'scaffold/releases/v' . $version,
+        'source-only-generation-note.txt'], $source);
+    publicIdentityRun(['git', '-c', 'user.name=Peanut Fixture', '-c', 'user.email=fixture@example.test',
+        'commit', '--quiet', '-m', 'later source and fixture release'], $source);
     $generationCommit = trim(publicIdentityRun(['git', 'rev-parse', 'HEAD'], $source));
     $generationTree = trim(publicIdentityRun(['git', 'rev-parse', 'HEAD^{tree}'], $source));
+    $releasePath = $canonicalRelease . '/scaffold-manifest.json';
 
     $target = $temporary . '/application';
     $output = json_decode(publicIdentityRun([
         'php', $source . '/scripts/create-app', '--name=Public Candidate', '--slug=public-candidate',
         '--package=fixture/public-candidate', '--target=' . $target, '--edition=multi-tenant', '--profile=full',
         '--scaffold-manifest=' . $releasePath, '--application-version=1.2.3',
+        '--source-channel=stable', '--release-version=' . $version,
     ], $source), true, 512, JSON_THROW_ON_ERROR);
     $manifest = json_decode((string) file_get_contents($target . '/.peanut/application-manifest.json'), true, 512, JSON_THROW_ON_ERROR);
     publicIdentityCatalog($target);
@@ -175,16 +230,16 @@ try {
         'public create-app conflated template release and generation source identity',
     );
     foreach (['standalone', 'multi-tenant'] as $edition) {
-        $editionRelease = $temporary . '/release-' . $edition;
-        publicIdentityRun([
-            'php', $source . '/scripts/build-scaffold-release', '--version=' . $version,
-            '--source-commit=' . $templateCommit, '--edition=' . $edition, '--output=' . $editionRelease,
-        ], $source);
+        publicIdentityStageRelease($editionReleases[$edition], $canonicalRelease);
+        publicIdentityRun(['git', 'add', '--force', '--all', 'scaffold/releases/v' . $version], $source);
+        publicIdentityRun(['git', '-c', 'user.name=Peanut Fixture', '-c', 'user.email=fixture@example.test',
+            'commit', '--quiet', '-m', 'selected sealed edition ' . $edition], $source);
         $editionTarget = $temporary . '/application-' . $edition;
         $arguments = [
             'php', $source . '/scripts/create-app', '--name=Edition Consumer', '--slug=edition-consumer',
             '--package=fixture/edition-consumer', '--target=' . $editionTarget, '--edition=' . $edition,
-            '--profile=full', '--scaffold-manifest=' . $editionRelease . '/scaffold-manifest.json',
+            '--profile=full', '--scaffold-manifest=' . $releasePath,
+            '--source-channel=stable', '--release-version=' . $version,
         ];
         $created = json_decode(publicIdentityRun($arguments, $source), true, 512, JSON_THROW_ON_ERROR);
         publicIdentityCatalog($editionTarget);

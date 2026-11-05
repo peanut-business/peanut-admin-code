@@ -467,7 +467,7 @@ $generatorDefinition = [
 require_once dirname(__DIR__) . '/Support/GeneratorFixtureApplication.php';
 $generatorFixture = new \Tests\Support\GeneratorFixtureApplication();
 $generatedFiles = GeneratorRenderService::render($generatorDefinition, $generatorFixture->root);
-$assertGeneratedServiceOutput = static function (array $files): void {
+$assertGeneratedServiceOutput = static function (array $files) use ($generatorFixture): void {
     $backend = 'server/app/modules/fixture/delivery_record';
     $frontend = 'web/src/modules/fixture-delivery-record';
     $expected = [
@@ -485,7 +485,6 @@ $assertGeneratedServiceOutput = static function (array $files): void {
         $backend . '/route/app.php',
         $frontend . '/contribution.ts',
         $backend . '/api/metadata/openapi.php',
-        'server/app/adminapi/route/app.php',
     ];
     $byPath = array_column($files, 'content', 'path');
     $actual = array_keys($byPath);
@@ -508,7 +507,7 @@ $assertGeneratedServiceOutput = static function (array $files): void {
             throw new RuntimeException('generator services output contract violated');
         }
         if (($file['operation'] ?? '') === 'merge') {
-            $source = dirname(__DIR__, 3) . '/' . $path;
+            $source = $generatorFixture->root . '/' . $path;
             if (!is_file($source) || !hash_equals(hash_file('sha256', $source), $file['base_sha256'] ?? '')) {
                 throw new RuntimeException('generator services output contract violated');
             }
@@ -517,7 +516,7 @@ $assertGeneratedServiceOutput = static function (array $files): void {
     $route = $byPath[$backend . '/route/generated/matrix-article.php'];
     if (!str_contains($route, 'OfficialModuleMiddleware::class') || !str_contains($route, 'AuthMiddleware::class')
         || !str_contains($byPath[$backend . '/route/app.php'], "require __DIR__ . '/generated/matrix-article.php';")
-        || !str_contains($byPath['server/app/adminapi/route/app.php'], "'{$backend}/route/app.php',")) {
+        || isset($byPath['server/app/adminapi/route/app.php'])) {
         throw new RuntimeException('generator services output contract violated');
     }
 };
@@ -693,7 +692,7 @@ expectTpq51(
 $contextFailure = false;
 try {
     $emptyRegistry = new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], hash('sha256', ''));
-    (new ModuleExecutionBoundary($current, new ThinkPhpModuleRuntimeRepository($emptyRegistry), new \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery($current)))
+    (new ModuleExecutionBoundary($current, new ThinkPhpModuleRuntimeRepository($emptyRegistry, new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService($emptyRegistry)), new \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery($current)))
         ->assertWorker('official.article');
 } catch (DomainException $exception) {
     $contextFailure = $exception->getMessage() === 'EXECUTION_CONTEXT_REQUIRED';

@@ -318,6 +318,10 @@ final class ExternalOperationHostTest extends TestCase
             {
                 return new EffectivePermissionSet($this->permissionKeys);
             }
+            public function permissionsForKeys(TenantContext $context, array $permissionKeys): EffectivePermissionSet
+            {
+                return new EffectivePermissionSet(array_values(array_intersect($this->permissionKeys, $permissionKeys)));
+            }
         };
         $platformRepository = new class implements PlatformAuthorizationRepository {
             public function revision(int $operatorId): string
@@ -345,6 +349,7 @@ final class ExternalOperationHostTest extends TestCase
 
         $root = dirname(__DIR__, 6);
         $app = new App($root);
+        require_once $root . '/vendor/topthink/framework/src/helper.php';
         $cache = require $root . '/config/cache.php';
         if (!is_array($cache)) {
             throw new RuntimeException('The backend cache configuration is invalid.');
@@ -371,7 +376,34 @@ SQL);
         return new ExternalOperationHost(
             $configuration,
             new TrustedContextAdapter($configuration),
-            new ModuleAvailabilityAdapter($registry, new ModuleAvailabilityService()),
+            new ModuleAvailabilityAdapter($registry, new class implements \PeanutAdmin\Kernel\Module\ModuleAvailability {
+                public function assertAvailable(
+                    \PeanutAdmin\Kernel\Tenancy\TenantScope $scope,
+                    string $moduleKey,
+                    DateTimeImmutable $now,
+                    bool $lock = false,
+                ): void {
+                    $this->assertDeployment($moduleKey, $lock);
+                    $this->assertTenant($scope, $moduleKey, $now, $lock);
+                }
+                public function assertDeployment(string $moduleKey, bool $lock = false): void
+                {
+                    if ($moduleKey !== 'fixture.record') {
+                        throw new \PeanutAdmin\Kernel\Module\ModuleException('MODULE_NOT_INSTALLED');
+                    }
+                }
+                public function assertTenant(
+                    \PeanutAdmin\Kernel\Tenancy\TenantScope $scope,
+                    string $moduleKey,
+                    DateTimeImmutable $now,
+                    bool $lock = false,
+                ): void {
+                    $this->assertDeployment($moduleKey, $lock);
+                    if ($scope->tenantId() !== 10) {
+                        throw new \PeanutAdmin\Kernel\Module\ModuleException('MODULE_TENANT_NOT_EFFECTIVE');
+                    }
+                }
+            }),
             new PermissionAdapter($permissionMiddleware),
             new TypedTargetAdapter($dataPermission),
             new IdempotencyService(),
