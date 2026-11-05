@@ -120,6 +120,7 @@ function createApplicationTamperedReleaseFails(
     string $case,
     callable $mutate,
     string $error,
+    string $apiGeneratorPath,
 ): void {
     $releaseRoot = $temporary . '/release-' . $case;
     createApplicationCopy(dirname($releasePath), $releaseRoot);
@@ -128,7 +129,7 @@ function createApplicationTamperedReleaseFails(
     $mutate($manifest, $releaseRoot);
     createApplicationWriteJson($manifestPath, $manifest);
     $target = $temporary . '/tampered-' . $case;
-    $creator = new ApplicationCreator($root, $inventoryPath, $identity, $manifestPath);
+    $creator = new ApplicationCreator($root, $inventoryPath, $identity, $manifestPath, apiGeneratorPath: $apiGeneratorPath);
     createApplicationFails(
         fn() => $creator->create('Acme Console', 'acme-console', 'acme/acme-console', $target, 'multi-tenant', null, 'full'),
         $error,
@@ -505,7 +506,8 @@ try {
     ) === 1, 'admin builder stage is missing');
     $adminBuild = $adminBuildMatch[1];
     $compilePosition = strpos($adminBuild, 'pnpm exec vite build');
-    foreach (['COPY modules.lock /build/modules.lock', 'COPY scripts/client-environment.ts', 'COPY web/ ./',
+    foreach (['COPY web/package.json web/pnpm-lock.yaml ./', 'pnpm install --frozen-lockfile',
+        'COPY modules.lock /build/modules.lock', 'COPY web/ ./',
         'pnpm exec vue-tsc --noEmit', 'VITE_DEPLOYMENT_MODE=multi-tenant'] as $requiredInput) {
         $inputPosition = strpos($adminBuild, $requiredInput);
         createApplicationExpect(
@@ -514,16 +516,16 @@ try {
         );
     }
     createApplicationExpect(
-        str_contains($generatedProductionDockerfile, 'PEANUT_CLIENT_ENV_FILE=/build/web/.env.multi-tenant pnpm exec vite build')
-            && !str_contains($generatedProductionDockerfile, 'PEANUT_CLIENT_ENV_FILE=/build/web/.env.standalone pnpm exec vite build')
+        str_contains($adminBuild, 'pnpm exec vite build --mode multi-tenant --outDir dist/multi-tenant')
+            && !str_contains($adminBuild, 'pnpm exec vite build --mode standalone')
             && substr_count($generatedProductionDockerfile, 'COPY . .') === 1
             && !str_contains($generatedProductionDockerfile, 'seed-multi-tenant-demo.php'),
         'multi-tenant artifact must compile only its selected admin bundle and copy the complete fixed package without source-only demo tooling',
     );
     $standaloneDockerfile = (string) file_get_contents($standalone . '/deploy/docker/production.Dockerfile');
     createApplicationExpect(
-        str_contains($standaloneDockerfile, 'PEANUT_CLIENT_ENV_FILE=/build/web/.env.standalone pnpm exec vite build')
-            && !str_contains($standaloneDockerfile, 'PEANUT_CLIENT_ENV_FILE=/build/web/.env.multi-tenant pnpm exec vite build')
+        str_contains($standaloneDockerfile, 'pnpm exec vite build --mode standalone --outDir dist/standalone')
+            && !str_contains($standaloneDockerfile, 'pnpm exec vite build --mode multi-tenant')
             && substr_count($standaloneDockerfile, 'COPY . .') === 1
             && !str_contains($standaloneDockerfile, 'AS platform-builder')
             && !str_contains($standaloneDockerfile, '/server/public/platform'),
@@ -654,9 +656,9 @@ try {
     createApplicationExpect(!str_contains($generatedModulesConfig, 'fixture.delivery-record'), 'demo Module identity leaked into generated deployment config');
     createApplicationExpect(
         str_contains($generatedModulesConfig, "\$serverRelease = file_exists(\$serverIdentity) || is_link(\$serverIdentity);")
-            && str_contains($generatedModulesConfig, "\$pluginLockDefault = \$serverRelease ? 'modules.lock' : '../modules.lock';")
+            && str_contains($generatedModulesConfig, "\$pluginLockDefault = \$serverRelease || ApplicationSourceIdentity::hasRuntime(\$serverRoot)\n    ? 'modules.lock'\n    : '../modules.lock';")
             && str_contains($generatedModulesConfig, "env('PEANUT_MODULE_LOCK', \$pluginLockDefault)"),
-        'generated deployment must use the application-root Plugin lock until a Server release identity exists',
+        'generated deployment must use the application-root Module lock unless a Server release or explicit development runtime exists',
     );
     $releaseMetadata = json_decode((string) file_get_contents($first . '/RELEASE_METADATA.json'), true, 512, JSON_THROW_ON_ERROR);
     $generatedReleaseVersion = in_array(($releaseMetadata['schema_version'] ?? null), [2, 3], true)
@@ -773,14 +775,18 @@ try {
             }
             $applicationContent = json_encode($generatedComposerLock, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         }
-        $upstreamLicense = 'web/src/modules/official-file/optional-runtime/LICENSE';
-        if ($path === $upstreamLicense
-            || $path === '.peanut/scaffold-baseline/' . $templateVersion . '/files/' . $upstreamLicense) {
-            createApplicationExpect(
-                $content === (string) file_get_contents($root . '/' . $upstreamLicense),
-                'application generation changed upstream license attribution: ' . $path,
-            );
-            $applicationContent = '';
+        // The upgrade transform rules name the upstream brand as an input;
+        // license attribution also belongs to upstream, not the APP identity.
+        foreach (['scripts/scaffold-runtime/scaffold.conf.json',
+            'web/src/modules/peanut-file/optional-runtime/LICENSE'] as $upstreamMetadata) {
+            if ($path === $upstreamMetadata
+                || $path === '.peanut/scaffold-baseline/' . $templateVersion . '/files/' . $upstreamMetadata) {
+                createApplicationExpect(
+                    $content === (string) file_get_contents($root . '/' . $upstreamMetadata),
+                    'application generation changed upstream metadata: ' . $path,
+                );
+                $applicationContent = '';
+            }
         }
         createApplicationExpect(!str_contains($applicationContent, 'Peanut Admin'), 'source application brand leaked into ' . $path);
         createApplicationExpect(!str_contains($applicationContent, '花生科技'), 'source company brand leaked into ' . $path);
@@ -898,7 +904,11 @@ try {
 
     $managedChangeInventory = $inventory;
     foreach ($managedChangeInventory['files'] as &$entry) {
-        if ($entry['path'] === 'scripts/project-resource-registry') {
+        if ($entry['path'] === 'server/database/environment-guard.php') {
+            createApplicationExpect(
+                $entry['classification'] === 'managed' && $entry['transform'] === 'environment-guard',
+                'managed-change fixture must replace a shipped runtime transform',
+            );
             $entry['transform'] = 'copy';
             $entry['source_sha256'] = hash_file('sha256', $root . '/' . $entry['path']);
             break;
@@ -926,6 +936,7 @@ try {
             $manifest['release']['tokens']['slug'] = 'tampered-slug-token';
         },
         'CREATE_APP_ADOPTION_RENDER_MISMATCH',
+        $installedApiGenerator,
     );
     createApplicationTamperedReleaseFails(
         $root,
@@ -938,6 +949,7 @@ try {
             $manifest['release']['tokens']['extra'] = 'extra-token';
         },
         'CREATE_APP_ADOPTION_MANIFEST_INVALID: SCAFFOLD_MANIFEST_APPLICATION_INVALID',
+        $installedApiGenerator,
     );
     createApplicationTamperedReleaseFails(
         $root,
@@ -950,6 +962,7 @@ try {
             file_put_contents($releaseRoot . '/' . $manifest['files'][0]['source'], "\ntampered\n", FILE_APPEND);
         },
         'CREATE_APP_ADOPTION_ARTIFACT_DIGEST_MISMATCH',
+        $installedApiGenerator,
     );
     createApplicationTamperedReleaseFails(
         $root,
@@ -962,6 +975,7 @@ try {
             $manifest['files'][0]['mode'] = 0755;
         },
         'CREATE_APP_ADOPTION_FILE_METADATA_MISMATCH',
+        $installedApiGenerator,
     );
     createApplicationTamperedReleaseFails(
         $root,
@@ -981,6 +995,7 @@ try {
             unset($file);
         },
         'CREATE_APP_ADOPTION_FILE_METADATA_MISMATCH',
+        $installedApiGenerator,
     );
     createApplicationTamperedReleaseFails(
         $root,
@@ -995,6 +1010,7 @@ try {
             $manifest['files'][] = $extra;
         },
         'CREATE_APP_ADOPTION_MANAGED_SET_MISMATCH',
+        $installedApiGenerator,
     );
     createApplicationTamperedReleaseFails(
         $root,
@@ -1007,6 +1023,7 @@ try {
             array_pop($manifest['files']);
         },
         'CREATE_APP_ADOPTION_MANAGED_SET_MISMATCH',
+        $installedApiGenerator,
     );
     createApplicationTamperedReleaseFails(
         $root,
@@ -1019,6 +1036,7 @@ try {
             $manifest['release']['managed_tree_sha256'] = str_repeat('0', 64);
         },
         'CREATE_APP_ADOPTION_MANAGED_TREE_MISMATCH',
+        $installedApiGenerator,
     );
     createApplicationTamperedReleaseFails(
         $root,
@@ -1031,6 +1049,7 @@ try {
             $manifest['application']['version'] = '0.2.0';
         },
         'CREATE_APP_ADOPTION_APPLICATION_VERSION_MISMATCH',
+        $installedApiGenerator,
     );
 
     $unknown = $inventory;
