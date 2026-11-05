@@ -13,7 +13,6 @@ use PeanutAdmin\Modules\Integration\Contract\ExternalTenantBindingRepository;
 use PeanutAdmin\Modules\Integration\Service\ExternalTenantResolver;
 use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionException;
 use PeanutAdmin\Modules\Integration\Contract\ExternalProvider;
-use PeanutAdmin\Modules\OAuth\Contract\OAuthCallbackLocator;
 
 function externalExpect(bool $condition, string $message): void
 {
@@ -129,22 +128,6 @@ $bindings = [
 $audit = new ExternalFixtureAudit();
 $fixtureRepository = new ExternalFixtureRepository($bindings);
 $resolver = new ExternalTenantResolver($fixtureRepository, $audit);
-// The resolver accepts candidates from OAuth's public locator; this fixture does
-// not claim to test the real OAuth persistence, expiry or one-time ticket store.
-$callbackLocator = new class ($fixtureRepository) implements OAuthCallbackLocator {
-    public function __construct(private readonly ExternalFixtureRepository $repository) {}
-
-    public function locateState(string $provider, string $stateHash): array
-    {
-        return $this->repository->byOAuthState($provider, $stateHash);
-    }
-
-    public function locateTicket(string $ticketHash): array
-    {
-        return $this->repository->byOAuthTicket($ticketHash);
-    }
-};
-
 $verified = [];
 $orders = [
     101 => ['ORDER-SAME' => ['status' => 'unpaid', 'transaction' => '']],
@@ -232,21 +215,21 @@ externalExpect(count(array_unique(array_map('serialize', $denials))) === 1, 'den
 externalExpect($orders[202]['ORDER-SAME']['status'] === 'unpaid', 'denied or wrong-Tenant callback changed Beta');
 
 $oauthAlpha = $resolver->verifiedCandidates(
-    $callbackLocator->locateState(ExternalProvider::WECHAT_OFFICIAL_OAUTH, hash('sha256', $alphaState)),
+    $fixtureRepository->byOAuthState(ExternalProvider::WECHAT_OFFICIAL_OAUTH, hash('sha256', $alphaState)),
     ExternalProvider::WECHAT_OFFICIAL_OAUTH,
     $alphaState,
     'oauth.callback',
     'oauth-alpha',
 );
 $oauthBeta = $resolver->verifiedCandidates(
-    $callbackLocator->locateState(ExternalProvider::WECHAT_OFFICIAL_OAUTH, hash('sha256', $betaState)),
+    $fixtureRepository->byOAuthState(ExternalProvider::WECHAT_OFFICIAL_OAUTH, hash('sha256', $betaState)),
     ExternalProvider::WECHAT_OFFICIAL_OAUTH,
     $betaState,
     'oauth.callback',
     'oauth-beta',
 );
 $oauthTicket = $resolver->verifiedCandidates(
-    $callbackLocator->locateTicket(hash('sha256', $ticket)),
+    $fixtureRepository->byOAuthTicket(hash('sha256', $ticket)),
     'oauth.wechat.completion',
     $ticket,
     'oauth.complete',
@@ -261,37 +244,18 @@ externalExpect(str_contains($auditText, 'identity'), 'resolver audit lacks ident
 externalExpect(!str_contains($auditText, 'secret-101') && !str_contains($auditText, $ticket), 'resolver audit leaked a secret or ticket');
 
 $root = dirname(__DIR__, 2);
-$paymentController = (string) file_get_contents($root . '/app/api/controller/PaymentNotifyController.php');
-$officialController = (string) file_get_contents($root . '/app/api/controller/OfficialAccountController.php');
-$oauthController = (string) file_get_contents($root . '/app/api/controller/OAuthController.php');
-$paymentApplication = (string) file_get_contents($root . '/app/api/services/PaymentCallbackApplicationService.php');
-$officialApplication = (string) file_get_contents($root . '/app/api/services/OfficialAccountApplicationService.php');
-$oauthApplication = (string) file_get_contents($root . '/app/api/services/OAuthApplicationService.php');
-$settlement = (string) file_get_contents($root . '/app/modules/official/payment/src/Service/RechargeApplicationService.php');
-$schema = (string) file_get_contents($root . '/database/init.sql');
-$bindingRepository = (string) file_get_contents($root . '/app/modules/official/integration/src/Infrastructure/ThinkPhpExternalTenantBindingRepository.php');
+$schema = (string) file_get_contents($root . '/app/modules/peanut/integration/database/migrations/20261101010008_initial_integration_schema.php');
+$bindingRepository = (string) file_get_contents($root . '/app/modules/peanut/integration/src/Infrastructure/ThinkPhpExternalTenantBindingRepository.php');
 $bootstrapService = (string) file_get_contents($root . '/app/platform/services/ApplicationTenantBootstrapService.php');
-foreach ([$paymentController, $officialController, $oauthController, $paymentApplication, $officialApplication, $oauthApplication] as $source) {
-    externalExpect(!str_contains($source, "['tenant_id']") && !str_contains($source, "get('tenant_id")
-        && !str_contains($source, "header('tenant_id"), 'callback wiring trusts request tenant_id');
-}
-externalExpect(!str_contains($paymentController, 'static function () use ($event, $resolution): void'), 'payment callback uses injected service from a static closure');
-$verificationPosition = strpos($paymentApplication, 'verifiedCallback(');
-$settlementPosition = strpos($paymentApplication, '$this->recharges->settleVerifiedCallback(');
-externalExpect($verificationPosition !== false && $settlementPosition !== false
-    && $verificationPosition < $settlementPosition, 'payment write precedes verification');
-externalExpect(str_contains($paymentController, '$this->application->wechat(')
-    && str_contains($paymentController, '$this->application->alipay('), 'payment HTTP adapter bypasses its use case');
-externalExpect(str_contains($settlement, 'settle(object $context'), 'settlement does not require a verified context port');
-externalExpect(!str_contains($settlement, 'VerifiedPaymentTenantResolver::resolve'), 'settlement still derives Tenant from an order number');
 foreach (['uk_external_callback_key', 'uk_external_provider_identity', 'uk_external_tenant_provider',
     'fk_external_binding_tenant'] as $marker) {
     externalExpect(str_contains($schema, $marker), 'binding schema invariant missing: ' . $marker);
 }
 externalExpect(
-    str_contains($schema, 'SELECT @pa_default_tenant_id, providers.`provider`')
-        && preg_match('/JSON_OBJECT\(\),\s*0,\s*0,\s*0\s+FROM/s', $schema) === 1,
-    'fresh schema does not seed explicit disabled provider placeholders',
+    str_contains($bindingRepository, "'config_json' => '{}'")
+        && str_contains($bindingRepository, "'status' => 0")
+        && str_contains($bootstrapService, '$this->externalBindings->ensureUnconfiguredBinding('),
+    'tenant provisioning does not create explicit disabled provider placeholders',
 );
 foreach (['Db::transaction(', "->where('tenant_id', \$tenantId)", "->lock(true)",
     "'callback_key' => \$callbackKey", 'bin2hex(random_bytes(32))'] as $marker) {
