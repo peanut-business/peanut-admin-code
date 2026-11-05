@@ -792,6 +792,19 @@ try {
                 $applicationContent = '';
             }
         }
+        // A published Module owns its package name, license and documentation.
+        // Preserve those bytes rather than rewriting them to the APP brand.
+        $baselinePrefix = '.peanut/scaffold-baseline/' . $templateVersion . '/files/';
+        $moduleSource = str_starts_with($path, $baselinePrefix)
+            ? substr($path, strlen($baselinePrefix)) : $path;
+        if (preg_match('#^(?:server/app/modules|(?:web|platform|uniapp)/src/modules|pc/modules)/#D', $moduleSource) === 1) {
+            createApplicationExpect(
+                is_file($root . '/' . $moduleSource)
+                    && $content === (string) file_get_contents($root . '/' . $moduleSource),
+                'generated application changed an immutable selected Module: ' . $path,
+            );
+            $applicationContent = '';
+        }
         createApplicationExpect(!str_contains($applicationContent, 'Peanut Admin'), 'source application brand leaked into ' . $path);
         createApplicationExpect(!str_contains($applicationContent, '花生科技'), 'source company brand leaked into ' . $path);
         createApplicationExpect(!str_contains($content, '/Users/xing'), 'personal path leaked into ' . $path);
