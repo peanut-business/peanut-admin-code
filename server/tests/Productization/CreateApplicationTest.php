@@ -569,30 +569,34 @@ try {
         'production Nginx image must install the executable deployment-mode selector',
     );
     $generatedProductionCompose = (string) file_get_contents($first . '/deploy/docker-compose.prod.yml');
-    createApplicationExpect(preg_match(
-        '/^  nginx:\\R(.*?)(?=^  [a-z]+:|^volumes:)/ms',
-        $generatedProductionCompose,
-        $nginxService,
-    ) === 1, 'production Nginx service is missing');
+    $generatedRuntimeCompose = (string) file_get_contents($first . '/server/docker/compose.yaml');
+    createApplicationExpect(
+        str_contains($generatedProductionCompose, "include:\n  - ../server/docker/compose.yaml")
+            && preg_match('/^  nginx:\\R(.*?)(?=^  [a-z]+:|^volumes:)/ms', $generatedRuntimeCompose, $nginxService) === 1,
+        'production Compose must select the managed APP Nginx runtime without duplicating service ownership',
+    );
     $generatedSelector = (string) file_get_contents($first . '/deploy/docker/nginx-select-admin.sh');
     createApplicationExpect(
-        str_contains($nginxService[1], '/var/www/peanut-admin/server/.env.source:ro')
+        str_contains($nginxService[1], '../public:/var/www/peanut-admin/server/public:ro')
+            && str_contains($nginxService[1], './conf/nginx.conf:/etc/nginx/nginx.conf:ro')
             && str_contains($generatedSelector, 'peanut-read-backend-enum "$backend_source" DEPLOYMENT_MODE')
             && is_file($first . '/deploy/docker/read-backend-enum.sh'),
-        'production Nginx must select its explicit mode from the read-only backend source',
+        'managed APP Nginx must mount public content read-only and retain explicit mode selection tooling',
     );
     createApplicationExpect(
         is_file($first . '/server/.env.example')
-            && is_file($first . '/server/bootstrap/environment.php')
+            && is_file($first . '/server/database/environment-guard.php')
+            && !is_file($first . '/server/bootstrap/environment.php')
             && !str_contains((string) file_get_contents($first . '/.env.example'), 'DB_HOST=')
             && str_contains((string) file_get_contents($first . '/server/.env.example'), 'DB_HOST='),
         'generated application must keep orchestration and backend environment samples separate',
     );
     createApplicationExpect(
-        !str_contains($generatedProductionCompose, 'env_file:')
-            && substr_count($generatedProductionCompose, '/var/www/peanut-admin/server/.env.source:ro') === 3
-            && str_contains($generatedProductionCompose, '["/usr/local/bin/peanut-php-entrypoint", "cron"]'),
-        'production PHP and cron services must consume the single backend environment source safely',
+        !str_contains($generatedRuntimeCompose, 'env_file:')
+            && str_contains($generatedRuntimeCompose, '../:/var/www/peanut-http/server:ro')
+            && str_contains($generatedRuntimeCompose, './conf/crontab:/etc/cron.d/peanut-app:ro')
+            && str_contains($generatedRuntimeCompose, './scripts/schedule.sh:/usr/local/bin/peanut-schedule:ro'),
+        'managed APP PHP and scheduler must retain read-only source and explicit cron mounting',
     );
     createApplicationExpect(
         preg_match('/FROM php:[^\n]+ AS php(.*?)FROM nginx:/s', $generatedProductionDockerfile, $phpImageMatch) === 1
