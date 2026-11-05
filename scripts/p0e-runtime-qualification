@@ -391,7 +391,7 @@ def runtime_environment(runtime: dict[str, Any], admission: dict[str, Any], *, p
     }
     result = command([php, "-r",
         "try { require $argv[1] . '/vendor/autoload.php'; "
-        "$app = new think\\App($argv[1]); $app->loadEnv((string) env('env_name', '')); "
+        "$app = new think\\App($argv[1]); $app->loadEnv((string) $app->env->get('env_name', '')); "
         "foreach (['P0E_HOST_LEASE_PROOF','PEANUT_RESOURCE_LEASE_PROOF'] as $key) {"
         "if (getenv($key) !== $argv[2]) { fwrite(STDERR, 'RUNTIME_ENVIRONMENT_PROOF_MISMATCH:'.$key); exit(2); }}"
         "} catch (Throwable $e) { fwrite(STDERR, 'RUNTIME_ENVIRONMENT_LOAD_FAILED'); exit(2); }",
