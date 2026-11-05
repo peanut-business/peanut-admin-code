@@ -66,7 +66,7 @@ if ($root === false || $root === $toolRoot || $root === realpath((string) $confi
 }
 require $root . '/server/vendor/autoload.php';
 $app = (new think\App($root . '/server'))->initialize();
-$pdo = think\facade\Db::connect()->getPdo();
+$pdo = think\facade\Db::connect()->connect();
 $identity = app\common\services\installation\InstallationExecutionHost::migrationDatabaseIdentity($pdo);
 if ($identity !== $runtime['database_identity']) {
     throw new RuntimeException('MODULE_QUALIFICATION_DATABASE_IDENTITY_MISMATCH');
