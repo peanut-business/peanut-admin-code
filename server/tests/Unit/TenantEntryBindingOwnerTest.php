@@ -55,7 +55,7 @@ final class TenantEntryBindingOwnerTest extends TestCase
     public function testOwnerIsPublicAndControllerUsesTheSameNativeContext(): void
     {
         $root = dirname(__DIR__, 2);
-        $manifest = json_decode(file_get_contents($root . '/app/modules/official/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents($root . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(TenantEntryBindingAdminService::class, $manifest['contracts']['exports']);
         self::assertFileDoesNotExist($root . '/app/platform/services/TenantEntryBindingAdminService.php');
         $controller = file_get_contents($root . '/app/platform/controller/PlatformTenantEntryBindingController.php');

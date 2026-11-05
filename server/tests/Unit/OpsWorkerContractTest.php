@@ -33,7 +33,7 @@ final class OpsWorkerContractTest extends TestCase
         $module = new \PeanutAdmin\Modules\Ops\ModuleProvider();
         self::assertSame($implementation, $module->bindings()[$port] ?? null);
         self::assertTrue(is_subclass_of($implementation, $port));
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/ops/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/ops/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains($port, $manifest['contracts']['exports']);
         self::assertNotContains($implementation, $manifest['contracts']['exports']);
         $app = new App(dirname(__DIR__, 3) . '/.local/tmp/ops-worker-contracts');
@@ -80,7 +80,8 @@ final class OpsWorkerContractTest extends TestCase
         $worker->expects(self::never())->method('heartbeat');
         [$exit, $payload] = $this->runCommand($type, $port, $worker, ['heartbeat', '--task-key=job_' . str_repeat('a', 32), '--revision=0'], new ExecutionContextStore(), $name);
         self::assertSame(1, $exit);
-        self::assertSame(['ok' => false, 'error_code' => $prefix . '_EXECUTION_REVISION_INVALID'], $payload);
+        self::assertSame(['ok' => false, 'error_code' => $prefix . '_EXECUTION_REVISION_INVALID']
+            + ($prefix === 'OPS_MODULE' ? ['exit_code' => 1] : []), $payload);
     }
 
     #[DataProvider('workers')]
@@ -95,10 +96,11 @@ final class OpsWorkerContractTest extends TestCase
         foreach (['mysql://fixture:private@host/db', $prefix . '_EXECUTION_FENCED'] as $message) {
             $contexts = new ExecutionContextStore();
             $failure = $this->createMock($port);
-            $failure->expects(self::once())->method('claim')->willThrowException(new RuntimeException($message));
-            [$exit, $payload] = $this->runCommand($type, $port, $failure, ['claim'], $contexts, $name);
+            $failure->expects(self::once())->method('heartbeat')->with($key, 3)->willThrowException(new RuntimeException($message));
+            [$exit, $payload] = $this->runCommand($type, $port, $failure, ['heartbeat', '--task-key=' . $key, '--revision=3'], $contexts, $name);
             self::assertSame(1, $exit);
-            self::assertSame(['ok' => false, 'error_code' => str_starts_with($message, $prefix) ? $message : $prefix . '_WORKER_FAILED'], $payload);
+            self::assertSame(['ok' => false, 'error_code' => str_starts_with($message, $prefix) ? $message : $prefix . '_WORKER_FAILED']
+                + ($prefix === 'OPS_MODULE' ? ['exit_code' => 1] : []), $payload);
             self::assertTrue($contexts->isEmpty());
         }
     }
@@ -108,7 +110,8 @@ final class OpsWorkerContractTest extends TestCase
     {
         [$exit, $payload] = $this->runCommand($type, $port, null, ['claim'], new ExecutionContextStore(), $name);
         self::assertSame(1, $exit);
-        self::assertSame(['ok' => false, 'error_code' => $prefix . '_WORKER_FAILED'], $payload);
+        self::assertSame(['ok' => false, 'error_code' => $prefix . '_WORKER_FAILED']
+            + ($prefix === 'OPS_MODULE' ? ['exit_code' => 1] : []), $payload);
         $source = file_get_contents((new ReflectionClass($type))->getFileName());
         self::assertStringNotContainsString('app(', $source);
         self::assertStringNotContainsString('Ops\\Infrastructure\\', $source);
@@ -123,7 +126,8 @@ final class OpsWorkerContractTest extends TestCase
         }
         [$exit, $payload] = $this->runCommand($type, $port, $worker, ['unknown'], new ExecutionContextStore(), $name);
         self::assertSame(1, $exit);
-        self::assertSame(['ok' => false, 'error_code' => $prefix . ($prefix === 'OPS_MODULE' ? '_TASK_ACTION_INVALID' : '_ACTION_INVALID')], $payload);
+        self::assertSame(['ok' => false, 'error_code' => $prefix . ($prefix === 'OPS_MODULE' ? '_TASK_ACTION_INVALID' : '_ACTION_INVALID')]
+            + ($prefix === 'OPS_MODULE' ? ['exit_code' => 1] : []), $payload);
     }
 
     public function testModuleAndUpgradeSpecificTransitionsKeepTheirExactInputs(): void
@@ -147,7 +151,7 @@ final class OpsWorkerContractTest extends TestCase
         $app = new App(dirname(__DIR__, 3) . '/.local/tmp/ops-worker-injection');
         $contexts = new ExecutionContextStore();
         $worker = $this->createMock($port);
-        $worker->expects(self::once())->method('claim')->willReturn(null);
+        $worker->expects(self::once())->method('heartbeat')->with('job_' . str_repeat('a', 32), 7)->willReturn([]);
         $app->instance(ExecutionContextStore::class, $contexts);
         $app->instance(CurrentExecutionContext::class, new CurrentExecutionContext($contexts));
         $app->instance($port, $worker);
@@ -156,7 +160,7 @@ final class OpsWorkerContractTest extends TestCase
         $command = $app->invokeClass($type);
         self::assertSame($worker, (new ReflectionProperty($command, 'service'))->getValue($command));
         $output = new Output('buffer');
-        self::assertSame(0, $command->run(new Input(['claim']), $output));
+        self::assertSame(0, $command->run(new Input(['heartbeat', '--task-key=job_' . str_repeat('a', 32), '--revision=7']), $output));
         self::assertTrue($contexts->isEmpty());
     }
 

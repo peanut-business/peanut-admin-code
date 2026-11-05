@@ -14,7 +14,6 @@ use PeanutAdmin\DataPermission\Constraint\ThinkPhpQueryConstraintApplier;
 use PeanutAdmin\DataPermission\Engine\DataPermissionEngine;
 use PeanutAdmin\DataPermission\Exception\DataAuthorizationException;
 use PeanutAdmin\Modules\Identity\DataPermission\Policy\ThinkPhpPolicyRepository;
-use PeanutAdmin\DataPermission\Policy\PolicyCache;
 use PeanutAdmin\DataPermission\Provider\ConditionProviderRegistry;
 use PeanutAdmin\Modules\Identity\DataPermission\Provider\ThinkPhpDepartmentHierarchyProvider;
 use PeanutAdmin\Modules\Identity\DataPermission\Provider\ThinkPhpTargetSetMembershipProvider;
@@ -415,7 +414,6 @@ SQL)->fetchColumn();
         return new DataPermissionEngine(
             $this->catalog,
             $this->policies,
-            new PolicyCache(),
             new TenantAuthorizationEvaluator($this->authorization, new RevisionPermissionCache()),
             $providers,
             new TargetResolverRegistry(),

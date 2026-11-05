@@ -19,7 +19,7 @@ final class OpsModuleRequestContractTest extends TestCase
         self::assertSame(DeploymentModuleRequestService::class, (new \PeanutAdmin\Modules\Ops\ModuleProvider())->bindings()[DeploymentModuleRequests::class] ?? null);
         self::assertTrue(is_subclass_of(DeploymentModuleRequestService::class, DeploymentModuleRequests::class));
         self::assertSame(['preview','prepare'], array_map(static fn(ReflectionMethod $method): string => $method->name, (new ReflectionClass(DeploymentModuleRequests::class))->getMethods()));
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/ops/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/ops/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(DeploymentModuleRequests::class, $manifest['contracts']['exports']);
         self::assertNotContains(DeploymentModuleRequestService::class, $manifest['contracts']['exports']);
     }

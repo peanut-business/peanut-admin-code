@@ -25,7 +25,7 @@ final class TenantSettingsTransferBoundaryTest extends TestCase
 {
     private PDO $database;
     private App $app;
-    private TenantSettingsConfigurationAdapter $adapter;
+    private TenantSettingsTransfer $transfer;
 
     protected function setUp(): void
     {
@@ -53,8 +53,8 @@ final class TenantSettingsTransferBoundaryTest extends TestCase
                 (2, 2, 'website', '{"title":"second","password":"synthetic-secret-b"}', 9, 200, 200);
             SQL);
         $this->app->bind((new ModuleProvider())->bindings());
-        $this->adapter = $this->app->make(TenantSettingsConfigurationAdapter::class);
-        self::assertStringStartsWith($root . '/server/app/', (new \ReflectionClass($this->adapter))->getFileName());
+        $this->transfer = $this->app->make(TenantSettingsTransfer::class);
+        self::assertStringStartsWith($root . '/server/app/', (new \ReflectionClass($this->transfer))->getFileName());
     }
 
     private function actor(int $tenantId = 1): TenantContext
@@ -68,17 +68,19 @@ final class TenantSettingsTransferBoundaryTest extends TestCase
             'admin-web',
             new DateTimeImmutable('2099-01-01T00:00:00Z'),
             3,
+            3,
         ), 'settings-transfer-test');
     }
 
     public function testAdapterCannotAccessSettingsPersistenceDirectly(): void
     {
-        $source = file_get_contents((new \ReflectionClass($this->adapter))->getFileName());
+        $adapter = $this->app->make(TenantSettingsConfigurationAdapter::class);
+        $source = file_get_contents((new \ReflectionClass($adapter))->getFileName());
         self::assertIsString($source);
         self::assertStringNotContainsString('think\\facade\\Db', $source);
         self::assertStringNotContainsString('Db::', $source);
         self::assertStringContainsString('Settings\\Contract\\TenantSettingsTransfer', $source);
-        $constructor = (new \ReflectionClass($this->adapter))->getConstructor();
+        $constructor = (new \ReflectionClass($adapter))->getConstructor();
         self::assertNotNull($constructor);
         self::assertSame(TenantSettingsTransfer::class, (string) $constructor->getParameters()[0]->getType());
     }
@@ -89,27 +91,29 @@ final class TenantSettingsTransferBoundaryTest extends TestCase
         self::assertArrayHasKey(TenantSettingsTransfer::class, $bindings);
         $owner = $this->app->make(TenantSettingsTransfer::class);
         self::assertInstanceOf(TenantSettingsTransfer::class, $owner);
-        self::assertStringContainsString('/modules/official/settings/src/', (new \ReflectionClass($owner))->getFileName());
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 3) . '/server/app/modules/official/settings/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertStringContainsString('/modules/peanut/settings/src/', (new \ReflectionClass($owner))->getFileName());
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 3) . '/server/app/modules/peanut/settings/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(TenantSettingsTransfer::class, $manifest['contracts']['exports']);
         self::assertNotContains(get_class($owner), $manifest['contracts']['exports']);
     }
 
     public function testCurrentPreservesExistenceRevisionAndSecretRedaction(): void
     {
-        $current = $this->adapter->current($this->actor(), 'website');
+        $adapter = $this->app->make(TenantSettingsConfigurationAdapter::class);
+        $current = $adapter->current($this->actor(), 'website');
         self::assertTrue($current['exists']);
         self::assertSame(3, $current['revision']);
         self::assertSame('first', $current['value']['title']);
         self::assertSame('configured', $current['value']['password']['$secret']['state']);
         self::assertStringNotContainsString('synthetic-secret-a', json_encode($current, JSON_THROW_ON_ERROR));
-        self::assertSame(['exists' => false, 'value' => null, 'revision' => null], $this->adapter->current($this->actor(), 'missing'));
+        self::assertSame(['exists' => false, 'value' => null, 'revision' => null], $adapter->current($this->actor(), 'missing'));
     }
 
     public function testExportIsOrderedRedactedAndNeverIncludesAnotherTenant(): void
     {
         $this->database->exec("INSERT INTO pa_tenant_setting VALUES (3, 1, 'agreement', '{\"text\":\"a\"}', 1, 100, 100)");
-        $entries = $this->adapter->export($this->actor());
+        $adapter = $this->app->make(TenantSettingsConfigurationAdapter::class);
+        $entries = $adapter->export($this->actor());
         self::assertSame(['agreement', 'website'], array_column($entries, 'key'));
         $encoded = json_encode($entries, JSON_THROW_ON_ERROR);
         self::assertStringNotContainsString('synthetic-secret-', $encoded);
@@ -120,14 +124,14 @@ final class TenantSettingsTransferBoundaryTest extends TestCase
 
     public function testCreateAndConditionalReplacePreserveTenantAndCreationTime(): void
     {
-        $this->adapter->apply($this->actor(), 'new-setting', ['enabled' => true], [], null);
-        self::assertSame(1, $this->adapter->current($this->actor(), 'new-setting')['revision']);
-        $this->adapter->apply($this->actor(), 'website', ['title' => 'changed'], [], 3);
-        self::assertSame(4, $this->adapter->current($this->actor(), 'website')['revision']);
-        self::assertSame('changed', $this->adapter->current($this->actor(), 'website')['value']['title']);
+        $this->transfer->apply($this->actor(), 'new-setting', ['enabled' => true], null);
+        self::assertSame(1, $this->transfer->current($this->actor(), 'new-setting')?->revision);
+        $this->transfer->apply($this->actor(), 'website', ['title' => 'changed'], 3);
+        self::assertSame(4, $this->transfer->current($this->actor(), 'website')?->revision);
+        self::assertSame('changed', $this->transfer->current($this->actor(), 'website')?->document['title']);
         self::assertSame(100, (int) $this->database->query('SELECT create_time FROM pa_tenant_setting WHERE id = 1')->fetchColumn());
-        self::assertSame(9, $this->adapter->current($this->actor(2), 'website')['revision']);
-        self::assertSame('second', $this->adapter->current($this->actor(2), 'website')['value']['title']);
+        self::assertSame(9, $this->transfer->current($this->actor(2), 'website')?->revision);
+        self::assertSame('second', $this->transfer->current($this->actor(2), 'website')?->document['title']);
     }
 
     public static function conflicts(): array
@@ -143,13 +147,13 @@ final class TenantSettingsTransferBoundaryTest extends TestCase
     public function testConflictsNeverOverwriteOrCreate(string $namespace, ?int $revision): void
     {
         try {
-            $this->adapter->apply($this->actor(), $namespace, ['title' => 'wrong'], [], $revision);
+            $this->transfer->apply($this->actor(), $namespace, ['title' => 'wrong'], $revision);
             self::fail('Expected revision conflict');
         } catch (\RuntimeException $exception) {
             self::assertSame('TRANSFER_CONFLICT', $exception->getMessage());
         }
-        self::assertSame(3, $this->adapter->current($this->actor(), 'website')['revision']);
-        self::assertSame('first', $this->adapter->current($this->actor(), 'website')['value']['title']);
+        self::assertSame(3, $this->transfer->current($this->actor(), 'website')?->revision);
+        self::assertSame('first', $this->transfer->current($this->actor(), 'website')?->document['title']);
         self::assertSame(2, (int) $this->database->query('SELECT COUNT(*) FROM pa_tenant_setting')->fetchColumn());
     }
 
@@ -157,16 +161,16 @@ final class TenantSettingsTransferBoundaryTest extends TestCase
     {
         try {
             Db::transaction(function (): void {
-                $this->adapter->apply($this->actor(), 'website', ['title' => 'temporary'], [], 3);
-                $this->adapter->apply($this->actor(), 'new-setting', ['enabled' => true], [], null);
+                $this->transfer->apply($this->actor(), 'website', ['title' => 'temporary'], 3);
+                $this->transfer->apply($this->actor(), 'new-setting', ['enabled' => true], null);
                 throw new \RuntimeException('SYNTHETIC_LATER_ADAPTER_FAILURE');
             });
             self::fail('Expected outer failure');
         } catch (\RuntimeException $exception) {
             self::assertSame('SYNTHETIC_LATER_ADAPTER_FAILURE', $exception->getMessage());
         }
-        self::assertSame(3, $this->adapter->current($this->actor(), 'website')['revision']);
-        self::assertFalse($this->adapter->current($this->actor(), 'new-setting')['exists']);
+        self::assertSame(3, $this->transfer->current($this->actor(), 'website')?->revision);
+        self::assertNull($this->transfer->current($this->actor(), 'new-setting'));
     }
 
     public static function invalidInputs(): array
@@ -181,10 +185,12 @@ final class TenantSettingsTransferBoundaryTest extends TestCase
     #[DataProvider('invalidInputs')]
     public function testInvalidInputsAreRejectedBeforeWriting(string $namespace, mixed $document): void
     {
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('TRANSFER_TENANT_SETTING_INVALID');
+        $this->expectException(is_array($document) ? \RuntimeException::class : \TypeError::class);
+        if (is_array($document)) {
+            $this->expectExceptionMessage('TRANSFER_TENANT_SETTING_INVALID');
+        }
         try {
-            $this->adapter->apply($this->actor(), $namespace, $document, [], 3);
+            $this->transfer->apply($this->actor(), $namespace, $document, 3);
         } finally {
             self::assertSame(3, (int) $this->database->query('SELECT revision FROM pa_tenant_setting WHERE id = 1')->fetchColumn());
         }
@@ -202,6 +208,6 @@ final class TenantSettingsTransferBoundaryTest extends TestCase
         $statement->execute([$document]);
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('TRANSFER_TENANT_SETTING_INVALID');
-        $this->adapter->current($this->actor(), 'website');
+        $this->transfer->current($this->actor(), 'website');
     }
 }

@@ -11,8 +11,8 @@ use app\common\execution\AdminExecutionContext;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\http\PageResult;
-use PeanutAdmin\Modules\Article\Contract\ArticleAdministration;
-use PeanutAdmin\Modules\Article\Controller\ArticleController;
+use PeanutAdmin\Modules\ReferenceCodes\Service\DictTypeApplicationService;
+use PeanutAdmin\Modules\ReferenceCodes\Controller\DictTypeController;
 use DateTimeImmutable;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
@@ -45,40 +45,40 @@ final class ControllerDependencyResolutionTest extends TestCase
         Container::setInstance($this->previousContainer);
     }
 
-    public function testRealCrudControllerUsesTheCurrentAppsReplaceableInterfaceBinding(): void
+    public function testRealCrudControllerUsesTheCurrentAppsReplaceableServiceBinding(): void
     {
-        $first = $this->createMock(ArticleAdministration::class);
+        $first = $this->createMock(DictTypeApplicationService::class);
         $first->expects(self::once())->method('lists')->with(
             self::isInstanceOf(TenantContext::class),
             [],
         )->willReturn(
             new PageResult([['source' => 'first']], 1, 1, 20),
         );
-        $second = $this->createMock(ArticleAdministration::class);
+        $second = $this->createMock(DictTypeApplicationService::class);
         $second->expects(self::once())->method('lists')->with(
             self::isInstanceOf(TenantContext::class),
             [],
         )->willReturn(
             new PageResult([['source' => 'second']], 1, 1, 20),
         );
-        $this->app->instance(ArticleAdministration::class, $first);
+        $this->app->instance(DictTypeApplicationService::class, $first);
 
-        $constructor = (new \ReflectionClass(ArticleController::class))->getConstructor();
+        $constructor = (new \ReflectionClass(DictTypeController::class))->getConstructor();
         self::assertSame(BaseController::class, $constructor?->getDeclaringClass()->getName());
         self::assertSame([App::class], array_map(
             static fn(\ReflectionParameter $parameter): ?string => $parameter->getType()?->getName(),
             $constructor?->getParameters() ?? [],
         ));
-        $declaration = (new \ReflectionClass(ArticleController::class))->getProperty('crudClass');
+        $declaration = (new \ReflectionClass(DictTypeController::class))->getProperty('dictionaryTypesClass');
         self::assertTrue($declaration->isProtected());
         self::assertFalse($declaration->isStatic());
         self::assertSame('string', $declaration->getType()?->getName());
-        self::assertSame(ArticleAdministration::class, $declaration->getDefaultValue());
+        self::assertSame(DictTypeApplicationService::class, $declaration->getDefaultValue());
 
         $responses = $this->contexts->run($this->adminContext(), function () use ($second): array {
-            $controller = new ArticleController($this->app);
+            $controller = new DictTypeController($this->app);
             $firstResponse = $controller->lists();
-            $this->app->instance(ArticleAdministration::class, $second);
+            $this->app->instance(DictTypeApplicationService::class, $second);
             $secondResponse = $controller->lists();
             return [$firstResponse->getData(), $secondResponse->getData()];
         });
@@ -99,8 +99,9 @@ final class ControllerDependencyResolutionTest extends TestCase
             'admin-web',
             new DateTimeImmutable('2031-01-01T00:00:00Z'),
             1,
+            1,
         ), 'controller-getter-request');
-        return new AdminExecutionContext($tenant, 'article.lists', [
+        return new AdminExecutionContext($tenant, 'peanut.reference-codes.dictType.lists', [
             'id' => 301,
             'tenant_id' => 101,
             'account_id' => 201,

@@ -48,7 +48,12 @@ final class TenantModuleStateBoundaryTest extends TestCase
             CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY, status TEXT);
             CREATE TABLE pa_tenant_module (id INTEGER PRIMARY KEY, tenant_id INTEGER, module_key TEXT, status TEXT, source TEXT DEFAULT 'fixture', config_revision INTEGER DEFAULT 7, effective_at TEXT, expires_at TEXT, enabled_at TEXT, disabled_at TEXT, disabled_reason TEXT, created_at TEXT, updated_at TEXT, config_json TEXT DEFAULT 'private-fixture-config');
             CREATE TABLE pa_module_installation (module_key TEXT PRIMARY KEY, installed_version TEXT, manifest_schema_version INTEGER, manifest_digest TEXT, status TEXT, revision INTEGER, activated_at TEXT, created_at TEXT, updated_at TEXT, last_error_code TEXT DEFAULT NULL);
-            CREATE TABLE pa_plugin_module (plugin_key TEXT, module_key TEXT);
+            CREATE TABLE pa_plan (id INTEGER PRIMARY KEY, code TEXT, name TEXT, revision INTEGER);
+            CREATE TABLE pa_plan_module (plan_id INTEGER, module_key TEXT);
+            CREATE TABLE pa_tenant_license (id INTEGER PRIMARY KEY, tenant_id INTEGER, plan_id INTEGER, status TEXT, effective_at TEXT, expires_at TEXT, revision INTEGER);
+            INSERT INTO pa_plan VALUES (1,'active','Active',1),(2,'foreign','Foreign',1);
+            INSERT INTO pa_tenant_license VALUES (1,1,1,'active','2000-01-01',NULL,7),(2,2,2,'active','2000-01-01',NULL,8);
+            INSERT INTO pa_plan_module VALUES (1,'fixture.current'),(1,'fixture.always'),(1,'fixture.foundation'),(2,'fixture.foreign');
             INSERT INTO pa_tenant VALUES (1,'active'),(2,'closed'),(3,'provisioning');
             INSERT INTO pa_tenant_module (id,tenant_id,module_key,status,effective_at,expires_at) VALUES
                 (1,1,'fixture.current','enabled','2031-01-01 12:00:00.000','2031-01-01 12:00:00.001'),
@@ -60,7 +65,7 @@ final class TenantModuleStateBoundaryTest extends TestCase
                 (7,2,'fixture.foreign','enabled',NULL,NULL);
             SQL);
         $manifests = [];
-        foreach (['fixture.foundation' => true, 'fixture.current' => false] as $key => $foundation) {
+        foreach (['fixture.foundation' => true, 'fixture.current' => false, 'fixture.always' => false, 'fixture.foreign' => false] as $key => $foundation) {
             $manifest = ManifestDocument::fromObject($temporary, json_decode(json_encode([
                 'schema_version' => 1, 'key' => $key, 'name' => $key, 'version' => '1.0.0',
                 'tenant' => ['enableable' => !$foundation], 'lifecycle' => ['protected' => $foundation],
@@ -71,13 +76,14 @@ final class TenantModuleStateBoundaryTest extends TestCase
             ]);
         }
         $compiled = new CompiledModuleRegistry($manifests, [], [], [], hash('sha256', implode('|', array_map(static fn(ManifestDocument $manifest): string => $manifest->digest, $manifests))));
+        $app->instance(CompiledModuleRegistry::class, $compiled);
         $this->queries = new TenantModuleStateQueries();
         $this->qualification = new ModuleQualificationQueryService(new DeployedTenantModuleRegistry($compiled), $this->queries);
     }
 
     public function testPublicOwnerBoundaryDoesNotExposeConfigurationOrQueries(): void
     {
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(TenantModuleStateQueries::class, $manifest['contracts']['exports']);
         $source = file_get_contents((new \ReflectionClass(ModuleQualificationQueryService::class))->getFileName());
         self::assertStringContainsString('TenantModuleStateQueries $tenantStates', $source);
@@ -89,12 +95,15 @@ final class TenantModuleStateBoundaryTest extends TestCase
         }
     }
 
-    public function testDatabaseWindowAndTenantIsolationRemainUnchanged(): void
+    public function testLicenseWindowAndTenantIsolationRemainEnforced(): void
     {
-        self::assertSame(['fixture.always', 'fixture.current'], $this->queries->activeModuleKeys(1));
-        $this->clock = '2031-01-01 12:00:00.001';
-        self::assertSame(['fixture.always', 'fixture.future'], $this->queries->activeModuleKeys(1));
-        self::assertStringContainsString('CURRENT_TIMESTAMP(3)', implode("\n", $this->connection->observedSql));
+        self::assertSame(['fixture.always', 'fixture.current', 'fixture.foundation'], $this->queries->activeModuleKeys(1));
+        $this->database->exec("UPDATE pa_tenant_license SET expires_at='2000-01-02' WHERE tenant_id=1");
+        self::assertSame(['fixture.foundation'], $this->queries->activeModuleKeys(1));
+        self::assertSame(['fixture.foreign', 'fixture.foundation'], $this->queries->activeModuleKeys(2));
+        $this->database->exec("UPDATE pa_tenant_license SET expires_at=NULL,effective_at='2099-01-01' WHERE tenant_id=1");
+        self::assertSame(['fixture.foundation'], $this->queries->activeModuleKeys(1));
+        self::assertSame('disabled', $this->queries->stateRows(1)[0]['status']);
         self::assertSame([], $this->queries->stateRows(0));
         self::assertSame([], $this->queries->activeModuleKeys(0));
     }
@@ -109,7 +118,7 @@ final class TenantModuleStateBoundaryTest extends TestCase
         self::assertSame('enabled', $foundation[0]->status);
         self::assertSame(0, $foundation[0]->id);
         self::assertSame(9, $foundation[0]->configRevision);
-        self::assertCount(6, $states);
+        self::assertCount(3, $states);
     }
 
     public function testInstallationStateProjectionIsBoundedAndPreservesMissingRows(): void
@@ -145,16 +154,16 @@ final class TenantModuleStateBoundaryTest extends TestCase
 
     public function testLifecycleUsageIsNotReducedToCurrentlyUsableTenantModules(): void
     {
-        $this->database->exec("INSERT INTO pa_tenant_module (id,tenant_id,module_key,status,effective_at,expires_at) VALUES (8,2,'fixture.current','enabled',NULL,'2030-01-01 00:00:00.000'),(9,3,'fixture.current','enabled','2032-01-01 00:00:00.000',NULL)");
+        $this->database->exec("INSERT INTO pa_plan_module VALUES (2,'fixture.current'),(3,'fixture.current'),(3,'fixture.expired'),(3,'fixture.future')");
         $counts = $this->queries->enabledCounts();
         self::assertSame(3, $counts['fixture.current']);
         self::assertSame(1, $counts['fixture.expired']);
         self::assertSame(1, $counts['fixture.future']);
         self::assertArrayNotHasKey('fixture.disabled', $counts);
-        self::assertArrayNotHasKey('fixture.foundation', $counts);
+        self::assertSame(1, $counts['fixture.foundation']);
         self::assertTrue($this->queries->hasEnabledModules(['fixture.expired']));
         self::assertTrue($this->queries->hasEnabledModules(['fixture.foreign']));
-        self::assertFalse($this->queries->hasEnabledModules(['fixture.disabled', 'fixture.foundation']));
+        self::assertFalse($this->queries->hasEnabledModules(['fixture.disabled', 'fixture.missing']));
         self::assertFalse($this->queries->hasEnabledModules([]));
         self::assertSame(['fixture.current', 'fixture.current', 'fixture.current', 'fixture.expired'], $this->queries->enabledModuleReferences(['fixture.expired', 'fixture.current']));
         self::assertSame([], $this->queries->enabledModuleReferences([]));
@@ -176,7 +185,7 @@ final class TenantModuleStateBoundaryTest extends TestCase
         $root = dirname(__DIR__, 2) . '/app/';
         foreach ([
             'command/ModuleReconcile.php',
-            'modules/official/ops/src/Infrastructure/ThinkPhpModuleOperationTaskExecutionService.php',
+            'modules/peanut/ops/src/Infrastructure/ThinkPhpModuleOperationTaskExecutionService.php',
             'platform/services/module/PlatformModuleRuntimeService.php',
             'platform/services/module/ModuleLifecycleService.php',
             'platform/services/module/ModuleRuntimeGovernanceService.php',
@@ -186,9 +195,8 @@ final class TenantModuleStateBoundaryTest extends TestCase
             self::assertStringContainsString('TenantModuleStateQueries', $source, $file);
             self::assertStringNotContainsString("Db::name('tenant_module')", $source, $file);
             if ($file === 'platform/services/module/ModuleLifecycleService.php') {
-                self::assertStringContainsString("Db::name('module_installation')->where('module_key', 'official.document')->value('status') !== 'active'", $source);
-                self::assertStringContainsString("Db::name('module_installation')->where('module_key', 'official.notification')", $source);
-                self::assertStringContainsString("'pa_module_installation' => 'module_key,installed_version", $source);
+                self::assertStringContainsString('$this->tenantStates->installationStates(', $source);
+                self::assertStringContainsString('$this->tenantStates->activeInstallationCount(', $source);
             }
         }
     }
@@ -226,14 +234,14 @@ final class TenantModuleStateBoundaryTest extends TestCase
 
     public function testMissingLifecycleLedgerIsNotTreatedAsNoEnabledConsumers(): void
     {
-        $this->database->exec('DROP TABLE pa_tenant_module');
+        $this->database->exec('DROP TABLE pa_plan_module');
         $this->expectException(\Throwable::class);
         $this->queries->hasEnabledModules(['fixture.current']);
     }
 
     public function testMissingStateLedgerDoesNotSilentlyReturnAnEmptyGrantSet(): void
     {
-        $this->database->exec('DROP TABLE pa_tenant_module');
+        $this->database->exec('DROP TABLE pa_plan_module');
         $this->expectException(\Throwable::class);
         $this->qualification->activeTenantModuleKeys(1);
     }

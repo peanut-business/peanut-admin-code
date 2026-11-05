@@ -48,7 +48,7 @@ final class BindingQualificationBoundaryTest extends TestCase
 
     public function testPublicResultAndQueryAreDeclaredWithoutExposingStorage(): void
     {
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/integration/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/integration/module.json'), true, 512, JSON_THROW_ON_ERROR);
         foreach ([ExternalBindingQualification::class, ExternalBindingQualificationQueries::class] as $type) {
             self::assertContains($type, $manifest['contracts']['exports']);
             self::assertFalse(is_subclass_of($type, think\Model::class));

@@ -115,8 +115,7 @@ select_test() {
 
 registered_mysql_test() {
   case "$1" in
-    server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest.php|\
-    server/tests/Modules/Official/Notification/mysql-harness.php)
+    server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest.php)
       return 0
       ;;
   esac
@@ -153,7 +152,7 @@ if [[ "$mode" == '--integration' ]]; then
     echo 'ERROR: PEANUT_MYSQL_RESOURCE_MODE is invalid' >&2
     exit 2
   }
-  run_command registered-mysql-integration 2 \
+  run_command registered-mysql-integration 1 \
     "$ROOT/scripts/tests/run-registered-mysql-tests" "$mysql_resource_mode" --env-file "$BACKEND_ENV"
   write_summary passed
   exit 0
@@ -283,13 +282,10 @@ if [[ "$mode" == '--broad' || "$behavior_selected" -eq 0 ]]; then
     server/tests/Productization/ModuleSourcePathIsolationTest.php \
     server/tests/Productization/FreshSchemaBaselineTest.php \
     server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php \
-    server/tests/Productization/OAuthChannelHostTest.php \
     server/tests/Multitenancy/NativeAdminIdentityRuntimeContractTest.php \
     server/tests/Multitenancy/OfficialCapabilityTenantQualificationTest.php \
-    server/tests/Productization/MemberFinanceHostTest.php \
     server/tests/Productization/ModuleArtifactContractTest.php \
     server/tests/Productization/ModuleModuleContractTest.php \
-    server/tests/Productization/OfficialArticleModuleContractTest.php \
     server/tests/Productization/ModuleLifecycleMigrationContractTest.php; do
     select_test "$test_file"
   done

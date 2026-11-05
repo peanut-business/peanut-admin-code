@@ -30,6 +30,8 @@ final class EffectiveAccessPreviewAssemblyTest extends TestCase
         $root = dirname(__DIR__, 3);
         require_once $root . '/server/vendor/topthink/framework/src/helper.php';
         $this->app = new App($root . '/.local/tmp/effective-preview-assembly');
+        $this->app->instance(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry::class,
+            new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], hash('sha256', 'preview-assembly')));
         $this->app->bind(DbManager::class, function (): never {
             ++$this->databaseAttempts;
             throw new \LogicException('FIXTURE_DATABASE_FORBIDDEN');
@@ -55,7 +57,7 @@ final class EffectiveAccessPreviewAssemblyTest extends TestCase
         self::assertInstanceOf(ThinkPhpResourceOperationCatalog::class, $catalog);
         self::assertInstanceOf(ThinkPhpPolicyRepository::class, $policies);
         foreach ([$catalog, $policies, $preview] as $object) {
-            self::assertStringStartsWith(dirname(__DIR__, 2) . '/app/modules/official/identity/', (new \ReflectionClass($object))->getFileName());
+            self::assertStringStartsWith(dirname(__DIR__, 2) . '/app/modules/peanut/identity/', (new \ReflectionClass($object))->getFileName());
         }
         self::assertSame(0, $this->databaseAttempts, 'Registering or constructing a service must not query production data.');
     }
@@ -65,7 +67,7 @@ final class EffectiveAccessPreviewAssemblyTest extends TestCase
         $bindings = (new ModuleProvider())->bindings();
         self::assertSame(ThinkPhpResourceOperationCatalog::class, $bindings[ResourceOperationCatalog::class] ?? null);
         self::assertSame(ThinkPhpPolicyRepository::class, $bindings[PolicyRepository::class] ?? null);
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         // The fixed business catalog was already public; binding its Core interface must not revoke that contract.
         self::assertContains(ThinkPhpResourceOperationCatalog::class, $manifest['contracts']['exports']);
         self::assertNotContains(\PeanutAdmin\Modules\Identity\DataPermission\Model\DataPermissionPolicyRecord::class, $manifest['contracts']['exports']);

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace tests\Unit;
 
 use app\common\contract\module\ModuleQualificationQuery;
+use app\common\services\authorization\EndpointPermissionGrant;
+use app\platform\services\PlatformApiAuthorization;
 use app\platform\context\PlatformOperatorContext;
 use app\platform\query\PlatformControlPlaneQueryService;
 use app\platform\services\PlatformOperatorSessionService;
@@ -79,9 +81,9 @@ final class PlatformDirectoryBoundaryTest extends TestCase
             CREATE TABLE pa_account (id INTEGER PRIMARY KEY, display_name TEXT, status TEXT);
             CREATE TABLE pa_credential (id INTEGER PRIMARY KEY, account_id INTEGER, identifier_type TEXT, identifier_normalized TEXT, status TEXT, secret_hash TEXT);
             CREATE TABLE pa_platform_operator (id INTEGER PRIMARY KEY, account_id INTEGER, display_name TEXT, status TEXT, security_revision INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT);
-            CREATE TABLE pa_platform_operator_role (platform_operator_id INTEGER, platform_role_id INTEGER);
+            CREATE TABLE pa_platform_operator_role (platform_operator_id INTEGER, platform_role_id INTEGER, UNIQUE(platform_operator_id,platform_role_id));
             CREATE TABLE pa_platform_role (id INTEGER PRIMARY KEY, "key" TEXT, name TEXT, description TEXT, is_builtin INTEGER DEFAULT 0, status TEXT, revision INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT);
-            CREATE TABLE pa_platform_role_permission (platform_role_id INTEGER, permission_id INTEGER);
+            CREATE TABLE pa_platform_role_permission (platform_role_id INTEGER, permission_id INTEGER, UNIQUE(platform_role_id,permission_id));
             CREATE TABLE pa_permission (id INTEGER PRIMARY KEY, "key" TEXT, module_key TEXT, type TEXT, name TEXT, description TEXT, risk_level TEXT, status TEXT, manifest_version TEXT, created_at TEXT, updated_at TEXT, retired_at TEXT);
             CREATE TABLE pa_platform_audit_event (id INTEGER PRIMARY KEY, event_type TEXT, action TEXT, outcome TEXT, reason_code TEXT, operator_id INTEGER, account_id INTEGER, target_type TEXT, target_id TEXT, request_id TEXT, operation_id TEXT, ip_address TEXT, user_agent_hash TEXT, before_json TEXT, after_json TEXT, metadata_json TEXT, occurred_at TEXT);
             CREATE TABLE pa_tenant_member (id INTEGER PRIMARY KEY, tenant_id INTEGER, account_id INTEGER, display_name TEXT, status TEXT, security_revision INTEGER DEFAULT 1, authorization_revision INTEGER DEFAULT 1, joined_at TEXT, created_at TEXT, updated_at TEXT);
@@ -91,17 +93,17 @@ final class PlatformDirectoryBoundaryTest extends TestCase
             INSERT INTO pa_credential VALUES (1,101,'email','a@example.test','active','must-not-leak'),(2,202,'email','b@example.test','active','must-not-leak');
             INSERT INTO pa_platform_operator (id,account_id,display_name,status) VALUES (11,101,'Operator A','active'),(22,202,'Operator B','inactive');
             INSERT INTO pa_platform_role (id,"key",name,description,status) VALUES (31,'platform.zulu','Zulu','','active'),(32,'platform.alpha','Alpha','','active');
-            INSERT INTO pa_platform_operator_role VALUES (11,31),(11,32),(11,31);
+            INSERT INTO pa_platform_operator_role VALUES (11,31),(11,32);
             INSERT INTO pa_permission (id,"key",module_key,status) VALUES (41,'platform.visible','platform','active'),(42,'platform.retired','platform','retired'),(43,'tenant.unrelated','peanut.admin','active');
-            INSERT INTO pa_platform_role_permission VALUES (31,41),(31,42),(31,41);
+            INSERT INTO pa_platform_role_permission VALUES (31,41),(31,42);
             INSERT INTO pa_platform_audit_event (id,event_type,before_json,after_json,metadata_json) VALUES (1,'fixture.first','{"count":1}','[]','{"ok":true}'),(2,'fixture.second','invalid','"scalar"',NULL);
             INSERT INTO pa_tenant_member (id,tenant_id,account_id,display_name,status) VALUES (51,1,101,'Owner A','inactive'),(52,2,202,'Owner B','active');
             INSERT INTO pa_role VALUES (61,1,'core.tenant-owner',1,'inactive'),(62,2,'core.tenant-owner',1,'active');
             INSERT INTO pa_member_role VALUES (1,51,61),(2,52,62);
             SQL);
         $this->permissions = new PlatformDirectoryPermissions();
-        $authorization = new PlatformAuthorizationEvaluator($this->permissions, new RevisionPermissionCache());
-        $app->instance(PlatformAuthorizationEvaluator::class, $authorization);
+        $authorization = new PlatformApiAuthorization(new PlatformAuthorizationEvaluator($this->permissions, new RevisionPermissionCache()), new EndpointPermissionGrant($app->request));
+        $app->instance(PlatformApiAuthorization::class, $authorization);
         $this->queries = $app->make(PlatformDirectoryQueries::class);
         $this->context = PlatformContext::fromValidatedSession(new ValidatedPlatformSession(1, 'fixture-platform-session', 101, 11, 'platform-web', new \DateTimeImmutable('2031-01-01T00:00:00Z')), 'platform-directory-fixture');
         $sessions = new PlatformOperatorSessionService((new \ReflectionClass(PlatformAuthService::class))->newInstanceWithoutConstructor(), $authorization, $this->permissions);
@@ -116,7 +118,7 @@ final class PlatformDirectoryBoundaryTest extends TestCase
         $source = file_get_contents((new \ReflectionClass(PlatformControlPlaneQueryService::class))->getFileName());
         self::assertStringNotContainsString('Db::', $source);
         self::assertStringContainsString('PlatformDirectoryQueries $directory', $source);
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(PlatformDirectoryQueries::class, $manifest['contracts']['exports']);
         self::assertSame(['items' => [], 'total' => 0], $this->host->moduleStates($this->hostContext(), 1, new PageRequest()));
     }
@@ -132,7 +134,7 @@ final class PlatformDirectoryBoundaryTest extends TestCase
         self::assertSame(11, $second['items'][0]['id']);
         self::assertSame(['platform.alpha', 'platform.zulu'], $second['items'][0]['role_keys']);
         self::assertStringNotContainsString('must-not-leak', json_encode([$first, $second], JSON_THROW_ON_ERROR));
-        self::assertStringContainsString("GROUP_CONCAT(DISTINCT role.`key` ORDER BY role.`key` SEPARATOR ',')", implode("\n", $this->connection->observedSql));
+        self::assertStringContainsString('ORDER BY `membership`.`platform_operator_id`,`role`.`key`', implode("\n", $this->connection->observedSql));
     }
 
     public function testRoleBindingCountAndActiveKeyProjectionKeepTheirDifferentMeanings(): void

@@ -6,7 +6,7 @@ namespace tests\Ablation;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-use app\adminapi\service\AdminApiAccessRegistry;
+use app\adminapi\infrastructure\AdminApiAccessRegistry;
 
 /**
  * EXP-02: bounded registry behavior check.

@@ -13,7 +13,6 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 use PeanutAdmin\Modules\Identity\Membership\Query\ThinkPhpTenantMemberDirectory;
-use PeanutAdmin\Modules\ReferenceCodes\ModuleProvider;
 use PeanutAdmin\Modules\ReferenceCodes\Versioned\Application\ReferenceCodeException;
 use PeanutAdmin\Modules\ReferenceCodes\Versioned\Application\ReferenceCodeQuery;
 use PeanutAdmin\Modules\ReferenceCodes\Versioned\Definition\ReferenceCodeSetDefinition;
@@ -50,13 +49,13 @@ final class ReferenceCodeSnapshotBoundaryTest extends TestCase
         $this->connection->setDb($manager);
         $this->app->instance(DbManager::class, $manager);
         $this->database->exec(<<<'SQL'
-            CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY, status TEXT, security_revision INTEGER);
+            CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY, status TEXT, security_revision INTEGER, authorization_revision INTEGER DEFAULT 1);
             CREATE TABLE pa_account (id INTEGER PRIMARY KEY, status TEXT, display_name TEXT, security_revision INTEGER);
             CREATE TABLE pa_tenant_member (id INTEGER PRIMARY KEY, tenant_id INTEGER, account_id INTEGER, display_name TEXT, status TEXT, primary_department_id INTEGER, security_revision INTEGER, authorization_revision INTEGER);
             CREATE TABLE pa_reference_code_set (id INTEGER PRIMARY KEY, module_key TEXT, set_key TEXT, name TEXT, description TEXT, definition_digest TEXT, lifecycle TEXT, revision INTEGER, created_at TEXT, updated_at TEXT);
             CREATE TABLE pa_reference_code_entry (id INTEGER PRIMARY KEY, tenant_id INTEGER, set_id INTEGER, code TEXT, lifecycle TEXT, revision INTEGER, created_by_member_id, updated_by_member_id, retired_at TEXT, created_at TEXT, updated_at TEXT);
             CREATE TABLE pa_reference_code_entry_version (id INTEGER PRIMARY KEY, entry_id INTEGER, revision INTEGER, label TEXT, metadata_json TEXT, status TEXT, sort_order INTEGER, effective_at TEXT, expires_at TEXT, changed_by_member_id, created_at TEXT);
-            INSERT INTO pa_tenant VALUES (101,'active',1),(202,'active',1);
+            INSERT INTO pa_tenant (id,status,security_revision) VALUES (101,'active',1),(202,'active',1);
             INSERT INTO pa_account VALUES (501,'active','Current actor',1),(502,'disabled','Historical author',1),(503,'disabled','Historical editor',1),(901,'active','Other tenant',1);
             INSERT INTO pa_tenant_member VALUES (601,101,501,'Current actor','active',NULL,1,7),(602,101,502,'','disabled',NULL,1,1),(603,101,503,'Former editor','disabled',NULL,1,1),(902,202,901,'Other tenant','active',NULL,1,7);
             INSERT INTO pa_reference_code_set VALUES (1,'fixture.history','codes','History','Fixture definition','fixed-fixture-digest','active',1,'2031-01-01 00:00:00.000','2031-01-01 00:00:00.000');
@@ -66,8 +65,7 @@ final class ReferenceCodeSnapshotBoundaryTest extends TestCase
         $execution = new CurrentExecutionContext(new ExecutionContextStore());
         $this->app->instance(AdminDirectoryQuery::class, new AdminDirectoryQuery($execution));
         $this->app->instance(\PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory::class, new ThinkPhpTenantMemberDirectory());
-        $factory = (new ModuleProvider())->bindings()[ReferenceCodeStore::class];
-        $this->store = $factory($this->app);
+        $this->store = $this->app->make(ReferenceCodeStore::class);
         $this->definition = new ReferenceCodeSetDefinition('fixture.history', 'codes', 'History', 'Fixture definition', 'fixed-fixture-digest');
         $this->asOf = new DateTimeImmutable('2031-01-01T12:00:00.000Z');
         $this->context = TenantContext::fromValidatedSession(new ValidatedTenantSession(
@@ -79,6 +77,7 @@ final class ReferenceCodeSnapshotBoundaryTest extends TestCase
             'admin-web',
             new DateTimeImmutable('2031-01-01T00:00:00Z'),
             7,
+            1,
         ), 'reference-snapshot-request');
     }
 
@@ -330,7 +329,7 @@ final class ReferenceCodeSnapshotBoundaryTest extends TestCase
     public function testOwnerUsesOnlyPublicIdentityContractsAndKeepsBinding(): void
     {
         $source = file_get_contents((new \ReflectionClass(ReferenceCodeStore::class))->getFileName());
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(AdminDirectoryQuery::class, $manifest['contracts']['exports']);
         self::assertStringContainsString('memberDisplayNames', $source);
         self::assertStringNotContainsString("Db::name('tenant_member')", $source);

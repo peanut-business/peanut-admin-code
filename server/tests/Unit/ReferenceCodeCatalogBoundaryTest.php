@@ -35,7 +35,7 @@ final class ReferenceCodeCatalogBoundaryTest extends TestCase
     public function testHostCallsPublishedOwnerWithoutLoadingItsPersistenceTypes(): void
     {
         $root = dirname(__DIR__, 3);
-        $manifest = json_decode(file_get_contents($root . '/server/app/modules/official/reference_codes/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents($root . '/server/app/modules/peanut/reference_codes/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(ReferenceCodeCatalogService::class, $manifest['contracts']['exports']);
         $host = file_get_contents($root . '/server/app/platform/infrastructure/module/ModuleCatalogApplier.php');
         foreach (['ReferenceCodeSetLoader', 'ReferenceCodeSetRegistry', 'ReferenceCodeStore', "Db::name('reference_code_set')", "Db::table('pa_reference_code_set')", 'SHOW TABLES LIKE'] as $internal) {
@@ -48,7 +48,7 @@ final class ReferenceCodeCatalogBoundaryTest extends TestCase
     public function testNoStorageAndNoContributionsRemainAnEmptyOptionalCapability(): void
     {
         $this->catalog->synchronize([], $this->now());
-        $manifest = ManifestDocument::fromArray($this->directory, ['key' => 'fixture.alpha']);
+        $manifest = ManifestDocument::fromObject($this->directory, (object) ['key' => 'fixture.alpha']);
         $this->catalog->synchronize(['fixture.alpha' => $manifest], $this->now());
         self::assertSame([], $this->catalog->revisionRows());
         self::assertSame(0, $this->catalog->activeCount(['fixture.alpha']));
@@ -76,7 +76,7 @@ final class ReferenceCodeCatalogBoundaryTest extends TestCase
         $before = $this->catalog->revisionRows();
         self::assertCount(2, $before);
         self::assertSame(['id', 'module_key', 'set_key', 'lifecycle', 'revision', 'definition_digest'], array_keys($before[0]));
-        $emptyAlpha = ManifestDocument::fromArray($alpha->root, ['key' => 'fixture.alpha']);
+        $emptyAlpha = ManifestDocument::fromObject($alpha->root, (object) ['key' => 'fixture.alpha']);
         $this->catalog->synchronize(['fixture.alpha' => $emptyAlpha], $this->now());
         self::assertSame(0, $this->catalog->activeCount(['fixture.alpha']));
         self::assertSame(1, $this->catalog->activeCount(['fixture.beta']));
@@ -122,8 +122,8 @@ final class ReferenceCodeCatalogBoundaryTest extends TestCase
     public function testResourceEscapeAndOwnerMismatchFailBeforeWrites(): void
     {
         $this->installFixtureTable();
-        $wrongOwner = ManifestDocument::fromArray($this->directory, ['key' => 'fixture.beta']);
-        $escape = ManifestDocument::fromArray($this->directory, ['key' => 'fixture.alpha', 'backend' => ['reference_code_sets' => '../outside.json']]);
+        $wrongOwner = ManifestDocument::fromObject($this->directory, (object) ['key' => 'fixture.beta']);
+        $escape = ManifestDocument::fromObject($this->directory, (object) ['key' => 'fixture.alpha', 'backend' => (object) ['reference_code_sets' => '../outside.json']]);
         foreach ([$wrongOwner, $escape] as $manifest) {
             try {
                 $this->catalog->synchronize(['fixture.alpha' => $manifest], $this->now());
@@ -141,6 +141,8 @@ final class ReferenceCodeCatalogBoundaryTest extends TestCase
         $this->database->sqliteCreateFunction('DATE_FORMAT', static fn($value, $format) => $value, 2);
         $this->database->exec(<<<'SQL'
             CREATE TABLE pa_permission (id INTEGER PRIMARY KEY, "key" TEXT, module_key TEXT, status TEXT, retired_at TEXT);
+            CREATE TABLE pa_api_endpoint (id TEXT PRIMARY KEY, method TEXT, path TEXT, audience TEXT, module_key TEXT, access_mode TEXT, status TEXT, default_permission_keys TEXT, prerequisite_permission_keys TEXT);
+            CREATE TABLE pa_permission_api (permission_id INTEGER, api_id TEXT);
             CREATE TABLE pa_menu_definition (id INTEGER PRIMARY KEY, "key" TEXT, module_key TEXT, status TEXT, manifest_digest TEXT);
             CREATE TABLE pa_setting_definition (id INTEGER PRIMARY KEY, module_key TEXT, setting_key TEXT, status TEXT, revision INTEGER, definition_digest TEXT);
             SQL);
@@ -149,6 +151,7 @@ final class ReferenceCodeCatalogBoundaryTest extends TestCase
         $this->catalog->synchronize(['fixture.alpha' => $this->manifest('fixture.alpha', 'Alpha')], $this->now());
         $rows = [
             'pa_permission' => [],
+            'api_permissions' => ['endpoints' => [], 'bindings' => []],
             'pa_menu_definition' => [],
             'pa_setting_definition' => [],
             'pa_reference_code_set' => $this->catalog->revisionRows(),
@@ -168,7 +171,7 @@ final class ReferenceCodeCatalogBoundaryTest extends TestCase
         $directory = $this->directory . '/' . $key;
         mkdir($directory, 0700, true);
         file_put_contents($directory . '/sets.json', json_encode([['key' => 'status', 'name' => $name, 'description' => 'Fixture set']], JSON_THROW_ON_ERROR));
-        return ManifestDocument::fromArray($directory, ['key' => $key, 'backend' => ['reference_code_sets' => 'sets.json']]);
+        return ManifestDocument::fromObject($directory, (object) ['key' => $key, 'backend' => (object) ['reference_code_sets' => 'sets.json']]);
     }
 
     private function now(): DateTimeImmutable

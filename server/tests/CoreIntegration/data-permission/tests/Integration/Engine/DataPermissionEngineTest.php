@@ -13,7 +13,6 @@ use PeanutAdmin\DataPermission\Constraint\ThinkPhpQueryConstraintApplier;
 use PeanutAdmin\DataPermission\Engine\DataPermissionEngine;
 use PeanutAdmin\DataPermission\Exception\DataAuthorizationException;
 use PeanutAdmin\Modules\Identity\DataPermission\Policy\ThinkPhpPolicyRepository;
-use PeanutAdmin\DataPermission\Policy\PolicyCache;
 use PeanutAdmin\DataPermission\Provider\ConditionProviderRegistry;
 use PeanutAdmin\Modules\Identity\DataPermission\Provider\ThinkPhpDepartmentHierarchyProvider;
 use PeanutAdmin\Modules\Identity\DataPermission\Provider\ThinkPhpTargetSetMembershipProvider;
@@ -434,7 +433,6 @@ SQL);
         return new DataPermissionEngine(
             new ThinkPhpResourceOperationCatalog(),
             new ThinkPhpPolicyRepository(),
-            new PolicyCache(),
             new TenantAuthorizationEvaluator(
                 new ThinkPhpTenantAuthorizationRepository(),
                 new RevisionPermissionCache(),

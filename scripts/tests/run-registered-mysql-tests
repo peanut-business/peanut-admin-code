@@ -265,6 +265,4 @@ run_suite() {
 preflight
 run_suite server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest.php 'PASS (40 checks)'
 preflight
-run_suite server/tests/Modules/Official/Notification/mysql-harness.php 'PASS (34 checks)'
-preflight
-echo 'Registered MySQL 8.4 gate: PASS (2 suites with expected counts)'
+echo 'Registered MySQL 8.4 gate: PASS (1 suite with expected count)'

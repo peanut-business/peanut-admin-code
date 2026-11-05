@@ -28,7 +28,7 @@ final class OpsPublicBoundaryTest extends TestCase
 {
     public function testExistingHostApiAndReturnedValuesAreDeclaredButStorageIsNot(): void
     {
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/ops/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/ops/module.json'), true, 512, JSON_THROW_ON_ERROR);
         $exports = $manifest['contracts']['exports'];
         foreach ([OpsConsoleException::class, TenantDiagnosticAttributes::class,
             PlatformOpsApplicationService::class, MaintenanceWindow::class,

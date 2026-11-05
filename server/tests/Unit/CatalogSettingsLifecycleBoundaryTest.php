@@ -27,7 +27,15 @@ final class CatalogSettingsLifecycleBoundaryTest extends TestCase
         new App($root . '/.local/tmp/catalog-settings-lifecycle/' . bin2hex(random_bytes(6)));
         $this->database = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         ThinkPhpTestConnection::fromPdo($this->database);
+        \think\Container::getInstance()->bind(
+            \PeanutAdmin\Kernel\Authorization\Persistence\AuthorizationCatalogRepository::class,
+            \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository::class,
+        );
+        $this->database->sqliteCreateFunction('UTC_TIMESTAMP', static fn(int $precision): string => '2031-01-01 00:00:00.000', 1);
         foreach ([
+            'api_endpoint' => 'module_key TEXT, status TEXT, retired_at TEXT, updated_at TEXT',
+            'permission_api' => 'permission_id INTEGER, api_id TEXT',
+            'tenant' => 'authorization_revision INTEGER, revision INTEGER, updated_at TEXT',
             'permission' => '"key" TEXT, module_key TEXT, status TEXT, retired_at TEXT, updated_at TEXT',
             'protected_resource' => '"key" TEXT, module_key TEXT, status TEXT, retired_at TEXT, updated_at TEXT',
             'target_type' => '"key" TEXT, module_key TEXT, status TEXT, updated_at TEXT',
@@ -170,7 +178,7 @@ final class CatalogSettingsLifecycleBoundaryTest extends TestCase
         foreach (['Db::name(', 'Db::table(', 'Db::query(', 'Db::execute(', 'Db::raw('] as $access) {
             self::assertStringNotContainsString($access, $source);
         }
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(\PeanutAdmin\Modules\Identity\Authorization\CatalogLifecycleService::class, $manifest['contracts']['exports']);
     }
 
@@ -245,7 +253,7 @@ final class CatalogSettingsLifecycleBoundaryTest extends TestCase
             INSERT INTO pa_resource_operation_target_type VALUES (401,101,11,'active'),(402,102,11,'active');
             INSERT INTO pa_resource_operation_condition VALUES (501,101,12,'active'),(502,102,12,'active');
             SQL);
-        $manifest = \PeanutAdmin\Kernel\Module\ManifestDocument::fromArray(dirname(__DIR__, 3), ['key' => 'fixture.alpha', 'catalog' => [
+        $manifest = \PeanutAdmin\Kernel\Module\ManifestDocument::fromObject(dirname(__DIR__, 3), (object) ['key' => 'fixture.alpha', 'catalog' => (object) [
             'permissions' => [['key' => 'fixture.alpha.read']],
             'target_types' => [['key' => 'fixture.alpha.target']],
             'data_conditions' => [['key' => 'fixture.alpha.condition']],
