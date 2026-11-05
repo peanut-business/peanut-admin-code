@@ -950,6 +950,11 @@ final class ApplicationCreator
         if (!is_array($document)) {
             throw new RuntimeException('CREATE_APP_PACKAGE_JSON_INVALID: ' . $path);
         }
+        // JSON may encode the author as \uXXXX: normalize the root attribution
+        // after decoding so the APP never inherits the scaffold owner's brand.
+        if (isset($document['author']) && is_string($document['author'])) {
+            $document['author'] = $this->textTransform($document['author'], $parameters, 'package');
+        }
         // Application package identity is a field; repository references retain their source identity.
         if ($path === 'server/composer.json') {
             $document['name'] = $parameters['PACKAGE_IDENTITY'];
