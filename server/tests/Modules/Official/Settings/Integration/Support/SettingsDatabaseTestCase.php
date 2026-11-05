@@ -236,6 +236,7 @@ abstract class SettingsDatabaseTestCase extends TestCase
             'admin-web',
             new DateTimeImmutable('2026-07-19T08:00:00Z'),
             1,
+            (int) $this->scalar('SELECT authorization_revision FROM pa_tenant WHERE id = ' . $tenant['tenant_id']),
         ), $requestId);
         $typedTargets = array_map(
             static fn(string $targetId): array => [
@@ -349,13 +350,13 @@ abstract class SettingsDatabaseTestCase extends TestCase
             'X-Request-ID',
         );
         $registry = new CompiledModuleRegistry([
-            ManifestDocument::fromArray('backend/app/Modules/Example/Module', [
+            ManifestDocument::fromObject('backend/app/Modules/Example/Module', (object) [
                 'key' => 'example.module', 'version' => '1.0.0', 'schema_version' => 1,
-                'tenant' => ['enableable' => false],
+                'tenant' => (object) ['enableable' => false],
             ]),
-            ManifestDocument::fromArray('backend/app/Modules/Other/Module', [
+            ManifestDocument::fromObject('backend/app/Modules/Other/Module', (object) [
                 'key' => 'other.module', 'version' => '1.0.0', 'schema_version' => 1,
-                'tenant' => ['enableable' => false],
+                'tenant' => (object) ['enableable' => false],
             ]),
         ], [], [], [], 'settings-host-revision');
         $installation = $this->database->prepare(<<<'SQL'
@@ -394,6 +395,11 @@ SQL);
             {
                 return new EffectivePermissionSet($this->permissions);
             }
+
+            public function permissionsForKeys(TenantContext $context, array $permissionKeys): EffectivePermissionSet
+            {
+                return new EffectivePermissionSet(array_values(array_intersect($permissionKeys, $this->permissions)));
+            }
         };
         $platformRepository = new class implements PlatformAuthorizationRepository {
             public function revision(int $operatorId): string
@@ -407,7 +413,7 @@ SQL);
             }
         };
         $permissions = new PermissionMiddleware(
-            new TenantAuthorizationEvaluator($tenantRepository, new RevisionPermissionCache()),
+            new TenantAuthorizationEvaluator($tenantRepository),
             new PlatformAuthorizationEvaluator($platformRepository, new RevisionPermissionCache()),
         );
 

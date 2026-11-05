@@ -154,6 +154,7 @@ abstract class ReferenceCodesDatabaseTestCase extends TestCase
             'admin-web',
             new DateTimeImmutable(self::NOW),
             1,
+            (int) $this->scalar('SELECT authorization_revision FROM pa_tenant WHERE id = ' . $tenantId),
         ), 'req_reference_codes_' . $tenantId . '_' . $memberId);
     }
 
