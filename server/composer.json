@@ -110,6 +110,7 @@
     "autoload": {
         "psr-4": {
             "app\\": "app",
+            "PeanutAdmin\\Modules\\ContentTools\\": "app/modules/peanut/content_tools/src/",
             "PeanutAdmin\\Modules\\File\\": "app/modules/peanut/file/src/",
             "PeanutAdmin\\Modules\\Identity\\": "app/modules/peanut/identity/src/",
             "PeanutAdmin\\Modules\\Integration\\": "app/modules/peanut/integration/src/",
