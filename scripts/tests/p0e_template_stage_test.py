@@ -1199,5 +1199,42 @@ class GeneratedClientPublicationTest(unittest.TestCase):
         self.assertFalse((self.root / "server/public/pc").exists())
 
 
+
+class RecoveryGlobalGrantsTest(unittest.TestCase):
+    STATIC = ("SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, "
+              "REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, "
+              "EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, "
+              "ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE")
+
+    def test_direct_all_and_complete_native_enumeration(self):
+        self.assertTrue(stage.recovery_global_metadata_grants(
+            ["GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' WITH GRANT OPTION"]))
+        self.assertTrue(stage.recovery_global_metadata_grants([
+            "GRANT " + self.STATIC + " ON *.* TO `root`@`localhost` WITH GRANT OPTION",
+            "GRANT BACKUP_ADMIN,SHOW_ROUTINE,SYSTEM_USER ON *.* TO `root`@`localhost`",
+            "GRANT PROXY ON ''@'' TO `root`@`localhost` WITH GRANT OPTION"]))
+
+    def test_missing_static_or_routine_visibility_is_rejected(self):
+        for removed in ("PROCESS, ", "SELECT, ", "SHOW DATABASES, ", "TRIGGER, "):
+            with self.subTest(removed=removed):
+                self.assertFalse(stage.recovery_global_metadata_grants([
+                    "GRANT " + self.STATIC.replace(removed, "") + " ON *.* TO 'root'@'localhost'",
+                    "GRANT SHOW_ROUTINE ON *.* TO 'root'@'localhost'"]))
+        self.assertFalse(stage.recovery_global_metadata_grants(
+            ["GRANT " + self.STATIC + " ON *.* TO 'root'@'localhost'"]))
+
+    def test_local_schema_role_only_and_other_principal_do_not_prove_visibility(self):
+        for row in ("GRANT ALL PRIVILEGES ON exact_schema.* TO 'root'@'localhost'",
+                    "GRANT 'admin_role'@'%' TO 'root'@'localhost'",
+                    "GRANT ALL PRIVILEGES ON *.* TO 'another'@'localhost'"):
+            with self.subTest(row=row):
+                self.assertFalse(stage.recovery_global_metadata_grants([row]))
+
+    def test_partial_revoke_is_rejected_even_with_global_all(self):
+        self.assertFalse(stage.recovery_global_metadata_grants([
+            "GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost'",
+            "REVOKE SELECT ON private_schema.* FROM 'root'@'localhost'"]))
+
+
 if __name__ == "__main__":
     unittest.main()
