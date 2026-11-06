@@ -160,23 +160,23 @@ try {
     installationConfigExpect($status['state'] === 'unconfigured', 'fresh server must require configuration');
 
     try {
-        $standalone->configure(str_repeat('x', 64), $token, ['deployment_target' => 'local-production-preview']);
+        $standalone->configure(str_repeat('x', 64), $token, ['app_env' => 'production']);
         throw new RuntimeException('invalid setup token was accepted');
     } catch (InstallationExecutionException $exception) {
         installationConfigExpect($exception->errorCode === 'INSTALL_SETUP_TOKEN_INVALID', 'wrong token must fail closed');
     }
 
     $configured = $standalone->configure($token, $token, [
-        'deployment_target' => 'local-production-preview',
+        'app_env' => 'production',
         'database_name' => 'fixture_app',
     ]);
     installationConfigExpect($configured['state'] === 'configured', 'standalone configuration must complete');
     $envPath = $server . '/.env';
-    $registryPath = $server . '/private/resources/project-resources.json';
+    $recordPath = $server . '/private/resources/configuration.json';
     installationConfigExpect(is_file($envPath) && !is_link($envPath), 'final server env must exist');
     installationConfigExpect((fileperms($envPath) & 0777) === 0600, 'final server env must use mode 0600');
-    installationConfigExpect(is_file($registryPath) && !is_link($registryPath), 'private instance registry must exist');
-    installationConfigExpect((fileperms($registryPath) & 0777) === 0600, 'private registry must use mode 0600');
+    installationConfigExpect(is_file($recordPath) && !is_link($recordPath), 'private configuration receipt must exist');
+    installationConfigExpect((fileperms($recordPath) & 0777) === 0600, 'private configuration receipt must use mode 0600');
 
     $env = (string) file_get_contents($envPath);
     installationConfigExpect(str_contains($env, "DEPLOYMENT_MODE=standalone\n"), 'edition must come from release identity');
@@ -188,18 +188,16 @@ try {
     installationConfigExpect(lstat($envPath)['nlink'] === 1 && fileowner($envPath) === posix_geteuid(), 'token handoff must remain in an ordinary owner-held private environment');
     installationConfigExpect(!str_contains($env, 'MYSQL_ROOT_PASSWORD'), 'MySQL root secret must not enter app env');
 
-    $registryBytes = (string) file_get_contents($registryPath);
-    installationConfigExpect(!str_contains($registryBytes, $secret), 'private registry must not contain database/app secrets');
-    installationConfigExpect(!str_contains($registryBytes, $token), 'setup token must not be copied to resource declarations');
-    $registry = json_decode($registryBytes, true, 512, JSON_THROW_ON_ERROR);
-    installationConfigExpect(($registry['project_id'] ?? null) === 'fixture-app', 'registry must bind APP slug');
-    installationConfigExpect(
-        ($registry['resources']['databases'][0]['container_endpoint']['host'] ?? null) === 'mysql',
-        'registry must bind bundled MySQL endpoint',
-    );
+    $recordBytes = (string) file_get_contents($recordPath);
+    installationConfigExpect(!str_contains($recordBytes, $secret) && !str_contains($recordBytes, $token), 'receipt must exclude credentials');
+    $record = json_decode($recordBytes, true, 512, JSON_THROW_ON_ERROR);
+    installationConfigExpect(($record['application']['slug'] ?? null) === 'fixture-app'
+        && ($record['database_source'] ?? null) === 'bundled' && ($record['database_name'] ?? null) === 'fixture_app',
+        'configuration receipt must bind the application and database');
+    installationConfigExpect(!file_exists($server . '/private/resources/project-resources.json'), 'first installation must not create a private maintenance registry');
 
     try {
-        $standalone->configure($token, $token, ['deployment_target' => 'local-production-preview']);
+        $standalone->configure($token, $token, ['app_env' => 'production']);
         throw new RuntimeException('repeat first configuration was accepted');
     } catch (InstallationExecutionException $exception) {
         installationConfigExpect($exception->errorCode === 'INSTALL_CONFIGURATION_ALREADY_PRESENT', 'repeat configuration must fail closed');
@@ -213,20 +211,19 @@ try {
         static fn(): string => $secret,
     );
     try {
-        $multi->configure($token, $token, ['deployment_target' => 'production-candidate']);
+        $multi->configure($token, $token, ['app_env' => 'production']);
         throw new RuntimeException('multi-tenant configuration without hosts was accepted');
     } catch (InstallationExecutionException $exception) {
         installationConfigExpect($exception->errorCode === 'INSTALL_CONFIGURATION_HOSTS_REQUIRED', 'multi-tenant hosts must be required');
     }
     $multiResult = $multi->configure($token, $token, [
-        'deployment_target' => 'production-candidate',
+        'app_env' => 'production',
         'platform_hosts' => 'pa-platform.example.test',
-        'tenant_admin_hosts' => 'pa-admin.example.test',
     ]);
     installationConfigExpect($multiResult['state'] === 'configured', 'multi-tenant configuration with hosts must complete');
     $multiEnv = (string) file_get_contents($server . '/.env');
     installationConfigExpect(str_contains($multiEnv, "PLATFORM_HOSTS=pa-platform.example.test\n"), 'platform hosts must persist');
-    installationConfigExpect(str_contains($multiEnv, "TENANT_ADMIN_HOSTS=pa-admin.example.test\n"), 'tenant admin hosts must persist');
+    installationConfigExpect(!str_contains($multiEnv, 'TENANT_ADMIN_HOSTS='), 'tenant bindings must remain application-managed');
 
     }
     if ($scenario === 'partial') {
@@ -238,7 +235,7 @@ try {
     file_put_contents($server . '/private/resources/configuration.lock', '');
     installationConfigExpect($partial->status()['state'] === 'blocked', 'pending configuration lock must block status');
     try {
-        $partial->configure($token, $token, ['deployment_target' => 'production']);
+        $partial->configure($token, $token, ['app_env' => 'production']);
         throw new RuntimeException('pending configuration was retried');
     } catch (InstallationExecutionException $exception) {
         installationConfigExpect($exception->errorCode === 'INSTALL_CONFIGURATION_PARTIAL', 'pending configuration must fail closed');
@@ -253,15 +250,16 @@ try {
         static fn(): string => $secret,
         true,
     );
-    $result = $pending->configure($token, $token, ['deployment_target' => 'local-production-preview', 'database_name' => 'pending_fixture']);
+    $result = $pending->configure($token, $token, ['app_env' => 'production', 'database_name' => 'pending_fixture']);
     installationConfigExpect($result['state'] === 'pending' && $result['restart_required'], 'HTTP configuration must return its pending owner transition');
-    installationConfigExpect($result['database_resource_id'] === 'fixture-app-bundled-mysql84', 'ordinary unbound pending response must retain the generated resource ID');
+    installationConfigExpect(!isset($result['database_resource_id']), 'pending configuration must not allocate a private resource');
     installationConfigExpect($pending->status()['state'] === 'pending', 'pending input must be distinguishable from canonical configuration');
     installationConfigExpect(!file_exists($server . '/.env') && !file_exists($server . '/private/resources/project-resources.json'), 'HTTP configuration must not publish canonical owner files');
     $ordinaryPending = json_decode((string) file_get_contents($server . '/private/resources/pending/configuration.json'), true, 512, JSON_THROW_ON_ERROR);
-    installationConfigExpect($ordinaryPending['protocol'] === 'peanut.installation-configuration-input.v3'
-        && array_key_exists('deployment_sha256', $ordinaryPending) && $ordinaryPending['deployment_sha256'] === null,
-        'ordinary pending must explicitly use v3 with an absent-deployment null binding');
+    installationConfigExpect($ordinaryPending['protocol'] === 'peanut.installation-configuration-input.v4'
+        && $ordinaryPending['setup_token_sha256'] === hash('sha256', $token)
+        && $ordinaryPending['input']['database_name'] === 'pending_fixture',
+        'pending input must bind its setup token and requested database');
     installationConfigExpect(!str_contains((string) file_get_contents($server . '/private/resources/pending/configuration.json'), $token), 'pending configuration must not disclose the raw setup token');
     $owner = new InstallationConfigurationHost(
         $server,

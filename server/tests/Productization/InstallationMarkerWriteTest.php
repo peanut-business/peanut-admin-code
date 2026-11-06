@@ -40,16 +40,17 @@ namespace {
     (new ReflectionProperty(InstallationExecutionHost::class, 'serverRoot'))->setValue($host, $directory);
     $write = new ReflectionMethod(InstallationExecutionHost::class, 'writeProgressMarker');
     try {
-        $write->invoke($host, []);
+        $write->invoke($host, ['peanut.identity'], 'install_modules');
         $original = file_get_contents($path);
         $decoded = json_decode((string) $original, true, 512, JSON_THROW_ON_ERROR);
-        if (($decoded['state'] ?? null) !== 'executing' || ($decoded['deployment_mode'] ?? null) !== 'multi-tenant') {
+        if (($decoded['state'] ?? null) !== 'executing' || ($decoded['deployment_mode'] ?? null) !== 'multi-tenant'
+            || ($decoded['official_modules'] ?? null) !== ['peanut.identity'] || ($decoded['stage'] ?? null) !== 'install_modules') {
             throw new RuntimeException('Installation marker normal write failed');
         }
 
         $GLOBALS['installationMarkerShortWrite'] = true;
         try {
-            $write->invoke($host, []);
+            $write->invoke($host, ['peanut.identity'], 'finalize');
             throw new RuntimeException('Installation marker short write was accepted');
         } catch (RuntimeException $exception) {
             if ($exception->getMessage() !== 'Installation state marker cannot be written.') {
