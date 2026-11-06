@@ -982,7 +982,7 @@ class GeneratedRecoveryContractTest(unittest.TestCase):
         identity = {"owner": "self", "thread": "self", "root": str(app_root), "database": "exact_schema"}
         plan = {"protocol": stage.GENERATED_RECOVERY_PROTOCOL, "kind": "plan", "run_id": "test",
                 "workspace": str(self.workspace), "application": app, "identity": identity,
-                "files": [], "storage_names": [], "protected_preimage": {"files": {}, "storage": {}}, "database_preimage": {}}
+                "files": [], "storage_names": [], "protected_preimage": {"files": {}, "storage": {}}, "database_preimage": {}, "schema_effects": {}}
         path = self.private_json(self.workspace / "plan.json", plan)
         (self.workspace / "runtime-proof.txt").write_text("synthetic scope")
         self.workspace.chmod(0o700)
@@ -991,7 +991,7 @@ class GeneratedRecoveryContractTest(unittest.TestCase):
             for name, result in (
                 ("recovery_identity", (identity, {})), ("recovery_paths", ([], ())),
                 ("recovery_inventory", {"files": {}, "storage": {}}), ("recovery_source_backup", {"inventory": {}}),
-                ("recovery_source_inventory", {}), ("recovery_no_writers", {}),
+                ("recovery_source_inventory", {}), ("recovery_no_writers", {}), ("recovery_effects", {}),
                 ("paired_recovery_verifier", ({"validate_dump": lambda *args: None}, "pinned")),
                 ("recovery_backup_attachments", None), ("runtime_admission", {}),
                 ("verify_runtime_admission", None), ("recovery_client", ["synthetic-native-client"])):
@@ -1039,6 +1039,33 @@ class GeneratedRecoveryContractTest(unittest.TestCase):
             with self.assertRaisesRegex(PermissionError, "unreadable source subtree"):
                 stage.recovery_source_inventory(self.root)
 
+
+
+    def test_post_spawn_journal_failure_retains_dispatched_pid_unknown(self):
+        original = stage.recovery_json
+        def journal_failure(path, value):
+            if path.name == "execution.json" and value.get("status") == "restore-started":
+                raise OSError("synthetic post-spawn journal write failure")
+            return original(path, value)
+        with patch.object(stage, "recovery_json", side_effect=journal_failure):
+            journal = self.execution_fixture(lambda *a, **k: Mock(pid=789))
+        self.assertEqual(journal["status"], "UNKNOWN")
+        self.assertEqual(journal["pid"], 789)
+        self.assertNotIn("terminal", journal)
+
+    def test_pinned_effects_reject_external_fk_noninnodb_and_shared_tablespace(self):
+        native, _ = stage.paired_recovery_verifier()
+        empty = {"tables": [], "tablespaces": [], "views": [], "routines": [],
+                 "events": [], "triggers": [], "foreign_keys": []}
+        for field, row in (
+                ("foreign_keys", {"TABLE_SCHEMA": "outside", "REFERENCED_TABLE_SCHEMA": "exact"}),
+                ("foreign_keys", {"TABLE_SCHEMA": "exact", "REFERENCED_TABLE_SCHEMA": "outside"}),
+                ("tables", {"TABLE_NAME": "nontransactional", "TABLE_TYPE": "BASE TABLE", "ENGINE": "MyISAM"}),
+                ("tablespaces", {"NAME": "shared", "SPACE_TYPE": "General"})):
+            value = {name: list(rows) for name, rows in empty.items()}
+            value[field] = [row]
+            with self.subTest(field=field, row=row), self.assertRaisesRegex(ValueError, "effects NOT_READY"):
+                native["assert_whole_schema_effects"]({"identity": {"database": "exact"}, "metadata": value})
 
 if __name__ == "__main__":
     unittest.main()

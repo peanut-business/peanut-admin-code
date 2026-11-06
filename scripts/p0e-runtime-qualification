@@ -1285,6 +1285,68 @@ def recovery_client(identity: dict[str, Any], executable: str, arguments: list[s
             "-o", "ConnectTimeout=10", client["ssh_alias"], remote]
 
 
+
+def recovery_effects(identity: dict[str, Any]) -> dict[str, Any]:
+    """Global registered Root metadata visibility, then the unchanged pinned pure effect gate."""
+    queries = {
+        "tables": "SELECT TABLE_NAME,TABLE_TYPE,ENGINE,TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()",
+        "tablespaces": "SELECT NAME,SPACE_TYPE FROM information_schema.INNODB_TABLES WHERE SUBSTRING_INDEX(NAME,'/',1)=DATABASE()",
+        "views": "SELECT TABLE_NAME,VIEW_DEFINITION,CHECK_OPTION,IS_UPDATABLE,DEFINER,SECURITY_TYPE FROM information_schema.VIEWS WHERE TABLE_SCHEMA=DATABASE()",
+        "routines": "SELECT ROUTINE_NAME,ROUTINE_TYPE,ROUTINE_DEFINITION,SQL_DATA_ACCESS,SECURITY_TYPE,SQL_MODE,DEFINER FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE()",
+        "events": "SELECT EVENT_NAME,DEFINER,EVENT_DEFINITION,STATUS,ON_COMPLETION,SQL_MODE FROM information_schema.EVENTS WHERE EVENT_SCHEMA=DATABASE()",
+        "triggers": "SELECT TRIGGER_NAME,EVENT_OBJECT_TABLE,ACTION_TIMING,EVENT_MANIPULATION,ACTION_STATEMENT,SQL_MODE,DEFINER FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()",
+        "foreign_keys": "SELECT TABLE_SCHEMA,TABLE_NAME,CONSTRAINT_NAME,COLUMN_NAME,ORDINAL_POSITION,REFERENCED_TABLE_SCHEMA,REFERENCED_TABLE_NAME,REFERENCED_COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_NAME IS NOT NULL AND (TABLE_SCHEMA=DATABASE() OR REFERENCED_TABLE_SCHEMA=DATABASE())",
+    }
+    nonce = secrets.token_hex(16)
+    sql = ("SET TRANSACTION READ ONLY; START TRANSACTION;"
+           "SELECT HEX(JSON_OBJECT('database',DATABASE(),'server_uuid',@@server_uuid,'version',VERSION(),"
+           "'current_user',CURRENT_USER(),'partial_revokes',@@partial_revokes,"
+           "'table_count',(SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE())));"
+           "SHOW GRANTS FOR CURRENT_USER(); SELECT 'GRANTS_END_" + nonce + "';")
+    for name, query in queries.items():
+        columns = query.split(" FROM ", 1)[0].removeprefix("SELECT ").split(",")
+        fields = ",".join("'" + column + "'," + column for column in columns)
+        sql += "SELECT '" + name + "';SELECT HEX(JSON_OBJECT(" + fields + ")) FROM (" + query + ") AS observed;"
+    sql += "SELECT 'METADATA_END_" + nonce + "';ROLLBACK;"
+    result = command(recovery_client(identity, "mysql_command",
+        ["-uroot", "--batch", "--raw", "--skip-column-names", "--database=" + identity["database"], "--execute=" + sql],
+        root=True), capture=True).stdout
+    if len(result.encode()) > 16 * 1024 * 1024:
+        fail("complete recovery metadata exceeds the bounded native contract")
+    lines = result.splitlines()
+    observed_identity = json.loads(bytes.fromhex(lines[0]))
+    grant_end = lines.index("GRANTS_END_" + nonce)
+    grants = lines[1:grant_end]
+    registered = database_registration(identity)
+    if (observed_identity.get("database") != identity["database"]
+            or observed_identity.get("server_uuid") != registered["server_uuid"]
+            or observed_identity.get("version") != registered["version"]
+            or observed_identity.get("current_user") != "root@localhost"
+            or observed_identity.get("partial_revokes") not in (0, 1)
+            or any(row.startswith("REVOKE ") for row in grants)
+            or not any(re.match(r"GRANT ALL PRIVILEGES ON \*\.\* TO ", row) for row in grants)):
+        fail("registered Root complete direct metadata visibility is unavailable")
+    metadata, cursor = {}, grant_end + 1
+    for name in queries:
+        if cursor >= len(lines) or lines[cursor] != name:
+            fail("complete recovery metadata section is missing")
+        cursor += 1
+        rows = []
+        while cursor < len(lines) and lines[cursor] not in (*queries, "METADATA_END_" + nonce):
+            value = json.loads(bytes.fromhex(lines[cursor]))
+            if not isinstance(value, dict):
+                fail("native recovery metadata row is malformed")
+            rows.append(value)
+            cursor += 1
+        metadata[name] = sorted(rows, key=lambda row: json.dumps(row, sort_keys=True))
+    if lines[cursor:] != ["METADATA_END_" + nonce] or len(metadata["tables"]) != observed_identity["table_count"]:
+        fail("complete recovery metadata coverage differs")
+    observation = {"identity": observed_identity, "metadata": metadata}
+    native, _ = paired_recovery_verifier()
+    native["assert_whole_schema_effects"](observation)
+    return observation
+
+
 def recovery_no_writers(identity: dict[str, Any]) -> dict[str, Any]:
     """Independent OS/listener and global native MySQL observations, not caller attestations."""
     root = identity["root"]
@@ -1562,11 +1624,12 @@ def generated_recovery_plan(args: argparse.Namespace) -> dict[str, Any]:
     _, resources = parse_lease(proof)
     if ("output-dir", str(workspace)) not in resources:
         fail("own native recovery scope must cover the exact private output")
+    effects = recovery_effects(identity)
     state = recovery_probe(app, environment)
     files, directories = recovery_paths(app)
     plan = {"protocol": GENERATED_RECOVERY_PROTOCOL, "kind": "plan", "run_id": args.run_id,
             "identity": identity, "application": app, "workspace": str(workspace),
-            "input_sha256": sha256(raw), "database_preimage": state,
+            "input_sha256": sha256(raw), "database_preimage": state, "schema_effects": effects,
             "protected_preimage": recovery_inventory(root, files, directories),
             "files": files, "storage_names": list(directories),
             "restore_scope": "same-instance-same-schema-native-mysql",
@@ -1645,7 +1708,8 @@ def generated_recovery_execute(args: argparse.Namespace) -> dict[str, Any]:
     files, directories = recovery_paths(app)
     if (files != plan["files"] or list(directories) != plan["storage_names"]
             or recovery_inventory(root, files, directories) != plan["protected_preimage"]
-            or recovery_probe(app, environment) != plan["database_preimage"]):
+            or recovery_probe(app, environment) != plan["database_preimage"]
+            or recovery_effects(identity) != plan["schema_effects"]):
         fail("generated recovery preimage changed; do not overwrite new data")
     stopped = recovery_no_writers(identity)
     recovery_json(journal, {"status": "started", "plan_sha256": args.plan_sha256, "started_at": int(time.time())})
@@ -1660,6 +1724,7 @@ def generated_recovery_execute(args: argparse.Namespace) -> dict[str, Any]:
         os.chmod(key_path, 0o600)
         stream.write(key)
     recovery_json(key_path.with_name("instance-context.json"), identity)
+    process, terminal = None, None
     try:
         protected = recovery_inventory(root, files, directories)
         source_backup = recovery_source_backup(root, workspace)
@@ -1686,10 +1751,10 @@ def generated_recovery_execute(args: argparse.Namespace) -> dict[str, Any]:
                      "--hex-blob", "--set-gtid-purged=OFF", "--no-tablespaces",
                      "--add-drop-database", "--databases", database]
         with dump.open("xb") as output, (workspace / "dump.stderr").open("xb") as error:
-            process = subprocess.run(recovery_client(identity, "mysqldump_command", dump_args, root=True),
+            dump_process = subprocess.run(recovery_client(identity, "mysqldump_command", dump_args, root=True),
                                      stdout=output, stderr=error, timeout=300, check=False)
         os.chmod(dump, 0o600)
-        if process.returncode != 0:
+        if dump_process.returncode != 0:
             fail("native full same-schema dump failed; actual restore was not started")
         native, helper_sha = paired_recovery_verifier()
         native["validate_dump"](dump, database)
@@ -1700,10 +1765,13 @@ def generated_recovery_execute(args: argparse.Namespace) -> dict[str, Any]:
                   "plan_sha256": args.plan_sha256, "runtime_proof_sha256": sha256(workspace / "runtime-proof.txt"),
                   "database_sha256": sha256(dump),
                   "database_preimage": plan["database_preimage"], "protected": protected, "source_backup": source_backup,
-                  "storage_archives": archives, "pure_helper_sha256": helper_sha, "writers_stopped": stopped}
+                  "storage_archives": archives, "pure_helper_sha256": helper_sha, "writers_stopped": stopped,
+                  "schema_effects": plan["schema_effects"]}
         recovery_signed(workspace, "backup.json", backup, key)
         recovery_backup_attachments(workspace, backup)
         verify_runtime_admission(runtime_admission(app, str(root), app["head"]), identity["owner"], identity["thread"])
+        if recovery_effects(identity) != plan["schema_effects"]:
+            fail("whole-schema recovery effects changed before native restore dispatch")
         if recovery_source_inventory(root) != source_backup["inventory"]:
             fail("complete source/.git changed after the paired native backup")
         credentials = recovery_probe(app, environment, credentials=True).pop("credentials")
@@ -1735,14 +1803,15 @@ def generated_recovery_execute(args: argparse.Namespace) -> dict[str, Any]:
             fail("native ordinary-account restore failed; preserve this same execution")
         recovery_restore_files(root, workspace, backup)
         after = recovery_probe(app, environment)
-        if after != backup["database_preimage"] or recovery_inventory(root, files, directories) != protected:
+        if (after != backup["database_preimage"] or recovery_inventory(root, files, directories) != protected
+                or recovery_effects(identity) != backup["schema_effects"]):
             fail("real same-instance database/configuration/storage restore postimage differs")
         recovery_no_writers(identity)
         verify_runtime_admission(runtime_admission(app, str(root), app["head"]), identity["owner"], identity["thread"])
         result = {"protocol": GENERATED_RECOVERY_PROTOCOL, "kind": "completed", "status": "completed",
                   "identity": identity, "run_id": plan["run_id"], "plan_sha256": args.plan_sha256,
                   "backup_sha256": sha256(workspace / "backup.json"), "terminal": terminal,
-                  "database_postimage": after, "protected_postimage": protected,
+                  "database_postimage": after, "protected_postimage": protected, "schema_effects": backup["schema_effects"],
                   "restore_scope": "same-instance-same-schema-native-mysql"}
         recovery_signed(workspace, "generated-application-recovery.json", result, key)
         recovery_json(journal, {"status": "completed", "terminal": terminal, "plan_sha256": args.plan_sha256})
@@ -1751,9 +1820,11 @@ def generated_recovery_execute(args: argparse.Namespace) -> dict[str, Any]:
     except BaseException as error:
         # Retain the original pid/stage. A disconnected native client may still be running.
         state = read_json(journal)
-        previous = state.get("status")
-        state.update(status="UNKNOWN" if previous in ("RESTORING", "restore-started")
-                     and not (previous == "RESTORING" and isinstance(error, OSError)) else "failed",
+        if process is not None:
+            state["pid"] = process.pid
+        if terminal is not None:
+            state["terminal"] = terminal
+        state.update(status="UNKNOWN" if process is not None and terminal is None else "failed",
                      error_type=type(error).__name__, recorded_at=int(time.time()))
         recovery_json(journal, state)
         raise
@@ -1809,6 +1880,10 @@ def generated_recovery_verify(path: Path, app: dict[str, Any]) -> dict[str, Any]
     environment = runtime_environment(app, admission)
     environment["PEANUT_DEPLOYMENT_TARGET"] = "local-development" if identity["edition"] == "standalone" else "local-multi-tenant-demo"
     observed = recovery_probe(app, environment)
+    if (recovery_effects(identity) != backup["schema_effects"]
+            or completed["schema_effects"] != backup["schema_effects"]
+            or plan["schema_effects"] != backup["schema_effects"]):
+        fail("current complete same-schema effects differ from the protected native observation")
     if observed != completed["database_postimage"]:
         fail("current native same-instance database differs from the restored afterimage")
     verified = json.loads(command(["php", "-r",
