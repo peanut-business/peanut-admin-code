@@ -1031,5 +1031,14 @@ class GeneratedRecoveryContractTest(unittest.TestCase):
         self.assertEqual(journal["status"], "failed")
         self.assertNotIn("pid", journal)
 
+
+    def test_complete_source_inventory_rejects_unreadable_subtree(self):
+        def unreadable(*args, **kwargs):
+            kwargs["onerror"](PermissionError("synthetic unreadable source subtree"))
+        with patch.object(stage.os, "walk", side_effect=unreadable):
+            with self.assertRaisesRegex(PermissionError, "unreadable source subtree"):
+                stage.recovery_source_inventory(self.root)
+
+
 if __name__ == "__main__":
     unittest.main()

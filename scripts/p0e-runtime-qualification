@@ -1365,7 +1365,9 @@ def recovery_archive_inventory(path: Path) -> dict[str, Any]:
 def recovery_source_inventory(root: Path) -> dict[str, Any]:
     """Protect the entire existing source/.git tree without following symbolic links."""
     result = {}
-    for parent, directories, files in os.walk(root, followlinks=False):
+    def traversal_error(error: OSError) -> None:
+        raise error
+    for parent, directories, files in os.walk(root, followlinks=False, onerror=traversal_error):
         directories[:] = [name for name in directories
                           if str((Path(parent) / name).relative_to(root)) not in RECOVERY_DEPENDENCY_EXCLUSIONS]
         for name in sorted(directories + files):
