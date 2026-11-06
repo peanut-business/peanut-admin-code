@@ -10,11 +10,28 @@ COPY --from=python /usr/local/ /usr/local/
 RUN <<'SH'
 set -eux
 php -r '$m=json_decode(file_get_contents("/opt/peanut/inputs.json"),true,512,JSON_THROW_ON_ERROR); foreach($m["snapshot"]["packages"] as $p) echo $p["Package"]."=".$p["Version"]."\n";' > /tmp/package-spec
-php -r '$m=json_decode(file_get_contents("/opt/peanut/inputs.json"),true); foreach(["inRelease","packages"] as $n) { $s=$m["snapshot"]; $b=file_get_contents($s[$n."Url"]); if(hash("sha256",$b)!==$s[$n."Sha256"]) exit(1); file_put_contents("/tmp/".$n.($n==="packages"?".xz":""),$b); }'
-gpgv --keyring /usr/share/keyrings/debian-archive-keyring.gpg /tmp/inRelease
 rm -f /etc/apt/sources.list /etc/apt/sources.list.d/*
-php -r '$m=json_decode(file_get_contents("/opt/peanut/inputs.json"),true); echo "deb [check-valid-until=no signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] ".$m["snapshot"]["url"]." bookworm main\n";' > /etc/apt/sources.list
-apt-get update
+php <<'PHP'
+<?php
+$snapshot = json_decode(file_get_contents('/opt/peanut/inputs.json'), true, 512, JSON_THROW_ON_ERROR)['snapshot'];
+$context = stream_context_create(['http' => ['timeout' => 25]]);
+// Use a Debian mirror only while its signed release and index are byte-identical to the pin.
+foreach (['https://deb.debian.org/debian/', $snapshot['url']] as $root) {
+    foreach (['inRelease' => '/tmp/inRelease', 'packages' => '/tmp/packages.xz'] as $name => $local) {
+        $url = $snapshot[$name . 'Url'];
+        if (!str_starts_with($url, $snapshot['url'])) throw new RuntimeException('APT_SNAPSHOT_URL_DIFFERS');
+        $data = @file_get_contents($root . substr($url, strlen($snapshot['url'])), false, $context);
+        if ($data === false || !hash_equals($snapshot[$name . 'Sha256'], hash('sha256', $data))) continue 2;
+        if (file_put_contents($local, $data) !== strlen($data)) throw new RuntimeException('APT_METADATA_WRITE_FAILED');
+    }
+    $source = "deb [check-valid-until=no signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] $root bookworm main\n";
+    if (file_put_contents('/etc/apt/sources.list', $source) !== strlen($source)) throw new RuntimeException('APT_SOURCE_WRITE_FAILED');
+    break;
+}
+if (!is_file('/etc/apt/sources.list')) throw new RuntimeException('APT_PINNED_SNAPSHOT_UNAVAILABLE');
+PHP
+gpgv --keyring /usr/share/keyrings/debian-archive-keyring.gpg /tmp/inRelease
+apt-get -o Acquire::Retries=2 update
 php <<'PHP'
 <?php
 $snapshot = json_decode(file_get_contents('/opt/peanut/inputs.json'), true, 512, JSON_THROW_ON_ERROR)['snapshot'];
