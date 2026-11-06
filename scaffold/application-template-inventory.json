@@ -29025,7 +29025,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "008876b0422c1693f340e286efdcf6fa2040302a5627eb316bf2761c3177c662"
+            "source_sha256": "9606c7968ab16ad905fd6f1dabb631bcb6f800b35027294411093de97416cc67"
         },
         {
             "path": "web/vitest.optional.config.mjs",
