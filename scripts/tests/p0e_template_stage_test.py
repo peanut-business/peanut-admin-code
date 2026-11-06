@@ -240,7 +240,7 @@ class TemplateStageTest(unittest.TestCase):
         for relative in (".peanut", "resources", "server/private/installation"):
             (app_root / relative).mkdir(parents=True, exist_ok=True)
         endpoint = {"endpoint_id": "fresh-endpoint", "host": "synthetic", "port": 1}
-        resource = {"stable_resource_id": "fresh-resource", "environment": "development", "application_runtime": False,
+        resource = {"stable_resource_id": "fresh-resource", "environments": ["development"], "application_runtime": False,
                     "lifecycle": "ephemeral", "allowed_scenarios": ["first_install"], "database": "fresh_schema",
                     "upstream_endpoint": endpoint, "deployment_modes": ["standalone"], "server_uuid": "synthetic-server"}
         self.fresh_templates = self.inputs | {"editions": {"standalone": {"archive": "peanut-scaffold-standalone.tgz"}},
@@ -248,7 +248,7 @@ class TemplateStageTest(unittest.TestCase):
         versions = {"core_php": {"resolved_version": "v5.0.3"}, "core_web": {"source_reference": "b" * 40}}
         (self.source / "release-versions.json").write_text(json.dumps(versions))
         (app_root / "release-versions.json").write_text(json.dumps(versions))
-        manifest = {"application": {"edition": "standalone"}, "edition": {"name": "standalone"},
+        manifest = {"application": {"edition": "standalone", "slug": "fixture-standalone"}, "edition": {"name": "standalone"},
                     "template": {"source_commit": self.candidate, "source_tree": self.tree, "version": "5.0.2",
                                  "inventory_sha256": self.inputs["source"]["inventory_sha256"]},
                     "template_package": {"protocol": "peanut.template-package.v1", "version": "5.0.2", "archive_sha256": "a" * 64}}
@@ -300,7 +300,8 @@ class TemplateStageTest(unittest.TestCase):
             with self.assertRaisesRegex(stage.GateError, "original qualified Edition archive"):
                 stage.fresh_application_inputs(value, self.candidate, self.tree, self.fresh_templates)
             path.write_text(json.dumps(original)); app["manifest_sha256"] = stage.sha256(path)
-            for patch_value in ({"application_runtime": True}, {"lifecycle": "persistent"}, {"allowed_scenarios": []}):
+            for patch_value in ({"application_runtime": True}, {"lifecycle": "persistent"}, {"allowed_scenarios": []},
+                                {"environments": ["development", "production"]}, {"environments": []}):
                 with self.subTest(registry=patch_value), patch.object(stage, "database_registration", return_value=resource | patch_value):
                     with self.assertRaisesRegex(stage.GateError, "isolated ephemeral"):
                         stage.fresh_application_inputs(value, self.candidate, self.tree, self.fresh_templates)
@@ -312,6 +313,46 @@ class TemplateStageTest(unittest.TestCase):
             app["root"] = permanent["root"]
             with self.assertRaisesRegex(stage.GateError, "roots must be separate"):
                 stage.fresh_application_inputs(value, self.candidate, self.tree, self.fresh_templates)
+
+    def test_development_environment_registration_is_exclusive(self):
+        for record in ({"environment": "development"}, {"environments": ["development"]},
+                       {"environment": "development", "environments": ["development"]}):
+            with self.subTest(record=record):
+                self.assertTrue(stage.development_only(record))
+        for record in ({}, {"environment": "production"}, {"environments": []},
+                       {"environments": "development"}, {"environments": ["production"]},
+                       {"environments": ["development", "production"]},
+                       {"environment": "development", "environments": []},
+                       {"environment": "production", "environments": ["development"]}):
+            with self.subTest(record=record):
+                self.assertFalse(stage.development_only(record))
+
+    def test_browser_checks_listener_and_backend_development_scope(self):
+        app, _, _ = self.fresh_fixture()
+        route = "http://fixture.localhost:2345/"
+        urls = dict.fromkeys(("health_url", "tenant_admin_url", "tenant_beta_url", "platform_url", "docs_url"), route)
+        app["runtime"] = urls
+        identity = {"observed_HEAD": app["head"], "manifest_sha256": app["manifest_sha256"],
+                    "slug": "fixture-standalone", "edition": "standalone"}
+        binding = {"service_manager": {"project_id": "p", "environment_id": "e", "service_id": "s"},
+                   "allocation_status": "INSTALLED_DEVELOPMENT_RUNTIME_REGISTERED",
+                   "application_root": app["root"], "application_identity": identity}
+        listener = binding | {"stable_resource_id": "listener", "access_urls": [route], "port": 2345,
+                              "backend_resource_id": "backend", "environment": "development"}
+        backend = binding | {"stable_resource_id": "backend", "database_resource_id": app["resource_id"],
+                             "environments": ["development"]}
+        registry = self.root / "registered-routes.json"
+        def write(front, back):
+            registry.write_text(json.dumps({"resources": {"local_listeners": [front], "optional_services": [back]}}))
+        with patch.object(stage, "REGISTRY_PATH", registry):
+            write(listener, backend)
+            self.assertEqual(set(stage.runtime_registration(app, compose=False)["routes"]), {"listener", "backend"})
+            write(listener | {"environments": ["development", "production"]}, backend)
+            with self.assertRaisesRegex(stage.NotRun, "development PSM route"):
+                stage.runtime_registration(app, compose=False)
+            write(listener, backend | {"environment": "production"})
+            with self.assertRaisesRegex(stage.GateError, "backend application/environment"):
+                stage.runtime_registration(app, compose=False)
 
     def test_fresh_plan_admits_only_the_selected_fresh_application(self):
         app, permanent, _ = self.fresh_fixture()

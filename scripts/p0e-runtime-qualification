@@ -467,6 +467,13 @@ def baseline_identity(root: Path, manifest: dict[str, Any]) -> str:
     return hashlib.sha256(json.dumps(sorted(records), ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
 
 
+def development_only(resource: dict[str, Any]) -> bool:
+    """Database registrations list environments; service registrations can name one."""
+    if "environments" in resource:
+        return resource["environments"] == ["development"] and resource.get("environment", "development") == "development"
+    return resource.get("environment") == "development"
+
+
 def runtime_registration(app: dict[str, Any], *, compose: bool = True) -> dict[str, Any]:
     """Bind deployment coordinates before even interpolating an operator's Compose file."""
     if not compose:
@@ -497,7 +504,7 @@ def runtime_registration(app: dict[str, Any], *, compose: bool = True) -> dict[s
                 raise NotRun("browser URL has no unique registered PSM route: " + field)
             registered = matches[0]
             manager = registered.get("service_manager", {})
-            if (registered.get("environment") != "development"
+            if (not development_only(registered)
                     or registered.get("allocation_status") != "INSTALLED_DEVELOPMENT_RUNTIME_REGISTERED"
                     or not all(manager.get(k) for k in ("project_id", "environment_id", "service_id"))):
                 raise NotRun("browser requires an admitted existing development PSM route: " + field)
@@ -515,7 +522,7 @@ def runtime_registration(app: dict[str, Any], *, compose: bool = True) -> dict[s
             if len(backends) != 1:
                 fail("PSM route has no unique APP backend/database association")
             backend = backends[0]
-            if (backend.get("application_identity") != identity or backend.get("environment") != "development"
+            if (backend.get("application_identity") != identity or not development_only(backend)
                     or backend.get("allocation_status") != "INSTALLED_DEVELOPMENT_RUNTIME_REGISTERED"):
                 fail("PSM backend application/environment identity differs")
             routes.extend((registered, backend))
@@ -759,7 +766,7 @@ def fresh_application_inputs(value: dict[str, Any], candidate: str, tree: str,
         checkout_identity(root, app.get("head", ""), app.get("tree", ""))
         registered = database_registration(app)
         endpoint = registered.get("upstream_endpoint", {})
-        if (registered.get("environment") != "development" or registered.get("application_runtime") is not False
+        if (not development_only(registered) or registered.get("application_runtime") is not False
                 or registered.get("lifecycle") != "ephemeral"
                 or "first_install" not in registered.get("allowed_scenarios", [])
                 or registered.get("database") != app.get("database")
