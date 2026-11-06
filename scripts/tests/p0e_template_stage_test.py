@@ -132,6 +132,18 @@ class TemplateStageTest(unittest.TestCase):
         self.assertEqual(set(receipt["cli_created_applications"]), set(stage.EDITIONS))
         self.assertTrue(all(v is False for v in receipt["runtime"].values()))
 
+    def test_cli_origin_from_actions_checkout_and_foreign_remotes(self):
+        official = "https://github.com/peanut-business/peanut-cli"
+        git = ["git", "-C", str(self.cli), "remote", "set-url", "origin"]
+        subprocess.run([*git, official], check=True)
+        inputs = stage.candidate_inputs(self.input_value, self.candidate, self.tree)
+        self.assertEqual(inputs["cli"]["entry_sha256"], stage.sha256(self.cli / "bin/peanut.js"))
+        for foreign in (official + "-fork", official + "/extra", "https://example.com/peanut-business/peanut-cli", str(self.cli)):
+            with self.subTest(origin=foreign):
+                subprocess.run([*git, foreign], check=True)
+                with self.assertRaisesRegex(stage.GateError, "independent CLI source repository differs"):
+                    stage.candidate_inputs(self.input_value, self.candidate, self.tree)
+
     def test_failure_is_preserved_and_not_replayed(self):
         self.rc = 17
         with self.assertRaises(stage.GateError): stage.qualify_candidate(self.args)

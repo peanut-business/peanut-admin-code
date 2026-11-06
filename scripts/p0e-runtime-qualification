@@ -570,7 +570,8 @@ def candidate_inputs(value: dict[str, Any], candidate: str, tree: str) -> dict[s
     cli_root = canonical(cli.get("root", ""), directory=True)
     checkout_identity(cli_root, cli.get("commit", ""), cli.get("tree", ""))
     if command(["git", "-C", str(cli_root), "remote", "get-url", "origin"], capture=True).stdout.strip() not in (
-        "git@github.com:peanut-business/peanut-cli.git", "https://github.com/peanut-business/peanut-cli.git"):
+        "git@github.com:peanut-business/peanut-cli.git", "https://github.com/peanut-business/peanut-cli.git",
+        "https://github.com/peanut-business/peanut-cli"):
         fail("independent CLI source repository differs")
     if read_json(cli_root / "package.json").get("name") != "@peanut/cli":
         fail("independent CLI package identity differs")
