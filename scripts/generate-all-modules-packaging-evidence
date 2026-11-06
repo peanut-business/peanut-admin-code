@@ -193,9 +193,10 @@ foreach ($moduleKeys as $moduleKey) {
 
 // The repository uses a Git worktree whose .git entry is a file. Husky's
 // prepare hook is a local Git-hook install, not a production build input; CI
-// already disables it for the same frozen dependency install.
+// already disables it for the same frozen dependency install. Keep independent
+// files for the source-checked API generator even if pnpm selects a new store.
 packagingEvidenceRun(
-    ['pnpm', '--dir', 'web', 'install', '--frozen-lockfile'],
+    ['pnpm', '--dir', 'web', 'install', '--frozen-lockfile', '--package-import-method=copy'],
     $root,
     ['HUSKY' => '0', 'CI' => '1'],
 );
@@ -208,7 +209,7 @@ $evidence = [
     'results' => $results,
     'production_build' => [
         'command' => 'pnpm --dir web build',
-        'install_command' => 'pnpm --dir web install --frozen-lockfile',
+        'install_command' => 'pnpm --dir web install --frozen-lockfile --package-import-method=copy',
         'install_environment' => ['HUSKY' => '0', 'CI' => '1'],
         'candidate' => $candidate,
         'source_tree' => $sourceTree,

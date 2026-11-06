@@ -176,7 +176,7 @@ $productionBuild = $evidence['production_build'] ?? null;
 allModulesPackagingExpect(is_array($productionBuild), 'Production build evidence is missing');
 allModulesPackagingExpect(
     ($productionBuild['command'] ?? null) === 'pnpm --dir web build'
-        && ($productionBuild['install_command'] ?? null) === 'pnpm --dir web install --frozen-lockfile'
+        && ($productionBuild['install_command'] ?? null) === 'pnpm --dir web install --frozen-lockfile --package-import-method=copy'
         && ($productionBuild['install_environment'] ?? null) === ['HUSKY' => '0', 'CI' => '1']
         && ($productionBuild['candidate'] ?? null) === $currentCandidate
         && ($productionBuild['source_tree'] ?? null) === $currentTree
