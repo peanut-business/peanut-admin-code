@@ -1,6 +1,6 @@
 {
     "name": "peanut-admin-platform",
-    "version": "5.0.15",
+    "version": "5.1.0",
     "private": true,
     "description": "Peanut Admin instance platform control plane",
     "author": "\u82b1\u751f\u79d1\u6280",

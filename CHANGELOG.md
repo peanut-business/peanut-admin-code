@@ -2,6 +2,11 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.0] - Release candidate
+
+- Advance the Peanut Admin source and scaffold template identity to 5.1.0, with technical qualification pending.
+- Retain the published PHP Core 5.0.3 and six Web Core 5.0.4 dependencies; no new Core release is required for this identity change.
+
 ## [5.0.15] - Release candidate
 
 - Pin PHP Core 5.0.3 and the six Web Core 5.0.4 packages for both Editions. The scaffold includes eight base Modules.

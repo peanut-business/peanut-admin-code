@@ -2,10 +2,10 @@
   "schema_version": 3,
   "protocol": "peanut.release-metadata.v3",
   "product": "Peanut Admin",
-  "source_product_version": "5.0.15",
+  "source_product_version": "5.1.0",
   "instance_version": null,
-  "expected_tag": "v5.0.15",
-  "release_date": "2026-11-05",
+  "expected_tag": "v5.1.0",
+  "release_date": "2026-11-07",
   "repository": "https://github.com/peanut-business/peanut-admin-code",
   "license": {
     "type": "Apache-2.0",
@@ -16,7 +16,7 @@
   "normative_artifact": {
     "type": "source-release",
     "prebuilt_images_published": false,
-    "new_core_packages_published": true,
+    "new_core_packages_published": false,
     "saas_included": false
   },
   "supported_build_and_runtime": {
@@ -75,20 +75,20 @@
     }
   },
   "lockfiles": {
-    "server/composer.lock": "f996a2bf6a9ad8f85aa27abf49e3317858e0505029e3052cdda2a654e73f504c",
+    "server/composer.lock": "e32122b6a2413e5a6efc16aeeaef8dd9254adf05f731897ee9b57df4f29f4ed2",
     "web/pnpm-lock.yaml": "b1df970fc9fe25272b2eef37a28fd198bad434a8438ffcdde6ad45423f9e4a87",
-    "platform/package-lock.json": "06515e2c5340fbf596c473f7a4c02e069d513d6ee794075f2f9e4209d6d16069",
-    "pc/package-lock.json": "5d3ddd6657af4c145f726b43dc2f1bc92ac9519f71ab50dda301d67878dee01c",
-    "uniapp/package-lock.json": "726e4f87a533a49e75ad95e1e165a5fcac62c19e2f4ce9e4ede1a7ee6592d23a"
+    "platform/package-lock.json": "047ef40233d886b04645a09ebef24dfbf7abd9f8395b6f25d202af5e0e563ef8",
+    "pc/package-lock.json": "0e803278bc054d7d056cc9b07cfe3ba1bbf20d3e56ae40dfa2ba50a896ba456c",
+    "uniapp/package-lock.json": "d12b520348d00f72acabdeb5fb54419f61e22cb072f318d4b87861f910ecf28b"
   },
   "legal_files": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "NOTICE": "c0680ac5f6eac2bf9106393ada2d3d54b845a50cf14d13bf8e46acb66026609f",
-    "THIRD_PARTY_NOTICES.md": "86ebfd8ae39cfcf9c02d4e6c001122d32ff22857aa61c29dad05e4fb2531375e",
-    "RELEASE_SBOM.spdx.json": "01153018a1e986197ef8a74fccec43dd27d9912617fa6f8a03e158d5f2b2bd62"
+    "THIRD_PARTY_NOTICES.md": "c28c0e68734dc13afcb773079477977b393e01d01be4f525c8953dce6cbb9a51",
+    "RELEASE_SBOM.spdx.json": "77f18d276605ed0f25b807cbd90d2bfa93a9ac4f883436a2f0b78dc1d202a759"
   },
   "technical_qualification": {
-    "phase": "5.0.15-stable-candidate",
+    "phase": "5.1.0-stable-candidate",
     "result": "pending",
     "final_candidate_commit": null,
     "final_candidate_tree": null,
@@ -98,10 +98,10 @@
     "cleanup_residual_count": null,
     "lease_released": false,
     "migrations": 10,
-    "scaffold_version": "5.0.15",
+    "scaffold_version": "5.1.0",
     "application_initial_version": "0.1.0",
     "evidence": "Product stable candidate identity is prepared from public Core registry locks; qualification remains pending.",
-    "release_delta": "Adopts the published fixed PHP Core and Web Core package identities recorded in public_runtime_dependencies, separates source product identity from customer-owned instance identity, and prepares one-source deterministic Standalone and Multi-tenant scaffold inputs."
+    "release_delta": "Advances the source product and scaffold template identity to 5.1.0 while retaining published PHP Core 5.0.3 and Web Core 5.0.4 dependencies; technical qualification remains pending."
   },
   "self_reference_policy": "This file intentionally omits its own commit SHA and archive digest. RELEASE_MANIFEST.json is generated from the immutable tag and carries those values."
 }
