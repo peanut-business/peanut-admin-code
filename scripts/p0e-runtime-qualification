@@ -1755,15 +1755,18 @@ class Runner:
         # Only objects actually created by this invocation are removable. Permanent
         # APPs, runtime containers/volumes, all DBs, source/vendor and restore points remain.
         self.assert_inputs()
-        # Consumer output contains recovery/evidence; preserve it rather than recursively
-        # removing an incomplete native Module operation or author APP source.
-        if (self.cache / "consumer-module-lifecycle").exists():
-            shutil.move(str(self.cache / "consumer-module-lifecycle"), self.output / "consumer-module-lifecycle")
-        if list(self.cache.iterdir()):
-            fail("unknown temporary objects remain; no broad cleanup attempted")
-        self.cache.rmdir()
         verify_lease(self.args, self.plan)
+        # Keep native consumer evidence and leave the cache available for resume if release is refused.
+        evidence = self.cache / "consumer-module-lifecycle"
+        if any(entry != evidence or entry.is_symlink() or not entry.is_dir() for entry in self.cache.iterdir()):
+            fail("unknown temporary objects remain; no broad cleanup attempted")
+        if evidence.exists():
+            destination = self.output / evidence.name
+            if destination.exists() or destination.is_symlink():
+                fail("consumer evidence destination already exists")
+            shutil.move(str(evidence), destination)
         command([str(LEASE_TOOL), "release", "--lease", self.args.lease, "--owner", self.args.owner])
+        self.cache.rmdir()
         full = self.plan["groups"] == self.plan["full_gate_groups"]
         self.write_json(self.summary_path, {"schema_version": 1, "status": "passed" if full else "partial-passed",
             "scope": "full" if full else self.plan["selection_scope"], "candidate": self.args.candidate,
@@ -1785,13 +1788,15 @@ class Runner:
             "standalone-browser": lambda: self.browser_at("standalone"), "multi-tenant-browser": lambda: self.browser_at("multi-tenant")}
         for group in self.plan["groups"]:
             self.run_group(group, operations[group])
+        self.current_group = "closeout"
         if any(self.checkpoint["groups"].get(g, {}).get("status") != "passed" for g in self.plan["groups"]):
-            self.current_group = "closeout"
             raise NotRun("eight-group closure is incomplete; completed components and native records preserved")
         self.cleanup_success()
 
     def preserve_failure(self, exception: Exception) -> None:
-        if self.current_group != "closeout":
+        if self.current_group == "closeout":
+            self.checkpoint.setdefault("closeout_failure", {"error": str(exception)[:500], "finished_at": int(time.time())})
+        else:
             state = self.checkpoint["groups"].setdefault(self.current_group, {})
             state.update(status="not_run" if isinstance(exception, NotRun) else "failed", error=str(exception)[:500], finished_at=int(time.time()))
         self.save_checkpoint()

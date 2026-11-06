@@ -8,7 +8,9 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import runpy
 import subprocess
+import sys
 import tempfile
 import tarfile
 import time
@@ -596,6 +598,142 @@ class TemplateStageTest(unittest.TestCase):
         self.assertIn("always() && steps.preserve_candidate.outputs.available == 'true'", workflow)
         self.assertIn('for name in scaffold-templates scaffold-rebuild rebuild-comparison.json producer-tools.json producer-tools-actual.json template-qualification candidate-inputs.json', workflow)
         self.assertNotIn('continue-on-error:', workflow)
+
+
+class FixedRuntimeContractTest(unittest.TestCase):
+    """Exercise the runtime controller with private temporary receipts and no live resources."""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory(prefix="p0e-runtime-contract-")
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name).resolve()
+        self.args = argparse.Namespace(candidate="a" * 40, owner="controller", thread="controller",
+            run_id="review", lease="review-lease", parent_lease=None,
+            lifecycle_input=str(self.root / "inputs.json"), lifecycle_input_sha256="c" * 64)
+        self.apps = {edition: {"root": str(self.root / edition)} for edition in stage.EDITIONS}
+        self.inputs = {"applications": self.apps, "input_sha256": self.args.lifecycle_input_sha256,
+            "consumer_identity_seed": {"path": str(self.root / "existing-identity.env")}}
+        self.plan = {"candidate_tree": "b" * 40, "template_artifacts": {"standalone": "st", "multi-tenant": "mt"},
+            "paths": {"output-dir": str(self.root / "output"), "cache-dir": str(self.root / "cache")},
+            "lifecycle_inputs": self.inputs, "groups": GROUPS, "full_gate_groups": GROUPS,
+            "selection_scope": "full", "runtime_admissions": [{"lease": "external-app"}]}
+        self.runner = stage.Runner(self.args, self.plan)
+
+    def test_consumer_cli_binds_both_permanent_apps_and_all_result_gates(self):
+        parse = runpy.run_path(str(stage.CONSUMER_MODULE_CHAIN))["parse_arguments"]
+        gates = ("check_v1_v2", "canonical_pack_v1_v2", "install_update", "tenant_package_rbac_separation",
+                 "disable_reactivate", "retire_purge", "app_owned_preservation")
+        receipt = {"status": "passed", "candidate": self.args.candidate, "candidate_tree": self.plan["candidate_tree"],
+            "template_artifacts": self.plan["template_artifacts"], "lifecycle_input_sha256": self.args.lifecycle_input_sha256,
+            "gates": dict.fromkeys(gates, "passed")}
+
+        def consumer(argv, **kwargs):
+            with patch.object(sys, "argv", argv):
+                args = parse()
+            self.assertEqual(args.author_app, self.apps["standalone"]["root"])
+            self.assertEqual(args.consumer_app, self.apps["multi-tenant"]["root"])
+            self.assertEqual(args.qualification_plan, str(self.runner.output / "plan.json"))
+            self.assertEqual(args.output, str(self.runner.cache / "consumer-module-lifecycle"))
+            self.assertEqual(args.identity_seed_file, self.inputs["consumer_identity_seed"]["path"])
+            self.assertEqual((args.candidate, args.lease, args.lifecycle_input, args.lifecycle_input_sha256),
+                             (self.args.candidate, self.args.lease, self.args.lifecycle_input, self.args.lifecycle_input_sha256))
+            return subprocess.CompletedProcess(argv, 0, json.dumps(receipt), "")
+
+        with patch.object(stage, "command", side_effect=consumer):
+            self.assertEqual(self.runner.consumer_module_lifecycle(), receipt)
+            for field in ("status", "candidate", "candidate_tree", "template_artifacts", "lifecycle_input_sha256"):
+                with self.subTest(field=field), patch.dict(receipt, {field: "foreign"}), self.assertRaises(stage.GateError):
+                    self.runner.consumer_module_lifecycle()
+            for gate in gates:
+                with self.subTest(gate=gate), patch.dict(receipt["gates"], {gate: "not_run"}), self.assertRaises(stage.GateError):
+                    self.runner.consumer_module_lifecycle()
+
+    def test_failed_group_preserves_original_receipts_and_rejects_replay(self):
+        self.runner.initialize()
+        group = "consumer-module-lifecycle"
+        with patch.object(self.runner, "assert_inputs"), patch.object(stage, "verify_lease"), \
+             patch.object(stage, "command") as command:
+            with self.assertRaisesRegex(stage.GateError, "original failure") as failure:
+                self.runner.run_group(group, lambda: stage.fail("original failure"))
+            self.runner.preserve_failure(failure.exception)
+            before = self.runner.checkpoint_path.read_bytes()
+            summary = stage.read_json(self.runner.summary_path)
+            self.assertEqual(summary["status"], "failed-preserved")
+            self.assertFalse(summary["cleanup"]["lease_released"])
+            self.assertEqual(summary["groups"][group]["error"], "original failure")
+            self.runner.resume()
+            with self.assertRaisesRegex(stage.GateError, "reconcile its original"):
+                self.runner.run_group(group, lambda: self.fail("replayed failed native operation"))
+            self.assertEqual(self.runner.checkpoint_path.read_bytes(), before)
+            self.runner.plan = self.plan | {"candidate_tree": "d" * 40}
+            with self.assertRaisesRegex(stage.GateError, "original lifecycle plan"):
+                self.runner.resume()
+            command.assert_not_called()
+
+    def test_cleanup_preserves_evidence_and_resumes_after_release_refusal(self):
+        group = "consumer-module-lifecycle"
+        self.plan.update(groups=[group], selection_scope="selected-groups")
+        runner = stage.Runner(self.args, self.plan)
+        runner.initialize()
+        evidence = runner.cache / group
+        evidence.mkdir()
+        (evidence / "retire-plan.json").write_bytes(b"original evidence")
+        extra = runner.cache / "unknown"
+        extra.write_bytes(b"must remain")
+        with patch.object(stage.Runner, "assert_inputs"), patch.object(stage, "verify_lease") as verify, \
+             patch.object(stage, "command") as release, patch.object(stage.Runner, "consumer_module_lifecycle", return_value={}) as business:
+            verify.side_effect = stage.GateError("wrong native owner")
+            with self.assertRaisesRegex(stage.GateError, "wrong native owner"):
+                runner.cleanup_success()
+            self.assertTrue(evidence.is_dir())
+            release.assert_not_called()
+            verify.side_effect = None
+            with self.assertRaisesRegex(stage.GateError, "unknown temporary objects"):
+                runner.cleanup_success()
+            self.assertEqual(extra.read_bytes(), b"must remain")
+            self.assertTrue(evidence.is_dir())
+            self.assertFalse(runner.summary_path.exists())
+            release.assert_not_called()
+            extra.unlink()
+
+            release.side_effect = stage.GateError("native release refused")
+            with self.assertRaisesRegex(stage.GateError, "native release refused") as refused:
+                runner.run()
+            runner.preserve_failure(refused.exception)
+            checkpoint = stage.read_json(runner.checkpoint_path)
+            self.assertEqual(checkpoint["groups"][group]["status"], "passed")
+            self.assertEqual(checkpoint["closeout_failure"]["error"], "native release refused")
+            self.assertEqual(stage.read_json(runner.summary_path)["status"], "failed-preserved")
+            self.assertTrue(runner.cache.is_dir())
+            saved = runner.output / group / "retire-plan.json"
+            self.assertEqual(saved.read_bytes(), b"original evidence")
+
+            resumed = stage.Runner(self.args, self.plan)
+            resumed.resume()
+            release.side_effect = None
+            resumed.run()
+            business.assert_called_once()
+            release_args = [str(stage.LEASE_TOOL), "release", "--lease", self.args.lease, "--owner", self.args.owner]
+            self.assertEqual([c.args[0] for c in release.call_args_list], [release_args, release_args])
+            summary = stage.read_json(resumed.summary_path)
+            self.assertEqual(summary["status"], "partial-passed")
+            self.assertEqual(summary["cleanup"]["external_runtime_leases_retained"], ["external-app"])
+            self.assertEqual(stage.read_json(resumed.checkpoint_path)["closeout_failure"], checkpoint["closeout_failure"])
+            self.assertEqual(saved.read_bytes(), b"original evidence")
+            self.assertFalse(resumed.cache.exists())
+
+    def test_run_requires_every_planned_group_to_pass(self):
+        calls = []
+
+        def observe(group, operation):
+            calls.append(group)
+            self.runner.checkpoint["groups"][group] = {"status": "not_run" if group == "standalone-browser" else "passed"}
+
+        with patch.object(self.runner, "run_group", side_effect=observe), patch.object(self.runner, "cleanup_success") as close:
+            with self.assertRaisesRegex(stage.NotRun, "closure is incomplete"):
+                self.runner.run()
+            self.assertEqual(calls, GROUPS)
+            close.assert_not_called()
 
 
 if __name__ == "__main__":
