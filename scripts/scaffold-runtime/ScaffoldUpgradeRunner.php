@@ -1322,17 +1322,19 @@ final class ScaffoldUpgradeRunner
             'paths' => $present ? null : $this->recordedWorkflowPaths($from)];
     }
 
-    /** Prove immutable development ancestry locally; caller JSON is never source authority. */
+    /** Validate the immutable development target and ancestry when the base is Git. */
     private function developmentSource(array $base, ScaffoldManifest $to, array $selection, string $profile, string $workflow, string $fromVersion, ?array $workflowPaths = null): array
     {
         if ($to->sourceIdentity()['kind'] === 'local') {
             return $this->localDevelopmentSource($base, $to, $selection, $profile, $workflow, $fromVersion, $workflowPaths);
         }
         $repository = 'peanut-business/peanut-admin-code';
+        $baseIdentity = ScaffoldSourceIdentity::from($base, true);
+        $localBase = $baseIdentity['kind'] === 'local';
         $checkout = $selection['source_checkout'] ?? null;
         if (!is_string($checkout) || !str_starts_with($checkout, '/') || realpath($checkout) !== $checkout
             || !is_dir($checkout) || is_link($checkout) || ($selection['channel'] ?? null) !== 'development'
-            || !isset($selection['template_package_path']) || ($base['repository'] ?? null) !== $repository
+            || !isset($selection['template_package_path']) || (!$localBase && ($base['repository'] ?? null) !== $repository)
             || ($base['channel'] ?? null) !== 'development' || !array_key_exists('release_version', $base)
             || $base['release_version'] !== null || Semver::compare($fromVersion, $to->version()) > 0
             || !in_array($profile, ['minimal', 'standard', 'full'], true)
@@ -1379,7 +1381,7 @@ final class ScaffoldUpgradeRunner
         $target = $metadata['source'] ?? [];
         $identities = [];
         $excluded = [];
-        foreach (['base' => $base, 'target' => $target] as $side => $source) {
+        foreach ($localBase ? ['target' => $target] : ['base' => $base, 'target' => $target] as $side => $source) {
             foreach (['commit', 'tree'] as $key) {
                 if (preg_match('/^[a-f0-9]{40}$/D', (string) ($source[$key] ?? '')) !== 1) {
                     throw new RuntimeException('SCAFFOLD_DEVELOPMENT_IDENTITY_INVALID');
@@ -1439,6 +1441,19 @@ final class ScaffoldUpgradeRunner
                 }
             }
             $identities[$side] = array_intersect_key($source, array_flip(['commit', 'tree', 'inventory_sha256']));
+        }
+        if ($localBase) {
+            if ($workflowPaths !== null) {
+                foreach ($workflowPaths as $path) {
+                    if ($this->workflowPathSelected($path, $workflow) !== true) {
+                        throw new RuntimeException('SCAFFOLD_DEVELOPMENT_WORKFLOW_BASELINE_MISMATCH');
+                    }
+                }
+            }
+            sort($excluded, SORT_STRING);
+            return ['relation' => ['kind' => 'local_snapshot', 'base' => $baseIdentity, 'target' => $to->sourceIdentity(),
+                'base_inventory_sha256' => $base['inventory_sha256'], 'target_inventory_sha256' => $target['inventory_sha256']],
+                'excluded_paths' => $excluded];
         }
         $git(['merge-base', '--is-ancestor', $base['commit'], $target['commit']], true);
         sort($excluded, SORT_STRING);

@@ -35,7 +35,7 @@ function scaffoldWrite(string $path, string $bytes, int $mode = 0644): void
     chmod($path, $mode);
 }
 
-$temporary = sys_get_temp_dir() . '/peanut-scaffold-source-recovery-' . bin2hex(random_bytes(8));
+$temporary = realpath(sys_get_temp_dir()) . '/peanut-scaffold-source-recovery-' . bin2hex(random_bytes(8));
 mkdir($temporary, 0700);
 $project = $temporary . '/application';
 $releases = $temporary . '/templates';
@@ -191,6 +191,115 @@ try {
     $writeJson($unsafePath, $unsafe);
     scaffoldFails(fn() => $runner->preflight($project, $from, $unsafePath), 'SCAFFOLD_PATH_OUTSIDE_PROJECT: ../outside.txt');
     scaffoldExpect(file_get_contents($outside) === "outside\n", 'A rejected path touched external bytes.');
+    // A recorded local baseline remains local while adopting an explicitly selected Git target.
+    $checkout = $temporary . '/source';
+    mkdir($checkout . '/scaffold', 0700, true);
+    $inventory = ['protocol' => 'peanut.create-app-inventory.v2', 'template_version' => '1.5.0',
+        'files' => array_map(static fn(string $path): array => ['target' => $path,
+            'classification' => 'managed', 'profiles' => ['full']], array_keys($old))];
+    $writeJson($checkout . '/scaffold/application-template-inventory.json', $inventory);
+    $writeJson($checkout . '/scaffold/edition-profiles.json', ['protocol' => 'peanut.edition-profiles.v1']);
+    $git = static function (array $args) use ($checkout): string {
+        $pipes = [];
+        $process = proc_open(['git', '-c', 'user.name=Scaffold fixture', '-c', 'user.email=fixture@example.invalid',
+            '-c', 'commit.gpgSign=false', '-c', 'core.hooksPath=/dev/null', '-C', $checkout, ...$args],
+            [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        $output = stream_get_contents($pipes[1]); $error = stream_get_contents($pipes[2]);
+        fclose($pipes[1]); fclose($pipes[2]);
+        scaffoldExpect(proc_close($process) === 0, $error);
+        return trim($output);
+    };
+    $git(['init', '--quiet']);
+    $git(['remote', 'add', 'origin', 'https://github.com/peanut-business/peanut-admin-code.git']);
+    $git(['add', '--', 'scaffold']);
+    $git(['commit', '--quiet', '-m', 'fixed selected Git target']);
+    $targetSource = ['repository' => 'peanut-business/peanut-admin-code', 'channel' => 'development',
+        'release_version' => null, 'commit' => $git(['rev-parse', 'HEAD']), 'tree' => $git(['rev-parse', 'HEAD^{tree}']),
+        'inventory_sha256' => hash_file('sha256', $checkout . '/scaffold/application-template-inventory.json'),
+        'edition_profile_sha256' => hash_file('sha256', $checkout . '/scaffold/edition-profiles.json')];
+    $targetSource['requested_ref'] = $targetSource['commit'];
+    $localIdentity = ['kind' => 'local', 'snapshot_sha256' => str_repeat('e', 64)];
+    $application = json_decode($beforeManifest, true, 512, JSON_THROW_ON_ERROR);
+    $application['application'] += ['profile' => 'full', 'workflow' => 'full', 'edition' => 'standalone'];
+    $application['template'] = ['version' => '1.0.0', 'source_identity' => $localIdentity,
+        'inventory_sha256' => str_repeat('a', 64)];
+    $application['generation_source'] = ['source_identity' => $localIdentity, 'repository' => null,
+        'channel' => 'development', 'release_version' => null, 'requested_ref' => 'local:' . str_repeat('e', 64),
+        'inventory_sha256' => str_repeat('a', 64), 'edition_profile_sha256' => str_repeat('d', 64)];
+    $application['edition'] = ['name' => 'standalone', 'source_sha256' => str_repeat('d', 64)];
+    foreach ($application['files'] as &$entry) { $entry['baseline_mode'] = $entry['mode']; }
+    unset($entry);
+    $writeJson($appManifest, $application);
+    $recorded = \app\common\value\scaffold\ScaffoldManifest::writeRecordedBaseline($project);
+    $package = $project . '/.peanut/upgrades/template-packages/' . str_repeat('9', 64);
+    $targetPath = $manifest('1.5.0', 'f', $old);
+    $targetDocument = json_decode((string) file_get_contents($targetPath), true, 512, JSON_THROW_ON_ERROR);
+    $targetDocument['release'] = array_replace($targetDocument['release'], [
+        'source_commit' => $targetSource['commit'], 'source_tree' => $targetSource['tree'],
+        'inventory_sha256' => $targetSource['inventory_sha256'], 'workflow' => 'full']);
+    $targetDocument['edition'] = ['name' => 'standalone', 'deployment_mode' => 'standalone',
+        'module_profile' => 'official-default', 'source_sha256' => $targetSource['edition_profile_sha256'],
+        'tenant_bootstrap' => ['kind' => 'real-default-tenant', 'code' => 'default', 'tenant_identity' => 'required',
+            'rbac' => 'required', 'execution_context' => 'PeanutAdmin\\Kernel\\Context\\TenantSystemContext',
+            'module_lifecycle' => 'required']];
+    foreach ($old as $file => $content) { scaffoldWrite($package . '/files/' . $file, $content); }
+    $writeJson($package . '/scaffold-manifest.json', $targetDocument);
+    $writeJson($package . '/template-create.json', ['application_manifest' => []]);
+    $metadata = ['protocol' => 'peanut.template-package.v1', 'version' => '1.5.0',
+        'edition' => 'standalone', 'profile' => 'full', 'workflow' => 'full', 'source' => $targetSource,
+        'archive' => ['sha256' => str_repeat('9', 64)],
+        'create_manifest_sha256' => hash_file('sha256', $package . '/template-create.json'),
+        'scaffold_manifest_sha256' => hash_file('sha256', $package . '/scaffold-manifest.json')];
+    $writeJson($package . '/template-package.json', $metadata);
+    $selection = ['repository' => $targetSource['repository'], 'requested_ref' => 'local:' . str_repeat('9', 64),
+        'channel' => 'development', 'commit' => $targetSource['commit'], 'tree' => $targetSource['tree'],
+        'source_checkout' => $checkout, 'template_package_path' => $package . '/template-package.json',
+        'template_package_sha256' => 'sha256:' . hash_file('sha256', $package . '/template-package.json')];
+    $nativePlan = $runner->preflight($project, $recorded, $package . '/scaffold-manifest.json', $selection);
+    scaffoldExpect($nativePlan['status'] === 'ready', 'Local baseline to Git target did not produce a ready plan.');
+    $nativePlanPath = $project . '/' . $nativePlan['plan_path'];
+    $saved = json_decode((string) file_get_contents($nativePlanPath), true, 512, JSON_THROW_ON_ERROR);
+    scaffoldExpect($saved['identity']['source_relation']['kind'] === 'local_snapshot'
+        && $saved['identity']['source_relation']['base'] === $localIdentity
+        && $saved['identity']['source_relation']['target']['kind'] === 'git'
+        && $saved['identity']['development_source']['workflow'] === 'full',
+        'Native plan changed the source identity or explicit Workflow selection.');
+    $baselinePath = $project . '/.peanut/scaffold-baseline/1.0.0/files/managed.txt';
+    scaffoldWrite($baselinePath, "changed old baseline\n");
+    scaffoldFails(fn() => $runner->preflight($project, $recorded, $package . '/scaffold-manifest.json', $selection),
+        'SCAFFOLD_RECORDED_BASELINE_DRIFT');
+    scaffoldFails(fn() => $runner->apply($project, $nativePlanPath), 'SCAFFOLD_RECORDED_BASELINE_DRIFT');
+    scaffoldWrite($baselinePath, $old['managed.txt']);
+    $applicationBytes = (string) file_get_contents($appManifest);
+    scaffoldWrite($appManifest, $applicationBytes . "\n");
+    scaffoldFails(fn() => $runner->preflight($project, $recorded, $package . '/scaffold-manifest.json', $selection),
+        'SCAFFOLD_RECORDED_APPLICATION_CHANGED');
+    scaffoldFails(fn() => $runner->apply($project, $nativePlanPath), 'SCAFFOLD_PLAN_APPLICATION_LOCK_CHANGED');
+    scaffoldWrite($appManifest, $applicationBytes);
+    $metadataBytes = (string) file_get_contents($package . '/template-package.json');
+    scaffoldWrite($package . '/template-package.json', $metadataBytes . "\n");
+    scaffoldFails(fn() => $runner->apply($project, $nativePlanPath), 'SCAFFOLD_TEMPLATE_SOURCE_METADATA_CHANGED');
+    scaffoldWrite($package . '/template-package.json', $metadataBytes);
+    $targetBytes = (string) file_get_contents($package . '/scaffold-manifest.json');
+    scaffoldWrite($package . '/scaffold-manifest.json', $targetBytes . "\n");
+    scaffoldFails(fn() => $runner->apply($project, $nativePlanPath), 'SCAFFOLD_MANIFEST_CHECKSUM_DRIFT');
+    scaffoldWrite($package . '/scaffold-manifest.json', $targetBytes);
+    $git(['remote', 'set-url', 'origin', 'https://example.invalid/foreign.git']);
+    scaffoldFails(fn() => $runner->apply($project, $nativePlanPath), 'SCAFFOLD_DEVELOPMENT_REPOSITORY_INVALID');
+    $git(['remote', 'set-url', 'origin', 'https://github.com/peanut-business/peanut-admin-code.git']);
+    $metadata['workflow'] = 'runtime';
+    $writeJson($package . '/template-package.json', $metadata);
+    $runtimeSelection = $selection;
+    $runtimeSelection['template_package_sha256'] = 'sha256:' . hash_file('sha256', $package . '/template-package.json');
+    scaffoldFails(fn() => $runner->preflight($project, $recorded, $package . '/scaffold-manifest.json', $runtimeSelection),
+        'SCAFFOLD_DEVELOPMENT_PROFILE_INVALID');
+    scaffoldWrite($package . '/template-package.json', $metadataBytes);
+    scaffoldExpect($runner->apply($project, $nativePlanPath)['status'] === 'applied', 'Native local to Git plan did not apply.');
+    scaffoldExpect($runner->verify($project, $nativePlanPath)['status'] === 'verified', 'Native local to Git result did not verify.');
+    $adopted = json_decode((string) file_get_contents($appManifest), true, 512, JSON_THROW_ON_ERROR);
+    scaffoldExpect($adopted['generation_source']['commit'] === $targetSource['commit']
+        && $adopted['application']['workflow'] === 'full', 'Applied target identity or Workflow was lost.');
+    $runner->recover($project, $nativePlanPath);
     echo "SCAFFOLD-SOURCE-RECOVERY passed\n";
 } finally {
     $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($temporary, FilesystemIterator::SKIP_DOTS),

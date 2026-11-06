@@ -7,6 +7,14 @@ on:
         description: Build and compare templates only; no candidate creation or qualification
         type: boolean
         default: false
+      workflow:
+        description: Explicit Workflow projection for both Edition templates
+        type: choice
+        options:
+          - none
+          - runtime
+          - full
+        default: runtime
       expected_source_commit:
         description: Exact dispatch HEAD required for pack-only identity
         type: string
@@ -105,16 +113,19 @@ jobs:
           PRODUCER
       - name: Build both Editions with the local native contract
         shell: bash
+        env:
+          WORKFLOW: ${{ inputs.workflow }}
         run: |
-          scripts/ci-producer exec "$RUNNER_TEMP/ci-producer" -- bash -Eeuo pipefail <<'PRODUCER'
+          scripts/ci-producer exec "$RUNNER_TEMP/ci-producer" -- bash -Eeuo pipefail -s -- "$WORKFLOW" <<'PRODUCER'
           set -Eeuo pipefail
+          workflow="$1"
           test ! -e .peanut/application-manifest.json
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           version="$(node -p "JSON.parse(require('node:fs').readFileSync('release-versions.json','utf8')).scaffold_template")"
           for build in scaffold-templates scaffold-rebuild; do
             for edition in standalone multi-tenant; do
               php scripts/build-scaffold-release --version="$version" --source-commit="$GITHUB_SHA" \
-                --edition="$edition" --workflow=runtime --output="$RUNNER_TEMP/$build/$edition"
+                --edition="$edition" --workflow="$workflow" --output="$RUNNER_TEMP/$build/$edition"
             done
           done
           node scripts/release-template-artifacts.mjs compare "$RUNNER_TEMP/scaffold-templates" "$version" \
