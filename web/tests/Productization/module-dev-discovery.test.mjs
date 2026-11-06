@@ -36,7 +36,7 @@ async function virtualSource(command, mode) {
   return plugin.load(resolvedId);
 }
 
-async function productionVirtualSource(entries) {
+async function productionVirtualSource(entries, mode = 'production') {
   const probeDirectory = mkdtempSync(
     resolve(tmpdir(), 'pa-module-production-contribution-')
   );
@@ -46,16 +46,22 @@ async function productionVirtualSource(entries) {
       probe,
       `import { createBaseConfig } from ${JSON.stringify(
         resolve(webRoot, 'vite.config.ts')
-      )};\nexport default createBaseConfig({ command: 'build', mode: 'production' }, {}, () => ${JSON.stringify(
+      )};\nexport default createBaseConfig({ command: 'build', mode: ${JSON.stringify(mode)} }, {}, () => ${JSON.stringify(
         entries
       )});\n`
     );
     const loaded = await loadConfigFromFile(
-      { command: 'build', mode: 'production' },
+      { command: 'build', mode },
       probe,
       probeDirectory
     );
     expect(loaded !== null, 'production Vite config could not be loaded');
+    if (mode !== 'production') {
+      expect(
+        loaded.config.define['import.meta.env.VITE_DEPLOYMENT_MODE'] === JSON.stringify(mode),
+        `generated APP without a mode env file lost its explicit ${mode} build`
+      );
+    }
     const plugin = loaded.config.plugins?.find(
       (candidate) => candidate.name === 'peanut-module-contribution-manifest'
     );
@@ -81,6 +87,10 @@ for (const entry of expectedEntries) {
 }
 expect((first.match(/^import contribution/gm) || []).length === expectedEntries.length,
   'Vite contribution count differs from the installed lock');
+
+for (const edition of ['standalone', 'multi-tenant']) {
+  await productionVirtualSource([], edition);
+}
 
 const normalizedProductionSource = await productionVirtualSource([
   'web/src/modules/peanut-content-tools/../peanut-content-tools/contribution.ts',

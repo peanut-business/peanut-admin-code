@@ -28837,7 +28837,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5bd4609a039f440e016ba012c8dcb7f4daa17020e0dd93ac05c23cfebd4212b3"
+            "source_sha256": "cf851cb689273c6b4afc70f883dcfae8214202d2ab668d47e326ae0d1715dd37"
         },
         {
             "path": "web/tests/Productization/navbar-avatar-fallback.test.mjs",
