@@ -71,7 +71,8 @@ final class ControllerUseCasesAuthorizationTest extends TestCase
         $store = new ExecutionContextStore();
         $service = new TaskAdminApplicationService(
             $this->allowingAuthorization($tenant, $actor, 'peanut.task.expression'),
-            new CrontabApplicationService(new CrontabCommandService([], [])),
+            new CrontabApplicationService(new CrontabCommandService([], []),
+                $this->uninitialized(\app\common\infrastructure\module\ModuleExecutionBoundary::class)),
             $this->createStub(TaskJobRuntime::class),
             new CurrentExecutionContext($store),
         );

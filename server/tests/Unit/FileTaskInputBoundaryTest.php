@@ -83,12 +83,17 @@ final class FileTaskInputBoundaryTest extends TestCase
         $input = ['name' => 'Boundary check', 'type' => 1, 'command' => 'refund:reconcile',
             'status' => 2, 'expression' => '* * * * *'];
         self::assertTrue((new CrontabValidate($commands))->scene('add')->check($input));
+        $current = new \app\common\execution\CurrentExecutionContext(new \app\common\execution\ExecutionContextStore());
+        $modules = new \app\common\infrastructure\module\ModuleExecutionBoundary($current,
+            $this->createStub(\PeanutAdmin\Kernel\Module\ModuleRuntimeRepository::class),
+            new \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery($current));
+        $schedules = new CrontabApplicationService($commands, $modules);
         foreach (['module:compile', 'crontab', 'unknown'] as $command) {
             $input['command'] = $command;
             self::assertFalse((new CrontabValidate($commands))->scene('add')->check($input));
             foreach (['add', 'edit'] as $action) {
                 try {
-                    (new CrontabApplicationService($commands))->{$action}($input + ['id' => 1]);
+                    $schedules->{$action}($input + ['id' => 1]);
                     self::fail('A non-tenant command reached schedule persistence.');
                 } catch (\RuntimeException $error) {
                     self::assertStringContainsString('定时任务命令', $error->getMessage());
@@ -110,6 +115,7 @@ final class FileTaskInputBoundaryTest extends TestCase
             \app\common\execution\CurrentExecutionContext::class,
             \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class,
             \app\common\infrastructure\module\ModuleExecutionBoundary::class,
+            \PeanutAdmin\Kernel\Module\ModuleGuard::class,
             CrontabCommandService::class,
             \PeanutAdmin\DataPermission\Catalog\ResourceOperationCatalog::class,
             \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService::class,

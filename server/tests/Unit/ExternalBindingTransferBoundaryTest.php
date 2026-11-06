@@ -45,7 +45,7 @@ final class ExternalBindingTransferBoundaryTest extends TestCase
         \ThinkPhpTestConnection::fromPdo($this->database);
         $this->database->exec(<<<'SQL'
             CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY, code TEXT, status TEXT);
-            CREATE TABLE pa_external_channel_binding (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER, provider TEXT, callback_key TEXT, identity_hash TEXT, identity_hint TEXT, config_json TEXT, status INTEGER, create_time INTEGER, update_time INTEGER, UNIQUE(tenant_id, provider));
+            CREATE TABLE pa_external_channel_binding (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER, provider TEXT, callback_key TEXT, identity_hash TEXT, identity_hint TEXT, config_json TEXT, status INTEGER, create_time INTEGER, update_time INTEGER, retired_at INTEGER, current_key INTEGER GENERATED ALWAYS AS (CASE WHEN retired_at IS NULL THEN 1 END) STORED, UNIQUE(tenant_id,provider,current_key));
             INSERT INTO pa_tenant VALUES (1, 'alpha', 'active'), (2, 'beta', 'active');
             SQL);
         $this->app->instance(AdminDirectoryQuery::class, new AdminDirectoryQuery(new CurrentExecutionContext(new ExecutionContextStore())));
@@ -97,12 +97,22 @@ final class ExternalBindingTransferBoundaryTest extends TestCase
         $this->apply($this->value('beta'), tenantId: 2);
         $before = $this->rows();
         $revision = $this->transfer->current($this->actor(), 'payment.wechat')['revision'];
-        $this->apply($this->value('changed'), $revision);
+        $rotated = $this->value('alpha');
+        $rotated['config']['api_secret'] = 'rotated-test-secret';
+        $this->apply($rotated, $revision);
         $after = $this->rows();
         self::assertSame($before[0]['callback_key'], $after[0]['callback_key']);
         self::assertSame($before[0]['create_time'], $after[0]['create_time']);
         self::assertSame($before[1], $after[1]);
-        self::assertSame('changed', json_decode($after[0]['config_json'], true)['app_id']);
+        self::assertSame($rotated['config'], json_decode($after[0]['config_json'], true));
+        $current = $this->transfer->current($this->actor(), 'payment.wechat')['revision'];
+        try {
+            $this->apply($this->value('another-merchant'), $current);
+            self::fail('A transfer replaced a payment merchant outside payment settings.');
+        } catch (RuntimeException $exception) {
+            self::assertStringContainsString('更换商户', $exception->getMessage());
+        }
+        self::assertSame($after, $this->rows());
     }
 
     public function testSameSecondMutationInvalidatesTheOriginalRevision(): void
@@ -138,7 +148,9 @@ final class ExternalBindingTransferBoundaryTest extends TestCase
         $revision = $this->transfer->current($this->actor(), 'payment.wechat')['revision'];
         try {
             Db::transaction(function () use ($revision): void {
-                $this->transfer->apply($this->actor(), 'payment.wechat', $this->value('other'), $revision);
+                $updated = $this->value();
+                $updated['config']['api_secret'] = 'rolled-back-secret';
+                $this->transfer->apply($this->actor(), 'payment.wechat', $updated, $revision);
                 throw new RuntimeException('synthetic outer failure');
             });
         } catch (RuntimeException $exception) {

@@ -33,13 +33,15 @@ final class A1CompositionRegressionTest extends TestCase
     {
         $contexts = new ExecutionContextStore();
         $current = new CurrentExecutionContext($contexts);
+        $modules = $this->createStub(ModuleRuntimeRepository::class);
         $runtime = new ThinkPhpTaskJobRuntime(
             new TaskJobStore(),
             str_repeat('fixture-', 8),
             $contexts,
             $current,
             new AdminDirectoryQuery($current),
-            new ModuleExecutionBoundary($current, $this->createStub(ModuleRuntimeRepository::class), new AdminDirectoryQuery($current)),
+            new ModuleExecutionBoundary($current, $modules, new AdminDirectoryQuery($current)),
+            new \PeanutAdmin\Kernel\Module\ModuleGuard($modules),
             new CrontabCommandService([], []),
             static fn(): int => 0,
             [],

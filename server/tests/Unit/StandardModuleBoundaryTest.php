@@ -79,7 +79,7 @@ final class StandardModuleBoundaryTest extends TestCase
             INSERT INTO pa_tenant VALUES (1,'alpha','active'),(2,'beta','active'),(3,'paused','suspended');
             CREATE TABLE pa_tenant_member (id INTEGER, tenant_id INTEGER, display_name TEXT, status TEXT);
             INSERT INTO pa_tenant_member VALUES (10,1,'Alpha operator','active'),(10,2,'Beta operator','active'),(11,1,'Former operator','disabled');
-            CREATE TABLE pa_external_channel_binding (id INTEGER PRIMARY KEY, tenant_id INTEGER, provider TEXT, callback_key TEXT, identity_hash TEXT, identity_hint TEXT, config_json TEXT, status INTEGER, create_time INTEGER, update_time INTEGER);
+            CREATE TABLE pa_external_channel_binding (id INTEGER PRIMARY KEY, tenant_id INTEGER, provider TEXT, callback_key TEXT, identity_hash TEXT, identity_hint TEXT, config_json TEXT, status INTEGER, create_time INTEGER, update_time INTEGER, retired_at INTEGER);
             CREATE TABLE pa_crontab (id INTEGER PRIMARY KEY, tenant_id INTEGER, status INTEGER, last_time INTEGER, expression TEXT, update_time INTEGER, delete_time INTEGER);
             CREATE TABLE pa_storage_account (id INTEGER PRIMARY KEY, account_key TEXT, driver TEXT, name TEXT, credential_ciphertext TEXT, credential_key_version INTEGER, status TEXT);
             INSERT INTO pa_storage_account VALUES (1,'local','local','Local',NULL,1,'active');
@@ -105,7 +105,7 @@ final class StandardModuleBoundaryTest extends TestCase
 
     private function binding(int $id = 1, int $tenant = 1, string $provider = 'oauth.wechat.oa', int $enabled = 1): void
     {
-        $statement = $this->database->prepare('INSERT INTO pa_external_channel_binding VALUES (?,?,?,?,?,?,?,?,?,?)');
+        $statement = $this->database->prepare('INSERT INTO pa_external_channel_binding(id,tenant_id,provider,callback_key,identity_hash,identity_hint,config_json,status,create_time,update_time) VALUES (?,?,?,?,?,?,?,?,?,?)');
         $statement->execute([$id, $tenant, $provider, 'callback-' . $id, hash('sha256', 'synthetic-' . $id), 'hint', '{"app_id":"synthetic"}', $enabled, 1, 2]);
     }
 
