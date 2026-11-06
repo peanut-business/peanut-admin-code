@@ -157,7 +157,6 @@ if (options.staticOnly && !options.templateArtifacts && !options.releaseEvidence
   const versions = readJson('release-versions.json')
   const metadata = readJson('RELEASE_METADATA.json')
   const inventory = readJson('scaffold/application-template-inventory.json')
-  const fixture = readJson('server/tests/fixtures/p0e-runtime-qualification/matrix.json')
   const target = versions.source_product_version ?? ''
   const baseline = metadata.source_product_version ?? ''
   const stableVersion = /^\d+\.\d+\.\d+$/
@@ -174,7 +173,7 @@ if (options.staticOnly && !options.templateArtifacts && !options.releaseEvidence
   if (![2, 3].includes(metadata.schema_version) || metadata.protocol !== `peanut.release-metadata.v${metadata.schema_version}`
     || !stableVersion.test(baseline) || metadata.instance_version !== null
     || metadata.expected_tag !== `v${baseline}` || versionCompare(baseline, target) > 0) {
-    developmentFailures.push('published release metadata is invalid or newer than the development target')
+    developmentFailures.push('source release metadata is invalid or newer than the development target')
   }
 
   pending.push(dependencyIdentity?.mode === 'registry'
@@ -182,7 +181,7 @@ if (options.staticOnly && !options.templateArtifacts && !options.releaseEvidence
     : 'four clean client installs and builds must qualify the fixed Core Web candidate tarballs')
   if (baseline !== target) pending.push(`release metadata ${baseline} -> ${target} during candidate sealing`)
   if (inventory.template_version !== target) pending.push(`application inventory -> ${target}`)
-  if (fixture.target_release?.version !== target) pending.push(`P0-E fixture -> ${target}`)
+  pending.push('full eight-group qualification for the fixed candidate remains required')
   pending.push(`two exact-source native template builds for v${target}`)
   if (!(readFileSync('CHANGELOG.md', 'utf8')).includes(`## [${target}]`)) pending.push(`CHANGELOG ${target} section`)
 
@@ -196,7 +195,7 @@ if (options.staticOnly && !options.templateArtifacts && !options.releaseEvidence
     mode: 'development-static',
     dependency_identity: dependencyIdentity,
     target_version: target,
-    published_baseline: baseline,
+    source_metadata_version: baseline,
     release_dependency_closure: pending.length === 0 ? 'closed' : 'pending',
     product_release_ready: false,
     pending,

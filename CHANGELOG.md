@@ -1,8 +1,13 @@
 # Changelog
 
-All notable Peanut Admin application changes are recorded here. The upstream
-application, PHP Core and all six Web Core packages share one release version.
-Downstream applications retain their own application versions.
+Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
+
+## [5.0.15] - Release candidate
+
+- Pin PHP Core 5.0.3 and the six Web Core 5.0.4 packages for both Editions. The scaffold includes eight base Modules.
+- Reject P0-E access outside the admitted database scenario and endpoint. Bind Module source recovery to the application’s own development configuration.
+- Retain completed qualification results and consumer evidence when releasing a lease fails, so that the same plan can resume without replaying completed work.
+- Use the collision-free Integration 1.0.29 migration identity when the application also selects Collaboration.
 
 ## [5.0.1] - 2026-10-07
 
