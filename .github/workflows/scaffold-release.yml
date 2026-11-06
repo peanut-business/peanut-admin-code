@@ -101,6 +101,7 @@ jobs:
           scripts/ci-producer exec "$RUNNER_TEMP/ci-producer" -- bash -Eeuo pipefail <<'PRODUCER'
           composer --working-dir=server install --no-dev --no-plugins --no-scripts --no-interaction --no-progress --prefer-dist
           pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy
+          pnpm --dir uniapp install --frozen-lockfile --ignore-scripts --package-import-method=copy
           PRODUCER
       - name: Build both Editions with the local native contract
         shell: bash
