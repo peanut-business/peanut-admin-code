@@ -5,7 +5,7 @@ declare(strict_types=1);
 $root = dirname(__DIR__, 2);
 $script = $root . '/database/seed-demo-data.php';
 $wrapper = $root . '/../scripts/seed-demo-data';
-$inventoryBuilder = $root . '/../scripts/build-application-template-inventory';
+$inventory = $root . '/../scaffold/application-template-inventory.json';
 $productionDockerfile = $root . '/../deploy/docker/production.Dockerfile';
 $expect = static function (bool $condition, string $message): void {
     if (!$condition) {
@@ -21,18 +21,13 @@ $expect(
         && !str_contains($wrapperSource, 'function demoPlan'),
     'demo seed compatibility wrapper must only delegate to the managed implementation',
 );
-$inventoryBuilderSource = (string) file_get_contents($inventoryBuilder);
-$managedSeederRule = strpos($inventoryBuilderSource, "\$path === 'server/database/seed-demo-data.php'");
-$appOwnedDatabaseRule = strpos($inventoryBuilderSource, "str_starts_with(\$path, 'server/database/')");
-$expect(
-    $managedSeederRule !== false
-        && $appOwnedDatabaseRule !== false
-        && $managedSeederRule < $appOwnedDatabaseRule,
-    'demo seed implementation must be classified as managed before the general app-owned database rule',
-);
+$entries = array_column(json_decode(file_get_contents($inventory), true, 512, JSON_THROW_ON_ERROR)['files'], null, 'path');
+foreach (['server/database/seed-demo-data.php', 'server/database/WorkbenchDemoData.php'] as $path) {
+    $expect(($entries[$path]['classification'] ?? null) === 'managed', "template must manage {$path}");
+}
 $dockerfile = (string) file_get_contents($productionDockerfile);
 $expect(
-    str_contains($dockerfile, 'COPY server/database server/database')
+    str_contains($dockerfile, 'COPY . .')
         && !str_contains($dockerfile, 'COPY scripts/seed-demo-data'),
     'production PHP image must install the managed demo seed implementation without the root wrapper',
 );
@@ -46,37 +41,44 @@ $planExit = 0;
 exec(escapeshellarg($script) . ' --plan 2>&1', $planOutput, $planExit);
 $expect($planExit === 0, 'demo seed plan command failed: ' . implode("\n", $planOutput));
 $plan = json_decode(implode("\n", $planOutput), true, 512, JSON_THROW_ON_ERROR);
-$expect(($plan['status'] ?? null) === 'planned', 'demo seed plan status is invalid');
-$expect(($plan['categories'] ?? 0) === 3, 'demo seed plan category count changed');
-$expect(($plan['articles'] ?? 0) === 6, 'demo seed plan article count changed');
-$expect(($plan['tags'] ?? 0) === 2, 'demo seed plan tag count changed');
-$expect(($plan['members'] ?? 0) === 5, 'demo seed plan member count changed');
+$expect($plan['preset'] === 'workbench' && count($plan['visitor']['date']) === 15
+    && count($plan['sale']['date']) === 7 && $plan['today']['today_sales'] === 100, 'workbench preview is incomplete');
+foreach (['visitor', 'sale'] as $series) {
+    $expect(count($plan[$series]['date']) === count($plan[$series]['list'][0]['data'])
+        && str_starts_with($plan[$series]['list'][0]['name'], 'Demo '), "Demo series is inconsistent: {$series}");
+}
+exec(escapeshellarg($script) . ' --apply 2>&1', $output, $exit);
+$expect($exit === 64 && str_contains(implode("\n", $output), '--demo=workbench'), 'existing APP must reject standalone seeding');
 
-$applyOutput = [];
-$applyExit = 0;
-exec(escapeshellarg($script) . ' --apply 2>&1', $applyOutput, $applyExit);
-$expect($applyExit !== 0, 'demo seed apply unexpectedly ran without explicit opt-in');
-$expect(
-    str_contains(implode("\n", $applyOutput), 'PEANUT_DEMO_MODE=enabled is required'),
-    'demo seed apply did not fail at its explicit opt-in gate',
-);
-
-$source = (string) file_get_contents($script);
-$expect(str_contains($source, "PEANUT_DEMO_MODE') !== 'enabled"), 'demo seed is missing its explicit opt-in gate');
-$expect(str_contains($source, 'SELECT id FROM pa_article_cate WHERE tenant_id = :tenant_id AND name = :name LIMIT 1'), 'demo category seed must find existing rows without relying on a missing unique key');
-$expect(str_contains($source, 'ON DUPLICATE KEY UPDATE'), 'demo member and tag seed must be idempotent');
-$expect(str_contains($source, 'INSERT IGNORE INTO pa_member_tag_relation'), 'demo tag relations must be idempotent');
-$expect(str_contains($source, 'guardedDatabaseConfig()'), 'demo seed must use the project environment guard');
-$expect(str_contains($source, 'PEANUT_DEMO_TENANT_ID'), 'demo seed must require an explicit tenant');
-
-$prepareCalls = [];
-preg_match_all('/\$pdo->prepare\((.*?)\);/s', $source, $prepareCalls);
-$expect(($prepareCalls[1] ?? []) !== [], 'demo seed prepared statements could not be inspected');
-foreach ($prepareCalls[1] as $preparedSql) {
-    $parameters = [];
-    preg_match_all('/:([a-z_][a-z0-9_]*)/i', $preparedSql, $parameters);
-    $duplicates = array_diff_assoc($parameters[1], array_unique($parameters[1]));
-    $expect($duplicates === [], 'demo seed repeats native prepared parameter :' . reset($duplicates));
+require_once $root . '/vendor/autoload.php';
+require_once $root . '/database/WorkbenchDemoData.php';
+$settings = new class implements \PeanutAdmin\Modules\Settings\Contract\TenantSettingsQuery, \PeanutAdmin\Modules\Settings\Contract\TenantSettingsCommands {
+    public array $documents = [];
+    public function get(object $context, string $namespace, array $defaults = []): \PeanutAdmin\Modules\Settings\Contract\TenantSettingSnapshot
+    {
+        $document = $this->documents[$context->tenantId][$namespace] ?? null;
+        return new \PeanutAdmin\Modules\Settings\Contract\TenantSettingSnapshot($context->tenantId, $namespace, $document ?? $defaults, $document === null ? 0 : 1, 0, 0);
+    }
+    public function replace(object $context, string $namespace, array $document): \PeanutAdmin\Modules\Settings\Contract\TenantSettingSnapshot
+    {
+        $this->documents[$context->tenantId][$namespace] = $document;
+        return $this->get($context, $namespace);
+    }
+};
+$app = new \think\App($root);
+$app->instance(\PeanutAdmin\Modules\Settings\Contract\TenantSettingsQuery::class, $settings);
+$app->instance(\PeanutAdmin\Modules\Settings\Contract\TenantSettingsCommands::class, $settings);
+WorkbenchDemoData::seed($app, 11);
+$expect($settings->documents === [], 'default installation must leave demo data empty');
+$app->config->set(['demo' => ['preset' => 'workbench']], 'peanut');
+WorkbenchDemoData::seed($app, 22);
+$before = $settings->documents;
+$expect(array_keys($before) === [22] && $before[22][WorkbenchDemoData::NAMESPACE]['preset'] === 'workbench', 'workbench demo must be tenant scoped');
+try {
+    WorkbenchDemoData::seed($app, 22);
+    throw new RuntimeException('a second initialization overwrote existing demo data');
+} catch (RuntimeException $error) {
+    $expect(str_starts_with($error->getMessage(), 'DEMO_DATA_PRESENT') && $settings->documents === $before, 'existing tenant demo must be preserved');
 }
 
 echo "DEMO-DATA-SEED-001 contract passed\n";
