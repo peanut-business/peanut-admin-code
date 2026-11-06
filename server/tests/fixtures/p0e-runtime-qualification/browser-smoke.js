@@ -288,8 +288,8 @@ const checkCategoryAndFile = async (alpha, beta, betaUrl, marker, results) => {
 if (profile === 'baseline') {
   const adminEmail = required('P0E_ADMIN_INITIAL_EMAIL');
   const adminPassword = required('P0E_ADMIN_INITIAL_PASSWORD');
-  const platformEmail = required('P0E_PLATFORM_INITIAL_EMAIL');
-  const platformPassword = required('P0E_PLATFORM_INITIAL_PASSWORD');
+  const platformEmail = mode === 'multi-tenant' ? required('P0E_PLATFORM_INITIAL_EMAIL') : '';
+  const platformPassword = mode === 'multi-tenant' ? required('P0E_PLATFORM_INITIAL_PASSWORD') : '';
   const runId = required('P0E_BROWSER_RUN_ID');
   if (!/^[a-z0-9]{1,11}$/u.test(runId)) throw new Error('invalid native qualification run');
   const marker = `p0e-${runId}-${Date.now().toString(36)}`;
