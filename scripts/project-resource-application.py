@@ -207,14 +207,80 @@ def failed_install_review(operation, project, directory, metadata, resources, st
             "failure_point": proof["failure_point"], "unknown_preserved": True, "release_only": True}
 
 
+def installed_admin_review(operation, state, proof):
+    """Verify this stopped install and its independently inventoried static drift for release only."""
+    need(operation["phase"] == state["phase"] == "install" and "isolated_first_install" in operation
+         and state["status"] == "UNKNOWN" and state.get("failure") == "RuntimeError"
+         and state["actual_process_terminal"] is True and state["child_pid"] is None
+         and type(state["child_exit_code"]) is int and state["child_exit_code"] == 0
+         and proof.get("verdict") == "INSTALLED_UNKNOWN_RELEASE_ONLY"
+         and all(proof.get(key) is True for key in ("release_only", "unknown_preserved", "no_pending_process"))
+         and proof.get("frontend_accepted") is False, "stopped install is not independently reviewed for release only")
+    child = state["child_output"]
+    need(proof.get("child_output") == child and 0 < child["stdout_bytes"] <= 4 * 1024 * 1024
+         and re.fullmatch(r"[0-9a-f]{64}", child["stdout_sha256"])
+         and child["stderr_bytes"] == 0 and child["stderr_sha256"] == sha(b""), "installer output identity differs")
+    app = operation["application"]
+    root = canonical(app["root"])
+    need(git(root, "rev-parse", "HEAD").decode().strip() == app["commit"]
+         and not git(root, "diff", "--cached", "--name-only"), "installed APP HEAD or index changed")
+    for name, digest in operation["configuration"].items():
+        need(sha(regular(root / name, private=True)) == digest, "installed APP private configuration changed")
+    witness = state["metadata_readonly"]
+    before = witness["result"]
+    need(witness["status"] == "COMPLETED" and before["database"] == operation["database"]["name"]
+         and before["server_uuid"] == operation["database"]["server_uuid"]
+         and all(before[key] == 0 for key in ("tables_views", "triggers", "routines", "events"))
+         and canonical(witness["witness"]).parent == canonical(operation["receipt_root"])
+         and sha(regular(canonical(witness["witness"]), private=True)) == witness["witness_sha256"],
+         "original preinstall database witness changed")
+    installation = root / "server/private/installation"
+    need(not os.path.lexists(installation / "executing.json"), "native installation execution marker remains")
+    installed_raw = regular(installation / "installed.json", private=True)
+    installed = json_unique(installed_raw)
+    need(installed["protocol"] == "peanut.installation-receipt.v2" and installed["state"] == "installed"
+         and installed["deployment_mode"] == app["edition"] and installed["official_modules"]
+         and installed["source"] == {"kind": "generated-application", "application_manifest_sha256": app["manifest_sha256"]}
+         and installed["application_manifest_sha256"] == app["manifest_sha256"]
+         and state["started_at"] <= datetime.fromisoformat(installed["completed_at"]).timestamp() <= time.time(),
+         "current native installed receipt does not match the stopped operation")
+    ref = proof["installed_admin_diff"]
+    report_path = canonical(ref["path"])
+    need(report_path.parent == canonical(operation["receipt_root"]).parent, "admin drift inventory outside registered custody")
+    raw = regular(report_path, private=True)
+    need(sha(raw) == ref["sha256"], "reviewed admin drift inventory changed")
+    report = json_unique(raw)
+    need(report["app"] == str(root) and report["head"] == app["commit"]
+         and report["candidate"] == operation["isolated_first_install"]["source_identity"]["commit"]
+         and report["installed_sha256"] == sha(installed_raw), "installed receipt or inventory identity changed")
+    tracked = set(git(root, "diff", "--no-renames", "--name-only", "-z", "HEAD").decode().split("\0")[:-1])
+    others = set(git(root, "ls-files", "--others", "--exclude-standard", "-z").decode().split("\0")[:-1])
+    need(tracked and len(tracked) == report["git_tracked_changed"] and len(others) == report["git_untracked"]
+         and tracked | others == set(report["files"])
+         and not git(root, "ls-files", "--others", "--ignored", "--exclude-standard", "--", "server/public/admin"),
+         "reviewed admin drift is not the complete changed file set")
+    for name, recorded in report["files"].items():
+        need(re.fullmatch(r"server/public/admin/(?:index\.html|\.vite/manifest\.json|assets/[A-Za-z0-9_.-]+\.(?:js|css|svg))(?:\.gz)?", name),
+             "install changed a path outside known admin static outputs")
+        path = canonical(str(root / name))
+        data = regular(path) if path.exists() else None
+        expected = {"original_sha256": sha(git(root, "show", app["commit"] + ":" + name)) if name in tracked else None,
+                    "current_sha256": sha(data) if data is not None else None,
+                    "current_bytes": len(data) if data is not None else None,
+                    "mode": stat.S_IMODE(path.stat().st_mode) if data is not None else None}
+        need(recorded == expected, "installed static file differs from independently reviewed bytes or mode")
+    return {"installed_sha256": sha(installed_raw), "installed_admin_diff": ref, "frontend_accepted": False}
+
+
 def terminal_registry(operation, document, project, common, registry_sha, terminal):
     """A reviewed stopped operation retires its original proof, never gains a window."""
     metadata, resources, state, reviewed = terminal
     failed_install = operation.get("stable_resource_id") == FAILED_INSTALL_OPERATION
     failed = state.get("status") == "UNKNOWN"
+    installed = failed and operation.get("phase") == "install" and "isolated_first_install" in operation
     need(state.get("protocol") == "peanut.application-operation-state.v1"
          and state.get("phase") == operation["phase"]
-         and (operation["phase"] == "protect" or failed_install and operation["phase"] == "install")
+         and (operation["phase"] == "protect" or (failed_install or installed) and operation["phase"] == "install")
          and state.get("status") in ("COMPLETED", "UNKNOWN") and state.get("actual_process_terminal") is True
          and state.get("child_pid") is None
          and (state.get("child_exit_code") == 0 if not failed_install else state.get("child_exit_code") == 1)
@@ -245,8 +311,11 @@ def terminal_registry(operation, document, project, common, registry_sha, termin
     if failed_install:
         review_details = failed_install_review(operation, project, directory, metadata, resources, state, proof, digest)
     else:
-        need(proof.get("verdict") == "SAFE_TO_RELEASE" and proof.get("no_pending_or_unknown") is True,
-             "stopped protect needs its original safe terminal review")
+        if installed:
+            reviewed["installed_unknown"] = installed_admin_review(operation, state, proof)
+        else:
+            need(proof.get("verdict") == "SAFE_TO_RELEASE" and proof.get("no_pending_or_unknown") is True,
+                 "stopped protect needs its original safe terminal review")
         need(isinstance(jobs, list) and jobs and all(isinstance(row, dict)
              and set(row) == {"job_id", "status", "exit_code"}
              and re.fullmatch(r"wc_job_[A-Za-z0-9_-]+", row["job_id"])
@@ -256,7 +325,7 @@ def terminal_registry(operation, document, project, common, registry_sha, termin
              for row in jobs)
              and (not failed or any(row["status"] == "failed" for row in jobs)),
              "terminal review lacks known terminal native Job evidence")
-    if failed and not failed_install:
+    if failed and operation["phase"] == "protect":
         failure = proof.get("failed_protect", {})
         need(set(failure) == {"state_status", "protection_accepted", "partial_outputs"}
              and failure["state_status"] == "UNKNOWN" and failure["protection_accepted"] is False,
@@ -314,7 +383,7 @@ def terminal_registry(operation, document, project, common, registry_sha, termin
     reviewed.update(sha256=sha(raw), reviewer_thread=proof["reviewer_thread"], project_commit=ref,
                     registry_commit=original_ref, registry_sha256=original_sha, release_source=executor,
                     native_jobs=jobs)
-    if failed and not failed_install:
+    if failed and operation["phase"] == "protect":
         reviewed["failed_protect"] = failure
     if failed_install:
         reviewed["failed_install"] = review_details
@@ -423,7 +492,8 @@ def authority(operation_id, *, terminal=None):
     registry_document = resolver["load_registry"]()
     historical_release = terminal is not None and (
         terminal[1].get("registry-sha256") != {registry_sha} or operation["tool_source"]["root"] != str(ROOT)
-        or operation_id == FAILED_INSTALL_OPERATION and terminal[2].get("status") == "UNKNOWN")
+        or terminal[2].get("status") == "UNKNOWN" and (operation_id == FAILED_INSTALL_OPERATION
+            or operation["phase"] == "install" and "isolated_first_install" in operation))
     if historical_release:
         registry_document, registry_sha = terminal_registry(operation, registry_document, project, common, registry_sha, terminal)
     need(operation.get("protocol") == PROTOCOL and operation.get("phase") in ("protect", "install", "maintain"),
@@ -2782,9 +2852,9 @@ def main():
                      "terminal review must be the exact versioned Project result")
                 proof = json_unique(raw)
                 failed_install = "failed_install" in reviewed
-                need(proof.get("lease") == args.lease
-                     and (proof.get("verdict") == "FAILED_INSTALL_RELEASE_ONLY" if failed_install
-                          else proof.get("verdict") == "SAFE_TO_RELEASE")
+                verdict = ("FAILED_INSTALL_RELEASE_ONLY" if failed_install else "INSTALLED_UNKNOWN_RELEASE_ONLY"
+                           if "installed_unknown" in reviewed else "SAFE_TO_RELEASE")
+                need(proof.get("lease") == args.lease and proof.get("verdict") == verdict
                      and proof.get("state_sha256") == sha(regular(directory / STATE, private=True))
                      and sha(raw) == reviewed.get("sha256", sha(raw))
                      and proof.get("reviewer_thread") not in (None, "", value["owner"])

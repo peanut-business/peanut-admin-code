@@ -311,5 +311,111 @@ class IsolatedFirstInstallTest(TestCase):
                 mocked_protect.assert_not_called()
 
 
+class InstalledAdminReviewTest(TestCase):
+    def setUp(self):
+        self.native = runpy.run_path(str(SCRIPT))
+        self.sha = self.native["sha"]
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name).resolve()
+        self.app, receipts = root / "app", root / "evidence/receipts"
+        self.app.mkdir()
+        receipts.mkdir(parents=True)
+        self.asset = self.app / "server/public/admin/index.html"
+        self.asset.parent.mkdir(parents=True)
+        self.asset.write_bytes(b"before")
+        (self.app / ".gitignore").write_text("server/private/\n")
+        def git(*args):
+            return subprocess.check_output(["git", "-C", str(self.app), *args], stderr=subprocess.DEVNULL).decode().strip()
+        git("init", "-q")
+        git("add", ".")
+        git("-c", "user.name=fixture", "-c", "user.email=fixture@example.test", "commit", "-qm", "input")
+        head = git("rev-parse", "HEAD")
+        self.asset.write_bytes(b"after")
+        self.asset.chmod(0o600)
+        self.report_path = receipts.parent / "reviewed.json"
+        marker = self.app / "server/private/installation/installed.json"
+        marker.parent.mkdir(parents=True)
+        def private_json(path, value):
+            path.write_text(json.dumps(value))
+            path.chmod(0o600)
+            return self.sha(path.read_bytes())
+        manifest = self.sha(b"fixed manifest")
+        marker_sha = private_json(marker, {"protocol": "peanut.installation-receipt.v2", "state": "installed",
+            "source": {"kind": "generated-application", "application_manifest_sha256": manifest},
+            "deployment_mode": "multi-tenant", "official_modules": ["peanut.identity"],
+            "completed_at": "2026-01-01T00:00:01+00:00", "application_manifest_sha256": manifest})
+        witness = receipts / "metadata.json"
+        witness_sha = private_json(witness, {"schema": "fixture"})
+        self.op = {"phase": "install", "application": {"root": str(self.app), "commit": head,
+                   "manifest_sha256": manifest, "edition": "multi-tenant"}, "configuration": {},
+                   "database": {"name": "fixture", "server_uuid": "fixture-uuid"}, "receipt_root": str(receipts),
+                   "isolated_first_install": {"source_identity": {"commit": "1" * 40}}}
+        self.state = {"phase": "install", "status": "UNKNOWN", "failure": "RuntimeError",
+                      "actual_process_terminal": True, "child_pid": None, "child_exit_code": 0,
+                      "started_at": 1, "child_output": {"stdout_bytes": 2, "stdout_sha256": self.sha(b"{}"),
+                      "stderr_bytes": 0, "stderr_sha256": self.sha(b"")}, "metadata_readonly": {
+                          "status": "COMPLETED", "witness": str(witness), "witness_sha256": witness_sha,
+                          "result": dict(database="fixture", server_uuid="fixture-uuid", tables_views=0,
+                                         triggers=0, routines=0, events=0)}}
+        self.rows = {"server/public/admin/index.html": {"original_sha256": self.sha(b"before"),
+                     "current_sha256": self.sha(b"after"), "current_bytes": 5, "mode": 0o600}}
+        self.inventory = {"app": str(self.app), "head": head, "candidate": "1"*40, "installed_sha256": marker_sha,
+                          "git_tracked_changed": 1, "git_untracked": 0, "files": self.rows}
+        self.proof = {"verdict": "INSTALLED_UNKNOWN_RELEASE_ONLY", "frontend_accepted": False, "release_only": True,
+                      "unknown_preserved": True, "no_pending_process": True, "child_output": dict(self.state["child_output"]),
+                      "installed_admin_diff": {"path": str(self.report_path),
+                                               "sha256": private_json(self.report_path, self.inventory)}}
+
+    def review(self, **proof):
+        return self.native["installed_admin_review"](self.op, self.state, {**self.proof, **proof})
+
+    def test_accepts_only_reviewed_bytes_and_preserves_unknown(self):
+        self.assertFalse(self.review()["frontend_accepted"])
+        self.assertEqual(self.state["status"], "UNKNOWN")
+        for changes in ({"release_only": False}, {"unknown_preserved": False}, {"frontend_accepted": True},
+                        {"no_pending_process": False}, {"verdict": "SAFE_TO_RELEASE"}, {"child_output": {}}):
+            with self.subTest(changes=changes), self.assertRaises(RuntimeError):
+                self.review(**changes)
+        for changes in ({"status": "RUNNING"}, {"child_pid": 1}, {"child_exit_code": 1},
+                        {"actual_process_terminal": False}, {"phase": "maintain"}):
+            with self.subTest(changes=changes), mock.patch.dict(self.state, changes), self.assertRaises(RuntimeError):
+                self.review()
+        for changes in ({"server_uuid": "wrong"}, {"tables_views": 1}):
+            with mock.patch.dict(self.state["metadata_readonly"]["result"], changes), self.assertRaises(RuntimeError):
+                self.review()
+
+    def test_rejects_source_change_unreviewed_path_and_tampered_static(self):
+        self.asset.write_bytes(b"other")
+        with self.assertRaises(RuntimeError):
+            self.review()
+        self.asset.write_bytes(b"after")
+        (self.app / "unknown.php").touch()
+        with self.assertRaises(RuntimeError):
+            self.review()
+        (self.app / "unknown.php").unlink()
+        self.asset.unlink()
+        self.asset.symlink_to(self.report_path)
+        with self.assertRaises(RuntimeError):
+            self.review()
+
+    def test_rejects_unfinished_execution_marker_including_dangling_link(self):
+        marker = self.app / "server/private/installation/executing.json"
+        marker.write_text("{}")
+        with self.assertRaisesRegex(RuntimeError, "execution marker remains"):
+            self.review()
+        marker.unlink()
+        marker.symlink_to("missing-worker-state")
+        with self.assertRaisesRegex(RuntimeError, "execution marker remains"):
+            self.review()
+
+    def test_rejects_marker_evidence_and_staged_mutations(self):
+        with self.assertRaises(RuntimeError):
+            self.review(installed_admin_diff={"path": str(self.report_path), "sha256": self.sha(b"wrong")})
+        subprocess.run(["git", "-C", str(self.app), "add", "--", "server/public/admin/index.html"], check=True)
+        with self.assertRaises(RuntimeError):
+            self.review()
+
+
 if __name__ == "__main__":
     main()
