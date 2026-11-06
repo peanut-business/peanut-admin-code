@@ -5,6 +5,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import textwrap
 import hashlib
 import time
 import json
@@ -1089,7 +1090,7 @@ def retained_expiry_contracts(code, project, app, operation, registry, case):
     return count
 
 
-def application_operation_contracts(*, retained_only=False, expiry_case=None):
+def application_operation_contracts(*, retained_only=False, expiry_case=None, isolated=False):
     # Cross-Git admission uses the same central lock registry. These are isolated
     # protocol fixtures only: no native install, remote client, DB or service runs.
     with tempfile.TemporaryDirectory(prefix="peanut-application-lease-") as temporary:
@@ -1182,16 +1183,75 @@ def application_operation_contracts(*, retained_only=False, expiry_case=None):
                               "mysqldump": "/fixture/bin/mysqldump", "container": "fixture-mysql",
                               "credential_path": "/fixture/private.env", "user": "fixture_user"},
         }
+        resources = {"databases": [descriptor], "application_operations": [operation]}
+        if isolated:
+            resource, schema, gate = "peanut-059-mt-mysql84", "peanut_059_mt", "059-security-runtime"
+            actor, allocator = operation["owner"], "original-allocation-owner"
+            source = {"kind": "git", "commit": tool_commit, "tree": run(["git", "rev-parse", "HEAD^{tree}"], code).stdout.strip()}
+            archive = workspace / "template.tgz"; archive.write_bytes(b"isolated fixture archive")
+            sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+            fixed = {"source_identity": source, "archive_path": str(archive), "archive_sha256": sha(archive),
+                     "listener_resource_id": "fixture-loopback", "port": 39059}
+            identity = json.loads(manifest_path.read_bytes())
+            identity.update(template={"source_identity": source}, generation_source={"source_identity": source},
+                            template_package={"protocol": "peanut.template-package.v1", "archive_sha256": sha(archive)})
+            manifest_path.write_text(json.dumps(identity))
+            run(["git", "commit", "-qam", "fixed generated template identity"], app)
+            app_commit = run(["git", "rev-parse", "HEAD"], app).stdout.strip()
+            operation["application"].update(commit=app_commit, tree=run(["git", "rev-parse", "HEAD^{tree}"], app).stdout.strip(),
+                                             manifest_sha256=sha(manifest_path))
+            operation["isolated_first_install"] = fixed
+            operation["database"].update(resource_id=resource, name=schema, principal=schema+"@%", environment="development")
+            uuid = operation["database"]["server_uuid"]
+            credential = workspace / "ordinary.env"; credential.write_text("fixture only"); credential.chmod(0o600)
+            client = operation["backup_client"]
+            client.update(credential_path=str(credential), credential_sha256=sha(credential), user=schema)
+            transport = {k: client[v] for k,v in (("ssh_command","ssh"),("ssh_alias","ssh_alias"),("docker_command","docker"),
+                                                   ("mysql_command","mysql"),("container_name","container"))}
+            resources["schema_allocations"] = [{"stable_resource_id": "original", "protocol": "peanut.schema-allocation.v1",
+                "owner": allocator, "thread": allocator, "database_resource_id": resource, "server_uuid": uuid,
+                "version": descriptor["version"], "endpoint_id": endpoint["endpoint_id"], "lease_gate": gate,
+                "transport": transport, "credentials": {"path": str(credential), "sha256": sha(credential)}}]
+            evidence = workspace / "allocation.json"
+            evidence.write_text(json.dumps({"lease": "original-lease", "owner": allocator, "status": "COMPLETED",
+                "targets": {"original": {"status": "COMPLETED", "login": {"database": schema, "principal": schema+"@%",
+                                                         "uuid": uuid, "version": descriptor["version"]}}}}))
+            evidence.chmod(0o600)
+            descriptor.pop("application_identity")
+            descriptor.update(stable_resource_id=resource, database=schema, schema=schema, namespace=schema, username=schema,
+                owner=allocator, lease_gate=gate, application_root=str(app), server_uuid=uuid, application_runtime=False,
+                environments=["development"], lifecycle="ephemeral", service_type="mysql", fallback="none", account_host="%",
+                allowed_scenarios=["first_install","security_http"], credential_ref=str(credential),
+                allocation_evidence={"path": str(evidence),"sha256": sha(evidence),"native_lease": "original-lease"})
+            resources["local_listeners"] = [{"stable_resource_id": fixed["listener_resource_id"], "host": "127.0.0.1",
+                "port": fixed["port"], "application_root": str(app), "database_resource_id": resource, "owner": actor,
+                "environments": ["development"]}]
         registry = project / "resources/project-resources.json"
         registry.write_text(json.dumps({"schema_version": 1, "project_id": "peanut-admin",
-                                       "authority": {"role": "maintainer"},
-                                       "resources": {"databases": [descriptor], "application_operations": [operation]}}) + "\n")
+                                       "authority": {"role": "maintainer"}, "resources": resources}) + "\n")
         run(["git", "add", "."], project)
         run(["git", "commit", "-qm", "Fixed application operation registration"], project)
+        run(["git", "update-ref", "refs/remotes/origin/dev", "HEAD"], project)
         old_registry = os.environ.get("PEANUT_RESOURCE_REGISTRY")
         os.environ["PEANUT_RESOURCE_REGISTRY"] = str(registry)
         try:
             tool = ["bash", str(code / "scripts/project-resource-lease")]
+            if isolated:
+                claim = tool + ["claim", "--lease", "isolated-first", "--candidate", app_commit,
+                                "--candidate-repository", str(app), "--application-operation", operation_id]
+                for wrong_owner, wrong_gate in ((allocator, gate), ("unregistered-actor", gate), (actor, "permanent-app-development")):
+                    run(claim + ["--owner", wrong_owner, "--thread", wrong_owner, "--gate", wrong_gate], code, ok=False)
+                run(claim + ["--owner", actor, "--thread", actor, "--gate", gate], code)
+                proof = run(tool + ["show", "--lease", "isolated-first", "--verify-locks"], code).stdout
+                directory = code / ".git/peanut-admin-resource-leases/leases/isolated-first"
+                assert "owner\t" + actor + "\n" in proof and "gate\t" + gate + "\n" in proof
+                rows = {tuple(line.split("\t")[1:]) for line in (directory/"resources.tsv").read_text().splitlines()}
+                assert {("port",str(fixed["port"])),("mysql-schema",physical+"/"+schema),("application-operation",operation_id)} <= rows
+                run(tool + ["release","--lease","isolated-first","--owner",allocator], code, ok=False)
+                run(tool + ["release","--lease","isolated-first","--owner",actor], code)
+                assert not directory.exists() and not (app/".git/peanut-admin-resource-leases").exists()
+                print("isolated first-install: native cross-Git claim/show/release and wrong operator/gate rejected")
+                return
             if expiry_case:
                 return retained_expiry_contracts(code, project, app, operation, registry, expiry_case)
             if retained_only:
@@ -1264,6 +1324,7 @@ def application_operation_contracts(*, retained_only=False, expiry_case=None):
                 code, ok=False).stderr
             run(["git", "add", "terminal-review.json"], project)
             run(["git", "commit", "-qm", "Independent fixture terminal review"], project)
+            run(["git", "update-ref", "refs/remotes/origin/dev", "HEAD"], project)
             run(tool + ["release", "--lease", "application-protect", "--owner", operation["owner"]], code)
             assert not directory.exists() and (receipt_root / "application-protect.json").is_file()
             # Real Git + real PHP parent/child identities, but synthetic installation
@@ -1291,6 +1352,7 @@ def application_operation_contracts(*, retained_only=False, expiry_case=None):
                 "resources": {"databases": [descriptor], "application_operations": [operation]}}) + "\n")
             run(["git", "add", "resources/project-resources.json"], project)
             run(["git", "commit", "-qm", "Fixed synthetic maintenance proof contract"], project)
+            run(["git", "update-ref", "refs/remotes/origin/dev", "HEAD"], project)
             claim = [value if value != "application-protect" else "application-maintain" for value in claim]
             run(claim + ["--application-operation", operation_id], code)
             harness = r"""
@@ -1324,7 +1386,7 @@ def application_operation_contracts(*, retained_only=False, expiry_case=None):
     native['save'](directory/native['STATE'],state)
     print('isolated PHP proof positive + borrower/UNKNOWN refusal; DB NOT_RUN')
     """
-            run([sys.executable, "-c", harness, str(code), str(app), str(Path(php).resolve()), sys.executable], code)
+            run([sys.executable, "-c", textwrap.dedent(harness), str(code), str(app), str(Path(php).resolve()), sys.executable], code)
             # The actual harness and its PHP children have ended; normal owner release.
             run(tool + ["release", "--lease", "application-maintain", "--owner", operation["owner"]], code)
 
@@ -1351,8 +1413,12 @@ if __name__ == "__main__" and __import__("sys").argv[1:] in (["--source-recovery
     raise SystemExit(0)
 
 
+if __name__ == "__main__" and __import__("sys").argv[1:] == ["--isolated-first-install-only"]:
+    application_operation_contracts(isolated=True)
+    raise SystemExit(0)
+
 with tempfile.TemporaryDirectory(prefix="peanut-resource-lease-parent-") as temporary:
-    root = Path(temporary) / "repo"
+    root = Path(temporary).resolve() / "repo"
     root.mkdir()
     run(["git", "init", "-q"], root)
     run(["git", "config", "user.email", "lease-test@example.invalid"], root)
@@ -1599,5 +1665,6 @@ with tempfile.TemporaryDirectory(prefix="peanut-resource-lease-parent-") as temp
 
 
 application_operation_contracts()
+application_operation_contracts(isolated=True)
 
 print("PROJECT-RESOURCE-LEASE-PARENT-001 passed")
