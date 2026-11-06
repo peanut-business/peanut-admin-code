@@ -28138,7 +28138,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "179e063d63b188b1414b69ca33bc7063cea7201c4b457f46bae71bb58ee64f88"
+            "source_sha256": "6655b751a887fbb4ed174549a6d535bb684cae7dac5e4fa87179480d4c51a57c"
         },
         {
             "path": "web/src/views/login/index.vue",
@@ -28152,7 +28152,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ff3c1b05f130f3374d50f47d44281bb4c6f2153b81d1675665d718411f479372"
+            "source_sha256": "a247c0b57ec6ff031fdf2b6ec9ed08df63c68c322ef6f1380ccf3597d2b34653"
         },
         {
             "path": "web/src/views/login/locale/en-US.ts",
