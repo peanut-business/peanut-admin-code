@@ -40,23 +40,23 @@ function artifactRemove(string $root): void
 
 $serverRoot = dirname(__DIR__, 2);
 $repoRoot = dirname($serverRoot);
-$key = 'peanut.chart';
-$module = json_decode((string) file_get_contents($serverRoot . '/app/modules/peanut/chart/module.json'), true, 128, JSON_THROW_ON_ERROR);
+$key = 'peanut.content-tools';
+$module = json_decode((string) file_get_contents($serverRoot . '/app/modules/peanut/content_tools/module.json'), true, 128, JSON_THROW_ON_ERROR);
 $root = rtrim(sys_get_temp_dir(), '/') . '/pa-single-module-artifact-' . bin2hex(random_bytes(8));
 mkdir($root, 0700, true);
 try {
-    artifactCopy($serverRoot . '/app/modules/peanut/chart', $root . '/server/app/modules/peanut/chart');
+    artifactCopy($serverRoot . '/app/modules/peanut/content_tools', $root . '/server/app/modules/peanut/content_tools');
     foreach (ModuleFrontendLayout::contributions($module['frontend'], $key) as $client) {
         artifactCopy($repoRoot . '/' . $client['root'], $root . '/' . $client['root']);
     }
     mkdir($root . '/server/resources/schemas', 0700, true);
     copy($serverRoot . '/resources/schemas/module-artifact.schema.json', $root . '/server/resources/schemas/module-artifact.schema.json');
     $writer = new ModuleArtifactWriter($root . '/server');
-    $writer->make($key, $module['version'], [$key . '=server/app/modules/peanut/chart']);
-    $writer->writeLock([]);
-    $manifestPath = $root . '/server/app/modules/peanut/chart/module.json';
+    $writer->make($key, $module['version'], [$key . '=server/app/modules/peanut/content_tools']);
+    $writer->writeLock();
+    $manifestPath = $root . '/server/app/modules/peanut/content_tools/module.json';
     $lockPath = $root . '/modules.lock';
-    $validManifest = $writer->build($key, $module['version'], [$key . '=server/app/modules/peanut/chart']);
+    $validManifest = $writer->build($key, $module['version'], [$key . '=server/app/modules/peanut/content_tools']);
     $validLock = json_decode((string) file_get_contents($lockPath), true, 128, JSON_THROW_ON_ERROR);
     $descriptor = (new ModuleLockResolver($root . '/server', '../modules.lock'))->require($key);
     pluginArtifactExpect($descriptor->key === $key && $descriptor->version === $module['version'], 'Module and artifact identity differ');
@@ -101,9 +101,9 @@ try {
     }
     foreach ([
         [$key, $module['version'], []],
-        [$key, $module['version'], [$key . '=server/app/modules/peanut/chart', 'acme.second=server/app/modules/acme/second']],
-        ['acme.wrong', $module['version'], [$key . '=server/app/modules/peanut/chart']],
-        [$key, '999.0.0', [$key . '=server/app/modules/peanut/chart']],
+        [$key, $module['version'], [$key . '=server/app/modules/peanut/content_tools', 'acme.second=server/app/modules/acme/second']],
+        ['acme.wrong', $module['version'], [$key . '=server/app/modules/peanut/content_tools']],
+        [$key, '999.0.0', [$key . '=server/app/modules/peanut/content_tools']],
     ] as $arguments) {
         try {
             $writer->build(...$arguments);

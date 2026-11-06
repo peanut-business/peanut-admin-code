@@ -61,9 +61,13 @@ function allModulesPackagingDistFacts(string $root): array
 
 $serverRoot = dirname(__DIR__, 2);
 $projectRoot = dirname($serverRoot);
-$resultsPath = ($argv[1] ?? '') !== '' ? $argv[1] : '/tmp/module-packages-test/packaging-results.json';
 $currentCandidate = allModulesPackagingRun(['git', '-C', $projectRoot, 'rev-parse', 'HEAD^{commit}']);
 $currentTree = allModulesPackagingRun(['git', '-C', $projectRoot, 'rev-parse', 'HEAD^{tree}']);
+$resultsPath = $argv[1] ?? '';
+if ($resultsPath === '') {
+    $resultsPath = $projectRoot . '/.local/qualification/all-modules-packaging/' . $currentCandidate . '/packaging-results.json';
+    allModulesPackagingRun([PHP_BINARY, $projectRoot . '/scripts/generate-all-modules-packaging-evidence', '--output=' . $resultsPath], $projectRoot);
+}
 $moduleLock = json_decode(
     (string) file_get_contents($projectRoot . '/modules.lock'),
     true,

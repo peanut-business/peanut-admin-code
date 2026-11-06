@@ -53,7 +53,7 @@ final class ModuleCommandContractTest extends TestCase
         $signingKeypair = sodium_crypto_sign_keypair();
         $archive = $this->temporary . '/signed-fixture.tar';
         $packed = (new ModulePackageArchiveService(dirname(__DIR__, 2)))->packModule(
-            'fixture.delivery-record',
+            'peanut.content-tools',
             $archive,
             [
                 'key_id' => 'module-command-contract',
@@ -236,14 +236,19 @@ final class ModuleCommandContractTest extends TestCase
         $current = new CurrentExecutionContext($store);
         $catalogs = (new \ReflectionClass(ModuleCatalogApplier::class))->newInstanceWithoutConstructor();
         $moduleConfig = ['module_lock' => '../modules.lock'];
+        $tenantStates = new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries();
+        $governance = new ModuleRuntimeGovernanceService($this->temporary . '/server', $moduleConfig, $catalogs, $tenantStates);
         $runtime = new PlatformModuleRuntimeService(
             $this->temporary . '/server',
             $moduleConfig,
             $trustedKeys,
-            new ModuleRuntimeGovernanceService($this->temporary . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries()),
+            $governance,
             new ModuleCatalogSyncService($this->temporary . '/server', $moduleConfig, $catalogs),
             $catalogs,
-            new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries(),
+            $tenantStates,
+            new \PeanutAdmin\Modules\Ops\Service\DeploymentModuleRequestService($this->temporary, $moduleConfig, $trustedKeys, $governance, $catalogs),
+            (new \ReflectionClass(\PeanutAdmin\Modules\Ops\Service\PlatformModuleOperationExecutionService::class))->newInstanceWithoutConstructor(),
+            new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], 'command-fixture'),
         );
         $app->instance(ExecutionContextStore::class, $store);
         $app->instance(CurrentExecutionContext::class, $current);

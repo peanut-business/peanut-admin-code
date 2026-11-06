@@ -20,14 +20,16 @@ function moduleCreateRun(string $serverRoot, array $arguments): array
 {
     $pipes = [];
     $process = proc_open(
-        [PHP_BINARY, $serverRoot . '/think', 'module:create', ...$arguments],
-        [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+        [PHP_BINARY, $serverRoot . '/module'],
+        [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
         $pipes,
         $serverRoot,
     );
     if (!is_resource($process)) {
         throw new RuntimeException('module:create process could not start');
     }
+    fwrite($pipes[0], json_encode(['operation' => 'create', 'arguments' => $arguments], JSON_THROW_ON_ERROR));
+    fclose($pipes[0]);
     $stdout = stream_get_contents($pipes[1]);
     $stderr = stream_get_contents($pipes[2]);
     fclose($pipes[1]);
@@ -129,7 +131,7 @@ try {
             'module.json', 'src/ModuleProvider.php',
             'route/app.php',
             'resources/permissions.json', 'resources/menus.json',
-            'resources/setting-definitions.json', 'database/migrations/README.md', 'composer.json',
+            'resources/setting-definitions.json', 'composer.json',
         ];
         foreach ($expectedBackendFiles as $relative) {
             moduleCreateExpect(is_file($root . '/' . $relative), "generated backend file is missing: {$relative}");
@@ -157,7 +159,7 @@ try {
 
     $officialManifest = json_decode((string) file_get_contents($officialBackend . '/module.json'), true, 64, JSON_THROW_ON_ERROR);
     moduleCreateExpect(($officialManifest['frontend']['entry'] ?? null) === 'web/src/modules/' . $officialModuleKey->slug() . '/contribution.ts', 'frontend.entry is not key-derived');
-    moduleCreateExpect(($officialManifest['backend']['migrations'] ?? null) === 'database/migrations', 'generated migrations declaration is missing');
+    moduleCreateExpect(($officialManifest['database']['owned_tables'] ?? null) === [] && !isset($officialManifest['backend']['migrations']), 'empty Module skeleton declares database ownership or migrations');
     moduleCreateExpect(($officialManifest['backend']['setting_definitions'] ?? null) === 'resources/setting-definitions.json', 'generated setting definitions declaration is missing');
     moduleCreateExpect(($officialManifest['contracts']['exports'] ?? null) === [], 'generator must not publish an invented empty command interface');
     moduleCreateExpect(($officialManifest['lifecycle']['protected'] ?? null) === false, 'generated Module must be removable by default');
@@ -176,8 +178,15 @@ try {
     moduleCreateExpect(($roots[$officialKey] ?? null) === realpath($officialBackend), 'generated Official Module was not discovered');
     moduleCreateExpect(($roots[$customKey] ?? null) === realpath($customBackend), 'generated custom Module was not discovered');
 
+    try {
+        \app\platform\value\module\ModuleFrontendLayout::contributions(['entry' => 'web/src/modules/wrong/contribution.ts'], $customKey);
+        throw new RuntimeException('mismatched frontend contribution was accepted');
+    } catch (InvalidArgumentException $exception) {
+        moduleCreateExpect(str_contains($exception->getMessage(), 'canonical admin-web entry'), 'unexpected frontend rejection');
+    }
+
     $vite = moduleCreateRunViteDiscovery($projectRoot);
-    moduleCreateExpect($vite['code'] === 0, 'Vite dev did not discover generated contributions: ' . $vite['output']);
+    moduleCreateExpect($vite['code'] === 0, 'Vite contribution contract failed: ' . $vite['output']);
 
     $beforeDuplicate = moduleCreateTreeDigest($officialBackend) . moduleCreateTreeDigest($officialFrontend);
     $duplicate = moduleCreateRun($serverRoot, [$officialKey]);
