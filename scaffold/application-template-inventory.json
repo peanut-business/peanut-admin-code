@@ -25309,7 +25309,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "893765134ae52aceb472273da4ae31110ccb68a2e73f30f3f968f57cb6db100b"
+            "source_sha256": "1396974142926ada2e8e46d76864fb56d15d4543768812707d064ef78ae167bd"
         },
         {
             "path": "web/src/assets/world.json",
@@ -25519,7 +25519,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "65b41393c126160fae6ee1b703b2d37028ea687667be94574ec033c6fdce7364"
+            "source_sha256": "3e24c7f9c576ef3b9dd93906ac8abcd91e38c7bda79d4a07e353895773dc0c1e"
         },
         {
             "path": "web/src/config/settings.json",
@@ -25800,7 +25800,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9a276058ccec6b61a90a242d72bc5c778fc73d2ce6ded59f627d1d5d373d0356"
+            "source_sha256": "81e82a12b3930a447ea5d1dba0eb548f6aa44b2fe3984815b560447f1447b5fd"
         },
         {
             "path": "web/src/layout/page-layout.vue",
@@ -27970,7 +27970,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "510386f355f2e2a120c27f620d0e6b534901c1cb15264da9222af24c9f6846d4"
+            "source_sha256": "c627f2e4068dfdccda09294260a4400cd32fadd55d22cd4bdbd5b6bc1f491ba5"
         },
         {
             "path": "web/src/views/dashboard/workplace/locale/en-US.ts",
