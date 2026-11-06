@@ -194,13 +194,15 @@ jobs:
       - name: Validate Composer manifest
         working-directory: server
         # Fixed release inputs deliberately pin exact Core and Module versions.
-        run: composer validate --strict --no-check-all
+        run: |
+          ../scripts/project-composer prepare
+          ../scripts/project-composer validate --strict --no-check-all
 
       - name: Install Composer dependencies
         working-directory: server
         env:
           PEANUT_SERVER_ENV_FILE: ${{ github.workspace }}/server/.env.ci-${{ github.run_id }}
-        run: composer install --no-interaction --no-progress --prefer-dist
+        run: ../scripts/project-composer install --no-interaction --no-progress --prefer-dist
 
       - name: Install locked UniApp generator dependencies
         working-directory: uniapp
