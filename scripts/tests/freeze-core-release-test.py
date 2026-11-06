@@ -57,43 +57,35 @@ class FreezeCoreReleaseTest(unittest.TestCase):
         self.assertFalse((self.root / 'composer-version-probe').exists())
 
     def test_selected_version_still_requires_real_composer_acceptance(self):
-        with patch.object(release.subprocess, 'run', return_value=subprocess.CompletedProcess([], 1)):
+        with patch.object(release.subprocess, 'run', return_value=subprocess.CompletedProcess([], 1, stdout='', stderr='invalid version')):
             with self.assertRaisesRegex(ValueError, 'Composer rejected'):
                 release.validate_composer_version('4.0.0-rc.1', self.root)
 
-    def test_missing_corepack_is_rejected(self):
+    def test_missing_registered_pnpm_is_rejected(self):
         with patch.object(release.shutil, 'which', return_value=None):
-            with self.assertRaisesRegex(ValueError, 'Corepack is required'):
-                release.corepack_command()
+            with self.assertRaisesRegex(ValueError, 'registered pnpm command is required'):
+                release.pnpm_command()
 
-    def test_task_only_pnpm_entry_uses_literal_argv_with_spaces(self):
-        corepack = str(self.root / 'prepared corepack')
-        parent_path = os.environ.get('PATH', '')
-
-        def enable(arguments, **kwargs):
-            self.assertEqual(arguments, [corepack, 'enable', 'pnpm',
-                f'--install-directory={self.root / "tool-bin"}'])
-            entry = self.root / 'tool-bin' / 'pnpm'
-            entry.write_text('#!/bin/sh\nexit 0\n'); entry.chmod(0o755)
-            return subprocess.CompletedProcess(arguments, 0)
-
-        with patch.object(release.subprocess, 'run', side_effect=enable):
-            environment = release.task_pnpm_environment(self.root, corepack)
-        self.assertEqual(environment['PATH'].split(os.pathsep)[0], str(self.root / 'tool-bin'))
-        self.assertEqual(os.environ.get('PATH', ''), parent_path)
+    def test_registered_pnpm_path_with_spaces_is_used_literally(self):
+        prepared = str(self.root / 'prepared pnpm')
+        original_path = os.environ.get('PATH')
+        with patch.object(release.shutil, 'which', return_value=prepared) as which:
+            self.assertEqual(release.pnpm_command(), prepared)
+        which.assert_called_once_with('pnpm')
+        self.assertEqual(os.environ.get('PATH'), original_path)
 
     def test_install_build_and_pack_share_the_same_child_environment(self):
-        corepack = str(self.root / 'corepack with spaces')
+        pnpm = str(self.root / 'pnpm with spaces')
         environment = {'PATH': str(self.root / 'tool bin'), 'FIXTURE': 'same'}
         with patch.object(release.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0)) as run:
-            release.run_pnpm(corepack, ['install', '--frozen-lockfile'], self.root, environment, 900)
-            release.run_pnpm(corepack, ['run', 'build'], self.root, environment, 900)
-            release.run_pnpm(corepack, ['pack', '--pack-destination', str(self.root / 'packed output')],
+            release.run_pnpm(pnpm, ['install', '--frozen-lockfile'], self.root, environment, 900)
+            release.run_pnpm(pnpm, ['run', 'build'], self.root, environment, 900)
+            release.run_pnpm(pnpm, ['pack', '--pack-destination', str(self.root / 'packed output')],
                              self.root / 'package with spaces', environment, 120)
         self.assertEqual([call.args[0] for call in run.call_args_list], [
-            [corepack, 'pnpm', 'install', '--frozen-lockfile'],
-            [corepack, 'pnpm', 'run', 'build'],
-            [corepack, 'pnpm', 'pack', '--pack-destination', str(self.root / 'packed output')],
+            [pnpm, 'install', '--frozen-lockfile'],
+            [pnpm, 'run', 'build'],
+            [pnpm, 'pack', '--pack-destination', str(self.root / 'packed output')],
         ])
         self.assertTrue(all(call.kwargs['env'] is environment for call in run.call_args_list))
 

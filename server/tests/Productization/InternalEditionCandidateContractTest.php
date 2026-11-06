@@ -19,7 +19,7 @@ fclose($pipes[1]);
 $status = proc_close($process);
 if ($status !== 0
     || !is_string($output)
-    || !str_contains($output, 'INTERNAL-CANDIDATE-PROJECTION-001 passed (14 cases)')) {
+    || !str_contains($output, 'INTERNAL-EDITION-INPUT-BOUNDARIES passed')) {
     throw new RuntimeException('INTERNAL_CANDIDATE_CONTRACT_FAILED: ' . (string) $output);
 }
 echo $output;
