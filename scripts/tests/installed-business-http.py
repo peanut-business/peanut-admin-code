@@ -335,25 +335,32 @@ def run_application(a: dict, output: Path) -> dict:
     native_path = base64.b64encode(str(app / 'server/public/router.php').encode()).decode()
     observer_path = base64.b64encode(str(observations).encode()).decode()
     observer_router.write_text('''<?php
-$nativeResult = require base64_decode(''' + "'" + native_path + "'" + ''');
-if (!isset($http) || !class_exists(think\\App::class, false)) {
-    throw new RuntimeException('CONTEXT_NATIVE_HTTP_NOT_OBSERVED');
-}
-$observedApp = think\\App::getInstance();
-$storeClass = app\\common\\execution\\ExecutionContextStore::class;
-if ($observedApp->http !== $http || !$observedApp->exists($storeClass)) {
-    throw new RuntimeException('CONTEXT_NATIVE_STORE_NOT_RESOLVED');
-}
-// Container::make returns its cached instance; exists above forbids manufacturing an empty store.
-$observedStore = $observedApp->make($storeClass);
-$record = ['request_id' => $_SERVER['HTTP_X_REQUEST_ID'] ?? '',
-    'pid' => getmypid(), 'empty' => $observedStore->isEmpty(),
-    'root_null' => $observedStore->rootIdentity() === null];
-if (file_put_contents(base64_decode(''' + "'" + observer_path + "'" + '''),
-    json_encode($record, JSON_THROW_ON_ERROR).PHP_EOL, FILE_APPEND | LOCK_EX) === false) {
-    throw new RuntimeException('CONTEXT_OBSERVATION_WRITE_FAILED');
-}
-return $nativeResult;
+$nativeRouter = base64_decode(''' + "'" + native_path + "'" + ''');
+// The native router may return false and leave index.php to the PHP development server.
+register_shutdown_function(static function () use ($nativeRouter): void {
+    if (($_SERVER['SCRIPT_FILENAME'] ?? '') !== dirname($nativeRouter) . '/index.php') {
+        return;
+    }
+    $http = $GLOBALS['http'] ?? null;
+    if (!isset($http) || !class_exists(think\\App::class, false)) {
+        throw new RuntimeException('CONTEXT_NATIVE_HTTP_NOT_OBSERVED');
+    }
+    $observedApp = think\\App::getInstance();
+    $storeClass = app\\common\\execution\\ExecutionContextStore::class;
+    if ($observedApp->http !== $http || !$observedApp->exists($storeClass)) {
+        throw new RuntimeException('CONTEXT_NATIVE_STORE_NOT_RESOLVED');
+    }
+    // Container::make returns its cached instance; exists above forbids manufacturing an empty store.
+    $observedStore = $observedApp->make($storeClass);
+    $record = ['request_id' => $_SERVER['HTTP_X_REQUEST_ID'] ?? '',
+        'pid' => getmypid(), 'empty' => $observedStore->isEmpty(),
+        'root_null' => $observedStore->rootIdentity() === null];
+    if (file_put_contents(base64_decode(''' + "'" + observer_path + "'" + '''),
+        json_encode($record, JSON_THROW_ON_ERROR).PHP_EOL, FILE_APPEND | LOCK_EX) === false) {
+        throw new RuntimeException('CONTEXT_OBSERVATION_WRITE_FAILED');
+    }
+});
+return require $nativeRouter;
 ''')
     observer_router.chmod(0o600)
     def context_observation(request_id):
