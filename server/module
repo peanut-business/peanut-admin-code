@@ -63,16 +63,18 @@ try {
     $minimalSourceBoot = $request['operation'] === 'create'
         || ($request['operation'] === 'adopt' && $request['arguments'] === ['--recover']);
     if ($request['operation'] === 'adopt' && $minimalSourceBoot) {
-        // The recovery command cannot initialize the broken Module graph.
-        // Load only the explicit private backend environment and native
-        // source-adoption configuration; never manufacture development mode.
-        $environmentFile = getenv('PEANUT_SERVER_ENV_FILE');
-        if (!is_string($environmentFile) || $environmentFile === ''
-            || !is_file($environmentFile) || is_link($environmentFile)
-            || (fileperms($environmentFile) & 0077) !== 0) {
+        // Load the same server-local environment as the native application, without
+        // booting a broken Module graph. Recovery requires an explicit development file.
+        $name = $app->env->get('env_name', '');
+        if (!is_string($name) || $name === '0' || ($name !== '' && preg_match('/^[a-zA-Z0-9_-][a-zA-Z0-9_.-]*$/D', $name) !== 1)) {
             throw new RuntimeException('MODULE_RECOVERY_BACKEND_ENVIRONMENT_INVALID');
         }
-        $app->env->load($environmentFile);
+        $environmentFile = __DIR__ . '/.env' . ($name === '' ? '' : '.' . $name);
+        if (!is_file($environmentFile) || is_link($environmentFile) || (fileperms($environmentFile) & 0077) !== 0) {
+            throw new RuntimeException('MODULE_RECOVERY_BACKEND_ENVIRONMENT_INVALID');
+        }
+        $app->env->set('APP_ENV', 'production');
+        $app->loadEnv($name);
         require_once __DIR__ . '/vendor/topthink/framework/src/helper.php';
         $app->config->set(require __DIR__ . '/config/peanut.php', 'peanut');
         $app->config->set(require __DIR__ . '/config/module_packages.php', 'module_packages');

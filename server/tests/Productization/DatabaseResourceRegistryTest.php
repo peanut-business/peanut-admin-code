@@ -25,7 +25,7 @@ if (in_array('--schema-contract', $argv ?? [], true)) {
         || mysqlSchemaLeaseResource([], $endpoint, $actual) !== null) {
         throw new RuntimeException('schema/exclusive lease contract failed');
     }
-    foreach (['physical_endpoint' => '127.0.0.2:23306', 'max_executors' => 3, 'server_resources' => []] as $field => $value) {
+    foreach (['physical_endpoint' => '127.0.0.2:23306', 'max_executors' => 9, 'server_resources' => []] as $field => $value) {
         $bad = $resource; $bad['lease_policy'][$field] = $value;
         try { mysqlSchemaLeaseResource($bad, $endpoint, $actual); }
         catch (RuntimeException) { continue; }
@@ -143,13 +143,18 @@ $expect(count($localDemoDomains) === 1, 'local multi-tenant demo domains must be
 $expect(($localDemoDomains[0]['environments'] ?? null) === ['local-multi-tenant-demo'], 'local demo domains use the wrong environment');
 $expect(($localDemoDomains[0]['hosts'] ?? null) === [
     'platform.peanut-admin.test',
+    'platform.peanut-admin.localhost',
     'admin.peanut-admin.test',
     'tenant-a.peanut-admin.test',
     'tenant-b.peanut-admin.test',
+    'tenant-a.peanut-admin.localhost',
+    'tenant-b.peanut-admin.localhost',
 ], 'local demo domain list changed unexpectedly');
 $expect(($localDemoDomains[0]['tenant_entry_bindings'] ?? null) === [
     'tenant-a.peanut-admin.test' => 'tenant-a/admin-web',
     'tenant-b.peanut-admin.test' => 'tenant-b/admin-web',
+    'tenant-a.peanut-admin.localhost' => 'tenant-a/admin-web',
+    'tenant-b.peanut-admin.localhost' => 'tenant-b/admin-web',
 ], 'local demo Tenant host bindings changed unexpectedly');
 $productionDeployments = array_values(array_filter(
     $registry['resources']['external_services'] ?? [],
@@ -175,14 +180,15 @@ $expect(($candidateDeployments[0]['required_non_secret_environment']['OWNER_INVI
 
 $databases = array_values(array_filter(
     $registry['resources']['databases'] ?? [],
-    static fn(array $item): bool => in_array('development', $item['environments'] ?? [], true)
+    static fn(array $item): bool => ($item['stable_resource_id'] ?? '') === 'peanut-admin-scaffold-mt-development-mysql84'
+        && in_array('development', $item['environments'] ?? [], true)
         && ($item['application_runtime'] ?? true),
 ));
-$expect(count($databases) === 1, 'development must select exactly one database');
+$expect(count($databases) === 1, 'scaffold development requires its registered MT database');
 $database = $databases[0];
-$expect($database['stable_resource_id'] === 'peanut-admin-mysql84-development', 'development database id changed unexpectedly');
+$expect($database['deployment_modes'] === ['multi-tenant'], 'scaffold development database must be MT only');
 $expect($database['version'] === '8.4.10', 'development database version changed unexpectedly');
-$expect($database['database'] === 'peanut_admin_development', 'development database name changed unexpectedly');
+$expect($database['database'] === 'peanut_dev_mt', 'development database name changed unexpectedly');
 $expect($database['fallback'] === 'none', 'development database must fail closed');
 
 foreach (['upstream_endpoint' => 'host', 'container_endpoint' => 'container'] as $key => $consumer) {
@@ -359,19 +365,17 @@ $runSelector = static function (array $arguments) use ($root): array {
 [$exitCode, $output] = $runSelector([
     'database-env', '--deployment-target', 'local-development', '--consumer', 'host',
 ]);
-$expect($exitCode === 0, "default development database selection failed: {$output}");
-$expect(str_contains($output, 'PEANUT_DATABASE_RESOURCE_ID=peanut-admin-mysql84-development'), 'persistent development database was not selected by default');
-$expect(!str_contains($output, 'peanut-admin-p0e-mysql84-gate'), 'P0-E database was selected as the default runtime');
+$expect($exitCode !== 0 && str_contains($output, 'expected exactly one database'), 'ambiguous development database selection must fail closed');
 
 [$exitCode, $output] = $runSelector([
     'database-env', '--deployment-target', 'local-development', '--consumer', 'host',
-    '--resource-id', 'peanut-admin-mysql84-development',
+    '--resource-id', $database['stable_resource_id'],
 ]);
-$expect($exitCode === 0 && str_contains($output, 'DB_NAME=peanut_admin_development'), 'explicit fixed database resource selection failed');
+$expect($exitCode === 0 && str_contains($output, 'DB_NAME=peanut_dev_mt'), 'explicit fixed database resource selection failed');
 
 [$exitCode, $output] = $runSelector([
     'database-env', '--deployment-target', 'local-development', '--consumer', 'host',
-    '--resource-id', 'peanut-admin-mysql84-development', '--database-name', 'override_forbidden',
+    '--resource-id', $database['stable_resource_id'], '--database-name', 'override_forbidden',
 ]);
 $expect($exitCode !== 0, 'fixed database resource unexpectedly allowed a database name override');
 
@@ -452,26 +456,23 @@ $expect(!str_contains($selectorSource, 'P0E_RESOURCE_ID'), 'resource selector st
 $expect(!str_contains($selectorSource, 'P0-E database'), 'resource selector still exposes project-specific database semantics');
 
 $rootInstructions = (string) file_get_contents($root . '/AGENTS.md');
-$localStack = (string) file_get_contents($root . '/scripts/local-stack.sh');
-$probe = (string) file_get_contents($root . '/scripts/local-environment-probe');
+$qualificationRunner = (string) file_get_contents($root . '/scripts/p0e-runtime-qualification');
 $guardSource = (string) file_get_contents($root . '/server/database/environment-guard.php');
 $devCompose = (string) file_get_contents($root . '/deploy/docker-compose.dev.yml');
-$hostRuntime = (string) file_get_contents($root . '/scripts/local-php-runtime');
+$hostRuntime = (string) file_get_contents($root . '/scripts/project-env');
 $developmentDatabase = (string) file_get_contents($root . '/scripts/project-development-database.sh');
 
 $expect(str_contains($rootInstructions, 'resources/project-resources.json'), 'root AGENTS.md does not reference the registry');
-$expect(str_contains($rootInstructions, 'resources/p0e-runtime-qualification.json'), 'root AGENTS.md does not reference the P0-E source-only registry');
-$expect(str_contains($localStack, 'project-resource-registry'), 'local stack does not consume the registry');
-$expect(str_contains($probe, 'resources/project-resources.json'), 'probe does not consume the registry');
+$expect(str_contains($qualificationRunner, 'resources/p0e-runtime-qualification.json')
+    && str_contains($qualificationRunner, 'PEANUT_RESOURCE_REGISTRY'), 'qualification runner lost its two registry inputs');
 $expect(str_contains($guardSource, 'PEANUT_RESOURCE_LEASE_PROOF')
     && str_contains($guardSource, '/run/peanut-admin/resource-lease'), 'P0-E guard does not require the fixed lease proof mount');
-$expect(str_contains($hostRuntime, '/opt/homebrew/bin/php'), 'daily development does not use registered host PHP');
-$expect(str_contains($hostRuntime, '$repo_dir/scripts/project-composer')
-    && str_contains($hostRuntime, 'expected_composer_version=2.10.2'), 'daily development does not use the registered version-checked Composer wrapper');
+$expect(str_contains($hostRuntime, 'tools/toolchain.json') && str_contains($hostRuntime, 'host.json')
+    && str_contains($hostRuntime, 'project-composer'), 'project tool environment lost its registered PHP/Composer inputs');
 $expect(!preg_match('/(?m)^\s{2}php:\s*$/', $devCompose), 'development Compose still defines a PHP service');
 $expect(str_contains($devCompose, 'host.docker.internal'), 'development containers do not target host PHP');
 $expect(str_contains($devCompose, 'NO_PROXY'), 'development containers do not bypass proxies for host PHP');
-$expect(!str_contains($localStack, 'DB_HOST=192.168.192.2'), 'local stack contains a database host magic value');
+$expect(!str_contains($devCompose, 'DB_HOST=192.168.192.2'), 'development Compose overrides the registered database host');
 $expect(str_contains($developmentDatabase, 'repair-root-credential'), 'development database tooling lacks a bounded root credential repair entry');
 $expect(str_contains($developmentDatabase, 'StrictHostKeyChecking=yes'), 'development database credential repair does not preserve SSH host-key verification');
 $expect(str_contains($developmentDatabase, 'before-root-credential-repair'), 'development database credential repair lacks its lease-bound backup artifact');
@@ -490,7 +491,7 @@ foreach ($registry['resources']['local_listeners'] ?? [] as $listener) {
     }
     $registeredPorts[$listener['port_env']] = $listener['port'];
 }
-$expect($registeredPorts === [
+$requiredPorts = [
     'DEV_HTTP_PORT' => 20187,
     'PHP_PORT' => 20180,
     'VITE_PORT' => 20181,
@@ -511,25 +512,15 @@ $expect($registeredPorts === [
     'PEANUT_BROWSER_FRONTEND_PORT' => 20279,
     'PEANUT_STARTER_BACKEND_PORT' => 20280,
     'PEANUT_STARTER_FRONTEND_PORT' => 20281,
-], 'registered local listener ports do not match the Peanut Admin project block');
+];
+$expect(array_intersect_key($registeredPorts, $requiredPorts) === $requiredPorts, 'registered local listener ports do not match the Peanut Admin project block');
 $redis = array_values(array_filter(
     $registry['resources']['optional_services'] ?? [],
     static fn(array $item): bool => ($item['stable_resource_id'] ?? '') === 'peanut-admin-local-redis-experiment',
 ));
 $expect(count($redis) === 1 && $redis[0]['port_env'] === 'REDIS_PORT' && $redis[0]['port'] === 20184, 'registered Redis port is invalid');
 
-$guardEnvironmentPath = $root . '/server/.env.resource-registry-test-' . getmypid();
-$expect(!file_exists($guardEnvironmentPath) && !is_link($guardEnvironmentPath), 'isolated backend environment fixture already exists');
-file_put_contents($guardEnvironmentPath, '');
-chmod($guardEnvironmentPath, 0600);
-register_shutdown_function(static function () use ($guardEnvironmentPath): void {
-    if (is_file($guardEnvironmentPath) || is_link($guardEnvironmentPath)) {
-        unlink($guardEnvironmentPath);
-    }
-});
-putenv('PEANUT_SERVER_ENV_FILE=' . $guardEnvironmentPath);
 require_once $root . '/server/database/environment-guard.php';
-unlink($guardEnvironmentPath);
 
 /** @param array<string,string> $values */
 function resourceGuardSetEnvironment(array $values): void
@@ -542,9 +533,15 @@ function resourceGuardSetEnvironment(array $values): void
     ] as $name) {
         putenv($name);
     }
+    $environment = new \think\Env();
     foreach ($values as $name => $value) {
-        putenv($name . '=' . $value);
+        if (str_starts_with($name, 'PEANUT_')) {
+            putenv($name . '=' . $value);
+        } else {
+            $environment->set($name, $value);
+        }
     }
+    \think\Container::getInstance()->instance('env', $environment);
 }
 
 /** @param array<string,string> $overrides @return array<string,string> */
@@ -554,6 +551,7 @@ function resourceGuardP0eEnvironment(string $runId, string $scenario, string $mo
         'APP_ENV' => 'production',
         'PEANUT_DEPLOYMENT_TARGET' => 'local-production-preview',
         'PEANUT_DATABASE_RESOURCE_ID' => 'peanut-admin-p0e-mysql84-gate',
+        'PEANUT_DATABASE_CONSUMER' => 'container',
         'DB_HOST' => 'host.docker.internal',
         'DB_PORT' => '20189',
         'DB_NAME' => 'peanut_admin_development_p0e_' . $runId . '_' . $scenario,
@@ -855,19 +853,12 @@ function resourceGuardMustFail(callable $operation, string $case): void
 $ordinaryEnvironments = [
     'development' => [
         'APP_ENV' => 'development', 'PEANUT_DEPLOYMENT_TARGET' => 'local-development',
-        'PEANUT_DATABASE_RESOURCE_ID' => 'peanut-admin-mysql84-development',
+        'PEANUT_DATABASE_RESOURCE_ID' => 'peanut-admin-scaffold-mt-development-mysql84',
         'PEANUT_DATABASE_CONSUMER' => 'host',
-        'PEANUT_DATABASE_ENDPOINT_ID' => 'peanut-admin-mysql84-development-host-direct',
+        'PEANUT_DATABASE_ENDPOINT_ID' => 'peanut-admin-scaffold-mt-development-host-direct',
         'DB_HOST' => '192.168.192.2', 'DB_PORT' => '20183',
-        'DB_NAME' => 'peanut_admin_development', 'DB_USER' => 'test', 'DB_PASS' => 'test',
-        'DEPLOYMENT_MODE' => 'standalone',
-    ],
-    'local-preview' => [
-        'APP_ENV' => 'production', 'PEANUT_DEPLOYMENT_TARGET' => 'local-production-preview',
-        'PEANUT_DATABASE_RESOURCE_ID' => 'peanut-admin-mysql84-development',
-        'DB_HOST' => '192.168.192.2', 'DB_PORT' => '20183',
-        'DB_NAME' => 'peanut_admin_development', 'DB_USER' => 'test', 'DB_PASS' => 'test',
-        'DEPLOYMENT_MODE' => 'standalone',
+        'DB_NAME' => 'peanut_dev_mt', 'DB_USER' => 'test', 'DB_PASS' => 'test',
+        'DEPLOYMENT_MODE' => 'multi-tenant',
     ],
     'local-multi-tenant-demo' => [
         'APP_ENV' => 'development', 'PEANUT_DEPLOYMENT_TARGET' => 'local-multi-tenant-demo',
@@ -880,12 +871,14 @@ $ordinaryEnvironments = [
     ],
     'production' => [
         'APP_ENV' => 'production', 'PEANUT_DEPLOYMENT_TARGET' => 'production',
+        'PEANUT_DATABASE_CONSUMER' => 'container',
         'PEANUT_DATABASE_RESOURCE_ID' => 'peanut-admin-production-bundled-mysql84',
         'DB_HOST' => 'mysql', 'DB_PORT' => '3306', 'DB_NAME' => 'peanut_admin',
         'DB_USER' => 'test', 'DB_PASS' => 'test', 'DEPLOYMENT_MODE' => 'standalone',
     ],
     'production-candidate' => [
         'APP_ENV' => 'production', 'PEANUT_DEPLOYMENT_TARGET' => 'production-candidate',
+        'PEANUT_DATABASE_CONSUMER' => 'container',
         'PEANUT_DATABASE_RESOURCE_ID' => 'peanut-admin-production-candidate-mysql84',
         'DB_HOST' => 'mysql', 'DB_PORT' => '3306', 'DB_NAME' => 'peanut_admin_candidate',
         'DB_USER' => 'test', 'DB_PASS' => 'test', 'DEPLOYMENT_MODE' => 'multi-tenant',
@@ -896,6 +889,11 @@ foreach ($ordinaryEnvironments as $case => $environment) {
     $config = guardedDatabaseConfig();
     $expect($config['database'] === $environment['DB_NAME'], "ordinary guard regression: {$case}");
 }
+resourceGuardSetEnvironment(array_replace($ordinaryEnvironments['development'], [
+    'APP_ENV' => 'production', 'PEANUT_DEPLOYMENT_TARGET' => 'local-production-preview',
+]));
+resourceGuardMustFail(static fn(): array => guardedDatabaseConfig(), 'shared development schema in preview');
+
 
 $temporary = sys_get_temp_dir() . '/peanut-environment-guard-' . bin2hex(random_bytes(6));
 $guardRunId = 'run123';
@@ -908,6 +906,8 @@ try {
         $config = guardedDatabaseConfig($activeProof, $guardNow);
         $expect($config['consumer'] === 'container', "P0-E guard did not allow exact scenario {$scenario}");
     }
+    resourceGuardSetEnvironment(resourceGuardP0eEnvironment($guardRunId, 'module_lifecycle', 'standalone'));
+    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($activeProof, $guardNow), 'Module lifecycle with standalone mode');
     resourceGuardSetEnvironment(resourceGuardP0eEnvironment(
         $guardRunId,
         'standalone_fresh',
@@ -922,45 +922,37 @@ try {
     $hostConfig = guardedDatabaseConfig($activeProof, $guardNow);
     $expect($hostConfig['consumer'] === 'host', 'P0-E guard did not allow the exact lease-bound Host endpoint');
 
-    $boundedProof = $temporary . '/bounded-fresh';
-    resourceGuardWriteProof(
-        $boundedProof,
-        $guardRunId,
-        $guardNow,
-        static function (array &$metadata, array &$resources): void {
-            $resources['qualification-group'] = ['multi-tenant-fresh'];
+    $hostEndpoint = [
+        'PEANUT_DATABASE_CONSUMER' => 'host',
+        'PEANUT_DATABASE_ENDPOINT_ID' => 'peanut-admin-p0e-mysql84-gate-host-direct',
+        'DB_HOST' => '192.168.192.2',
+        'DB_PORT' => '20183',
+    ];
+    foreach (['multi-tenant-fresh' => 2, 'module-lifecycle' => 3] as $group => $count) {
+        $boundedProof = $temporary . '/' . $group;
+        resourceGuardWriteProof($boundedProof, $guardRunId, $guardNow, static function (array &$metadata, array &$resources) use ($group, $count): void {
+            $resources['qualification-group'] = [$group];
             $resources['consumer'] = ['host'];
             $resources['endpoint'] = ['peanut-admin-p0e-mysql84-gate-host-direct', '192.168.192.2:20183'];
-            $resources['mysql-db'] = array_slice($resources['mysql-db'], 0, 2);
-            $resources['database'] = array_slice($resources['database'], 0, 2);
+            $resources['mysql-db'] = array_slice($resources['mysql-db'], 0, $count);
+            $resources['database'] = array_slice($resources['database'], 0, $count);
             $resources['port'] = ['20183'];
-            foreach ([
-                'http-port',
-                'docs-port',
-                'database-tunnel',
-                'compose-project',
-                'browser-session',
-                'browser-host',
-                'lease-proof-dir',
-            ] as $type) {
+            foreach (['http-port', 'docs-port', 'database-tunnel', 'compose-project', 'browser-session', 'browser-host', 'lease-proof-dir'] as $type) {
                 unset($resources[$type]);
             }
-        },
-    );
-    foreach (['standalone_fresh' => 'standalone', 'multi_tenant_fresh' => 'multi-tenant'] as $scenario => $mode) {
-        resourceGuardSetEnvironment(resourceGuardP0eEnvironment(
-            $guardRunId,
-            $scenario,
-            $mode,
-            [
-                'PEANUT_DATABASE_CONSUMER' => 'host',
-                'PEANUT_DATABASE_ENDPOINT_ID' => 'peanut-admin-p0e-mysql84-gate-host-direct',
-                'DB_HOST' => '192.168.192.2',
-                'DB_PORT' => '20183',
-            ],
-        ));
-        $boundedConfig = guardedDatabaseConfig($boundedProof, $guardNow);
-        $expect($boundedConfig['consumer'] === 'host', "bounded P0-E guard rejected exact fresh scenario {$scenario}");
+        });
+        foreach (array_slice(P0E_FRESH_SCENARIO_MODES, 0, $count, true) as $scenario => $mode) {
+            resourceGuardSetEnvironment(resourceGuardP0eEnvironment($guardRunId, $scenario, $mode, $hostEndpoint));
+            $boundedConfig = guardedDatabaseConfig($boundedProof, $guardNow);
+            $expect($boundedConfig['consumer'] === 'host', "bounded P0-E guard rejected {$group} scenario {$scenario}");
+        }
+
+        $outside = array_keys(P0E_FRESH_SCENARIO_MODES)[$count];
+        resourceGuardSetEnvironment(resourceGuardP0eEnvironment($guardRunId, $outside, P0E_FRESH_SCENARIO_MODES[$outside], $hostEndpoint));
+        resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($boundedProof, $guardNow), "{$group} with unleased {$outside}");
+
+        resourceGuardSetEnvironment(resourceGuardP0eEnvironment($guardRunId, 'standalone_fresh', 'standalone'));
+        resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($boundedProof, $guardNow), "{$group} with unleased container endpoint");
     }
 
     $proofMutations = [

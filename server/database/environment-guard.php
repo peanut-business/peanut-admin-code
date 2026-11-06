@@ -556,7 +556,7 @@ function assertP0eLeaseContract(
         'generated-application' => ['scenario_count' => 2, 'compose' => false, 'browser' => false],
         'standalone-fresh' => ['scenario_count' => 2, 'compose' => false, 'browser' => false],
         'multi-tenant-fresh' => ['scenario_count' => 2, 'compose' => false, 'browser' => false],
-        'plugin-lifecycle' => ['scenario_count' => 3, 'compose' => false, 'browser' => false],
+        'module-lifecycle' => ['scenario_count' => 3, 'compose' => false, 'browser' => false],
         'consumer-module-lifecycle' => ['scenario_count' => 4, 'compose' => false, 'browser' => false],
         'production-compose' => ['scenario_count' => 5, 'compose' => true, 'browser' => false],
         'standalone-browser' => ['scenario_count' => 5, 'compose' => true, 'browser' => true],
@@ -576,6 +576,9 @@ function assertP0eLeaseContract(
     sort($expectedPrefix, SORT_STRING);
     if ($actualDatabases !== $expectedPrefix) {
         throw new RuntimeException('P0-E lease database scenario 不是已登记的资格前缀');
+    }
+    if (!in_array($identity['scenario'], array_slice($allowedScenarios, 0, $selectedScenarioCount), true)) {
+        throw new RuntimeException('P0-E 当前数据库场景超出本组 lease 范围');
     }
     $hasComposeResources = $profile['compose'];
     $hasBrowserResources = $profile['browser'];
@@ -645,6 +648,10 @@ function assertP0eLeaseContract(
         $registeredEndpoints[] = (string) $registered['host'] . ':' . (string) $registered['port'];
     }
     assertLeaseResourceValues($resources, 'endpoint', $registeredEndpoints);
+    if (!in_array($endpoint['endpoint_id'], $registeredEndpoints, true)
+        || !in_array($endpoint['host'] . ':' . $endpoint['port'], $registeredEndpoints, true)) {
+        throw new RuntimeException('P0-E 当前数据库端点超出本组 lease 范围');
+    }
     assertLeaseResourceValues($resources, 'run-id', [$runId]);
     assertLeaseResourceValues($resources, 'mysql-db', array_slice($allExpectedDatabases, 0, $selectedScenarioCount));
     assertLeaseResourceValues($resources, 'database', array_slice($allExpectedDatabases, 0, $selectedScenarioCount));
@@ -698,7 +705,7 @@ function assertP0eLeaseContract(
         }
     }
 
-    $multiTenantScenarios = ['multi_tenant_fresh', 'plugin_lifecycle', 'multi_tenant_browser'];
+    $multiTenantScenarios = ['multi_tenant_fresh', 'module_lifecycle', 'multi_tenant_browser'];
     $expectedMode = in_array($identity['scenario'], $multiTenantScenarios, true)
         ? 'multi-tenant'
         : 'standalone';

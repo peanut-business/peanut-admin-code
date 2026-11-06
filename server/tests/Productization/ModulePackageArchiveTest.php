@@ -505,7 +505,8 @@ try {
     if (!$archiveOnly) {
         // An incomplete source must still expose the development recovery CLI while ordinary boot fails closed.
         $bootJournal = $projectRoot . '/.local/module-source-adoption/journal.json';
-        $bootEnvironment = $serverRoot . '/.env.module-package-' . bin2hex(random_bytes(4));
+        $envName = 'module-package-' . bin2hex(random_bytes(4));
+        $bootEnvironment = $serverRoot . '/.env.' . $envName;
         modulePackageExpect(!file_exists($bootJournal), 'source worktree already has pending adoption');
         if (!is_dir(dirname($bootJournal))) {
             mkdir(dirname($bootJournal), 0700, true);
@@ -521,58 +522,58 @@ try {
                 . "PEANUT_MODULE_TRUSTED_KEYS_JSON={}\n",
         );
         chmod($bootEnvironment, 0600);
-        try {
-            foreach ([true, false] as $recover) {
-                $process = proc_open(
-                    $recover ? [PHP_BINARY, $serverRoot . '/module'] : [PHP_BINARY, $serverRoot . '/think', 'list'],
-                    [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-                    $pipes,
-                    $serverRoot,
-                    ['PATH' => (string) getenv('PATH'), 'PEANUT_SERVER_ENV_FILE' => $bootEnvironment],
-                );
-                modulePackageExpect(is_resource($process), 'cannot start recovery boot check');
-                if ($recover) {
-                    fwrite($pipes[0], '{"operation":"adopt","arguments":["--recover"]}');
-                }
-                fclose($pipes[0]);
-                $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
-                fclose($pipes[1]);
-                fclose($pipes[2]);
-                modulePackageExpect(proc_close($process) !== 0, 'invalid journal boot unexpectedly succeeded');
-                if ($recover) {
-                    modulePackageExpect(
-                        trim($output) === '{"error":"MODULE_PACKAGE_RECOVERY_REQUIRED"}',
-                        'recovery CLI could not boot without Module composition: ' . trim($output),
-                    );
-                } else {
-                    modulePackageExpect(str_contains($output, 'Run module:adopt-package --recover'), 'ordinary Runtime consumed incomplete source');
-                }
-            }
-            // The recovery-only bootstrap cannot turn a production process
-            // into a development source writer, even with an invalid journal.
-            $journalBefore = hash_file('sha256', $bootJournal);
-            file_put_contents($bootEnvironment, str_replace(
-                'APP_ENV=development', 'APP_ENV=production',
-                (string) file_get_contents($bootEnvironment),
-            ));
+        $invoke = static function (bool $recover, array $environment) use ($serverRoot): array {
             $process = proc_open(
-                [PHP_BINARY, $serverRoot . '/module'],
+                $recover ? [PHP_BINARY, $serverRoot . '/module'] : [PHP_BINARY, $serverRoot . '/think', 'list'],
                 [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-                $pipes, $serverRoot,
-                ['PATH' => (string) getenv('PATH'), 'PEANUT_SERVER_ENV_FILE' => $bootEnvironment],
+                $pipes, $serverRoot, ['PATH' => (string) getenv('PATH')] + $environment,
             );
-            modulePackageExpect(is_resource($process), 'production recovery denial process did not start');
-            fwrite($pipes[0], '{"operation":"adopt","arguments":["--recover"]}');
+            modulePackageExpect(is_resource($process), 'cannot start recovery boot check');
+            if ($recover) {
+                fwrite($pipes[0], '{"operation":"adopt","arguments":["--recover"]}');
+            }
             fclose($pipes[0]);
             $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
             fclose($pipes[1]);
             fclose($pipes[2]);
+
+            return [proc_close($process), trim($output)];
+        };
+        $outside = $temporary . '/external-development.env';
+        file_put_contents($outside, "APP_ENV=development\n");
+        chmod($outside, 0600);
+        try {
+            $environment = ['PHP_ENV_NAME' => $envName];
+            [$exit, $output] = $invoke(false, $environment);
+            modulePackageExpect($exit !== 0 && str_contains($output, 'Run module:adopt-package --recover'), 'ordinary Runtime consumed incomplete source');
+            [$exit, $output] = $invoke(true, $environment);
             modulePackageExpect(
-                proc_close($process) !== 0
-                    && trim($output) === '{"error":"MODULE_SOURCE_ADOPTION_DISABLED"}'
-                    && hash_file('sha256', $bootJournal) === $journalBefore,
-                'production recovery bypassed the native development-only source gate',
+                $exit !== 0 && $output === '{"error":"MODULE_PACKAGE_RECOVERY_REQUIRED"}',
+                'development recovery CLI could not reach the journal: ' . $output,
             );
+            $state = static function () use ($projectRoot, $bootJournal): array {
+                $paths = [$bootJournal, $projectRoot . '/modules.lock', dirname($bootJournal) . '/writer.lock'];
+                return array_map(static fn(string $path) => is_file($path) ? hash_file('sha256', $path) : null, $paths);
+            };
+            $before = $state();
+            $untrusted = ['PEANUT_SERVER_ENV_FILE' => $outside, 'PHP_APP_ENV' => 'development'];
+            foreach (["APP_ENV=production\n", "APP_DEBUG=false\n"] as $contents) {
+                file_put_contents($bootEnvironment, $contents);
+                [$exit, $output] = $invoke(true, $environment + $untrusted);
+                modulePackageExpect(
+                    $exit !== 0 && $output === '{"error":"MODULE_SOURCE_ADOPTION_DISABLED"}' && $state() === $before,
+                    'recovery accepted an external development environment or modified source state',
+                );
+            }
+            unlink($bootEnvironment);
+            symlink($outside, $bootEnvironment);
+            foreach (['0', $envName, $envName . '/../' . basename($outside)] as $invalidName) {
+                [$exit, $output] = $invoke(true, ['PHP_ENV_NAME' => $invalidName] + $untrusted);
+                modulePackageExpect(
+                    $exit !== 0 && str_contains($output, 'MODULE_RECOVERY_BACKEND_ENVIRONMENT_INVALID') && $state() === $before,
+                    'recovery accepted a linked or unconfined environment',
+                );
+            }
         } finally {
             unlink($bootJournal);
             unlink($bootEnvironment);

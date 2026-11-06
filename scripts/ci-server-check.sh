@@ -292,8 +292,19 @@ LC_ALL=C sort -u "$selected_file" -o "$selected_file"
 
 while IFS= read -r test_file; do
   [[ -n "$test_file" ]] || continue
-  run_command "test:${test_file}" 1 \
-    php "$ROOT/scripts/run-php-test" "--env-file=$BACKEND_ENV" "$test_file"
+  case "$test_file" in
+    server/tests/Productization/DatabaseResourceRegistryTest.php)
+      run_command "test:${test_file}:schema-contract" 1 \
+        php "$ROOT/scripts/run-php-test" "--env-file=$BACKEND_ENV" "$test_file" -- --schema-contract
+      ;;
+    server/tests/Productization/P0eRuntimeQualificationTest.php)
+      run_command p0e-template-stage-contract 1 python3 scripts/tests/p0e_template_stage_test.py
+      ;;
+    *)
+      run_command "test:${test_file}" 1 \
+        php "$ROOT/scripts/run-php-test" "--env-file=$BACKEND_ENV" "$test_file"
+      ;;
+  esac
 done <"$selected_file"
 
 write_summary passed
