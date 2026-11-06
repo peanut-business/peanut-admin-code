@@ -18,7 +18,7 @@ on:
       candidate_cli_commit:
         description: Exact independent peanut-cli source commit for the no-DB candidate contract
         type: string
-        default: bc4a0732121a3494c1e206450dd8fe0027e24f09
+        default: 6849d197d22a0839b7fe4a92bb5579ce337d8631
       qualification_run_id:
         description: Successful same-repository Actions run holding native full transport (template-only runs are ineligible)
         type: string

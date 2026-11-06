@@ -149,7 +149,7 @@ def file_chain(admin: Session, beta: Session | None, marker: str, snapshot) -> d
         'impact_confirmed': True,
     }, headers={'Idempotency-Key': 'http-private-' + marker}, label='private-visibility-submit')
     require(converted['status'] == 'completed', 'PRIVATE_CONVERSION_INCOMPLETE')
-    admin.download(public_url, 'old-public-link-denied', statuses=(403, 404))
+    require(png not in admin.download(public_url, 'old-public-link-denied', statuses=(403, 404)), 'OLD_PUBLIC_BYTES_DISCLOSED')
     private = admin.data('POST', '/adminapi/api/v1/files/resolve',
                          {'file_key': key, 'operation': 'download_original'}, label='owner-private-resolve')
     require(admin.download(private['url'], 'owner-private-exact-bytes') == png, 'PRIVATE_BYTES')
@@ -159,17 +159,28 @@ def file_chain(admin: Session, beta: Session | None, marker: str, snapshot) -> d
                      {'file_key': key, 'operation': 'download_original'}, statuses=(403, 404),
                      label='foreign-private-resolve-denied')
         require(snapshot(key) == before, 'FOREIGN_RESOLVE_WROTE_FILE_STATE')
+    # The successful private download consumed its single-use token. Keep a distinct, unused grant for deletion.
+    unused = admin.data('POST', '/adminapi/api/v1/files/resolve',
+                        {'file_key': key, 'operation': 'download_original'}, label='private-link-before-delete')
+    previous = urllib.parse.parse_qs(urllib.parse.urlsplit(private['url']).query)
+    fresh = urllib.parse.parse_qs(urllib.parse.urlsplit(unused['url']).query)
+    require(unused.get('file_key') == unused.get('delivery_file_key') == key
+            and unused.get('source_sha256') == hashlib.sha256(png).hexdigest() and fresh.get('file_key') == [key]
+            and len(fresh.get('token', [])) == len(previous.get('token', [])) == 1
+            and fresh['token'] != previous['token'], 'DELETE_PROBE_GRANT_MISMATCH')
     deleted = admin.data('POST', '/adminapi/peanut.file.delete',
                          {'ids': [file_id]}, label='owned-file-delete')
     require(isinstance(deleted, dict) and deleted.get('files_deleted') == 1
             and deleted.get('storage_deleted') == 1, 'FILE_DELETE_RESULT')
-    admin.download(public_url, 'deleted-public-link-denied', statuses=(403, 404))
-    admin.download(private['url'], 'deleted-private-link-denied', statuses=(403, 404))
+    require(png not in admin.download(public_url, 'deleted-public-link-denied', statuses=(403, 404)), 'DELETED_PUBLIC_BYTES_DISCLOSED')
+    require(png not in admin.download(unused['url'], 'deleted-private-link-denied', statuses=(403, 404)),
+            'DELETED_PRIVATE_BYTES_DISCLOSED')
+    require(unused['expires_at'] > time.time() * 1000, 'DELETE_PROBE_GRANT_EXPIRED')
     require(not any(row['id'] == file_id for row in listing(admin, 'deleted-file-hidden')),
             'DELETED_FILE_VISIBLE')
     return {'file_id': file_id, 'sha256': hashlib.sha256(png).hexdigest(),
             'public_download_exact': True, 'private_download_exact': True,
-            'old_public_link_denied': True, 'deleted_private_link_denied': True,
+            'old_public_link_denied': True, 'unredeemed_private_link_denied_after_delete': True, 'deleted_private_link_denied': True,
             'two_tenants': beta is not None, 'foreign_state_unchanged': beta is not None,
             'export_and_document_references': 'NOT_APPLICABLE: no export/reference HTTP producer in core File'}
 
