@@ -321,6 +321,96 @@ def terminal_registry(operation, document, project, common, registry_sha, termin
     return original, original_sha
 
 
+ISOLATED_INSTALLS = {
+    "peanut-059-st-mysql84": ("059-security-runtime", "security_http", "standalone", "peanut_059_st"),
+    "peanut-059-mt-mysql84": ("059-security-runtime", "security_http", "multi-tenant", "peanut_059_mt"),
+    "peanut-postrelease-st-mysql84": ("postrelease-download-runtime", "post_release_download", "standalone", "peanut_postrelease_st"),
+    "peanut-postrelease-mt-mysql84": ("postrelease-download-runtime", "post_release_download", "multi-tenant", "peanut_postrelease_mt"),
+}
+
+
+def operation_gate(operation):
+    if "isolated_first_install" not in operation:
+        return "permanent-app-development"
+    identity = operation["database"]["resource_id"]
+    need(operation["phase"] in ("protect", "install") and identity in ISOLATED_INSTALLS
+         and "retained_authority" not in operation, "unregistered isolated first-install scope")
+    return ISOLATED_INSTALLS[identity][0]
+
+
+def isolated_allocation(document, registered):
+    rows = [row for row in document["resources"]["schema_allocations"]
+            if row.get("database_resource_id") == registered["stable_resource_id"]]
+    need(len(rows) == 1, "isolated database needs one original allocation")
+    row = rows[0]
+    need(row["protocol"] == "peanut.schema-allocation.v1" and row["lease_gate"] == registered["lease_gate"]
+         and row["endpoint_id"] == registered["upstream_endpoint"]["endpoint_id"]
+         and row["server_uuid"] == registered["server_uuid"] and row["version"] == registered["version"]
+         and row["credentials"]["path"] == registered["credential_ref"], "isolated allocation identity changed")
+    return row
+
+
+def isolated_install(operation, document, registered, identity):
+    gate = operation_gate(operation)
+    db, app, fixed = operation["database"], operation["application"], operation["isolated_first_install"]
+    _, scenario, edition, name = ISOLATED_INSTALLS[db["resource_id"]]
+    need(registered["lease_gate"] == gate and registered["application_root"] == app["root"]
+         and registered["stable_resource_id"] == db["resource_id"] and operation["owner"] == operation["thread"]
+         and registered["environments"] == ["development"] and registered.get("environment", "development") == db["environment"] == "development"
+         and registered["deployment_modes"] == [edition] and app["edition"] == edition
+         and registered["lifecycle"] == "ephemeral" and registered["application_runtime"] is False
+         and registered["fallback"] == "none" and registered["service_type"] == "mysql"
+         and registered["allowed_scenarios"] == ["first_install", scenario]
+         and registered["lease_policy"]["mode"] == "schema" and "shared_access" not in registered["lease_policy"]
+         and registered["database"] == registered["schema"] == registered["namespace"] == db["name"] == name
+         and registered["username"] == name and registered["account_host"] == "%"
+         and db["principal"] == name + "@%" and db["server_uuid"] == registered["server_uuid"]
+         and db["upstream_endpoint"] == registered["upstream_endpoint"] and db["consumer"] == "host"
+         and registered["version"] == db["version"], "isolated first-install database registration differs")
+    need(set(fixed) == {"source_identity", "archive_path", "archive_sha256", "listener_resource_id", "port"},
+         "isolated first-install inputs differ")
+    source = fixed["source_identity"]
+    need(set(source) == {"kind", "commit", "tree"} and source["kind"] == "git"
+         and all(re.fullmatch(r"[a-f0-9]{40}", source[key]) for key in ("commit", "tree"))
+         and git(ROOT, "rev-parse", source["commit"] + "^{tree}").decode().strip() == source["tree"]
+         and identity["template"]["source_identity"] == identity["generation_source"]["source_identity"] == source
+         and re.fullmatch(r"[a-f0-9]{64}", fixed["archive_sha256"])
+         and identity["template_package"]["protocol"] == "peanut.template-package.v1"
+         and identity["template_package"]["archive_sha256"] == fixed["archive_sha256"],
+         "isolated first-install template source or archive differs")
+    listeners = document["resources"]["local_listeners"]
+    selected = [row for row in listeners if row.get("stable_resource_id") == fixed["listener_resource_id"]]
+    need(len(selected) == 1 and type(fixed["port"]) is int and 1024 <= fixed["port"] <= 65535,
+         "isolated first-install listener is not uniquely registered")
+    listener = selected[0]
+    need(listener["port"] == fixed["port"] and listener["host"] == "127.0.0.1"
+         and listener["owner"] == operation["owner"] and listener["application_root"] == app["root"]
+         and listener["database_resource_id"] == db["resource_id"] and listener["environments"] == ["development"]
+         and not any(other is not listener and other.get("port") == fixed["port"]
+                     and other.get("host") in ("127.0.0.1", "0.0.0.0", "localhost", "::", "::1") for other in listeners),
+         "isolated first-install listener scope or port differs")
+    allocation = isolated_allocation(document, registered)
+    evidence = registered["allocation_evidence"]
+    raw = regular(canonical(evidence["path"]), private=True)
+    need(sha(raw) == evidence["sha256"], "isolated original allocation evidence changed")
+    receipt = json_unique(raw)
+    target = receipt["targets"][allocation["stable_resource_id"]]
+    login = target["login"]
+    need(receipt["status"] == target["status"] == "COMPLETED" and receipt["lease"] == evidence["native_lease"]
+         and registered["owner"] == receipt["owner"] == allocation["owner"] == allocation["thread"]
+         and login["database"] == name and login["principal"] == db["principal"]
+         and login["uuid"] == db["server_uuid"] and login["version"] == db["version"],
+         "isolated original allocation target differs")
+    if operation["phase"] == "protect":
+        client, transport = operation["backup_client"], allocation["transport"]
+        need(all(client[k] == transport[t] for k, t in (("ssh", "ssh_command"), ("ssh_alias", "ssh_alias"),
+                 ("docker", "docker_command"), ("container", "container_name"), ("mysql", "mysql_command")))
+             and client["user"] == name and client["mysqldump"] == str(Path(client["mysql"]).with_name("mysqldump"))
+             and client["credential_path"] == registered["credential_ref"]
+             and client["credential_sha256"] == allocation["credentials"]["sha256"],
+             "isolated backup client or private allocation credentials differ")
+
+
 def authority(operation_id, *, terminal=None):
     need(re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", operation_id), "invalid application operation ID")
     common = canonical(git(ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip())
@@ -343,6 +433,9 @@ def authority(operation_id, *, terminal=None):
                      "receipt_root", "php_executable", "terminal_review"}
     required_keys |= {"protect": {"backup_client"}, "install": {"protection", "credentials", "metadata_readonly"},
                       "maintain": {"maintenance", "installation"}}[operation["phase"]]
+    if "isolated_first_install" in operation:
+        required_keys.add("isolated_first_install")
+        operation_gate(operation)
     if "retained_authority" in operation:
         required_keys.add("retained_authority")
     need(set(operation) == required_keys, "application operation fields differ from the closed phase contract")
@@ -354,7 +447,8 @@ def authority(operation_id, *, terminal=None):
     if operation["phase"] == "protect":
         client = operation["backup_client"]
         need(set(client) == {"ssh", "ssh_alias", "docker", "container", "mysql", "mysqldump",
-                             "credential_path", "user"}, "native backup client closure differs")
+                             "credential_path", "user"} | ({"credential_sha256"} if "isolated_first_install" in operation else set()),
+             "native backup client closure differs")
         canonical(client["ssh"])
         for key in ("docker", "mysql", "mysqldump", "credential_path"):
             path = Path(client[key])
@@ -454,15 +548,18 @@ def authority(operation_id, *, terminal=None):
                   if row.get("stable_resource_id") == db["resource_id"]]
     need(len(db_matches) == 1, "operation database is not uniquely registered")
     registered = db_matches[0]
-    need(registered.get("application_identity", {}).get("root") == str(app_root)
-         and registered["database"] == db["name"]
-         and registered["upstream_endpoint"] == db["upstream_endpoint"]
-         and registered["lease_gate"] == "permanent-app-development",
-         "operation database/APP/endpoint registration mismatch")
-    need(registered["version"] == db["version"]
-         and registered["allocation_evidence"]["server_uuid"] == db["server_uuid"], "database allocation identity changed")
-    need(db["environment"] in registered["environments"] and db["consumer"] == "host"
-         and registered.get("environment") != "production", "operation is not dedicated development")
+    if "isolated_first_install" in operation:
+        isolated_install(operation, registry_document, registered, identity)
+    else:
+        need(registered.get("application_identity", {}).get("root") == str(app_root)
+             and registered["database"] == db["name"]
+             and registered["upstream_endpoint"] == db["upstream_endpoint"]
+             and registered["lease_gate"] == "permanent-app-development",
+             "operation database/APP/endpoint registration mismatch")
+        need(registered["version"] == db["version"]
+             and registered["allocation_evidence"]["server_uuid"] == db["server_uuid"], "database allocation identity changed")
+        need(db["environment"] in registered["environments"] and db["consumer"] == "host"
+             and registered.get("environment") != "production", "operation is not dedicated development")
     if operation["phase"] == "install":
         install_metadata_contract(operation, registry_document, registered)
     for name in ("output_root", "receipt_root"):
@@ -613,10 +710,14 @@ def expected_resources(operation, digest, registry_sha):
             "environment": {db["environment"]}, "consumer": {"host"},
             "application-root": {app["root"]}, "worktree": {app["root"], operation["tool_source"]["root"]},
             "output-dir": {operation["output_root"], operation["receipt_root"]},
-            "gate": {"permanent-app-development"},
+            "gate": {operation_gate(operation)},
             "application-registry-sha256": {operation["configuration"]["server/private/resources/project-resources.json"]},
             "application-manifest-sha256": {app["manifest_sha256"]},
             "application-env-sha256": {operation["configuration"]["server/.env"]}}
+    if "isolated_first_install" in operation:
+        fixed = operation["isolated_first_install"]
+        result["port"] = {str(fixed["port"])}
+        result["listener-resource-id"] = {fixed["listener_resource_id"]}
     if "retained_authority" in operation:
         result["retained-parent"] = {json.dumps(operation["retained_authority"], sort_keys=True, separators=(",", ":"))}
     if operation["phase"] == "install":
@@ -642,7 +743,7 @@ def validate(metadata, resources, *, allow_expired_parent=False, terminal=None):
          and metadata["worktree"] == app["root"] and metadata["owner"] == operation["owner"]
          and metadata["thread"] == operation["thread"]
          and metadata["parent_lease"] == operation.get("retained_authority", {}).get("lease", "")
-         and metadata["gate"] == "permanent-app-development", "operation lease identities changed")
+         and metadata["gate"] == operation_gate(operation), "operation lease identities changed")
     need(resources == expected_resources(operation, digest, registry_sha), "operation exclusive resource closure differs")
     parent = retained_parent(operation, common, require_live=not allow_expired_parent)
     if parent and "expires_at" in metadata and not allow_expired_parent:
@@ -1146,7 +1247,8 @@ def install_metadata_contract(operation, document, registered):
          and tool.get("transport") == "ssh-docker-exec"
          and tool.get("fallback") == "none"
          and db["environment"] in tool.get("environments", []), "install metadata scope differs")
-    client = registered["management_entry"]
+    client = (isolated_allocation(document, registered)["transport"] if "isolated_first_install" in operation
+              else registered["management_entry"])
     for key in ("ssh_command", "ssh_alias", "docker_command", "container_name", "mysql_command"):
         need(tool.get(key) == client[key], "install metadata transport differs from registered database")
     need(canonical(client["ssh_command"]).is_file()
@@ -1263,7 +1365,8 @@ def protect(operation, directory, value, lease_id):
     output.mkdir(mode=0o700)
     client = operation["backup_client"]
     need(set(client) == {"ssh", "ssh_alias", "docker", "container", "mysql", "mysqldump",
-                         "credential_path", "user"}, "native backup client closure differs")
+                         "credential_path", "user"} | ({"credential_sha256"} if "isolated_first_install" in operation else set()),
+         "native backup client closure differs")
     need(client["user"] == operation["database"]["principal"].split("@", 1)[0]
          and client["user"] != "root", "native backup requires the same ordinary principal")
     ref = Path(client["credential_path"])  # Registered remote path; never resolve it on this host.
@@ -1276,18 +1379,31 @@ def protect(operation, directory, value, lease_id):
     dump = [client["docker"], "exec", "--env", "MYSQL_PWD", client["container"], client["mysqldump"],
             "--user=" + client["user"], "--single-transaction", "--no-tablespaces", "--skip-triggers",
             "--set-gtid-purged=OFF", "--databases", operation["database"]["name"]]
-    script = ("set -euo pipefail\n"
-              "test -f " + shlex.quote(str(ref)) + "\n"
-              "test ! -L " + shlex.quote(str(ref)) + "\n"
-              "test \"$(/usr/bin/stat -f %Lp " + shlex.quote(str(ref)) + ")\" = 600\n"
-              "set -a\n. " + shlex.quote(str(ref)) + "\nset +a\n"
-              "test \"$DB_USER\" = " + shlex.quote(client["user"]) + "\n"
-              "MYSQL_PWD=\"$DB_PASS\"; export MYSQL_PWD\n"
-              + shlex.join(mysql) + "\n" + shlex.join(dump) + "\n")
-    raw = command(operation, directory, value, lease_id,
-                  [client["ssh"], "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
-                   "-o", "ConnectTimeout=5", client["ssh_alias"], "/bin/bash", "-s"],
-                  input_bytes=script.encode())
+    ssh = [client["ssh"], "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
+           "-o", "ConnectTimeout=5", client["ssh_alias"]]
+    queries = shlex.join(mysql) + "\n" + shlex.join(dump) + "\n"
+    if "isolated_first_install" in operation:
+        # This registered allocation credential lives on the controller only.
+        # The fixed remote shell reads one data line; the secret is never argv or a remote file.
+        raw_credential = regular(canonical(str(ref)), private=True)
+        need(sha(raw_credential) == client["credential_sha256"], "isolated allocation credential changed")
+        credentials = dict(line.split("=", 1) for line in raw_credential.decode().splitlines())
+        need(credentials.get("DB_USER") == client["user"] and credentials.get("DB_NAME") == operation["database"]["name"]
+             and re.fullmatch(r"[A-Za-z0-9_-]{32,128}", credentials.get("DB_PASS", "")),
+             "isolated backup ordinary credential differs")
+        remote = "set -eu\nIFS= read -r MYSQL_PWD\nexport MYSQL_PWD\n" + queries
+        argv = ssh + [shlex.join(["/bin/bash", "-c", remote])]
+        data = (credentials["DB_PASS"] + "\n").encode()
+    else:
+        script = ("set -euo pipefail\n"
+                  "test -f " + shlex.quote(str(ref)) + "\n"
+                  "test ! -L " + shlex.quote(str(ref)) + "\n"
+                  "test \"$(/usr/bin/stat -f %Lp " + shlex.quote(str(ref)) + ")\" = 600\n"
+                  "set -a\n. " + shlex.quote(str(ref)) + "\nset +a\n"
+                  "test \"$DB_USER\" = " + shlex.quote(client["user"]) + "\n"
+                  "MYSQL_PWD=\"$DB_PASS\"; export MYSQL_PWD\n" + queries)
+        argv, data = ssh + ["/bin/bash", "-s"], script.encode()
+    raw = command(operation, directory, value, lease_id, argv, input_bytes=data)
     identity, sql = raw.split(b"\n", 1)
     need(identity.decode() == "|".join(metadata[key] for key in
                                       ("server_uuid", "database", "version", "principal")),
@@ -1449,6 +1565,13 @@ def execute(lease_id, owner, phase, step=None):
         need(receipt_root.stat().st_uid == os.getuid()
              and stat.S_IMODE(receipt_root.stat().st_mode) == 0o700, "private operation receipt root required")
         need(operation["phase"] == phase, "closed application phase differs from registration")
+        if "isolated_first_install" in operation:
+            import socket
+            fixed = operation["isolated_first_install"]
+            need(sha(regular(canonical(fixed["archive_path"]))) == fixed["archive_sha256"],
+                 "isolated first-install archive bytes changed")
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as local:
+                local.bind(("127.0.0.1", fixed["port"]))
         if phase == "maintain":
             maintain(operation, directory, value, lease_id, step)
             save(directory / STATE, value)
