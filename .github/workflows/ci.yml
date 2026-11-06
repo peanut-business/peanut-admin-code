@@ -221,6 +221,21 @@ jobs:
           fi
           ./scripts/ci-server-check.sh "$mode" --env-file "$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
 
+      - name: Check installation permissions with the Linux application UID
+        shell: bash
+        run: |
+          uid_root=$(mktemp -d /tmp/peanut-uid-XXXXXX)
+          trap 'rm -rf -- "$uid_root"' EXIT
+          chmod 0755 "$uid_root"
+          mkdir -p "$uid_root/source"
+          files=(server/tests/Productization/InstallRuntimePermissionsLinuxTest.sh
+            server/tests/Support/InstallRuntimeConfigurationUid.php server/docker/scripts/prepare-install-permissions.sh
+            server/app/common/exception/installation/InstallationExecutionException.php
+            server/app/common/services/installation/InstallationConfigurationHost.php
+            server/app/common/value/installation/ApplicationSourceIdentity.php)
+          tar -cf - "${files[@]}" | tar -xf - -C "$uid_root/source"
+          sudo env PEANUT_TEST_PHP="$(command -v php)" sh "$uid_root/source/${files[0]}" "$uid_root"
+
       - name: Run broad server gates
         if: github.event_name == 'workflow_dispatch'
         run: ./scripts/ci-server-check.sh --broad --env-file "$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
