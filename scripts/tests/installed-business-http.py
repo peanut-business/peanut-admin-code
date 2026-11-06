@@ -102,6 +102,11 @@ class Session:
             event = {'case': label, 'method': 'GET', 'http_status': r.status, 'bytes': len(data)}
             self.events.append(event); print(json.dumps(event), flush=True)
             require(r.status in statuses and len(data) <= 5_000_000, 'DELIVERY_FAILED:' + label + ':' + str(r.status))
+            if r.status == 422:
+                require(r.getheader('Content-Type', '').split(';')[0] == 'application/json'
+                        and json.loads(data).get('data', {}).get('error_code') == 'STORAGE_DELIVERY_INPUT_INVALID',
+                        'UNEXPECTED_DELIVERY_REJECTION')
+                event['error_code'] = 'STORAGE_DELIVERY_INPUT_INVALID'
             return data
         finally:
             c.close()
@@ -116,7 +121,7 @@ class Session:
     def data(self, method, path, data=None, **kwargs):
         return self.request(method, path, data, **kwargs).get('data')
 
-def file_chain(admin: Session, beta: Session | None, marker: str, snapshot) -> dict:
+def file_chain(admin: Session, beta: Session | None, marker: str, snapshot, tenant_id: str) -> dict:
     png = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=')
     uploaded = admin.upload(png, marker)
     require(isinstance(uploaded, dict) and isinstance(uploaded.get('id'), int)
@@ -125,6 +130,15 @@ def file_chain(admin: Session, beta: Session | None, marker: str, snapshot) -> d
     key, file_id = uploaded['file_key'], uploaded['id']
     public_url = uploaded['url']
     require(admin.download(public_url, 'uploaded-original-bytes') == png, 'UPLOAD_BYTES')
+    query = urllib.parse.parse_qs(urllib.parse.urlsplit(public_url).query)
+    require(query.get('file_key') == [key] and query.get('tenant_id') == [tenant_id]
+            and len(query.get('token', [])) == 1, 'PUBLIC_GRANT_TARGET')
+    # The successful download verified this signed token. Bind its claims to the same URL and login.
+    encoded, signature = query['token'][0].split('.')
+    claims = json.loads(base64.urlsafe_b64decode(encoded + '=' * (-len(encoded) % 4)))
+    require(signature and claims['fk'] == key and str(claims['tid']) == tenant_id
+            and claims['vis'] == 'public' and claims['replay'] == 'bounded'
+            and type(claims['exp']) is int, 'PUBLIC_GRANT_IDENTITY')
     def listing(session, label):
         page = session.data('GET', '/adminapi/peanut.file.list?' + urllib.parse.urlencode(
             {'type': 10, 'name': marker, 'page_no': 1, 'page_size': 20}), label=label)
@@ -144,12 +158,14 @@ def file_chain(admin: Session, beta: Session | None, marker: str, snapshot) -> d
         require(snapshot(key) == before, 'FOREIGN_FILE_MUTATED')
     preview = admin.data('POST', '/adminapi/api/v1/files/visibility/preview',
                          {'file_keys': [key]}, label='private-visibility-preview')
+    require(admin.download(public_url, 'same-public-link-before-change') == png, 'PUBLIC_GRANT_REPLAY')
     converted = admin.data('POST', '/adminapi/api/v1/files/visibility/batches', {
         'confirmation': preview['confirmation'], 'signature': preview['signature'],
         'impact_confirmed': True,
     }, headers={'Idempotency-Key': 'http-private-' + marker}, label='private-visibility-submit')
     require(converted['status'] == 'completed', 'PRIVATE_CONVERSION_INCOMPLETE')
-    require(png not in admin.download(public_url, 'old-public-link-denied', statuses=(403, 404)), 'OLD_PUBLIC_BYTES_DISCLOSED')
+    require(png not in admin.download(public_url, 'old-public-link-denied', statuses=(403, 404, 422)), 'OLD_PUBLIC_BYTES_DISCLOSED')
+    require(time.time() < claims['exp'], 'PUBLIC_GRANT_EXPIRED_BEFORE_DENIAL')
     private = admin.data('POST', '/adminapi/api/v1/files/resolve',
                          {'file_key': key, 'operation': 'download_original'}, label='owner-private-resolve')
     require(admin.download(private['url'], 'owner-private-exact-bytes') == png, 'PRIVATE_BYTES')
@@ -408,7 +424,7 @@ return require $nativeRouter;
                               statuses=(401, 403), label='beta-token-on-alpha-denied')
                 admin.data('GET', '/adminapi/login/info', label='alpha-session-still-valid')
                 beta.data('GET', '/adminapi/login/info', label='beta-session-still-valid')
-            result['business'] = file_chain(admin, beta, marker, file_snapshot)
+            result['business'] = file_chain(admin, beta, marker, file_snapshot, identity['context']['tenant_id'])
             result['two_tenants_tested'] = beta is not None
             alpha_info = admin.data('GET', '/adminapi/login/info', label='context-owner-identity')
             invalid = admin.request('POST', '/adminapi/api/v1/files/resolve',
