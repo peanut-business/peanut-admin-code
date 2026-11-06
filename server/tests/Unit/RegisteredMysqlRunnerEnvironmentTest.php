@@ -15,7 +15,8 @@ final class RegisteredMysqlRunnerEnvironmentTest extends TestCase
     public function testSuiteRequiresPositiveEvidenceAndChecksEmptyStateAfterFailure(): void
     {
         $root = dirname(__DIR__, 3);
-        foreach (['passed' => 0, 'missing' => 1, 'skipped' => 1, 'dirty' => 9, 'failed-dirty' => 17] as $case => $expected) {
+        foreach (['passed' => 0, 'missing' => 1, 'skipped' => 1, 'dirty' => 9, 'failed-dirty' => 17,
+            'menu-passed' => 0, 'menu-zero' => 1, 'menu-prefixed' => 1, 'menu-trailing' => 1] as $case => $expected) {
             $process = proc_open([
                 $this->bashBinary(), '-c', <<<'BASH'
 source "$1"
@@ -30,6 +31,10 @@ run_php_with_backend_environment() {
   [[ " $* " == *' --fail-on-skipped '* ]] || return 41
   case "$case_name" in
     passed|dirty) echo 'integration-security mysql harness: PASS (40 checks)' ;;
+    menu-passed) echo '{"status":"passed","assertions":224,"scenarios":[{"scenario":"multi_tenant_fresh"},{"scenario":"module_lifecycle"}]}' ;;
+    menu-zero) echo '{"status":"passed","assertions":0,"scenarios":[{}]}' ;;
+    menu-prefixed) echo 'diagnostic: {"status":"passed","assertions":224,"scenarios":[{}]}' ;;
+    menu-trailing) echo '{"status":"passed","assertions":224,"scenarios":[{}]} trailing' ;;
     missing) echo 'ThinkPHP handled an exception without a successful assertion marker' ;;
     skipped) echo 'Tests: 1, Assertions: 0, Skipped: 1'; return 1 ;;
     failed-dirty) echo 'actual child failure'; return 17 ;;
@@ -40,7 +45,9 @@ preflight() {
   case "$case_name" in dirty|failed-dirty) return 9 ;; esac
   return 0
 }
-if run_suite server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest.php; then result=0; else result=$?; fi
+target=server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest.php
+if [[ "$case_name" == menu-* ]]; then target=server/tests/Productization/MenuGroupingTest.php; fi
+if run_suite "$target"; then result=0; else result=$?; fi
 exit "$result"
 BASH,
                 'mysql-runner-evidence-fixture', $root . '/scripts/tests/run-registered-mysql-tests', $case, PHP_BINARY,

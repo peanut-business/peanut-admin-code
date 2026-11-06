@@ -59,10 +59,28 @@ if ($hashes['fixed'] !== $snapshot['packagesContentSha256'] || $hashes['actual']
 file_put_contents('/opt/peanut/apt-input-identity.json', json_encode(['inReleaseSha256' => $snapshot['inReleaseSha256'],
     'packagesContentSha256' => $hashes['actual'], 'directPackages' => $snapshot['packages']], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . "\n");
 PHP
-xargs -a /tmp/package-spec apt-get install -y --no-install-recommends
+# Keep the signed snapshot as the solver input. The Debian pool can supply the
+# same pinned bytes if the snapshot CDN times out serving individual archives.
+xargs -a /tmp/package-spec apt-get --print-uris install -y --no-install-recommends > /tmp/selected-archives
+php <<'PHP'
+<?php
+$packages = array_column(json_decode(file_get_contents('/opt/peanut/inputs.json'), true)['snapshot']['packages'], null, 'Filename');
+foreach (file('/tmp/selected-archives', FILE_IGNORE_NEW_LINES) as $line) {
+    if (!preg_match("~^'[^']*/(pool/[^']+)' ([^/ ]+\\.deb) ~", $line, $match)) continue;
+    $record = $packages[rawurldecode($match[1])] ?? null;
+    if ($record === null) continue;
+    $path = '/var/cache/apt/archives/' . $match[2];
+    $url = 'https://deb.debian.org/debian/' . $record['Filename'];
+    $data = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => 15]]));
+    if ($data === false) continue; // apt will use the original snapshot.
+    if (!hash_equals($record['SHA256'], hash('sha256', $data))) throw new RuntimeException('APT_POOL_ARCHIVE_DIGEST_DIFFERS');
+    if (file_put_contents($path, $data) !== strlen($data)) throw new RuntimeException('APT_POOL_ARCHIVE_WRITE_FAILED');
+}
+PHP
+xargs -a /tmp/package-spec apt-get -o Acquire::Retries=2 install -y --no-install-recommends
 docker-php-ext-install -j2 pdo_mysql zip
 ldconfig
-rm -rf /var/lib/apt/lists/* /tmp/package-spec /tmp/packages.xz /tmp/inRelease
+rm -rf /var/lib/apt/lists/* /tmp/package-spec /tmp/selected-archives /tmp/packages.xz /tmp/inRelease
 SH
 
 RUN python3 - <<'PY'

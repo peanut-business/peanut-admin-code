@@ -202,11 +202,13 @@ jobs:
           PEANUT_SERVER_ENV_FILE: ${{ github.workspace }}/server/.env.ci-${{ github.run_id }}
         run: composer install --no-interaction --no-progress --prefer-dist
 
-      - name: Install locked API generator dependencies
+      - name: Install locked UniApp generator dependencies
+        working-directory: uniapp
+        run: npm ci --ignore-scripts
+
+      - name: Install locked Web API generator dependencies
         working-directory: web
-        env:
-          HUSKY: '0'
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts --package-import-method=copy
 
       - name: Run daily server gates
         if: github.event_name != 'workflow_dispatch'

@@ -96,7 +96,7 @@ suite_success_pattern() {
     */TenantXlsxExportIsolationTest.php) printf '%s\n' 'MT03-TENANT-XLSX-EXPORT-001 passed' ;;
     */AdminRbacCrudTest.php) printf '%s\n' 'PB04-AUTH-CRUD-001 current IAM CRUD and rejection contracts passed' ;;
     */ConsumerModuleMemberRuntimeTest.php) printf '%s\n' 'CONSUMER-MEMBER-RUNTIME-001 passed \(7 checks\)' ;;
-    */MenuGroupingTest.php) printf '%s\n' '"status":"passed","assertions":[1-9][0-9]*' ;;
+    */MenuGroupingTest.php) printf '%s\n' '[{]"status":"passed","assertions":[1-9][0-9]*,"scenarios":\[.+\][}]$' ;;
     */ModuleCatalogApplierTest.php) printf '%s\n' 'MODULE-CATALOG-APPLIER-B-001 passed' ;;
     */ModuleInstallationMigrationMySqlTest.php) printf '%s\n' 'MODULE-INSTALLATION-MYSQL assertions=[1-9][0-9]*' ;;
     *) printf '%s\n' 'OK \([1-9][0-9]* tests?, [1-9][0-9]* assertions?\)' ;;
