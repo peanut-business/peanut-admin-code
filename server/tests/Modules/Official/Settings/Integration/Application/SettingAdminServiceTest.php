@@ -397,6 +397,7 @@ SQL);
                 ];
 
                 try {
+                    self::assertNotSame($workers[0]['connection_id'], $workers[1]['connection_id']);
                     foreach ($workers as $worker) {
                         self::assertSame(3, fwrite($worker['pipes'][0], "go\n"));
                         fflush($worker['pipes'][0]);
@@ -735,7 +736,7 @@ $pdo = new \PDO(
     env('DB_PASS'),
 );
 RegisteredMysqlTestResource::assertSelectedDatabase($pdo, RegisteredMysqlTestResource::configuredDatabaseName());
-$connection = \ThinkPhpTestConnection::fromPdo($pdo);
+\ThinkPhpTestConnection::fromPdo($pdo);
 $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
 $pdo->setAttribute(\PDO::ATTR_DEFAULT_FETCH_MODE, \PDO::FETCH_ASSOC);
 $definition = unserialize(
@@ -748,40 +749,39 @@ if (!$definition instanceof SettingDefinition) {
 $pdo->exec('SET SESSION innodb_lock_wait_timeout = 5');
 $isolation = $pdo->query('SELECT @@transaction_isolation')->fetchColumn();
 $connectionId = $pdo->query('SELECT CONNECTION_ID()')->fetchColumn();
-// Keep both missing-key gap locks across the barrier and the service's nested transaction.
-$connection->startTrans();
 $definitionId = $pdo->prepare(<<<'SQL'
 SELECT id FROM pa_setting_definition
 WHERE module_key = :module_key AND setting_key = :setting_key AND status = 'active'
-FOR SHARE
 SQL);
 $definitionId->execute([
     'module_key' => $definition->moduleKey,
     'setting_key' => $definition->key,
 ]);
-$definitionRow = $definitionId->fetch();
-if (!is_array($definitionRow)) {
+$id = $definitionId->fetchColumn();
+if ($id === false) {
     throw new \RuntimeException('The setting definition is unavailable to the race worker.');
 }
-$gap = $pdo->prepare(<<<'SQL'
-SELECT id FROM pa_setting_deployment_value
-WHERE definition_id = :definition_id
-FOR UPDATE
-SQL);
-$gap->execute(['definition_id' => (int) $definitionRow['id']]);
-if ($gap->fetch() !== false) {
+$value = (new \PeanutAdmin\Modules\Settings\Model\DeploymentSettingValue())->db()->where('definition_id', (int) $id);
+if ((clone $value)->find() !== null) {
     throw new \RuntimeException('The race worker expected an empty settings value key.');
 }
-fwrite(STDOUT, json_encode([
-    'kind' => 'ready',
-    'connection_id' => (int) $connectionId,
-    'isolation' => (string) $isolation,
-    'in_transaction' => $pdo->inTransaction(),
-], JSON_THROW_ON_ERROR) . "\n");
-fflush(STDOUT);
-if (fgets(STDIN) !== "go\n") {
-    throw new \RuntimeException('The competition barrier was not released.');
-}
+$lockingRead = trim($value->lock(true)->fetchSql()->find());
+// ThinkPHP calls SQL listeners after PDO execute, while the service holds the gap lock.
+\think\facade\Db::listen(static function (string $sql) use ($lockingRead, $connectionId, $isolation, $pdo): void {
+    if (trim($sql) !== $lockingRead) {
+        return;
+    }
+    fwrite(STDOUT, json_encode([
+        'kind' => 'ready',
+        'connection_id' => (int) $connectionId,
+        'isolation' => (string) $isolation,
+        'in_transaction' => $pdo->inTransaction(),
+    ], JSON_THROW_ON_ERROR) . "\n");
+    fflush(STDOUT);
+    if (fgets(STDIN) !== "go\n") {
+        throw new \RuntimeException('The competition barrier was not released.');
+    }
+});
 
 try {
     $protector = new class implements SecretProtector {
@@ -821,7 +821,6 @@ try {
         null,
         '*',
     );
-    $connection->commit();
     $outcome = ['kind' => 'ok'];
 } catch (SettingException $exception) {
     $outcome = [
@@ -839,10 +838,6 @@ try {
     if ($exception instanceof \PDOException) {
         $outcome['pdo_sqlstate'] = $exception->errorInfo[0] ?? null;
         $outcome['pdo_driver_code'] = $exception->errorInfo[1] ?? null;
-    }
-} finally {
-    if ($pdo->inTransaction()) {
-        $connection->rollback();
     }
 }
 fwrite(STDOUT, json_encode($outcome, JSON_THROW_ON_ERROR) . "\n");
