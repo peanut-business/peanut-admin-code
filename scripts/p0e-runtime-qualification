@@ -30,7 +30,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 TOOL_ROOT = ROOT
 TOOL_FILES = ("scripts/p0e-runtime-qualification", "scripts/consumer-module-reference-chain", "scripts/p0e-browser-smoke", ".github/workflows/scaffold-release.yml",
-    "server/fixtures/module-lifecycle/run.php", "server/tests/Productization/ModuleLifecycleMySqlTest.php",
+    "server/tests/fixtures/p0e-runtime-qualification/browser-smoke.js", "server/fixtures/module-lifecycle/run.php", "server/tests/Productization/ModuleLifecycleMySqlTest.php",
     "server/tests/Productization/ModuleFailureRecoveryMySqlTest.php", "server/tests/Productization/ModuleRuntimeGovernanceTest.php", "scripts/tests/p0e_template_stage_test.py")
 TOOL_BINDING: dict[str, Any] | None = None
 FIXTURE_PATH = ROOT / "server/tests/fixtures/p0e-runtime-qualification/matrix.json"

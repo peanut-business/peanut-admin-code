@@ -1374,5 +1374,40 @@ class NativeIdentityDeliveryTest(unittest.TestCase):
             issue.assert_not_called()
 
 
+
+class BrowserCredentialContractTest(unittest.TestCase):
+    def test_baseline_shell_requires_only_edition_credentials(self):
+        source = (SCRIPT.parent / "p0e-browser-smoke").read_text()
+        selection = source[source.index("required_values=("):source.index('  [[ "$QUALIFICATION_PLAN"')]
+        expected = {
+            "standalone": ["P0E_ADMIN_INITIAL_EMAIL", "P0E_ADMIN_INITIAL_PASSWORD",
+                           "P0E_TENANT_RESTRICTED_EMAIL", "P0E_TENANT_RESTRICTED_PASSWORD"],
+            "multi-tenant": ["P0E_ADMIN_INITIAL_EMAIL", "P0E_ADMIN_INITIAL_PASSWORD",
+                             "P0E_PLATFORM_INITIAL_EMAIL", "P0E_PLATFORM_INITIAL_PASSWORD",
+                             "P0E_TENANT_RESTRICTED_EMAIL", "P0E_TENANT_RESTRICTED_PASSWORD",
+                             "P0E_TENANT_BETA_EMAIL", "P0E_TENANT_BETA_PASSWORD"],
+        }
+        for mode, names in expected.items():
+            with self.subTest(mode=mode):
+                script = ('local_url() { :; }\nPROFILE=baseline\nMODE=' + mode + '\n'
+                          + selection + '\nfi\nprintf "%s\\n" "$' + '{required_values[@]}"')
+                result = subprocess.run(["bash", "-c", script], text=True, capture_output=True, check=True)
+                self.assertEqual(result.stdout.splitlines(), names)
+
+    def test_baseline_javascript_reads_platform_credentials_only_for_multi_tenant(self):
+        source = (SCRIPT.parent.parent / "server/tests/fixtures/p0e-runtime-qualification/browser-smoke.js").read_text()
+        declarations = "\n".join(line.strip() for line in source.splitlines()
+                                 if line.strip().startswith(("const platformEmail =", "const platformPassword =")))
+        for line in declarations.splitlines():
+            for mode in ("standalone", "multi-tenant"):
+                with self.subTest(mode=mode, declaration=line):
+                    script = ("const mode = " + json.dumps(mode) + "; let calls = []; "
+                              "const required = (name) => { calls.push(name); return name; }; "
+                              + line + " console.log(JSON.stringify(calls));")
+                    result = subprocess.run(["node", "-e", script],
+                                            text=True, capture_output=True, check=True)
+                    calls = json.loads(result.stdout)
+                    self.assertEqual(len(calls), 0 if mode == "standalone" else 1)
+
 if __name__ == "__main__":
     unittest.main()

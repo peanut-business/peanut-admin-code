@@ -67,7 +67,10 @@ fi
 [[ -x "$PLAYWRIGHT_CLI" ]] || die '--playwright-cli must name an executable Playwright CLI wrapper'
 [[ "$ENV_FILE" == /* && -f "$ENV_FILE" && ! -L "$ENV_FILE" ]] || die '--env-file must name an absolute regular file'
 [[ "$(stat -f '%Lp' "$ENV_FILE" 2>/dev/null || stat -c '%a' "$ENV_FILE")" == 600 ]] || die '--env-file must have mode 0600'
-required_values=(P0E_ADMIN_INITIAL_EMAIL P0E_ADMIN_INITIAL_PASSWORD P0E_PLATFORM_INITIAL_EMAIL P0E_PLATFORM_INITIAL_PASSWORD)
+required_values=(P0E_ADMIN_INITIAL_EMAIL P0E_ADMIN_INITIAL_PASSWORD)
+if [[ "$MODE" == multi-tenant ]]; then
+  required_values+=(P0E_PLATFORM_INITIAL_EMAIL P0E_PLATFORM_INITIAL_PASSWORD)
+fi
 if [[ "$PROFILE" == baseline ]]; then
   required_values+=(P0E_TENANT_RESTRICTED_EMAIL P0E_TENANT_RESTRICTED_PASSWORD)
   if [[ "$MODE" == multi-tenant ]]; then
