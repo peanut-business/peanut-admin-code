@@ -1114,6 +1114,33 @@ def generated_state(root: Path) -> dict[str, Any]:
     return {"api_inputs": inputs, "inputs_and_producers": producers, "outputs": outputs}
 
 
+def paired_recovery_verifier() -> tuple[dict[str, Any], str]:
+    """Load the original verifier for historical paired receipts, without running its CLI."""
+    revision = "d485f9e5542df1f9b3d1e5e7442999f35c9217f7"
+    relative = "server/docker/scripts/update-recovery.py"
+    expected = "2666c9586656b2bf68ff513db887fe5f600b01448cb4c78675d7957247e2b7b4"
+    producer = TOOL_ROOT / relative
+    if producer.exists() or producer.is_symlink():
+        raw = canonical(str(producer)).read_bytes()
+    else:
+        result = subprocess.run(["git", "--no-replace-objects", "-C", str(TOOL_ROOT), "show", revision + ":" + relative],
+                                capture_output=True, timeout=10)
+        if result.returncode == 0:
+            raw = result.stdout
+        else:
+            url = f"https://raw.githubusercontent.com/peanut-business/peanut-admin-code/{revision}/{relative}"
+            try:
+                with urllib.request.urlopen(url, timeout=12) as response:
+                    raw = response.read(256 * 1024 + 1)
+            except OSError as error:
+                raise NotRun("recovery: original in-place paired verifier unavailable from the tool checkout, Git history and pinned upstream") from error
+    if hashlib.sha256(raw).hexdigest() != expected:
+        fail("original paired recovery verifier digest differs")
+    native = {"__name__": "peanut_paired_receipt_verifier", "__file__": str(producer)}
+    exec(compile(raw, relative, "exec"), native)
+    return native, expected
+
+
 def native_evidence(reference: dict[str, Any], app: dict[str, Any], kind: str,
                     final_build: dict[str, Any] | None = None) -> dict[str, Any]:
     """Read the native producer's own state, never an operator-written PASS envelope."""
@@ -1262,7 +1289,7 @@ def native_evidence(reference: dict[str, Any], app: dict[str, Any], kind: str,
     if kind != "recovery" or path.name != "database-recovery.json":
         fail("recovery reference must be the original native database-recovery.json")
     workspace = path.parent
-    native = runpy.run_path(str(TOOL_ROOT / "server/docker/scripts/update-recovery.py"))
+    native, producer_digest = paired_recovery_verifier()
     native["check_signature"](server, path)
     native["check_backup_signature"](server, workspace)
     backup = read_json(workspace / "backup.json")
@@ -1295,7 +1322,7 @@ def native_evidence(reference: dict[str, Any], app: dict[str, Any], kind: str,
         elif native["storage_inventory"](target) != entry["inventory"]:
             fail("protected uploads/storage differs from the native recovery point")
     return {"path": str(path), "sha256": sha256(path), "backup_sha256": state["backup_sha256"],
-            "native_producer_sha256": sha256(TOOL_ROOT / "server/docker/scripts/update-recovery.py")}
+            "native_producer_sha256": producer_digest}
 
 
 class Runner:

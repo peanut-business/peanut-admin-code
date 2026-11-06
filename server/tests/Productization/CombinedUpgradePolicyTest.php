@@ -19,10 +19,10 @@ function combinedPolicyExpect(bool $condition, string $message): void
 }
 
 /** @return array{exit:int,output:string} */
-function combinedPolicyRun(string $runner, string $fixture): array
+function combinedPolicyCommand(array $arguments): array
 {
     $pipes = [];
-    $process = proc_open([$runner, '--validate-policy', $fixture], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+    $process = proc_open($arguments, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
     if (!is_resource($process)) {
         throw new RuntimeException('unable to execute policy validator');
     }
@@ -32,31 +32,49 @@ function combinedPolicyRun(string $runner, string $fixture): array
     return ['exit' => proc_close($process), 'output' => $output];
 }
 
+function combinedPolicyRun(string $runner, string $fixture): array
+{
+    return combinedPolicyCommand([$runner, '--validate-policy', $fixture]);
+}
+
 function combinedPolicyWrite(string $path, array $fixture): void
 {
     file_put_contents($path, json_encode($fixture, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
 }
 
 try {
-    $workflow = (string) file_get_contents($root . '/.github/workflows/core-upgrade-compatibility.yml');
-    foreach ([
-        "'server/composer.json'",
-        "'server/composer.lock'",
-        "'web/package.json'",
-        "'web/pnpm-lock.yaml'",
-        "'pc/package.json'",
-        "'pc/package-lock.json'",
-        "'uniapp/package.json'",
-        "'uniapp/package-lock.json'",
-        "'scaffold/releases/*/scaffold-manifest.json'",
-        "'scripts/combined-upgrade-qualification'",
-        "'server/tests/Productization/CombinedUpgradePolicyTest.php'",
-        "'server/tests/fixtures/core-upgrade-compatibility/**'",
-    ] as $requiredTrigger) {
-        combinedPolicyExpect(
-            str_contains($workflow, $requiredTrigger),
-            'combined compatibility workflow trigger is missing: ' . $requiredTrigger,
-        );
+    $paths = ['server/composer.json' => 'server', 'server/composer.lock' => 'server',
+        'web/package.json' => 'web', 'web/pnpm-lock.yaml' => 'web', 'pc/package.json' => 'pc',
+        'pc/package-lock.json' => 'pc', 'uniapp/package.json' => 'uniapp', 'uniapp/package-lock.json' => 'uniapp',
+        'scripts/combined-upgrade-qualification' => 'integration', 'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php' => 'integration',
+        'server/tests/Productization/CombinedUpgradePolicyTest.php' => 'server',
+        'server/tests/fixtures/core-upgrade-compatibility/combined-upgrade.json' => 'server'];
+    foreach ($paths as $path => $group) {
+        file_put_contents($temporary . '/changed-path', $path . "\n");
+        $result = combinedPolicyCommand([$root . '/scripts/ci-change-classifier', '--paths-file=' . $temporary . '/changed-path']);
+        combinedPolicyExpect($result['exit'] === 0 && in_array($group . '=true', explode("\n", $result['output']), true),
+            'current CI selector missed ' . $path);
+    }
+
+    // The policy describes the immutable 1.x chain. Only its manifests belong in this isolated consumer.
+    $checkout = $temporary . '/policy';
+    $clone = combinedPolicyCommand(['git', 'clone', '--quiet', '--shared', '--no-checkout', $root, $checkout]);
+    combinedPolicyExpect($clone['exit'] === 0, $clone['output']);
+    $runner = $checkout . '/scripts/combined-upgrade-qualification';
+    mkdir(dirname($runner), 0700, true);
+    copy($root . '/scripts/combined-upgrade-qualification', $runner);
+    chmod($runner, 0755);
+    foreach (array_merge($fixture['php_probes'], ['server/tests/fixtures/core-upgrade-compatibility/manual-action.txt']) as $file) {
+        if (!is_dir(dirname($checkout . '/' . $file))) { mkdir(dirname($checkout . '/' . $file), 0700, true); }
+        copy($root . '/' . $file, $checkout . '/' . $file);
+    }
+    foreach ($fixture['release_chain'] as $release) {
+        $file = 'scaffold/releases/v' . $release['version'] . '/scaffold-manifest.json';
+        $manifest = combinedPolicyCommand(['git', '-C', $root, 'show', '0075e3ed8dc5e71834335af54eca25761236e9df:' . $file]);
+        combinedPolicyExpect($manifest['exit'] === 0 && hash('sha256', $manifest['output']) === $release['manifest_sha256'],
+            'historical release manifest identity is unavailable: ' . $file);
+        mkdir(dirname($checkout . '/' . $file), 0700, true);
+        file_put_contents($checkout . '/' . $file, $manifest['output']);
     }
 
     $valid = combinedPolicyRun($runner, $fixturePath);
@@ -100,8 +118,10 @@ try {
     $machineReadableResult = combinedPolicyRun($runner, $machineReadablePath);
     combinedPolicyExpect($machineReadableResult['exit'] === 0, 'machine-readable breaking action must be accepted');
 } finally {
-    foreach (glob($temporary . '/*') ?: [] as $path) {
-        unlink($path);
+    $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($temporary, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST);
+    foreach ($files as $file) {
+        $file->isDir() && !$file->isLink() ? rmdir($file->getPathname()) : unlink($file->getPathname());
     }
     rmdir($temporary);
 }

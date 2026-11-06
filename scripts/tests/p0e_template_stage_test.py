@@ -619,6 +619,15 @@ class FixedRuntimeContractTest(unittest.TestCase):
             "selection_scope": "full", "runtime_admissions": [{"lease": "external-app"}]}
         self.runner = stage.Runner(self.args, self.plan)
 
+    def test_recovery_without_original_in_place_verifier_is_not_qualified(self):
+        receipt = self.root / "database-recovery.json"
+        receipt.write_text(json.dumps({"status": "completed"}))
+        ref = {"path": str(receipt), "sha256": stage.sha256(receipt)}
+        with patch.object(stage, "TOOL_ROOT", self.root), patch.object(stage.subprocess, "run", return_value=subprocess.CompletedProcess([], 1)), \
+             patch.object(stage.urllib.request, "urlopen", side_effect=OSError("offline")), self.assertRaisesRegex(stage.NotRun, "in-place paired"):
+            stage.native_evidence(ref, {"root": str(self.root)}, "recovery")
+        self.assertEqual(stage.sha256(receipt), ref["sha256"])
+
     def test_consumer_cli_binds_both_permanent_apps_and_all_result_gates(self):
         parse = runpy.run_path(str(stage.CONSUMER_MODULE_CHAIN))["parse_arguments"]
         gates = ("check_v1_v2", "canonical_pack_v1_v2", "install_update", "tenant_package_rbac_separation",

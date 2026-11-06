@@ -63,13 +63,6 @@ function scaffold2xTreeDigest(string $root): string
 }
 
 $root = dirname(__DIR__, 3);
-$fromManifestPath = $root . '/scaffold/releases/v2.0.0/scaffold-manifest.json';
-$toManifestPath = $root . '/scaffold/releases/v2.0.1/scaffold-manifest.json';
-$fromManifest = json_decode((string) file_get_contents($fromManifestPath), true, 512, JSON_THROW_ON_ERROR);
-$toManifest = json_decode((string) file_get_contents($toManifestPath), true, 512, JSON_THROW_ON_ERROR);
-scaffold2xExpect(($fromManifest['release']['version'] ?? null) === '2.0.0', '2.0.0 release manifest is unavailable');
-scaffold2xExpect(($toManifest['release']['version'] ?? null) === '2.0.1', '2.0.1 release manifest is unavailable');
-
 $temporaryRoot = realpath(sys_get_temp_dir());
 scaffold2xExpect(is_string($temporaryRoot), 'temporary root must resolve to a real path');
 $temporary = $temporaryRoot . '/peanut-scaffold-2x-' . bin2hex(random_bytes(8));
@@ -78,7 +71,21 @@ $application = $temporary . '/application';
 mkdir($temporary, 0700, true);
 
 try {
-    scaffold2xRun(['git', 'clone', '--quiet', '--no-local', '--no-checkout', $root, $source]);
+    // The official historical manifests are frozen Git objects, not files in the current template.
+    scaffold2xRun(['git', 'clone', '--quiet', '--shared', '--no-checkout', $root, $source]);
+    foreach (['2.0.0' => 'ec4ac732a498afe5e02eafb4a4855ec1f52aa68d',
+              '2.0.1' => '1c8aff4f1f19069bfe4480a8b29d59414d5c6816'] as $version => $revision) {
+        $relative = 'scaffold/releases/v' . $version;
+        $archive = $temporary . '/' . $version . '.tar';
+        scaffold2xRun(['git', '-C', $source, 'archive', '--output=' . $archive, $revision, $relative]);
+        scaffold2xRun(['tar', '-xf', $archive, '-C', $temporary]);
+        $manifests[$version] = $temporary . '/' . $relative . '/scaffold-manifest.json';
+    }
+    $fromManifestPath = $manifests['2.0.0'];
+    $toManifestPath = $manifests['2.0.1'];
+    $fromManifest = json_decode((string)file_get_contents($fromManifestPath), true, 512, JSON_THROW_ON_ERROR);
+    $toManifest = json_decode((string)file_get_contents($toManifestPath), true, 512, JSON_THROW_ON_ERROR);
+    scaffold2xExpect($fromManifest['release']['version'] === '2.0.0' && $toManifest['release']['version'] === '2.0.1', 'wrong immutable 2.x release pair');
     scaffold2xRun(
         ['git', 'checkout', '--quiet', '--detach', (string) $fromManifest['release']['source_commit']],
         $source,
@@ -115,9 +122,19 @@ PHP;
     $appOwnedDigest = hash_file('sha256', $appOwnedPath);
     $before = scaffold2xTreeDigest($application);
 
+    // These original 2.x APPs predate release-versions.json. The current tool must refuse them without writing an invented authority.
+    try {
+        scaffold2xRun([PHP_BINARY, $root . '/scripts/scaffold-upgrade', 'preflight', '--project-root=' . $application,
+            '--from-manifest=' . $fromManifestPath, '--to-manifest=' . $toManifestPath]);
+        throw new RuntimeException('current upgrade accepted missing release authority');
+    } catch (RuntimeException $error) {
+        scaffold2xExpect(str_contains($error->getMessage(), 'SCAFFOLD_VERSION_CONTRACT_INVALID'), $error->getMessage());
+    }
+    scaffold2xExpect(hash_equals($before, scaffold2xTreeDigest($application)), 'current refusal wrote to the historical APP');
+    scaffold2xRun(['git', 'checkout', '--quiet', '--detach', '1c8aff4f1f19069bfe4480a8b29d59414d5c6816'], $source);
     $preflight = json_decode(scaffold2xRun([
         PHP_BINARY,
-        $root . '/scripts/scaffold-upgrade',
+        $source . '/scripts/scaffold-upgrade',
         'preflight',
         '--project-root=' . $application,
         '--from-manifest=' . $fromManifestPath,
@@ -140,14 +157,14 @@ PHP;
     $planPath = $application . '/' . $preflight['plan_path'];
     $apply = json_decode(scaffold2xRun([
         PHP_BINARY,
-        $root . '/scripts/scaffold-upgrade',
+        $source . '/scripts/scaffold-upgrade',
         'apply',
         '--project-root=' . $application,
         '--plan=' . $planPath,
     ]), true, 512, JSON_THROW_ON_ERROR);
     $verify = json_decode(scaffold2xRun([
         PHP_BINARY,
-        $root . '/scripts/scaffold-upgrade',
+        $source . '/scripts/scaffold-upgrade',
         'verify',
         '--project-root=' . $application,
         '--plan=' . $planPath,
@@ -175,7 +192,7 @@ PHP;
 
     $recover = json_decode(scaffold2xRun([
         PHP_BINARY,
-        $root . '/scripts/scaffold-upgrade',
+        $source . '/scripts/scaffold-upgrade',
         'recover',
         '--project-root=' . $application,
         '--plan=' . $planPath,
@@ -188,4 +205,4 @@ PHP;
     scaffold2xDelete($temporary);
 }
 
-echo "SCAFFOLD-2X-UPGRADE-QUALIFICATION-001 passed\n";
+echo "SCAFFOLD-2X-UPGRADE-QUALIFICATION-001 passed: original 2.x source apply/verify/recover and current missing-authority refusal\n";
