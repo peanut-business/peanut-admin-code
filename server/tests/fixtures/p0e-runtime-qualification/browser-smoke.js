@@ -400,7 +400,7 @@ if (profile === 'baseline') {
     if (!administrators.some((item) => item.account === restrictedEmail)) {
       assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/admin/add', {
         data: { account: restrictedEmail, name: restrictedName, password: restrictedPassword, password_confirm: restrictedPassword,
-          avatar: '', dept_id: [], jobs_id: [], role_id: [role.id], disable: 0, multipoint_login: 1 },
+          dept_id: [], jobs_id: [], role_id: [role.id], disable: 0, multipoint_login: 1 },
       }), 'create restricted administrator');
       administrators = listItems(assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/admin/lists', {
         query: { account: restrictedEmail, page_no: 1, page_size: 20 },
