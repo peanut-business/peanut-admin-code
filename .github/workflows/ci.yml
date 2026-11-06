@@ -248,7 +248,10 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         env:
           PEANUT_TEST_PRODUCER_STATE: ${{ runner.temp }}/ci-producer
-        run: ./scripts/ci-server-check.sh --broad --env-file "$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
+          TMPDIR: ${{ github.workspace }}/.local/tmp/server-gate-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          mkdir -p -m 0700 "$TMPDIR"
+          ./scripts/ci-server-check.sh --broad --env-file "$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
 
       - name: Remove isolated backend environment
         if: always()
