@@ -667,6 +667,7 @@ SQL);
         self::assertIsArray($ready);
         self::assertSame('ready', $ready['kind'] ?? null);
         self::assertSame('REPEATABLE-READ', $ready['isolation'] ?? null);
+        self::assertTrue($ready['in_transaction'] ?? false);
         $connectionId = filter_var($ready['connection_id'] ?? null, FILTER_VALIDATE_INT);
         if (!is_int($connectionId) || $connectionId < 1) {
             self::fail('Competition worker returned an invalid connection ID.');
@@ -747,6 +748,8 @@ if (!$definition instanceof SettingDefinition) {
 $pdo->exec('SET SESSION innodb_lock_wait_timeout = 5');
 $isolation = $pdo->query('SELECT @@transaction_isolation')->fetchColumn();
 $connectionId = $pdo->query('SELECT CONNECTION_ID()')->fetchColumn();
+// Keep both missing-key gap locks across the barrier and the service's nested transaction.
+$connection->startTrans();
 $definitionId = $pdo->prepare(<<<'SQL'
 SELECT id FROM pa_setting_definition
 WHERE module_key = :module_key AND setting_key = :setting_key AND status = 'active'
@@ -773,6 +776,7 @@ fwrite(STDOUT, json_encode([
     'kind' => 'ready',
     'connection_id' => (int) $connectionId,
     'isolation' => (string) $isolation,
+    'in_transaction' => $pdo->inTransaction(),
 ], JSON_THROW_ON_ERROR) . "\n");
 fflush(STDOUT);
 if (fgets(STDIN) !== "go\n") {
@@ -817,6 +821,7 @@ try {
         null,
         '*',
     );
+    $connection->commit();
     $outcome = ['kind' => 'ok'];
 } catch (SettingException $exception) {
     $outcome = [
@@ -834,6 +839,10 @@ try {
     if ($exception instanceof \PDOException) {
         $outcome['pdo_sqlstate'] = $exception->errorInfo[0] ?? null;
         $outcome['pdo_driver_code'] = $exception->errorInfo[1] ?? null;
+    }
+} finally {
+    if ($pdo->inTransaction()) {
+        $connection->rollback();
     }
 }
 fwrite(STDOUT, json_encode($outcome, JSON_THROW_ON_ERROR) . "\n");
