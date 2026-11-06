@@ -18,7 +18,7 @@ $decorationEnum = (string) file_get_contents(
     $serverRoot . '/app/common/enum/decoration/DecorationEnum.php',
 );
 $decorationSchema = (string) file_get_contents(
-    $serverRoot . '/app/common/service/decoration/DecorationSchemaService.php',
+    $serverRoot . '/app/common/services/decoration/DecorationSchemaService.php',
 );
 expectLegacyDecorationConvergence(
     str_contains($decorationEnum, 'public const MOBILE_CUSTOMER_SERVICE = 3')
@@ -77,32 +77,13 @@ expectLegacyDecorationConvergence(
     'legacy setting page remains mounted',
 );
 
-$menuMigration = (string) file_get_contents(
-    $serverRoot . '/database/init.sql',
-);
-foreach ([
-    '/app-setting/decorate',
-    '/app-setting/customer-service',
-    'setting/decorate/config',
-    'setting/decorate/save',
-    'setting/customer-service/config',
-    'setting/customer-service/save',
-] as $retiredMenuKey) {
-    expectLegacyDecorationConvergence(str_contains($menuMigration, $retiredMenuKey), 'menu retirement is missing: ' . $retiredMenuKey);
+$menuSource = json_decode(file_get_contents($serverRoot . '/app/modules/peanut/settings/resources/menus.json'), true, 512, JSON_THROW_ON_ERROR);
+$menus = array_values(array_filter($menuSource, static fn(array $row): bool => $row['route_path'] === '/decoration/mobile'));
+expectLegacyDecorationConvergence(count($menus) === 1 && $menus[0]['required_permission'] === 'peanut.settings.read'
+    && $menus[0]['name'] === '移动端装修', 'the mobile editor must have a single permission-bound menu entry');
+foreach (['/app-setting/decorate', '/app-setting/customer-service'] as $retiredPath) {
+    expectLegacyDecorationConvergence(!in_array($retiredPath, array_column($menuSource, 'route_path'), true), 'legacy settings menu is still offered');
 }
-expectLegacyDecorationConvergence(
-    str_contains($menuMigration, 'DELETE FROM `pa_system_role_menu`')
-        && str_contains($menuMigration, 'DELETE FROM `pa_system_menu`'),
-    'menu retirement does not remove role grants before menu nodes',
-);
-$decorationMenu = (string) file_get_contents(
-    $serverRoot . '/database/init.sql',
-);
-expectLegacyDecorationConvergence(
-    substr_count($decorationMenu, "'移动端装修' AS `name`") === 1
-        && str_contains($decorationMenu, "'/decoration/mobile' AS `paths`"),
-    'authoritative mobile decoration menu is missing or duplicated',
-);
 
 $editor = (string) file_get_contents($repositoryRoot . '/web/src/views/decoration/mobile/index.vue');
 foreach (['title', 'time', 'mobile', 'qrcode', 'remark'] as $field) {

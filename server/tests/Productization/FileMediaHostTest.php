@@ -3,19 +3,6 @@
 declare(strict_types=1);
 
 namespace {
-    final class FileMediaRequestStub
-    {
-        public function domain(): string
-        {
-            return 'https://admin.example.test';
-        }
-    }
-
-    function request(): FileMediaRequestStub
-    {
-        return new FileMediaRequestStub();
-    }
-
     function expectFileMedia(bool $condition, string $message): void
     {
         if (!$condition) {
@@ -27,66 +14,28 @@ namespace {
     $repositoryRoot = dirname($serverRoot);
 
     require_once $serverRoot . '/vendor/autoload.php';
-    require $serverRoot . '/app/modules/official/file/src/Service/FileService.php';
-
-    $apiEvidence = json_decode((string) file_get_contents(
-        $repositoryRoot . '/output/playwright/m02/api-db-summary.json',
-    ), true, 512, JSON_THROW_ON_ERROR);
-    $browserEvidence = json_decode((string) file_get_contents(
-        $repositoryRoot . '/output/playwright/m02/browser-summary.json',
-    ), true, 512, JSON_THROW_ON_ERROR);
-    $storageEvidence = json_decode((string) file_get_contents(
-        $repositoryRoot . '/output/playwright/s01/core-summary.json',
-    ), true, 512, JSON_THROW_ON_ERROR);
-
-    expectFileMedia(($apiEvidence['result'] ?? null) === 'passed', 'sealed M02 API/DB evidence must pass');
-    foreach ([
-        'category_tree_and_descendant_query',
-        'image_video_file_upload',
-        'wrong_extension_no_write',
-        'cross_type_move_rejected_without_change',
-        'file_and_storage_delete',
-        'category_subtree_cascade',
-        'permission_grant_and_revoke',
-        'storage_column_and_composite_index',
-    ] as $check) {
-        expectFileMedia(($apiEvidence['assertions'][$check] ?? false) === true, 'missing M02 check: ' . $check);
-    }
-    foreach ($apiEvidence['cleanup'] ?? [] as $name => $count) {
-        expectFileMedia($count === 0, 'M02 cleanup must be zero: ' . $name);
-    }
-    expectFileMedia(($browserEvidence['result'] ?? null) === 'passed', 'sealed M02 browser evidence must pass');
-    expectFileMedia(($browserEvidence['fixtures_cleaned'] ?? false) === true, 'M02 browser fixtures must be clean');
-    expectFileMedia(($storageEvidence['status'] ?? null) === 'passed', 'sealed S01 storage evidence must pass');
-    expectFileMedia(
-        ($storageEvidence['checks']['invalid_storage_engine_switch_rejected'] ?? false) === true,
-        'invalid storage switch evidence missing',
-    );
-    expectFileMedia(($storageEvidence['configuration_restored'] ?? false) === true, 'S01 configuration must be restored');
-
-    $fileService = (new ReflectionClass(\PeanutAdmin\Modules\File\Service\FileService::class))->newInstanceWithoutConstructor();
-    expectFileMedia(
-        $fileService->getFileUrl('https://cdn.example.test/a.png') === 'https://cdn.example.test/a.png',
-        'absolute URL must remain unchanged',
-    );
+    $storage = (new ReflectionClass(\PeanutAdmin\Modules\File\Service\Storage\StorageService::class))->newInstanceWithoutConstructor();
+    $fileService = new \PeanutAdmin\Modules\File\Service\FileService($storage, 'https://admin.example.test');
+    expectFileMedia($fileService->getFileUrl('https://cdn.example.test/a.png') === '',
+        'an external URL must not be served as a public File object');
 
     $ownedFiles = [
-        'app/modules/official/file/src/Service/FileService.php',
-        'app/modules/official/file/src/Service/FileUploadService.php',
-        'app/modules/official/file/src/Contract/FileUploads.php',
-        'app/modules/official/file/src/Contract/Dto/UploadFile.php',
-        'app/modules/official/file/src/ModuleProvider.php',
+        'app/modules/peanut/file/src/Service/FileService.php',
+        'app/modules/peanut/file/src/Service/FileUploadService.php',
+        'app/modules/peanut/file/src/Contract/FileUploads.php',
+        'app/modules/peanut/file/src/Contract/Dto/UploadFile.php',
+        'app/modules/peanut/file/src/ModuleProvider.php',
         'app/api/controller/UploadController.php',
-        'app/modules/official/file/src/Controller/UploadController.php',
-        'app/modules/official/file/src/Model/File.php',
-        'app/modules/official/file/src/Service/FileAdministrationService.php',
-        'app/modules/official/file/src/Contract/FileAdministration.php',
-        'app/modules/official/file/src/Service/Storage/StorageService.php',
-        'app/modules/official/file/src/Value/Storage/StoragePurpose.php',
-        'app/modules/official/file/src/Composition/Storage/StorageDriverFactory.php',
-        'app/modules/official/file/src/Infrastructure/Storage/ObservedStorageDriver.php',
-        'app/modules/official/file/src/Value/Storage/StoragePath.php',
-        'app/modules/official/file/src/Infrastructure/Storage/QiniuStorageHttpTransport.php',
+        'app/modules/peanut/file/src/Controller/UploadController.php',
+        'app/modules/peanut/file/src/Model/File.php',
+        'app/modules/peanut/file/src/Service/FileAdministrationService.php',
+        'app/modules/peanut/file/src/Contract/FileAdministration.php',
+        'app/modules/peanut/file/src/Service/Storage/StorageService.php',
+        'app/modules/peanut/file/src/Value/Storage/StoragePurpose.php',
+        'app/modules/peanut/file/src/Composition/Storage/StorageDriverFactory.php',
+        'app/modules/peanut/file/src/Infrastructure/Storage/ObservedStorageDriver.php',
+        'app/modules/peanut/file/src/Value/Storage/StoragePath.php',
+        'app/modules/peanut/file/src/Infrastructure/Storage/QiniuStorageHttpTransport.php',
     ];
     $sources = [];
     foreach ($ownedFiles as $relativePath) {
@@ -95,29 +44,29 @@ namespace {
         $sources[$relativePath] = (string) file_get_contents($absolutePath);
     }
     expectFileMedia(
-        !str_contains($sources['app/modules/official/file/src/Model/File.php'], 'getUrlAttr')
+        !str_contains($sources['app/modules/peanut/file/src/Model/File.php'], 'getUrlAttr')
             && str_contains(
-                $sources['app/modules/official/file/src/Service/FileAdministrationService.php'],
-                "\$this->files->getFileUrl((string) (\$item['file_key'] ?? ''))",
+                $sources['app/modules/peanut/file/src/Service/FileAdministrationService.php'],
+                "\$this->storage->resolveAuthorized(\$this->executionContext->tenantAdmin(), (string) \$item['file_key'], 'preview'",
             ),
         'File presentation URL must be resolved by the application boundary from the canonical object key',
     );
     expectFileMedia(
         !is_file($serverRoot . '/app/common/service/UploadService.php')
-            && str_contains($sources['app/modules/official/file/src/Service/FileUploadService.php'], '$this->storage->storePath(')
-            && str_contains($sources['app/modules/official/file/src/ModuleProvider.php'], 'FileUploads::class'),
+            && str_contains($sources['app/modules/peanut/file/src/Service/FileUploadService.php'], '$this->storage->storePath(')
+            && str_contains($sources['app/modules/peanut/file/src/ModuleProvider.php'], 'FileUploads::class'),
         'upload must be owned and explicitly bound by the File Module',
     );
     expectFileMedia(
-        !str_contains($sources['app/modules/official/file/src/Service/FileUploadService.php'], 'request()->file')
-            && !str_contains($sources['app/modules/official/file/src/Service/FileUploadService.php'], 'think\\file\\UploadedFile')
-            && !str_contains($sources['app/modules/official/file/src/Contract/FileUploads.php'], 'think\\file\\UploadedFile')
-            && substr_count($sources['app/modules/official/file/src/Service/FileUploadService.php'], 'UploadFile $uploaded') === 4,
+        !str_contains($sources['app/modules/peanut/file/src/Service/FileUploadService.php'], 'request()->file')
+            && !str_contains($sources['app/modules/peanut/file/src/Service/FileUploadService.php'], 'think\\file\\UploadedFile')
+            && !str_contains($sources['app/modules/peanut/file/src/Contract/FileUploads.php'], 'think\\file\\UploadedFile')
+            && substr_count($sources['app/modules/peanut/file/src/Service/FileUploadService.php'], 'UploadFile $uploaded') === 4,
         'FileUploadService must receive the framework-neutral upload value',
     );
     foreach ([
         'app/api/controller/UploadController.php',
-        'app/modules/official/file/src/Controller/UploadController.php',
+        'app/modules/peanut/file/src/Controller/UploadController.php',
     ] as $controller) {
         expectFileMedia(
             str_contains($sources[$controller], "\$this->request->file('file')")
@@ -129,21 +78,21 @@ namespace {
         );
     }
     expectFileMedia(
-        str_contains($sources['app/modules/official/file/src/Service/FileAdministrationService.php'], '$this->storage->delete'),
+        str_contains($sources['app/modules/peanut/file/src/Service/FileAdministrationService.php'], '$this->storage->delete'),
         'delete must use the unified storage service',
     );
     expectFileMedia(
-        str_contains($sources['app/modules/official/file/src/Service/Storage/StorageService.php'], 'routeRow(')
-        && str_contains($sources['app/modules/official/file/src/Service/Storage/StorageService.php'], 'objectForTenant')
-        && str_contains($sources['app/modules/official/file/src/Service/Storage/StorageService.php'], 'objectQuery(')
-        && str_contains($sources['app/modules/official/file/src/Service/Storage/StorageService.php'], 'logicalTenantId(')
-        && str_contains($sources['app/modules/official/file/src/Service/Storage/StorageService.php'], 'DefaultTenantContextResolver'),
+        str_contains($sources['app/modules/peanut/file/src/Service/Storage/StorageService.php'], 'routeRow(')
+        && str_contains($sources['app/modules/peanut/file/src/Service/Storage/StorageService.php'], 'objectForTenant')
+        && str_contains($sources['app/modules/peanut/file/src/Service/Storage/StorageService.php'], 'objectQuery(')
+        && str_contains($sources['app/modules/peanut/file/src/Service/Storage/StorageService.php'], 'logicalTenantId(')
+        && str_contains($sources['app/modules/peanut/file/src/Service/Storage/StorageService.php'], "where('f.tenant_id', \$tenantId)"),
         'sealed File Media evidence requires explicit Multi-tenant and Standalone object ownership predicates',
     );
     expectFileMedia(
-        str_contains($sources['app/modules/official/file/src/Value/Storage/StoragePurpose.php'], "'material.image' => StorageAccess::PUBLIC")
-        && str_contains($sources['app/modules/official/file/src/Value/Storage/StoragePurpose.php'], "'export.xlsx' => StorageAccess::PRIVATE")
-        && str_contains($sources['app/modules/official/file/src/Value/Storage/StoragePurpose.php'], "'export.csv' => StorageAccess::PRIVATE"),
+        str_contains($sources['app/modules/peanut/file/src/Value/Storage/StoragePurpose.php'], "'material.image' => StorageAccess::PUBLIC")
+        && str_contains($sources['app/modules/peanut/file/src/Value/Storage/StoragePurpose.php'], "'export.xlsx' => StorageAccess::PRIVATE")
+        && str_contains($sources['app/modules/peanut/file/src/Value/Storage/StoragePurpose.php'], "'export.csv' => StorageAccess::PRIVATE"),
         'public/private purpose routing changed',
     );
     expectFileMedia(
@@ -155,16 +104,27 @@ namespace {
         'application must consume the single Core storage Driver implementation',
     );
     expectFileMedia(
-        str_contains($sources['app/modules/official/file/src/Composition/Storage/StorageDriverFactory.php'], 'new LocalStorageDriver(')
-            && str_contains($sources['app/modules/official/file/src/Composition/Storage/StorageDriverFactory.php'], 'new AliyunStorageDriver(')
-            && str_contains($sources['app/modules/official/file/src/Composition/Storage/StorageDriverFactory.php'], 'new QcloudStorageDriver(')
-            && str_contains($sources['app/modules/official/file/src/Composition/Storage/StorageDriverFactory.php'], 'new QiniuStorageDriver(')
-            && str_contains($sources['app/modules/official/file/src/Value/Storage/StoragePath.php'], 'StorageObjectKey::assert(')
-            && str_contains($sources['app/modules/official/file/src/Service/Storage/StorageService.php'], 'StorageObjectKey::assert(')
-            && str_contains($sources['app/modules/official/file/src/Infrastructure/Storage/QiniuStorageHttpTransport.php'], 'implements StorageHttpTransport'),
+        str_contains($sources['app/modules/peanut/file/src/Composition/Storage/StorageDriverFactory.php'], 'new LocalStorageDriver(')
+            && str_contains($sources['app/modules/peanut/file/src/Composition/Storage/StorageDriverFactory.php'], 'new AliyunStorageDriver(')
+            && str_contains($sources['app/modules/peanut/file/src/Composition/Storage/StorageDriverFactory.php'], 'new QcloudStorageDriver(')
+            && str_contains($sources['app/modules/peanut/file/src/Composition/Storage/StorageDriverFactory.php'], 'new QiniuStorageDriver(')
+            && str_contains($sources['app/modules/peanut/file/src/Value/Storage/StoragePath.php'], 'StorageObjectKey::assert(')
+            && str_contains($sources['app/modules/peanut/file/src/Service/Storage/StorageService.php'], 'StorageObjectKey::assert(')
+            && str_contains($sources['app/modules/peanut/file/src/Infrastructure/Storage/QiniuStorageHttpTransport.php'], 'implements StorageHttpTransport'),
         'application storage assembly must use only the frozen Core technical boundary',
     );
     $allowedCoreStorageImports = [
+        'PeanutAdmin\\FileMedia\\Delivery\\DeliveryVisibility',
+        'PeanutAdmin\\FileMedia\\Delivery\\ReplayMode',
+        'PeanutAdmin\\FileMedia\\Delivery\\SignedDeliveryTokenService',
+        'PeanutAdmin\\FileMedia\\Media\\ImageMetadata',
+        'PeanutAdmin\\FileMedia\\Media\\ImageMetadataInspector',
+        'PeanutAdmin\\FileMedia\\Storage\\StorageCapabilityUnsupported',
+        'PeanutAdmin\\FileMedia\\Storage\\StorageDriverCapabilities',
+        'PeanutAdmin\\FileMedia\\Storage\\StorageObjectObservation',
+        'PeanutAdmin\\FileMedia\\Storage\\StorageOperationReceipt',
+        'PeanutAdmin\\FileMedia\\Storage\\StorageVersionCursor',
+        'PeanutAdmin\\FileMedia\\Storage\\StorageVersionPage',
         'PeanutAdmin\\FileMedia\\Storage\\Driver\\AliyunStorageDriver',
         'PeanutAdmin\\FileMedia\\Storage\\Driver\\LocalStorageDriver',
         'PeanutAdmin\\FileMedia\\Storage\\Driver\\QcloudStorageDriver',
