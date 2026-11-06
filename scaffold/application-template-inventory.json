@@ -794,7 +794,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0da3568b5e2458ca454bbd7d2dd66f9271f00ca61b4433034c4074b2df4bdd14"
+            "source_sha256": "fd133764016e87f632f328f6cfc7de16deb4dc31cf2fce11db27a9ef9a97da47"
         },
         {
             "path": "docs/development/core-release.md",
@@ -1067,7 +1067,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "740a30f2a40e8aa9340a9ed1650fee00ee3fc624637597cc62deab2850b2985c"
+            "source_sha256": "588ce443e5372b3c0aa5e2caf2095b30f113b3a2266c8f5614cd42ff8cef515b"
         },
         {
             "path": "docs/public/support.md",
@@ -1095,7 +1095,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2194aa58e5545382f24a9c2cf7c8942e1066a34bbf685f4cf9bb24e960190002"
+            "source_sha256": "322346a31c36d9ef5ae3c55932d15c87fa4fa8fa0b4ba7622e85999d72a47ce5"
         },
         {
             "path": "pc/.env.example",
@@ -2468,19 +2468,6 @@
             ]
         },
         {
-            "path": "scripts/build-demo-site-patch",
-            "target": "scripts/build-demo-site-patch",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "scripts/build-scaffold-release",
             "target": "scripts/build-scaffold-release",
             "classification": "excluded",
@@ -3460,7 +3447,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b9f932a778cdd1c46e2828a03b12009400bee110d781f459c3c38115be8b5b99"
+            "source_sha256": "55a473e1dc6beccac6bca7341295cf7c0e0b9cec6662a087fa8f82e91cd36253"
         },
         {
             "path": "scripts/scaffold-upgrade",
@@ -7766,7 +7753,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9a35d977c790359bda5e853f1d4d2d4cd28a130767af8cd0a7aae3a74454a93b"
+            "source_sha256": "956825e8c17dffdcc7c5c77365dcc2da140b849e36f16a7837266728533dcf54"
         },
         {
             "path": "server/app/common/module/ModuleMigrationRun.php",
@@ -12164,7 +12151,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "010c28f15a4d2d8d2b642a6dc1601e809badde5e8eb7096f69cccb44c45596c0"
+            "source_sha256": "d52b3261d0064372cea2ae5e633d3c268370ea9ce003e2601b631b5c3f85a468"
         },
         {
             "path": "server/app/modules/peanut/integration/database/migrations/20261101010008_initial_integration_schema.php",
@@ -12181,8 +12168,8 @@
             "source_sha256": "b2cffc8a54dbd953327df003c2c1a0aa4145148bce45874beac00f99a677f0ee"
         },
         {
-            "path": "server/app/modules/peanut/integration/database/migrations/20261107000003_preserve_payment_merchant_bindings.php",
-            "target": "server/app/modules/peanut/integration/database/migrations/20261107000003_preserve_payment_merchant_bindings.php",
+            "path": "server/app/modules/peanut/integration/database/migrations/20261107000006_preserve_payment_merchant_bindings.php",
+            "target": "server/app/modules/peanut/integration/database/migrations/20261107000006_preserve_payment_merchant_bindings.php",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -12206,7 +12193,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2e46632b79e32bbd5e931b03ccfd581b1379b4bacf54ab9dfe614f3b585aa52f"
+            "source_sha256": "ce015832b9b0a9c5d1b6f70e3ae1ca11ecb16dd51dbb45279dbc1dcf8c22a8ec"
         },
         {
             "path": "server/app/modules/peanut/integration/resources/menus.json",
@@ -17308,7 +17295,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4c968cf9c71aeb46786db783b2efb6bf8c7b1bf6b7025d19940f2fa339aba260"
+            "source_sha256": "a77c6c780c9effb25598d9925dfec5f62ee70b33f2ad1a739f7551fd279437cb"
         },
         {
             "path": "server/composer.lock",
@@ -17322,7 +17309,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "901df8dcb3149e1a6a50cc66cd8f9a024844d41583ad64a243cdcc21273ddc85"
+            "source_sha256": "d2c767a21e49703fb721e3144c87933823e8e07da02064fccdc4a1eb3b8d0d49"
         },
         {
             "path": "server/config/admin_api_access.php",
@@ -17756,7 +17743,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "34e4b7c8f29de0e076bd87a66fd4217c176c9753b2abb9cddc334ae3a1b84c67"
+            "source_sha256": "9fc33525cd4ebd9e5a34d0eb5e5afad5df5ff96ba02e5ad6529bff390d5b6c9f"
         },
         {
             "path": "server/database/install.php",
@@ -18301,7 +18288,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "25ed1059f98957daf40a94cee6d882e367e8be9ecc8bb5c0b7891cca9275ace4"
+            "source_sha256": "f02a23271f0bb5881d2c60fda952f157c4896e7cf008095b7313f6a3b5deceba"
         },
         {
             "path": "server/docker/scripts/schedule.sh",
@@ -19182,7 +19169,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "490b659bd4143ce63e814310f7bd1f6e033f89bbc342cf87785da17a760e1c7d"
+            "source_sha256": "d48a04b341ccf3d4d723d1f14fd9eceaa8f16fb92d843d1f60f0eb813ef33c75"
         },
         {
             "path": "server/generated/openapi.json",
@@ -19210,7 +19197,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cf6e874366058b04e7e4823e3ab532b65149435acea410ccc73fc7d02d63d019"
+            "source_sha256": "53eeccfd02e17fb98b01288da8be1032572fad5196a5bb5b63d65909eff9fd24"
         },
         {
             "path": "server/public/.htaccess",
@@ -20650,19 +20637,6 @@
             ]
         },
         {
-            "path": "server/tests/Multitenancy/ChannelBindingTenantContractTest.php",
-            "target": "server/tests/Multitenancy/ChannelBindingTenantContractTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Multitenancy/ControllerContextOptionalInjectionTest.php",
             "target": "server/tests/Multitenancy/ControllerContextOptionalInjectionTest.php",
             "classification": "excluded",
@@ -20691,19 +20665,6 @@
         {
             "path": "server/tests/Multitenancy/DecorationTabbarTenantIsolationTest.php",
             "target": "server/tests/Multitenancy/DecorationTabbarTenantIsolationTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Multitenancy/ExternalCallbackTenantRoutingTest.php",
-            "target": "server/tests/Multitenancy/ExternalCallbackTenantRoutingTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -20768,6 +20729,19 @@
             "source_sha256": "d96392a23fcb0b1bf14130081ee2be5e876bb80fd8dca8cacabd0925e7767453"
         },
         {
+            "path": "server/tests/Multitenancy/NoticeChannelHostBoundaryTest.php",
+            "target": "server/tests/Multitenancy/NoticeChannelHostBoundaryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Multitenancy/OfficialCapabilityTenantQualificationTest.php",
             "target": "server/tests/Multitenancy/OfficialCapabilityTenantQualificationTest.php",
             "classification": "managed",
@@ -20779,7 +20753,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c270aa3aea3e9cbf8011209c08de4c78d19a2ec7307503addd39e8622f766dcf"
+            "source_sha256": "3473175c5759d028bcce22b155e3f1972147fde72f997392bfae67e440a1a287"
         },
         {
             "path": "server/tests/Multitenancy/OperationLogTenantIsolationTest.php",
@@ -20938,19 +20912,6 @@
             ]
         },
         {
-            "path": "server/tests/Multitenancy/RechargeTenantSettingContractTest.php",
-            "target": "server/tests/Multitenancy/RechargeTenantSettingContractTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Multitenancy/TenantCacheLockIsolationTest.php",
             "target": "server/tests/Multitenancy/TenantCacheLockIsolationTest.php",
             "classification": "excluded",
@@ -21070,32 +21031,6 @@
         {
             "path": "server/tests/Productization/AllModulesPackagingTest.php",
             "target": "server/tests/Productization/AllModulesPackagingTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Productization/ArticleExportContractTest.php",
-            "target": "server/tests/Productization/ArticleExportContractTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Productization/ArticleValidationScenesTest.php",
-            "target": "server/tests/Productization/ArticleValidationScenesTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -21237,8 +21172,8 @@
             ]
         },
         {
-            "path": "server/tests/Productization/DemoSitePatchContractTest.php",
-            "target": "server/tests/Productization/DemoSitePatchContractTest.php",
+            "path": "server/tests/Productization/DemoSiteSeedContractTest.php",
+            "target": "server/tests/Productization/DemoSiteSeedContractTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -21289,6 +21224,19 @@
             ]
         },
         {
+            "path": "server/tests/Productization/ExportPageInfoContractTest.php",
+            "target": "server/tests/Productization/ExportPageInfoContractTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Productization/FileMediaHostTest.php",
             "target": "server/tests/Productization/FileMediaHostTest.php",
             "classification": "excluded",
@@ -21326,20 +21274,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1023b1ea7902a8aef2586ed69c0bbe540404610375a52e3ae2a38aa88e8ef133"
-        },
-        {
-            "path": "server/tests/Productization/InstallRuntimeConfigurationUidTest.php",
-            "target": "server/tests/Productization/InstallRuntimeConfigurationUidTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
+            "source_sha256": "3cd060d84bf69de727e6f3b51de3b5298c74ba044b1fbdb9e313ef8d97b9e94c"
         },
         {
             "path": "server/tests/Productization/InstallRuntimePermissionsLinuxTest.sh",
@@ -21955,6 +21890,19 @@
         {
             "path": "server/tests/Support/IdentityMysqlFixture.php",
             "target": "server/tests/Support/IdentityMysqlFixture.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Support/InstallRuntimeConfigurationUid.php",
+            "target": "server/tests/Support/InstallRuntimeConfigurationUid.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -28889,7 +28837,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "37364594b21b8ed3e0e99a2757a96b5d8ee800c7548690ab9f9e956dc6f7934b"
+            "source_sha256": "5bd4609a039f440e016ba012c8dcb7f4daa17020e0dd93ac05c23cfebd4212b3"
         },
         {
             "path": "web/tests/Productization/navbar-avatar-fallback.test.mjs",
