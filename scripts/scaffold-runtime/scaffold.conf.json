@@ -230,7 +230,6 @@
         "resources/service-registry.json",
         "resources/consumer-ready-control.json",
         "scripts/project-codegraph",
-        "scripts/build-demo-site-patch",
         "scripts/ci-change-classifier",
         "scripts/ci-checkpoint",
         "scripts/ci-server-check.sh",

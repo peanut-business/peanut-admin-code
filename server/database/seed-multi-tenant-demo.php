@@ -542,8 +542,10 @@ function demoMultiMain(): int
     return 0;
 }
 
-try {
-    exit(demoMultiMain());
-} catch (Throwable $exception) {
-    demoMultiFail($exception->getMessage());
+if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
+    try {
+        exit(demoMultiMain());
+    } catch (Throwable $exception) {
+        demoMultiFail($exception->getMessage());
+    }
 }
