@@ -301,8 +301,13 @@ while IFS= read -r test_file; do
       run_command p0e-template-stage-contract 1 python3 scripts/tests/p0e_template_stage_test.py
       ;;
     *)
+      runner=(php)
+      if [[ "$test_file" == server/tests/Productization/CreateApplicationPublicIdentityTest.php && -n "${PEANUT_TEST_PRODUCER_STATE:-}" ]]; then
+        # This contract creates sealed Edition archives with five exact tool versions.
+        runner=("$ROOT/scripts/ci-producer" exec "$PEANUT_TEST_PRODUCER_STATE" -- env "PHP_ENV_NAME=$native_env_name" php)
+      fi
       run_command "test:${test_file}" 1 \
-        php "$ROOT/scripts/run-php-test" "--env-file=$BACKEND_ENV" "$test_file"
+        "${runner[@]}" "$ROOT/scripts/run-php-test" "--env-file=$BACKEND_ENV" "$test_file"
       ;;
   esac
 done <"$selected_file"

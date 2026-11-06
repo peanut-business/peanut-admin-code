@@ -238,8 +238,14 @@ jobs:
           tar -cf - "${files[@]}" | tar -xf - -C "$uid_root/source"
           sudo env PEANUT_TEST_PHP="$(command -v php)" sh "$uid_root/source/${files[0]}" "$uid_root"
 
+      - name: Prepare the fixed Edition test producer
+        if: github.event_name == 'workflow_dispatch'
+        run: scripts/ci-producer prepare "$RUNNER_TEMP/ci-producer"
+
       - name: Run broad server gates
         if: github.event_name == 'workflow_dispatch'
+        env:
+          PEANUT_TEST_PRODUCER_STATE: ${{ runner.temp }}/ci-producer
         run: ./scripts/ci-server-check.sh --broad --env-file "$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
 
       - name: Remove isolated backend environment
