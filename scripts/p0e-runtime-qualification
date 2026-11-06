@@ -710,9 +710,26 @@ def module_qualification_inputs(value: dict[str, Any], candidate: str, tree: str
                 if (module not in installed or installed[module].get("source") != locked[module].get("source")
                         or installed[module].get("manifest_sha256") != locked[module].get("manifest_sha256")):
                     fail("isolated APP Module declaration differs from the reviewed Module source: " + module)
-    tokens = file_reference(config.get("identity_context", {}))
-    if tokens.stat().st_mode & 0o777 != 0o600:
-        fail("native Module identity context must remain private")
+    if "identity_credentials" in config:
+        credentials = config["identity_credentials"]
+        if (TOOL_BINDING is None or "identity_context" in config or not isinstance(credentials, dict)
+                or set(credentials) != {"login_producer", "initial_admin", "actors", "export_actor", "actor_facts", "reference_facts"}
+                or credentials["login_producer"].get("sha256") != "72b5a5e0da370f937ef3d5b5fe9d6120c71fa2d007cda0f954d87aa31070ecdd"):
+            fail("native Module credential sources require the reviewed original producer and independent tool binding")
+        names = {"initial_admin": "initial-admin.env", "actors": "module-actor-input.json",
+                 "export_actor": "module-export-actor-input.json", "actor_facts": "module-nonowner-preparation.json",
+                 "reference_facts": "module-actor-preparation-reference.json"}
+        private = Path(config["installed_application"]["root"]) / ".local/installation"
+        for name, reference in credentials.items():
+            path = file_reference(reference)
+            if path.stat().st_mode & 0o777 != 0o600 or path.stat().st_uid != os.geteuid():
+                fail("native Module credential references must remain own private regular files")
+            if name in names and path != private / names[name]:
+                fail("native Module credential source belongs to another installed APP")
+    else:
+        tokens = file_reference(config.get("identity_context", {}))
+        if tokens.stat().st_mode & 0o777 != 0o600:
+            fail("native Module identity context must remain private")
     if any(not isinstance(config.get(key), int) or config[key] < 1 for key in ("other_tenant_id", "alpha_role_id")):
         fail("Module qualification requires actual existing Tenant/Role selectors")
     return config
@@ -2354,6 +2371,69 @@ class Runner:
         return {"status": "not_run" if missing else "passed", "reason": "missing native components: " + ", ".join(missing) if missing else None,
                 **facts, "reinstalled": False, "database_dropped": False}
 
+
+    def issue_module_identity(self, phase: str, config_path: Path) -> dict[str, Any]:
+        """The native PHP producer logs in existing actors. Python never issues tokens."""
+        if phase not in ("preflight", "member-upload", "task-import-export"):
+            fail("unknown native identity consumer phase")
+        config = self.inputs["module_qualification"]
+        installed = config["installed_application"]
+        directory = self.output / "identity-contexts"
+        directory.mkdir(mode=0o700, exist_ok=True)
+        if (directory.resolve() != directory or directory.is_symlink()
+                or directory.stat().st_uid != os.geteuid() or directory.stat().st_mode & 0o777 != 0o700):
+            fail("native identity output directory is unsafe")
+        destination = directory / (phase + ".json")
+        if destination.exists() or destination.is_symlink():
+            fail("retain the original native identity issuance; do not automatically replay")
+        plan_path = self.output / "plan.json"
+        plan_digest = sha256(plan_path)
+        source = TOOL_ROOT / "server/fixtures/module-lifecycle/run.php"
+        verify_module_context(argparse.Namespace(plan=str(plan_path), plan_sha256=plan_digest))
+        process = command(["php", str(source), "--action=identity-context", "--consumer=" + phase,
+            "--context-output=" + str(destination), "--input=" + str(config_path),
+            "--input-sha256=" + sha256(config_path), "--plan=" + str(plan_path), "--plan-sha256=" + plan_digest],
+            cwd=Path(installed["root"]), env=self.environment(installed), capture=True, check=False)
+        log = directory / (phase + ".log")
+        log.write_text((process.stdout or "") + (process.stderr or ""), encoding="utf-8")
+        log.chmod(0o600)
+        if process.returncode != 0:
+            fail("native existing-actor login failed; preserve the original issuance and source/database state")
+        result = json.loads(process.stdout)
+        expected = {"plan_sha256": plan_digest, "input_sha256": sha256(config_path),
+            "owner": self.plan["owner"], "thread": self.plan["thread"], "runtime_lease": installed["lease"],
+            "application_root": installed["root"], "application_head": installed["head"],
+            "resource_id": installed["resource_id"], "database_identity": installed["database_identity"],
+            "producer_sha256": sha256(source), "credentials": config["identity_credentials"], "consumer": phase}
+        if (result.get("protocol") != "peanut.module-native-identity-delivery.v1" or result.get("status") != "issued"
+                or result.get("binding") != expected or result.get("context", {}).get("path") != str(destination)):
+            fail("native identity issuance source/owner/plan/consumer provenance differs")
+        path = file_reference(result["context"])
+        if path.stat().st_mode & 0o777 != 0o600 or path.stat().st_uid != os.geteuid():
+            fail("derived native identity context must remain own private")
+        context = read_json(path)
+        if (context.get("protocol") != "peanut.module-native-identity-context.v1" or context.get("status") != "issued"
+                or context.get("binding") != expected or context.get("facts") != result.get("facts")):
+            fail("derived native identity context differs from the actual producer output")
+        return {"context": result["context"], "binding": expected, "facts": result["facts"], "log_sha256": sha256(log)}
+
+    def preflight_module_identity(self) -> None:
+        config = self.inputs.get("module_qualification", {})
+        if "module-lifecycle" not in self.plan["groups"] or "identity_credentials" not in config:
+            return
+        if self.checkpoint.get("identity_preflight"):
+            file_reference(self.checkpoint["identity_preflight"]["context"])
+            return
+        self.current_group = "identity-preflight"
+        path = self.output / "identity-preflight-input.json"
+        if path.exists() or path.is_symlink():
+            fail("retain the original identity preflight input and outcome")
+        self.write_json(path, config)
+        path.chmod(0o600)
+        self.checkpoint["identity_preflight"] = self.issue_module_identity("preflight", path)
+        self.save_checkpoint()
+
+
     def module_lifecycle(self) -> dict[str, Any]:
         installed_only = self.plan.get("module_installed_only") is True
         config = module_qualification_inputs(self.inputs, self.args.candidate, self.plan["candidate_tree"], installed_only=installed_only)
@@ -2411,9 +2491,12 @@ class Runner:
         installed_app = config["installed_application"]
         for producer in ("member-upload", "task-import-export"):
             verify_module_context(argparse.Namespace(plan=str(plan_path), plan_sha256=plan_digest))
+            identity = self.issue_module_identity(producer, config_path) if "identity_credentials" in config else None
+            identity_arguments = [] if identity is None else [
+                "--identity-context=" + identity["context"]["path"], "--identity-context-sha256=" + identity["context"]["sha256"]]
             process = command(["php", str(source), "--action=" + producer,
                 "--input=" + str(config_path), "--input-sha256=" + sha256(config_path),
-                "--plan=" + str(plan_path), "--plan-sha256=" + plan_digest],
+                "--plan=" + str(plan_path), "--plan-sha256=" + plan_digest, *identity_arguments],
                 cwd=Path(installed_app["root"]), env=self.environment(installed_app), capture=True, check=False)
             log = output / (producer + ".log")
             log.write_text((process.stdout or "") + (process.stderr or ""), encoding="utf-8")
@@ -2431,7 +2514,8 @@ class Runner:
                     or value.get("native_identity") != "verified-current-session"
                     or value.get("writes_retained") is not True):
                 fail("Module installed assertion or native identity binding failed; preserve actual source/database/storage")
-            results[producer] = {**value, "source_sha256": sha256(source), "log_sha256": sha256(log)}
+            results[producer] = {**value, "source_sha256": sha256(source), "log_sha256": sha256(log),
+                                 **({"native_identity_delivery": identity} if identity is not None else {})}
             self.write_json(output / "results.json", results)
         verify_module_context(argparse.Namespace(plan=str(plan_path), plan_sha256=plan_digest))
         return {"status": "not_run" if installed_only else "passed", "protocol": "peanut.module-qualification.v1",
@@ -2619,6 +2703,7 @@ class Runner:
             "cleanup_scope": "invocation-owned cache only; residual counts exclude registered permanent resources"})
 
     def run(self) -> None:
+        self.preflight_module_identity()
         operations = {"generated-application": self.generated_application, "standalone-fresh": lambda: self.fresh("standalone"),
             "multi-tenant-fresh": lambda: self.fresh("multi-tenant"), "module-lifecycle": self.module_lifecycle,
             "consumer-module-lifecycle": self.consumer_module_lifecycle, "production-compose": self.production_compose,
@@ -2631,7 +2716,9 @@ class Runner:
         self.cleanup_success()
 
     def preserve_failure(self, exception: Exception) -> None:
-        if self.current_group == "closeout":
+        if self.current_group == "identity-preflight":
+            self.checkpoint.setdefault("identity_preflight_failure", {"error": str(exception)[:500], "finished_at": int(time.time())})
+        elif self.current_group == "closeout":
             self.checkpoint.setdefault("closeout_failure", {"error": str(exception)[:500], "finished_at": int(time.time())})
         else:
             state = self.checkpoint["groups"].setdefault(self.current_group, {})

@@ -1236,5 +1236,143 @@ class RecoveryGlobalGrantsTest(unittest.TestCase):
             "REVOKE SELECT ON private_schema.* FROM 'root'@'localhost'"]))
 
 
+
+class NativeIdentityDeliveryTest(unittest.TestCase):
+    """Protocol/control tests substitute the PHP issuer. No real login or DB writes."""
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix="peanut-native-identity-contract-")
+        self.root = Path(self.temporary.name).resolve()
+        self.addCleanup(self.temporary.cleanup)
+        self.output = self.root / "output"
+        self.output.mkdir(mode=0o700)
+        self.app = self.root / "installed"
+        self.app.mkdir()
+        self.runtime = {"root": str(self.app), "head": "a" * 40, "lease": "own-mi",
+                        "resource_id": "mi", "database_identity": {"database": "exact", "server_uuid": "synthetic"}}
+        self.config = {"installed_application": self.runtime, "identity_credentials": {"source": "synthetic"},
+                       "reviewed_module_source": {"root": str(self.root / "reviewed")}}
+        self.plan = {"owner": "self", "thread": "self", "groups": GROUPS, "candidate_tree": "b" * 40,
+                     "module_installed_only": True}
+        (self.output / "plan.json").write_text(json.dumps(self.plan))
+        self.config_path = self.output / "config.json"
+        self.config_path.write_text(json.dumps(self.config))
+        self.runner = stage.Runner.__new__(stage.Runner)
+        self.runner.output = self.output
+        self.runner.inputs = {"module_qualification": self.config, "source": {"commit": "a" * 40, "tree": "b" * 40}}
+        self.runner.plan = self.plan
+        self.runner.args = argparse.Namespace(candidate="a" * 40)
+        self.runner.environment = lambda app: {}
+        self.runner.checkpoint = {"groups": {}}
+        self.runner.save_checkpoint = Mock()
+        self.runner.cleanup_success = Mock()
+
+    def issuer(self, argv, **kwargs):
+        phase = next(x.split("=", 1)[1] for x in argv if x.startswith("--consumer="))
+        path = Path(next(x.split("=", 1)[1] for x in argv if x.startswith("--context-output=")))
+        config_path = Path(next(x.split("=", 1)[1] for x in argv if x.startswith("--input=")))
+        binding = {"plan_sha256": stage.sha256(self.output / "plan.json"), "input_sha256": stage.sha256(config_path),
+                   "owner": "self", "thread": "self", "runtime_lease": "own-mi",
+                   "application_root": str(self.app), "application_head": "a" * 40, "resource_id": "mi",
+                   "database_identity": self.runtime["database_identity"],
+                   "producer_sha256": stage.sha256(stage.TOOL_ROOT / "server/fixtures/module-lifecycle/run.php"),
+                   "credentials": self.config["identity_credentials"], "consumer": phase}
+        facts = {"synthetic_actor": {"issued_at": 100, "expires_at": 1000, "session_key_sha256": "c" * 64}}
+        value = {"protocol": "peanut.module-native-identity-context.v1", "status": "issued",
+                 "binding": binding, "facts": facts, "tokens": {"synthetic": "not-a-real-token"}}
+        stage.recovery_json(path, value)
+        result = {"protocol": "peanut.module-native-identity-delivery.v1", "status": "issued",
+                  "binding": binding, "facts": facts, "context": {"path": str(path), "sha256": stage.sha256(path)}}
+        return Mock(returncode=0, stdout=json.dumps(result), stderr="")
+
+    def test_native_delivery_binds_current_plan_actor_sources_and_consumer(self):
+        with patch.object(stage, "verify_module_context"), patch.object(stage, "command", side_effect=self.issuer):
+            value = self.runner.issue_module_identity("member-upload", self.config_path)
+        self.assertEqual(value["binding"]["runtime_lease"], "own-mi")
+        self.assertEqual(value["binding"]["credentials"], self.config["identity_credentials"])
+        self.assertEqual(value["binding"]["consumer"], "member-upload")
+        self.assertEqual(Path(value["context"]["path"]).stat().st_mode & 0o777, 0o600)
+        self.assertNotIn("tokens", value)
+
+    def test_foreign_owner_or_plan_result_is_rejected(self):
+        def foreign(argv, **kwargs):
+            result = self.issuer(argv, **kwargs)
+            value = json.loads(result.stdout)
+            value["binding"]["owner"] = "another-owner"
+            result.stdout = json.dumps(value)
+            return result
+        with patch.object(stage, "verify_module_context"), patch.object(stage, "command", side_effect=foreign):
+            with self.assertRaisesRegex(RuntimeError, "provenance differs"):
+                self.runner.issue_module_identity("task-import-export", self.config_path)
+        self.assertTrue((self.output / "identity-contexts/task-import-export.json").exists())
+
+    def test_retained_issuance_is_not_automatically_replayed(self):
+        directory = self.output / "identity-contexts"
+        directory.mkdir(mode=0o700)
+        (directory / "preflight.json").write_text("preserve partial original")
+        with patch.object(stage, "command") as issue:
+            with self.assertRaisesRegex(RuntimeError, "do not automatically replay"):
+                self.runner.issue_module_identity("preflight", self.config_path)
+            issue.assert_not_called()
+
+    def test_failed_preflight_precedes_every_group_and_preserves_eight_group_plan(self):
+        self.runner.run_group = Mock()
+        with patch.object(self.runner, "issue_module_identity", side_effect=RuntimeError("native login refused")):
+            with self.assertRaisesRegex(RuntimeError, "native login refused"):
+                self.runner.run()
+        self.runner.run_group.assert_not_called()
+        self.assertEqual(self.runner.plan["groups"], GROUPS)
+        self.assertEqual(self.runner.checkpoint["groups"], {})
+        self.assertTrue((self.output / "identity-preflight-input.json").exists())
+
+    def test_successful_preflight_is_before_generated_application(self):
+        events = []
+        def issued(*args):
+            events.append("identity-preflight")
+            return {"context": {"path": "synthetic", "sha256": "synthetic"}}
+        def group(name, operation):
+            events.append(name)
+            self.runner.checkpoint["groups"][name] = {"status": "passed"}
+        self.runner.run_group = group
+        with patch.object(self.runner, "issue_module_identity", side_effect=issued):
+            self.runner.run()
+        self.assertEqual(events, ["identity-preflight", *GROUPS])
+        self.runner.cleanup_success.assert_called_once()
+
+    def test_each_installed_producer_receives_a_separate_just_issued_context(self):
+        (self.output / "groups").mkdir()
+        events = []
+        def issue(phase, path):
+            events.append("issue-" + phase)
+            return {"context": {"path": str(self.output / (phase + ".json")), "sha256": phase}}
+        def consume(argv, **kwargs):
+            phase = next(x.split("=", 1)[1] for x in argv if x.startswith("--action="))
+            events.append("consume-" + phase)
+            self.assertIn("--identity-context-sha256=" + phase, argv)
+            value = {"status": "passed", "protocol": "peanut.module-qualification-result.v1", "producer": phase,
+                     "source": self.runner.inputs["source"],
+                     "input_sha256": stage.sha256(self.output / "groups/module-lifecycle/input.json"),
+                     "plan_sha256": stage.sha256(self.output / "plan.json"),
+                     "application_root": str(self.app), "resource_id": "mi",
+                     "database_identity": self.runtime["database_identity"],
+                     "native_identity": "verified-current-session", "writes_retained": True}
+            return Mock(returncode=0, stdout=json.dumps(value), stderr="")
+        with patch.object(stage, "module_qualification_inputs", return_value=self.config), \
+                patch.object(stage, "verify_module_context"), \
+                patch.object(self.runner, "issue_module_identity", side_effect=issue), \
+                patch.object(stage, "command", side_effect=consume):
+            result = self.runner.module_lifecycle()
+        self.assertEqual(events, ["issue-member-upload", "consume-member-upload",
+                                  "issue-task-import-export", "consume-task-import-export"])
+        self.assertEqual(result["scope"], "module-installed-components")
+        self.assertEqual(result["status"], "not_run")
+
+    def test_legacy_raw_context_does_not_trigger_new_identity_login(self):
+        self.runner.inputs["module_qualification"] = {"identity_context": {"path": "historical", "sha256": "historical"}}
+        with patch.object(self.runner, "issue_module_identity") as issue:
+            self.runner.preflight_module_identity()
+            issue.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
