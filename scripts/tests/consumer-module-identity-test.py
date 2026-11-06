@@ -20,59 +20,19 @@ module = importlib.util.module_from_spec(spec)
 loader.exec_module(module)
 
 
-def write_private_env(path: Path) -> None:
-    path.write_text(
-        "DB_HOST=127.0.0.1\nDB_PORT=3306\nDB_USER=fixture\nDB_PASS=fixture\n",
-        encoding="utf-8",
-    )
-    path.chmod(0o600)
-
-
-def parse_with(env_file: Path) -> object:
-    previous = sys.argv[:]
-    module.CONFIG_VALUES.clear()
-    sys.argv = [
-        "consumer-module-reference-chain",
-        "--candidate",
-        "a" * 40,
-        "--lease",
-        "fixture-lease",
-        "--database",
-        "fixture_consumer",
-        "--database-resource",
-        "fixture-mysql",
-        "--endpoint",
-        "fixture-host",
-        "--author-database",
-        "fixture_author",
-        "--output",
-        str(env_file.parent / "output"),
-        "--env-file",
-        str(env_file),
-        "--installer-package",
-        str(env_file.parent / "installer.tar"),
-        "--installer-manifest",
-        str(env_file.parent / "installer.json"),
-        "--installer-sha256",
-        "b" * 64,
-        "--installer-manifest-sha256",
-        "c" * 64,
-    ]
-    try:
-        return module.parse_arguments()
-    finally:
-        sys.argv = previous
-        module.CONFIG_VALUES.clear()
-
-
 owned_tmp = ROOT / ".local/tmp/m3-identity-next-20260928"
 owned_tmp.mkdir(parents=True, exist_ok=True)
-with tempfile.TemporaryDirectory(dir=owned_tmp) as temporary:
-    root = Path(temporary)
-    env_file = root / "env"
-    write_private_env(env_file)
-    parsed = parse_with(env_file)
-    assert not hasattr(parsed, "identity_context_file")
+previous = sys.argv[:]
+try:
+    sys.argv = ["consumer-module-reference-chain", "--candidate", "a" * 40,
+                "--lease", "fixture", "--lifecycle-input", "inputs.json",
+                "--lifecycle-input-sha256", "b" * 64, "--qualification-plan", "plan.json",
+                "--author-app", "author", "--consumer-app", "consumer",
+                "--identity-seed-file", "private-seed.env", "--output", "output"]
+    parsed = module.parse_arguments()
+    assert parsed.identity_seed_file == "private-seed.env" and not hasattr(parsed, "identity_context_file")
+finally:
+    sys.argv = previous
 
 helper = module.lifecycle_helper()
 for forbidden in [
@@ -85,11 +45,11 @@ for forbidden in [
 for required in [
     "issue-identities",
     "PlatformOperatorSessionService::class",
-    "PlatformOperatorIdentityPort::class",
+    "native_platform_login",
     "TenantAuthService::class",
     "TenantOwnerInvitationAdminService::class",
     "TenantOwnerInvitationPublicService::class",
-    "native_auth_services_after_consumer_install",
+    "native_auth_services_existing_consumer",
     "native_invitation_accept_login",
     "CR21_IDENTITY_SEED",
     "_FILE_INVALID",
@@ -125,7 +85,7 @@ mode = stat.S_IMODE((ROOT / "scripts/consumer-module-reference-chain").stat().st
 assert mode & stat.S_IXUSR, "consumer-module-reference-chain should remain executable"
 
 # Validate the actual generated helper, not a duplicate file-policy implementation.
-assert source.index("installed = json_output(command(") < source.index("issued_identity = helper_action(")
+assert source.index('status.get("state") == "installed"') < source.index("issued_identity = helper_action(")
 issue = helper.split("if ($action === 'issue-identities')", 1)[1].split("if ($action === 'provision-default')", 1)[0]
 assert issue.index("->provision(") < issue.index("->accept(") < issue.index("->transitionTenant(") < issue.index("$tenantB = $tenantAuth->login(")
 assert "TenantStatus::Active" in issue
@@ -189,7 +149,7 @@ $reject(fn() => $identityBundle(), 'CR21_IDENTITY_CONTEXT_JSON_INVALID');
 $check(glob($identityFile . '.tmp-*') === [], 'temporary token files cleaned');
 $signatures = [
     [app\platform\services\PlatformOperatorSessionService::class, 'login', 5],
-    [app\platform\identity\PlatformOperatorIdentityPort::class, 'requireActive', 2],
+    [app\platform\services\PlatformOperatorSessionService::class, 'context', 2],
     [PeanutAdmin\Modules\Identity\Auth\TenantAuthService::class, 'login', 7],
     [PeanutAdmin\Modules\Identity\Auth\TenantAuthService::class, 'context', 2],
     [PeanutAdmin\Modules\Identity\Invitation\TenantOwnerInvitationAdminService::class, 'provision', 6],
