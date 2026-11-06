@@ -290,7 +290,10 @@ LC_ALL=C sort -u "$selected_file" -o "$selected_file"
   exit 1
 }
 
-while IFS= read -r test_file; do
+selected_test_count=$(wc -l <"$selected_file")
+printf '[ci-selection] selected_test_targets=%d\n' "$selected_test_count"
+# Keep the selection on its own descriptor. Interactive child launchers may consume stdin.
+while IFS= read -r test_file <&3; do
   [[ -n "$test_file" ]] || continue
   case "$test_file" in
     server/tests/Productization/DatabaseResourceRegistryTest.php)
@@ -310,6 +313,11 @@ while IFS= read -r test_file; do
         "${runner[@]}" "$ROOT/scripts/run-php-test" "--env-file=$BACKEND_ENV" "$test_file"
       ;;
   esac
-done <"$selected_file"
+done 3<"$selected_file" </dev/null
 
+if (( test_targets != selected_test_count )); then
+  printf 'ERROR: executed %d of %d selected test targets\n' "$test_targets" "$selected_test_count" >&2
+  write_summary failed
+  exit 1
+fi
 write_summary passed
