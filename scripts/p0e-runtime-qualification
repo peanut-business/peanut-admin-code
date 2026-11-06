@@ -1079,10 +1079,57 @@ def transport(args: argparse.Namespace) -> dict[str, Any]:
             "ci_ingress": "not_run: requires an admitted Actions artifact upload; sealing never publishes or uploads"}
 
 
+
+def publish_generated_client(root: Path, source_name: str, destination_name: str) -> dict[str, Any]:
+    """Publish only this native build's closed PC/H5 output into a new public directory."""
+    if (source_name, destination_name) not in (
+            ("pc/.output/public", "server/public/pc"),
+            ("uniapp/dist/build/h5", "server/public/mobile")):
+        fail("generated client publication escapes its native output contract")
+    root = canonical(str(root), directory=True)
+    source = canonical(str(root / source_name), directory=True)
+    canonical(str(source / "index.html"))
+    destination = root / destination_name
+    canonical(str(destination.parent), directory=True)
+    if (destination.resolve() != destination or destination.is_symlink()
+            or (destination.exists() and (not destination.is_dir() or any(destination.iterdir())))):
+        fail("generated client publication refuses linked or unknown existing destination content")
+    def traversal_error(error: OSError) -> None:
+        raise error
+    entries = []
+    for parent, directories, names in os.walk(source, followlinks=False, onerror=traversal_error):
+        entries.extend(Path(parent) / name for name in directories + names)
+    entries.sort()
+    files = {}
+    for path in entries:
+        canonical(str(path), directory=path.is_dir())
+        if path.is_file():
+            files[path.relative_to(source).as_posix()] = sha256(path)
+    staging = destination.with_name("." + destination.name + ".qualification-publish")
+    if staging.exists() or staging.is_symlink():
+        fail("retain the previous generated client publication staging directory")
+    staging.mkdir(mode=0o755)
+    for path in entries:
+        target = staging / path.relative_to(source)
+        if path.is_dir():
+            target.mkdir(mode=0o755)
+        else:
+            shutil.copyfile(path, target)
+    for relative, digest in files.items():
+        if sha256(staging / relative) != digest or sha256(source / relative) != digest:
+            fail("native generated client changed while publishing")
+    # POSIX replacement refuses a concurrently populated destination.
+    os.replace(staging, destination)
+    return {"source": str(source), "destination": str(destination),
+            "outputs": {name: {"sha256": digest, "mode": (destination / name).stat().st_mode & 0o777}
+                        for name, digest in files.items()}}
+
+
 def generated_state(root: Path) -> dict[str, Any]:
     """Snapshot existing native generated outputs and their current declared inputs."""
     edition = read_json(root / ".peanut/application-manifest.json")["application"]["edition"]
-    canonical(str(root / "server/public/admin/index.html"))
+    for relative in ("server/public/admin/index.html", "server/public/pc/index.html", "server/public/mobile/index.html"):
+        canonical(str(root / relative))
     if edition == "multi-tenant":
         canonical(str(root / "server/public/platform/index.html"))
     catalog = read_json(root / "server/generated/api-catalog.json")
@@ -1097,7 +1144,7 @@ def generated_state(root: Path) -> dict[str, Any]:
     paths = {root / "server/generated/api-catalog.json", root / "server/generated/openapi.json",
              root / "web/src/generated/openapi.d.ts"}
     paths.update((root / "web/src/modules").glob("*/generated/openapi.ts"))
-    for relative in ("server/public/admin", "server/public/platform"):
+    for relative in ("server/public/admin", "server/public/platform", "server/public/pc", "server/public/mobile"):
         directory = root / relative
         if directory.is_symlink():
             fail("native static output directory is unsafe")
@@ -1644,48 +1691,13 @@ def generated_recovery_plan(args: argparse.Namespace) -> dict[str, Any]:
             "status": "planned", "database_writes": False, "instance_key_created": False}
 
 
-def recovery_restore_files(root: Path, workspace: Path, backup: dict[str, Any]) -> None:
-    native, _ = paired_recovery_verifier()
-    for relative, entry in backup["protected"]["files"].items():
-        path = root / relative
-        if any(parent.is_symlink() for parent in path.parents):
-            fail("recovery destination parent is linked")
-        if entry is None:
-            if path.exists() or path.is_symlink():
-                fail("originally absent protected configuration appeared")
-            continue
-        if not path.exists() or path.is_symlink():
-            fail("protected configuration destination is missing or linked")
-        native["regular"](path)
-        if path.stat().st_uid != entry["uid"] or path.stat().st_gid != entry["gid"]:
-            fail("protected configuration destination ownership changed")
-        source = workspace / "files" / relative
-        native["regular"](source, 0o600)
-        if sha256(source) != entry["sha256"]:
-            fail("protected configuration backup changed")
-        path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source, path)
-        os.chmod(path, entry["mode"])
-        if (path.stat().st_uid, path.stat().st_gid) != (entry["uid"], entry["gid"]):
-            fail("native configuration ownership could not be preserved")
-    for relative, entry in backup["protected"]["storage"].items():
-        path = root / relative
-        if entry is None:
-            if path.exists() or path.is_symlink():
-                fail("originally absent protected storage appeared")
-            continue
-        archive = workspace / "storage" / (relative.replace("/", "-") + ".tgz")
-        native["storage_archive"](archive)
-        if sha256(archive) != backup["storage_archives"][relative]:
-            fail("protected storage archive changed")
-        if any(parent.is_symlink() for parent in path.parents) or path.is_symlink():
-            fail("protected storage restore destination is linked")
-        if path.exists():
-            shutil.rmtree(path)
-        path.mkdir(parents=True, mode=entry["mode"])
-        with tarfile.open(archive, "r:gz") as stream:
-            stream.extractall(path)
-        os.chmod(path, entry["mode"])
+def recovery_preserve_files(root: Path, backup: dict[str, Any]) -> None:
+    """Same-schema SQL cannot change APP files. Preserve matches and reject every drift."""
+    protected = backup["protected"]
+    current = recovery_inventory(root, list(protected["files"]), tuple(protected["storage"]))
+    if current != protected:
+        fail("protected configuration/storage drifted during SQL restore; preserve the current state")
+
 
 
 def generated_recovery_execute(args: argparse.Namespace) -> dict[str, Any]:
@@ -1801,7 +1813,7 @@ def generated_recovery_execute(args: argparse.Namespace) -> dict[str, Any]:
         input_path.unlink()
         if code != 0:
             fail("native ordinary-account restore failed; preserve this same execution")
-        recovery_restore_files(root, workspace, backup)
+        recovery_preserve_files(root, backup)
         after = recovery_probe(app, environment)
         if (after != backup["database_preimage"] or recovery_inventory(root, files, directories) != protected
                 or recovery_effects(identity) != backup["schema_effects"]):
@@ -1824,7 +1836,11 @@ def generated_recovery_execute(args: argparse.Namespace) -> dict[str, Any]:
             state["pid"] = process.pid
         if terminal is not None:
             state["terminal"] = terminal
-        state.update(status="UNKNOWN" if process is not None and terminal is None else "failed",
+        remote_unknown = process is not None and (terminal is None
+                         or terminal["exit_code"] == 255 or terminal["exit_code"] < 0)
+        if remote_unknown:
+            state["remote_terminal_unknown"] = True
+        state.update(status="UNKNOWN" if remote_unknown else "failed",
                      error_type=type(error).__name__, recorded_at=int(time.time()))
         recovery_json(journal, state)
         raise
@@ -2193,13 +2209,16 @@ class Runner:
         # Guard all native static destinations before dependency/API/build writes.
         for edition, app in self.apps.items():
             root = Path(app["root"])
-            destinations = [root / "server/public", root / "server/public/admin"]
+            destinations = [root / "server/public", root / "server/public/admin",
+                            root / "server/public/pc", root / "server/public/mobile"]
             if edition == "multi-tenant":
                 destinations.append(root / "server/public/platform")
             for destination in destinations:
                 if (destination.resolve() != destination or destination.is_symlink()
                         or (destination.exists() and not destination.is_dir())):
                     fail("native static destination or its ancestor is not an ordinary directory")
+                if destination.name in ("pc", "mobile") and destination.exists() and any(destination.iterdir()):
+                    fail("native generated client destination has unknown existing content")
         creation_reason = None
         try:
             result = cli_created_applications(self.inputs, self.args.candidate, self.plan["candidate_tree"], self.cache)
@@ -2234,7 +2253,9 @@ class Runner:
                 command(argv, cwd=app_root / directory, env={**self.environment(app), **native_environment}, log=log)
                 builds.append({"argv": argv, "cwd": str(app_root / directory), "environment": native_environment,
                                "exit_code": 0, "log_sha256": sha256(log)})
-            result[edition]["source_build"] = {"application": app_binding(app), "commands": builds,
+            published = [publish_generated_client(app_root, "pc/.output/public", "server/public/pc"),
+                         publish_generated_client(app_root, "uniapp/dist/build/h5", "server/public/mobile")]
+            result[edition]["source_build"] = {"application": app_binding(app), "commands": builds, "published_clients": published,
                                                 "api_generator_sha256": sha256(ROOT / "scripts/generate-api-contracts.php"),
                                                 "generated_state": generated_state(app_root)}
         components["source_build"] = "passed"

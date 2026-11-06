@@ -970,8 +970,8 @@ class GeneratedRecoveryContractTest(unittest.TestCase):
         entry = {"sha256": stage.sha256(external), "mode": 0o600,
                  "uid": os.geteuid(), "gid": os.getegid()}
         with patch.object(stage, "paired_recovery_verifier", return_value=(native, helper)):
-            with self.assertRaisesRegex(RuntimeError, "destination is missing or linked"):
-                stage.recovery_restore_files(self.root, self.workspace,
+            with self.assertRaises(ValueError):
+                stage.recovery_preserve_files(self.root,
                                              {"protected": {"files": {"config.env": entry}, "storage": {}}})
         self.assertEqual(external.read_text(), "unchanged")
 
@@ -1066,6 +1066,138 @@ class GeneratedRecoveryContractTest(unittest.TestCase):
             value[field] = [row]
             with self.subTest(field=field, row=row), self.assertRaisesRegex(ValueError, "effects NOT_READY"):
                 native["assert_whole_schema_effects"]({"identity": {"database": "exact"}, "metadata": value})
+
+
+
+    def test_ssh_transport_exit_retains_local_terminal_as_remote_unknown(self):
+        for code in (255, -15):
+            with self.subTest(code=code):
+                process = lambda *a, **k: Mock(pid=990, wait=Mock(return_value=code))
+                journal = self.execution_fixture(process)
+                self.assertEqual(journal["status"], "UNKNOWN")
+                self.assertTrue(journal["remote_terminal_unknown"])
+                self.assertEqual(journal["terminal"]["exit_code"], code)
+                self.assertEqual(journal["terminal"]["pid"], 990)
+                self.assertFalse((self.workspace / "restore-input.private").exists())
+                # Each attempt is synthetic and explicitly separated by the test.
+                import shutil
+                shutil.rmtree(self.root / "app")
+                for child in self.workspace.iterdir():
+                    if child.is_dir():
+                        shutil.rmtree(child)
+                    else:
+                        child.unlink()
+
+    def test_sql_restore_preserves_matching_files_and_rejects_drift_without_writes(self):
+        native, helper = stage.paired_recovery_verifier()
+        private = self.root / "private"
+        private.mkdir()
+        file = private / "keep.env"
+        file.write_text("original")
+        with patch.object(stage, "paired_recovery_verifier", return_value=(native, helper)):
+            protected = stage.recovery_inventory(self.root, ["private/keep.env"], ("private",))
+            before = file.stat()
+            stage.recovery_preserve_files(self.root, {"protected": protected})
+            self.assertEqual(file.stat().st_ino, before.st_ino)
+            file.write_text("new current business bytes")
+            with self.assertRaisesRegex(RuntimeError, "preserve the current state"):
+                stage.recovery_preserve_files(self.root, {"protected": protected})
+            self.assertEqual(file.read_text(), "new current business bytes")
+
+class GeneratedClientPublicationTest(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix="peanut-native-client-publication-")
+        self.root = Path(self.temporary.name).resolve()
+        self.addCleanup(self.temporary.cleanup)
+        self.old_umask = os.umask(0o022)
+        self.addCleanup(os.umask, self.old_umask)
+        (self.root / "server/public").mkdir(parents=True)
+        for name in ("pc/.output/public", "uniapp/dist/build/h5"):
+            source = self.root / name
+            (source / "assets").mkdir(parents=True)
+            (source / "index.html").write_text("native generated index")
+            (source / "assets/app.js").write_text("native generated script")
+
+    def test_both_native_outputs_publish_with_exact_hash_inventory(self):
+        for source, destination in (("pc/.output/public", "server/public/pc"),
+                                    ("uniapp/dist/build/h5", "server/public/mobile")):
+            value = stage.publish_generated_client(self.root, source, destination)
+            self.assertEqual(value["source"], str(self.root / source))
+            self.assertEqual(value["destination"], str(self.root / destination))
+            self.assertEqual(set(value["outputs"]), {"index.html", "assets/app.js"})
+            for name, state in value["outputs"].items():
+                self.assertEqual(state["sha256"], stage.sha256(self.root / source / name))
+                self.assertEqual(state["sha256"], stage.sha256(self.root / destination / name))
+                self.assertEqual(state["mode"], 0o644)
+
+    def test_unknown_existing_destination_is_preserved(self):
+        destination = self.root / "server/public/pc"
+        destination.mkdir()
+        (destination / "business.html").write_text("keep existing bytes")
+        with self.assertRaisesRegex(RuntimeError, "unknown existing"):
+            stage.publish_generated_client(self.root, "pc/.output/public", "server/public/pc")
+        self.assertEqual((destination / "business.html").read_text(), "keep existing bytes")
+        self.assertFalse((self.root / "server/public/.pc.qualification-publish").exists())
+
+    def test_outside_contract_source_or_destination_is_rejected(self):
+        for source, destination in (("../outside", "server/public/pc"),
+                                    ("pc/.output/public", "../outside"),
+                                    ("pc/.output/public", "server/public/admin")):
+            with self.subTest(source=source, destination=destination), self.assertRaisesRegex(RuntimeError, "escapes"):
+                stage.publish_generated_client(self.root, source, destination)
+
+    def test_source_link_and_destination_link_are_rejected(self):
+        link = self.root / "pc/.output/public/assets/linked.js"
+        link.symlink_to(self.root / "uniapp/dist/build/h5/assets/app.js")
+        with self.assertRaises(RuntimeError):
+            stage.publish_generated_client(self.root, "pc/.output/public", "server/public/pc")
+        link.unlink()
+        destination = self.root / "server/public/pc"
+        destination.symlink_to(self.root / "uniapp/dist/build/h5")
+        with self.assertRaises(RuntimeError):
+            stage.publish_generated_client(self.root, "pc/.output/public", "server/public/pc")
+
+    def test_missing_index_and_previous_staging_are_rejected(self):
+        index = self.root / "pc/.output/public/index.html"
+        index.unlink()
+        with self.assertRaises(RuntimeError):
+            stage.publish_generated_client(self.root, "pc/.output/public", "server/public/pc")
+        index.write_text("native index")
+        staging = self.root / "server/public/.pc.qualification-publish"
+        staging.mkdir()
+        (staging / "original").write_text("retain failed attempt")
+        with self.assertRaisesRegex(RuntimeError, "previous.*staging"):
+            stage.publish_generated_client(self.root, "pc/.output/public", "server/public/pc")
+        self.assertEqual((staging / "original").read_text(), "retain failed attempt")
+
+    def test_generated_state_contains_actual_pc_and_mobile_outputs(self):
+        stage.publish_generated_client(self.root, "pc/.output/public", "server/public/pc")
+        stage.publish_generated_client(self.root, "uniapp/dist/build/h5", "server/public/mobile")
+        content = {".peanut/application-manifest.json": json.dumps({"application": {"edition": "standalone"}}),
+                   "modules.lock": "native lock", "server/public/admin/index.html": "native admin",
+                   "server/generated/openapi.json": "{}", "web/src/generated/openapi.d.ts": "native types"}
+        for relative, text in content.items():
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text)
+        catalog = {"schema_version": 1, "inputs": [{"path": "modules.lock", "sha256": stage.sha256(self.root / "modules.lock")}]}
+        (self.root / "server/generated/api-catalog.json").write_text(json.dumps(catalog))
+        value = stage.generated_state(self.root)
+        for relative in ("server/public/pc/index.html", "server/public/pc/assets/app.js",
+                         "server/public/mobile/index.html", "server/public/mobile/assets/app.js"):
+            self.assertEqual(value["outputs"][relative]["sha256"], stage.sha256(self.root / relative))
+            self.assertEqual(value["outputs"][relative]["mode"], 0o644)
+
+
+
+    def test_unreadable_native_output_is_rejected_before_publication(self):
+        def unreadable(*args, **kwargs):
+            kwargs["onerror"](PermissionError("synthetic unreadable native output"))
+        with patch.object(stage.os, "walk", side_effect=unreadable):
+            with self.assertRaises(PermissionError):
+                stage.publish_generated_client(self.root, "pc/.output/public", "server/public/pc")
+        self.assertFalse((self.root / "server/public/pc").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
