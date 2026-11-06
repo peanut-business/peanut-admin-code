@@ -799,7 +799,7 @@ for lease, r in active:
                     or str(repository) != application['application']['root']
                     or application['tool_source']['common_dir'] != str(common)
                     or metadata['parent_lease'] != application.get('retained_authority',{}).get('lease','')
-                    or metadata['gate'] != 'permanent-app-development'):
+                    or metadata['gate'] != helper['operation_gate'](application)):
                     fail('active original application operation proof differs: '+lease)
                 parent = helper['retained_parent'](application,common,registry_sha=next(iter(r['registry-sha256'])))
                 if parent:
@@ -1386,14 +1386,15 @@ case "$COMMAND" in
     if [[ -n "$APPLICATION_OPERATION" ]]; then
       [[ -z "$SCHEMA_ALLOCATION" ]] || die 'allocation cannot combine application operation'
       [[ "$COMMAND" == claim && -z "$LEASE_ROLE" \
-        && "$GATE" == permanent-app-development && "${#RESOURCES[@]}" == 0 ]] \
+        && "${#RESOURCES[@]}" == 0 ]] \
         || die 'application operation requires its closed gate and no caller resources/role'
       APPLICATION_PROOF="$(python3 "$TOOL_ROOT/scripts/project-resource-application.py" resolve \
         --operation "$APPLICATION_OPERATION" --owner "$OWNER")" || die 'application operation registration rejected'
       REGISTERED_APP="$(printf '%s' "$APPLICATION_PROOF" | python3 -c 'import json,sys; print(json.load(sys.stdin)["worktree"])')"
       REGISTERED_CANDIDATE="$(printf '%s' "$APPLICATION_PROOF" | python3 -c 'import json,sys; print(json.load(sys.stdin)["candidate"])')"
       REGISTERED_PARENT="$(printf '%s' "$APPLICATION_PROOF" | python3 -c 'import json,sys; print(json.load(sys.stdin)["parent_lease"])')"
-      [[ "$CANDIDATE_REPOSITORY" == "$REGISTERED_APP" && "$CANDIDATE" == "$REGISTERED_CANDIDATE" \
+      REGISTERED_GATE="$(printf '%s' "$APPLICATION_PROOF" | python3 -c 'import json,sys; gate=json.load(sys.stdin)["resources"]["gate"]; assert len(gate)==1; print(gate[0])')"
+      [[ "$GATE" == "$REGISTERED_GATE" && "$CANDIDATE_REPOSITORY" == "$REGISTERED_APP" && "$CANDIDATE" == "$REGISTERED_CANDIDATE" \
         && "$OWNER" == "$THREAD_ID" && "$PARENT_LEASE" == "$REGISTERED_PARENT" ]] || die 'application operation does not match the actual APP/owner/thread/retained parent'
       WORKTREE="$REGISTERED_APP"
       while IFS= read -r resource; do
