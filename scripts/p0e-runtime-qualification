@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -30,7 +31,7 @@ ROOT = Path(__file__).resolve().parent.parent
 TOOL_ROOT = ROOT
 TOOL_FILES = ("scripts/p0e-runtime-qualification", "scripts/consumer-module-reference-chain", "scripts/p0e-browser-smoke", ".github/workflows/scaffold-release.yml",
     "server/fixtures/module-lifecycle/run.php", "server/tests/Productization/ModuleLifecycleMySqlTest.php",
-    "server/tests/Productization/ModuleFailureRecoveryMySqlTest.php", "server/tests/Productization/ModuleRuntimeGovernanceTest.php")
+    "server/tests/Productization/ModuleFailureRecoveryMySqlTest.php", "server/tests/Productization/ModuleRuntimeGovernanceTest.php", "scripts/tests/p0e_template_stage_test.py")
 TOOL_BINDING: dict[str, Any] | None = None
 FIXTURE_PATH = ROOT / "server/tests/fixtures/p0e-runtime-qualification/matrix.json"
 REGISTRY_PATH = Path(os.environ.get("PEANUT_RESOURCE_REGISTRY") or ROOT / "resources/project-resources.json")
@@ -1149,6 +1150,685 @@ def paired_recovery_verifier() -> tuple[dict[str, Any], str]:
     return native, expected
 
 
+
+GENERATED_RECOVERY_PROTOCOL = "peanut.generated-application-recovery.v1"
+RECOVERY_FILES = (
+    ".peanut/application-manifest.json", "resources/project-resources.json",
+    "release-versions.json", "RELEASE_METADATA.json", "modules.lock",
+    "server/.env", "server/docker/.env", "server/docker/collaboration.env",
+    "server/private/installation/installed.json", "server/private/installation/baseline.json",
+    "server/private/installation/deployment.json", "server/private/resources/configuration.json",
+    "server/private/resources/project-resources.json", "server/private/credentials/initial-administrators.json",
+    ".local/toolchain/host.json",
+)
+# Same six rebuildable dependency directories as the accepted permanent APP protection.
+RECOVERY_DEPENDENCY_EXCLUSIONS = ("node_modules", "pc/node_modules", "platform/node_modules",
+                                 "server/vendor", "uniapp/node_modules", "web/node_modules")
+RECOVERY_STORAGE = ("server/public/storage", "server/public/uploads", "server/private", "server/docker/tls", ".local/php")
+
+
+def recovery_json(path: Path, value: dict[str, Any]) -> None:
+    """Commit private stage records atomically within this new run."""
+    temporary = path.with_name(path.name + ".temporary")
+    with temporary.open("x", encoding="utf-8") as stream:
+        os.chmod(temporary, 0o600)
+        json.dump(value, stream, sort_keys=True, ensure_ascii=False, indent=2)
+        stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, path)
+
+
+def recovery_private(path: Path) -> None:
+    if (path.is_symlink() or not path.is_file() or path.stat().st_nlink != 1
+            or path.stat().st_uid != os.geteuid() or path.stat().st_mode & 0o777 != 0o600):
+        fail("recovery input must be an own single-link private regular file")
+
+
+def recovery_identity(app: dict[str, Any], owner: str, thread: str) -> tuple[dict[str, Any], dict[str, str]]:
+    if TOOL_BINDING is None:
+        fail("generated recovery requires the explicit independent qualification-tool binding")
+    if os.name != "posix":
+        fail("generated recovery requires its registered POSIX native client host")
+    root = canonical(app["root"], directory=True)
+    tree = command(["git", "-C", str(root), "rev-parse", app["head"] + "^{tree}"], capture=True).stdout.strip()
+    checkout_identity(root, app["head"], tree)
+    manifest = read_json(file_reference({"path": str(root / ".peanut/application-manifest.json"), "sha256": app["manifest_sha256"]}))
+    if (manifest.get("template", {}).get("source_commit") != TOOL_BINDING["candidate"]
+            or manifest.get("template", {}).get("source_tree") != TOOL_BINDING["candidate_tree"]):
+        fail("generated recovery application does not adopt the fixed product source")
+    admission = runtime_admission(app, str(root), app["head"])
+    verify_runtime_admission(admission, owner, thread)
+    environment = runtime_environment(app, admission)
+    edition = manifest["application"]["edition"]
+    environment["PEANUT_DEPLOYMENT_TARGET"] = "local-development" if edition == "standalone" else "local-multi-tenant-demo"
+    result = command(["php", "-r",
+        "require $argv[1].'/vendor/autoload.php';"
+        "$f=\\app\\common\\services\\installation\\InstallationExecutionHost::verifiedInstallationFacts($argv[1]);"
+        "echo json_encode($f,JSON_THROW_ON_ERROR);", str(root / "server")], cwd=root, env=environment, capture=True)
+    facts = json.loads(result.stdout)
+    receipt = facts.get("receipt", {})
+    if (receipt.get("source", {}).get("kind") != "generated-application"
+            or receipt.get("state") != "installed" or receipt.get("deployment_mode") != edition
+            or facts.get("receipt_sha256") != sha256(root / "server/private/installation/installed.json")):
+        fail("generated recovery requires original verified installed facts")
+    database = database_registration(app)
+    client = database.get("management_entry", {})
+    fields = ("ssh_command", "ssh_alias", "docker_command", "container_name", "mysql_command", "mysqldump_command")
+    if (any(not isinstance(client.get(k), str) or not client[k] for k in fields)
+            or database.get("database") != app["database"]
+            or client.get("schema_maintenance_admission") != "exclusive-schema"):
+        fail("generated recovery needs its registered exact native schema client")
+    for name in ("ssh_command", "docker_command", "mysql_command", "mysqldump_command"):
+        if not Path(client[name]).is_absolute():
+            fail("native recovery client executable must be absolute")
+    identity = {"root": str(root), "head": app["head"], "tree": tree, "manifest_sha256": app["manifest_sha256"],
+                "installation_receipt_sha256": facts["receipt_sha256"], "edition": edition,
+                "resource_id": app["resource_id"], "endpoint_id": app["endpoint_id"], "database": app["database"],
+                "source": {k: TOOL_BINDING[k] for k in ("candidate", "candidate_tree")},
+                "qualification_tool_binding": TOOL_BINDING, "owner": owner, "thread": thread,
+                "registry_sha256": sha256(REGISTRY_PATH), "client": {k: client[k] for k in fields}}
+    return identity, environment
+
+
+def recovery_probe(app: dict[str, Any], environment: dict[str, str], *, credentials: bool = False) -> dict[str, Any]:
+    """APP-owned guard and native PDO. Sensitive connection values stay only in memory."""
+    php = r"""
+require $argv[1].'/database/environment-guard.php';
+$application->env->load($argv[1].'/.env');
+$c=guardedDatabaseConfig();$p=guardedConnection($c,5);
+$p->exec('SET TRANSACTION READ ONLY');$p->beginTransaction();
+$id=$p->query('SELECT @@server_uuid AS server_uuid,VERSION() AS version,DATABASE() AS database_name,CURRENT_USER() AS principal')->fetch(PDO::FETCH_ASSOC);
+$tables=$p->query("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_TYPE='BASE TABLE' ORDER BY TABLE_NAME")->fetchAll(PDO::FETCH_COLUMN);
+$state=[];
+foreach($tables as $t){
+ if(!preg_match('/^[A-Za-z0-9_]+$/D',$t))throw new RuntimeException('UNSAFE_TABLE');
+ $q=chr(96).$t.chr(96);$create=$p->query('SHOW CREATE TABLE '.$q)->fetch(PDO::FETCH_NUM)[1];
+ $rows=$p->query('SELECT * FROM '.$q)->fetchAll(PDO::FETCH_ASSOC);$encoded=array_map('serialize',$rows);sort($encoded,SORT_STRING);$h=hash_init('sha256');
+ foreach($encoded as $row)hash_update($h,strlen($row).':'.$row);
+ $state[$t]=['rows'=>count($rows),'rows_sha256'=>hash_final($h),'schema_sha256'=>hash('sha256',$create)];
+}
+$objects=[];
+foreach(['VIEWS'=>['TABLE_SCHEMA','TABLE_NAME'],'TRIGGERS'=>['TRIGGER_SCHEMA','TRIGGER_NAME'],'ROUTINES'=>['ROUTINE_SCHEMA','ROUTINE_NAME'],'EVENTS'=>['EVENT_SCHEMA','EVENT_NAME']] as $table=>[$schema,$name]){
+ $s=$p->prepare('SELECT '.$name.' FROM information_schema.'.$table.' WHERE '.$schema.'=DATABASE() ORDER BY '.$name);$s->execute();$objects[$table]=$s->fetchAll(PDO::FETCH_COLUMN);
+}
+$p->commit();$result=['identity'=>$id,'tables'=>$state,'objects'=>$objects];
+if($argv[2]==='credentials')$result['credentials']=['user'=>$c['user'],'password'=>$c['password']];
+echo json_encode($result,JSON_THROW_ON_ERROR);
+"""
+    result = command(["php", "-d", "zend.exception_ignore_args=1", "-r", php, app["root"] + "/server",
+                      "credentials" if credentials else "state"], cwd=Path(app["root"]), env=environment,
+                     capture=True, check=False)
+    if result.returncode != 0:
+        fail("native recovery APP guard/PDO observation failed; no credentials printed")
+    value = json.loads(result.stdout)
+    database = database_registration(app)
+    identity = value["identity"]
+    if (identity["database_name"] != app["database"] or identity["server_uuid"] != database["server_uuid"]
+            or identity["version"] != database["version"] or not value["tables"]):
+        fail("native recovery database identity or installed table set differs")
+    if any(value["objects"].values()):
+        fail("generated recovery currently requires no views, triggers, routines or events")
+    return value
+
+
+def recovery_client(identity: dict[str, Any], executable: str, arguments: list[str], *, root: bool) -> list[str]:
+    client = identity["client"]
+    native = [client[executable], "--no-defaults", "--no-login-paths", *arguments]
+    if root:
+        script = "set -eu\nMYSQL_PWD=$" + "{MYSQL_ROOT_PASSWORD:?}; export MYSQL_PWD\nexec " + shlex.join(native)
+    else:
+        # SSH stdin, never process argv, transfers only the existing APP account password.
+        script = "set -eu\nIFS= read -r MYSQL_PWD\nexport MYSQL_PWD\nexec " + shlex.join(native)
+    remote = shlex.join([client["docker_command"], "exec", "-i", client["container_name"], "/bin/sh", "-c", script])
+    return [client["ssh_command"], "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
+            "-o", "ConnectTimeout=10", client["ssh_alias"], remote]
+
+
+def recovery_no_writers(identity: dict[str, Any]) -> dict[str, Any]:
+    """Independent OS/listener and global native MySQL observations, not caller attestations."""
+    root = identity["root"]
+    registered = read_json(REGISTRY_PATH)["resources"]
+    rows = [r for group in registered.values() if isinstance(group, list) for r in group
+            if isinstance(r, dict) and r.get("application_root") == root and r.get("service_manager")]
+    if not rows:
+        fail("recovery writer processes are not registered for this application")
+    ports = sorted({r["port"] for r in rows if isinstance(r.get("port"), int)})
+    if not ports:
+        fail("recovery writer listener set is unavailable")
+    for port in ports:
+        result = command(["lsof", "-nP", "-iTCP:" + str(port), "-sTCP:LISTEN"], capture=True, check=False)
+        if result.returncode != 1 or result.stdout.strip():
+            fail("recovery requires stopped registered APP listeners")
+    process_rows = command(["ps", "-axo", "pid=,command="], capture=True).stdout.splitlines()
+    for line in process_rows:
+        fields = line.strip().split(None, 1)
+        if len(fields) != 2 or not fields[0].isdigit() or int(fields[0]) == os.getpid():
+            continue
+        pid, text = fields
+        if not re.search(r"(?:^|/)(?:php(?:-fpm)?[0-9.]*|node|npm|pnpm)(?:\s|$)", text):
+            continue
+        cwd = command(["lsof", "-a", "-p", pid, "-d", "cwd", "-Fn"], capture=True, check=False)
+        if any(x.startswith("n") and (x[1:] == root or x[1:].startswith(root + "/")) for x in cwd.stdout.splitlines()):
+            fail("recovery found an APP PHP/client/worker process")
+    database = identity["database"]
+    if not re.fullmatch(r"[A-Za-z0-9_]+", database):
+        fail("recovery schema name is unsafe")
+    query = ("SELECT CONCAT_WS('|',@@server_uuid,VERSION(),CURRENT_USER());"
+             "SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE DB='" + database
+             + "' AND ID<>CONNECTION_ID();"
+             "SELECT COUNT(*) FROM performance_schema.metadata_locks WHERE OBJECT_SCHEMA='" + database
+             + "' AND LOCK_STATUS='PENDING';")
+    result = command(recovery_client(identity, "mysql_command", ["-uroot", "--batch", "--raw", "--skip-column-names",
+                     "--execute=" + query], root=True), capture=True)
+    lines = result.stdout.splitlines()
+    registration = next(r for r in registered["databases"] if r["stable_resource_id"] == identity["resource_id"])
+    expected = registration["server_uuid"] + "|" + registration["version"] + "|root@localhost"
+    if lines != [expected, "0", "0"]:
+        fail("recovery global native writer/lock observation is not empty")
+    return {"registered_ports": ports, "local_app_workers": 0, "other_schema_connections": 0,
+            "pending_metadata_locks": 0, "root_usage": "read-only global writer visibility", "observed_at": int(time.time())}
+
+
+def recovery_paths(app: dict[str, Any]) -> tuple[list[str], tuple[str, ...]]:
+    manifest = read_json(Path(app["root"]) / ".peanut/application-manifest.json")
+    files = set(RECOVERY_FILES)
+    files.update(row["path"] for row in manifest["files"] if row["classification"] == "app-owned")
+    root = Path(app["root"])
+    for directory in ("", "server", "web", "platform", "pc", "uniapp"):
+        files.update(str(p.relative_to(root)) for p in (root / directory).glob(".env*") if p.is_file())
+    return sorted(files), RECOVERY_STORAGE
+
+
+def recovery_archive_inventory(path: Path) -> dict[str, Any]:
+    native, _ = paired_recovery_verifier()
+    native["storage_archive"](path)
+    inventory = {}
+    with tarfile.open(path, "r:gz") as archive:
+        for member in archive.getmembers():
+            name = member.name.rstrip("/")
+            digest = None
+            if member.isfile():
+                stream = archive.extractfile(member)
+                if stream is None:
+                    fail("protected archive file is unreadable")
+                hasher = hashlib.sha256()
+                with stream:
+                    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                        hasher.update(chunk)
+                digest = hasher.hexdigest()
+            inventory[name] = [digest, member.mode & 0o777, member.uid, member.gid]
+    return inventory
+
+
+
+def recovery_source_inventory(root: Path) -> dict[str, Any]:
+    """Protect the entire existing source/.git tree without following symbolic links."""
+    result = {}
+    for parent, directories, files in os.walk(root, followlinks=False):
+        directories[:] = [name for name in directories
+                          if str((Path(parent) / name).relative_to(root)) not in RECOVERY_DEPENDENCY_EXCLUSIONS]
+        for name in sorted(directories + files):
+            if str((Path(parent) / name).relative_to(root)) in RECOVERY_DEPENDENCY_EXCLUSIONS:
+                continue
+            path = Path(parent) / name
+            relative = str(path.relative_to(root))
+            metadata = path.lstat()
+            mode = metadata.st_mode & 0o777
+            if path.is_symlink():
+                entry = ["symlink", os.readlink(path), mode, metadata.st_uid, metadata.st_gid]
+            elif path.is_dir():
+                entry = ["directory", None, mode, metadata.st_uid, metadata.st_gid]
+            elif path.is_file():
+                entry = ["file", sha256(path), mode, metadata.st_uid, metadata.st_gid]
+            else:
+                fail("complete source backup found a special filesystem object")
+            result[relative] = entry
+    if ".git" not in result or result[".git"][0] != "directory":
+        fail("complete source recovery requires the real APP-owned .git directory")
+    return result
+
+
+def recovery_source_archive(path: Path) -> dict[str, Any]:
+    recovery_private(path)
+    result = {}
+    with tarfile.open(path, "r:gz") as archive:
+        for member in archive:
+            name = member.name.rstrip("/")
+            if (not name or name in result or Path(name).is_absolute() or ".." in Path(name).parts
+                    or "\\" in name or any(ord(c) < 32 for c in name)):
+                fail("complete source archive has unsafe or duplicate paths")
+            if member.issym():
+                kind, value = "symlink", member.linkname
+            elif member.isdir():
+                kind, value = "directory", None
+            elif member.isfile():
+                stream = archive.extractfile(member)
+                if stream is None:
+                    fail("complete source archive member is unreadable")
+                digest = hashlib.sha256()
+                with stream:
+                    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                        digest.update(chunk)
+                kind, value = "file", digest.hexdigest()
+            else:
+                fail("complete source archive has unsupported special entries")
+            result[name] = [kind, value, member.mode & 0o777, member.uid, member.gid]
+    return result
+
+
+def recovery_source_backup(root: Path, workspace: Path) -> dict[str, Any]:
+    before = recovery_source_inventory(root)
+    bundle = workspace / "source.bundle"
+    command(["git", "-C", str(root), "bundle", "create", str(bundle), "--all"], capture=True)
+    os.chmod(bundle, 0o600)
+    command(["git", "-C", str(root), "bundle", "verify", str(bundle)], capture=True)
+    archive_path = workspace / "source-and-git.tgz"
+    with tarfile.open(archive_path, "w:gz") as archive:
+        for relative, entry in sorted(before.items()):
+            path = root / relative
+            member = archive.gettarinfo(str(path), arcname=relative)
+            if entry[0] == "file":
+                # Store every regular file independently, including existing hardlinks.
+                member.type, member.linkname, member.size = tarfile.REGTYPE, "", path.stat().st_size
+                with path.open("rb") as stream:
+                    archive.addfile(member, stream)
+            else:
+                archive.addfile(member)
+    os.chmod(archive_path, 0o600)
+    if recovery_source_archive(archive_path) != before or recovery_source_inventory(root) != before:
+        fail("complete source/.git backup differs from its protected preimage")
+    return {"archive_sha256": sha256(archive_path), "bundle_sha256": sha256(bundle),
+            "dependency_exclusions": list(RECOVERY_DEPENDENCY_EXCLUSIONS), "inventory": before}
+
+
+def recovery_backup_attachments(workspace: Path, backup: dict[str, Any]) -> None:
+    native, helper_sha = paired_recovery_verifier()
+    if helper_sha != backup["pure_helper_sha256"]:
+        fail("pinned recovery helper identity differs")
+    source = backup["source_backup"]
+    if source["dependency_exclusions"] != list(RECOVERY_DEPENDENCY_EXCLUSIONS):
+        fail("complete source backup dependency exclusions differ from the accepted protection contract")
+    bundle = workspace / "source.bundle"
+    recovery_private(bundle)
+    if (sha256(bundle) != source["bundle_sha256"]
+            or sha256(workspace / "source-and-git.tgz") != source["archive_sha256"]
+            or recovery_source_archive(workspace / "source-and-git.tgz") != source["inventory"]):
+        fail("complete source/.git backup attachment differs")
+    command(["git", "-C", backup["identity"]["root"], "bundle", "verify", str(bundle)], capture=True)
+    dump = workspace / "database.sql"
+    recovery_private(dump)
+    if sha256(dump) != backup["database_sha256"]:
+        fail("same-schema SQL attachment changed")
+    native["validate_dump"](dump, backup["identity"]["database"])
+    for relative, entry in backup["protected"]["files"].items():
+        if entry is not None:
+            source = workspace / "files" / relative
+            recovery_private(source)
+            if sha256(source) != entry["sha256"]:
+                fail("protected configuration attachment differs")
+    expected = {k for k, v in backup["protected"]["storage"].items() if v is not None}
+    if set(backup["storage_archives"]) != expected:
+        fail("protected storage backup allowlist differs")
+    for relative in expected:
+        path = workspace / "storage" / (relative.replace("/", "-") + ".tgz")
+        if (sha256(path) != backup["storage_archives"][relative]
+                or recovery_archive_inventory(path) != backup["protected"]["storage"][relative]["inventory"]):
+            fail("protected archive contents/modes/ownership differ from the native preimage")
+
+
+def recovery_inventory(root: Path, files: list[str], directories: tuple[str, ...]) -> dict[str, Any]:
+    native, _ = paired_recovery_verifier()
+    result = {"files": {}, "storage": {}}
+    for relative in files:
+        path = root / relative
+        if Path(relative).is_absolute() or ".." in Path(relative).parts:
+            fail("protected recovery path escapes the application")
+        if not path.exists() and not path.is_symlink():
+            result["files"][relative] = None
+            continue
+        if any(parent.is_symlink() for parent in path.parents):
+            fail("protected configuration has a linked parent")
+        native["regular"](path)
+        stat = path.stat()
+        if stat.st_uid != os.geteuid():
+            fail("protected configuration is owned by another runtime identity")
+        result["files"][relative] = {"sha256": sha256(path), "mode": stat.st_mode & 0o777,
+                                     "uid": stat.st_uid, "gid": stat.st_gid}
+    for relative in directories:
+        path = root / relative
+        if not path.exists() and not path.is_symlink():
+            result["storage"][relative] = None
+        else:
+            if any(parent.is_symlink() for parent in path.parents):
+                fail("protected storage has a linked parent")
+            stat = path.stat()
+            inventory = native["storage_inventory"](path)
+            if stat.st_uid != os.geteuid():
+                fail("protected storage is owned by another runtime identity")
+            for name, state in inventory.items():
+                owner = (path / name).stat()
+                if owner.st_uid != os.geteuid():
+                    fail("protected storage child is owned by another runtime identity")
+                state.extend([owner.st_uid, owner.st_gid])
+            result["storage"][relative] = {"inventory": inventory,
+                "mode": stat.st_mode & 0o777, "uid": stat.st_uid, "gid": stat.st_gid}
+    return result
+
+
+def recovery_signed(workspace: Path, name: str, value: dict[str, Any], key: bytes) -> None:
+    recovery_json(workspace / name, value)
+    signature = hmac.new(key, (name + "\0" + sha256(workspace / name)).encode(), hashlib.sha256).hexdigest()
+    recovery_json(workspace / (name + ".signature.json"), {"hmac_sha256": signature})
+
+
+def recovery_check_signature(workspace: Path, name: str, key: bytes) -> dict[str, Any]:
+    path = workspace / name
+    recovery_private(path)
+    signature = workspace / (name + ".signature.json")
+    recovery_private(signature)
+    expected = hmac.new(key, (name + "\0" + sha256(path)).encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(read_json(signature).get("hmac_sha256", ""), expected):
+        fail("generated recovery instance signature differs")
+    return read_json(path)
+
+
+def recovery_key(root: Path, run_id: str) -> Path:
+    if not re.fullmatch(r"[a-z0-9][a-z0-9.-]{0,63}", run_id) or ".." in run_id:
+        fail("invalid generated recovery namespace")
+    return root / "server/private/qualification-recovery" / run_id / "instance.key"
+
+
+def generated_recovery_plan(args: argparse.Namespace) -> dict[str, Any]:
+    recovery_key(Path("/"), args.run_id)
+    raw = file_reference({"path": args.application_input, "sha256": args.application_input_sha256})
+    recovery_private(raw)
+    value = read_json(raw)
+    if set(value) != {"application", "owner", "thread"}:
+        fail("generated recovery input must contain its one APP and real owner/thread")
+    app = value["application"]
+    identity, environment = recovery_identity(app, value["owner"], value["thread"])
+    workspace = Path(args.output_dir)
+    if not workspace.is_absolute() or workspace.exists() or workspace.is_symlink():
+        fail("use a new absolute private recovery workspace, never overwrite an earlier attempt")
+    parent = canonical(str(workspace.parent), directory=True)
+    root = Path(app["root"])
+    if parent == root or root in parent.parents or parent == ROOT or ROOT in parent.parents:
+        fail("recovery attachments must be outside the product/application source")
+    proof = command([str(LEASE_TOOL), "show", "--lease", app["lease"], "--verify-locks"],
+                    cwd=root, capture=True).stdout
+    _, resources = parse_lease(proof)
+    if ("output-dir", str(workspace)) not in resources:
+        fail("own native recovery scope must cover the exact private output")
+    state = recovery_probe(app, environment)
+    files, directories = recovery_paths(app)
+    plan = {"protocol": GENERATED_RECOVERY_PROTOCOL, "kind": "plan", "run_id": args.run_id,
+            "identity": identity, "application": app, "workspace": str(workspace),
+            "input_sha256": sha256(raw), "database_preimage": state,
+            "protected_preimage": recovery_inventory(root, files, directories),
+            "files": files, "storage_names": list(directories),
+            "restore_scope": "same-instance-same-schema-native-mysql",
+            "root_usage": ["global read-only writer observation", "native complete mysqldump only"],
+            "restore_principal": state["identity"]["principal"]}
+    # No key, maintenance marker, service stop or database write is created by plan.
+    workspace.mkdir(mode=0o700)
+    recovery_json(workspace / "plan.json", plan)
+    (workspace / "runtime-proof.txt").write_text(proof, encoding="utf-8")
+    os.chmod(workspace / "runtime-proof.txt", 0o600)
+    return {"plan": str(workspace / "plan.json"), "sha256": sha256(workspace / "plan.json"),
+            "status": "planned", "database_writes": False, "instance_key_created": False}
+
+
+def recovery_restore_files(root: Path, workspace: Path, backup: dict[str, Any]) -> None:
+    native, _ = paired_recovery_verifier()
+    for relative, entry in backup["protected"]["files"].items():
+        path = root / relative
+        if any(parent.is_symlink() for parent in path.parents):
+            fail("recovery destination parent is linked")
+        if entry is None:
+            if path.exists() or path.is_symlink():
+                fail("originally absent protected configuration appeared")
+            continue
+        if not path.exists() or path.is_symlink():
+            fail("protected configuration destination is missing or linked")
+        native["regular"](path)
+        if path.stat().st_uid != entry["uid"] or path.stat().st_gid != entry["gid"]:
+            fail("protected configuration destination ownership changed")
+        source = workspace / "files" / relative
+        native["regular"](source, 0o600)
+        if sha256(source) != entry["sha256"]:
+            fail("protected configuration backup changed")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, path)
+        os.chmod(path, entry["mode"])
+        if (path.stat().st_uid, path.stat().st_gid) != (entry["uid"], entry["gid"]):
+            fail("native configuration ownership could not be preserved")
+    for relative, entry in backup["protected"]["storage"].items():
+        path = root / relative
+        if entry is None:
+            if path.exists() or path.is_symlink():
+                fail("originally absent protected storage appeared")
+            continue
+        archive = workspace / "storage" / (relative.replace("/", "-") + ".tgz")
+        native["storage_archive"](archive)
+        if sha256(archive) != backup["storage_archives"][relative]:
+            fail("protected storage archive changed")
+        if any(parent.is_symlink() for parent in path.parents) or path.is_symlink():
+            fail("protected storage restore destination is linked")
+        if path.exists():
+            shutil.rmtree(path)
+        path.mkdir(parents=True, mode=entry["mode"])
+        with tarfile.open(archive, "r:gz") as stream:
+            stream.extractall(path)
+        os.chmod(path, entry["mode"])
+
+
+def generated_recovery_execute(args: argparse.Namespace) -> dict[str, Any]:
+    plan_path = file_reference({"path": args.plan, "sha256": args.plan_sha256})
+    recovery_private(plan_path)
+    plan = read_json(plan_path)
+    if plan.get("protocol") != GENERATED_RECOVERY_PROTOCOL or plan.get("kind") != "plan":
+        fail("not a generated recovery plan")
+    workspace = canonical(plan["workspace"], directory=True)
+    if plan_path != workspace / "plan.json" or workspace.stat().st_mode & 0o777 != 0o700:
+        fail("generated recovery workspace identity differs")
+    journal = workspace / "execution.json"
+    if journal.exists() or journal.is_symlink():
+        fail("retain the original execution; FAILED/UNKNOWN is never automatically replayed")
+    app, expected = plan["application"], plan["identity"]
+    identity, environment = recovery_identity(app, expected["owner"], expected["thread"])
+    if identity != expected:
+        fail("generated recovery source/instance/tool/owner identity changed")
+    root = Path(app["root"])
+    files, directories = recovery_paths(app)
+    if (files != plan["files"] or list(directories) != plan["storage_names"]
+            or recovery_inventory(root, files, directories) != plan["protected_preimage"]
+            or recovery_probe(app, environment) != plan["database_preimage"]):
+        fail("generated recovery preimage changed; do not overwrite new data")
+    stopped = recovery_no_writers(identity)
+    recovery_json(journal, {"status": "started", "plan_sha256": args.plan_sha256, "started_at": int(time.time())})
+    key_path = recovery_key(root, plan["run_id"])
+    if any(parent.is_symlink() for parent in key_path.parents):
+        fail("generated recovery namespace has a linked parent")
+    if key_path.exists() or key_path.is_symlink():
+        fail("generated recovery namespace already exists")
+    key_path.parent.mkdir(mode=0o700, parents=True)
+    key = secrets.token_bytes(32)
+    with key_path.open("xb") as stream:
+        os.chmod(key_path, 0o600)
+        stream.write(key)
+    recovery_json(key_path.with_name("instance-context.json"), identity)
+    try:
+        protected = recovery_inventory(root, files, directories)
+        source_backup = recovery_source_backup(root, workspace)
+        (workspace / "files").mkdir(mode=0o700)
+        for relative, entry in protected["files"].items():
+            if entry is not None:
+                target = workspace / "files" / relative
+                target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+                shutil.copyfile(root / relative, target)
+                os.chmod(target, 0o600)
+        (workspace / "storage").mkdir(mode=0o700)
+        archives = {}
+        for relative, entry in protected["storage"].items():
+            if entry is not None:
+                target = workspace / "storage" / (relative.replace("/", "-") + ".tgz")
+                with tarfile.open(target, "w:gz") as archive:
+                    for child in sorted((root / relative).iterdir()):
+                        archive.add(child, arcname=child.name, recursive=True)
+                os.chmod(target, 0o600)
+                archives[relative] = sha256(target)
+        database = app["database"]
+        dump = workspace / "database.sql"
+        dump_args = ["-uroot", "--single-transaction", "--routines", "--triggers", "--events",
+                     "--hex-blob", "--set-gtid-purged=OFF", "--no-tablespaces",
+                     "--add-drop-database", "--databases", database]
+        with dump.open("xb") as output, (workspace / "dump.stderr").open("xb") as error:
+            process = subprocess.run(recovery_client(identity, "mysqldump_command", dump_args, root=True),
+                                     stdout=output, stderr=error, timeout=300, check=False)
+        os.chmod(dump, 0o600)
+        if process.returncode != 0:
+            fail("native full same-schema dump failed; actual restore was not started")
+        native, helper_sha = paired_recovery_verifier()
+        native["validate_dump"](dump, database)
+        if recovery_probe(app, environment) != plan["database_preimage"]:
+            fail("database changed while capturing backup")
+        recovery_no_writers(identity)
+        backup = {"protocol": GENERATED_RECOVERY_PROTOCOL, "kind": "backup", "identity": identity,
+                  "plan_sha256": args.plan_sha256, "runtime_proof_sha256": sha256(workspace / "runtime-proof.txt"),
+                  "database_sha256": sha256(dump),
+                  "database_preimage": plan["database_preimage"], "protected": protected, "source_backup": source_backup,
+                  "storage_archives": archives, "pure_helper_sha256": helper_sha, "writers_stopped": stopped}
+        recovery_signed(workspace, "backup.json", backup, key)
+        recovery_backup_attachments(workspace, backup)
+        verify_runtime_admission(runtime_admission(app, str(root), app["head"]), identity["owner"], identity["thread"])
+        if recovery_source_inventory(root) != source_backup["inventory"]:
+            fail("complete source/.git changed after the paired native backup")
+        credentials = recovery_probe(app, environment, credentials=True).pop("credentials")
+        if "\n" in credentials["password"] or "\r" in credentials["password"]:
+            fail("ordinary native recovery credential transport cannot encode newlines")
+        input_path = workspace / "restore-input.private"
+        with input_path.open("xb") as output:
+            os.chmod(input_path, 0o600)
+            output.write(credentials["password"].encode() + b"\n")
+            with dump.open("rb") as source:
+                shutil.copyfileobj(source, output)
+        argv = recovery_client(identity, "mysql_command", ["--user=" + credentials["user"],
+                               "--binary-mode", "--database=" + database], root=False)
+        started_at = int(time.time())
+        recovery_json(journal, {"status": "RESTORING", "stage": "dispatch-intent",
+                               "started_at": started_at, "plan_sha256": args.plan_sha256})
+        with input_path.open("rb") as source, (workspace / "restore.stdout").open("xb") as output, (workspace / "restore.stderr").open("xb") as error:
+            process = subprocess.Popen(argv, stdin=source, stdout=output, stderr=error)
+            recovery_json(journal, {"status": "restore-started", "pid": process.pid,
+                                   "started_at": started_at, "plan_sha256": args.plan_sha256})
+            code = process.wait(timeout=300)
+        terminal = {"pid": process.pid, "started_at": started_at, "finished_at": int(time.time()),
+                    "exit_code": code, "stdout_sha256": sha256(workspace / "restore.stdout"),
+                    "stderr_sha256": sha256(workspace / "restore.stderr")}
+        recovery_json(journal, {"status": "restore-terminal", "terminal": terminal,
+                               "plan_sha256": args.plan_sha256})
+        input_path.unlink()
+        if code != 0:
+            fail("native ordinary-account restore failed; preserve this same execution")
+        recovery_restore_files(root, workspace, backup)
+        after = recovery_probe(app, environment)
+        if after != backup["database_preimage"] or recovery_inventory(root, files, directories) != protected:
+            fail("real same-instance database/configuration/storage restore postimage differs")
+        recovery_no_writers(identity)
+        verify_runtime_admission(runtime_admission(app, str(root), app["head"]), identity["owner"], identity["thread"])
+        result = {"protocol": GENERATED_RECOVERY_PROTOCOL, "kind": "completed", "status": "completed",
+                  "identity": identity, "run_id": plan["run_id"], "plan_sha256": args.plan_sha256,
+                  "backup_sha256": sha256(workspace / "backup.json"), "terminal": terminal,
+                  "database_postimage": after, "protected_postimage": protected,
+                  "restore_scope": "same-instance-same-schema-native-mysql"}
+        recovery_signed(workspace, "generated-application-recovery.json", result, key)
+        recovery_json(journal, {"status": "completed", "terminal": terminal, "plan_sha256": args.plan_sha256})
+        return {"status": "completed", "receipt": str(workspace / "generated-application-recovery.json"),
+                "sha256": sha256(workspace / "generated-application-recovery.json")}
+    except BaseException as error:
+        # Retain the original pid/stage. A disconnected native client may still be running.
+        state = read_json(journal)
+        previous = state.get("status")
+        state.update(status="UNKNOWN" if previous in ("RESTORING", "restore-started")
+                     and not (previous == "RESTORING" and isinstance(error, OSError)) else "failed",
+                     error_type=type(error).__name__, recorded_at=int(time.time()))
+        recovery_json(journal, state)
+        raise
+
+
+def generated_recovery_verify(path: Path, app: dict[str, Any]) -> dict[str, Any]:
+    if path.name != "generated-application-recovery.json":
+        fail("generated recovery reference must name the original native producer output")
+    workspace = canonical(str(path.parent), directory=True)
+    plan = read_json(workspace / "plan.json")
+    key_path = recovery_key(Path(app["root"]), plan["run_id"])
+    recovery_private(key_path)
+    key = key_path.read_bytes()
+    if len(key) != 32:
+        fail("generated recovery instance key size differs")
+    completed = recovery_check_signature(workspace, path.name, key)
+    backup = recovery_check_signature(workspace, "backup.json", key)
+    identity = completed["identity"]
+    if (completed.get("kind") != "completed" or completed.get("status") != "completed"
+            or completed.get("restore_scope") != "same-instance-same-schema-native-mysql"
+            or completed.get("protocol") != GENERATED_RECOVERY_PROTOCOL
+            or backup.get("identity") != identity or plan.get("identity") != identity
+            or completed.get("plan_sha256") != sha256(workspace / "plan.json")
+            or backup.get("plan_sha256") != completed["plan_sha256"]
+            or completed.get("backup_sha256") != sha256(workspace / "backup.json")
+            or identity.get("qualification_tool_binding") != TOOL_BINDING
+            or any(identity.get(k) != app.get(k) for k in ("root", "head", "manifest_sha256", "resource_id", "endpoint_id", "database"))
+            or read_json(key_path.with_name("instance-context.json")) != identity):
+        fail("generated recovery belongs to another source, instance, plan or tool")
+    terminal = completed.get("terminal", {})
+    if (set(terminal) != {"pid", "started_at", "finished_at", "exit_code", "stdout_sha256", "stderr_sha256"}
+            or not isinstance(terminal["pid"], int) or terminal["pid"] <= 0 or terminal["exit_code"] != 0
+            or terminal["finished_at"] < terminal["started_at"]
+            or terminal["stdout_sha256"] != sha256(workspace / "restore.stdout")
+            or terminal["stderr_sha256"] != sha256(workspace / "restore.stderr")
+            or read_json(workspace / "execution.json").get("status") != "completed"):
+        fail("generated recovery lacks the real terminal native restore record")
+    proof_path = workspace / "runtime-proof.txt"
+    recovery_private(proof_path)
+    metadata, resources = parse_lease(proof_path.read_text())
+    required = {"owner": identity["owner"], "thread": identity["thread"], "worktree": identity["root"],
+                "candidate": identity["head"], "status": "ACTIVE"}
+    if (any(metadata.get(k) != v for k, v in required.items())
+            or int(metadata.get("expires_at", "0")) < terminal["finished_at"]
+            or sha256(proof_path) != backup.get("runtime_proof_sha256")
+            or ("output-dir", str(workspace)) not in resources):
+        fail("generated recovery original own scope or output binding differs")
+    admission = runtime_admission(app, app["root"], app["head"])
+    current = command([str(LEASE_TOOL), "show", "--lease", app["lease"], "--verify-locks"],
+                      cwd=Path(app["root"]), capture=True).stdout
+    current_metadata, _ = parse_lease(current)
+    verify_runtime_admission(admission, current_metadata.get("owner", ""), current_metadata.get("thread", ""))
+    environment = runtime_environment(app, admission)
+    environment["PEANUT_DEPLOYMENT_TARGET"] = "local-development" if identity["edition"] == "standalone" else "local-multi-tenant-demo"
+    observed = recovery_probe(app, environment)
+    if observed != completed["database_postimage"]:
+        fail("current native same-instance database differs from the restored afterimage")
+    verified = json.loads(command(["php", "-r",
+        "require $argv[1].'/vendor/autoload.php';"
+        "$f=\\app\\common\\services\\installation\\InstallationExecutionHost::verifiedInstallationFacts($argv[1]);"
+        "echo json_encode(['receipt_sha256'=>$f['receipt_sha256']],JSON_THROW_ON_ERROR);",
+        app["root"] + "/server"], cwd=Path(app["root"]), env=environment, capture=True).stdout)
+    if verified.get("receipt_sha256") != identity["installation_receipt_sha256"]:
+        fail("current native installed instance differs from the recovery producer")
+    files, directories = recovery_paths(app)
+    root = Path(app["root"])
+    if (plan["files"] != files or plan["storage_names"] != list(directories)
+            or backup["database_preimage"] != completed["database_postimage"]
+            or backup["protected"] != completed["protected_postimage"]
+            or recovery_inventory(root, files, directories) != backup["protected"]):
+        fail("generated recovery omits or changes current protected state")
+    recovery_backup_attachments(workspace, backup)
+    return {"path": str(path), "sha256": sha256(path), "backup_sha256": completed["backup_sha256"],
+            "native_producer_sha256": sha256(TOOL_ROOT / "scripts/p0e-runtime-qualification"),
+            "completed_at": terminal["finished_at"], "scope": completed["restore_scope"]}
+
+
 def native_evidence(reference: dict[str, Any], app: dict[str, Any], kind: str,
                     final_build: dict[str, Any] | None = None) -> dict[str, Any]:
     """Read the native producer's own state, never an operator-written PASS envelope."""
@@ -1292,6 +1972,8 @@ def native_evidence(reference: dict[str, Any], app: dict[str, Any], kind: str,
                 raise NotRun("upgrade-retention: final outputs lack matching native API/admin/platform generation commands")
         return {"path": str(path), "sha256": sha256(path), "ledger_sha256": sha256(ledger_path),
                 "completed_at": matching[-1]["recorded_at"], "afterimage_digests": digests}
+    if kind == "recovery" and state.get("protocol") == GENERATED_RECOVERY_PROTOCOL:
+        return generated_recovery_verify(path, app)
     # A source rollback never proves database restoration. Consume the existing
     # instance-authenticated server update recovery producer and its full allowlist.
     if kind != "recovery" or path.name != "database-recovery.json":
@@ -1959,9 +2641,42 @@ def main() -> int:
     verify_module = subs.add_parser("verify-module-context", help="read-only current source/lease/isolated-APP admission")
     verify_module.add_argument("--plan", required=True)
     verify_module.add_argument("--plan-sha256", required=True)
+    for name in ("recovery-plan", "recovery-execute", "recovery-verify"):
+        recovery = subs.add_parser(name, help="instance-bound generated APP recovery; execute is destructive and never replays UNKNOWN")
+        for field in ("candidate", "source-root", "qualification-tool-commit", "qualification-tool-files-sha256"):
+            recovery.add_argument("--" + field, required=True)
+        if name in ("recovery-plan", "recovery-verify"):
+            recovery.add_argument("--application-input", required=True)
+            recovery.add_argument("--application-input-sha256", required=True)
+        if name == "recovery-plan":
+            recovery.add_argument("--run-id", required=True)
+            recovery.add_argument("--output-dir", required=True)
+        elif name == "recovery-execute":
+            recovery.add_argument("--plan", required=True)
+            recovery.add_argument("--plan-sha256", required=True)
+        else:
+            recovery.add_argument("--receipt", required=True)
+            recovery.add_argument("--receipt-sha256", required=True)
     for name in ("plan", "claim", "run", "resume"):
         add_fixed_arguments(subs.add_parser(name))
     args = parser.parse_args()
+    if args.command.startswith("recovery-"):
+        os.environ["GIT_OPTIONAL_LOCKS"] = "0"
+        configure_source(args)
+        os.umask(0o077)
+        if args.command == "recovery-plan":
+            result = generated_recovery_plan(args)
+        elif args.command == "recovery-execute":
+            result = generated_recovery_execute(args)
+        else:
+            input_path = file_reference({"path": args.application_input, "sha256": args.application_input_sha256})
+            recovery_private(input_path)
+            value = read_json(input_path)
+            app = value["application"]
+            recovery_identity(app, value["owner"], value["thread"])
+            result = generated_recovery_verify(file_reference({"path": args.receipt, "sha256": args.receipt_sha256}), app)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
     if args.command == "verify-module-context":
         print(json.dumps(verify_module_context(args), ensure_ascii=False))
         return 0

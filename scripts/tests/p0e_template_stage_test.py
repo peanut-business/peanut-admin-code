@@ -15,7 +15,7 @@ import tempfile
 import tarfile
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 SCRIPT = Path(__file__).resolve().parents[1] / "p0e-runtime-qualification"
 loader = importlib.machinery.SourceFileLoader("p0e_template_stage", str(SCRIPT))
@@ -797,6 +797,239 @@ class FixedRuntimeContractTest(unittest.TestCase):
             self.assertEqual(calls, GROUPS)
             close.assert_not_called()
 
+
+
+class GeneratedRecoveryContractTest(unittest.TestCase):
+    """Synthetic private files only. No APP key, service or database is touched."""
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix="peanut-generated-recovery-contract-")
+        self.root = Path(self.temporary.name).resolve()
+        self.addCleanup(self.temporary.cleanup)
+        self.workspace = self.root / "evidence"
+        self.workspace.mkdir(mode=0o700)
+        self.key = b"synthetic-contract-key-32-bytes!!!"
+
+    def private_json(self, path, value):
+        stage.recovery_json(path, value)
+        return path
+
+    def test_instance_signature_rejects_key_and_content_changes(self):
+        stage.recovery_signed(self.workspace, "backup.json", {"kind": "backup"}, self.key)
+        self.assertEqual(stage.recovery_check_signature(self.workspace, "backup.json", self.key), {"kind": "backup"})
+        with self.assertRaisesRegex(RuntimeError, "signature differs"):
+            stage.recovery_check_signature(self.workspace, "backup.json", b"another-instance-key")
+        (self.workspace / "backup.json").write_text('{"kind":"completed"}')
+        with self.assertRaisesRegex(RuntimeError, "signature differs"):
+            stage.recovery_check_signature(self.workspace, "backup.json", self.key)
+
+    def test_signature_domain_rejects_renamed_completed_envelope(self):
+        stage.recovery_signed(self.workspace, "backup.json", {"status": "completed"}, self.key)
+        (self.workspace / "backup.json").rename(self.workspace / "generated-application-recovery.json")
+        (self.workspace / "backup.json.signature.json").rename(self.workspace / "generated-application-recovery.json.signature.json")
+        with self.assertRaisesRegex(RuntimeError, "signature differs"):
+            stage.recovery_check_signature(self.workspace, "generated-application-recovery.json", self.key)
+
+    def test_private_file_rejects_public_mode_hardlink_and_symlink(self):
+        path = self.workspace / "private.json"
+        self.private_json(path, {})
+        stage.recovery_private(path)
+        path.chmod(0o644)
+        with self.assertRaisesRegex(RuntimeError, "private regular"):
+            stage.recovery_private(path)
+        path.chmod(0o600)
+        link = self.workspace / "hardlink"
+        os.link(path, link)
+        with self.assertRaisesRegex(RuntimeError, "private regular"):
+            stage.recovery_private(path)
+        link.unlink()
+        link.symlink_to(path)
+        with self.assertRaisesRegex(RuntimeError, "private regular"):
+            stage.recovery_private(link)
+
+    def test_namespace_rejects_escape_and_noncanonical_names(self):
+        for name in ("../other", "a..b", "/absolute", "Upper", "", "a" * 65):
+            with self.subTest(name=name), self.assertRaisesRegex(RuntimeError, "namespace"):
+                stage.recovery_key(self.root, name)
+        self.assertEqual(stage.recovery_key(self.root, "run-1").parent.name, "run-1")
+
+    def test_unknown_or_completed_execution_is_never_replayed(self):
+        plan = {"protocol": stage.GENERATED_RECOVERY_PROTOCOL, "kind": "plan", "workspace": str(self.workspace)}
+        path = self.private_json(self.workspace / "plan.json", plan)
+        for status in ("UNKNOWN", "completed", "restore-started"):
+            self.private_json(self.workspace / "execution.json", {"status": status, "pid": 123})
+            with patch.object(stage, "recovery_identity") as identity:
+                with self.assertRaisesRegex(RuntimeError, "never automatically replayed"):
+                    stage.generated_recovery_execute(argparse.Namespace(plan=str(path), plan_sha256=stage.sha256(path)))
+                identity.assert_not_called()
+            self.assertEqual(stage.read_json(self.workspace / "execution.json")["pid"], 123)
+
+    def test_unsigned_operator_receipt_is_rejected_before_native_observation(self):
+        path = self.private_json(self.workspace / "generated-application-recovery.json",
+                                 {"protocol": stage.GENERATED_RECOVERY_PROTOCOL, "status": "completed"})
+        self.private_json(self.workspace / "plan.json", {"run_id": "test"})
+        with patch.object(stage, "recovery_probe") as observe:
+            with self.assertRaisesRegex(RuntimeError, "private regular"):
+                stage.generated_recovery_verify(path, {"root": str(self.root)})
+            observe.assert_not_called()
+
+    def test_foreign_instance_is_rejected_before_native_observation(self):
+        path = self.workspace / "generated-application-recovery.json"
+        key = stage.recovery_key(self.root, "test")
+        key.parent.mkdir(parents=True)
+        key.write_bytes(b"k" * 32)
+        key.chmod(0o600)
+        self.private_json(self.workspace / "plan.json", {"run_id": "test", "identity": {"root": "/foreign"}})
+        completed = {"kind": "completed", "status": "completed", "protocol": stage.GENERATED_RECOVERY_PROTOCOL,
+                     "restore_scope": "same-instance-same-schema-native-mysql", "identity": {"root": "/foreign"},
+                     "plan_sha256": stage.sha256(self.workspace / "plan.json")}
+        backup = {"identity": completed["identity"], "plan_sha256": completed["plan_sha256"]}
+        stage.recovery_signed(self.workspace, "backup.json", backup, b"k" * 32)
+        completed["backup_sha256"] = stage.sha256(self.workspace / "backup.json")
+        stage.recovery_signed(self.workspace, path.name, completed, b"k" * 32)
+        with patch.object(stage, "recovery_probe") as observe:
+            with self.assertRaisesRegex(RuntimeError, "another source, instance"):
+                stage.generated_recovery_verify(path, {"root": str(self.root)})
+            observe.assert_not_called()
+
+    def test_ordinary_restore_transports_password_only_on_stdin(self):
+        identity = {"client": {"ssh_command": "/usr/bin/ssh", "ssh_alias": "registered",
+                    "docker_command": "/usr/bin/docker", "container_name": "registered-mysql",
+                    "mysql_command": "/usr/bin/mysql"}}
+        argv = stage.recovery_client(identity, "mysql_command",
+                                     ["--user=app", "--database=exact_schema"], root=False)
+        self.assertIn("IFS= read -r MYSQL_PWD", argv[-1])
+        self.assertNotIn("MYSQL_ROOT_PASSWORD", argv[-1])
+        self.assertIn("--database=exact_schema", argv[-1])
+        self.assertNotIn("--force", argv[-1])
+
+    def test_native_inventory_rejects_escape_and_link(self):
+        native, _ = stage.paired_recovery_verifier()
+        path = self.root / "link"
+        path.symlink_to(self.workspace)
+        with patch.object(stage, "paired_recovery_verifier", return_value=(native, "pinned")):
+            with self.assertRaisesRegex(RuntimeError, "escapes"):
+                stage.recovery_inventory(self.root, ["../outside"], ())
+            with self.assertRaises(ValueError):
+                stage.recovery_inventory(self.root, [], ("link",))
+
+    def test_sql_attachment_rejects_wrong_schema_and_tampering(self):
+        native, helper = stage.paired_recovery_verifier()
+        dump = self.workspace / "database.sql"
+        dump.write_text("DROP DATABASE IF EXISTS " + chr(96) + "other" + chr(96) + ";\nCREATE DATABASE " +
+                        chr(96) + "other" + chr(96) + ";\nUSE " + chr(96) + "other" + chr(96) + ";\n")
+        dump.chmod(0o600)
+        backup = {"identity": {"database": "exact_schema"}, "database_sha256": stage.sha256(dump),
+                  "protected": {"files": {}, "storage": {}}, "storage_archives": {}, "pure_helper_sha256": helper}
+        bundle, archive = self.workspace / "source.bundle", self.workspace / "source-and-git.tgz"
+        bundle.write_bytes(b"synthetic bundle")
+        bundle.chmod(0o600)
+        archive.write_bytes(b"synthetic archive")
+        archive.chmod(0o600)
+        backup["identity"]["root"] = str(self.root)
+        backup["source_backup"] = {"dependency_exclusions": list(stage.RECOVERY_DEPENDENCY_EXCLUSIONS),
+                                  "bundle_sha256": stage.sha256(bundle), "archive_sha256": stage.sha256(archive),
+                                  "inventory": {}}
+        with patch.object(stage, "paired_recovery_verifier", return_value=(native, helper)), patch.object(stage, "command"), patch.object(stage, "recovery_source_archive", return_value={}):
+            with self.assertRaises(ValueError):
+                stage.recovery_backup_attachments(self.workspace, backup)
+            dump.write_text("tampered")
+            with self.assertRaisesRegex(RuntimeError, "SQL attachment changed"):
+                stage.recovery_backup_attachments(self.workspace, backup)
+
+
+
+    def test_complete_source_archive_includes_git_and_detects_tampering(self):
+        source = self.root / "source"
+        source.mkdir()
+        (source / "kept.txt").write_text("original source")
+        (source / "relative-link").symlink_to("kept.txt")
+        (source / "web/node_modules").mkdir(parents=True)
+        (source / "web/node_modules/rebuildable").write_text("excluded dependency")
+        (source / "web/pnpm-lock.yaml").write_text("original lock")
+        subprocess.run(["git", "init", "-q", str(source)], check=True)
+        subprocess.run(["git", "-C", str(source), "add", "."], check=True)
+        subprocess.run(["git", "-C", str(source), "-c", "user.name=Contract",
+                        "-c", "user.email=contract@example.invalid", "commit", "-qm", "synthetic"], check=True)
+        snapshot = stage.recovery_source_backup(source, self.workspace)
+        self.assertIn(".git/HEAD", snapshot["inventory"])
+        self.assertIn("web/pnpm-lock.yaml", snapshot["inventory"])
+        self.assertNotIn("web/node_modules", snapshot["inventory"])
+        self.assertEqual(snapshot["dependency_exclusions"], list(stage.RECOVERY_DEPENDENCY_EXCLUSIONS))
+        self.assertEqual(snapshot["inventory"]["relative-link"][0], "symlink")
+        self.assertEqual(stage.recovery_source_archive(self.workspace / "source-and-git.tgz"), snapshot["inventory"])
+        (source / "kept.txt").write_text("new source")
+        self.assertNotEqual(stage.recovery_source_inventory(source), snapshot["inventory"])
+
+    def test_current_destination_link_is_rejected_before_copy(self):
+        native, helper = stage.paired_recovery_verifier()
+        destination = self.root / "config.env"
+        external = self.root / "outside.env"
+        external.write_text("unchanged")
+        destination.symlink_to(external)
+        entry = {"sha256": stage.sha256(external), "mode": 0o600,
+                 "uid": os.geteuid(), "gid": os.getegid()}
+        with patch.object(stage, "paired_recovery_verifier", return_value=(native, helper)):
+            with self.assertRaisesRegex(RuntimeError, "destination is missing or linked"):
+                stage.recovery_restore_files(self.root, self.workspace,
+                                             {"protected": {"files": {"config.env": entry}, "storage": {}}})
+        self.assertEqual(external.read_text(), "unchanged")
+
+    def execution_fixture(self, popen):
+        app_root = self.root / "app"
+        app_root.mkdir()
+        app = {"root": str(app_root), "head": "synthetic", "database": "exact_schema"}
+        identity = {"owner": "self", "thread": "self", "root": str(app_root), "database": "exact_schema"}
+        plan = {"protocol": stage.GENERATED_RECOVERY_PROTOCOL, "kind": "plan", "run_id": "test",
+                "workspace": str(self.workspace), "application": app, "identity": identity,
+                "files": [], "storage_names": [], "protected_preimage": {"files": {}, "storage": {}}, "database_preimage": {}}
+        path = self.private_json(self.workspace / "plan.json", plan)
+        (self.workspace / "runtime-proof.txt").write_text("synthetic scope")
+        self.workspace.chmod(0o700)
+        import contextlib
+        with contextlib.ExitStack() as stack:
+            for name, result in (
+                ("recovery_identity", (identity, {})), ("recovery_paths", ([], ())),
+                ("recovery_inventory", {"files": {}, "storage": {}}), ("recovery_source_backup", {"inventory": {}}),
+                ("recovery_source_inventory", {}), ("recovery_no_writers", {}),
+                ("paired_recovery_verifier", ({"validate_dump": lambda *args: None}, "pinned")),
+                ("recovery_backup_attachments", None), ("runtime_admission", {}),
+                ("verify_runtime_admission", None), ("recovery_client", ["synthetic-native-client"])):
+                stack.enter_context(patch.object(stage, name, return_value=result))
+            stack.enter_context(patch.object(stage, "recovery_probe",
+                side_effect=lambda *args, **kwargs: {"credentials": {"user": "app", "password": "private"}}
+                if kwargs.get("credentials") else {}))
+            stack.enter_context(patch.object(stage.subprocess, "run", return_value=Mock(returncode=0)))
+            stack.enter_context(patch.object(stage.subprocess, "Popen", side_effect=popen))
+            with self.assertRaises((RuntimeError, OSError, subprocess.TimeoutExpired)):
+                stage.generated_recovery_execute(argparse.Namespace(plan=str(path), plan_sha256=stage.sha256(path)))
+        return stage.read_json(self.workspace / "execution.json")
+
+    def test_restore_intent_precedes_dispatch_and_nonzero_terminal_is_preserved(self):
+        def dispatch(*args, **kwargs):
+            intent = stage.read_json(self.workspace / "execution.json")
+            self.assertEqual(intent["status"], "RESTORING")
+            self.assertEqual(intent["stage"], "dispatch-intent")
+            return Mock(pid=123, wait=Mock(return_value=7))
+        journal = self.execution_fixture(dispatch)
+        self.assertEqual(journal["status"], "failed")
+        self.assertEqual(journal["terminal"]["exit_code"], 7)
+        self.assertEqual(journal["terminal"]["pid"], 123)
+        self.assertIn("stdout_sha256", journal["terminal"])
+
+    def test_restore_timeout_retains_pid_unknown_and_never_invents_terminal(self):
+        journal = self.execution_fixture(lambda *a, **k: Mock(pid=456,
+                    wait=Mock(side_effect=subprocess.TimeoutExpired("synthetic", 300))))
+        self.assertEqual(journal["status"], "UNKNOWN")
+        self.assertEqual(journal["pid"], 456)
+        self.assertNotIn("terminal", journal)
+
+    def test_known_native_dispatch_failure_is_failed_without_a_pid(self):
+        def not_started(*args, **kwargs):
+            raise OSError("synthetic client could not start")
+        journal = self.execution_fixture(not_started)
+        self.assertEqual(journal["status"], "failed")
+        self.assertNotIn("pid", journal)
 
 if __name__ == "__main__":
     unittest.main()
