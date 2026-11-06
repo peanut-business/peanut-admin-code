@@ -287,7 +287,8 @@ jobs:
       - name: Prepare only the committed native verifier dependencies
         run: |
           composer --working-dir=server install --no-dev --no-plugins --no-scripts --no-interaction --no-progress --prefer-dist
-          pnpm --dir web install --frozen-lockfile --ignore-scripts
+          pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy
+          pnpm --dir uniapp install --frozen-lockfile --ignore-scripts --package-import-method=copy
       - name: Verify original full qualification and its final template bytes
         shell: bash
         env:
@@ -380,7 +381,8 @@ jobs:
       - name: Prepare only the committed verifier dependencies
         run: |
           composer --working-dir=server install --no-dev --no-plugins --no-scripts --no-interaction --no-progress --prefer-dist
-          pnpm --dir web install --frozen-lockfile --ignore-scripts
+          pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy
+          pnpm --dir uniapp install --frozen-lockfile --ignore-scripts --package-import-method=copy
       - name: Verify and unpack the original complete qualified bytes
         shell: bash
         env:
