@@ -8,6 +8,7 @@ import contextlib
 import hashlib
 import hmac
 import json
+import ipaddress
 import os
 import re
 import runpy
@@ -17,6 +18,7 @@ import shutil
 import signal
 import socket
 import subprocess
+import stat
 import sys
 import tarfile
 import tempfile
@@ -427,6 +429,46 @@ def file_reference(record: dict[str, Any]) -> Path:
     return path
 
 
+def compose_network_override(reference: dict[str, Any]) -> Path:
+    if not isinstance(reference, dict) or set(reference) != {"path", "sha256"}:
+        fail("Compose network override requires one exact file reference")
+    path = file_reference(reference)
+    metadata = path.stat()
+    if metadata.st_uid != os.getuid() or stat.S_IMODE(metadata.st_mode) != 0o600:
+        fail("Compose network override must be an owned private file")
+
+    def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        value = dict(pairs)
+        if len(value) != len(pairs):
+            fail("Compose network override has duplicate keys")
+        return value
+
+    try:
+        value = json.loads(path.read_text(), object_pairs_hook=unique_object)
+        subnet = value["networks"]["default"]["ipam"]["config"][0]["subnet"]
+        network = ipaddress.IPv4Network(subnet, strict=True)
+    except (OSError, ValueError, TypeError, KeyError, IndexError):
+        fail("Compose network override must contain one canonical private IPv4 subnet")
+    expected = {"networks": {"default": {"ipam": {"config": [{"subnet": subnet}]}}}}
+    private_ranges = (ipaddress.IPv4Network("10.0.0.0/8"), ipaddress.IPv4Network("172.16.0.0/12"),
+                      ipaddress.IPv4Network("192.168.0.0/16"))
+    if (value != expected or str(network) != subnet or network.prefixlen != 24
+            or not any(network.subnet_of(private) for private in private_ranges)):
+        fail("Compose override may only set the default network private /24 IPAM subnet")
+    return path
+
+
+def compose_network_config(base: dict[str, Any], resolved: dict[str, Any], reference: dict[str, Any]) -> None:
+    override = read_json(compose_network_override(reference))
+    expected = json.loads(json.dumps(base))
+    default = expected.get("networks", {}).get("default")
+    if not isinstance(default, dict) or default.get("ipam"):
+        fail("Compose network override requires an unallocated default IPAM configuration")
+    default["ipam"] = override["networks"]["default"]["ipam"]
+    if resolved != expected:
+        fail("Compose network override changed configuration outside the approved IPAM subnet")
+
+
 def checkout_identity(root: Path, commit: str, tree: str, *, clean: bool = True) -> None:
     if not re.fullmatch(r"[a-f0-9]{40}", commit) or not re.fullmatch(r"[a-f0-9]{40}", tree):
         fail("exact source commit/tree required")
@@ -555,6 +597,10 @@ def runtime_registration(app: dict[str, Any], *, compose: bool = True) -> dict[s
             fail("runtime HTTP/browser URL must use its registered loopback listener")
     if not compose:
         return registered
+    if runtime.get("compose_network_override") != registered.get("compose_network_override"):
+        fail("Compose network override differs from its registered reference")
+    if "compose_network_override" in runtime:
+        compose_network_override(runtime["compose_network_override"])
     file_reference(runtime["compose_environment"])
     if (not re.fullmatch(r"[a-f0-9]{64}", registered.get("compose_config_sha256", ""))
             or not isinstance(registered.get("persistent_mounts"), list) or not registered["persistent_mounts"]
@@ -2552,8 +2598,11 @@ class Runner:
         runtime = app["runtime"]
         env_path = file_reference(runtime["compose_environment"])
         root = canonical(runtime["root"], directory=True)
-        return command(["docker", "compose", "--env-file", str(env_path), "-f", str(root / "server/docker/compose.yaml"),
-            "--project-name", runtime["compose_project"], *arguments], cwd=root, capture=capture)
+        runtime_registration(app)
+        base = ["docker", "compose", "--env-file", str(env_path), "-f", str(root / "server/docker/compose.yaml")]
+        if "compose_network_override" in runtime:
+            base += ["-f", str(compose_network_override(runtime["compose_network_override"]))]
+        return command([*base, "--project-name", runtime["compose_project"], *arguments], cwd=root, capture=capture)
 
     def production_compose_at(self, edition: str) -> dict[str, Any]:
         app = self.apps[edition]
@@ -2574,6 +2623,11 @@ class Runner:
         if not re.fullmatch(r"[a-f0-9]{64}", server_identity):
             fail("native APP source identity is unavailable")
         resolved = json.loads(self.compose(edition, "config", "--format", "json", capture=True).stdout)
+        if "compose_network_override" in runtime:
+            base = ["docker", "compose", "--env-file", str(file_reference(runtime["compose_environment"])),
+                    "-f", str(root / "server/docker/compose.yaml"), "--project-name", runtime["compose_project"]]
+            original = json.loads(command([*base, "config", "--format", "json"], cwd=root, capture=True).stdout)
+            compose_network_config(original, resolved, runtime["compose_network_override"])
         encoded = json.dumps(resolved, sort_keys=True, separators=(",", ":")).encode()
         if hashlib.sha256(encoded).hexdigest() != registered["compose_config_sha256"]:
             fail("resolved Compose configuration differs from the registered configuration")

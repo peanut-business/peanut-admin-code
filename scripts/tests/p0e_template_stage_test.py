@@ -1409,5 +1409,112 @@ class BrowserCredentialContractTest(unittest.TestCase):
                     calls = json.loads(result.stdout)
                     self.assertEqual(len(calls), 0 if mode == "standalone" else 1)
 
+
+class ComposeNetworkOverrideTest(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix="peanut-compose-network-")
+        self.root = Path(self.temporary.name).resolve()
+        self.path = self.root / "network.json"
+        self.value = {"networks": {"default": {"ipam": {"config": [{"subnet": "172.16.58.0/24"}]}}}}
+        self.write_override()
+        self.runtime = {"resource_id": "test-runtime", "root": str(self.root), "port": 24882,
+                        "compose_project": "test-network", "compose_environment": self.reference,
+                        "compose_network_override": self.reference}
+        for field in ("health_url", "tenant_admin_url", "tenant_beta_url", "platform_url", "docs_url"):
+            self.runtime[field] = "http://127.0.0.1:24882"
+        self.app = {"root": str(self.root), "resource_id": "test-database", "endpoint_id": "test-endpoint",
+                    "database": "test_schema", "runtime": self.runtime}
+        self.registered = {**self.runtime, "stable_resource_id": "test-runtime", "application_root": str(self.root),
+                           "database_binding": {key: self.app[key] for key in ("resource_id", "endpoint_id", "database")},
+                           "compose_config_sha256": "a" * 64, "persistent_mounts": [{"type": "bind"}], "owner": "test"}
+        self.registry = self.root / "registry.json"
+        self.write_registry()
+
+    def tearDown(self):
+        self.temporary.cleanup()
+
+    def write_override(self):
+        self.path.write_text(json.dumps(self.value))
+        self.path.chmod(0o600)
+        self.reference = {"path": str(self.path), "sha256": stage.sha256(self.path)}
+
+    def write_registry(self):
+        self.registry.write_text(json.dumps({"resources": {"runtime": [self.registered]}}))
+
+    def test_private_network_only_reference(self):
+        self.assertEqual(stage.compose_network_override(self.reference), self.path)
+
+    def test_rejects_changed_digest_and_unsafe_metadata(self):
+        for change in ("digest", "mode", "link"):
+            with self.subTest(change=change):
+                self.write_override()
+                reference = dict(self.reference)
+                if change == "digest":
+                    reference["sha256"] = "0" * 64
+                elif change == "mode":
+                    self.path.chmod(0o644)
+                else:
+                    link = self.root / "linked.json"
+                    link.symlink_to(self.path)
+                    reference["path"] = str(link)
+                with self.assertRaises(stage.GateError):
+                    stage.compose_network_override(reference)
+
+    def test_rejects_service_injection_extra_network_keys_and_nonprivate_subnets(self):
+        mutations = [
+            {**self.value, "services": {"php": {"command": ["other"]}}},
+            {"networks": {"default": {"external": True, **self.value["networks"]["default"]}}},
+            {"networks": {"default": {"ipam": {"config": [{"subnet": "8.8.8.0/24"}]}}}},
+            {"networks": {"default": {"ipam": {"config": [{"subnet": "172.16.58.1/24"}]}}}},
+            {"networks": {"default": {"ipam": {"config": [{"subnet": "172.16.0.0/16"}]}}}},
+        ]
+        for value in mutations:
+            with self.subTest(value=value):
+                self.path.write_text(json.dumps(value))
+                reference = {"path": str(self.path), "sha256": stage.sha256(self.path)}
+                with self.assertRaises(stage.GateError):
+                    stage.compose_network_override(reference)
+
+    def test_rejects_duplicate_json_keys(self):
+        self.path.write_text('{"networks":{},"networks":{"default":{"ipam":{"config":[{"subnet":"172.16.58.0/24"}]}}}}')
+        with self.assertRaises(stage.GateError):
+            stage.compose_network_override({"path": str(self.path), "sha256": stage.sha256(self.path)})
+
+    def test_rejects_unregistered_or_different_override(self):
+        for registered in (None, {**self.reference, "sha256": "0" * 64}):
+            with self.subTest(registered=registered):
+                self.registered.pop("compose_network_override", None)
+                if registered is not None:
+                    self.registered["compose_network_override"] = registered
+                self.write_registry()
+                with patch.object(stage, "REGISTRY_PATH", self.registry), self.assertRaises(stage.GateError):
+                    stage.runtime_registration(self.app)
+
+    def test_command_uses_registered_override_in_same_base_order(self):
+        runner = object.__new__(stage.Runner)
+        runner.apps = {"standalone": self.app}
+        with patch.object(stage, "REGISTRY_PATH", self.registry), patch.object(stage, "command") as command:
+            runner.compose("standalone", "config", "--format", "json", capture=True)
+        argv = command.call_args.args[0]
+        self.assertEqual(argv, ["docker", "compose", "--env-file", str(self.path),
+                                "-f", str(self.root / "server/docker/compose.yaml"),
+                                "-f", str(self.path), "--project-name", "test-network", "config", "--format", "json"])
+
+    def test_resolved_configuration_may_only_change_default_ipam(self):
+        base = {"networks": {"default": {"name": "test-network_default"}}, "services": {"php": {"image": "fixed"}}}
+        resolved = json.loads(json.dumps(base))
+        resolved["networks"]["default"]["ipam"] = self.value["networks"]["default"]["ipam"]
+        stage.compose_network_config(base, resolved, self.reference)
+        resolved["services"]["php"]["image"] = "different"
+        with self.assertRaises(stage.GateError):
+            stage.compose_network_config(base, resolved, self.reference)
+
+    def test_old_no_override_registration_still_works(self):
+        self.runtime.pop("compose_network_override")
+        self.registered.pop("compose_network_override")
+        self.write_registry()
+        with patch.object(stage, "REGISTRY_PATH", self.registry):
+            self.assertEqual(stage.runtime_registration(self.app), self.registered)
+
 if __name__ == "__main__":
     unittest.main()
