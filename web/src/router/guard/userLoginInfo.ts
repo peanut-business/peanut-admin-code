@@ -13,8 +13,12 @@ function loginQuery(to: RouteLocationNormalized): LocationQueryRaw {
   const query: LocationQueryRaw = { ...to.query };
   if (to.name && to.name !== 'login') {
     query.redirect = String(to.name);
+    if (Object.keys(to.params).length > 0) {
+      query.redirectParams = JSON.stringify(to.params);
+    }
   } else {
     delete query.redirect;
+    delete query.redirectParams;
   }
   return query;
 }

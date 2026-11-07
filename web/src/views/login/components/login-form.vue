@@ -125,15 +125,28 @@
         userInfo.tenantId = tenantChoices.value[0]?.tenant_id;
         return;
       }
-      const { redirect, ...othersQuery } = router.currentRoute.value.query;
+      const { redirect, redirectParams, ...othersQuery } =
+        router.currentRoute.value.query;
       const redirectRoute =
         typeof redirect === 'string' &&
         redirect !== 'login' &&
         router.hasRoute(redirect)
           ? redirect
           : 'Workplace';
+      let params: Record<string, string | string[]> | undefined;
+      if (typeof redirectParams === 'string') {
+        try {
+          const parsed: unknown = JSON.parse(redirectParams);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            params = parsed as Record<string, string | string[]>;
+          }
+        } catch {
+          // Ignore malformed redirect parameters and use the safe route fallback.
+        }
+      }
       router.push({
         name: redirectRoute,
+        ...(redirectRoute === redirect && params ? { params } : {}),
         query: {
           ...othersQuery,
         },
