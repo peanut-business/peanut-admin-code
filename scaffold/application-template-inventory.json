@@ -1039,7 +1039,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "89d641abdbcb5aebac5e0633fb8681b29e9a3dd528a9ff9cd31bcbbe5f583ea4"
+            "source_sha256": "4a697d564c4f27081bafefa9efc75306e7f86b139a0d27f1a8cbee874bb26456"
         },
         {
             "path": "docs/public/module-development.md",
@@ -6030,6 +6030,20 @@
             "source_sha256": "4a78ee322444c837820df7b074a2b73c8d48974d94a6bd82e4acdfa8f8ba8509"
         },
         {
+            "path": "server/app/command/TenantDecorationPages.php",
+            "target": "server/app/command/TenantDecorationPages.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e96d22d31d9acc834f60aef1b15a94819240f086c61f193d084a66fd3df8013c"
+        },
+        {
             "path": "server/app/command/TenantTaskWorker.php",
             "target": "server/app/command/TenantTaskWorker.php",
             "classification": "managed",
@@ -8048,6 +8062,20 @@
                 "full"
             ],
             "source_sha256": "c5a49ee30980d1e837800f014ea40fc0b3d676cf6cd667788323df14e04e9744"
+        },
+        {
+            "path": "server/app/common/services/decoration/DecorationPageDefaultsService.php",
+            "target": "server/app/common/services/decoration/DecorationPageDefaultsService.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "a8b829877386ec23fba30b9295113ad0711cdd101335d175a3eebfd52f32c5da"
         },
         {
             "path": "server/app/common/services/decoration/DecorationReadService.php",
@@ -16860,7 +16888,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "42a6cbf18aa69fe28d1f8ec07b8cae29c2b3fe74a55ce67ddcb97eb709e071b9"
+            "source_sha256": "5256e75aa2f2349d4b997667a76a3d3928298a31158d1ae07481bf472272cbb1"
         },
         {
             "path": "server/app/platform/services/CoreTenantOwnerAdminProvisioner.php",
@@ -17420,7 +17448,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d9ea7da9fdf0c7756b193b28ab924bc7b843cd285e3b03ef2e5449bcd5ab1d53"
+            "source_sha256": "eafb533997a487b25ebc9fc3a2528dd52a3b36126ad3a205b504aa78c05435a6"
         },
         {
             "path": "server/config/cookie.php",
