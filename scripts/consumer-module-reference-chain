@@ -1020,7 +1020,7 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         fail("candidate worktree must be clean")
     plan_path = Path(args.qualification_plan)
     qualification = read_json(plan_path)
-    inputs = native["lifecycle_inputs"](args, candidate_tree)
+    inputs = native["lifecycle_inputs"](args, candidate_tree, executing=True)
     expect(qualification.get("candidate") == args.candidate and qualification.get("candidate_tree") == candidate_tree
            and qualification.get("lifecycle_inputs") == inputs
            and qualification.get("template_artifacts") == inputs["template_artifacts"]
@@ -1047,6 +1047,15 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
     def app_environment(app: dict[str, Any]) -> dict[str, str]:
         admission = native["runtime_admission"](app, app["root"], app["head"])
         native["verify_runtime_admission"](admission, qualification["owner"], qualification["thread"])
+        if maintenance := app.get("consumer_module_environment"):
+            base = native["file_reference"](app["environment"])
+            selected = native["file_reference"](maintenance)
+            expected, replacements = re.subn(rb"(?m)^APP_DEBUG=false(?=\r?$)", b"APP_DEBUG=true", base.read_bytes())
+            if (selected.parent != base.parent or not re.fullmatch(r"\.env\.[a-zA-Z0-9_-]+", selected.name)
+                    or selected.stat().st_uid != os.geteuid() or stat.S_IMODE(selected.stat().st_mode) != 0o600
+                    or replacements != 1 or selected.read_bytes() != expected):
+                fail("consumer Module maintenance environment must only enable native CLI debug")
+            app = {**app, "environment": maintenance}
         return native["runtime_environment"](app, admission, php=str(PHP))
     author_env, consumer_env = app_environment(author_app), app_environment(consumer_app)
     for app, env in ((author_app, author_env), (consumer_app, consumer_env)):

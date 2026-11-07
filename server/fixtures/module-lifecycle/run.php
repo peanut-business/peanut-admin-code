@@ -14,7 +14,7 @@ set_exception_handler(static function (Throwable $error): void {
         'source' => basename($error->getFile()), 'line' => $error->getLine()], JSON_THROW_ON_ERROR) . "\n");
     exit(1);
 });
-$options = getopt('', ['action:', 'input:', 'input-sha256:', 'plan:', 'plan-sha256:']);
+$options = getopt('', ['action:', 'input:', 'input-sha256:', 'plan:', 'plan-sha256:', 'consumer:', 'context-output:', 'identity-context:', 'identity-context-sha256:']);
 $readPinned = static function (string $path, string $digest, bool $private = false): array {
     if ($path === '' || !is_file($path) || is_link($path) || realpath($path) !== $path
         || preg_match('/^[a-f0-9]{64}$/D', $digest) !== 1 || !hash_equals($digest, (string) hash_file('sha256', $path))
@@ -32,7 +32,7 @@ $planPath = (string) ($options['plan'] ?? '');
 $planDigest = (string) ($options['plan-sha256'] ?? '');
 $plan = $readPinned($planPath, $planDigest);
 $action = (string) ($options['action'] ?? '');
-if (!in_array($action, ['member-upload', 'task-import-export', 'task-inflight-revocation'], true)
+if (!in_array($action, ['member-upload', 'task-import-export', 'task-inflight-revocation', 'identity-context'], true)
     || $config !== ($plan['lifecycle_inputs']['module_qualification'] ?? null)) {
     throw new RuntimeException('MODULE_QUALIFICATION_PLAN_INPUT_MISMATCH');
 }
@@ -73,7 +73,190 @@ $identity = app\common\services\installation\InstallationExecutionHost::migratio
 if ($identity !== $runtime['database_identity']) {
     throw new RuntimeException('MODULE_QUALIFICATION_DATABASE_IDENTITY_MISMATCH');
 }
-$tokens = $readPinned($config['identity_context']['path'], $config['identity_context']['sha256'], true);
+
+$requestId = static fn(string $audience): string => 'module-qualification-' . $audience . '-' . bin2hex(random_bytes(8));
+$authentication = $app->make(PeanutAdmin\Modules\Identity\Auth\TenantAuthService::class);
+if (isset($config['identity_credentials'])) {
+    $credentials = $config['identity_credentials'];
+    $phase = $action === 'identity-context' ? (string) ($options['consumer'] ?? '') : $action;
+    if ($phase === 'task-inflight-revocation') { $phase = 'task-import-export'; }
+    if (!in_array($phase, ['preflight', 'member-upload', 'task-import-export'], true)) {
+        throw new RuntimeException('MODULE_QUALIFICATION_IDENTITY_PHASE_INVALID');
+    }
+    $sourceDigest = (string) hash_file('sha256', __FILE__);
+    if (($plan['qualification_tool_binding']['tool_files']['server/fixtures/module-lifecycle/run.php'] ?? null) !== $sourceDigest) {
+        throw new RuntimeException('MODULE_QUALIFICATION_IDENTITY_PRODUCER_UNBOUND');
+    }
+    $privateRef = static function (array $reference) use ($readPinned): array {
+        $path = (string) ($reference['path'] ?? '');
+        $stat = lstat($path);
+        if ($stat === false || $stat['nlink'] !== 1 || $stat['uid'] !== posix_geteuid()) {
+            throw new RuntimeException('MODULE_QUALIFICATION_IDENTITY_PRIVATE_REFERENCE_INVALID');
+        }
+        return $readPinned($path, (string) ($reference['sha256'] ?? ''), true);
+    };
+    $actors = $privateRef($credentials['actors']);
+    $export = $privateRef($credentials['export_actor']);
+    $facts = $privateRef($credentials['actor_facts'])['facts'];
+    $reference = $privateRef($credentials['reference_facts'])['facts'];
+    $initialRef = $credentials['initial_admin'];
+    $initialStat = lstat($initialRef['path']);
+    if ($initialStat === false || $initialStat['nlink'] !== 1 || $initialStat['uid'] !== posix_geteuid()
+        || is_link($initialRef['path']) || realpath($initialRef['path']) !== $initialRef['path']
+        || ($initialStat['mode'] & 0777) !== 0600
+        || !hash_equals($initialRef['sha256'], (string) hash_file('sha256', $initialRef['path']))) {
+        throw new RuntimeException('MODULE_QUALIFICATION_INITIAL_CREDENTIAL_REFERENCE_INVALID');
+    }
+    $app->env->load($initialRef['path']);
+    $initial = [];
+    foreach (['ADMIN_INITIAL_EMAIL', 'ADMIN_INITIAL_PASSWORD', 'PLATFORM_INITIAL_EMAIL', 'PLATFORM_INITIAL_PASSWORD'] as $name) {
+        $initial[$name] = $app->env->get($name);
+        if (!is_string($initial[$name]) || $initial[$name] === '') {
+            throw new RuntimeException('MODULE_QUALIFICATION_INITIAL_CREDENTIAL_REQUIRED');
+        }
+    }
+    $specs = [
+        'alpha_manager_access_token' => [$initial['ADMIN_INITIAL_EMAIL'], $initial['ADMIN_INITIAL_PASSWORD'], (int) $facts['alpha_tenant_id'], (int) $facts['manager_original_member_id']],
+        'alpha_access_token' => [$export['export_email'], $export['export_password'], (int) $facts['alpha_tenant_id'], (int) $facts['alpha_member_id']],
+        'beta_access_token' => [$actors['beta_email'], $actors['beta_password'], (int) $facts['beta_tenant_id'], (int) $facts['beta_member_id']],
+        'no_export_access_token' => [$actors['no_export_email'], $actors['no_export_password'], (int) $facts['alpha_tenant_id'], (int) $facts['no_export_member_id']],
+        'audit_failure_access_token' => [$export['export_email'], $export['export_password'], (int) $facts['alpha_tenant_id'], (int) $facts['alpha_member_id']],
+    ];
+    $platformSessions = $app->make(app\platform\services\PlatformOperatorSessionService::class);
+    $nativeFacts = static function (string $name, string $raw) use ($app, $authentication, $platformSessions, $requestId, $specs, $reference, $facts): array {
+        if ($name === 'member_access_token') {
+            $member = $app->make(PeanutAdmin\Modules\Member\Service\UserTokenService::class)->parseSessionToken($raw);
+            if ($member['member_id'] !== (int) $reference['member_id'] || $member['tenant_id'] !== (int) $facts['alpha_tenant_id']) {
+                throw new RuntimeException('MODULE_QUALIFICATION_MEMBER_PRINCIPAL_CHANGED');
+            }
+            $member['session_key_sha256'] = hash('sha256', $member['session_key']);
+            unset($member['session_key']);
+            return $member;
+        }
+        if ($name === 'platform_access_token') {
+            $context = $platformSessions->context($raw, $requestId('platform-context'));
+            $identity = $context->identity();
+            $record = $app->make(PeanutAdmin\Modules\Identity\Auth\PlatformAuthRepository::class)
+                ->sessionByTokenHash(hash('sha256', $raw), 'access', false);
+            if ($identity->operatorId !== (int) $reference['platform_operator_id'] || $record === null) {
+                throw new RuntimeException('MODULE_QUALIFICATION_PLATFORM_PRINCIPAL_CHANGED');
+            }
+            $actor = ['account_id' => $identity->accountId, 'operator_id' => $identity->operatorId];
+        } else {
+            if (!isset($specs[$name])) { throw new RuntimeException('MODULE_QUALIFICATION_UNKNOWN_TOKEN_SLOT'); }
+            $context = $authentication->context($raw, $requestId('tenant-context'));
+            $record = $app->make(PeanutAdmin\Modules\Identity\Auth\TenantAuthRepository::class)
+                ->sessionByTokenHash(hash('sha256', $raw), 'access', false);
+            if ($context->tenantId !== $specs[$name][2] || $context->memberId !== $specs[$name][3] || $record === null) {
+                throw new RuntimeException('MODULE_QUALIFICATION_TENANT_PRINCIPAL_CHANGED');
+            }
+            $actor = ['tenant_id' => $context->tenantId, 'member_id' => $context->memberId, 'account_id' => $context->accountId];
+        }
+        return $actor + ['token_id' => $record->tokenId, 'session_id' => $record->sessionId,
+            'session_key_sha256' => hash('sha256', $record->sessionKey), 'issued_at' => $record->issuedAt->getTimestamp(),
+            'expires_at' => $record->tokenExpiresAt->getTimestamp()];
+    };
+    $binding = ['plan_sha256' => $planDigest, 'input_sha256' => (string) $options['input-sha256'],
+        'owner' => $plan['owner'], 'thread' => $plan['thread'], 'runtime_lease' => $runtime['lease'],
+        'application_root' => $root, 'application_head' => $runtime['head'], 'resource_id' => $runtime['resource_id'],
+        'database_identity' => $identity, 'producer_sha256' => $sourceDigest, 'credentials' => $credentials, 'consumer' => $phase];
+    $expectedPath = $plan['paths']['output-dir'] . '/identity-contexts/' . $phase . '.json';
+    if ($action === 'identity-context') {
+        $path = (string) ($options['context-output'] ?? '');
+        $parent = dirname($path);
+        if ($path !== $expectedPath || realpath($parent) !== $parent || is_link($parent)
+            || (fileperms($parent) & 0777) !== 0700 || fileowner($parent) !== posix_geteuid()
+            || file_exists($path) || is_link($path)) {
+            throw new RuntimeException('MODULE_QUALIFICATION_CONTEXT_OUTPUT_INVALID_OR_RETAINED');
+        }
+        $value = ['protocol' => 'peanut.module-native-identity-context.v1', 'status' => 'issuing',
+            'binding' => $binding, 'tokens' => [], 'facts' => []];
+        $save = static function () use (&$value, $path): void {
+            $temporary = $path . '.temporary';
+            $stream = fopen($temporary, 'x');
+            if ($stream === false) { throw new RuntimeException('MODULE_QUALIFICATION_CONTEXT_WRITE_FAILED'); }
+            chmod($temporary, 0600);
+            fwrite($stream, json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+            fflush($stream);
+            fclose($stream);
+            if (file_exists($path) && (is_link($path) || fileowner($path) !== posix_geteuid()
+                || (fileperms($path) & 0777) !== 0600 || lstat($path)['nlink'] !== 1)) {
+                throw new RuntimeException('MODULE_QUALIFICATION_CONTEXT_DESTINATION_CHANGED');
+            }
+            if (!rename($temporary, $path)) { throw new RuntimeException('MODULE_QUALIFICATION_CONTEXT_COMMIT_FAILED'); }
+        };
+        $save();
+        $tenantCodes = $pdo->query('SELECT id,code FROM pa_tenant ORDER BY id')->fetchAll(PDO::FETCH_KEY_PAIR);
+        foreach ($specs as $name => [$email, $password, $tenantId, $memberId]) {
+            $guard();
+            $result = $authentication->login($email, $password, $tenantCodes[$tenantId], '127.0.0.1',
+                '058-existing-qualification', $requestId('native-login'));
+            if (!$result instanceof PeanutAdmin\Modules\Identity\Auth\TenantAuthentication
+                || $result->context->tenantId !== $tenantId || $result->context->memberId !== $memberId) {
+                throw new RuntimeException('MODULE_QUALIFICATION_TENANT_LOGIN_PRINCIPAL_CHANGED');
+            }
+            $raw = $result->tokens->access->expose();
+            $value['facts'][$name] = $nativeFacts($name, $raw);
+            if ($value['facts'][$name]['expires_at'] !== $result->tokens->accessExpiresAt->getTimestamp()) {
+                throw new RuntimeException('MODULE_QUALIFICATION_NATIVE_TOKEN_EXPIRY_CHANGED');
+            }
+            $value['tokens'][$name] = $raw;
+            $save();
+        }
+        $guard();
+        $result = $platformSessions->login($initial['PLATFORM_INITIAL_EMAIL'], $initial['PLATFORM_INITIAL_PASSWORD'],
+            '127.0.0.1', '058-existing-qualification', $requestId('platform-login'));
+        $raw = $result->tokens->access->expose();
+        $value['facts']['platform_access_token'] = $nativeFacts('platform_access_token', $raw);
+        if ($value['facts']['platform_access_token']['expires_at'] !== $result->tokens->accessExpiresAt->getTimestamp()) {
+            throw new RuntimeException('MODULE_QUALIFICATION_NATIVE_PLATFORM_EXPIRY_CHANGED');
+        }
+        $value['tokens']['platform_access_token'] = $raw;
+        $save();
+        $guard();
+        $app->request->withHeader(['host' => $reference['member_host']]);
+        $app->request->withServer(['HTTP_HOST' => $reference['member_host'], 'SERVER_NAME' => $reference['member_host'], 'REQUEST_METHOD' => 'POST']);
+        $memberResult = null;
+        $app->make(app\api\middleware\PublicTenantModuleMiddleware::class)->handle($app->request,
+            static function () use ($app, $actors, &$memberResult): void {
+                $public = $app->make(app\common\execution\CurrentExecutionContext::class)->consumer()->publicTenant;
+                $memberResult = $app->make(PeanutAdmin\Modules\Member\Service\LoginApplicationService::class)
+                    ->login($public, ['account' => $actors['member_account'], 'password' => $actors['member_password'], 'terminal' => 1], '127.0.0.1');
+            }, 'peanut.member.public-auth', 'peanut.member', 'member.login');
+        if (!is_array($memberResult) || (int) $memberResult['id'] !== (int) $reference['member_id']) {
+            throw new RuntimeException('MODULE_QUALIFICATION_MEMBER_LOGIN_PRINCIPAL_CHANGED');
+        }
+        $value['facts']['member_access_token'] = $nativeFacts('member_access_token', $memberResult['token']);
+        $value['tokens']['member_access_token'] = $memberResult['token'];
+        $guard();
+        $value['status'] = 'issued';
+        $save();
+        echo json_encode(['protocol' => 'peanut.module-native-identity-delivery.v1', 'status' => 'issued',
+            'context' => ['path' => $path, 'sha256' => hash_file('sha256', $path)],
+            'binding' => $binding, 'facts' => $value['facts']], JSON_THROW_ON_ERROR), "\n";
+        exit(0);
+    }
+    $path = (string) ($options['identity-context'] ?? '');
+    if ($path !== $expectedPath) { throw new RuntimeException('MODULE_QUALIFICATION_IDENTITY_CONTEXT_LOCATION_MISMATCH'); }
+    $context = $privateRef(['path' => $path, 'sha256' => (string) ($options['identity-context-sha256'] ?? '')]);
+    if (($context['protocol'] ?? null) !== 'peanut.module-native-identity-context.v1'
+        || ($context['status'] ?? null) !== 'issued' || ($context['binding'] ?? null) !== $binding) {
+        throw new RuntimeException('MODULE_QUALIFICATION_IDENTITY_CONTEXT_PROVENANCE_MISMATCH');
+    }
+    $tokens = $context['tokens'];
+    $names = [...array_keys($specs), 'platform_access_token', 'member_access_token'];
+    if (array_keys($tokens) !== $names || array_keys($context['facts']) !== $names) {
+        throw new RuntimeException('MODULE_QUALIFICATION_IDENTITY_CONTEXT_COVERAGE_MISMATCH');
+    }
+    foreach ($tokens as $name => $raw) {
+        if (!is_string($raw) || $raw === '' || $nativeFacts($name, $raw) !== $context['facts'][$name]) {
+            throw new RuntimeException('MODULE_QUALIFICATION_NATIVE_SESSION_FACTS_CHANGED');
+        }
+    }
+} else {
+    if ($action === 'identity-context') { throw new RuntimeException('MODULE_QUALIFICATION_EXISTING_CREDENTIALS_REQUIRED'); }
+    $tokens = $readPinned($config['identity_context']['path'], $config['identity_context']['sha256'], true);
+}
 $token = static function (string $key) use ($tokens): string {
     $value = $tokens[$key] ?? null;
     if (!is_string($value) || trim($value) === '') {
@@ -81,8 +264,6 @@ $token = static function (string $key) use ($tokens): string {
     }
     return $value;
 };
-$requestId = static fn(string $audience): string => 'module-qualification-' . $audience . '-' . bin2hex(random_bytes(8));
-$authentication = $app->make(PeanutAdmin\Modules\Identity\Auth\TenantAuthService::class);
 $tenant = static fn(string $key): PeanutAdmin\Kernel\Auth\TenantContext =>
     $authentication->context($token($key), $requestId($key));
 

@@ -19,6 +19,8 @@ QUALIFICATION_PLAN=""
 LIFECYCLE_INPUT=""
 LIFECYCLE_INPUT_SHA256=""
 PLAYWRIGHT_CLI=""
+IAB_COLLECTOR=""
+IAB_CONTROLLER=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --mode) MODE="${2:-}"; shift 2 ;;
@@ -36,6 +38,8 @@ while [[ $# -gt 0 ]]; do
     --lifecycle-input) LIFECYCLE_INPUT="${2:-}"; shift 2 ;;
     --lifecycle-input-sha256) LIFECYCLE_INPUT_SHA256="${2:-}"; shift 2 ;;
     --playwright-cli) PLAYWRIGHT_CLI="${2:-}"; shift 2 ;;
+    --iab-collector) IAB_COLLECTOR="${2:-}"; shift 2 ;;
+    --iab-controller) IAB_CONTROLLER="${2:-}"; shift 2 ;;
     *) die "unknown option: $1" ;;
   esac
 done
@@ -64,10 +68,18 @@ elif [[ -n "$DOCS_URL" ]]; then
 fi
 [[ "$OUTPUT_DIR" == /* && -d "$OUTPUT_DIR" ]] || die '--output-dir must be an existing absolute directory'
 [[ "$SESSION" =~ ^[a-z0-9][a-z0-9-]{0,62}$ ]] || die '--session is invalid'
-[[ -x "$PLAYWRIGHT_CLI" ]] || die '--playwright-cli must name an executable Playwright CLI wrapper'
+if [[ -n "$IAB_COLLECTOR" ]]; then
+  [[ "$PROFILE" == baseline && -z "$PLAYWRIGHT_CLI" && "$IAB_COLLECTOR" =~ ^http://127\.0\.0\.1:[0-9]+$ \
+    && "$IAB_CONTROLLER" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || die 'IAB requires the baseline profile and its registered collector/controller'
+else
+  [[ -z "$IAB_CONTROLLER" && -x "$PLAYWRIGHT_CLI" ]] || die '--playwright-cli must name an executable Playwright CLI wrapper'
+fi
 [[ "$ENV_FILE" == /* && -f "$ENV_FILE" && ! -L "$ENV_FILE" ]] || die '--env-file must name an absolute regular file'
 [[ "$(stat -f '%Lp' "$ENV_FILE" 2>/dev/null || stat -c '%a' "$ENV_FILE")" == 600 ]] || die '--env-file must have mode 0600'
-required_values=(P0E_ADMIN_INITIAL_EMAIL P0E_ADMIN_INITIAL_PASSWORD P0E_PLATFORM_INITIAL_EMAIL P0E_PLATFORM_INITIAL_PASSWORD)
+required_values=(P0E_ADMIN_INITIAL_EMAIL P0E_ADMIN_INITIAL_PASSWORD)
+if [[ "$MODE" == multi-tenant ]]; then
+  required_values+=(P0E_PLATFORM_INITIAL_EMAIL P0E_PLATFORM_INITIAL_PASSWORD)
+fi
 if [[ "$PROFILE" == baseline ]]; then
   required_values+=(P0E_TENANT_RESTRICTED_EMAIL P0E_TENANT_RESTRICTED_PASSWORD)
   if [[ "$MODE" == multi-tenant ]]; then
@@ -75,10 +87,10 @@ if [[ "$PROFILE" == baseline ]]; then
     local_url "${TENANT_BETA_URL%/}/" || die '--tenant-beta-url must name the registered Beta origin'
   fi
   [[ "$QUALIFICATION_PLAN" == /* && -f "$QUALIFICATION_PLAN" && ! -L "$QUALIFICATION_PLAN" ]] || die 'baseline business writes require the native qualification plan'
-  DOCUMENTATION_CONTRACT="$(python3 - "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)" "$QUALIFICATION_PLAN" "$MODE" "$TENANT_ADMIN_URL" "$TENANT_BETA_URL" "$PLATFORM_URL" "$DOCS_URL" "$SESSION" "$ENV_FILE" "$OUTPUT_DIR" "$DOCUMENTATION_ROOT" "$LIFECYCLE_INPUT" "$LIFECYCLE_INPUT_SHA256" <<'PY'
+  DOCUMENTATION_CONTRACT="$(python3 - "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)" "$QUALIFICATION_PLAN" "$MODE" "$TENANT_ADMIN_URL" "$TENANT_BETA_URL" "$PLATFORM_URL" "$DOCS_URL" "$SESSION" "$ENV_FILE" "$OUTPUT_DIR" "$DOCUMENTATION_ROOT" "$LIFECYCLE_INPUT" "$LIFECYCLE_INPUT_SHA256" "$IAB_COLLECTOR" "$IAB_CONTROLLER" <<'PY'
 import argparse, json, os, runpy, sys
 from pathlib import Path
-tool_root, path, mode, alpha, beta, platform, docs, session, environment, output, documentation_root, lifecycle_input, lifecycle_digest = sys.argv[1:]
+tool_root, path, mode, alpha, beta, platform, docs, session, environment, output, documentation_root, lifecycle_input, lifecycle_digest, iab_collector, iab_controller = sys.argv[1:]
 root = Path(tool_root)
 value = json.loads(Path(path).read_text())
 os.environ['PEANUT_RESOURCE_REGISTRY'] = value['registry_path']
@@ -97,13 +109,15 @@ if binding:
     root = Path(binding['source_root'])
 if not args.owner or not args.thread or value['worktree'] != str(root):
     raise ValueError('qualification owner/thread/worktree mismatch')
-actual = native['plan'](args, require_clean=True)
+actual = native['plan'](args, require_clean=True, executing=True)
 for key in ['gate','candidate','candidate_tree','registry_sha256','paths','lease_resources','worktree',
             'lifecycle_inputs','template_artifacts','groups']:
     if value[key] != actual[key]: raise ValueError('qualification plan mismatch: ' + key)
 native['verify_lease'](args, actual)
 app = actual['lifecycle_inputs']['applications'][mode]
 runtime = app['runtime']
+if (iab_collector, iab_controller) != (runtime.get('iab_collector', ''), runtime.get('iab_controller', '')):
+    raise ValueError('IAB collector/controller mismatch')
 expected = [runtime[key].rstrip('/') for key in ['tenant_admin_url','tenant_beta_url','platform_url']]
 if [alpha.rstrip('/'), beta.rstrip('/'), platform.rstrip('/')] != expected:
     raise ValueError('browser origin mismatch')
@@ -250,10 +264,14 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 cd "$OUTPUT_DIR"
-cli open "$TENANT_ADMIN_URL/admin/login" >"$LOG" 2>&1
-OPENED=1
-cli resize 1440 1000 >>"$LOG" 2>&1
-cli snapshot >"$OUTPUT_DIR/$MODE-initial-snapshot.txt" 2>>"$LOG"
+if [[ -z "$IAB_COLLECTOR" ]]; then
+  cli open "$TENANT_ADMIN_URL/admin/login" >"$LOG" 2>&1
+  OPENED=1
+  cli resize 1440 1000 >>"$LOG" 2>&1
+  cli snapshot >"$OUTPUT_DIR/$MODE-initial-snapshot.txt" 2>>"$LOG"
+else
+  printf 'browser=codex-iab\n' >"$LOG"
+fi
 browser_environment="$(node - "$ENV_FILE" "$MODE" "$PROFILE" "$TENANT_ADMIN_URL" "$TENANT_BETA_URL" "$PLATFORM_URL" "$DOCS_URL" "$OUTPUT_DIR" "$IDENTITY_FILE" "$SESSION" "$DOCUMENTATION_CONTRACT" "$QUALIFICATION_PLAN" <<'NODE'
 const fs = require('node:fs');
 const [path, mode, profile, tenantAdminUrl, tenantBetaUrl, platformUrl, docsUrl, outputDir, identityPath, session, documentationContract, qualificationPlan] = process.argv.slice(2);
@@ -283,20 +301,22 @@ process.stdout.write(JSON.stringify({
 }));
 NODE
 )"
-RUNTIME_FIXTURE="$(mktemp "${TMPDIR:-/tmp}/p0e-browser-fixture.XXXXXX")"
-chmod 600 "$RUNTIME_FIXTURE"
-{
-  printf '%s\n' 'async (page) => {'
-  printf 'const process = { env: %s };\n' "$browser_environment"
-  cat "$FIXTURE"
-  printf '%s\n' '}'
-} >"$RUNTIME_FIXTURE"
 RUN_CODE_LOG="$(mktemp "${TMPDIR:-/tmp}/p0e-browser-log.XXXXXX")"
 chmod 600 "$RUN_CODE_LOG"
-if cli run-code --filename "$RUNTIME_FIXTURE" >"$RUN_CODE_LOG" 2>&1; then
-  RUN_CODE_STATUS=0
+RUN_CODE_STATUS=0
+if [[ -n "$IAB_COLLECTOR" ]]; then
+  printf '%s\n' "$browser_environment" | node "$ROOT/scripts/p0e-browser-iab.mjs" "$IAB_COLLECTOR" "$IAB_CONTROLLER" "$FIXTURE" \
+    "$(dirname "$FIXTURE")/browser-iab-ui.js" >"$RUN_CODE_LOG" 2>&1 || RUN_CODE_STATUS=$?
 else
-  RUN_CODE_STATUS=$?
+  RUNTIME_FIXTURE="$(mktemp "${TMPDIR:-/tmp}/p0e-browser-fixture.XXXXXX")"
+  chmod 600 "$RUNTIME_FIXTURE"
+  {
+    printf '%s\n' 'async (page) => {'
+    printf 'const process = { env: %s };\n' "$browser_environment"
+    cat "$FIXTURE"
+    printf '%s\n' '}'
+  } >"$RUNTIME_FIXTURE"
+  cli run-code --filename "$RUNTIME_FIXTURE" >"$RUN_CODE_LOG" 2>&1 || RUN_CODE_STATUS=$?
 fi
 # The CLI may print evaluated source containing the injected private credentials.
 # Persist only the sanitized transcript, including on an actual browser failure.
@@ -332,6 +352,12 @@ for match in re.finditer(r'\{"schema_version":', text):
 if len(records) != 1: raise ValueError('expected one actual browser completion')
 value = records[0]
 result = value['results']
+plan_bytes = Path(plan_path).read_bytes()
+plan = json.loads(plan_bytes)
+iab_controller = plan['lifecycle_inputs']['applications'][mode]['runtime'].get('iab_controller')
+if iab_controller and result.get('browser_session') != {'driver': 'codex-iab', 'ui': 'serial',
+        'independent_server_identities': True, 'controller_session': iab_controller}:
+    raise ValueError('IAB browser controller/session evidence differs')
 if (len(result.get('navigation', [])) != 3 or not result.get('permissions', {}).get('stable_permission_assignment')
     or len(result['permissions'].get('denied', [])) != 5 or not result.get('website', {}).get('original_restored')
     or not all(result['permissions'].get('revocation', {}).get(key) is True for key in
@@ -342,14 +368,14 @@ if (len(result.get('navigation', [])) != 3 or not result.get('permissions', {}).
     or result['docs'].get('released_bytes_verified') is not True
     or (mode == 'multi-tenant' and not result.get('tenant_boundary', {}).get('cross_host_rejected'))):
     raise ValueError('incomplete actual business scope')
-plan_bytes = Path(plan_path).read_bytes()
-plan = json.loads(plan_bytes)
 value.update(candidate=plan['candidate'], candidate_tree=plan['candidate_tree'],
              qualification_plan_sha256=hashlib.sha256(plan_bytes).hexdigest())
 Path(output, 'business-summary.json').write_text(json.dumps(value, indent=2) + '\n')
 PY
 fi
-cli snapshot >"$OUTPUT_DIR/$MODE-final-snapshot.txt" 2>>"$LOG"
-cli close >>"$LOG" 2>&1
-OPENED=0
+if [[ -z "$IAB_COLLECTOR" ]]; then
+  cli snapshot >"$OUTPUT_DIR/$MODE-final-snapshot.txt" 2>>"$LOG"
+  cli close >>"$LOG" 2>&1
+  OPENED=0
+fi
 printf 'browser_mode=%s\nbrowser_profile=%s\nstatus=passed\nlog=%s\n' "$MODE" "$PROFILE" "$LOG"

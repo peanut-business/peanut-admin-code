@@ -3045,6 +3045,19 @@
             ]
         },
         {
+            "path": "scripts/p0e-browser-iab.mjs",
+            "target": "scripts/p0e-browser-iab.mjs",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "scripts/p0e-browser-smoke",
             "target": "scripts/p0e-browser-smoke",
             "classification": "excluded",
@@ -17029,7 +17042,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ba23c9559353b9b1ed77df1e9d034197660b75728cb477ee3f832c6d559f2735"
+            "source_sha256": "2b29da15b5bc196292714501d7bf4b764b3f524178ffe9540497f0e6c79b6e91"
         },
         {
             "path": "server/app/platform/services/module/PlatformModuleRuntimeService.php",
@@ -23359,6 +23372,19 @@
         {
             "path": "server/tests/fixtures/mt05/inspect.php",
             "target": "server/tests/fixtures/mt05/inspect.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/fixtures/p0e-runtime-qualification/browser-iab-ui.js",
+            "target": "server/tests/fixtures/p0e-runtime-qualification/browser-iab-ui.js",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

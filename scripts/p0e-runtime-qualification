@@ -6,7 +6,9 @@ from __future__ import annotations
 import argparse
 import contextlib
 import hashlib
+import hmac
 import json
+import ipaddress
 import os
 import re
 import runpy
@@ -16,6 +18,7 @@ import shutil
 import signal
 import socket
 import subprocess
+import stat
 import sys
 import tarfile
 import tempfile
@@ -29,8 +32,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 TOOL_ROOT = ROOT
 TOOL_FILES = ("scripts/p0e-runtime-qualification", "scripts/consumer-module-reference-chain", "scripts/p0e-browser-smoke", ".github/workflows/scaffold-release.yml",
-    "server/fixtures/module-lifecycle/run.php", "server/tests/Productization/ModuleLifecycleMySqlTest.php",
-    "server/tests/Productization/ModuleFailureRecoveryMySqlTest.php", "server/tests/Productization/ModuleRuntimeGovernanceTest.php")
+    "scripts/p0e-browser-iab.mjs", "server/tests/fixtures/p0e-runtime-qualification/browser-iab-ui.js",
+    "server/tests/fixtures/p0e-runtime-qualification/browser-smoke.js", "server/fixtures/module-lifecycle/run.php", "server/tests/Productization/ModuleLifecycleMySqlTest.php",
+    "server/tests/Productization/ModuleFailureRecoveryMySqlTest.php", "server/tests/Productization/ModuleRuntimeGovernanceTest.php", "scripts/tests/p0e_template_stage_test.py")
 TOOL_BINDING: dict[str, Any] | None = None
 FIXTURE_PATH = ROOT / "server/tests/fixtures/p0e-runtime-qualification/matrix.json"
 REGISTRY_PATH = Path(os.environ.get("PEANUT_RESOURCE_REGISTRY") or ROOT / "resources/project-resources.json")
@@ -426,6 +430,46 @@ def file_reference(record: dict[str, Any]) -> Path:
     return path
 
 
+def compose_network_override(reference: dict[str, Any]) -> Path:
+    if not isinstance(reference, dict) or set(reference) != {"path", "sha256"}:
+        fail("Compose network override requires one exact file reference")
+    path = file_reference(reference)
+    metadata = path.stat()
+    if metadata.st_uid != os.getuid() or stat.S_IMODE(metadata.st_mode) != 0o600:
+        fail("Compose network override must be an owned private file")
+
+    def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        value = dict(pairs)
+        if len(value) != len(pairs):
+            fail("Compose network override has duplicate keys")
+        return value
+
+    try:
+        value = json.loads(path.read_text(), object_pairs_hook=unique_object)
+        subnet = value["networks"]["default"]["ipam"]["config"][0]["subnet"]
+        network = ipaddress.IPv4Network(subnet, strict=True)
+    except (OSError, ValueError, TypeError, KeyError, IndexError):
+        fail("Compose network override must contain one canonical private IPv4 subnet")
+    expected = {"networks": {"default": {"ipam": {"config": [{"subnet": subnet}]}}}}
+    private_ranges = (ipaddress.IPv4Network("10.0.0.0/8"), ipaddress.IPv4Network("172.16.0.0/12"),
+                      ipaddress.IPv4Network("192.168.0.0/16"))
+    if (value != expected or str(network) != subnet or network.prefixlen != 24
+            or not any(network.subnet_of(private) for private in private_ranges)):
+        fail("Compose override may only set the default network private /24 IPAM subnet")
+    return path
+
+
+def compose_network_config(base: dict[str, Any], resolved: dict[str, Any], reference: dict[str, Any]) -> None:
+    override = read_json(compose_network_override(reference))
+    expected = json.loads(json.dumps(base))
+    default = expected.get("networks", {}).get("default")
+    if not isinstance(default, dict) or default.get("ipam"):
+        fail("Compose network override requires an unallocated default IPAM configuration")
+    default["ipam"] = override["networks"]["default"]["ipam"]
+    if resolved != expected:
+        fail("Compose network override changed configuration outside the approved IPAM subnet")
+
+
 def checkout_identity(root: Path, commit: str, tree: str, *, clean: bool = True) -> None:
     if not re.fullmatch(r"[a-f0-9]{40}", commit) or not re.fullmatch(r"[a-f0-9]{40}", tree):
         fail("exact source commit/tree required")
@@ -526,6 +570,18 @@ def runtime_registration(app: dict[str, Any], *, compose: bool = True) -> dict[s
                     or backend.get("allocation_status") != "INSTALLED_DEVELOPMENT_RUNTIME_REGISTERED"):
                 fail("PSM backend application/environment identity differs")
             routes.extend((registered, backend))
+        if "iab_collector" in runtime or "iab_controller" in runtime:
+            collector, controller = runtime.get("iab_collector", ""), runtime.get("iab_controller", "")
+            if (not re.fullmatch(r"http://127\.0\.0\.1:[1-9][0-9]{0,4}", collector)
+                    or not re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", controller)):
+                fail("IAB requires the exact loopback collector origin and controller session")
+            port = int(collector.rsplit(":", 1)[1])
+            matches = [resource for resource in resources if resource.get("host") == "127.0.0.1"
+                       and resource.get("port") == port and development_only(resource)
+                       and any(access.rstrip("/") == collector for access in resource.get("access_urls", []))]
+            if len(matches) != 1 or not matches[0].get("stable_resource_id"):
+                fail("IAB collector has no unique registered loopback listener")
+            routes.append(matches[0])
         return {"routes": {r["stable_resource_id"]: r for r in routes}}
     runtime = app.get("runtime", {})
     matches = [r for values in read_json(REGISTRY_PATH)["resources"].values() if isinstance(values, list)
@@ -554,6 +610,10 @@ def runtime_registration(app: dict[str, Any], *, compose: bool = True) -> dict[s
             fail("runtime HTTP/browser URL must use its registered loopback listener")
     if not compose:
         return registered
+    if runtime.get("compose_network_override") != registered.get("compose_network_override"):
+        fail("Compose network override differs from its registered reference")
+    if "compose_network_override" in runtime:
+        compose_network_override(runtime["compose_network_override"])
     file_reference(runtime["compose_environment"])
     if (not re.fullmatch(r"[a-f0-9]{64}", registered.get("compose_config_sha256", ""))
             or not isinstance(registered.get("persistent_mounts"), list) or not registered["persistent_mounts"]
@@ -653,6 +713,112 @@ def cli_created_applications(inputs: dict[str, Any], candidate: str, tree: str, 
 
 MODULE_QUALIFICATION_KEYS = ("peanut.member", "peanut.file", "peanut.task", "peanut.import-export", "peanut.notification")
 
+def completed_native_group(inputs: dict[str, Any], group: str, candidate: str, tree: str) -> tuple[dict[str, str], dict[str, Any], dict[str, Any]] | None:
+    evidence = inputs.get("module_qualification", {}).get("completed")
+    if not evidence:
+        return None
+    plan_path = file_reference(evidence["lifecycle_plan"])
+    prior = read_json(plan_path)
+    checkpoint = read_json(file_reference(evidence["native_checkpoint"]))
+    summary = read_json(file_reference(evidence["native_summary"]))
+    if (prior.get("candidate_tree") != command(["git", "-C", str(ROOT), "rev-parse", prior["candidate"] + "^{tree}"], capture=True).stdout.strip()
+            or inputs["source"] != {"commit": candidate, "tree": tree}
+            or any(record.get(key) != prior.get(key) for record in (checkpoint, summary)
+                   for key in ("candidate", "candidate_tree", "lifecycle_inputs", "template_artifacts"))
+            or summary.get("groups") != checkpoint.get("groups")):
+        fail("completed native groups do not belong to the original fixed run")
+    delta = command(["git", "-C", str(ROOT), "diff", "--name-only", prior["candidate"], candidate], capture=True).stdout.splitlines()
+    derived = {"modules.lock", "scaffold/application-template-inventory.json", "server/composer.json",
+               "server/composer.lock", "server/generated/api-catalog.json", "server/tests/Unit/TenantModuleStateBoundaryTest.php"}
+    if any(path not in derived and not path.startswith("server/app/modules/peanut/ops/") for path in delta):
+        fail("historical build, installation and recovery evidence is outside the reviewed Ops-only change")
+    original = checkpoint["groups"][group]
+    reference = original.get("receipt", {})
+    path = file_reference(reference)
+    result = read_json(path)
+    if (original.get("status") != "passed" or result.get("status") != "passed"
+            or path != plan_path.parent / "groups" / (group + ".json")
+            or result.get("candidate") != prior["candidate"] or result.get("candidate_tree") != prior["candidate_tree"]
+            or result.get("run_id") != prior["run_id"]
+            or result.get("lifecycle_input_sha256") != prior["lifecycle_inputs"]["input_sha256"]):
+        fail("historical native group receipt differs from the actual completed run")
+    return reference, result, prior
+
+
+def module_resume_source(config: dict[str, Any], candidate: str, tree: str) -> dict[str, str] | None:
+    evidence = config.get("resume_source")
+    if evidence is None:
+        return None
+    names = ("plan", "checkpoint", "summary", "failure_log", "module_input", "source_before", "failed_state", "preserved_source")
+    if not isinstance(evidence, dict) or set(evidence) != set(names):
+        fail("Module source resume requires the exact original failure references")
+    paths = {name: file_reference(evidence[name]) for name in names}
+    old_output = paths["plan"].parent
+    if (paths["plan"] != old_output / "plan.json" or paths["checkpoint"] != old_output / "checkpoint.json"
+            or paths["summary"] != old_output / "summary.json"
+            or paths["failure_log"] != old_output / "groups/module-lifecycle/module-lifecycle.log"
+            or paths["module_input"] != old_output / "groups/module-lifecycle/input.json"):
+        fail("Module source resume references another native failure scene")
+    prior, checkpoint, summary = (read_json(paths[name]) for name in ("plan", "checkpoint", "summary"))
+    old_config = prior.get("lifecycle_inputs", {}).get("module_qualification", {})
+    old_ml, new_ml = old_config.get("lifecycle_application", {}), config.get("lifecycle_application", {})
+    group_order = read_json(FIXTURE_PATH)["groups"]
+    if (not prior.get("run_id") or prior.get("candidate") != candidate or prior.get("candidate_tree") != tree
+            or prior.get("groups") != group_order or prior.get("full_gate_groups") != group_order
+            or prior.get("paths", {}).get("output-dir") != str(old_output)
+            or checkpoint.get("run_id") != prior["run_id"] or checkpoint.get("planned_groups") != group_order
+            or any(record.get(field) != prior.get(field) for record in (checkpoint, summary)
+                   for field in ("candidate", "candidate_tree", "lifecycle_inputs", "template_artifacts"))
+            or summary.get("groups") != checkpoint.get("groups") or summary.get("status") != "failed-preserved"
+            or read_json(paths["module_input"]) != old_config
+            or paths["source_before"] != Path(old_ml.get("root", "")) / ".local/module-lifecycle-mysql/source-before.json"):
+        fail("Module source resume does not bind the original failed qualification")
+    groups = checkpoint["groups"]
+    first = ("generated-application", "standalone-fresh", "multi-tenant-fresh")
+    if (set(groups) != {*first, "module-lifecycle"} or groups["module-lifecycle"].get("status") != "failed"
+            or groups["module-lifecycle"].get("error") != "command failed (255): php"
+            or "openapi-typescript is unavailable" not in paths["failure_log"].read_text()):
+        fail("Module source resume is not the recorded dependency failure")
+    for group in first:
+        state = groups[group]
+        receipt = file_reference(state.get("receipt", {}))
+        if (state.get("status") != "passed" or receipt != old_output / "groups" / (group + ".json")
+                or read_json(receipt).get("run_id") != prior["run_id"]):
+            fail("Module source resume lost an original passed-group receipt")
+    def fixed_inputs(inputs: dict[str, Any]) -> dict[str, Any]:
+        fixed = {key: value for key, value in inputs.items() if key != "resume_source"}
+        for key in ("lifecycle_application", "failure_recovery_application", "installed_application"):
+            variable = {"lease", "head", "tree", "modules_lock_sha256"} if key == "lifecycle_application" else {"lease"}
+            fixed[key] = {field: value for field, value in inputs.get(key, {}).items() if field not in variable}
+        return fixed
+
+    if fixed_inputs(old_config) != fixed_inputs(config):
+        fail("Module source resume changed an original APP or resource identity")
+    root = Path(new_ml["root"])
+    parent = command(["git", "-C", str(root), "rev-parse", new_ml["head"] + "^"], capture=True).stdout.strip()
+    preserved = read_json(paths["preserved_source"])
+    if (parent != old_ml["head"] or preserved.get("parent") != parent
+            or any(preserved.get(key) != new_ml.get(key) for key in ("head", "tree", "modules_lock_sha256"))):
+        fail("Module source resume requires one local evidence commit after the failed APP source")
+    observed = read_json(paths["failed_state"])
+    ml, mfr = observed.get("lifecycle_application", {}), observed.get("failure_recovery_application", {})
+    if (ml.get("identity") != old_ml["database_identity"] or ml.get("baseline_rows") != 1
+            or ml.get("installation_rows") != 1 or ml.get("acme_rows") != 1
+            or ml.get("own_web_generator_present") is not False or ml.get("native_source_before_present") is not True
+            or ml.get("native_result_exists") is not False or mfr.get("tables") != [] or mfr.get("git_status") != []):
+        fail("Module source resume does not match the read-only failed-state observation")
+    expected = {}
+    for line in ml.get("git_status", []):
+        if not isinstance(line, str) or line[:2] not in (" M", "??") or len(line) < 4:
+            fail("Module source resume observed an unexpected original source change")
+        expected[line[3:]] = "M" if line[:2] == " M" else "A"
+    actual = command(["git", "-C", str(root), "diff", "--name-status", "--no-renames",
+                      old_ml["head"], new_ml["head"]], capture=True).stdout.splitlines()
+    changed = {path: status for status, path in (line.split("\t", 1) for line in actual)}
+    if not expected or changed != expected or sorted(changed) != sorted(preserved.get("changed_paths", [])):
+        fail("Module source resume evidence commit changed paths outside the failed native fixture")
+    return groups["generated-application"]["receipt"]
+
 
 def module_qualification_inputs(value: dict[str, Any], candidate: str, tree: str, *, executing: bool = False,
                                 installed_only: bool = False) -> dict[str, Any]:
@@ -662,6 +828,13 @@ def module_qualification_inputs(value: dict[str, Any], candidate: str, tree: str
     if config.get("source") != {"commit": candidate, "tree": tree}:
         fail("Module qualification inputs must bind the fixed Code candidate")
     source = config.get("reviewed_module_source", {})
+    if installed_only and config.get("resume_source") is not None:
+        fail("installed-only Module qualification cannot resume an isolated source fixture")
+    prior_build = module_resume_source(config, candidate, tree)
+    if prior_build is not None:
+        for key in ("lifecycle_application", "failure_recovery_application"):
+            if not (Path(config[key]["root"]) / "web/node_modules/openapi-typescript/bin/cli.js").is_file():
+                fail("install the isolated APP web lock before Module source resume: " + key)
     source_root = canonical(source.get("root", ""), directory=True)
     checkout_identity(source_root, source.get("commit", ""), source.get("tree", ""))
     source_lock = file_reference({"path": str(source_root / "modules.lock"), "sha256": source.get("modules_lock_sha256")})
@@ -679,7 +852,8 @@ def module_qualification_inputs(value: dict[str, Any], candidate: str, tree: str
             fail("Module qualification APPs must be separate from Code, reviewed Module source and each other")
         roots.add(root)
         checkout_identity(root, app.get("head", ""), app.get("tree", ""),
-                          clean=not (executing and key in ("lifecycle_application", "failure_recovery_application")))
+                          clean=not ((executing or config.get("completed")) and
+                                     key in ("lifecycle_application", "failure_recovery_application")))
         registered = database_registration(app)
         description = str(registered.get("purpose", "")).lower() + " " + str(registered.get("data_source", "")).lower()
         if "qualification" not in description or "synthetic" not in description:
@@ -709,9 +883,26 @@ def module_qualification_inputs(value: dict[str, Any], candidate: str, tree: str
                 if (module not in installed or installed[module].get("source") != locked[module].get("source")
                         or installed[module].get("manifest_sha256") != locked[module].get("manifest_sha256")):
                     fail("isolated APP Module declaration differs from the reviewed Module source: " + module)
-    tokens = file_reference(config.get("identity_context", {}))
-    if tokens.stat().st_mode & 0o777 != 0o600:
-        fail("native Module identity context must remain private")
+    if "identity_credentials" in config:
+        credentials = config["identity_credentials"]
+        if (TOOL_BINDING is None or "identity_context" in config or not isinstance(credentials, dict)
+                or set(credentials) != {"login_producer", "initial_admin", "actors", "export_actor", "actor_facts", "reference_facts"}
+                or credentials["login_producer"].get("sha256") != "72b5a5e0da370f937ef3d5b5fe9d6120c71fa2d007cda0f954d87aa31070ecdd"):
+            fail("native Module credential sources require the reviewed original producer and independent tool binding")
+        names = {"initial_admin": "initial-admin.env", "actors": "module-actor-input.json",
+                 "export_actor": "module-export-actor-input.json", "actor_facts": "module-nonowner-preparation.json",
+                 "reference_facts": "module-actor-preparation-reference.json"}
+        private = Path(config["installed_application"]["root"]) / ".local/installation"
+        for name, reference in credentials.items():
+            path = file_reference(reference)
+            if path.stat().st_mode & 0o777 != 0o600 or path.stat().st_uid != os.geteuid():
+                fail("native Module credential references must remain own private regular files")
+            if name in names and path != private / names[name]:
+                fail("native Module credential source belongs to another installed APP")
+    else:
+        tokens = file_reference(config.get("identity_context", {}))
+        if tokens.stat().st_mode & 0o777 != 0o600:
+            fail("native Module identity context must remain private")
     if any(not isinstance(config.get(key), int) or config[key] < 1 for key in ("other_tenant_id", "alpha_role_id")):
         fail("Module qualification requires actual existing Tenant/Role selectors")
     return config
@@ -785,7 +976,12 @@ def fresh_application_inputs(value: dict[str, Any], candidate: str, tree: str,
         template = manifest.get("template", {})
         package = manifest.get("template_package", {})
         archive = templates["editions"][edition]["archive"]
-        if (manifest.get("application", {}).get("edition") != edition or manifest.get("edition", {}).get("name") != edition
+        previous = completed_native_group(value, edition + "-fresh", candidate, tree)
+        if previous is not None:
+            original = previous[2]["lifecycle_inputs"]["fresh_applications"][edition]
+            if {k: v for k, v in app.items() if k != "lease"} != {k: v for k, v in original.items() if k != "lease"}:
+                fail("historical first installation refers to another APP or changed input")
+        if previous is None and (manifest.get("application", {}).get("edition") != edition or manifest.get("edition", {}).get("name") != edition
                 or template.get("source_commit") != candidate or template.get("source_tree") != tree
                 or template.get("version") != templates["version"]
                 or template.get("inventory_sha256") != templates["source"]["inventory_sha256"]
@@ -809,7 +1005,7 @@ def fresh_application_inputs(value: dict[str, Any], candidate: str, tree: str,
     return fresh
 
 
-def lifecycle_inputs(args: argparse.Namespace, tree: str) -> dict[str, Any]:
+def lifecycle_inputs(args: argparse.Namespace, tree: str, *, executing: bool = False) -> dict[str, Any]:
     input_path = file_reference({"path": args.lifecycle_input, "sha256": args.lifecycle_input_sha256})
     value = read_json(input_path)
     if value.get("protocol") != "peanut.p0e-lifecycle-inputs.v1" or value.get("source") != {"commit": args.candidate, "tree": tree}:
@@ -823,7 +1019,7 @@ def lifecycle_inputs(args: argparse.Namespace, tree: str) -> dict[str, Any]:
     if getattr(args, "module_installed_only", False):
         if set(value) != {"protocol", "source", "module_qualification"}:
             fail("installed Module input accepts only its fixed source and native Module inputs")
-        module_qualification_inputs(value, args.candidate, tree, installed_only=True)
+        module_qualification_inputs(value, args.candidate, tree, executing=executing, installed_only=True)
         return {**value, "applications": {}, "template_artifacts": {}, "input_path": str(input_path),
                 "input_sha256": args.lifecycle_input_sha256, "registry_sha256": sha256(REGISTRY_PATH)}
     resources = registry.get("resources", {}).get("databases", [])
@@ -872,7 +1068,7 @@ def lifecycle_inputs(args: argparse.Namespace, tree: str) -> dict[str, Any]:
     if value.get("installed_lifecycle"):
         fail("retired installed-lifecycle producer inputs must be replaced by isolated module_qualification inputs")
     if value.get("module_qualification") is not None:
-        module_qualification_inputs(value, args.candidate, tree)
+        module_qualification_inputs(value, args.candidate, tree, executing=executing)
     fresh_application_inputs(value, args.candidate, tree, templates)
     file_reference(value.get("consumer_identity_seed", {}))
     return {**value, "cli": cli, "template_artifacts": templates,
@@ -880,12 +1076,12 @@ def lifecycle_inputs(args: argparse.Namespace, tree: str) -> dict[str, Any]:
             "registry_sha256": sha256(REGISTRY_PATH)}
 
 
-def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
+def plan(args: argparse.Namespace, require_clean: bool, *, executing: bool = False) -> dict[str, Any]:
     installed_only = getattr(args, "module_installed_only", False)
     if installed_only and (args.groups != "module-lifecycle" or args.through_group or args.minimum_release):
         fail("--module-installed-only requires exactly --groups=module-lifecycle")
     _, tree = validate_candidate(args.candidate, require_clean=require_clean)
-    inputs = lifecycle_inputs(args, tree)
+    inputs = lifecycle_inputs(args, tree, executing=executing)
     groups = read_json(FIXTURE_PATH).get("groups", [])
     if len(groups) != 8 or len(set(groups)) != 8:
         fail("the eight native qualification groups must remain intact")
@@ -938,7 +1134,7 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
     gate = "p0e-runtime-qualification"
     qualification_apps = []
     if "module-lifecycle" in selected:
-        qualification = module_qualification_inputs(inputs, args.candidate, tree, installed_only=installed_only)
+        qualification = module_qualification_inputs(inputs, args.candidate, tree, executing=executing, installed_only=installed_only)
         qualification_apps = [qualification[key] for key in module_app_keys]
         for app in qualification_apps:
             admissions.append(runtime_admission(app, app["root"], app["head"]))
@@ -1078,10 +1274,57 @@ def transport(args: argparse.Namespace) -> dict[str, Any]:
             "ci_ingress": "not_run: requires an admitted Actions artifact upload; sealing never publishes or uploads"}
 
 
+
+def publish_generated_client(root: Path, source_name: str, destination_name: str) -> dict[str, Any]:
+    """Publish only this native build's closed PC/H5 output into a new public directory."""
+    if (source_name, destination_name) not in (
+            ("pc/.output/public", "server/public/pc"),
+            ("uniapp/dist/build/h5", "server/public/mobile")):
+        fail("generated client publication escapes its native output contract")
+    root = canonical(str(root), directory=True)
+    source = canonical(str(root / source_name), directory=True)
+    canonical(str(source / "index.html"))
+    destination = root / destination_name
+    canonical(str(destination.parent), directory=True)
+    if (destination.resolve() != destination or destination.is_symlink()
+            or (destination.exists() and (not destination.is_dir() or any(destination.iterdir())))):
+        fail("generated client publication refuses linked or unknown existing destination content")
+    def traversal_error(error: OSError) -> None:
+        raise error
+    entries = []
+    for parent, directories, names in os.walk(source, followlinks=False, onerror=traversal_error):
+        entries.extend(Path(parent) / name for name in directories + names)
+    entries.sort()
+    files = {}
+    for path in entries:
+        canonical(str(path), directory=path.is_dir())
+        if path.is_file():
+            files[path.relative_to(source).as_posix()] = sha256(path)
+    staging = destination.with_name("." + destination.name + ".qualification-publish")
+    if staging.exists() or staging.is_symlink():
+        fail("retain the previous generated client publication staging directory")
+    staging.mkdir(mode=0o755)
+    for path in entries:
+        target = staging / path.relative_to(source)
+        if path.is_dir():
+            target.mkdir(mode=0o755)
+        else:
+            shutil.copyfile(path, target)
+    for relative, digest in files.items():
+        if sha256(staging / relative) != digest or sha256(source / relative) != digest:
+            fail("native generated client changed while publishing")
+    # POSIX replacement refuses a concurrently populated destination.
+    os.replace(staging, destination)
+    return {"source": str(source), "destination": str(destination),
+            "outputs": {name: {"sha256": digest, "mode": (destination / name).stat().st_mode & 0o777}
+                        for name, digest in files.items()}}
+
+
 def generated_state(root: Path) -> dict[str, Any]:
     """Snapshot existing native generated outputs and their current declared inputs."""
     edition = read_json(root / ".peanut/application-manifest.json")["application"]["edition"]
-    canonical(str(root / "server/public/admin/index.html"))
+    for relative in ("server/public/admin/index.html", "server/public/pc/index.html", "server/public/mobile/index.html"):
+        canonical(str(root / relative))
     if edition == "multi-tenant":
         canonical(str(root / "server/public/platform/index.html"))
     catalog = read_json(root / "server/generated/api-catalog.json")
@@ -1096,7 +1339,7 @@ def generated_state(root: Path) -> dict[str, Any]:
     paths = {root / "server/generated/api-catalog.json", root / "server/generated/openapi.json",
              root / "web/src/generated/openapi.d.ts"}
     paths.update((root / "web/src/modules").glob("*/generated/openapi.ts"))
-    for relative in ("server/public/admin", "server/public/platform"):
+    for relative in ("server/public/admin", "server/public/platform", "server/public/pc", "server/public/mobile"):
         directory = root / relative
         if directory.is_symlink():
             fail("native static output directory is unsafe")
@@ -1120,6 +1363,32 @@ def generated_state(root: Path) -> dict[str, Any]:
             canonical(str(path))
             producers[relative] = sha256(path)
     return {"api_inputs": inputs, "inputs_and_producers": producers, "outputs": outputs}
+
+
+def generated_checkout_changes(root: Path, state: dict[str, Any], edition: str) -> dict[str, list[str]]:
+    """Record only native generated outputs that differ from the pinned APP commit."""
+    def paths(*arguments: str) -> set[str]:
+        output = command(["git", "-C", str(root), *arguments, "-z"], capture=True).stdout
+        return set(output.split("\0")) - {""}
+
+    if paths("diff", "--cached", "--name-only", "HEAD"):
+        fail("native generated APP build staged changes")
+    tracked = paths("diff", "--no-renames", "--name-only", "HEAD")
+    untracked = paths("ls-files", "--others", "--exclude-standard")
+    for relative in tracked | untracked:
+        path = Path(relative)
+        generated = (relative in ("server/generated/api-catalog.json", "server/generated/openapi.json",
+                                  "web/src/generated/openapi.d.ts")
+                     or re.fullmatch(r"web/src/modules/[^/]+/generated/openapi\.ts", relative) is not None
+                     or relative.startswith("server/public/admin/")
+                     or (edition == "multi-tenant" and relative.startswith("server/public/platform/")))
+        current = root / path
+        if (path.is_absolute() or ".." in path.parts or not generated or current.is_symlink()
+                or (relative in untracked and relative not in state["outputs"])
+                or (current.exists() and relative not in state["outputs"])):
+            fail("native generated APP build changed an unrelated or missing path")
+    return {"tracked": sorted(tracked), "untracked": sorted(untracked),
+            "deleted": sorted(tracked - set(state["outputs"]))}
 
 
 def paired_recovery_verifier() -> tuple[dict[str, Any], str]:
@@ -1149,8 +1418,805 @@ def paired_recovery_verifier() -> tuple[dict[str, Any], str]:
     return native, expected
 
 
+
+GENERATED_RECOVERY_PROTOCOL = "peanut.generated-application-recovery.v1"
+RECOVERY_FILES = (
+    ".peanut/application-manifest.json", "resources/project-resources.json",
+    "release-versions.json", "RELEASE_METADATA.json", "modules.lock",
+    "server/.env", "server/docker/.env", "server/docker/collaboration.env",
+    "server/private/installation/installed.json", "server/private/installation/baseline.json",
+    "server/private/installation/deployment.json", "server/private/resources/configuration.json",
+    "server/private/resources/project-resources.json", "server/private/credentials/initial-administrators.json",
+    ".local/toolchain/host.json",
+)
+# Same six rebuildable dependency directories as the accepted permanent APP protection.
+RECOVERY_DEPENDENCY_EXCLUSIONS = ("node_modules", "pc/node_modules", "platform/node_modules",
+                                 "server/vendor", "uniapp/node_modules", "web/node_modules")
+RECOVERY_STORAGE = ("server/public/storage", "server/public/uploads", "server/private", "server/docker/tls", ".local/php")
+
+
+def recovery_json(path: Path, value: dict[str, Any]) -> None:
+    """Commit private stage records atomically within this new run."""
+    temporary = path.with_name(path.name + ".temporary")
+    with temporary.open("x", encoding="utf-8") as stream:
+        os.chmod(temporary, 0o600)
+        json.dump(value, stream, sort_keys=True, ensure_ascii=False, indent=2)
+        stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, path)
+
+
+def recovery_private(path: Path) -> None:
+    if (path.is_symlink() or not path.is_file() or path.stat().st_nlink != 1
+            or path.stat().st_uid != os.geteuid() or path.stat().st_mode & 0o777 != 0o600):
+        fail("recovery input must be an own single-link private regular file")
+
+
+def recovery_identity(app: dict[str, Any], owner: str, thread: str) -> tuple[dict[str, Any], dict[str, str]]:
+    if TOOL_BINDING is None:
+        fail("generated recovery requires the explicit independent qualification-tool binding")
+    if os.name != "posix":
+        fail("generated recovery requires its registered POSIX native client host")
+    root = canonical(app["root"], directory=True)
+    tree = command(["git", "-C", str(root), "rev-parse", app["head"] + "^{tree}"], capture=True).stdout.strip()
+    checkout_identity(root, app["head"], tree)
+    manifest = read_json(file_reference({"path": str(root / ".peanut/application-manifest.json"), "sha256": app["manifest_sha256"]}))
+    if (manifest.get("template", {}).get("source_commit") != TOOL_BINDING["candidate"]
+            or manifest.get("template", {}).get("source_tree") != TOOL_BINDING["candidate_tree"]):
+        fail("generated recovery application does not adopt the fixed product source")
+    admission = runtime_admission(app, str(root), app["head"])
+    verify_runtime_admission(admission, owner, thread)
+    environment = runtime_environment(app, admission)
+    edition = manifest["application"]["edition"]
+    environment["PEANUT_DEPLOYMENT_TARGET"] = "local-development" if edition == "standalone" else "local-multi-tenant-demo"
+    result = command(["php", "-r",
+        "require $argv[1].'/vendor/autoload.php';"
+        "$f=\\app\\common\\services\\installation\\InstallationExecutionHost::verifiedInstallationFacts($argv[1]);"
+        "echo json_encode($f,JSON_THROW_ON_ERROR);", str(root / "server")], cwd=root, env=environment, capture=True)
+    facts = json.loads(result.stdout)
+    receipt = facts.get("receipt", {})
+    if (receipt.get("source", {}).get("kind") != "generated-application"
+            or receipt.get("state") != "installed" or receipt.get("deployment_mode") != edition
+            or facts.get("receipt_sha256") != sha256(root / "server/private/installation/installed.json")):
+        fail("generated recovery requires original verified installed facts")
+    database = database_registration(app)
+    client = database.get("management_entry", {})
+    fields = ("ssh_command", "ssh_alias", "docker_command", "container_name", "mysql_command", "mysqldump_command")
+    if (any(not isinstance(client.get(k), str) or not client[k] for k in fields)
+            or database.get("database") != app["database"]
+            or client.get("schema_maintenance_admission") != "exclusive-schema"):
+        fail("generated recovery needs its registered exact native schema client")
+    for name in ("ssh_command", "docker_command", "mysql_command", "mysqldump_command"):
+        if not Path(client[name]).is_absolute():
+            fail("native recovery client executable must be absolute")
+    identity = {"root": str(root), "head": app["head"], "tree": tree, "manifest_sha256": app["manifest_sha256"],
+                "installation_receipt_sha256": facts["receipt_sha256"], "edition": edition,
+                "resource_id": app["resource_id"], "endpoint_id": app["endpoint_id"], "database": app["database"],
+                "source": {k: TOOL_BINDING[k] for k in ("candidate", "candidate_tree")},
+                "qualification_tool_binding": TOOL_BINDING, "owner": owner, "thread": thread,
+                "registry_sha256": sha256(REGISTRY_PATH), "client": {k: client[k] for k in fields}}
+    return identity, environment
+
+
+def recovery_probe(app: dict[str, Any], environment: dict[str, str], *, credentials: bool = False) -> dict[str, Any]:
+    """APP-owned guard and native PDO. Sensitive connection values stay only in memory."""
+    php = r"""
+require $argv[1].'/database/environment-guard.php';
+$application->env->load($argv[1].'/.env');
+$c=guardedDatabaseConfig();$p=guardedConnection($c,5);
+$p->exec('SET TRANSACTION READ ONLY');$p->beginTransaction();
+$id=$p->query('SELECT @@server_uuid AS server_uuid,VERSION() AS version,DATABASE() AS database_name,CURRENT_USER() AS principal')->fetch(PDO::FETCH_ASSOC);
+$tables=$p->query("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_TYPE='BASE TABLE' ORDER BY TABLE_NAME")->fetchAll(PDO::FETCH_COLUMN);
+$state=[];
+foreach($tables as $t){
+ if(!preg_match('/^[A-Za-z0-9_]+$/D',$t))throw new RuntimeException('UNSAFE_TABLE');
+ $q=chr(96).$t.chr(96);$create=$p->query('SHOW CREATE TABLE '.$q)->fetch(PDO::FETCH_NUM)[1];
+ $rows=$p->query('SELECT * FROM '.$q)->fetchAll(PDO::FETCH_ASSOC);$encoded=array_map('serialize',$rows);sort($encoded,SORT_STRING);$h=hash_init('sha256');
+ foreach($encoded as $row)hash_update($h,strlen($row).':'.$row);
+ $state[$t]=['rows'=>count($rows),'rows_sha256'=>hash_final($h),'schema_sha256'=>hash('sha256',$create)];
+}
+$objects=[];
+foreach(['VIEWS'=>['TABLE_SCHEMA','TABLE_NAME'],'TRIGGERS'=>['TRIGGER_SCHEMA','TRIGGER_NAME'],'ROUTINES'=>['ROUTINE_SCHEMA','ROUTINE_NAME'],'EVENTS'=>['EVENT_SCHEMA','EVENT_NAME']] as $table=>[$schema,$name]){
+ $s=$p->prepare('SELECT '.$name.' FROM information_schema.'.$table.' WHERE '.$schema.'=DATABASE() ORDER BY '.$name);$s->execute();$objects[$table]=$s->fetchAll(PDO::FETCH_COLUMN);
+}
+$p->commit();$result=['identity'=>$id,'tables'=>$state,'objects'=>$objects];
+if($argv[2]==='credentials')$result['credentials']=['user'=>$c['user'],'password'=>$c['password']];
+echo json_encode($result,JSON_THROW_ON_ERROR);
+"""
+    result = command(["php", "-d", "zend.exception_ignore_args=1", "-r", php, app["root"] + "/server",
+                      "credentials" if credentials else "state"], cwd=Path(app["root"]), env=environment,
+                     capture=True, check=False)
+    if result.returncode != 0:
+        fail("native recovery APP guard/PDO observation failed; no credentials printed")
+    value = json.loads(result.stdout)
+    database = database_registration(app)
+    identity = value["identity"]
+    if (identity["database_name"] != app["database"] or identity["server_uuid"] != database["server_uuid"]
+            or identity["version"] != database["version"] or not value["tables"]):
+        fail("native recovery database identity or installed table set differs")
+    if any(value["objects"].values()):
+        fail("generated recovery currently requires no views, triggers, routines or events")
+    return value
+
+
+def recovery_afterimage_equivalence(app: dict[str, Any], environment: dict[str, str],
+                                    before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any] | None:
+    if before == after:
+        return None
+    tables = before.get("tables", {})
+    restored = after.get("tables", {})
+    if ("pa_migrations" not in tables or "pa_migrations" not in restored
+            or not isinstance(tables["pa_migrations"], dict) or not isinstance(restored["pa_migrations"], dict)):
+        fail("native recovery database afterimage differs")
+    original_hash = tables["pa_migrations"].get("schema_sha256")
+    restored_hash = restored["pa_migrations"].get("schema_sha256")
+    expected = json.loads(json.dumps(after))
+    expected["tables"]["pa_migrations"]["schema_sha256"] = original_hash
+    if expected != before or original_hash == restored_hash:
+        fail("native recovery database afterimage differs outside the exact migration DDL variant")
+    php = r"""
+require $argv[1].'/database/environment-guard.php';
+$application->env->load($argv[1].'/.env');
+$c=guardedDatabaseConfig();$p=guardedConnection($c,5);
+$p->exec('SET TRANSACTION READ ONLY');$p->beginTransaction();
+$id=$p->query('SELECT @@server_uuid AS server_uuid,VERSION() AS version,DATABASE() AS database_name,CURRENT_USER() AS principal')->fetch(PDO::FETCH_ASSOC);
+$ddl=$p->query('SHOW CREATE TABLE `pa_migrations`')->fetch(PDO::FETCH_NUM)[1];
+$p->commit();echo json_encode(['identity'=>$id,'ddl'=>$ddl],JSON_THROW_ON_ERROR);
+"""
+    observed = json.loads(command(["php", "-d", "zend.exception_ignore_args=1", "-r", php,
+        app["root"] + "/server"], cwd=Path(app["root"]), env=environment, capture=True).stdout)
+    ddl = observed.get("ddl")
+    if (observed.get("identity") != after["identity"] or not isinstance(ddl, str)
+            or hashlib.sha256(ddl.encode()).hexdigest() != restored_hash):
+        fail("actual migration SHOW CREATE differs from the recorded raw postimage")
+    transformed, count = re.subn(
+        r"(?m)^([ \t]*`migration_name` varchar\(100\)) CHARACTER SET utf8mb4(?= COLLATE utf8mb4_unicode_ci(?:[ \t,]|$))",
+        r"\1", ddl)
+    if count != 1 or hashlib.sha256(transformed.encode()).hexdigest() != original_hash:
+        fail("migration DDL differs beyond the one proven utf8mb4 rendering clause")
+    return {"table": "pa_migrations", "column": "migration_name",
+            "variant": "explicit utf8mb4 before identical utf8mb4_unicode_ci collation",
+            "removed_clause": " CHARACTER SET utf8mb4", "occurrences": count,
+            "raw_preimage_sha256": original_hash, "raw_postimage_sha256": restored_hash,
+            "equivalent_postimage_sha256": original_hash}
+
+
+def recovery_client(identity: dict[str, Any], executable: str, arguments: list[str], *, root: bool) -> list[str]:
+    client = identity["client"]
+    native = [client[executable], "--no-defaults", "--no-login-paths", *arguments]
+    if root:
+        script = "set -eu\nMYSQL_PWD=$" + "{MYSQL_ROOT_PASSWORD:?}; export MYSQL_PWD\nexec " + shlex.join(native)
+    else:
+        # SSH stdin, never process argv, transfers only the existing APP account password.
+        script = "set -eu\nIFS= read -r MYSQL_PWD\nexport MYSQL_PWD\nexec " + shlex.join(native)
+    remote = shlex.join([client["docker_command"], "exec", "-i", client["container_name"], "/bin/sh", "-c", script])
+    return [client["ssh_command"], "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
+            "-o", "ConnectTimeout=10", client["ssh_alias"], remote]
+
+
+
+
+def recovery_global_metadata_grants(grants: list[str]) -> bool:
+    """Accept direct ALL or its complete MySQL 8.4 static enumeration and routine visibility."""
+    static = {
+        "SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "RELOAD", "SHUTDOWN",
+        "PROCESS", "FILE", "REFERENCES", "INDEX", "ALTER", "SHOW DATABASES", "SUPER",
+        "CREATE TEMPORARY TABLES", "LOCK TABLES", "EXECUTE", "REPLICATION SLAVE",
+        "REPLICATION CLIENT", "CREATE VIEW", "SHOW VIEW", "CREATE ROUTINE", "ALTER ROUTINE",
+        "CREATE USER", "EVENT", "TRIGGER", "CREATE TABLESPACE", "CREATE ROLE", "DROP ROLE",
+    }
+    privileges = set()
+    for row in grants:
+        row = row.strip()
+        if row.upper().startswith("REVOKE "):
+            return False
+        match = re.fullmatch(
+            r"GRANT (.+) ON \*\.\* TO (?:'root'@'localhost'|`root`@`localhost`)(?: WITH GRANT OPTION)?",
+            row, flags=re.IGNORECASE)
+        if match:
+            privileges.update(" ".join(name.upper().split()) for name in match[1].split(","))
+    return "ALL PRIVILEGES" in privileges or (static <= privileges and "SHOW_ROUTINE" in privileges)
+
+
+def recovery_effects(identity: dict[str, Any]) -> dict[str, Any]:
+    """Global registered Root metadata visibility, then the unchanged pinned pure effect gate."""
+    queries = {
+        "tables": "SELECT TABLE_NAME,TABLE_TYPE,ENGINE,TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()",
+        "tablespaces": "SELECT NAME,SPACE_TYPE FROM information_schema.INNODB_TABLES WHERE SUBSTRING_INDEX(NAME,'/',1)=DATABASE()",
+        "views": "SELECT TABLE_NAME,VIEW_DEFINITION,CHECK_OPTION,IS_UPDATABLE,DEFINER,SECURITY_TYPE FROM information_schema.VIEWS WHERE TABLE_SCHEMA=DATABASE()",
+        "routines": "SELECT ROUTINE_NAME,ROUTINE_TYPE,ROUTINE_DEFINITION,SQL_DATA_ACCESS,SECURITY_TYPE,SQL_MODE,DEFINER FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE()",
+        "events": "SELECT EVENT_NAME,DEFINER,EVENT_DEFINITION,STATUS,ON_COMPLETION,SQL_MODE FROM information_schema.EVENTS WHERE EVENT_SCHEMA=DATABASE()",
+        "triggers": "SELECT TRIGGER_NAME,EVENT_OBJECT_TABLE,ACTION_TIMING,EVENT_MANIPULATION,ACTION_STATEMENT,SQL_MODE,DEFINER FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()",
+        "foreign_keys": "SELECT TABLE_SCHEMA,TABLE_NAME,CONSTRAINT_NAME,COLUMN_NAME,ORDINAL_POSITION,REFERENCED_TABLE_SCHEMA,REFERENCED_TABLE_NAME,REFERENCED_COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_NAME IS NOT NULL AND (TABLE_SCHEMA=DATABASE() OR REFERENCED_TABLE_SCHEMA=DATABASE())",
+    }
+    nonce = secrets.token_hex(16)
+    sql = ("SET TRANSACTION READ ONLY; START TRANSACTION;"
+           "SELECT HEX(JSON_OBJECT('database',DATABASE(),'server_uuid',@@server_uuid,'version',VERSION(),"
+           "'current_user',CURRENT_USER(),'partial_revokes',@@partial_revokes,"
+           "'table_count',(SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE())));"
+           "SHOW GRANTS FOR CURRENT_USER(); SELECT 'GRANTS_END_" + nonce + "';")
+    for name, query in queries.items():
+        columns = query.split(" FROM ", 1)[0].removeprefix("SELECT ").split(",")
+        fields = ",".join("'" + column + "'," + column for column in columns)
+        sql += "SELECT '" + name + "';SELECT HEX(JSON_OBJECT(" + fields + ")) FROM (" + query + ") AS observed;"
+    sql += "SELECT 'METADATA_END_" + nonce + "';ROLLBACK;"
+    result = command(recovery_client(identity, "mysql_command",
+        ["-uroot", "--batch", "--raw", "--skip-column-names", "--database=" + identity["database"], "--execute=" + sql],
+        root=True), capture=True).stdout
+    if len(result.encode()) > 16 * 1024 * 1024:
+        fail("complete recovery metadata exceeds the bounded native contract")
+    lines = result.splitlines()
+    observed_identity = json.loads(bytes.fromhex(lines[0]))
+    grant_end = lines.index("GRANTS_END_" + nonce)
+    grants = lines[1:grant_end]
+    registered = database_registration(identity)
+    if (observed_identity.get("database") != identity["database"]
+            or observed_identity.get("server_uuid") != registered["server_uuid"]
+            or observed_identity.get("version") != registered["version"]
+            or observed_identity.get("current_user") != "root@localhost"
+            or observed_identity.get("partial_revokes") not in (0, 1)
+            or not recovery_global_metadata_grants(grants)):
+        fail("registered Root complete direct metadata visibility is unavailable")
+    metadata, cursor = {}, grant_end + 1
+    for name in queries:
+        if cursor >= len(lines) or lines[cursor] != name:
+            fail("complete recovery metadata section is missing")
+        cursor += 1
+        rows = []
+        while cursor < len(lines) and lines[cursor] not in (*queries, "METADATA_END_" + nonce):
+            value = json.loads(bytes.fromhex(lines[cursor]))
+            if not isinstance(value, dict):
+                fail("native recovery metadata row is malformed")
+            rows.append(value)
+            cursor += 1
+        metadata[name] = sorted(rows, key=lambda row: json.dumps(row, sort_keys=True))
+    if lines[cursor:] != ["METADATA_END_" + nonce] or len(metadata["tables"]) != observed_identity["table_count"]:
+        fail("complete recovery metadata coverage differs")
+    observation = {"identity": observed_identity, "metadata": metadata}
+    native, _ = paired_recovery_verifier()
+    native["assert_whole_schema_effects"](observation)
+    return observation
+
+
+def recovery_no_writers(identity: dict[str, Any]) -> dict[str, Any]:
+    """Independent OS/listener and global native MySQL observations, not caller attestations."""
+    root = identity["root"]
+    registered = read_json(REGISTRY_PATH)["resources"]
+    rows = [r for group in registered.values() if isinstance(group, list) for r in group
+            if isinstance(r, dict) and r.get("application_root") == root and r.get("service_manager")]
+    if not rows:
+        fail("recovery writer processes are not registered for this application")
+    ports = sorted({r["port"] for r in rows if isinstance(r.get("port"), int)})
+    if not ports:
+        fail("recovery writer listener set is unavailable")
+    for port in ports:
+        result = command(["lsof", "-nP", "-iTCP:" + str(port), "-sTCP:LISTEN"], capture=True, check=False)
+        if result.returncode != 1 or result.stdout.strip():
+            fail("recovery requires stopped registered APP listeners")
+    process_rows = command(["ps", "-axo", "pid=,command="], capture=True).stdout.splitlines()
+    for line in process_rows:
+        fields = line.strip().split(None, 1)
+        if len(fields) != 2 or not fields[0].isdigit() or int(fields[0]) == os.getpid():
+            continue
+        pid, text = fields
+        if not re.search(r"(?:^|/)(?:php(?:-fpm)?[0-9.]*|node|npm|pnpm)(?:\s|$)", text):
+            continue
+        cwd = command(["lsof", "-a", "-p", pid, "-d", "cwd", "-Fn"], capture=True, check=False)
+        if any(x.startswith("n") and (x[1:] == root or x[1:].startswith(root + "/")) for x in cwd.stdout.splitlines()):
+            fail("recovery found an APP PHP/client/worker process")
+    database = identity["database"]
+    if not re.fullmatch(r"[A-Za-z0-9_]+", database):
+        fail("recovery schema name is unsafe")
+    query = ("SELECT CONCAT_WS('|',@@server_uuid,VERSION(),CURRENT_USER());"
+             "SELECT COUNT(*) FROM information_schema.PROCESSLIST WHERE DB='" + database
+             + "' AND ID<>CONNECTION_ID();"
+             "SELECT COUNT(*) FROM performance_schema.metadata_locks WHERE OBJECT_SCHEMA='" + database
+             + "' AND LOCK_STATUS='PENDING';")
+    result = command(recovery_client(identity, "mysql_command", ["-uroot", "--batch", "--raw", "--skip-column-names",
+                     "--execute=" + query], root=True), capture=True)
+    lines = result.stdout.splitlines()
+    registration = next(r for r in registered["databases"] if r["stable_resource_id"] == identity["resource_id"])
+    expected = registration["server_uuid"] + "|" + registration["version"] + "|root@localhost"
+    if lines != [expected, "0", "0"]:
+        fail("recovery global native writer/lock observation is not empty")
+    return {"registered_ports": ports, "local_app_workers": 0, "other_schema_connections": 0,
+            "pending_metadata_locks": 0, "root_usage": "read-only global writer visibility", "observed_at": int(time.time())}
+
+
+def recovery_paths(app: dict[str, Any]) -> tuple[list[str], tuple[str, ...]]:
+    manifest = read_json(Path(app["root"]) / ".peanut/application-manifest.json")
+    files = set(RECOVERY_FILES)
+    files.update(row["path"] for row in manifest["files"] if row["classification"] == "app-owned")
+    root = Path(app["root"])
+    for directory in ("", "server", "web", "platform", "pc", "uniapp"):
+        files.update(str(p.relative_to(root)) for p in (root / directory).glob(".env*") if p.is_file())
+    return sorted(files), RECOVERY_STORAGE
+
+
+def recovery_archive_inventory(path: Path) -> dict[str, Any]:
+    native, _ = paired_recovery_verifier()
+    native["storage_archive"](path)
+    inventory = {}
+    with tarfile.open(path, "r:gz") as archive:
+        for member in archive.getmembers():
+            name = member.name.rstrip("/")
+            digest = None
+            if member.isfile():
+                stream = archive.extractfile(member)
+                if stream is None:
+                    fail("protected archive file is unreadable")
+                hasher = hashlib.sha256()
+                with stream:
+                    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                        hasher.update(chunk)
+                digest = hasher.hexdigest()
+            inventory[name] = [digest, member.mode & 0o777, member.uid, member.gid]
+    return inventory
+
+
+
+def recovery_source_inventory(root: Path) -> dict[str, Any]:
+    """Protect the entire existing source/.git tree without following symbolic links."""
+    result = {}
+    def traversal_error(error: OSError) -> None:
+        raise error
+    for parent, directories, files in os.walk(root, followlinks=False, onerror=traversal_error):
+        directories[:] = [name for name in directories
+                          if str((Path(parent) / name).relative_to(root)) not in RECOVERY_DEPENDENCY_EXCLUSIONS]
+        for name in sorted(directories + files):
+            if str((Path(parent) / name).relative_to(root)) in RECOVERY_DEPENDENCY_EXCLUSIONS:
+                continue
+            path = Path(parent) / name
+            relative = str(path.relative_to(root))
+            metadata = path.lstat()
+            mode = metadata.st_mode & 0o777
+            if path.is_symlink():
+                entry = ["symlink", os.readlink(path), mode, metadata.st_uid, metadata.st_gid]
+            elif path.is_dir():
+                entry = ["directory", None, mode, metadata.st_uid, metadata.st_gid]
+            elif path.is_file():
+                entry = ["file", sha256(path), mode, metadata.st_uid, metadata.st_gid]
+            else:
+                fail("complete source backup found a special filesystem object")
+            result[relative] = entry
+    if ".git" not in result or result[".git"][0] != "directory":
+        fail("complete source recovery requires the real APP-owned .git directory")
+    return result
+
+
+def recovery_source_archive(path: Path) -> dict[str, Any]:
+    recovery_private(path)
+    result = {}
+    with tarfile.open(path, "r:gz") as archive:
+        for member in archive:
+            name = member.name.rstrip("/")
+            if (not name or name in result or Path(name).is_absolute() or ".." in Path(name).parts
+                    or "\\" in name or any(ord(c) < 32 for c in name)):
+                fail("complete source archive has unsafe or duplicate paths")
+            if member.issym():
+                kind, value = "symlink", member.linkname
+            elif member.isdir():
+                kind, value = "directory", None
+            elif member.isfile():
+                stream = archive.extractfile(member)
+                if stream is None:
+                    fail("complete source archive member is unreadable")
+                digest = hashlib.sha256()
+                with stream:
+                    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                        digest.update(chunk)
+                kind, value = "file", digest.hexdigest()
+            else:
+                fail("complete source archive has unsupported special entries")
+            result[name] = [kind, value, member.mode & 0o777, member.uid, member.gid]
+    return result
+
+
+def recovery_source_backup(root: Path, workspace: Path) -> dict[str, Any]:
+    before = recovery_source_inventory(root)
+    bundle = workspace / "source.bundle"
+    command(["git", "-C", str(root), "bundle", "create", str(bundle), "--all"], capture=True)
+    os.chmod(bundle, 0o600)
+    command(["git", "-C", str(root), "bundle", "verify", str(bundle)], capture=True)
+    archive_path = workspace / "source-and-git.tgz"
+    with tarfile.open(archive_path, "w:gz") as archive:
+        for relative, entry in sorted(before.items()):
+            path = root / relative
+            member = archive.gettarinfo(str(path), arcname=relative)
+            if entry[0] == "file":
+                # Store every regular file independently, including existing hardlinks.
+                member.type, member.linkname, member.size = tarfile.REGTYPE, "", path.stat().st_size
+                with path.open("rb") as stream:
+                    archive.addfile(member, stream)
+            else:
+                archive.addfile(member)
+    os.chmod(archive_path, 0o600)
+    if recovery_source_archive(archive_path) != before or recovery_source_inventory(root) != before:
+        fail("complete source/.git backup differs from its protected preimage")
+    return {"archive_sha256": sha256(archive_path), "bundle_sha256": sha256(bundle),
+            "dependency_exclusions": list(RECOVERY_DEPENDENCY_EXCLUSIONS), "inventory": before}
+
+
+def recovery_backup_attachments(workspace: Path, backup: dict[str, Any]) -> None:
+    native, helper_sha = paired_recovery_verifier()
+    if helper_sha != backup["pure_helper_sha256"]:
+        fail("pinned recovery helper identity differs")
+    source = backup["source_backup"]
+    if source["dependency_exclusions"] != list(RECOVERY_DEPENDENCY_EXCLUSIONS):
+        fail("complete source backup dependency exclusions differ from the accepted protection contract")
+    bundle = workspace / "source.bundle"
+    recovery_private(bundle)
+    if (sha256(bundle) != source["bundle_sha256"]
+            or sha256(workspace / "source-and-git.tgz") != source["archive_sha256"]
+            or recovery_source_archive(workspace / "source-and-git.tgz") != source["inventory"]):
+        fail("complete source/.git backup attachment differs")
+    command(["git", "-C", backup["identity"]["root"], "bundle", "verify", str(bundle)], capture=True)
+    dump = workspace / "database.sql"
+    recovery_private(dump)
+    if sha256(dump) != backup["database_sha256"]:
+        fail("same-schema SQL attachment changed")
+    native["validate_dump"](dump, backup["identity"]["database"])
+    for relative, entry in backup["protected"]["files"].items():
+        if entry is not None:
+            source = workspace / "files" / relative
+            recovery_private(source)
+            if sha256(source) != entry["sha256"]:
+                fail("protected configuration attachment differs")
+    expected = {k for k, v in backup["protected"]["storage"].items() if v is not None}
+    if set(backup["storage_archives"]) != expected:
+        fail("protected storage backup allowlist differs")
+    for relative in expected:
+        path = workspace / "storage" / (relative.replace("/", "-") + ".tgz")
+        if (sha256(path) != backup["storage_archives"][relative]
+                or recovery_archive_inventory(path) != backup["protected"]["storage"][relative]["inventory"]):
+            fail("protected archive contents/modes/ownership differ from the native preimage")
+
+
+def recovery_inventory(root: Path, files: list[str], directories: tuple[str, ...]) -> dict[str, Any]:
+    native, _ = paired_recovery_verifier()
+    result = {"files": {}, "storage": {}}
+    for relative in files:
+        path = root / relative
+        if Path(relative).is_absolute() or ".." in Path(relative).parts:
+            fail("protected recovery path escapes the application")
+        if not path.exists() and not path.is_symlink():
+            result["files"][relative] = None
+            continue
+        if any(parent.is_symlink() for parent in path.parents):
+            fail("protected configuration has a linked parent")
+        native["regular"](path)
+        stat = path.stat()
+        if stat.st_uid != os.geteuid():
+            fail("protected configuration is owned by another runtime identity")
+        result["files"][relative] = {"sha256": sha256(path), "mode": stat.st_mode & 0o777,
+                                     "uid": stat.st_uid, "gid": stat.st_gid}
+    for relative in directories:
+        path = root / relative
+        if not path.exists() and not path.is_symlink():
+            result["storage"][relative] = None
+        else:
+            if any(parent.is_symlink() for parent in path.parents):
+                fail("protected storage has a linked parent")
+            stat = path.stat()
+            inventory = native["storage_inventory"](path)
+            if stat.st_uid != os.geteuid():
+                fail("protected storage is owned by another runtime identity")
+            for name, state in inventory.items():
+                owner = (path / name).stat()
+                if owner.st_uid != os.geteuid():
+                    fail("protected storage child is owned by another runtime identity")
+                state.extend([owner.st_uid, owner.st_gid])
+            result["storage"][relative] = {"inventory": inventory,
+                "mode": stat.st_mode & 0o777, "uid": stat.st_uid, "gid": stat.st_gid}
+    return result
+
+
+def recovery_signed(workspace: Path, name: str, value: dict[str, Any], key: bytes) -> None:
+    recovery_json(workspace / name, value)
+    signature = hmac.new(key, (name + "\0" + sha256(workspace / name)).encode(), hashlib.sha256).hexdigest()
+    recovery_json(workspace / (name + ".signature.json"), {"hmac_sha256": signature})
+
+
+def recovery_check_signature(workspace: Path, name: str, key: bytes) -> dict[str, Any]:
+    path = workspace / name
+    recovery_private(path)
+    signature = workspace / (name + ".signature.json")
+    recovery_private(signature)
+    expected = hmac.new(key, (name + "\0" + sha256(path)).encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(read_json(signature).get("hmac_sha256", ""), expected):
+        fail("generated recovery instance signature differs")
+    return read_json(path)
+
+
+def recovery_key(root: Path, run_id: str) -> Path:
+    if not re.fullmatch(r"[a-z0-9][a-z0-9.-]{0,63}", run_id) or ".." in run_id:
+        fail("invalid generated recovery namespace")
+    return root / ".local/qualification-recovery" / run_id / "instance.key"
+
+
+def generated_recovery_plan(args: argparse.Namespace) -> dict[str, Any]:
+    recovery_key(Path("/"), args.run_id)
+    raw = file_reference({"path": args.application_input, "sha256": args.application_input_sha256})
+    recovery_private(raw)
+    value = read_json(raw)
+    if set(value) != {"application", "owner", "thread"}:
+        fail("generated recovery input must contain its one APP and real owner/thread")
+    app = value["application"]
+    identity, environment = recovery_identity(app, value["owner"], value["thread"])
+    workspace = Path(args.output_dir)
+    if not workspace.is_absolute() or workspace.exists() or workspace.is_symlink():
+        fail("use a new absolute private recovery workspace, never overwrite an earlier attempt")
+    parent = canonical(str(workspace.parent), directory=True)
+    root = Path(app["root"])
+    if parent == root or root in parent.parents or parent == ROOT or ROOT in parent.parents:
+        fail("recovery attachments must be outside the product/application source")
+    proof = command([str(LEASE_TOOL), "show", "--lease", app["lease"], "--verify-locks"],
+                    cwd=root, capture=True).stdout
+    _, resources = parse_lease(proof)
+    if ("output-dir", str(workspace)) not in resources:
+        fail("own native recovery scope must cover the exact private output")
+    effects = recovery_effects(identity)
+    state = recovery_probe(app, environment)
+    files, directories = recovery_paths(app)
+    plan = {"protocol": GENERATED_RECOVERY_PROTOCOL, "kind": "plan", "run_id": args.run_id,
+            "identity": identity, "application": app, "workspace": str(workspace),
+            "input_sha256": sha256(raw), "database_preimage": state, "schema_effects": effects,
+            "protected_preimage": recovery_inventory(root, files, directories),
+            "files": files, "storage_names": list(directories),
+            "restore_scope": "same-instance-same-schema-native-mysql",
+            "root_usage": ["global read-only writer observation", "native complete mysqldump only"],
+            "restore_principal": state["identity"]["principal"]}
+    # No key, maintenance marker, service stop or database write is created by plan.
+    workspace.mkdir(mode=0o700)
+    recovery_json(workspace / "plan.json", plan)
+    (workspace / "runtime-proof.txt").write_text(proof, encoding="utf-8")
+    os.chmod(workspace / "runtime-proof.txt", 0o600)
+    return {"plan": str(workspace / "plan.json"), "sha256": sha256(workspace / "plan.json"),
+            "status": "planned", "database_writes": False, "instance_key_created": False}
+
+
+def recovery_preserve_files(root: Path, backup: dict[str, Any]) -> None:
+    """Same-schema SQL cannot change APP files. Preserve matches and reject every drift."""
+    protected = backup["protected"]
+    current = recovery_inventory(root, list(protected["files"]), tuple(protected["storage"]))
+    if current != protected:
+        fail("protected configuration/storage drifted during SQL restore; preserve the current state")
+
+
+
+def generated_recovery_execute(args: argparse.Namespace) -> dict[str, Any]:
+    plan_path = file_reference({"path": args.plan, "sha256": args.plan_sha256})
+    recovery_private(plan_path)
+    plan = read_json(plan_path)
+    if plan.get("protocol") != GENERATED_RECOVERY_PROTOCOL or plan.get("kind") != "plan":
+        fail("not a generated recovery plan")
+    workspace = canonical(plan["workspace"], directory=True)
+    if plan_path != workspace / "plan.json" or workspace.stat().st_mode & 0o777 != 0o700:
+        fail("generated recovery workspace identity differs")
+    journal = workspace / "execution.json"
+    if journal.exists() or journal.is_symlink():
+        fail("retain the original execution; FAILED/UNKNOWN is never automatically replayed")
+    app, expected = plan["application"], plan["identity"]
+    identity, environment = recovery_identity(app, expected["owner"], expected["thread"])
+    if identity != expected:
+        fail("generated recovery source/instance/tool/owner identity changed")
+    root = Path(app["root"])
+    files, directories = recovery_paths(app)
+    if (files != plan["files"] or list(directories) != plan["storage_names"]
+            or recovery_inventory(root, files, directories) != plan["protected_preimage"]
+            or recovery_probe(app, environment) != plan["database_preimage"]
+            or recovery_effects(identity) != plan["schema_effects"]):
+        fail("generated recovery preimage changed; do not overwrite new data")
+    stopped = recovery_no_writers(identity)
+    recovery_json(journal, {"status": "started", "plan_sha256": args.plan_sha256, "started_at": int(time.time())})
+    key_path = recovery_key(root, plan["run_id"])
+    if any(parent.is_symlink() for parent in key_path.parents):
+        fail("generated recovery namespace has a linked parent")
+    if key_path.exists() or key_path.is_symlink():
+        fail("generated recovery namespace already exists")
+    key_path.parent.mkdir(mode=0o700, parents=True)
+    key = secrets.token_bytes(32)
+    with key_path.open("xb") as stream:
+        os.chmod(key_path, 0o600)
+        stream.write(key)
+    recovery_json(key_path.with_name("instance-context.json"), identity)
+    process, terminal = None, None
+    try:
+        protected = recovery_inventory(root, files, directories)
+        source_backup = recovery_source_backup(root, workspace)
+        (workspace / "files").mkdir(mode=0o700)
+        for relative, entry in protected["files"].items():
+            if entry is not None:
+                target = workspace / "files" / relative
+                target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+                shutil.copyfile(root / relative, target)
+                os.chmod(target, 0o600)
+        (workspace / "storage").mkdir(mode=0o700)
+        archives = {}
+        for relative, entry in protected["storage"].items():
+            if entry is not None:
+                target = workspace / "storage" / (relative.replace("/", "-") + ".tgz")
+                with tarfile.open(target, "w:gz") as archive:
+                    for child in sorted((root / relative).iterdir()):
+                        archive.add(child, arcname=child.name, recursive=True)
+                os.chmod(target, 0o600)
+                archives[relative] = sha256(target)
+        database = app["database"]
+        dump = workspace / "database.sql"
+        dump_args = ["-uroot", "--single-transaction", "--skip-add-locks", "--routines", "--triggers", "--events",
+                     "--hex-blob", "--set-gtid-purged=OFF", "--no-tablespaces",
+                     "--add-drop-database", "--databases", database]
+        with dump.open("xb") as output, (workspace / "dump.stderr").open("xb") as error:
+            dump_process = subprocess.run(recovery_client(identity, "mysqldump_command", dump_args, root=True),
+                                     stdout=output, stderr=error, timeout=300, check=False)
+        os.chmod(dump, 0o600)
+        if dump_process.returncode != 0:
+            fail("native full same-schema dump failed; actual restore was not started")
+        native, helper_sha = paired_recovery_verifier()
+        native["validate_dump"](dump, database)
+        if recovery_probe(app, environment) != plan["database_preimage"]:
+            fail("database changed while capturing backup")
+        recovery_no_writers(identity)
+        backup = {"protocol": GENERATED_RECOVERY_PROTOCOL, "kind": "backup", "identity": identity,
+                  "plan_sha256": args.plan_sha256, "runtime_proof_sha256": sha256(workspace / "runtime-proof.txt"),
+                  "database_sha256": sha256(dump),
+                  "database_preimage": plan["database_preimage"], "protected": protected, "source_backup": source_backup,
+                  "storage_archives": archives, "pure_helper_sha256": helper_sha, "writers_stopped": stopped,
+                  "schema_effects": plan["schema_effects"]}
+        recovery_signed(workspace, "backup.json", backup, key)
+        recovery_backup_attachments(workspace, backup)
+        verify_runtime_admission(runtime_admission(app, str(root), app["head"]), identity["owner"], identity["thread"])
+        if recovery_effects(identity) != plan["schema_effects"]:
+            fail("whole-schema recovery effects changed before native restore dispatch")
+        if recovery_source_inventory(root) != source_backup["inventory"]:
+            fail("complete source/.git changed after the paired native backup")
+        credentials = recovery_probe(app, environment, credentials=True).pop("credentials")
+        if "\n" in credentials["password"] or "\r" in credentials["password"]:
+            fail("ordinary native recovery credential transport cannot encode newlines")
+        input_path = workspace / "restore-input.private"
+        with input_path.open("xb") as output:
+            os.chmod(input_path, 0o600)
+            output.write(credentials["password"].encode() + b"\n")
+            with dump.open("rb") as source:
+                shutil.copyfileobj(source, output)
+        argv = recovery_client(identity, "mysql_command", ["--user=" + credentials["user"],
+                               "--binary-mode", "--database=" + database], root=False)
+        started_at = int(time.time())
+        recovery_json(journal, {"status": "RESTORING", "stage": "dispatch-intent",
+                               "started_at": started_at, "plan_sha256": args.plan_sha256})
+        with input_path.open("rb") as source, (workspace / "restore.stdout").open("xb") as output, (workspace / "restore.stderr").open("xb") as error:
+            process = subprocess.Popen(argv, stdin=source, stdout=output, stderr=error)
+            recovery_json(journal, {"status": "restore-started", "pid": process.pid,
+                                   "started_at": started_at, "plan_sha256": args.plan_sha256})
+            code = process.wait(timeout=300)
+        terminal = {"pid": process.pid, "started_at": started_at, "finished_at": int(time.time()),
+                    "exit_code": code, "stdout_sha256": sha256(workspace / "restore.stdout"),
+                    "stderr_sha256": sha256(workspace / "restore.stderr")}
+        recovery_json(journal, {"status": "restore-terminal", "terminal": terminal,
+                               "plan_sha256": args.plan_sha256})
+        input_path.unlink()
+        if code != 0:
+            fail("native ordinary-account restore failed; preserve this same execution")
+        recovery_preserve_files(root, backup)
+        after = recovery_probe(app, environment)
+        equivalence = recovery_afterimage_equivalence(app, environment, backup["database_preimage"], after)
+        if (recovery_inventory(root, files, directories) != protected
+                or recovery_effects(identity) != backup["schema_effects"]):
+            fail("real same-instance database/configuration/storage restore postimage differs")
+        recovery_no_writers(identity)
+        verify_runtime_admission(runtime_admission(app, str(root), app["head"]), identity["owner"], identity["thread"])
+        result = {"protocol": GENERATED_RECOVERY_PROTOCOL, "kind": "completed", "status": "completed",
+                  "identity": identity, "run_id": plan["run_id"], "plan_sha256": args.plan_sha256,
+                  "backup_sha256": sha256(workspace / "backup.json"), "terminal": terminal,
+                  "database_postimage": after, "protected_postimage": protected, "schema_effects": backup["schema_effects"],
+                  "restore_scope": "same-instance-same-schema-native-mysql"}
+        if equivalence is not None:
+            result["schema_equivalence"] = equivalence
+        recovery_signed(workspace, "generated-application-recovery.json", result, key)
+        recovery_json(journal, {"status": "completed", "terminal": terminal, "plan_sha256": args.plan_sha256})
+        return {"status": "completed", "receipt": str(workspace / "generated-application-recovery.json"),
+                "sha256": sha256(workspace / "generated-application-recovery.json")}
+    except BaseException as error:
+        # Retain the original pid/stage. A disconnected native client may still be running.
+        state = read_json(journal)
+        if process is not None:
+            state["pid"] = process.pid
+        if terminal is not None:
+            state["terminal"] = terminal
+        remote_unknown = process is not None and (terminal is None
+                         or terminal["exit_code"] == 255 or terminal["exit_code"] < 0)
+        if remote_unknown:
+            state["remote_terminal_unknown"] = True
+        state.update(status="UNKNOWN" if remote_unknown else "failed",
+                     error_type=type(error).__name__, recorded_at=int(time.time()))
+        recovery_json(journal, state)
+        raise
+
+
+def generated_recovery_verify(path: Path, app: dict[str, Any]) -> dict[str, Any]:
+    if path.name != "generated-application-recovery.json":
+        fail("generated recovery reference must name the original native producer output")
+    workspace = canonical(str(path.parent), directory=True)
+    plan = read_json(workspace / "plan.json")
+    key_path = recovery_key(Path(app["root"]), plan["run_id"])
+    recovery_private(key_path)
+    key = key_path.read_bytes()
+    if len(key) != 32:
+        fail("generated recovery instance key size differs")
+    completed = recovery_check_signature(workspace, path.name, key)
+    backup = recovery_check_signature(workspace, "backup.json", key)
+    identity = completed["identity"]
+    if (completed.get("kind") != "completed" or completed.get("status") != "completed"
+            or completed.get("restore_scope") != "same-instance-same-schema-native-mysql"
+            or completed.get("protocol") != GENERATED_RECOVERY_PROTOCOL
+            or backup.get("identity") != identity or plan.get("identity") != identity
+            or completed.get("plan_sha256") != sha256(workspace / "plan.json")
+            or backup.get("plan_sha256") != completed["plan_sha256"]
+            or completed.get("backup_sha256") != sha256(workspace / "backup.json")
+            or identity.get("qualification_tool_binding") != TOOL_BINDING
+            or any(identity.get(k) != app.get(k) for k in ("root", "head", "manifest_sha256", "resource_id", "endpoint_id", "database"))
+            or read_json(key_path.with_name("instance-context.json")) != identity):
+        fail("generated recovery belongs to another source, instance, plan or tool")
+    terminal = completed.get("terminal", {})
+    if (set(terminal) != {"pid", "started_at", "finished_at", "exit_code", "stdout_sha256", "stderr_sha256"}
+            or not isinstance(terminal["pid"], int) or terminal["pid"] <= 0 or terminal["exit_code"] != 0
+            or terminal["finished_at"] < terminal["started_at"]
+            or terminal["stdout_sha256"] != sha256(workspace / "restore.stdout")
+            or terminal["stderr_sha256"] != sha256(workspace / "restore.stderr")
+            or read_json(workspace / "execution.json").get("status") != "completed"):
+        fail("generated recovery lacks the real terminal native restore record")
+    proof_path = workspace / "runtime-proof.txt"
+    recovery_private(proof_path)
+    metadata, resources = parse_lease(proof_path.read_text())
+    required = {"owner": identity["owner"], "thread": identity["thread"], "worktree": identity["root"],
+                "candidate": identity["head"], "status": "ACTIVE"}
+    if (any(metadata.get(k) != v for k, v in required.items())
+            or int(metadata.get("expires_at", "0")) < terminal["finished_at"]
+            or sha256(proof_path) != backup.get("runtime_proof_sha256")
+            or ("output-dir", str(workspace)) not in resources):
+        fail("generated recovery original own scope or output binding differs")
+    admission = runtime_admission(app, app["root"], app["head"])
+    current = command([str(LEASE_TOOL), "show", "--lease", app["lease"], "--verify-locks"],
+                      cwd=Path(app["root"]), capture=True).stdout
+    current_metadata, _ = parse_lease(current)
+    verify_runtime_admission(admission, current_metadata.get("owner", ""), current_metadata.get("thread", ""))
+    environment = runtime_environment(app, admission)
+    environment["PEANUT_DEPLOYMENT_TARGET"] = "local-development" if identity["edition"] == "standalone" else "local-multi-tenant-demo"
+    observed = recovery_probe(app, environment)
+    if (recovery_effects(identity) != backup["schema_effects"]
+            or completed["schema_effects"] != backup["schema_effects"]
+            or plan["schema_effects"] != backup["schema_effects"]):
+        fail("current complete same-schema effects differ from the protected native observation")
+    if observed != completed["database_postimage"]:
+        fail("current native same-instance database differs from the restored afterimage")
+    equivalence = recovery_afterimage_equivalence(app, environment, backup["database_preimage"], observed)
+    if (completed.get("schema_equivalence") != equivalence
+            or ("schema_equivalence" in completed) != (equivalence is not None)):
+        fail("current migration DDL equivalence differs from the signed recovery receipt")
+    verified = json.loads(command(["php", "-r",
+        "require $argv[1].'/vendor/autoload.php';"
+        "$f=\\app\\common\\services\\installation\\InstallationExecutionHost::verifiedInstallationFacts($argv[1]);"
+        "echo json_encode(['receipt_sha256'=>$f['receipt_sha256']],JSON_THROW_ON_ERROR);",
+        app["root"] + "/server"], cwd=Path(app["root"]), env=environment, capture=True).stdout)
+    if verified.get("receipt_sha256") != identity["installation_receipt_sha256"]:
+        fail("current native installed instance differs from the recovery producer")
+    files, directories = recovery_paths(app)
+    root = Path(app["root"])
+    if (plan["files"] != files or plan["storage_names"] != list(directories)
+            or plan["database_preimage"] != backup["database_preimage"]
+            or backup["protected"] != completed["protected_postimage"]
+            or recovery_inventory(root, files, directories) != backup["protected"]):
+        fail("generated recovery omits or changes current protected state")
+    recovery_backup_attachments(workspace, backup)
+    return {"path": str(path), "sha256": sha256(path), "backup_sha256": completed["backup_sha256"],
+            "native_producer_sha256": sha256(TOOL_ROOT / "scripts/p0e-runtime-qualification"),
+            "completed_at": terminal["finished_at"], "scope": completed["restore_scope"]}
+
+
 def native_evidence(reference: dict[str, Any], app: dict[str, Any], kind: str,
-                    final_build: dict[str, Any] | None = None) -> dict[str, Any]:
+                    final_build: dict[str, Any] | None = None,
+                    recovery_binding: dict[str, Any] | None = None) -> dict[str, Any]:
     """Read the native producer's own state, never an operator-written PASS envelope."""
     if not reference:
         raise NotRun(kind + ": native evidence is unavailable; no operation replayed")
@@ -1281,7 +2347,14 @@ def native_evidence(reference: dict[str, Any], app: dict[str, Any], kind: str,
                 fail("final generated outputs or their native inputs differ from the recorded APP build")
             edition = manifest["application"]["edition"]
             commands = build.get("commands", [])
-            expected = [(["php", str(ROOT / "scripts/generate-api-contracts.php"), "--application-root=" + str(root)], str(root)),
+            api_producer = str(ROOT / "scripts/generate-api-contracts.php")
+            if build.get("historical_application"):
+                recorded = [row["argv"][1] for row in commands if len(row.get("argv", [])) >= 2
+                            and Path(row["argv"][1]).name == "generate-api-contracts.php"]
+                if len(recorded) != 1:
+                    fail("historical native build has no unique API producer")
+                api_producer = recorded[0]
+            expected = [(["php", api_producer, "--application-root=" + str(root)], str(root)),
                         (["pnpm", "run", "build", "--mode", edition, "--outDir", "../server/public/admin", "--emptyOutDir"], str(root / "web"))]
             if edition == "multi-tenant":
                 expected.append((["npm", "run", "build", "--", "--outDir", "../server/public/platform", "--emptyOutDir"], str(root / "platform")))
@@ -1292,6 +2365,34 @@ def native_evidence(reference: dict[str, Any], app: dict[str, Any], kind: str,
                 raise NotRun("upgrade-retention: final outputs lack matching native API/admin/platform generation commands")
         return {"path": str(path), "sha256": sha256(path), "ledger_sha256": sha256(ledger_path),
                 "completed_at": matching[-1]["recorded_at"], "afterimage_digests": digests}
+    if kind == "recovery" and state.get("protocol") == GENERATED_RECOVERY_PROTOCOL:
+        if recovery_binding is not None:
+            relative = "scripts/p0e-runtime-qualification"
+            producer = file_reference({"path": str(Path(recovery_binding["tool_root"]) / relative),
+                                       "sha256": recovery_binding["tool_files"][relative]})
+            # The original read-only verifier allows the already checked native build outputs;
+            # its CLI preparation is for a clean checkout before that build.
+            process = command([sys.executable, "-c", """
+import argparse, json, runpy, sys
+from pathlib import Path
+
+binding, application = json.load(sys.stdin)
+native = runpy.run_path(sys.argv[1])
+actual = native['configure_source'](argparse.Namespace(source_root=binding['source_root'],
+    candidate=binding['candidate'], qualification_tool_commit=binding['tool_commit'],
+    qualification_tool_files_sha256=binding['tool_files_sha256']))
+if actual != binding:
+    raise ValueError('original recovery producer binding differs')
+result = native['generated_recovery_verify'](Path(sys.argv[2]), application)
+print(json.dumps(result))
+""", str(producer), str(path)], env={"PEANUT_RESOURCE_REGISTRY": str(REGISTRY_PATH)},
+                input_text=json.dumps([recovery_binding, app]), capture=True)
+            result = json.loads(process.stdout)
+            if (result.get("path") != str(path) or result.get("sha256") != reference["sha256"]
+                    or result.get("native_producer_sha256") != sha256(producer)):
+                fail("original recovery verification returned another receipt or producer")
+            return result
+        return generated_recovery_verify(path, app)
     # A source rollback never proves database restoration. Consume the existing
     # instance-authenticated server update recovery producer and its full allowlist.
     if kind != "recovery" or path.name != "database-recovery.json":
@@ -1360,7 +2461,7 @@ class Runner:
         return self.output / "groups" / (group + ".log")
 
     def assert_inputs(self) -> None:
-        current = lifecycle_inputs(self.args, self.plan["candidate_tree"])
+        current = lifecycle_inputs(self.args, self.plan["candidate_tree"], executing=True)
         if current != self.inputs:
             fail("fixed lifecycle inputs changed; qualification cannot continue")
 
@@ -1424,23 +2525,77 @@ class Runner:
         self.save_checkpoint()
 
     def generated_application(self) -> dict[str, Any]:
-        templates = template_inputs(Path(self.inputs["template_build_root"]), self.args.candidate, self.plan["candidate_tree"], verify=True)
+        historical = completed_native_group(self.inputs, "generated-application", self.args.candidate, self.plan["candidate_tree"])
+        prior_build = historical[1].get("prior_source_build_receipt", historical[0]) if historical else module_resume_source(
+            self.inputs.get("module_qualification", {}), self.args.candidate, self.plan["candidate_tree"])
+        templates = template_inputs(Path(self.inputs["template_build_root"]), self.args.candidate, self.plan["candidate_tree"],
+                                    verify=prior_build is None)
         if templates != self.plan["template_artifacts"]:
             fail("native template member/mode/tooling check changed its inputs")
         cli = self.inputs["cli"]
         type_generator = ROOT / "web/node_modules/openapi-typescript/bin/cli.js"
         if not type_generator.is_file():
             raise NotRun("generated-application: native API type generator is unavailable in fixed Code; no Code dependencies installed")
-        # Guard all native static destinations before dependency/API/build writes.
+        if prior_build is not None:
+            prior = read_json(file_reference(prior_build))
+            components = {"native_template_contract": "passed", "cli_create_and_app_identity": "passed", "source_build": "passed"}
+            expected_source = historical[2] if historical else self.plan
+            if (prior.get("status") != "passed" or prior.get("candidate") != expected_source["candidate"]
+                    or prior.get("candidate_tree") != expected_source["candidate_tree"] or prior.get("components") != components
+                    or prior.get("template_artifacts") != expected_source["template_artifacts"] or prior.get("cli") != cli):
+                fail("prior generated APP build does not bind the current candidate, CLI and templates")
+            result = cli_created_applications(self.inputs, self.args.candidate, self.plan["candidate_tree"], self.cache)
+            for edition, app in self.apps.items():
+                root = Path(app["root"])
+                previous = prior["editions"][edition]
+                build = previous["source_build"]
+                tree = build["pre_build_tree"]
+                checkout_identity(root, app["head"], app["tree"] if historical else tree, clean=False)
+                state = generated_state(root)
+                if historical:
+                    old_app = historical[2]["lifecycle_inputs"]["applications"][edition]
+                    old_state = build["generated_state"]
+                    changed_inputs = {"modules.lock", "server/composer.lock"}
+                    outputs = lambda value: {k: v for k, v in value["outputs"].items() if k != "server/generated/api-catalog.json"}
+                    producers = lambda value: {k: v for k, v in value["inputs_and_producers"].items() if k not in changed_inputs}
+                    if (old_app["root"] != app["root"] or build["application"] != app_binding(old_app)
+                            or outputs(old_state) != outputs(state) or producers(old_state) != producers(state)
+                            or build["api_generator_sha256"] != sha256(ROOT / "scripts/generate-api-contracts.php")):
+                        fail("the current adopted APP changed the prior frontend build inputs or outputs")
+                    current_build = {**build, "application": app_binding(app), "pre_build_tree": app["tree"],
+                        "generated_state": state, "checkout_changes": generated_checkout_changes(root, state, edition),
+                        "historical_application": build["application"]}
+                elif (build.get("application") != app_binding(app) or build.get("generated_state") != state
+                        or build.get("checkout_changes") != generated_checkout_changes(root, state, edition)
+                        or build.get("api_generator_sha256") != sha256(ROOT / "scripts/generate-api-contracts.php")
+                        or {key: value for key, value in previous.items() if key != "source_build"} != result[edition]):
+                    fail("prior generated APP build, outputs or checkout no longer match: " + edition)
+                for index, item in enumerate(build["commands"]):
+                    if item.get("exit_code") != 0:
+                        fail("prior generated APP build command did not finish: " + edition)
+                    log = Path(prior_build["path"]).parent / f"{edition}-source-build-{index}.log"
+                    file_reference({"path": str(log), "sha256": item.get("log_sha256")})
+                result[edition]["source_build"] = current_build if historical else build
+            return {"status": "passed", "components": components, "template_artifacts": templates, "cli": cli,
+                    "editions": result, "source_build_scope": "revalidated-prior-native-build",
+                    "prior_source_build_receipt": prior_build}
+        # Guard both pinned APP checkouts and native static destinations before any build writes.
+        app_trees = {}
         for edition, app in self.apps.items():
             root = Path(app["root"])
-            destinations = [root / "server/public", root / "server/public/admin"]
+            tree = command(["git", "-C", str(root), "rev-parse", "HEAD^{tree}"], capture=True).stdout.strip()
+            checkout_identity(root, app["head"], tree)
+            app_trees[edition] = tree
+            destinations = [root / "server/public", root / "server/public/admin",
+                            root / "server/public/pc", root / "server/public/mobile"]
             if edition == "multi-tenant":
                 destinations.append(root / "server/public/platform")
             for destination in destinations:
                 if (destination.resolve() != destination or destination.is_symlink()
                         or (destination.exists() and not destination.is_dir())):
                     fail("native static destination or its ancestor is not an ordinary directory")
+                if destination.name in ("pc", "mobile") and destination.exists() and any(destination.iterdir()):
+                    fail("native generated client destination has unknown existing content")
         creation_reason = None
         try:
             result = cli_created_applications(self.inputs, self.args.candidate, self.plan["candidate_tree"], self.cache)
@@ -1475,9 +2630,14 @@ class Runner:
                 command(argv, cwd=app_root / directory, env={**self.environment(app), **native_environment}, log=log)
                 builds.append({"argv": argv, "cwd": str(app_root / directory), "environment": native_environment,
                                "exit_code": 0, "log_sha256": sha256(log)})
-            result[edition]["source_build"] = {"application": app_binding(app), "commands": builds,
+            published = [publish_generated_client(app_root, "pc/.output/public", "server/public/pc"),
+                         publish_generated_client(app_root, "uniapp/dist/build/h5", "server/public/mobile")]
+            state = generated_state(app_root)
+            result[edition]["source_build"] = {"application": app_binding(app), "pre_build_tree": app_trees[edition],
+                                                "checkout_changes": generated_checkout_changes(app_root, state, edition),
+                                                "commands": builds, "published_clients": published,
                                                 "api_generator_sha256": sha256(ROOT / "scripts/generate-api-contracts.php"),
-                                                "generated_state": generated_state(app_root)}
+                                                "generated_state": state}
         components["source_build"] = "passed"
         return {"status": "not_run" if creation_reason else "passed", "reason": creation_reason,
                 "components": components, "template_artifacts": templates, "cli": cli, "editions": result}
@@ -1488,11 +2648,54 @@ class Runner:
         history = self.output / "groups" / (edition + "-installation-history.json")
         generated = self.checkpoint["groups"].get("generated-application", {}).get("receipt")
         final_build = read_json(file_reference(generated)) if generated else None
+        resume_source = self.inputs.get("module_qualification", {}).get("resume_source")
+        previous = completed_native_group(self.inputs, edition + "-fresh", self.args.candidate, self.plan["candidate_tree"])
         # Missing historical evidence affects its own component. Persist every
         # available native fact before inspecting another independent component.
         for kind in ("first_install", "upgrade_retention", "recovery"):
             try:
-                facts[kind] = native_evidence(app.get(kind, {}), app, kind, final_build)
+                if kind == "recovery" and previous:
+                    old_recovery = previous[1]["recovery"]
+                    path = file_reference(app["recovery"])
+                    if old_recovery["path"] != str(path) or old_recovery["sha256"] != sha256(path):
+                        fail("historical recovery reference differs from its completed native verification")
+                    workspace = path.parent
+                    recovery_plan = read_json(workspace / "plan.json")
+                    key_path = recovery_key(Path(app["root"]), recovery_plan["run_id"])
+                    recovery_private(key_path)
+                    key = key_path.read_bytes()
+                    completed = recovery_check_signature(workspace, path.name, key)
+                    backup = recovery_check_signature(workspace, "backup.json", key)
+                    original_app = previous[2]["lifecycle_inputs"]["applications"][edition]
+                    identity = completed["identity"]
+                    binding = identity["qualification_tool_binding"]
+                    producer = Path(binding["tool_root"]) / "scripts/p0e-runtime-qualification"
+                    if (completed["status"] != "completed" or completed["identity"] != backup["identity"]
+                            or identity != recovery_plan["identity"]
+                            or any(identity.get(k) != original_app.get(k) for k in ("root", "head", "manifest_sha256", "resource_id", "endpoint_id", "database"))
+                            or sha256(producer) != old_recovery["native_producer_sha256"]
+                            or completed["plan_sha256"] != sha256(workspace / "plan.json")
+                            or completed["backup_sha256"] != sha256(workspace / "backup.json")
+                            or completed["protected_postimage"] != backup["protected"]
+                            or completed["terminal"]["exit_code"] != 0):
+                        fail("historical native recovery signature, instance or real terminal changed")
+                    recovery_backup_attachments(workspace, backup)
+                    files, storage = recovery_paths(app)
+                    current = recovery_inventory(Path(app["root"]), files, storage)
+                    for name in (".peanut/application-manifest.json", "modules.lock", "RELEASE_METADATA.json"):
+                        current["files"].pop(name, None)
+                    protected = json.loads(json.dumps(backup["protected"]))
+                    for name in (".peanut/application-manifest.json", "modules.lock", "RELEASE_METADATA.json"):
+                        protected["files"].pop(name, None)
+                    if current != protected:
+                        fail("current adoption changed protected configuration, storage or installation identity")
+                    facts[kind] = {**old_recovery, "historical_verification": previous[0],
+                        "scope": "historical-native-recovery; current managed source verified by native adoption"}
+                elif kind == "recovery" and resume_source is not None:
+                    binding = read_json(file_reference(resume_source["plan"]))["qualification_tool_binding"]
+                    facts[kind] = native_evidence(app.get(kind, {}), app, kind, final_build, recovery_binding=binding)
+                else:
+                    facts[kind] = native_evidence(app.get(kind, {}), app, kind, final_build)
                 facts["components"][kind] = {"status": "passed", "scope": "historical-native-evidence"}
             except NotRun as exception:
                 facts["components"][kind] = {"status": "not_run", "reason": str(exception)}
@@ -1552,6 +2755,308 @@ class Runner:
         return {"status": "not_run" if missing else "passed", "reason": "missing native components: " + ", ".join(missing) if missing else None,
                 **facts, "reinstalled": False, "database_dropped": False}
 
+
+    def issue_module_identity(self, phase: str, config_path: Path) -> dict[str, Any]:
+        """The native PHP producer logs in existing actors. Python never issues tokens."""
+        if phase not in ("preflight", "member-upload", "task-import-export"):
+            fail("unknown native identity consumer phase")
+        config = self.inputs["module_qualification"]
+        installed = config["installed_application"]
+        directory = self.output / "identity-contexts"
+        directory.mkdir(mode=0o700, exist_ok=True)
+        if (directory.resolve() != directory or directory.is_symlink()
+                or directory.stat().st_uid != os.geteuid() or directory.stat().st_mode & 0o777 != 0o700):
+            fail("native identity output directory is unsafe")
+        destination = directory / (phase + ".json")
+        if destination.exists() or destination.is_symlink():
+            fail("retain the original native identity issuance; do not automatically replay")
+        plan_path = self.output / "plan.json"
+        plan_digest = sha256(plan_path)
+        source = TOOL_ROOT / "server/fixtures/module-lifecycle/run.php"
+        verify_module_context(argparse.Namespace(plan=str(plan_path), plan_sha256=plan_digest))
+        process = command(["php", str(source), "--action=identity-context", "--consumer=" + phase,
+            "--context-output=" + str(destination), "--input=" + str(config_path),
+            "--input-sha256=" + sha256(config_path), "--plan=" + str(plan_path), "--plan-sha256=" + plan_digest],
+            cwd=Path(installed["root"]), env=self.environment(installed), capture=True, check=False)
+        log = directory / (phase + ".log")
+        log.write_text((process.stdout or "") + (process.stderr or ""), encoding="utf-8")
+        log.chmod(0o600)
+        if process.returncode != 0:
+            fail("native existing-actor login failed; preserve the original issuance and source/database state")
+        result = json.loads(process.stdout)
+        expected = {"plan_sha256": plan_digest, "input_sha256": sha256(config_path),
+            "owner": self.plan["owner"], "thread": self.plan["thread"], "runtime_lease": installed["lease"],
+            "application_root": installed["root"], "application_head": installed["head"],
+            "resource_id": installed["resource_id"], "database_identity": installed["database_identity"],
+            "producer_sha256": sha256(source), "credentials": config["identity_credentials"], "consumer": phase}
+        if (result.get("protocol") != "peanut.module-native-identity-delivery.v1" or result.get("status") != "issued"
+                or result.get("binding") != expected or result.get("context", {}).get("path") != str(destination)):
+            fail("native identity issuance source/owner/plan/consumer provenance differs")
+        path = file_reference(result["context"])
+        if path.stat().st_mode & 0o777 != 0o600 or path.stat().st_uid != os.geteuid():
+            fail("derived native identity context must remain own private")
+        context = read_json(path)
+        if (context.get("protocol") != "peanut.module-native-identity-context.v1" or context.get("status") != "issued"
+                or context.get("binding") != expected or context.get("facts") != result.get("facts")):
+            fail("derived native identity context differs from the actual producer output")
+        return {"context": result["context"], "binding": expected, "facts": result["facts"], "log_sha256": sha256(log)}
+
+    def preflight_module_identity(self) -> None:
+        config = self.inputs.get("module_qualification", {})
+        if "module-lifecycle" not in self.plan["groups"] or "identity_credentials" not in config:
+            return
+        if config.get("completed"):
+            return
+        if self.checkpoint.get("identity_preflight"):
+            file_reference(self.checkpoint["identity_preflight"]["context"])
+            return
+        self.current_group = "identity-preflight"
+        path = self.output / "identity-preflight-input.json"
+        if path.exists() or path.is_symlink():
+            fail("retain the original identity preflight input and outcome")
+        self.write_json(path, config)
+        path.chmod(0o600)
+        self.checkpoint["identity_preflight"] = self.issue_module_identity("preflight", path)
+        self.save_checkpoint()
+
+
+    def completed_module_cases(self, config: dict[str, Any]) -> dict[str, Any]:
+        """Re-read the five original Module producers in their original APPs."""
+        completed = config["completed"]
+        def original(name: str) -> tuple[Path, dict[str, Any]]:
+            path = file_reference(completed[name])
+            return path, read_json(path)
+
+        def digest(path: Path, expected: str) -> None:
+            file_reference({"path": str(path), "sha256": expected})
+
+        def same_app(old: dict[str, Any], app: dict[str, Any]) -> None:
+            if any(old.get(key) != app.get(key) for key in ("root", "resource_id", "head", "tree",
+                    "manifest_sha256", "database_identity", "environment")):
+                fail("completed Module evidence refers to another APP or database")
+
+        def source_sha(commit: str, relative: str) -> str:
+            if not re.fullmatch(r"[a-f0-9]{40}", commit):
+                fail("completed Module producer has no exact source commit")
+            data = subprocess.check_output(["git", "-C", str(TOOL_ROOT), "show", commit + ":" + relative])
+            return hashlib.sha256(data).hexdigest()
+
+        ml = config["lifecycle_application"]
+        mfr = config["failure_recovery_application"]
+        mi = config["installed_application"]
+        old_plan_path, old_plan = original("lifecycle_plan")
+        old_config = old_plan["lifecycle_inputs"]["module_qualification"]
+        same_app(old_config["lifecycle_application"], ml)
+        same_app(old_config["failure_recovery_application"], mfr)
+        same_app(old_config["installed_application"], mi)
+        if old_config["source"] != {"commit": old_plan["candidate"], "tree": old_plan["candidate_tree"]}:
+            fail("completed Module cases lack their original Code source")
+        delta = command(["git", "-C", str(ROOT), "diff", "--name-only", old_plan["candidate"], self.args.candidate],
+                        capture=True).stdout.splitlines()
+        derived = {"modules.lock", "scaffold/application-template-inventory.json", "server/composer.json",
+                   "server/composer.lock", "server/generated/api-catalog.json", "server/tests/Unit/TenantModuleStateBoundaryTest.php"}
+        if any(path not in derived and not path.startswith("server/app/modules/peanut/ops/") for path in delta):
+            fail("completed Module evidence is outside the reviewed Ops-only source change")
+        for app in (ml, mfr):
+            changed = command(["git", "-C", app["root"], "status", "--porcelain=v1", "--untracked-files=all",
+                               "--no-renames"], capture=True).stdout.splitlines()
+            derived_case = {"modules.lock", "server/composer.json", "server/composer.lock", "web/pnpm-lock.yaml"}
+            case_paths = ("server/app/modules/acme/", "server/app/modules/fixture/", "server/public/admin/",
+                          "server/tests/Modules/", "web/src/modules/fixture-delivery-record/")
+            if any(line[3:] not in derived_case and not line[3:].startswith(case_paths) for line in changed):
+                fail("a completed Module APP changed outside its native fixture outputs")
+
+        old_results_path, old_results = original("lifecycle_results")
+        if old_results_path != old_plan_path.parent / "groups/module-lifecycle/results.json":
+            fail("completed lifecycle result is outside its original group")
+        lifecycle = old_results["module-lifecycle"]
+        mfr_execution_path, mfr_execution = original("failure_execution")
+        lifecycle_cases = (
+            ("module-lifecycle", ml, lifecycle, "result.json", "ModuleLifecycleMySqlTest.php", old_results_path.parent / "module-lifecycle.log"),
+            ("module-failure-recovery", mfr, {**mfr_execution, "receipt": mfr_execution["native_receipt"]},
+             "failure-recovery-result.json", "ModuleFailureRecoveryMySqlTest.php", mfr_execution_path.parent / "module-failure-recovery.log"),
+        )
+        results = {}
+        for name, app, old, receipt_name, producer, log in lifecycle_cases:
+            relative = "server/tests/Productization/" + producer
+            receipt = file_reference(old["receipt"])
+            value = read_json(receipt)
+            if (receipt != Path(app["root"]) / ".local/module-lifecycle-mysql" / receipt_name
+                    or old["resource_id"] != app["resource_id"]
+                    or old["source_sha256"] != sha256(TOOL_ROOT / relative)
+                    or value.get("status") != "passed" or type(value.get("assertions")) is not int or value["assertions"] < 1
+                    or value.get("database_identity") != app["database_identity"]):
+                fail("completed native Module producer or receipt differs: " + name)
+            digest(log, old["log_sha256"])
+            before = receipt.with_name("non-case-catalog-before.json")
+            digest(before, value["non_case_catalog_sha256"])
+            results[name] = {"status": "passed", "scope": "revalidated-native-result",
+                "source_sha256": old["source_sha256"], "receipt": old["receipt"], "log_sha256": old["log_sha256"],
+                "application_root": app["root"], "resource_id": app["resource_id"]}
+        if (lifecycle["status"] != "passed" or lifecycle["application_root"] != ml["root"]
+                or mfr_execution["exit_code"] != 0 or mfr_execution["application_head"] != mfr["head"]
+                or mfr_execution["assertions"] != read_json(Path(results["module-failure-recovery"]["receipt"]["path"]))["assertions"]):
+            fail("completed lifecycle producer executions did not pass")
+
+        governance_execution_path, governance = original("governance_execution")
+        governance_plan_path, governance_plan = original("governance_plan")
+        _, purge = original("governance_afterimage")
+        _, completion = original("governance_completion")
+        completion_producer = file_reference(completed["governance_completion_producer"])
+        relative = "server/tests/Productization/ModuleRuntimeGovernanceTest.php"
+        authority = Path(ml["root"]) / "server/app/platform/services/module/ModuleRuntimeGovernanceService.php"
+        governance_log = governance_execution_path.parent / "module-runtime-governance.log"
+        digest(governance_log, governance["log_sha256"])
+        if (purge["execution_sha256"] != sha256(governance_execution_path)
+                or purge["log_sha256"] != governance["log_sha256"] or purge["plan_sha256"] != sha256(governance_plan_path)
+                or governance["exit_code"] == 0 or governance["prior_ml_receipt"] != lifecycle["receipt"]
+                or governance["candidate"] != old_plan["candidate"] or governance["candidate_tree"] != old_plan["candidate_tree"]
+                or governance["source_sha256"] != source_sha(purge["tool_commit"], relative)
+                or "Module package is not installed." not in governance_log.read_text()
+                or completion["completed_original_plan_fixture_checked"] is not True
+                or completion["installation_row_unchanged"] is not True
+                or completion["authority"] != str(authority) or completion["authority_sha256"] != sha256(authority)
+                or sha256(authority) != source_sha(old_plan["candidate"], "server/app/platform/services/module/ModuleRuntimeGovernanceService.php")
+                or "moduleGovernanceCheckCompletedPurge($pdo,$service,$plan,$digest);" not in completion_producer.read_text()
+                or completion["saved_plan_sha256"] != sha256(governance_plan_path)
+                or completion["plan_digest"] != purge["record"]["plan_digest"]
+                or completion["installation_id"] != purge["record"]["installation"]["id"]):
+            fail("completed governance requires the original interrupted-purge evidence and completed-plan check")
+
+        state = self.completed_module_afterimage(ml, mfr, governance_plan_path, governance_plan)
+        if (state["ml"]["lifecycle"]["id"] != read_json(Path(lifecycle["receipt"]["path"]))["module_id"]
+                or state["ml"]["delivery"] != purge["record"]["installation"]
+                or state["ml"]["plan_digest"] != purge["record"]["plan_digest"]
+                or state["mfr"]["installation"]["id"] != read_json(Path(results["module-failure-recovery"]["receipt"]["path"])
+                    .with_name("initial-failure-identity.json"))["id"]):
+            fail("completed Module cases no longer have their original installation identities")
+        results["module-lifecycle"]["afterimage"] = state["ml"]["lifecycle"]
+        results["module-failure-recovery"]["afterimage"] = state["mfr"]
+        results["module-runtime-governance"] = {"status": "passed", "scope": "revalidated-interrupted-purge-and-completed-state",
+            "original_failed_execution": completed["governance_execution"], "original_plan": completed["governance_plan"],
+            "completed_plan_check": completed["governance_completion"], "completed_plan_producer": completed["governance_completion_producer"],
+            "source_sha256": governance["source_sha256"],
+            "plan_digest": state["ml"]["plan_digest"], "installation": state["ml"]["delivery"]}
+
+        for name, source in (("member-upload", "member"), ("task-import-export", "task")):
+            path, prior = original(source + "_plan")
+            old_input_path, old_input = original(source + "_input")
+            _, producer = original(source + "_result")
+            value = producer[name] if source == "member" else producer
+            same_app(old_input["installed_application"], mi)
+            old_review = old_input["reviewed_module_source"]
+            new_review = config["reviewed_module_source"]
+            if source == "member":
+                changes = command(["git", "-C", new_review["root"], "diff", "--name-only", old_review["commit"],
+                                   new_review["commit"]], capture=True).stdout.splitlines()
+                if set(changes) - {"server/tests/Multitenancy/TaskImportExportTenantIsolationTest.php"}:
+                    fail("reviewed Module source changes affect the completed Member upload")
+                log = path.parent / "groups/module-lifecycle/member-upload.log"
+                digest(log, value["log_sha256"])
+            elif old_review != new_review:
+                fail("completed Task/ImportExport fixture differs from the reviewed source")
+            if (prior["lifecycle_inputs"]["module_qualification"] != old_input
+                    or value.get("protocol") != "peanut.module-qualification-result.v1" or value.get("status") != "passed"
+                    or value.get("producer") != name or value.get("source") != old_input["source"]
+                    or value.get("input_sha256") != sha256(old_input_path) or value.get("plan_sha256") != sha256(path)
+                    or value.get("application_root") != mi["root"] or value.get("resource_id") != mi["resource_id"]
+                    or value.get("database_identity") != mi["database_identity"]
+                    or value.get("native_identity") != "verified-current-session" or value.get("writes_retained") is not True
+                    or not re.fullmatch(r"[a-f0-9]{64}", value.get("assertion_output_sha256", ""))
+                    or prior["qualification_tool_binding"]["tool_files"]["server/fixtures/module-lifecycle/run.php"]
+                        != sha256(TOOL_ROOT / "server/fixtures/module-lifecycle/run.php")):
+                fail("completed installed Module result does not match its original native input: " + name)
+            results[name] = {"status": "passed", "scope": "revalidated-native-result", "original_plan": completed[source + "_plan"],
+                "original_result": completed[source + "_result"], "source": value["source"],
+                "assertion_output_sha256": value["assertion_output_sha256"], "database_identity": mi["database_identity"]}
+        self.environment(mi)  # The native identity check also connects to the current registered schema.
+        return results
+
+    def completed_module_afterimage(self, ml: dict[str, Any], mfr: dict[str, Any], plan_path: Path,
+                                    plan: dict[str, Any]) -> dict[str, Any]:
+        if (plan.get("operation") != "purge" or plan.get("package_key") != "acme.delivery-record"
+                or plan.get("blockers") != [] or len(plan.get("affected_modules", [])) != 1):
+            fail("completed governance plan does not describe the original single Module purge")
+        readback = r"""
+require $argv[1] . '/vendor/autoload.php';
+$server = $argv[1];
+$app = new think\App($server);
+$app->loadEnv((string) $app->env->get('env_name', ''));
+$db = static fn(string $key) => $app->env->get('DB_' . $key);
+$pdo = new PDO(sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', $db('HOST'), $db('PORT'), $db('NAME')),
+    $db('USER'), $db('PASS'), [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$row = $pdo->query('SELECT @@server_uuid AS server_uuid,@@hostname AS server_hostname,@@port AS server_port,DATABASE() AS database_name')->fetch(PDO::FETCH_ASSOC);
+$identity = ['server_uuid' => strtolower($row['server_uuid']), 'server_hostname' => $row['server_hostname'],
+    'server_port' => (int) $row['server_port'], 'database' => $row['database_name'],
+    'transport' => $pdo->getAttribute(PDO::ATTR_CONNECTION_STATUS)];
+if ($identity !== json_decode($argv[3], true, 16, JSON_THROW_ON_ERROR)) {
+    throw new RuntimeException('Completed Module MySQL identity differs');
+}
+$pdo->exec('START TRANSACTION READ ONLY');
+$assert = static function (bool $condition, string $reason): void {
+    if (!$condition) { throw new RuntimeException($reason); }
+};
+$count = static fn(string $sql): int => (int) $pdo->query($sql)->fetchColumn();
+$record = static function (string $key, string $version) use ($pdo, $assert): array {
+    $query = $pdo->prepare('SELECT id,module_key,status,installed_version,last_error_code,manifest_digest FROM pa_module_installation WHERE module_key=?');
+    $query->execute([$key]);
+    $row = $query->fetch(PDO::FETCH_ASSOC);
+    $assert(is_array($row) && $row['status'] === 'uninstalled' && $row['installed_version'] === $version
+        && $row['last_error_code'] === null, 'Module did not retain its completed installation ledger: ' . $key);
+    return $row;
+};
+try {
+    if ($argv[2] === 'mfr') {
+        $row = $record('acme.recovery', '1.1.1');
+        $data = $pdo->query('SELECT value,repaired FROM pa_acceptance_recovery WHERE id=91')->fetch(PDO::FETCH_ASSOC);
+        $assert($data === ['value' => 'retain-through-forward-repair', 'repaired' => 4], 'recovery afterimage lost original data');
+        $assert($count('SELECT COUNT(*) FROM pa_migrations WHERE version IN (20261108000010,20261108000011)') === 2,
+            'recovery afterimage lost native migration history');
+        $assert(!file_exists($server . '/app/modules/acme/recovery'), 'retired recovery source is still present');
+        $result = ['installation' => $row, 'retained_business_row' => 91, 'native_migrations' => 2];
+    } else {
+        $lifecycle = $record('acme.lifecycle', '1.2.0');
+        $record('acme.dependent', '1.0.0');
+        $delivery = $record('acme.delivery-record', '1.0.2');
+        $plan = json_decode(file_get_contents($argv[4]), true, 32, JSON_THROW_ON_ERROR);
+        $module = $plan['affected_modules'][0];
+        $assert($module['module_key'] === $delivery['module_key'] && $module['version'] === $delivery['installed_version']
+            && $module['manifest_digest'] === $delivery['manifest_digest'], 'purge ledger does not match the completed plan');
+        $assert($count('SELECT COUNT(*) FROM pa_migrations WHERE version IN (20261108000001,20261108000002,20261108000003,20261108005801)') === 4,
+            'completed purge lost native migration history');
+        $assert($count("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ('pa_acceptance_lifecycle','pa_fixture_delivery_aux','pa_fixture_delivery_record')") === 0,
+            'completed purge still has its owned tables');
+        foreach (['permission','menu_definition','setting_definition'] as $table) {
+            $assert($count("SELECT COUNT(*) FROM pa_{$table} WHERE module_key='acme.delivery-record'") === 0, 'completed purge left its catalog');
+        }
+        foreach ($plan['removed'] as $item) {
+            if ($item['table'] !== 'pa_permission') { continue; }
+            foreach (['pa_role_permission', 'pa_platform_role_permission'] as $table) {
+                $parameters = implode(',', array_fill(0, count($item['identifiers']), '?'));
+                $query = $pdo->prepare("SELECT COUNT(*) FROM {$table} WHERE permission_id IN ({$parameters})");
+                $query->execute($item['identifiers']);
+                $assert((int) $query->fetchColumn() === 0, 'completed purge left a role binding');
+            }
+        }
+        foreach ($module['source_paths'] as $path) {
+            $assert(!file_exists(dirname($server) . '/' . $path), 'completed purge source is still present');
+        }
+        $assert(!file_exists($server . '/app/modules/acme/lifecycle') && !file_exists($server . '/app/modules/acme/dependent'),
+            'completed lifecycle source is still present');
+        $codec = new app\platform\infrastructure\module\ModuleUninstallPlanCodec();
+        $assert($codec->digest(['b' => 2, 'a' => 1]) === $codec->digest(['a' => 1, 'b' => 2]), 'plan object key ordering changes digest');
+        unset($delivery['manifest_digest']);
+        $result = ['lifecycle' => $lifecycle, 'delivery' => $delivery, 'plan_digest' => $codec->digest($plan)];
+    }
+    echo json_encode($result, JSON_THROW_ON_ERROR);
+} finally {
+    $pdo->rollBack();
+}
+"""
+        return {name: json.loads(command(["php", "-r", readback, str(Path(app["root"]) / "server"), name,
+                json.dumps(app["database_identity"]), str(plan_path)], cwd=Path(app["root"]),
+                env=self.environment(app), capture=True).stdout) for name, app in (("ml", ml), ("mfr", mfr))}
+
     def module_lifecycle(self) -> dict[str, Any]:
         installed_only = self.plan.get("module_installed_only") is True
         config = module_qualification_inputs(self.inputs, self.args.candidate, self.plan["candidate_tree"], installed_only=installed_only)
@@ -1565,6 +3070,16 @@ class Runner:
         config_path = output / "input.json"
         self.write_json(config_path, config)
         config_path.chmod(0o600)
+        if config.get("completed"):
+            if installed_only or "resume_source" in config:
+                fail("completed Module evidence is only used by the full native Module group")
+            verify_module_context(argparse.Namespace(plan=str(plan_path), plan_sha256=plan_digest))
+            results = self.completed_module_cases(config)
+            self.write_json(output / "results.json", results)
+            verify_module_context(argparse.Namespace(plan=str(plan_path), plan_sha256=plan_digest))
+            return {"status": "passed", "protocol": "peanut.module-qualification.v1",
+                "scope": "registered-isolated-applications", "reviewed_module_source": config["reviewed_module_source"],
+                "source": self.inputs["source"], "producers": results}
         results = {}
         # Current native source/dependency/migration/retirement and forward-failure
         # scripts run only in the explicitly registered empty synthetic APP.
@@ -1575,8 +3090,10 @@ class Runner:
             lifecycle_app = config[app_key]
             verify_module_context(argparse.Namespace(plan=str(plan_path), plan_sha256=plan_digest))
             log = output / (producer + ".log")
+            resume_source = producer == "module-lifecycle" and "resume_source" in config
             command(["php", str(TOOL_ROOT / relative), "--application-root=" + lifecycle_app["root"],
-                     "--expected-server-uuid=" + lifecycle_app["database_identity"]["server_uuid"]],
+                     "--expected-server-uuid=" + lifecycle_app["database_identity"]["server_uuid"],
+                     *(["--resume-source"] if resume_source else [])],
                     cwd=Path(lifecycle_app["root"]), env=self.environment(lifecycle_app), log=log)
             receipt = Path(lifecycle_app["root"]) / ".local/module-lifecycle-mysql" / receipt_name
             value = read_json(receipt)
@@ -1609,9 +3126,12 @@ class Runner:
         installed_app = config["installed_application"]
         for producer in ("member-upload", "task-import-export"):
             verify_module_context(argparse.Namespace(plan=str(plan_path), plan_sha256=plan_digest))
+            identity = self.issue_module_identity(producer, config_path) if "identity_credentials" in config else None
+            identity_arguments = [] if identity is None else [
+                "--identity-context=" + identity["context"]["path"], "--identity-context-sha256=" + identity["context"]["sha256"]]
             process = command(["php", str(source), "--action=" + producer,
                 "--input=" + str(config_path), "--input-sha256=" + sha256(config_path),
-                "--plan=" + str(plan_path), "--plan-sha256=" + plan_digest],
+                "--plan=" + str(plan_path), "--plan-sha256=" + plan_digest, *identity_arguments],
                 cwd=Path(installed_app["root"]), env=self.environment(installed_app), capture=True, check=False)
             log = output / (producer + ".log")
             log.write_text((process.stdout or "") + (process.stderr or ""), encoding="utf-8")
@@ -1629,7 +3149,8 @@ class Runner:
                     or value.get("native_identity") != "verified-current-session"
                     or value.get("writes_retained") is not True):
                 fail("Module installed assertion or native identity binding failed; preserve actual source/database/storage")
-            results[producer] = {**value, "source_sha256": sha256(source), "log_sha256": sha256(log)}
+            results[producer] = {**value, "source_sha256": sha256(source), "log_sha256": sha256(log),
+                                 **({"native_identity_delivery": identity} if identity is not None else {})}
             self.write_json(output / "results.json", results)
         verify_module_context(argparse.Namespace(plan=str(plan_path), plan_sha256=plan_digest))
         return {"status": "not_run" if installed_only else "passed", "protocol": "peanut.module-qualification.v1",
@@ -1644,12 +3165,30 @@ class Runner:
         binding = [] if TOOL_BINDING is None else ["--source-root", str(ROOT),
             "--qualification-tool-commit", TOOL_BINDING["tool_commit"],
             "--qualification-tool-files-sha256", TOOL_BINDING["tool_files_sha256"]]
-        process = command([str(CONSUMER_MODULE_CHAIN), *binding, "--candidate", self.args.candidate,
-            "--lease", self.args.lease, "--qualification-plan", str(self.output / "plan.json"),
-            "--lifecycle-input", self.args.lifecycle_input, "--lifecycle-input-sha256", self.args.lifecycle_input_sha256,
-            "--author-app", self.apps["standalone"]["root"], "--consumer-app", self.apps["multi-tenant"]["root"],
-            "--output", str(output), "--identity-seed-file", self.inputs["consumer_identity_seed"]["path"], "--keep"],
-            capture=True)
+
+        def remove_maintenance(reference: dict[str, str]) -> None:
+            path = file_reference(reference)
+            recovery_private(path)
+            path.unlink()
+
+        with contextlib.ExitStack() as private_environments:
+            for app in self.apps.values():
+                if maintenance := app.get("consumer_module_environment"):
+                    base = file_reference(app["environment"])
+                    path = base.with_name(f".env.{self.args.run_id}-consumer")
+                    data, count = re.subn(rb"(?m)^APP_DEBUG=false(?=\r?$)", b"APP_DEBUG=true", base.read_bytes())
+                    if (maintenance.get("path") != str(path) or count != 1
+                            or maintenance.get("sha256") != hashlib.sha256(data).hexdigest()):
+                        fail("consumer Module maintenance environment differs from the fixed CLI-only input")
+                    with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600), "wb") as stream:
+                        stream.write(data)
+                    private_environments.callback(remove_maintenance, maintenance)
+            process = command([str(CONSUMER_MODULE_CHAIN), *binding, "--candidate", self.args.candidate,
+                "--lease", self.args.lease, "--qualification-plan", str(self.output / "plan.json"),
+                "--lifecycle-input", self.args.lifecycle_input, "--lifecycle-input-sha256", self.args.lifecycle_input_sha256,
+                "--author-app", self.apps["standalone"]["root"], "--consumer-app", self.apps["multi-tenant"]["root"],
+                "--output", str(output), "--identity-seed-file", self.inputs["consumer_identity_seed"]["path"], "--keep"],
+                capture=True)
         value = json.loads(process.stdout)
         required = ("check_v1_v2", "canonical_pack_v1_v2", "install_update", "tenant_package_rbac_separation",
                     "disable_reactivate", "retire_purge", "app_owned_preservation")
@@ -1666,8 +3205,11 @@ class Runner:
         runtime = app["runtime"]
         env_path = file_reference(runtime["compose_environment"])
         root = canonical(runtime["root"], directory=True)
-        return command(["docker", "compose", "--env-file", str(env_path), "-f", str(root / "server/docker/compose.yaml"),
-            "--project-name", runtime["compose_project"], *arguments], cwd=root, capture=capture)
+        runtime_registration(app)
+        base = ["docker", "compose", "--env-file", str(env_path), "-f", str(root / "server/docker/compose.yaml")]
+        if "compose_network_override" in runtime:
+            base += ["-f", str(compose_network_override(runtime["compose_network_override"]))]
+        return command([*base, "--project-name", runtime["compose_project"], *arguments], cwd=root, capture=capture)
 
     def production_compose_at(self, edition: str) -> dict[str, Any]:
         app = self.apps[edition]
@@ -1677,7 +3219,27 @@ class Runner:
         app_root = canonical(app["root"], directory=True)
         tree = command(["git", "-C", str(app_root), "rev-parse", app["head"] + "^{tree}"],
                        capture=True).stdout.strip()
-        checkout_identity(root, app["head"], tree)
+        generated_receipt = self.checkpoint["groups"].get("generated-application", {}).get("receipt")
+        if generated_receipt:
+            generated = read_json(file_reference(generated_receipt))
+            if (generated.get("candidate") != self.args.candidate
+                    or generated.get("candidate_tree") != self.plan["candidate_tree"]
+                    or generated.get("run_id") != self.args.run_id
+                    or generated.get("lifecycle_input_sha256") != self.inputs["input_sha256"]):
+                fail("native generated APP receipt belongs to another fixed run")
+            if generated.get("components", {}).get("source_build") == "passed":
+                build = generated.get("editions", {}).get(edition, {}).get("source_build", {})
+                if root != app_root or build.get("application") != app_binding(app) or build.get("pre_build_tree") != tree:
+                    fail("native generated APP checkout preimage differs")
+                checkout_identity(root, app["head"], tree, clean=False)
+                state = generated_state(root)
+                if (build.get("generated_state") != state
+                        or build.get("checkout_changes") != generated_checkout_changes(root, state, edition)):
+                    fail("native generated APP checkout differs from its exact build outputs")
+            else:
+                checkout_identity(root, app["head"], tree)
+        else:
+            checkout_identity(root, app["head"], tree)
         file_reference({"path": str(root / ".peanut/application-manifest.json"), "sha256": app["manifest_sha256"]})
         server_identity = command(["php", "-r", r"""
             require $argv[1] . '/vendor/autoload.php';
@@ -1688,6 +3250,11 @@ class Runner:
         if not re.fullmatch(r"[a-f0-9]{64}", server_identity):
             fail("native APP source identity is unavailable")
         resolved = json.loads(self.compose(edition, "config", "--format", "json", capture=True).stdout)
+        if "compose_network_override" in runtime:
+            base = ["docker", "compose", "--env-file", str(file_reference(runtime["compose_environment"])),
+                    "-f", str(root / "server/docker/compose.yaml"), "--project-name", runtime["compose_project"]]
+            original = json.loads(command([*base, "config", "--format", "json"], cwd=root, capture=True).stdout)
+            compose_network_config(original, resolved, runtime["compose_network_override"])
         encoded = json.dumps(resolved, sort_keys=True, separators=(",", ":")).encode()
         if hashlib.sha256(encoded).hexdigest() != registered["compose_config_sha256"]:
             fail("resolved Compose configuration differs from the registered configuration")
@@ -1761,13 +3328,15 @@ class Runner:
         output = self.output / "browser" / edition
         output.mkdir(parents=True)
         credential = file_reference(app["browser_credentials"])
+        driver = (["--iab-collector", runtime["iab_collector"], "--iab-controller", runtime["iab_controller"]]
+                  if "iab_collector" in runtime else ["--playwright-cli", str(file_reference(runtime["browser_cli"]))])
         command([str(BROWSER_RUNNER), "--mode", edition, "--profile", "baseline",
             "--lifecycle-input", self.args.lifecycle_input, "--lifecycle-input-sha256", self.args.lifecycle_input_sha256,
             "--qualification-plan", str(self.output / "plan.json"), "--tenant-admin-url", runtime["tenant_admin_url"],
             "--tenant-beta-url", runtime["tenant_beta_url"], "--platform-url", runtime["platform_url"],
             "--docs-url", runtime["docs_url"], "--documentation-root", app["root"], "--output-dir", str(output),
-            "--session", f"p0e-{self.args.run_id}-{edition}", "--env-file", str(credential),
-            "--playwright-cli", str(file_reference(runtime["browser_cli"]))], log=self.group_log(edition + "-browser"))
+            "--session", f"p0e-{self.args.run_id}-{edition}", "--env-file", str(credential), *driver],
+            log=self.group_log(edition + "-browser"))
         summary = read_json(output / "business-summary.json")
         if summary.get("status") != "passed" or summary.get("candidate") != self.args.candidate or summary.get("candidate_tree") != self.plan["candidate_tree"]:
             fail("fixed APP browser business/permission/isolation assertions did not pass")
@@ -1817,11 +3386,18 @@ class Runner:
             "cleanup_scope": "invocation-owned cache only; residual counts exclude registered permanent resources"})
 
     def run(self) -> None:
+        self.preflight_module_identity()
         operations = {"generated-application": self.generated_application, "standalone-fresh": lambda: self.fresh("standalone"),
             "multi-tenant-fresh": lambda: self.fresh("multi-tenant"), "module-lifecycle": self.module_lifecycle,
             "consumer-module-lifecycle": self.consumer_module_lifecycle, "production-compose": self.production_compose,
             "standalone-browser": lambda: self.browser_at("standalone"), "multi-tenant-browser": lambda: self.browser_at("multi-tenant")}
-        for group in self.plan["groups"]:
+        execution_order = list(self.plan["groups"])
+        if (self.inputs.get("module_qualification", {}).get("resume_source") is not None
+                and "production-compose" in execution_order and "consumer-module-lifecycle" in execution_order):
+            # Verify the fixed generated build before the Module chain retains its own source.
+            execution_order.remove("production-compose")
+            execution_order.insert(execution_order.index("consumer-module-lifecycle"), "production-compose")
+        for group in execution_order:
             self.run_group(group, operations[group])
         self.current_group = "closeout"
         if any(self.checkpoint["groups"].get(g, {}).get("status") != "passed" for g in self.plan["groups"]):
@@ -1829,7 +3405,9 @@ class Runner:
         self.cleanup_success()
 
     def preserve_failure(self, exception: Exception) -> None:
-        if self.current_group == "closeout":
+        if self.current_group == "identity-preflight":
+            self.checkpoint.setdefault("identity_preflight_failure", {"error": str(exception)[:500], "finished_at": int(time.time())})
+        elif self.current_group == "closeout":
             self.checkpoint.setdefault("closeout_failure", {"error": str(exception)[:500], "finished_at": int(time.time())})
         else:
             state = self.checkpoint["groups"].setdefault(self.current_group, {})
@@ -1961,9 +3539,42 @@ def main() -> int:
     verify_module = subs.add_parser("verify-module-context", help="read-only current source/lease/isolated-APP admission")
     verify_module.add_argument("--plan", required=True)
     verify_module.add_argument("--plan-sha256", required=True)
+    for name in ("recovery-plan", "recovery-execute", "recovery-verify"):
+        recovery = subs.add_parser(name, help="instance-bound generated APP recovery; execute is destructive and never replays UNKNOWN")
+        for field in ("candidate", "source-root", "qualification-tool-commit", "qualification-tool-files-sha256"):
+            recovery.add_argument("--" + field, required=True)
+        if name in ("recovery-plan", "recovery-verify"):
+            recovery.add_argument("--application-input", required=True)
+            recovery.add_argument("--application-input-sha256", required=True)
+        if name == "recovery-plan":
+            recovery.add_argument("--run-id", required=True)
+            recovery.add_argument("--output-dir", required=True)
+        elif name == "recovery-execute":
+            recovery.add_argument("--plan", required=True)
+            recovery.add_argument("--plan-sha256", required=True)
+        else:
+            recovery.add_argument("--receipt", required=True)
+            recovery.add_argument("--receipt-sha256", required=True)
     for name in ("plan", "claim", "run", "resume"):
         add_fixed_arguments(subs.add_parser(name))
     args = parser.parse_args()
+    if args.command.startswith("recovery-"):
+        os.environ["GIT_OPTIONAL_LOCKS"] = "0"
+        configure_source(args)
+        os.umask(0o077)
+        if args.command == "recovery-plan":
+            result = generated_recovery_plan(args)
+        elif args.command == "recovery-execute":
+            result = generated_recovery_execute(args)
+        else:
+            input_path = file_reference({"path": args.application_input, "sha256": args.application_input_sha256})
+            recovery_private(input_path)
+            value = read_json(input_path)
+            app = value["application"]
+            recovery_identity(app, value["owner"], value["thread"])
+            result = generated_recovery_verify(file_reference({"path": args.receipt, "sha256": args.receipt_sha256}), app)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
     if args.command == "verify-module-context":
         print(json.dumps(verify_module_context(args), ensure_ascii=False))
         return 0
