@@ -904,7 +904,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "12e7e6447f1633f3778be095077e6ddc6bcb01f8dc6dfabbc8a190f38f2e88bf"
+            "source_sha256": "5ae8710787c685fd0c0a08af0121b9487c0c3223c2a570128e78037326a4c880"
         },
         {
             "path": "docs/maintenance/README.md",
@@ -19588,7 +19588,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "addda8493145efdf3c358fc1c3aa620c1aaba1a6265b79b1e6262a9594e8be7f"
+            "source_sha256": "a7fe67da06cf16de910622016b7bd146588ea94564c5f08fd7bfc4d1ee0e2d6d"
         },
         {
             "path": "server/resources/scaffold-application/SECURITY.md.stub",
