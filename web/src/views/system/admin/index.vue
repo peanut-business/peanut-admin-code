@@ -1,6 +1,5 @@
 <template>
   <PageContent class="admin-directory-page">
-    <Breadcrumb :items="['menu.system', 'menu.system.admin']" />
     <PageHeader>
       <h1 class="admin-directory-title">{{ $t('menu.system.admin') }}</h1>
       <template #actions>
@@ -202,7 +201,7 @@
           : $t('systemAdmin.modal.addTitle')
       "
       :close-on-click-modal="false"
-      width="620px"
+      width="min(620px, calc(100vw - 24px))"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
         <el-form-item prop="account" :label="$t('systemAdmin.field.account')">
@@ -337,7 +336,7 @@
       v-model="exportVisible"
       :title="$t('systemAdmin.export.title')"
       :close-on-click-modal="false"
-      width="540px"
+      width="min(540px, calc(100vw - 24px))"
     >
       <div v-loading="exportInfoLoading" style="width: 100%">
         <el-form ref="exportFormRef" :model="exportForm" label-position="top">
@@ -502,6 +501,8 @@
       renderData.value = data.lists;
       pagination.current = data.pageNo;
       pagination.total = data.count;
+    } catch {
+      // The shared interceptor shows the error; retain the current rows and pagination.
     } finally {
       setLoading(false);
     }

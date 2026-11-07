@@ -849,7 +849,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a09a159fcc55531357a8395d084d0eb91e81cf3bc1eccc00ff2095d2ed9846d6"
+            "source_sha256": "ca29d49f506453d2976f9e41cbb79c2fa2a023b28e7260b2157a59edd58ae241"
         },
         {
             "path": "docs/development/p0e-tool-identity.md",
@@ -1053,7 +1053,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e7722112f6f193bd4018f2131c5c2ec92fd69725a0178395e97e730807d90888"
+            "source_sha256": "dc84973fb0d3b23fc47afde258094a05a721dcc66211b875fb008b79bd0ae076"
         },
         {
             "path": "docs/public/release-channels.md",
@@ -24593,7 +24593,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "680817b09ade48f4414f0b0f3b2264af7616aefd68cfe8f53106d914456f96f5"
+            "source_sha256": "e08f97bda889139b4ec2a8e77abfd1dd7fcb460079ba293f4652da1584b53216"
         },
         {
             "path": "web/.gitignore",
@@ -28276,7 +28276,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e1e44b7043caa5d96964d1c1f52ca3aa357988a0cd05d0064aeeaad2735b99f2"
+            "source_sha256": "c95c8b6b1a6270d54842a7f864669911ff97a7c7a23de69fd135cd7dc13f5525"
         },
         {
             "path": "web/src/views/system/admin/locale/en-US.ts",

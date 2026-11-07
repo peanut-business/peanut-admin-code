@@ -21,6 +21,8 @@
 
 产品 Git 更新已按锁准备 PHP 依赖并采用静态文件后，使用 `reconcile --release-locked --prepared-release`：复用运行依赖与客户端入口校验，通过原生生命周期采用已有 active 包，不调用依赖解析或客户端构建。该选项仅用于 release-locked；普通开发安装／升级仍使用其原生准备流程，未准备的发行输入不能靠该选项跳过校验。
 
+完整调用是 `peanut module reconcile --release-locked --plan-only`，审阅后再按实际准备状态采用。该命令由 CLI 经 `server/module` 桥接，不登记为 `php think module:reconcile`；`ops-module:request` / `ops-module:task` 管理制品交付任务，不代替锁定源码采用。源码更新后须先按应用原生锁准备实际依赖，再编译声明并完成已安装模块采用；仅更新 Git 或运行 compile 不会更新数据库安装身份。具体 Git 更新顺序见[产品更新入口](application-release.md)。
+
 ## 可用的开发与交付入口
 
 以下命令在完整产品 APP 根执行；先用 `peanut config` 选择已有本机工具，再通过 `scripts/project-env` 运行项目原生 Composer、pnpm/npm。源码生成不执行需要运行环境的 Composer hooks。`peanut module create` 是仅生成源码的入口，不要求 `.env`、数据库或已安装实例，也不启动运行服务。它使用 ThinkPHP 原生参数解析和同一个模块生成器，默认仅生成后端骨架；有管理端贡献时显式选择 `--client=admin-web`。`peanut module create --help` 可在配置运行环境前查看参数。检查、打包、安装等其他命令仍使用应用自己的运行环境和模块信任配置。命令存在不表示模块业务、迁移或客户端已验收。
