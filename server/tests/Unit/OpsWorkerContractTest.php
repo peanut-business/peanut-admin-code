@@ -33,7 +33,7 @@ final class OpsWorkerContractTest extends TestCase
         $module = new \PeanutAdmin\Modules\Ops\ModuleProvider();
         self::assertSame($implementation, $module->bindings()[$port] ?? null);
         self::assertTrue(is_subclass_of($implementation, $port));
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/ops/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/ops/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains($port, $manifest['contracts']['exports']);
         self::assertNotContains($implementation, $manifest['contracts']['exports']);
         $app = new App(dirname(__DIR__, 3) . '/.local/tmp/ops-worker-contracts');
@@ -56,10 +56,27 @@ final class OpsWorkerContractTest extends TestCase
             self::assertNotNull($contexts->current());
             return null;
         });
-        [$exit, $payload] = $this->runCommand($type, $port, $worker, ['claim'], $contexts, $name);
+        [$exit, $payload] = $this->withDatabaseIdentity(fn(): array =>
+            $this->runCommand($type, $port, $worker, ['claim'], $contexts, $name));
         self::assertSame(0, $exit);
         self::assertSame(['ok' => true, 'result' => null], $payload);
         self::assertTrue($contexts->isEmpty());
+    }
+
+    public static function guardedWorkers(): array
+    {
+        return array_intersect_key(self::workers(), array_flip(['backup', 'restore']));
+    }
+
+    #[DataProvider('guardedWorkers')]
+    public function testGuardedClaimRejectsAnotherDatabaseBeforeInvokingWorker(string $type, string $port, string $implementation, string $name, string $prefix): void
+    {
+        $worker = $this->createMock($port);
+        $worker->expects(self::never())->method('claim');
+        [$exit, $payload] = $this->withDatabaseIdentity(fn(): array =>
+            $this->runCommand($type, $port, $worker, ['claim'], new ExecutionContextStore(), $name), false);
+        self::assertSame(1, $exit);
+        self::assertSame(['ok' => false, 'error_code' => $prefix . '_APPLICATION_CONNECTION_MISMATCH'], $payload);
     }
 
     #[DataProvider('workers')]
@@ -80,7 +97,8 @@ final class OpsWorkerContractTest extends TestCase
         $worker->expects(self::never())->method('heartbeat');
         [$exit, $payload] = $this->runCommand($type, $port, $worker, ['heartbeat', '--task-key=job_' . str_repeat('a', 32), '--revision=0'], new ExecutionContextStore(), $name);
         self::assertSame(1, $exit);
-        self::assertSame(['ok' => false, 'error_code' => $prefix . '_EXECUTION_REVISION_INVALID'], $payload);
+        self::assertSame(['ok' => false, 'error_code' => $prefix . '_EXECUTION_REVISION_INVALID']
+            + ($prefix === 'OPS_MODULE' ? ['exit_code' => 1] : []), $payload);
     }
 
     #[DataProvider('workers')]
@@ -95,10 +113,11 @@ final class OpsWorkerContractTest extends TestCase
         foreach (['mysql://fixture:private@host/db', $prefix . '_EXECUTION_FENCED'] as $message) {
             $contexts = new ExecutionContextStore();
             $failure = $this->createMock($port);
-            $failure->expects(self::once())->method('claim')->willThrowException(new RuntimeException($message));
-            [$exit, $payload] = $this->runCommand($type, $port, $failure, ['claim'], $contexts, $name);
+            $failure->expects(self::once())->method('heartbeat')->with($key, 3)->willThrowException(new RuntimeException($message));
+            [$exit, $payload] = $this->runCommand($type, $port, $failure, ['heartbeat', '--task-key=' . $key, '--revision=3'], $contexts, $name);
             self::assertSame(1, $exit);
-            self::assertSame(['ok' => false, 'error_code' => str_starts_with($message, $prefix) ? $message : $prefix . '_WORKER_FAILED'], $payload);
+            self::assertSame(['ok' => false, 'error_code' => str_starts_with($message, $prefix) ? $message : $prefix . '_WORKER_FAILED']
+                + ($prefix === 'OPS_MODULE' ? ['exit_code' => 1] : []), $payload);
             self::assertTrue($contexts->isEmpty());
         }
     }
@@ -108,7 +127,8 @@ final class OpsWorkerContractTest extends TestCase
     {
         [$exit, $payload] = $this->runCommand($type, $port, null, ['claim'], new ExecutionContextStore(), $name);
         self::assertSame(1, $exit);
-        self::assertSame(['ok' => false, 'error_code' => $prefix . '_WORKER_FAILED'], $payload);
+        self::assertSame(['ok' => false, 'error_code' => $prefix . '_WORKER_FAILED']
+            + ($prefix === 'OPS_MODULE' ? ['exit_code' => 1] : []), $payload);
         $source = file_get_contents((new ReflectionClass($type))->getFileName());
         self::assertStringNotContainsString('app(', $source);
         self::assertStringNotContainsString('Ops\\Infrastructure\\', $source);
@@ -123,7 +143,8 @@ final class OpsWorkerContractTest extends TestCase
         }
         [$exit, $payload] = $this->runCommand($type, $port, $worker, ['unknown'], new ExecutionContextStore(), $name);
         self::assertSame(1, $exit);
-        self::assertSame(['ok' => false, 'error_code' => $prefix . ($prefix === 'OPS_MODULE' ? '_TASK_ACTION_INVALID' : '_ACTION_INVALID')], $payload);
+        self::assertSame(['ok' => false, 'error_code' => $prefix . ($prefix === 'OPS_MODULE' ? '_TASK_ACTION_INVALID' : '_ACTION_INVALID')]
+            + ($prefix === 'OPS_MODULE' ? ['exit_code' => 1] : []), $payload);
     }
 
     public function testModuleAndUpgradeSpecificTransitionsKeepTheirExactInputs(): void
@@ -147,7 +168,7 @@ final class OpsWorkerContractTest extends TestCase
         $app = new App(dirname(__DIR__, 3) . '/.local/tmp/ops-worker-injection');
         $contexts = new ExecutionContextStore();
         $worker = $this->createMock($port);
-        $worker->expects(self::once())->method('claim')->willReturn(null);
+        $worker->expects(self::once())->method('heartbeat')->with('job_' . str_repeat('a', 32), 7)->willReturn([]);
         $app->instance(ExecutionContextStore::class, $contexts);
         $app->instance(CurrentExecutionContext::class, new CurrentExecutionContext($contexts));
         $app->instance($port, $worker);
@@ -156,17 +177,68 @@ final class OpsWorkerContractTest extends TestCase
         $command = $app->invokeClass($type);
         self::assertSame($worker, (new ReflectionProperty($command, 'service'))->getValue($command));
         $output = new Output('buffer');
-        self::assertSame(0, $command->run(new Input(['claim']), $output));
+        self::assertSame(0, $command->run(new Input(['heartbeat', '--task-key=job_' . str_repeat('a', 32), '--revision=7']), $output));
         self::assertTrue($contexts->isEmpty());
     }
 
     public function testLifecycleFixtureConsumesInitializedContainerWithoutDuplicatingTheConstructor(): void
     {
-        $source = file_get_contents(dirname(__DIR__, 2) . '/fixtures/plugin-module-lifecycle/run.php');
-        self::assertStringNotContainsString('$catalogs = new ModuleCatalogApplier(', $source);
-        self::assertStringContainsString('$catalogs = app(ModuleCatalogApplier::class);', $source);
-        self::assertLessThan(strpos($source, '$catalogs = app('), strpos($source, '(new App($serverRoot))->initialize();'));
-        self::assertStringContainsString('refusing global catalog synchronization in a shared database', $source);
+        $source = file_get_contents(dirname(__DIR__, 2) . '/fixtures/module-lifecycle/run.php');
+        self::assertStringNotContainsString('SourceApplicationBackup', $source);
+        self::assertStringContainsString('$app = (new think\\App($root . \'/server\'))->initialize();', $source);
+        self::assertStringContainsString('memberUploadInstalledAssertions($app, $pdo,', $source);
+        self::assertStringContainsString('taskImportExportInstalledAssertions($app, $pdo,', $source);
+        self::assertStringContainsString('$guard();', $source);
+        self::assertStringContainsString("'native_identity' => 'verified-current-session'", $source);
+    }
+
+    /** Exercise the real identity guard with a synthetic registry and no database connection. */
+    private function withDatabaseIdentity(Closure $run, bool $matches = true): array
+    {
+        $previousApp = \think\Container::getInstance();
+        $app = new App(dirname(__DIR__, 3) . '/.local/tmp/ops-worker-identity');
+        $app->env->set([
+            'APP_ENV' => 'development', 'DEPLOYMENT_MODE' => 'multi-tenant',
+            'DB_HOST' => '127.0.0.1', 'DB_PORT' => '1', 'DB_NAME' => 'ops_worker_fixture',
+            'DB_USER' => 'synthetic', 'DB_PASS' => 'synthetic',
+        ]);
+        $app->config->set(['default' => 'mysql', 'connections' => ['mysql' => [
+            'type' => 'mysql', 'hostname' => '127.0.0.1', 'hostport' => '1',
+            'database' => $matches ? 'ops_worker_fixture' : 'another_fixture',
+        ]]], 'database');
+        $directory = dirname(__DIR__, 3) . '/.local/tmp';
+        if (!is_dir($directory)) {
+            mkdir($directory, 0700, true);
+        }
+        $registry = tempnam($directory, 'ops-worker-registry-');
+        file_put_contents($registry, json_encode([
+            'schema_version' => 1, 'project_id' => 'peanut-admin', 'authority' => ['role' => 'maintainer'],
+            'resources' => ['databases' => [[
+                'stable_resource_id' => 'ops-worker-fixture', 'environment' => 'development',
+                'service_type' => 'mysql', 'fallback' => 'none', 'database' => 'ops_worker_fixture',
+                'deployment_modes' => ['multi-tenant'],
+                'upstream_endpoint' => ['endpoint_id' => 'ops-worker-fixture', 'host' => '127.0.0.1', 'port' => 1, 'consumers' => ['host']],
+            ]]],
+        ], JSON_THROW_ON_ERROR));
+        $environment = [
+            'PEANUT_RESOURCE_REGISTRY' => $registry, 'PEANUT_DATABASE_RESOURCE_ID' => 'ops-worker-fixture',
+            'PEANUT_DEPLOYMENT_TARGET' => 'local-development', 'PEANUT_DATABASE_CONSUMER' => 'host',
+            'PEANUT_DATABASE_ENDPOINT_ID' => 'ops-worker-fixture',
+        ];
+        $previous = [];
+        foreach ($environment as $key => $value) {
+            $previous[$key] = getenv($key);
+            putenv($key . '=' . $value);
+        }
+        try {
+            return $run();
+        } finally {
+            foreach ($previous as $key => $value) {
+                putenv($value === false ? $key : $key . '=' . $value);
+            }
+            unlink($registry);
+            \think\Container::setInstance($previousApp);
+        }
     }
 
     private function runCommand(string $type, string $port, ?object $worker, array $arguments, ExecutionContextStore $contexts, string $name): array

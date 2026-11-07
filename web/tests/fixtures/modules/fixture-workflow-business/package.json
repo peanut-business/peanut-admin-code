@@ -1,0 +1,8 @@
+{
+  "name": "@peanut-admin/fixture-workflow-business",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {
+    ".": "./contribution.ts"
+  }
+}

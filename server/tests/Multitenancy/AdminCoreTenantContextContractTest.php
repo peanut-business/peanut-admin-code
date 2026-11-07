@@ -69,14 +69,19 @@ expectFirstTenantContext(
 
 $server = dirname(__DIR__, 2);
 $role = (string) file_get_contents($server . '/app/adminapi/services/auth/RoleApplicationService.php');
+$rolePermissions = (string) file_get_contents($server . '/app/adminapi/controller/auth/RolePermissionController.php');
 $department = (string) file_get_contents($server . '/app/adminapi/services/dept/DeptApplicationService.php');
 $admin = (string) file_get_contents($server . '/app/adminapi/services/auth/AdminApplicationService.php');
 
 expectContextCalls($role, 'RoleApplicationService', [
-    'add' => ['create', 'replacePermissions'],
-    'edit' => ['update', 'replacePermissions'],
+    'add' => ['create'],
+    'edit' => ['update'],
     'delete' => ['archive'],
 ]);
+expectAdminCoreContext(
+    preg_match('/->replacePermissions\(\s*\$this->tenantAdminContext\(\)\s*,/', serviceMethod($rolePermissions, 'replace')) === 1,
+    'RolePermissionController::replace() must pass the authenticated TenantContext to the permission command',
+);
 expectContextCalls($department, 'DeptApplicationService', [
     'add' => ['create'],
     'edit' => ['update', 'move'],

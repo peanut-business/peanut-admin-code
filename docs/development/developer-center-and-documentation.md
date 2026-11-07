@@ -14,11 +14,16 @@
 | --- | --- |
 | 模块、依赖、各端入口、权限/事件定义 | 随源码结构化声明，编译目录仅派生 |
 | API/公开服务 | 实际路由、类型、标记、注释，生成后核对 |
+| 独立权限包与 API 的实例关联 | 平台维护的全局关联及修订；源码默认项仅用于尚未实例配置的权限包 |
 | 实例安装/升级、租户开通 | 各自数据库记录/交付结果 |
 | 人员许可/本次Scope | 当前身份、角色绑定范围和有效授权，非租户名称/请求列表 |
 | 架构/机制原因 | 本目录的公开专题，不手抄机器目录 |
 
 源码扫描、数据库、页面不得各编辑一份模块定义。开发界面改静态定义留源码diff；不只改不可追踪DB副本。声明/发现/注册/有效/测试通过分开，动态未解析就标未解析。
+
+Provider目录复用当前App由ModuleComposition保存的同一实例，支持原生think\Service和构造注入；不得为了展示bindings重复无参new、执行register/boot或启动未选择模块。公共服务的绑定标识与Provider详情来自同一次读取。尚未在当前App实例化的Provider仅展示声明/类型事实，空bindings不能解释为其没有扩展能力；runtime_effective保持not_checked。原生只读入口为`php think developer:center --module=<实际模块键>`，它不是运行验收或自动执行事件的入口。
+
+独立权限包定义仍由原系统/模块权限声明维护；平台编辑的是权限包与已登记 API 的关联，不改写 API 路径、受众、所属模块或公开/认证模式。API 目录的自动发现复用既有路由 inventory 和合同生成器，开发者中心继续展示同一生成目录；平台权限配置入口见[身份与授权](../architecture/identity-organization-access.md#3-部门岗位角色和数据范围)。
 
 ## 3. 可操作范围
 
@@ -35,9 +40,11 @@ UI/CLI共用服务。开发可创建模块、编辑声明、生成/检查/预览
 
 ## 5. 生成链路与版本绑定
 
-结构化源→OpenAPI/服务/事件目录→可读资料/模块SDK→对照真实路由/Validator/响应→绑定源码提交与工具版本。沿用openapi-typescript/实际路由inventory/模块PHP metadata/manifest/PluginArtifactWriter，OpenAPI目标3.0.3。缺请求/响应合同标route_only，不编造；运行事实和验证证据分别接入。
+结构化源→OpenAPI/服务/事件目录→可读资料/模块SDK→对照真实路由/Validator/响应→绑定源码提交与工具版本。沿用openapi-typescript/实际路由inventory/模块PHP metadata/manifest/ModuleArtifactWriter，OpenAPI目标3.0.3。缺请求/响应合同标route_only，不编造；运行事实和验证证据分别接入。
 
-正式生成API/SDK后再重建模块摘要/plugins.lock，最后模板清单/编译；check-openapi检查派生差异。SDK随产品/模块，不塞回Core；真实消费者要测。跨仓同任务/提交关联，发布材料精确版本，不据生成命令成功宣称完整CI。
+先生成API/SDK，再通过原生入口重建模块摘要/modules.lock；锁发生变化后，再运行同一API生成入口刷新最终目录对锁的来源摘要，然后处理模板清单/编译。`api-catalog.json` 的 inputs 绑定 `modules.lock`，不能在锁更新后仍使用旧目录执行安装或 reconcile。check-openapi检查派生差异。SDK随产品/模块，不塞回Core；真实消费者按授权确认。跨仓同任务/提交关联，发布材料精确版本，不据生成命令成功宣称完整CI。
+
+生成的 `api-catalog.json` 为 API 提供独立 `api_id`、受众及源码访问模式。安装和正常模块 reconcile 通过既有 `ModuleCatalogApplier` 将选定范围同步到实例 API 目录，消失的 API 标为退役，不另建运行时扫描入口。同步不授予角色权限；尚未实例配置的关联跟随源码默认增删并更新修订，已显式保存的实例关联（包括获准保存的空集合）保留。新增关联只接受同受众、活动且受保护的 API，退役 API 可供辨认和解除既有关联。生成应用仍由原创建流程按最终 APP 输入重建 API 目录，发行及升级继续使用既有迁移、摘要和清单链路。
 
 公开人工正文、代码、类型和机器声明随 Code 源仓维护；生成参考位于指定目录或版本化制品。生产不实时依赖维护者治理仓。大型手册、OpenAPI 和迁移数据按需读取，不为压缩体积手改真值或删除有效数据。
 

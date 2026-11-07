@@ -7,7 +7,7 @@
         <el-col :span="12">
           <el-space>
             <el-button
-              v-permission="['role/add']"
+              v-permission="['core.role.create']"
               type="primary"
               @click="handleAdd"
             >
@@ -22,7 +22,7 @@
         </el-col>
       </el-row>
 
-      <el-table row-key="id" :loading="loading" :data="renderData" border>
+      <el-table v-loading="loading" row-key="id" :data="renderData" border>
         <el-table-column
           prop="id"
           :label="$t('systemRole.columns.id')"
@@ -39,15 +39,21 @@
           show-overflow-tooltip
         />
         <el-table-column
-          prop="sort"
-          :label="$t('systemRole.columns.sort')"
-          width="90"
-        />
-        <el-table-column
           prop="num"
           :label="$t('systemRole.columns.num')"
           width="120"
         />
+        <el-table-column
+          prop="status"
+          :label="$t('systemRole.columns.status')"
+          width="100"
+        >
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'active' ? 'success' : 'info'">
+              {{ $t(`systemRole.status.${row.status}`) }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column
           :label="$t('systemRole.columns.createTime')"
           width="180"
@@ -62,20 +68,27 @@
           fixed="right"
         >
           <template #default="{ row }">
-            <el-space>
+            <el-space v-if="row.status === 'active'">
               <el-button
-                v-permission="['role/edit']"
+                v-permission="['core.role.update']"
                 link
                 size="small"
                 @click="handleEdit(row)"
                 >{{ $t('systemRole.operation.edit') }}</el-button
               >
               <el-button
-                v-permission="['role/edit']"
+                v-permission="['core.role.permission.assign']"
                 link
                 size="small"
                 @click="handleAuth(row)"
                 >{{ $t('systemRole.operation.permission') }}</el-button
+              >
+              <el-button
+                v-permission="['core.role.data-policy.read']"
+                link
+                size="small"
+                @click="dataPolicyRole = row"
+                >数据权限</el-button
               >
               <el-popconfirm
                 :title="$t('systemRole.delete.confirm')"
@@ -83,7 +96,7 @@
               >
                 <template #reference
                   ><el-button
-                    v-permission="['role/delete']"
+                    v-permission="['core.role.archive']"
                     link
                     type="danger"
                     size="small"
@@ -92,6 +105,7 @@
                 >
               </el-popconfirm>
             </el-space>
+            <span v-else>—</span>
           </template>
         </el-table-column>
       </el-table>
@@ -126,20 +140,12 @@
         </el-form-item>
         <el-form-item prop="desc" :label="$t('systemRole.field.desc')">
           <el-input
-            type="textarea"
             v-model="form.desc"
+            type="textarea"
             :placeholder="$t('systemRole.field.desc.placeholder')"
             :autosize="{ minRows: 4, maxRows: 6 }"
             maxlength="200"
             show-word-limit
-          />
-        </el-form-item>
-        <el-form-item prop="sort" :label="$t('systemRole.field.sort')">
-          <el-input-number
-            v-model="form.sort"
-            :min="0"
-            :max="9999"
-            style="width: 160px"
           />
         </el-form-item>
       </el-form>
@@ -161,82 +167,99 @@
       width="560px"
     >
       <div v-loading="authLoading" style="width: 100%">
-        <div class="auth-toolbar">
+        <h4>{{ $t('systemRole.auth.bundles') }}</h4>
+        <p>{{ $t('systemRole.auth.bundleHint') }}</p>
+        <el-alert
+          v-if="authRoleKey === 'core.tenant-owner'"
+          :title="$t('systemRole.auth.ownerFixed')"
+          type="info"
+          :closable="false"
+          show-icon
+        />
+        <el-input
+          v-model="permissionSearch"
+          clearable
+          :placeholder="$t('systemRole.auth.searchActions')"
+        />
+        <p v-if="!authLoading" role="status">
+          {{
+            $t('systemRole.auth.selectionSummary', {
+              selected: authForm.permission_keys.length,
+              visible: visiblePermissions.length,
+            })
+          }}
+        </p>
+        <el-empty
+          v-if="!authLoading && visiblePermissions.length === 0"
+          :description="$t('systemRole.auth.noMatches')"
+          :image-size="64"
+        />
+        <el-checkbox-group
+          v-model="authForm.permission_keys"
+          class="action-permissions"
+          :disabled="
+            authLoading ||
+            authSubmitLoading ||
+            authRoleKey === 'core.tenant-owner'
+          "
+        >
           <el-checkbox
-            :model-value="expandedKeys.length > 0"
-            @change="handleExpandAll"
+            v-for="permission in visiblePermissions"
+            :key="permission.key"
+            :value="permission.key"
+            :title="permission.key"
           >
-            {{ $t('systemRole.auth.expand') }}
+            {{ permission.name }}
+            <small>{{ permission.key }} · {{ permission.module_key }}</small>
           </el-checkbox>
-          <el-checkbox :model-value="isAllChecked" @change="handleSelectAll">
-            {{ $t('systemRole.auth.selectAll') }}
-          </el-checkbox>
-          <el-checkbox v-model="parentLinked" @change="handleLinkageChange">
-            {{ $t('systemRole.auth.parentLinked') }}
-          </el-checkbox>
-        </div>
-        <div class="auth-tree">
-          <el-tree
-            :key="treeRenderKey"
-            :default-expanded-keys="expandedKeys"
-            :default-checked-keys="authCheckedKeys"
-            :data="treeData"
-            node-key="menu_key"
-            :props="{ label: 'name', children: 'children' }"
-            show-checkbox
-            check-strictly
-            @node-expand="handleTreeExpand"
-            @node-collapse="handleTreeCollapse"
-            @check="handleTreeCheck"
-          />
-        </div>
+        </el-checkbox-group>
       </div>
       <template #footer
         ><el-button @click="authVisible = false">取消</el-button
         ><el-button
           type="primary"
           :loading="authSubmitLoading"
+          :disabled="authLoading || authRoleKey === 'core.tenant-owner'"
           @click="handleAuthSubmit"
           >保存</el-button
         ></template
       >
     </el-dialog>
+    <RoleDataPolicyDialog
+      v-if="dataPolicyRole"
+      :key="dataPolicyRole.id"
+      :role="dataPolicyRole"
+      @close="dataPolicyRole = null"
+    />
   </div>
 </template>
 
 <script lang="ts" setup>
-  import { computed, reactive, ref } from 'vue';
+  import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
   import { useI18n } from 'vue-i18n';
   import { ElMessage } from 'element-plus';
   import type { FormInstance } from 'element-plus';
   import { Plus, Refresh } from '@element-plus/icons-vue';
   import useLoading from '@/hooks/loading';
-  import { getMenuAll, type MenuRecord } from '@/api/system/menu';
   import {
     addRole,
     deleteRole,
     editRole,
-    getRoleDetail,
+    getRolePermissions,
+    getRolePermissionCatalog,
+    replaceRolePermissions,
     getRoleList,
-    type RoleAuthForm,
+    type RolePermissionWrite,
+    type RolePermissionOption,
     type RoleBaseForm,
     type RoleRecord,
   } from '@/api/system/role';
-
-  type AuthCheckState = 0 | 1 | 2;
-  type CheckboxValue = boolean | Array<string | number | boolean>;
-  type AuthCheckEvent = {
-    checked?: boolean;
-    node?: MenuRecord & { id?: number };
-  };
-  type AuthTreeCheckedInfo = {
-    checked: boolean;
-    checkedKeys: Array<number | string>;
-  };
+  import RoleDataPolicyDialog from './RoleDataPolicyDialog.vue';
 
   const { t } = useI18n();
   const { loading, setLoading } = useLoading(true);
   const renderData = ref<RoleRecord[]>([]);
+  const dataPolicyRole = ref<RoleRecord | null>(null);
 
   const pagination = reactive({
     current: 1,
@@ -287,7 +310,6 @@
     id: undefined,
     name: '',
     desc: '',
-    sort: 0,
   });
   const form = reactive<RoleBaseForm>(defaultForm());
 
@@ -311,7 +333,6 @@
       id: record.id,
       name: record.name,
       desc: record.desc,
-      sort: record.sort,
     });
     modalVisible.value = true;
   };
@@ -326,7 +347,6 @@
         id: form.id,
         name: form.name,
         desc: form.desc,
-        sort: form.sort,
       };
       if (isEdit.value) {
         await editRole(payload);
@@ -337,6 +357,9 @@
       modalVisible.value = false;
       await fetchData(pagination.current);
       return true;
+    } catch {
+      // The shared Axios interceptor already shows the server error; keep the form open and its values intact.
+      return false;
     } finally {
       submitLoading.value = false;
     }
@@ -352,271 +375,141 @@
   const authVisible = ref(false);
   const authLoading = ref(false);
   const authSubmitLoading = ref(false);
-  const menuTree = ref<MenuRecord[]>([]);
-  const treeData = computed(() => menuTree.value);
-  const parentLinked = ref(true);
-  const expandedKeys = ref<string[]>([]);
-  const authCheckedKeys = ref<string[]>([]);
-  const authHalfCheckedKeys = ref<string[]>([]);
-  const authForm = reactive<RoleAuthForm>({
-    id: 0,
-    name: '',
-    desc: '',
-    sort: 0,
-    menu_keys: [],
+  const authForm = reactive<RolePermissionWrite>({
+    role_id: 0,
+    expected_revision: '',
+    permission_keys: [],
   });
+  const authRoleKey = ref('');
+  const permissionCatalog = ref<RolePermissionOption[]>([]);
+  const permissionSearch = ref('');
+  let authGeneration = 0;
 
-  // Element Plus exposes default tree state as initialization-only props. Re-key
-  // the tree whenever our controlled permission state changes so the toolbar
-  // actions (expand/select all) and linkage mode stay reflected in the UI.
-  const treeRenderKey = computed(
-    () =>
-      `${parentLinked.value}-${expandedKeys.value.join(
-        ','
-      )}-${authCheckedKeys.value.join(',')}-${authHalfCheckedKeys.value.join(
-        ','
-      )}`
+  watch(
+    authVisible,
+    (visible) => {
+      if (!visible) {
+        // Invalidate synchronously even if the same role reopens this tick.
+        authGeneration += 1;
+        authLoading.value = false;
+        authSubmitLoading.value = false;
+      }
+    },
+    { flush: 'sync' }
   );
-
-  const handleTreeExpand = (data: MenuRecord) => {
-    const id = data.menu_key;
-    if (!expandedKeys.value.includes(id)) {
-      expandedKeys.value = [...expandedKeys.value, id];
-    }
-  };
-
-  const handleTreeCollapse = (data: MenuRecord) => {
-    const id = data.menu_key;
-    expandedKeys.value = expandedKeys.value.filter((key) => key !== id);
-  };
-
-  const allMenuIds = computed(() => {
-    const ids: string[] = [];
-    const visit = (nodes: MenuRecord[]) => {
-      nodes.forEach((node) => {
-        ids.push(node.menu_key);
-        if (node.children?.length) visit(node.children);
-      });
-    };
-    visit(menuTree.value);
-    return ids;
+  onBeforeUnmount(() => {
+    authGeneration += 1;
   });
 
-  const menuNodeMap = computed(() => {
-    const nodes = new Map<string, MenuRecord>();
-    const visit = (items: MenuRecord[]) => {
-      items.forEach((item) => {
-        nodes.set(item.menu_key, item);
-        if (item.children?.length) visit(item.children);
-      });
-    };
-    visit(menuTree.value);
-    return nodes;
+  const visiblePermissions = computed(() => {
+    const options = [...permissionCatalog.value];
+    const available = new Set(options.map((item) => item.key));
+    authForm.permission_keys.forEach((key) => {
+      if (!available.has(key))
+        options.push({
+          key,
+          name: t('systemRole.auth.unavailable'),
+          module_key: key,
+        });
+    });
+    const search = permissionSearch.value.trim().toLowerCase();
+    return options.filter((item) =>
+      `${item.name} ${item.key} ${item.module_key}`
+        .toLowerCase()
+        .includes(search)
+    );
   });
 
-  const isAllChecked = computed(
-    () =>
-      allMenuIds.value.length > 0 &&
-      authCheckedKeys.value.length === allMenuIds.value.length
-  );
-
-  const orderKeys = (keys: Set<string>) =>
-    allMenuIds.value.filter((id) => keys.has(id));
-
-  const normalizeLinkedState = (menuIds: string[]) => {
-    const selected = new Set(menuIds);
-    const checked = new Set<string>();
-    const halfChecked = new Set<string>();
-
-    const visit = (node: MenuRecord): AuthCheckState => {
-      const childStates = (node.children ?? []).map(visit);
-      const selfSelected = selected.has(node.menu_key);
-      if (childStates.length === 0) {
-        if (selfSelected) checked.add(node.menu_key);
-        return selfSelected ? 2 : 0;
-      }
-
-      const allChildrenChecked = childStates.every((state) => state === 2);
-      const hasCheckedChild = childStates.some((state) => state !== 0);
-      if (allChildrenChecked && (selfSelected || hasCheckedChild)) {
-        checked.add(node.menu_key);
-        return 2;
-      }
-      if (hasCheckedChild) {
-        halfChecked.add(node.menu_key);
-        return 1;
-      }
-      if (selfSelected) {
-        checked.add(node.menu_key);
-        return 2;
-      }
-      return 0;
+  const loadPermissionCatalog = async () => {
+    const items: RolePermissionOption[] = [];
+    const readPage = async (page: number): Promise<void> => {
+      const { data } = await getRolePermissionCatalog({
+        page_no: page,
+        page_size: 100,
+      });
+      if (data.items.length === 0 && items.length < data.total)
+        throw new Error(t('systemRole.auth.catalogIncomplete'));
+      items.push(...data.items);
+      if (items.length < data.total) return readPage(page + 1);
+      return undefined;
     };
-
-    menuTree.value.forEach(visit);
-    authCheckedKeys.value = orderKeys(checked);
-    authHalfCheckedKeys.value = orderKeys(halfChecked);
-  };
-
-  const loadMenuTree = async () => {
-    if (menuTree.value.length > 0) return;
-    const { data } = await getMenuAll();
-    menuTree.value = data;
+    await readPage(1);
+    return items;
   };
 
   const handleAuth = async (record: RoleRecord) => {
+    authGeneration += 1;
+    const generation = authGeneration;
     authVisible.value = true;
     authLoading.value = true;
-    try {
-      const [{ data }] = await Promise.all([
-        getRoleDetail(record.id),
-        loadMenuTree(),
-      ]);
-      const menuIds = data.menu_keys;
-      Object.assign(authForm, {
-        id: data.id,
-        name: data.name,
-        desc: data.desc,
-        sort: data.sort,
-        menu_keys: [...menuIds],
-      });
-      parentLinked.value = true;
-      expandedKeys.value = [];
-      normalizeLinkedState(menuIds);
-    } catch (error) {
-      authVisible.value = false;
-      throw error;
-    } finally {
-      authLoading.value = false;
-    }
-  };
-
-  const setSubtreeChecked = (
-    node: MenuRecord,
-    checked: boolean,
-    checkedSet: Set<string>,
-    halfCheckedSet: Set<string>
-  ) => {
-    if (checked) checkedSet.add(node.menu_key);
-    else checkedSet.delete(node.menu_key);
-    halfCheckedSet.delete(node.menu_key);
-    node.children?.forEach((child) =>
-      setSubtreeChecked(child, checked, checkedSet, halfCheckedSet)
-    );
-  };
-
-  const updateAncestors = (
-    node: MenuRecord,
-    checkedSet: Set<string>,
-    halfCheckedSet: Set<string>
-  ) => {
-    let parent = menuNodeMap.value.get(node.parent_key ?? '');
-    while (parent) {
-      const children = parent.children ?? [];
-      const allChildrenChecked =
-        children.length > 0 &&
-        children.every((child) => checkedSet.has(child.menu_key));
-      const hasCheckedChild = children.some(
-        (child) =>
-          checkedSet.has(child.menu_key) || halfCheckedSet.has(child.menu_key)
-      );
-
-      if (allChildrenChecked) {
-        checkedSet.add(parent.menu_key);
-        halfCheckedSet.delete(parent.menu_key);
-      } else if (hasCheckedChild) {
-        checkedSet.delete(parent.menu_key);
-        halfCheckedSet.add(parent.menu_key);
-      } else {
-        checkedSet.delete(parent.menu_key);
-        halfCheckedSet.delete(parent.menu_key);
-      }
-      parent = menuNodeMap.value.get(parent.parent_key ?? '');
-    }
-  };
-
-  const handleAuthCheck = (
-    rawCheckedKeys: Array<number | string>,
-    event: AuthCheckEvent
-  ) => {
-    const keys = rawCheckedKeys.map(String);
-    if (!parentLinked.value) {
-      authCheckedKeys.value = keys;
-      authHalfCheckedKeys.value = [];
-      return;
-    }
-
-    const nodeId = event.node?.menu_key;
-    const node = menuNodeMap.value.get(nodeId ?? '');
-    if (!node) return;
-
-    const checkedSet = new Set(authCheckedKeys.value);
-    const halfCheckedSet = new Set(authHalfCheckedKeys.value);
-    const checked = event.checked ?? keys.includes(node.menu_key);
-    setSubtreeChecked(node, checked, checkedSet, halfCheckedSet);
-    updateAncestors(node, checkedSet, halfCheckedSet);
-    authCheckedKeys.value = orderKeys(checkedSet);
-    authHalfCheckedKeys.value = orderKeys(halfCheckedSet);
-  };
-
-  const handleTreeCheck = (data: MenuRecord, checked: AuthTreeCheckedInfo) => {
-    handleAuthCheck(checked.checkedKeys, {
-      checked: checked.checked,
-      node: data,
+    authSubmitLoading.value = false;
+    Object.assign(authForm, {
+      role_id: record.id,
+      expected_revision: '',
+      permission_keys: [],
     });
-  };
-
-  const handleLinkageChange = (value: CheckboxValue) => {
-    const linked = value === true;
-    parentLinked.value = linked;
-    if (linked) {
-      normalizeLinkedState([
-        ...authCheckedKeys.value,
-        ...authHalfCheckedKeys.value,
+    authRoleKey.value = '';
+    permissionCatalog.value = [];
+    const isCurrent = () => generation === authGeneration && authVisible.value;
+    try {
+      const [{ data }, catalog] = await Promise.all([
+        getRolePermissions(record.id),
+        loadPermissionCatalog(),
       ]);
-      return;
+      if (!isCurrent()) return;
+      if (String(data.role_id) !== String(record.id))
+        throw new Error('Role permission response target changed');
+      permissionCatalog.value = catalog;
+      Object.assign(authForm, {
+        role_id: data.role_id,
+        expected_revision: data.revision,
+        permission_keys: [...data.permission_keys],
+      });
+      authRoleKey.value = data.key;
+      permissionSearch.value = '';
+    } catch (error) {
+      // Helpers return local data, so an obsolete response/error cannot mutate
+      // the active role, its menus, catalog, visibility or loading indicators.
+      if (isCurrent()) {
+        authVisible.value = false;
+        ElMessage.error(
+          error instanceof Error
+            ? error.message
+            : t('systemRole.auth.catalogIncomplete')
+        );
+      }
+    } finally {
+      if (isCurrent()) authLoading.value = false;
     }
-    authCheckedKeys.value = orderKeys(
-      new Set([...authCheckedKeys.value, ...authHalfCheckedKeys.value])
-    );
-    authHalfCheckedKeys.value = [];
-  };
-
-  const handleExpandAll = (value: CheckboxValue) => {
-    const expanded = value === true;
-    expandedKeys.value = expanded ? [...allMenuIds.value] : [];
-  };
-
-  const handleSelectAll = (value: CheckboxValue) => {
-    const checked = value === true;
-    authCheckedKeys.value = checked ? [...allMenuIds.value] : [];
-    authHalfCheckedKeys.value = [];
   };
 
   const handleAuthSubmit = async () => {
-    const menuIds = orderKeys(
-      new Set([...authCheckedKeys.value, ...authHalfCheckedKeys.value])
-    );
-    if (menuIds.length === 0) {
-      ElMessage.warning(t('systemRole.tip.permissionRequired'));
+    if (
+      !authVisible.value ||
+      authLoading.value ||
+      authSubmitLoading.value ||
+      !authForm.expected_revision ||
+      authRoleKey.value === 'core.tenant-owner'
+    )
       return false;
-    }
-
+    const generation = authGeneration;
+    const isCurrent = () => generation === authGeneration && authVisible.value;
     authSubmitLoading.value = true;
     try {
-      await editRole({
-        id: authForm.id,
-        name: authForm.name,
-        desc: authForm.desc,
-        sort: authForm.sort,
-        menu_keys: menuIds,
+      await replaceRolePermissions({
+        role_id: authForm.role_id,
+        expected_revision: authForm.expected_revision,
+        permission_keys: [...new Set(authForm.permission_keys)],
       });
+      if (!isCurrent()) return false;
       ElMessage.success(t('systemRole.tip.success'));
       authVisible.value = false;
       await fetchData(pagination.current);
       return true;
+    } catch {
+      return false;
     } finally {
-      authSubmitLoading.value = false;
+      if (isCurrent()) authSubmitLoading.value = false;
     }
   };
 </script>
@@ -632,18 +525,12 @@
     padding: 0 20px 20px 20px;
   }
 
-  .auth-toolbar {
+  .action-permissions {
     display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    margin-bottom: 12px;
-  }
-
-  .auth-tree {
-    height: 480px;
-    padding: 8px 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    max-height: 240px;
     overflow: auto;
-    border: 1px solid var(--color-neutral-3);
-    border-radius: 4px;
+    margin-top: 8px;
   }
 </style>

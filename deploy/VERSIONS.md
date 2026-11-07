@@ -1,24 +1,12 @@
-# Peanut Admin 运行版本范围
+# 部署与构建版本来源
 
-## 生产运行时
+| 对象 | 权威来源 | 说明 |
+| --- | --- | --- |
+| 产品源码版本 | release-versions.json | 开发身份，不证明已发行 |
+| APP版本与上游基线 | .peanut/application-manifest.json及APP Git | 二开版本与上游版本分别记录 |
+| PHP与扩展 | server/composer.json、server/composer.lock、实际固定镜像 | 以该版本平台要求和运行检查为准 |
+| Composer/Node/包管理器 | tools/toolchain.json及本机私有绑定 | project-env doctor核已准备工具；prepare另行显式执行 |
+| PHP/Nginx/MySQL镜像 | server/docker的对应配方和实际镜像ID | tag不是不可变镜像证明 |
+| 浏览器静态 | 同次APP制包构建到server/public | 生产不临时运行前端开发构建 |
 
-| 组件 | 支持范围 | 默认版本 |
-|---|---|---|
-| PHP | 8.3.x | Docker `php:8.3-fpm-bookworm` |
-| MySQL | 8.0.36+、8.4.x | Docker `mysql:8.4` |
-| Nginx | 1.24+ | Docker `nginx:1.28.0-alpine` |
-| Redis | 7.x，可选 | 默认不启动 |
-
-PHP 8.1.33 是历史业务验收使用的本地版本，但 2026 年已经不适合作为新生产环境默认值。PHP 8.2 在补充发布 CI 矩阵前不列为正式生产支持版本。
-
-## 构建环境
-
-| 组件 | 支持范围 |
-|---|---|
-| Node.js | >=22.12、<23 |
-| pnpm | 9.x |
-| Composer | 2.8.x |
-
-Node.js、pnpm 和 Composer 不需要安装到生产宿主机。Docker 构建阶段使用 Node.js 22 构建管理端、PC 端和 H5。默认 `spa` 模式把完整 PC 静态产物放在 `server/public/pc`，由 Nginx 在网站根路径提供，无需 PC Node 服务；选择 `hybrid` 时须启用 Compose `ssr` profile，Nginx 将根路径交 Nuxt/Nitro，只有登记的展示页 SSR。PHP 和 Composer 运行在后端容器中。
-
-版本范围扩大前必须在对应运行时完成一次安装、后端启动和最低充分业务 smoke。仅有 Composer 约束不代表该版本已经获得生产支持。
+普通APP默认server-only制包，详细合同见docs/public/application-release.md。本地与CI调用同一版本原生脚本并固定依赖；不得以此表写一个长期不更新的重复版本矩阵。SSR、原生终端及可选服务另按实际支持范围验证，不从SPA构建成功推定其可用。

@@ -26,6 +26,7 @@
           </el-form-item>
           <el-form-item>
             <el-button
+              v-permission="['peanut.settings.manage']"
               type="primary"
               :loading="submitLoading"
               @click="handleSubmit"
@@ -102,8 +103,8 @@
     if (!valid) return;
     submitLoading.value = true;
     try {
-      await saveWebsiteConfig({ ...form });
-      brandStore.replace({ ...form });
+      const { data } = await saveWebsiteConfig({ ...form });
+      brandStore.replace(data);
       ElMessage.success(t('systemConfig.tip.success'));
     } finally {
       submitLoading.value = false;

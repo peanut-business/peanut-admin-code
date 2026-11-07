@@ -1,0 +1,33 @@
+# ThinkPHP 原生迁移合同
+
+宿主结构入口为 `server/database/migrations`，模块结构由各模块 manifest 声明的 `database/migrations` 提供；均使用锁定的 topthink/think-migration 官方 Service、Migrator 和 Seeder。命令为 `php server/think migrate:create <Name>`、`migrate:run`、`migrate:status`、`migrate:rollback`、`seed:create`、`seed:run`；不传旧租约/基线劫持参数。实际操作数据库前仍须核对目标实例、资源准入及恢复边界。
+
+当前宿主初始结构为 `20261101020000_initial_scaffold_baseline.php` 和 `schema/baseline-schema.sql`；基础模块自己的初始迁移先于宿主基线运行。宿主结构只含宿主表定义，不带开发库记录、历史自研账本和 fixture 表；既有表结构采用已核实的原生 `SHOW CREATE TABLE`，去掉随数据变化的表级 AUTO_INCREMENT 计数。官方账本默认 `pa_migrations`，记录 timestamp version/name/时间，不提供旧自研 checksum/coverage 状态。初始基线不可逆，rollback 明确失败；重装只能由 owner 另行指定空库，代码不自动清库。后续结构变更新增原生 PHP 迁移。
+
+首次安装仍要求空库。采用初始结构前，安装器按模块声明及宿主引用核对所选表，模块迁移按原生版本顺序创建自己的表，再执行宿主基线；外键检查始终由数据库执行。宿主基线先对所有已存在的宿主表逐字比较完整原生定义（只忽略表级 AUTO_INCREMENT 计数），任何差异在创建缺失宿主表前拒绝。通过后只创建缺失表，由 think-migration 记录真实执行。不得直接填充 applied version 或用 `IF NOT EXISTS` 忽略未知结构差异。DDL 或记账中断时保留实际现场，先核真实定义和账本再决定后续，不承诺任意部分失败都能直接重跑。
+
+安装业务保留空库及重复拒绝、动态租户/管理员、权限和模块目录、安装锁、健康与完成身份。先官方结构迁移，再初始化动态身份，然后 `seed:run --seed=InitialSeeder`。种子核实际默认租户及 owner，拒绝非空或部分完成。由于权限目录 repository 使用框架连接，native seed 初始事务提交后才同步目录，再执行后续数据事务；失败可能留下部分初始化，不能重放或声称整段原子。
+
+`schema/baseline-data.sql` 只承载首次真实租户的中性设置；File 的本地存储账号、空间和路由由其 `backend.seeds` 声明的原生 Seeder 在模块首次安装时建立。权限与菜单目录由其所属模块同步，拆出业务模块的默认数据由其模块提供。关联默认租户使用安装实际身份。创建应用默认 `--demo=none`。显式 `--demo=workbench` 由同一首次安装入口在原生安装锁内把 `application.workbench-demo` 写入实际默认租户设置；选择同时记录在APP manifest与 `peanut.demo.preset`，不启用弱密码演示账号策略。管理员、平台账号和安装身份由当次安装输入建立，开发库账号、域名、凭据、会话和业务记录不作为安装种子。完整开发库 dump 是独立恢复备份，不能替换这份初始数据或进入模板载荷。四类数据边界与显式示例用法见[安装说明](../public/installation.md#5-初始数据与可选示例)。
+
+首次初始化数据仅由安装器在动态身份建立后调用 `InitialSeeder`；两个 Edition 不另建种子或伪造 applied 账本。[锁定的官方 seed runner](https://github.com/top-think/think-migration/blob/v3.1.1/src/command/seed/Run.php) 不记录种子版本，基线结构 applied 不等于种子或安装已完成，完成身份仍由安装业务管理。后续结构及必要系统数据变更使用新的原生 Migration，不能通过重跑种子覆盖已安装实例的设置、权限或身份。可选工作台示例只消费首次安装前明确选择的preset，不加入版本迁移，也不在升级或安装后通过命令补播种；`scripts/seed-demo-data --plan` 只读预览。
+
+模块安装/升级发现 manifest 中声明的 `backend.migrations`，复用原生 pending 迁移并验证自有表存在；不满足结构则拒绝，不能仅复制模块目录后成功。卸载保留全局原生版本历史；清除表后重新启用须通过未执行过的原生迁移提供结构，不能伪填账本。
+
+### Module 安装实体归并
+
+新安装源不再创建退役的 `pa_transaction_setting`、`pa_plugin_installation`、`pa_plugin_module`。已有实例通过新增的 `20261103235000_remove_retired_transaction_setting.php` 删除无消费者的交易运营设置表及其废弃值；该迁移不可逆，恢复旧值使用配对备份，不重建失效功能。旧 Plugin 两表仍由下面的原生归并迁移按真实记录转换，不修改已执行迁移。新租户的装修只创建空页面、首页导航与必要主题结构，不初始化资讯、收藏、广告或虚构客服时段；模块内容由所选模块贡献。`20261103235500_remove_unchanged_host_examples.php` 仅清理完整旧页面名称、data/meta 字节摘要全部匹配的默认示例，将其 data 置为空数组；只删除名称、链接、显示状态和空图标全部匹配的旧资讯/个人导航。实际写入的 WHERE 保持完整谓词，避免覆盖并发定制。主题、首页导航、不同 JSON 序列化及任何已修改内容保留；不靠 ID、时间或同义 JSON 推断归属。
+
+新安装仍依次执行固定初始来源及其后续原生 Migration；已有安装只运行尚未应用的前向 Migration，不能重放初始基线或 Seeder。`20261103230000_unify_module_installation.php` 把原自有 Plugin 的制品/依赖恢复字段归入 `module_installation`，保留已有 Module 主键、原生迁移账本、业务表及运行状态。原 Plugin active 与 Module maintenance 合并为 maintenance；失败、安装中、升级中及已卸载记录承接其原状态/错误和制品身份，不把失败改为成功。
+
+首装失败可能尚无 Module/归属行，purge 历史也可能已没有 Module 行；迁移保留可验证的原 key、尝试版本、制品身份、原错误和时间，缺失的成功 manifest/schema 身份明确记为 NULL。恢复时仍由正常源核验、安装恢复或更高修复版本入口重新确认，不能凭历史行开放业务。实际多 Module/异名归属明确拒绝转换，原表保留，先审阅其精确历史来源。确认归并后退出两张旧账本，不建立长期双写或第二个安装实体。
+
+源声明转换先于新运行入口对 `modules.lock` 的依赖，数据库归并再通过既有应用迁移入口执行；不得直接操作下游业务表补行或伪造 applied。升级前保留配对备份。旧 `.local/module-source-adoption/journal.json` 在替换源码前必须通过原版本原生恢复入口收口，原生源计划会明确拒绝未完成 journal；不改写其冻结证据。`.local/module-quarantine` 中已确认的卸载计划保持原字节和确认摘要，收尾使用计划原已保存的 Module key/version/manifest 身份核对隔离源码，正常卸载不删除业务数据和迁移历史。
+
+保留原软件与其工具链配置，在原 APP 使用 `peanut module adopt --root <APP> -- --recover` 完成未结 source-adoption。尚有退役或 purge marker 时，同样先用原版本 `peanut module uninstall --root <APP> -- <module-key> [--purge] --confirm-plan-file=<原绝对路径> --confirm-plan-digest=<原摘要>` 收尾，再做正常 scaffold 升级；是否 purge 必须与原确认计划一致。原 `.local/module-source-adoption/<transaction>/`、`.local/module-quarantine/` 和 `.peanut/upgrades/backups/` 是配对恢复资料，保持原字节，不作为新源码的声明源，也不改写旧软件备份。升级正常计划列出旧锁和全部已验证 wrapper 的删除，包括不在模板文件并集中的 APP 自有 Module；原生备份/恢复写集覆盖这些删除，业务源码保留。
+
+模块 `backend.seeds` 使用既有 canonical `database/seeds` 目录和 ThinkPHP 原生 Seeder。沿官方全局类名合同，Seeder 使用含模块前缀的唯一 PascalCase 类名。正式安装在结构确认后、目录登记和激活前执行；已激活的模块、升级和目录重同步不会重跑初始种子。不新增 seed 账本；失败发生在种子提交后时，沿原失败安装入口恢复，模块种子必须幂等且保留现有值，不能清业务数据或覆盖实例配置。后续必要数据变化仍新增原生 Migration，不靠重跑初始种子升级。Task 的定时计划初始为空；Host `generator:cleanup` 未登记为租户定时执行命令，不自动预置其计划。种子只提供该模块自有的必需中性默认，不创建租户、成员、角色授权、许可证或样例业务。
+
+旧数据库 baseline 清单、kernel-migrations、覆盖版本账本、schema:application 和历史 partial continuation 已删除。保留旧现场及冻结证据不代表现行程序能续跑它们，也不授权清空数据。源码升级三方 baseline、安装身份和业务幂等是独立合同，继续保留。
+
+本次静态/入口检查不能证明真实 MySQL 安装、回滚或生产更新通过；实际运行、测试和发行资格按各自授权记录。

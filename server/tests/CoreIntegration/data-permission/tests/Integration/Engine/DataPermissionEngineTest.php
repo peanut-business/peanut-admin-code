@@ -13,7 +13,6 @@ use PeanutAdmin\DataPermission\Constraint\ThinkPhpQueryConstraintApplier;
 use PeanutAdmin\DataPermission\Engine\DataPermissionEngine;
 use PeanutAdmin\DataPermission\Exception\DataAuthorizationException;
 use PeanutAdmin\Modules\Identity\DataPermission\Policy\ThinkPhpPolicyRepository;
-use PeanutAdmin\DataPermission\Policy\PolicyCache;
 use PeanutAdmin\DataPermission\Provider\ConditionProviderRegistry;
 use PeanutAdmin\Modules\Identity\DataPermission\Provider\ThinkPhpDepartmentHierarchyProvider;
 use PeanutAdmin\Modules\Identity\DataPermission\Provider\ThinkPhpTargetSetMembershipProvider;
@@ -37,7 +36,6 @@ use PeanutAdmin\Kernel\Authorization\Persistence\PermissionDefinition;
 use PeanutAdmin\Kernel\Authorization\Persistence\ProtectedResourceDefinition;
 use PeanutAdmin\Kernel\Authorization\Persistence\ResourceOperationDefinition;
 use PeanutAdmin\Kernel\Authorization\Persistence\TargetTypeDefinition;
-use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
 use PeanutAdmin\Kernel\Authorization\TenantAuthorizationEvaluator;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
 use think\db\PDOConnection;
@@ -76,13 +74,7 @@ final class DataPermissionEngineTest extends DatabaseTestCase
     {
         parent::setUp();
         $this->runner->migrate();
-        (new DataPermissionMigrationRunner(
-            self::DATABASE,
-            '127.0.0.1',
-            (int) (getenv('MYSQL_PORT') ?: 3306),
-            'root',
-            getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev',
-        ))->migrate();
+        (new DataPermissionMigrationRunner($this->database))->migrate();
         $this->createFixtureTables();
         $this->seedKernel();
         $this->seedBusinessFixtures();
@@ -376,13 +368,7 @@ SQL);
         $this->grant($this->alphaTenant, $this->roleA, $this->readPermissionId);
         $this->grant($this->alphaTenant, $this->roleA, $this->updatePermissionId);
         $this->grant($this->alphaTenant, $this->roleB, $this->readPermissionId);
-        $this->insert('pa_tenant_module', [
-            'tenant_id' => $this->alphaTenant,
-            'module_key' => 'example',
-            'status' => 'enabled',
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
+        $this->licenseTenantModules($this->alphaTenant, ['example'], 'active');
         $this->context = $this->context($this->memberId, $this->accountId);
     }
 
@@ -432,12 +418,10 @@ SQL);
         $resolvers->register('example.project.resolver', new ProjectTargetResolver($this->database));
 
         return new DataPermissionEngine(
-            new ThinkPhpResourceOperationCatalog(),
+            new ThinkPhpResourceOperationCatalog($this->fixtureEntitlements(['example'])),
             new ThinkPhpPolicyRepository(),
-            new PolicyCache(),
             new TenantAuthorizationEvaluator(
-                new ThinkPhpTenantAuthorizationRepository(),
-                new RevisionPermissionCache(),
+                $this->fixtureAuthorizationRepository(['example']),
             ),
             $providers,
             $resolvers,
@@ -680,7 +664,7 @@ SQL);
             'web',
             new DateTimeImmutable(self::NOW),
             1,
-        ), 'request-' . $memberId);
+        1), 'request-' . $memberId);
     }
 
     /** @param list<string> $ids */

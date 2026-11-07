@@ -17,9 +17,9 @@ export function isPcPrivateRoute(path: string): boolean {
 // 唯一 SSR 登记按真实页面文件匹配，新增同目录页面不会继承公开资格。
 export const pcPublicSsrPages = Object.freeze([
   'index.vue',
-  'information/index.vue',
-  'information/[source].vue',
-  'information/detail/[id].vue',
+  '../modules/peanut-article/pages/information/index.vue',
+  '../modules/peanut-article/pages/information/[source].vue',
+  '../modules/peanut-article/pages/information/detail/[id].vue',
   'about.vue',
 ] as const);
 
@@ -45,7 +45,14 @@ export function createPcPageRules(
         parameter.includes('.*') ? '**' : '*'
       );
       const publicPage = pcPublicSsrPages.some(
-        (file) => page.file === `${pagesDirectory}/${file}`
+        (file) =>
+          page.file ===
+          (file.startsWith('../')
+            ? `${pagesDirectory.slice(
+                0,
+                pagesDirectory.lastIndexOf('/')
+              )}/${file.slice(3)}`
+            : `${pagesDirectory}/${file}`)
       );
       if (page.file)
         rules[pattern] = {

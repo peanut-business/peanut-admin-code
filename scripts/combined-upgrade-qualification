@@ -195,6 +195,7 @@ PHP
 
 if [[ "${1:-}" == '--validate-policy' ]]; then
   [[ $# -eq 2 ]] || usage
+  PHP_BIN="$(command -v php)" || die 'registered PHP is required for policy validation'
   validate_fixture "$2" >/dev/null
   printf 'COMBINED-UPGRADE-POLICY-001 passed\n'
   exit 0

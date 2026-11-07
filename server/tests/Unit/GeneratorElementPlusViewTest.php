@@ -5,12 +5,26 @@ declare(strict_types=1);
 namespace tests\Unit;
 
 use app\adminapi\services\generator\GeneratorRenderService;
+use Tests\Support\GeneratorFixtureApplication;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /** 执行真实预览渲染，不落业务源码或访问数据库；前端运行行为由消费者测试另验。 */
 final class GeneratorElementPlusViewTest extends TestCase
 {
+    private GeneratorFixtureApplication $fixtureApplication;
+
+    protected function setUp(): void
+    {
+        require_once dirname(__DIR__) . '/Support/GeneratorFixtureApplication.php';
+        $this->fixtureApplication = new GeneratorFixtureApplication();
+    }
+
+    protected function tearDown(): void
+    {
+        unset($this->fixtureApplication);
+    }
+
     public static function examples(): array
     {
         $inputs = require dirname(__DIR__) . '/fixtures/generator-element-plus-inputs.php';
@@ -25,7 +39,7 @@ final class GeneratorElementPlusViewTest extends TestCase
     #[DataProvider('examples')]
     public function testActualViewUsesTheDeclaredUiAndNativeComponentContracts(array $input, string $entity, string $resource, string $primary, bool $recycle): void
     {
-        $files = array_column(GeneratorRenderService::render($input), 'content', 'path');
+        $files = array_column(GeneratorRenderService::render($input, $this->fixtureApplication->root), 'content', 'path');
         $view = $files['web/src/modules/fixture-delivery-record/generated/' . $resource . '/index.vue'];
         $package = json_decode(file_get_contents(dirname(__DIR__, 3) . '/web/package.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertArrayHasKey('element-plus', $package['dependencies']);
@@ -55,7 +69,7 @@ final class GeneratorElementPlusViewTest extends TestCase
     #[DataProvider('examples')]
     public function testProjectionPermissionsAndTypedPrimaryKeysRemainIntact(array $input, string $entity, string $resource, string $primary, bool $recycle): void
     {
-        $files = array_column(GeneratorRenderService::render($input), 'content', 'path');
+        $files = array_column(GeneratorRenderService::render($input, $this->fixtureApplication->root), 'content', 'path');
         $prefix = 'web/src/modules/fixture-delivery-record/generated/' . $resource . '/';
         $view = $files[$prefix . 'index.vue'];
         foreach (['api_secret', 'tenant_id', 'removed_at', 'delete_time'] as $hidden) {
@@ -91,7 +105,7 @@ final class GeneratorElementPlusViewTest extends TestCase
     #[DataProvider('examples')]
     public function testTemplateReusesPublicAsyncStateAndDoesNotHideFailure(array $input, string $entity, string $resource, string $primary, bool $recycle): void
     {
-        $files = array_column(GeneratorRenderService::render($input), 'content', 'path');
+        $files = array_column(GeneratorRenderService::render($input, $this->fixtureApplication->root), 'content', 'path');
         $view = $files['web/src/modules/fixture-delivery-record/generated/' . $resource . '/index.vue'];
         self::assertStringContainsString("from '@peanut-admin/vue'", $view);
         self::assertStringContainsString('useAsyncList<', $view);
@@ -115,10 +129,10 @@ final class GeneratorElementPlusViewTest extends TestCase
     public function testRepeatedPreviewIsDeterministicAndDoesNotApplyMergeOrCreateFiles(): void
     {
         $input = self::examples()['string recycle'][0];
-        $first = GeneratorRenderService::render($input);
-        self::assertSame($first, GeneratorRenderService::render($input));
+        $first = GeneratorRenderService::render($input, $this->fixtureApplication->root);
+        self::assertSame($first, GeneratorRenderService::render($input, $this->fixtureApplication->root));
         self::assertNotEmpty($first);
-        $root = dirname(__DIR__, 3);
+        $root = $this->fixtureApplication->root;
         foreach ($first as $file) {
             if ($file['operation'] === 'create') {
                 self::assertFileDoesNotExist($root . '/' . $file['path']);

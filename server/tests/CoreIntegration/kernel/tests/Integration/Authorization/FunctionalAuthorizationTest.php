@@ -45,6 +45,7 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
             'platform.module.read',
             'platform.module.create',
             'platform.module.install',
+            'platform.module.update',
             'platform.module.uninstall',
             'platform.module.disable',
             'platform.module.sync',
@@ -81,7 +82,7 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
             "UPDATE pa_role SET status = 'disabled' WHERE id = {$roleB}",
         );
 
-        $repository = new ThinkPhpTenantAuthorizationRepository();
+        $repository = $this->fixtureAuthorizationRepository(['example.records']);
         $member = $repository->member($tenantId, $memberId);
 
         self::assertSame($memberId, $member['id'] ?? null);
@@ -123,13 +124,7 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
             'created_at' => self::NOW,
             'updated_at' => self::NOW,
         ]);
-        $this->insert('pa_tenant_module', [
-            'tenant_id' => $tenantId,
-            'module_key' => 'example.records',
-            'status' => 'disabled',
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
+        $this->licenseTenantModules($tenantId, ['example.records'], 'suspended');
 
         $evaluator = $this->tenantEvaluator();
         $context = $this->tenantContext($tenantId, $memberId);
@@ -138,10 +133,12 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
         self::assertFalse($evaluator->allows($context, 'platform.tenant.read'));
 
         $this->database->exec(<<<'SQL'
-        UPDATE pa_tenant_module
-        SET status = 'enabled', authorization_revision = authorization_revision + 1
-        WHERE module_key = 'example.records'
+        UPDATE pa_tenant_license
+        SET status = 'active', revision = revision + 1
+        WHERE status = 'suspended'
         SQL);
+        (new \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationRevisionRepository())->bumpTenant($tenantId);
+        $context = $this->tenantContext($tenantId, $memberId);
         self::assertTrue($evaluator->allows($context, 'example.record.read'));
 
         $this->database->exec(<<<'SQL'
@@ -149,6 +146,8 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
         SET status = 'maintenance', revision = revision + 1
         WHERE module_key = 'example.records'
         SQL);
+        (new \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationRevisionRepository())->bumpTenant($tenantId);
+        $context = $this->tenantContext($tenantId, $memberId);
         self::assertFalse($evaluator->allows($context, 'example.record.read'));
 
         $this->database->exec(<<<'SQL'
@@ -156,9 +155,13 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
         SET status = 'active', revision = revision + 1
         WHERE module_key = 'example.records'
         SQL);
+        (new \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationRevisionRepository())->bumpTenant($tenantId);
+        $context = $this->tenantContext($tenantId, $memberId);
         self::assertTrue($evaluator->allows($context, 'example.record.read'));
 
         $this->database->exec("UPDATE pa_role SET status = 'disabled', authorization_revision = authorization_revision + 1 WHERE id = {$roleId}");
+        (new \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationRevisionRepository())->bumpTenant($tenantId);
+        $context = $this->tenantContext($tenantId, $memberId);
         self::assertFalse($evaluator->allows($context, 'core.member.read'));
     }
 
@@ -174,13 +177,7 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
             'sensitive',
             '1.0.0',
         ));
-        $this->insert('pa_tenant_module', [
-            'tenant_id' => $tenantId,
-            'module_key' => 'example.records',
-            'status' => 'enabled',
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
+        $this->licenseTenantModules($tenantId, ['example.records'], 'active');
 
         $evaluator = $this->tenantEvaluator();
         $context = $this->tenantContext($tenantId, $memberId);
@@ -224,6 +221,8 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
 
         $this->grantTenantPermission($tenantId, $roleId, $this->permissionId('core.member.update'));
         $this->database->exec("UPDATE pa_role SET authorization_revision = authorization_revision + 1 WHERE id = {$roleId}");
+        (new \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationRevisionRepository())->bumpTenant($tenantId);
+        $context = $this->tenantContext($tenantId, $memberId);
 
         self::assertTrue($evaluator->allows($context, 'core.member.update'));
     }
@@ -387,6 +386,7 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
             'web',
             new DateTimeImmutable(self::NOW),
             1,
+            (int) $this->query("SELECT authorization_revision FROM pa_tenant WHERE id = {$tenantId}")->fetchColumn(),
         ), 'request');
     }
 
@@ -405,8 +405,7 @@ final class FunctionalAuthorizationTest extends DatabaseTestCase
     private function tenantEvaluator(): TenantAuthorizationEvaluator
     {
         return new TenantAuthorizationEvaluator(
-            new ThinkPhpTenantAuthorizationRepository(),
-            new RevisionPermissionCache(),
+            $this->fixtureAuthorizationRepository(['example.records']),
         );
     }
 

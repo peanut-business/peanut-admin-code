@@ -1,10 +1,26 @@
 import axios from 'axios';
+import type { PlatformApiAccess } from '../core/platform-access';
+import {
+  readPlan,
+  readPlanPage,
+  readPlanModules,
+  readTenantLicense,
+  type Plan,
+  type LicenseInput,
+} from './tenant-license';
+import {
+  readPermissionApi,
+  readPermissionBundle,
+  readPermissionMenuBinding,
+  readPermissionPage,
+  type PermissionAudience,
+} from './permission-bundles';
 import type { AxiosRequestConfig, AxiosResponse } from 'axios';
 import type {
   MaintenanceScheduleInput,
   OpsConsoleTransport,
   OpsTransportResult,
-} from '../modules/official-ops/contribution';
+} from '../modules/peanut-ops/contribution';
 
 interface Envelope<T> {
   code: number;
@@ -15,6 +31,27 @@ interface Envelope<T> {
 export interface Page<T> {
   lists: T[];
   count: number;
+}
+
+export interface RuntimeModuleStatus {
+  module_key: string;
+  version: string;
+  status: string;
+  tenant_enabled_count: number;
+  dependencies: unknown[];
+  optional_dependencies: unknown[];
+  pending_actions: string[];
+}
+
+export interface ModuleOperationTask {
+  task_key: string;
+  status: string;
+  current_step: string;
+  operation: string;
+  package_key: string;
+  last_error_code: string | null;
+  result: Record<string, unknown> | null;
+  recovery_pointer: Record<string, unknown> | null;
 }
 
 export interface Session {
@@ -28,6 +65,43 @@ export interface SessionInfo {
   platform_operator_id: string;
   permissions: string[];
   navigation: string[];
+  api_access: PlatformApiAccess[];
+}
+
+function readSessionInfo(value: unknown): SessionInfo {
+  if (typeof value !== 'object' || value === null || Array.isArray(value))
+    throw new Error('平台会话信息格式异常');
+  const row = value as Record<string, unknown>;
+  const strings = (items: unknown): items is string[] =>
+    Array.isArray(items) && items.every((item) => typeof item === 'string');
+  if (
+    row.audience !== 'platform' ||
+    typeof row.account_id !== 'string' ||
+    typeof row.platform_operator_id !== 'string' ||
+    !strings(row.permissions) ||
+    !strings(row.navigation) ||
+    !Array.isArray(row.api_access)
+  )
+    throw new Error('平台会话授权信息不完整，请刷新后重试');
+  const access = row.api_access.map((item: unknown): PlatformApiAccess => {
+    if (typeof item !== 'object' || item === null || Array.isArray(item))
+      throw new Error('平台 API 授权信息格式异常');
+    const endpoint = item as Record<string, unknown>;
+    if (
+      typeof endpoint.method !== 'string' ||
+      typeof endpoint.path !== 'string'
+    )
+      throw new Error('平台 API 授权信息格式异常');
+    return { method: endpoint.method.toUpperCase(), path: endpoint.path };
+  });
+  return {
+    audience: 'platform',
+    account_id: row.account_id,
+    platform_operator_id: row.platform_operator_id,
+    permissions: row.permissions,
+    navigation: row.navigation,
+    api_access: access,
+  };
 }
 
 export interface Tenant {
@@ -207,7 +281,7 @@ export interface OpsLatestVerifiedBackup {
   consistency_completed_at: string;
   verified_at: string;
   age_seconds: number;
-  source_matches_runtime: boolean;
+  source_matches_runtime: boolean | null;
 }
 
 export interface OpsLatestRestoreVerified {
@@ -231,6 +305,10 @@ export interface OpsBackupCenterSnapshot {
   restore_contract_status?: 'missing' | 'current' | 'unsupported_schema';
   new_paired_backup_required?: boolean;
   tasks: OpsBackupTask[];
+  source_identity_known: boolean;
+  page: number;
+  page_size: number;
+  total: number;
 }
 
 export interface ProviderQualificationItem {
@@ -253,6 +331,9 @@ export interface ProviderQualificationSnapshot {
   schema_version: 1;
   generated_at: string;
   providers: ProviderQualificationItem[];
+  page: number;
+  page_size: number;
+  total: number;
 }
 
 export interface DeveloperCatalogEvidence {
@@ -339,10 +420,10 @@ export interface OpsUpgradeReadinessSnapshot {
   checks: OpsUpgradeReadinessCheck[];
   source: {
     runtime: {
-      commit: string;
-      tree: string;
+      commit: string | null;
+      tree: string | null;
       release_key: string | null;
-      repository_clean: boolean;
+      repository_clean: boolean | null;
     };
     application: null | {
       application_version: string;
@@ -689,12 +770,17 @@ async function unwrap<T>(
         '尚未配置租户所有者邀请邮件服务，当前不能创建或发送邀请。',
       PLATFORM_AUTHENTICATION_INVALID: '平台登录凭据无效，请重新登录。',
       PLATFORM_SESSION_INVALID: '平台会话已失效，请重新登录。',
-      TENANT_CODE_EXISTS: '租户编码已被使用。',
+      TENANT_CODE_CONFLICT: '租户编码已被使用。',
       TENANT_OWNER_INVITATION_PENDING: '该租户已有待接受的所有者邀请。',
       TENANT_ENTRY_BINDING_CONFLICT: '该域名和客户端已绑定其他租户。',
+      SOURCE_IDENTITY_UNKNOWN: '当前源码身份未知，此操作需要可验证发行身份。',
+      OPS_STATUS_UNAVAILABLE: '该运维区域暂时无法读取，请稍后重试。',
+      OPS_PROVIDER_UNAVAILABLE: '所选运维服务当前不可用。',
     };
     const fallback = result.data.msg || '平台接口拒绝请求';
     const localizedMessages: Record<string, string> = {
+      'Operations request was rejected.':
+        '该操作当前无法执行，请检查本区域的配置与资格说明。',
       'Platform authentication credential is invalid.':
         '平台登录凭据无效，请重新登录。',
       'Owner invitation delivery is not configured.':
@@ -712,6 +798,124 @@ export function hasPlatformSession(): boolean {
 }
 
 export const api = {
+  planModules: async (page = 1) =>
+    readPlanModules(
+      await unwrap<unknown>(
+        client.get('/platformapi/instance-tools/modules', {
+          params: { page, page_size: 100 },
+        })
+      )
+    ),
+  plans: async (page = 1) =>
+    readPlanPage(
+      await unwrap<unknown>(
+        client.get('/platformapi/plans', { params: { page, page_size: 100 } })
+      )
+    ),
+  createPlan: async (data: {
+    code: string;
+    name: string;
+    module_keys: string[];
+    permission_keys: string[];
+    change_reason: string;
+  }) =>
+    readPlan(await unwrap<unknown>(client.post('/platformapi/plans', data))),
+  updatePlan: async (data: {
+    id: number;
+    expected_revision: number;
+    name: string;
+    status: Plan['status'];
+    module_keys: string[];
+    permission_keys: string[];
+    change_reason: string;
+  }) => readPlan(await unwrap<unknown>(client.put('/platformapi/plans', data))),
+  tenantLicense: async (tenantId: number) =>
+    readTenantLicense(
+      await unwrap<unknown>(
+        client.get('/platformapi/tenants/license', {
+          params: { tenant_id: tenantId },
+        })
+      )
+    ),
+  saveTenantLicense: async (data: LicenseInput) =>
+    readTenantLicense(
+      await unwrap<unknown>(client.put('/platformapi/tenants/license', data))
+    ),
+  permissionMenus: async () =>
+    readPermissionPage(
+      await unwrap<unknown>(client.get('/platformapi/permission/menus')),
+      readPermissionMenuBinding
+    ),
+  replacePermissionMenuBinding: async (data: {
+    menu_key: string;
+    permission_key: string | null;
+    action_key: string | null;
+    expected_revision: string;
+  }) =>
+    readPermissionMenuBinding(
+      await unwrap<unknown>(
+        client.put('/platformapi/permission/menus/binding', data)
+      )
+    ),
+  createPermissionBundle: async (data: {
+    key: string;
+    name: string;
+    audience: PermissionAudience;
+  }) =>
+    readPermissionBundle(
+      await unwrap<unknown>(
+        client.post('/platformapi/permission/bundles', data)
+      )
+    ),
+  updatePermissionBundle: async (data: {
+    permission_key: string;
+    name: string;
+    status: 'active' | 'retired';
+    expected_revision: string;
+  }) =>
+    readPermissionBundle(
+      await unwrap<unknown>(client.put('/platformapi/permission/bundles', data))
+    ),
+  permissionBundles: async (audience: PermissionAudience, page: number) =>
+    readPermissionPage(
+      await unwrap<unknown>(
+        client.get('/platformapi/permission/bundles', {
+          params: { audience, page_no: page, page_size: 100 },
+        })
+      ),
+      readPermissionBundle
+    ),
+  permissionApis: async (audience: PermissionAudience, page: number) =>
+    readPermissionPage(
+      await unwrap<unknown>(
+        client.get('/platformapi/permission/apis', {
+          params: { audience, page_no: page, page_size: 100 },
+        })
+      ),
+      readPermissionApi
+    ),
+  permissionBindings: async (permissionKey: string) =>
+    readPermissionBundle(
+      await unwrap<unknown>(
+        client.get('/platformapi/permission/apis/bindings', {
+          params: { permission_key: permissionKey },
+        })
+      )
+    ),
+  replacePermissionBindings: async (
+    permissionKey: string,
+    revision: string,
+    apiIds: string[]
+  ) =>
+    readPermissionBundle(
+      await unwrap<unknown>(
+        client.put('/platformapi/permission/apis/bindings', {
+          permission_key: permissionKey,
+          expected_revision: revision,
+          api_ids: apiIds,
+        })
+      )
+    ),
   async login(email: string, password: string) {
     advancePlatformSession();
     const snapshot = getPlatformSessionSnapshot();
@@ -754,8 +958,10 @@ export const api = {
     }
     return cleared;
   },
-  sessionInfo: () =>
-    unwrap<SessionInfo>(client.get('/platformapi/session/info')),
+  sessionInfo: async () =>
+    readSessionInfo(
+      await unwrap<unknown>(client.get('/platformapi/session/info'))
+    ),
   tenants: (page = 1, pageSize = 100) =>
     unwrap<Page<Tenant>>(
       client.get('/platformapi/tenants', {
@@ -845,27 +1051,10 @@ export const api = {
         params: { tenant_id: tenantId, page: 1, page_size: 100 },
       })
     ),
-  changeModule: (
-    enabled: boolean,
-    tenantId: number,
-    moduleKey: string,
-    changeReason: string
-  ) =>
-    unwrap(
-      client.post(
-        `/platformapi/tenants/modules/${enabled ? 'enable' : 'disable'}`,
-        {
-          tenant_id: tenantId,
-          module_key: moduleKey,
-          config: {},
-          change_reason: changeReason,
-        }
-      )
-    ),
-  operators: () =>
+  operators: (page = 1, pageSize = 100) =>
     unwrap<Page<Operator>>(
       client.get('/platformapi/operators', {
-        params: { page: 1, page_size: 100 },
+        params: { page, page_size: pageSize },
       })
     ),
   createOperator: (payload: Record<string, string>) =>
@@ -908,16 +1097,16 @@ export const api = {
         change_reason: changeReason,
       })
     ),
-  roles: () =>
+  roles: (page = 1, pageSize = 100) =>
     unwrap<Page<PlatformRole>>(
       client.get('/platformapi/roles', {
-        params: { page: 1, page_size: 100 },
+        params: { page, page_size: pageSize },
       })
     ),
-  permissions: () =>
+  permissions: (page = 1, pageSize = 100) =>
     unwrap<Page<Permission>>(
       client.get('/platformapi/permissions', {
-        params: { page: 1, page_size: 100 },
+        params: { page, page_size: pageSize },
       })
     ),
   createRole: (payload: Record<string, string>) =>
@@ -960,6 +1149,18 @@ export const api = {
     ),
   storageSnapshot: () =>
     unwrap<StorageSnapshot>(client.get('/platformapi/infrastructure/storage')),
+  storageAccounts: () =>
+    unwrap<{ accounts: StorageAccount[] }>(
+      client.get('/platformapi/infrastructure/storage/accounts')
+    ),
+  storageSpaces: () =>
+    unwrap<{ spaces: StorageSpace[] }>(
+      client.get('/platformapi/infrastructure/storage/spaces')
+    ),
+  storageRoutes: () =>
+    unwrap<{ routes: StorageRoute[] }>(
+      client.get('/platformapi/infrastructure/storage/routes')
+    ),
   createStorageAccount: (payload: Record<string, unknown>) =>
     unwrap(client.post('/platformapi/infrastructure/storage/account', payload)),
   updateStorageAccount: (payload: Record<string, unknown>) =>
@@ -974,14 +1175,18 @@ export const api = {
     ),
   setStorageRoute: (payload: Record<string, unknown>) =>
     unwrap(client.post('/platformapi/infrastructure/storage/route', payload)),
-  audit: () =>
+  audit: (page = 1, pageSize = 20) =>
     unwrap<Page<AuditEvent>>(
       client.get('/platformapi/audit', {
-        params: { page: 1, page_size: 100 },
+        params: { page, page_size: pageSize },
       })
     ),
-  backupCenter: () =>
-    unwrap<OpsBackupCenterSnapshot>(client.get('/platformapi/v1/ops/backups')),
+  backupCenter: (page = 1) =>
+    unwrap<OpsBackupCenterSnapshot>(
+      client.get('/platformapi/v1/ops/backups', {
+        params: { page, page_size: 20 },
+      })
+    ),
   upgradeReadiness: () =>
     unwrap<OpsUpgradeReadinessSnapshot>(
       client.get('/platformapi/v1/ops/upgrade-readiness')
@@ -1005,9 +1210,11 @@ export const api = {
         }
       )
     ),
-  providerQualifications: () =>
+  providerQualifications: (page = 1) =>
     unwrap<ProviderQualificationSnapshot>(
-      client.get('/platformapi/v1/ops/providers')
+      client.get('/platformapi/v1/ops/providers', {
+        params: { page, page_size: 20 },
+      })
     ),
   developerCatalog: (moduleKey = '') =>
     unwrap<DeveloperCenterCatalogSnapshot>(
@@ -1015,6 +1222,79 @@ export const api = {
         params: moduleKey ? { module_key: moduleKey } : {},
       })
     ),
+  submitModulePackage: (
+    operation: 'install' | 'update',
+    form: FormData,
+    idempotencyKey: string
+  ) =>
+    unwrap<ModuleOperationTask>(
+      client.post(`/platformapi/instance-tools/modules/${operation}`, form, {
+        headers: { 'Idempotency-Key': idempotencyKey },
+      })
+    ),
+  moduleOperationTask: (taskKey: string) =>
+    unwrap<ModuleOperationTask>(
+      client.get(
+        `/platformapi/instance-tools/modules/tasks/${encodeURIComponent(
+          taskKey
+        )}`
+      )
+    ),
+  async runtimeModules(
+    moduleKey = '',
+    page = 1
+  ): Promise<Page<RuntimeModuleStatus>> {
+    const result = await unwrap<unknown>(
+      client.get('/platformapi/instance-tools/modules', {
+        params: { module_key: moduleKey, page, page_size: 20 },
+      })
+    );
+    if (
+      !result ||
+      typeof result !== 'object' ||
+      !('lists' in result) ||
+      !Array.isArray(result.lists) ||
+      !('count' in result) ||
+      typeof result.count !== 'number'
+    ) {
+      throw new Error('Invalid Module installation response');
+    }
+    const lists = result.lists.map((item: unknown): RuntimeModuleStatus => {
+      if (
+        !item ||
+        typeof item !== 'object' ||
+        !('module_key' in item) ||
+        typeof item.module_key !== 'string' ||
+        !('version' in item) ||
+        typeof item.version !== 'string' ||
+        !('status' in item) ||
+        typeof item.status !== 'string' ||
+        !('tenant_enabled_count' in item) ||
+        typeof item.tenant_enabled_count !== 'number' ||
+        !('dependencies' in item) ||
+        !Array.isArray(item.dependencies) ||
+        !('optional_dependencies' in item) ||
+        !Array.isArray(item.optional_dependencies) ||
+        !('pending_actions' in item) ||
+        !Array.isArray(item.pending_actions) ||
+        !item.pending_actions.every(
+          (value: unknown): value is string => typeof value === 'string'
+        )
+      ) {
+        throw new Error('Invalid Module installation row');
+      }
+      return {
+        module_key: item.module_key,
+        version: item.version,
+        status: item.status,
+        tenant_enabled_count: item.tenant_enabled_count,
+        dependencies: item.dependencies,
+        optional_dependencies: item.optional_dependencies,
+        pending_actions: item.pending_actions,
+      };
+    });
+    return { lists, count: result.count };
+  },
   async downloadDiagnostics(
     windowMinutes: 60 | 360 | 1440 = 60
   ): Promise<DiagnosticDownload> {
@@ -1038,8 +1318,13 @@ export const api = {
       }
       throw new Error(message);
     }
+    if (!window.isSecureContext || !window.crypto?.subtle) {
+      throw new Error(
+        '当前页面不支持安全下载，请通过 HTTPS 平台入口下载诊断包。'
+      );
+    }
     const actual = Array.from(
-      new Uint8Array(await crypto.subtle.digest('SHA-256', result.data)),
+      new Uint8Array(await window.crypto.subtle.digest('SHA-256', result.data)),
       (byte) => byte.toString(16).padStart(2, '0')
     ).join('');
     if (actual !== sha256) throw new Error('诊断包完整性校验失败');
@@ -1236,14 +1521,6 @@ function opsMutationResult(result: {
   };
 }
 
-function unavailable(code: string): Promise<OpsTransportResult> {
-  return Promise.resolve({
-    status: 503,
-    headers: new Headers(),
-    body: { code },
-  });
-}
-
 /** Platform Ops transport: maintenance state and its control writes share one Host. */
 export function createPlatformOpsTransport(): OpsConsoleTransport {
   return {
@@ -1272,6 +1549,14 @@ export function createPlatformOpsTransport(): OpsConsoleTransport {
       ),
     scheduleMaintenance: opsScheduleMaintenance,
     closeMaintenance: opsCloseMaintenance,
-    logs: () => unavailable('OPS_LOGS_UNAVAILABLE'),
+    logs: (sourceKey, severity, cursor, pageSize, signal) => {
+      const query = new URLSearchParams({
+        source: sourceKey,
+        severity,
+        page_size: String(pageSize),
+      });
+      if (cursor !== null) query.set('cursor', cursor);
+      return opsRead(`/platformapi/v1/ops/logs?${query}`, signal);
+    },
   };
 }

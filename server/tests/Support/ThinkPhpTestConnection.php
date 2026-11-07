@@ -30,17 +30,21 @@ final class ThinkPhpTestConnection
         return $connection;
     }
 
-    public static function moduleCatalogs(PDO $pdo): \app\platform\infrastructure\plugin\ModuleCatalogApplier
+    public static function moduleCatalogs(PDO $pdo): \app\platform\infrastructure\module\ModuleCatalogApplier
     {
         $connection = self::fromPdo($pdo);
-        return new \app\platform\infrastructure\plugin\ModuleCatalogApplier(
+        return new \app\platform\infrastructure\module\ModuleCatalogApplier(
             new \PeanutAdmin\Modules\Settings\Service\SettingCatalogService(
                 new \PeanutAdmin\Modules\Settings\Definition\SettingDefinitionSynchronizer(),
             ),
             new \PeanutAdmin\Modules\Identity\Authorization\ModuleAuthorizationCatalogSynchronizer(
                 new \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository(),
             ),
-            new \PeanutAdmin\Modules\Identity\Menu\ThinkPhpMenuCatalogRepository(),
+            new \PeanutAdmin\Modules\Identity\Menu\ThinkPhpMenuCatalogRepository(
+                new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService(
+                    new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], 'fixture-catalog'),
+                ),
+            ),
             new \PeanutAdmin\Modules\ReferenceCodes\Service\ReferenceCodeCatalogService(),
             new \PeanutAdmin\Modules\Identity\Authorization\CatalogLifecycleService(),
         );

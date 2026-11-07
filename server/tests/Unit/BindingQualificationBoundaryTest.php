@@ -35,7 +35,7 @@ final class BindingQualificationBoundaryTest extends TestCase
         new App(dirname(__DIR__, 3) . '/.local/tmp/binding-qualification-' . bin2hex(random_bytes(6)));
         $this->database = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         ThinkPhpTestConnection::fromPdo($this->database);
-        $this->database->exec("CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY, status TEXT); INSERT INTO pa_tenant VALUES(1,'active'),(2,'inactive'),(3,'active'); CREATE TABLE pa_external_channel_binding (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER, provider TEXT, identity_hash TEXT, config_json TEXT, status INTEGER, update_time INTEGER, UNIQUE(tenant_id,provider))");
+        $this->database->exec("CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY, status TEXT); INSERT INTO pa_tenant VALUES(1,'active'),(2,'inactive'),(3,'active'); CREATE TABLE pa_external_channel_binding (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER, provider TEXT, identity_hash TEXT, config_json TEXT, status INTEGER, update_time INTEGER, retired_at INTEGER, current_key INTEGER GENERATED ALWAYS AS (CASE WHEN retired_at IS NULL THEN 1 END) STORED, UNIQUE(tenant_id,provider,current_key))");
         $this->queries = new ExternalBindingQualificationQueries();
     }
 
@@ -48,7 +48,7 @@ final class BindingQualificationBoundaryTest extends TestCase
 
     public function testPublicResultAndQueryAreDeclaredWithoutExposingStorage(): void
     {
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/integration/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/integration/module.json'), true, 512, JSON_THROW_ON_ERROR);
         foreach ([ExternalBindingQualification::class, ExternalBindingQualificationQueries::class] as $type) {
             self::assertContains($type, $manifest['contracts']['exports']);
             self::assertFalse(is_subclass_of($type, think\Model::class));

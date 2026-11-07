@@ -160,14 +160,14 @@ function readComponent(value: unknown): DecorationComponent {
   )
     return invalid();
   const styles: Record<string, string | number> = {};
-  for (const [key, item] of Object.entries(objectField(value.styles))) {
+  Object.entries(objectField(value.styles)).forEach(([key, item]) => {
     if (
       typeof item !== 'string' &&
       (typeof item !== 'number' || !Number.isFinite(item))
     )
-      return invalid();
+      invalid();
     styles[key] = item;
-  }
+  });
   return {
     ...value,
     title: value.title,
@@ -178,7 +178,7 @@ function readComponent(value: unknown): DecorationComponent {
   };
 }
 
-export function readDecorationPage(value: unknown): DecorationPage {
+export default function readDecorationPage(value: unknown): DecorationPage {
   if (
     !record(value) ||
     typeof value.id !== 'number' ||
@@ -201,6 +201,14 @@ export function readDecorationPage(value: unknown): DecorationPage {
   const meta = Array.isArray(value.meta)
     ? value.meta.map(readComponent)
     : objectField(value.meta);
+  const resourceUrls: Record<string, string> = {};
+  if (value.resource_urls !== undefined) {
+    if (!record(value.resource_urls)) return invalid();
+    Object.entries(value.resource_urls).forEach(([key, url]) => {
+      if (typeof url !== 'string') invalid();
+      resourceUrls[key] = url;
+    });
+  }
   return {
     ...value,
     id: value.id,
@@ -209,5 +217,6 @@ export function readDecorationPage(value: unknown): DecorationPage {
     data,
     meta,
     update_time: updateTime,
+    resource_urls: resourceUrls,
   };
 }

@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -14,6 +15,97 @@ TMP = ROOT / '.local/tmp/release-channel-test'
 
 
 class PublishGithubReleaseChannelTest(unittest.TestCase):
+    def test_target_draft_upload_verification_cleanup_and_native_publication_order(self):
+        source = (ROOT / 'scripts/publish-github-release').read_text()
+        command = source[source.index('release_paths=()'):]
+        with tempfile.TemporaryDirectory(prefix='release-draft-flow-') as directory:
+            case = Path(directory)
+            bins = case / 'bin'
+            bins.mkdir()
+            calls = case / 'calls.jsonl'
+            stub = '''#!/usr/bin/env python3
+import json, os, sys
+from pathlib import Path
+a=sys.argv[1:]; name=Path(sys.argv[0]).name
+with Path(os.environ['CALLS']).open('a') as f: f.write(json.dumps([name,*a])+'\\n')
+if name=='node' and len(a)>1 and a[1]=='draft':
+ if len(a)==7: print('0 0' if os.environ['FLOW']=='fresh' else '27 90')
+ elif os.environ['FLOW']=='verify-failure': sys.exit(42)
+if name=='gh' and a[:2]==['release','upload'] and os.environ['FLOW']=='upload-unknown': sys.exit(43)
+'''
+            for name in ['node', 'gh']:
+                executable = bins / name
+                executable.write_text(stub)
+                executable.chmod(0o755)
+            setup = '''release_files=(one two)
+verify_main_integration() { printf '%s\\n' '["main"]' >> "$CALLS"; }
+'''
+            for flow in ['draft', 'fresh', 'verify-failure', 'upload-unknown']:
+                with self.subTest(flow=flow):
+                    calls.unlink(missing_ok=True)
+                    env = dict(os.environ, PATH=str(bins) + os.pathsep + os.environ['PATH'],
+                               CALLS=str(calls), FLOW=flow, OUTPUT_DIR=str(case / 'out'),
+                               SCRIPT_DIR=str(ROOT / 'scripts'), VERSION='1.2.3', TAG='v1.2.3',
+                               COMMIT='a' * 40, QUALIFICATION_TRANSPORT_SHA256='b' * 64,
+                               REPOSITORY='peanut-business/peanut-admin-code', PREPARE_ONLY='0',
+                               PRERELEASE='0', INTEGRATION_MAIN='a' * 40)
+                    result = subprocess.run(['bash', '-Eeuo', 'pipefail', '-c', setup + command],
+                                            cwd=case, env=env, text=True, capture_output=True, timeout=10)
+                    records = [json.loads(line) for line in calls.read_text().splitlines()]
+                    writes = [row[1:3] for row in records if row[0] == 'gh']
+                    if flow == 'draft':
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        self.assertEqual(writes, [['release', 'upload'], ['api', '--method'], ['release', 'edit']])
+                        upload = next(row for row in records if row[:3] == ['gh', 'release', 'upload'])
+                        self.assertNotIn('--clobber', upload)
+                        delete = next(row for row in records if row[:2] == ['gh', 'api'])
+                        self.assertEqual(delete, ['gh', 'api', '--method', 'DELETE',
+                                         'repos/peanut-business/peanut-admin-code/releases/assets/90'])
+                        edit = next(row for row in records if row[:3] == ['gh', 'release', 'edit'])
+                        self.assertIn('--draft=false', edit)
+                        self.assertIn('--latest', edit)
+                        self.assertEqual(records[records.index(delete) - 1], ['main'])
+                        self.assertEqual(records[records.index(delete) - 2][2], 'draft')
+                        self.assertEqual(records[-1][-1], 'stable')
+                    elif flow == 'fresh':
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        self.assertEqual(writes, [['release', 'create']])
+                    else:
+                        self.assertEqual(result.returncode, 42 if flow == 'verify-failure' else 43, result.stderr)
+                        self.assertEqual(writes, [['release', 'upload']])
+
+    def test_formal_workflow_forwards_exact_release_channel_to_publisher(self):
+        source = (ROOT / '.github/workflows/scaffold-release.yml').read_text()
+        step = source.split('      - name: Publish the verified native templates through the sole publisher\n', 1)[1]
+        command = textwrap.dedent(step.split('        run: |\n', 1)[1])
+        # Run only this final argument adapter with stub git/publisher. No Actions,
+        # qualification, network, release creation or real product paths are invoked.
+        with tempfile.TemporaryDirectory(prefix='release-workflow-channel-') as directory:
+            case = Path(directory)
+            (case / 'scripts').mkdir()
+            (case / 'bin').mkdir()
+            stub_git = case / 'bin/git'
+            stub_git.write_text('#!/bin/sh\n[ "$*" = "rev-parse HEAD" ] || exit 99\nprintf "%s\\n" "$GITHUB_SHA"\n')
+            stub_git.chmod(0o755)
+            publisher = case / 'scripts/publish-github-release'
+            publisher.write_text('#!/usr/bin/env python3\nimport json,os,sys\nfrom pathlib import Path\nPath(os.environ["ARGS_RECEIPT"]).write_text(json.dumps(sys.argv[1:]))\n')
+            publisher.chmod(0o755)
+            env = dict(os.environ, PATH=str(case / 'bin') + os.pathsep + os.environ['PATH'],
+                       GITHUB_SHA='a' * 40, TRANSPORT_SHA256='b' * 64,
+                       RUNNER_TEMP=str(case / 'runner'), ARGS_RECEIPT=str(case / 'args.json'))
+            for version, prerelease in [('1.2.3', False), ('1.2.3-rc.1', True), ('1.2.3+build-1', False)]:
+                with self.subTest(version=version):
+                    (case / 'release-versions.json').write_text(json.dumps({'scaffold_template': version}))
+                    result = subprocess.run(['bash', '-Eeuo', 'pipefail', '-c', command], cwd=case, env=env,
+                                            text=True, capture_output=True, timeout=10)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    args = json.loads((case / 'args.json').read_text())
+                    self.assertEqual(args, [version, *(['--prerelease'] if prerelease else []),
+                        '--qualification', str(case / 'runner/candidate-release/template-qualification/candidate-stage.json'),
+                        '--template-artifacts', str(case / 'runner/candidate-release/scaffold-templates'),
+                        '--output', str(case / 'runner/published-release')])
+                    self.assertNotIn('--latest', args)
+
     def test_main_integration_exact_or_proven_merge(self):
         with tempfile.TemporaryDirectory(prefix='release-integration-') as directory:
             case = Path(directory)
@@ -104,7 +196,10 @@ os.execv(os.environ['INTEGRATION_GIT'],[os.environ['INTEGRATION_GIT'],*a])
                     if main == merge:
                         self.assertEqual(proof['parents'], [base, source])
                         self.assertEqual(proof['pr_number'], 7)
-                        self.assertRegex(proof['premerge_receipt_sha256'], r'^[0-9a-f]{64}$')
+                        self.assertRegex(proof['pr_response_sha256'], r'^[0-9a-f]{64}$')
+            result, proof = check(change=lambda state: state.update(origin=f'https://github.com/{repository}'))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(proof['remote'], f'https://github.com/{repository}')
             negatives = {
                 'wrong-tree': {'main': commit(old_tree, base, source)},
                 'reverse-parents': {'main': commit(tree, source, base)},
@@ -114,11 +209,6 @@ os.execv(os.environ['INTEGRATION_GIT'],[os.environ['INTEGRATION_GIT'],*a])
                 'nonancestor-base': {'main': commit(tree, foreign, source)},
                 'stale-main': {'local': source}, 'fresh-main-drift': {'expected': source},
                 'drift-during-api': {'change': lambda s: s.update(drift=True)},
-                'missing-receipt': {'absent': True},
-                'wrong-receipt-base': {'receipt_change': lambda r: r.update(base_commit=foreign)},
-                'not-ready': {'receipt_change': lambda r: r.update(ready_for_stable=False)},
-                'readiness-order': {'receipt_change': lambda r: r.update(readiness_at='2026-10-05T01:01:01Z')},
-                'merge-order': {'receipt_change': lambda r: r.update(premerge_observed_at='2026-10-05T01:02:00Z')},
                 'wrong-origin': {'change': lambda s: s.update(origin='git@github.com:foreign/peanut-admin-code.git')},
                 'wrong-tag': {'change': lambda s: s.update(tag_source=foreign)},
                 'api-unavailable': {'change': lambda s: s.update(api_error=True)},
@@ -154,7 +244,7 @@ os.execv(os.environ['INTEGRATION_GIT'],[os.environ['INTEGRATION_GIT'],*a])
                 version,
                 '--qualification',
                 str(qualification),
-                '--edition-artifacts',
+                '--template-artifacts',
                 str(artifacts),
                 '--output',
                 str(output),

@@ -3,10 +3,16 @@
 
 use think\App;
 
-// 命令行入口文件
-// 加载基础文件
-require __DIR__ . '/bootstrap/environment.php';
 require __DIR__ . '/vendor/autoload.php';
 
 // 应用初始化
-(new App())->console->run();
+$app = new App();
+try {
+    $app->console->run();
+} catch (Throwable $exception) {
+    // Console construction initializes the application before run() can catch failures.
+    $handler = $app->make(\think\exception\Handle::class);
+    $handler->report($exception);
+    $handler->renderForConsole(new \think\console\Output(), $exception);
+    exit(1);
+}

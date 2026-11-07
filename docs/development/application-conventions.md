@@ -53,6 +53,14 @@ class ExampleController extends BaseAdminController
 决策状态：已生效。
 声明用途、数量、格式和引用；现有文件模块统一上传/访问/临时文件/补偿。头像、封面、附件复用；保存稳定引用，不存临时签名 URL，保留旧存储绑定和权限。
 
+受控资源只持久化 `file_[32 位十六进制]`，拒绝外部媒体地址、临时交付链接和物理存储路径。读取通过 `FileAccess::resolve(TenantContext, fileKey, operation, documentId?, variantKey?, viewerAdapterId?)` 或登录后的 `POST /adminapi/api/v1/files/resolve`，操作为 `preview`、`download_original`、`manage`。File 每次签发和交付均复核持久 session、当前成员授权、模块状态、资源状态与修订；预览不授予原件下载。没有下载权时只交付已登记且核验真实字节的衍生内容，没有适配工具或衍生能力则返回 `preview_unavailable`。File 只消费 Content Tools 的显式选择合同。
+
+Document 通过其正式 provider 贡献 `FileDocumentReferencePolicy`；缺少 provider 时包括空引用集合在内一律拒绝。`FileReferenceCommands::replaceDocumentReferences` 必须由 owner 的业务保存事务调用，provider 在同一 ThinkPHP 连接中锁定、核权并返回当前持久引用；File 索引与该事务一起提交，保护资源删除。文档授权仅可继承当前获准引用的预览，涉密附件、原件下载和管理均需要独立 File 权限。前端薄封装 `createFileContentCallbacks` 每次解析短时地址，不把地址保存为正文。
+
+应用交付地址的撤权不证明旧物理源站或 CDN 已撤销；公开空间迁移与物理撤销由 File 的资源阶段一单独验证。当前衍生绑定核验图像真实尺寸/MIME/SHA-256；尚无生产衍生处理器的格式明确不可预览，不以原件地址冒充衍生预览。
+
+同步 XLSX 导出在创建临时文件或对象前通过 `FileStorage::requireOriginalDownloadPermission` 复核可信当前 session、File 模块和独立原件下载权限；`export.xlsx` 存储后再按当前对象授权签发 `download_original` 地址。存储后的授权或返回准备失败由 File 内部同次新上传凭证补偿，保留原错误；未知物理删除结果保持不可交付并记录待处理。主动或未知 MIME（包括 HTML、SVG）在公开和私有交付均为附件；只有已核验的安全图像/音视频 MIME 可内联。
+
 ### APP-R09：统一服务配置入口
 决策状态：已生效。
 声明提供方与配置，通过[四种绑定策略](../architecture/service-bindings.md)解析有效配置/秘密引用。存储/短信不各自猜继承；不下发平台密钥，不因自定义失败静默借用平台付费渠道；复用现有 Service Binding。
@@ -75,7 +83,7 @@ class ExampleController extends BaseAdminController
 
 ### APP-R14：模块声明统一消费
 决策状态：已生效。
-开发者中心、Provider、依赖、路由和打包消费同一正式定义；沿用 module.json/Composer/Plugin。发现、安装、租户开通、人员授权仍分开，不造第二 manifest，不猜目录执行。
+开发者中心、Provider、依赖、路由和打包消费同一正式定义；沿用 module.json/Composer/Plugin。下游业务默认放入自己的 Module，跨 Module 及对 Core 的调用使用已声明的公开契约，不以修改 Core 内部实现承载单一业务。发现、安装、租户开通、人员授权仍分开，不造第二 manifest，不猜目录执行。
 
 ### APP-R15：生成器、类型和文档同步
 决策状态：已生效。
@@ -83,7 +91,7 @@ class ExampleController extends BaseAdminController
 
 ### APP-R16：定制扩展与升级
 决策状态：已生效。
-分开上游受管区、客户自定义及秘密；独立升级入口复用现有差异/冲突和恢复能力，install.php 仅用于首次安装。公共底座须接收上游修复，不把整个 server/app 或前端都归为客户自有。更新保护客户代码；回退代码不证明数据库/外部副作用已恢复，真实客户操作另需授权，不造第二升级引擎。
+分开上游受管区、客户自定义及秘密；独立升级入口复用现有差异/冲突和恢复能力，install.php 仅用于首次安装。公共底座须接收上游修复，不把整个 server/app 或前端都归为客户自有。Web界面扩展合同和Code宿主接入状态见[Core能力与应用覆盖](../architecture/core-capabilities-and-application-overrides.md)；`web/src/peanut.overrides.ts` 属 `app-owned`，沿模板inventory与baseline处理。更新保护客户代码，但“文件未冲突”不等于业务兼容：plan 在 apply 前检查客户 Module 的目标 Kernel 约束和可静态确定的 Core 类/静态方法引用，不兼容先报告、修正 Module 后重跑计划，不自动改业务源码。回退代码不证明数据库/外部副作用已恢复，真实客户操作另需授权，不造第二升级引擎。
 
 ### APP-R17：可解释诊断与验收
 决策状态：已生效。

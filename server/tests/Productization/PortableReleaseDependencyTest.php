@@ -82,7 +82,7 @@ try {
     // 真实独立子进程只得到发行读取器和合同；open_basedir 禁止读取维护者源码和 vendor。
     portableDocument($path, $document);
     $isolatedFiles = [
-        'scripts/scaffold-runtime/ReleaseDependencyIdentity.php',
+        'server/app/common/infrastructure/scaffold/ReleaseDependencyIdentity.php',
         'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php',
         'server/app/common/value/installation/ApplicationReleaseVersions.php',
     ];
@@ -109,14 +109,6 @@ try {
     $output = stream_get_contents($pipes[1]);
     fclose($pipes[1]);
     portableExpect(proc_close($process) === 0 && $output === 'ISOLATED-NO-VENDOR-NO-TGZ', 'isolated consumer: ' . $output);
-    $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($temporary, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
-    foreach ($iterator as $entry) {
-        if ($entry->getPathname() === $path) {
-            continue;
-        }
-        $entry->isDir() ? rmdir($entry->getPathname()) : unlink($entry->getPathname());
-    }
-
     $mutations = [
         'php-range' => static function (&$d) {
             $d['core_php']['constraint'] = '^9.2.1';
@@ -127,8 +119,8 @@ try {
         'php-version-mismatch' => static function (&$d) {
             $d['core_php']['resolved_version'] = '9.2.2';
         },
-        'php-dev-with-registry' => static function (&$d) {
-            $d['core_php']['constraint'] = $d['core_php']['resolved_version'] = 'dev-dev';
+        'php-dev-reference-mismatch' => static function (&$d) {
+            $d['core_php']['constraint'] = 'dev-dev';
         },
         'php-source-credentials' => static function (&$d) {
             $d['core_php']['source_url'] = 'https://user:secret@example.invalid/core.git';
@@ -170,12 +162,25 @@ try {
     $legacy = VersionContract::load($root . '/release-versions.json')->toArray();
     portableExpect(ApplicationReleaseVersions::load($root . '/release-versions.json')->toArray() === $legacy, 'development identity regressed');
     portableExpect($normalize->invoke($runner, json_encode($legacy, JSON_THROW_ON_ERROR), 'PORTABLE_TEST_INVALID') === $legacy, 'upgrader development identity regressed');
-    $digests->invoke($runner, $root, $legacy['core_web']);
-    portableRejects(static fn() => $digests->invoke($runner, $temporary, $legacy['core_web']), 'missing local archive must remain rejected');
+    mkdir($temporary . '/packages/core-web', 0700, true);
+    $archiveWeb = $legacy['core_web'];
+    foreach ($archiveWeb['packages'] as $name => &$identity) {
+        $file = 'packages/core-web/peanut-admin-' . substr($name, strlen('@peanut-admin/')) . '-' . $identity['version'] . '.tgz';
+        file_put_contents($temporary . '/' . $file, $name);
+        $identity = ['version' => $identity['version'], 'archive' => $file, 'sha256' => hash('sha256', $name)];
+    }
+    unset($identity);
+    $digests->invoke($runner, $temporary, $archiveWeb);
+    file_put_contents($temporary . '/' . $file, 'changed bytes');
+    portableRejects(static fn() => $digests->invoke($runner, $temporary, $archiveWeb), 'changed local archive');
+    unlink($temporary . '/' . $file);
+    portableRejects(static fn() => $digests->invoke($runner, $temporary, $archiveWeb), 'missing local archive');
     echo 'PORTABLE-RELEASE-DEPENDENCY-001 passed: ' . $checks . " checks; source/installer/upgrader identity only, no registry/install qualification\n";
 } finally {
-    if (is_file($path)) {
-        unlink($path);
+    $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($temporary, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
+    foreach ($iterator as $entry) {
+        $entry->isDir() ? rmdir($entry->getPathname()) : unlink($entry->getPathname());
     }
+
     rmdir($temporary);
 }

@@ -9,6 +9,13 @@ final class ExecutionContextStore
 {
     /** @var list<ExecutionContext> */
     private array $stack = [];
+    private ?object $rootIdentity = null;
+
+    /** Opaque identity of the current outer run; it grants no authority. */
+    public function rootIdentity(): ?object
+    {
+        return $this->rootIdentity;
+    }
 
     public function current(): ?ExecutionContext
     {
@@ -25,7 +32,13 @@ final class ExecutionContextStore
     public function run(ExecutionContext $context, callable $operation): mixed
     {
         $current = $this->current();
-        if ($current !== null && $current::class !== $context::class) {
+        // The installer provisions the verified default tenant before writing its completion lock.
+        $installationBootstrap = $current instanceof InstallationExecutionContext
+            && $context instanceof SystemExecutionContext
+            && $context->system->actorKey === 'platform.tenant-bootstrap'
+            && $context->operation() === 'tenant.provision-application-defaults'
+            && $context->requestId() === $current->requestId();
+        if ($current !== null && $current::class !== $context::class && !$installationBootstrap) {
             throw new \DomainException('EXECUTION_AUDIENCE_CONTEXT_MISMATCH');
         }
         $currentTenantId = $current?->tenantId();
@@ -35,6 +48,10 @@ final class ExecutionContextStore
             && $currentTenantId !== $nextTenantId) {
             throw new \DomainException('EXECUTION_TENANT_CONTEXT_MISMATCH');
         }
+        $isRoot = $current === null;
+        if ($isRoot) {
+            $this->rootIdentity = new \stdClass();
+        }
         $this->stack[] = $context;
         try {
             return $operation();
@@ -42,7 +59,11 @@ final class ExecutionContextStore
             $restored = array_pop($this->stack);
             if ($restored !== $context) {
                 $this->stack = [];
+                $this->rootIdentity = null;
                 throw new \LogicException('EXECUTION_CONTEXT_STACK_CORRUPTED');
+            }
+            if ($isRoot) {
+                $this->rootIdentity = null;
             }
         }
     }

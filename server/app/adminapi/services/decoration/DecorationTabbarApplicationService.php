@@ -16,14 +16,14 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 class DecorationTabbarApplicationService
 {
     public function __construct(
-        private readonly ArticleQueries $articles,
         private readonly DecorationReadService $decoration,
         private readonly DecorationSchemaService $schema,
+        private readonly ?ArticleQueries $articles = null,
     ) {}
 
     public function detail(TenantContext $context): array
     {
-        return $this->decoration->tabbar($context, false);
+        return $this->decoration->tabbar($context, forEdit: true);
     }
 
     public function save(TenantContext $context, array $style, array $items): bool

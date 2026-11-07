@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
 
-require dirname(__DIR__, 2) . '/bootstrap/environment.php';
-
 use PeanutAdmin\Modules\Identity\Auth\Persistence\ThinkPhpTenantAuthRepository;
 use PeanutAdmin\Kernel\Auth\SystemClock;
 use PeanutAdmin\Modules\Identity\Auth\TenantAuthService;
@@ -13,16 +11,19 @@ use PeanutAdmin\Modules\Identity\Auth\TenantAuthentication;
 use PeanutAdmin\Modules\Identity\Auth\TenantSelectionRequired;
 use PeanutAdmin\Kernel\Auth\TokenIssuer;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
-use PeanutAdmin\Kernel\Migration\ModuleSchema;
-use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
+use PeanutAdmin\Kernel\Identity\PasswordPolicy;
+use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
-require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
-require __DIR__ . '/../Support/ThinkPhpTestConnection.php';
+require_once __DIR__ . '/../Support/CiBootstrap.php';
+require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
+require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
+require_once __DIR__ . '/../Support/IdentityMysqlFixture.php';
 
 function tenantHostExpect(bool $condition, string $message): void
 {
+    $GLOBALS['tenantHostChecks'] = ($GLOBALS['tenantHostChecks'] ?? 0) + 1;
     if (!$condition) {
         throw new RuntimeException($message);
     }
@@ -38,43 +39,15 @@ function tenantHostRejects(Closure $operation): void
     throw new RuntimeException('expected Tenant auth rejection');
 }
 
-$host = IsolatedBackendEnvironment::required('DB_HOST');
-$port = (int) IsolatedBackendEnvironment::required('DB_PORT');
-$user = IsolatedBackendEnvironment::required('DB_USER');
-$password = IsolatedBackendEnvironment::required('DB_PASS');
-$admin = new PDO(
-    "mysql:host={$host};port={$port};charset=utf8mb4",
-    $user,
-    $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false],
-);
-$database = 'pa_mt04_auth_' . strtolower(bin2hex(random_bytes(6)));
-$admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
+$database = RegisteredMysqlTestResource::configuredDatabaseName();
+[$pdo, $databaseCreated] = RegisteredMysqlTestResource::openEmptyDatabase($database);
 
 try {
-    $pdo = new PDO(
-        "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
-        $user,
-        $password,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false],
-    );
-    foreach (KernelSchema::tableNames() as $table) {
-        $pdo->exec(KernelSchema::createSql($table));
-    }
-    $pdo->exec(KernelSchema::addTenantMemberDepartmentForeignKeySql());
-    foreach (ModuleSchema::tableNames() as $table) {
-        $pdo->exec(ModuleSchema::createSql($table));
-    }
-    $pdo->exec(<<<'SQL'
-ALTER TABLE `pa_login_challenge`
-  ADD COLUMN `client_key` VARCHAR(64) NOT NULL AFTER `purpose`,
-  ADD CONSTRAINT `chk_login_challenge_client`
-    CHECK (REGEXP_LIKE(`client_key`, '^[a-z][a-z0-9-]{0,63}$', 'c'))
-SQL);
+    IdentityMysqlFixture::install($pdo);
 
     $passwords = new PasswordHasher();
     ThinkPhpTestConnection::fromPdo($pdo);
-    $bootstrap = new BootstrapService(passwords: $passwords);
+    $bootstrap = new BootstrapService(new AuditService(), $passwords, new PasswordPolicy());
     $platform = $bootstrap->bootstrapPlatformOwner(
         'multi-owner@example.test',
         'MultiTenantPassword2026',
@@ -156,7 +129,7 @@ SQL);
         tenantHostExpect(str_contains($route, "tenant/session/{$action}"), "Tenant session {$action} route is missing");
     }
 
-    echo "MT04-TENANT-SESSION-HOST-001 passed\n";
+    echo 'MT04-TENANT-SESSION-HOST-001 passed checks=' . $GLOBALS['tenantHostChecks'] . PHP_EOL;
 } finally {
-    $admin->exec("DROP DATABASE IF EXISTS `{$database}`");
+    RegisteredMysqlTestResource::cleanup($pdo, $database, $databaseCreated);
 }

@@ -32,9 +32,14 @@ final class DeploymentCatalogRegistrationTest extends TestCase
         $db = new \SharedPdoDbManager($this->connection);
         $this->connection->setDb($db);
         $app->instance(DbManager::class, $db);
+        $app->instance(\PeanutAdmin\Modules\Identity\Authorization\ModuleAuthorizationCatalogSynchronizer::class,
+            new \PeanutAdmin\Modules\Identity\Authorization\ModuleAuthorizationCatalogSynchronizer(
+                new \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository()));
+        $this->pdo->sqliteCreateFunction('UTC_TIMESTAMP', static fn(int $precision): string => '2026-11-05 00:00:00.000', 1);
+        $this->pdo->exec('CREATE TABLE pa_tenant (authorization_revision INTEGER,revision INTEGER,updated_at TEXT)');
         $this->pdo->exec("CREATE TABLE pa_module_installation (id INTEGER PRIMARY KEY AUTOINCREMENT,module_key TEXT UNIQUE,installed_version TEXT,manifest_schema_version INTEGER,manifest_digest TEXT,status TEXT DEFAULT 'active',revision INTEGER DEFAULT 1,installed_at TEXT,activated_at TEXT,created_at TEXT,updated_at TEXT)");
         $this->owner = new CatalogLifecycleService();
-        $this->manifest = ManifestDocument::fromArray($root . '/.local/tmp/registration-fixture', ['key' => 'fixture.catalog', 'version' => '1.2.3', 'schema_version' => 1]);
+        $this->manifest = ManifestDocument::fromObject($root . '/.local/tmp/registration-fixture', (object) ['key' => 'fixture.catalog', 'version' => '1.2.3', 'schema_version' => 1]);
     }
 
     public function testNativeDuplicateInsertPreservesExistingIdentityAndTimestamps(): void
@@ -92,7 +97,7 @@ final class DeploymentCatalogRegistrationTest extends TestCase
     {
         $source = file_get_contents(dirname(__DIR__, 2) . '/app/platform/infrastructure/module/DeploymentModuleInstaller.php');
         self::assertStringContainsString('Db::transaction(', $source);
-        self::assertStringContainsString('registerDeployedManifest($manifest)', $source);
+        self::assertStringContainsString('registerDeployedManifest($manifest, false)', $source);
         self::assertStringContainsString('$this->catalogs->apply(', $source);
         self::assertStringNotContainsString("Db::name('module_installation')", $source);
     }

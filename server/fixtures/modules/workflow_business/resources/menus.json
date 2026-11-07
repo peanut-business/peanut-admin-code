@@ -1,0 +1,4 @@
+[
+  {"key":"fixture.workflow-business.objects","parent_key":"core.operations","scope":"tenant","type":"page","name":"开发用业务样例","route_name":"fixture-workflow-business-list","route_path":"/app/fixtures/workflow-business","component_key":"fixture.workflow-business.objects","required_permission":"fixture.workflow-business.read","icon":"icon-file","sort_order":62,"client_keys":["admin-web"]},
+  {"key":"fixture.workflow-business.runtime","parent_key":"core.operations","scope":"tenant","type":"page","name":"样例流程办理","route_name":"fixture-workflow-business-runtime","route_path":"/app/fixtures/workflow-business-runtime","component_key":"fixture.workflow-business.runtime","required_permission":"fixture.workflow-business.read","icon":"icon-branch","sort_order":63,"client_keys":["admin-web"]}
+]

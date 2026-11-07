@@ -2,7 +2,7 @@
 
 Core 的价值是稳定、可复用的技术能力和可直接使用的默认实现。应用持有业务语义、数据、渠道与装配，并能通过配置或原生服务绑定改变技术实现。能力归属按真实消费者和不变量判断，不按目录大小或是否“通用业务”判断。
 
-Provider、事件/命令、租户启停钩子、HTTP/CLI/Task 上下文及安装升级的完整时序和失败责任见 [框架扩展与生命周期](framework-extension-and-lifecycle.md)。
+Provider、事件/命令、套餐与许可证、HTTP/CLI/Task 上下文及安装升级的完整时序和失败责任见 [框架扩展与生命周期](framework-extension-and-lifecycle.md)。
 
 ## 1. 成熟框架依据
 
@@ -30,13 +30,13 @@ Provider、事件/命令、租户启停钩子、HTTP/CLI/Task 上下文及安装
 | 缓存 | revision、授权命名空间/失效语义 | 业务缓存内容和有效期 | Think Cache；`RevisionPermissionCache`、`PolicyCache` 保留安全语义，普通 Cache API 不再包一层 |
 | 锁、幂等 | 租户锁协议/适配、防重复原语、可信消息协议 | 动作幂等结果、业务补偿及投递流程 | `ThinkPhpTenantLockStore` / `CrontabTenantLock`；Task/Workflow 等模块组合，业务事务不迁入 Core |
 | 审计与日志 | 审计写合同及通用技术支持 | 审计记录、业务事件、脱敏和执行上下文 | Think Log；Identity `AuditService`、`common/logging/OperationalLog` 各守职责 |
-| 设置与秘密 | `SecretProtector`、Sodium 默认实现 | 设置目录、租户配置、密钥引用/生命周期 | Settings ModuleProvider；配置缺失仍 fail closed，不把秘密保护降为普通 config |
+| 设置与秘密 | `SecretProtector`、Sodium 默认实现 | 设置目录、租户配置、密钥引用/生命周期 | Settings ModuleProvider；写服务注入已登记的 Resolver，Resolver 必需注入租户查询；配置缺失仍 fail closed，不把秘密保护降为普通 config |
 | 外部集成 | Webhook 目的地/秘密安全协议、OAuth transport 合同 | 租户渠道、商户/回调绑定、供应商实现与业务 | Integration/OAuth ModuleProvider；支付/回调认证保留独立安全合同 |
-| 文件/媒体 | 图像变体等通用技术 contract/planner | 文件账本、引用、存储配置、授权和物理回收 | Think filesystem/供应商 SDK；File ModuleProvider；完整文件业务不搬入 Core |
+| 文件/媒体 | `StorageDriver`、图片元数据、变体定义及交付安全协议 | 文件账本、变体处理、引用、存储配置、授权和物理回收 | Think filesystem/供应商 SDK；File ModuleProvider；完整文件业务不搬入 Core |
 | 任务/通知/工作流 | 可信执行、幂等和安全技术协议 | 表、任务状态、消息用途、投递和业务编排 | Code 官方/Peanut 模块；已有框架/队列能力优先，不造另一套通用调度框架 |
 | 客户端 | Web Core 的 transport、Vue/UI/Nuxt/UniApp 环境适配 | 业务 SDK、页面、身份状态、输入提示 | Code 各端消费公共包；密码有效策略来自 HTTP，业务 API 不进入 Web Core |
 
-没有生产实现/绑定/消费者的 Core `TenantCache` / `TenantCacheStore` 当前是未消费能力，不代表需要实现第二套缓存。已有旧业务目录的 LICENSE 不代表其中仍有业务源码；不据目录名迁移、删除或重新实现业务。
+普通缓存直接使用 Think Cache；旧 Core `TenantCache` / `TenantCacheStore` 和未采用的通用 key builders 已退出。旧 StorageProvider、上传策略与图片 planner 同样退出，File 实际采用 StorageDriver 与自身 FileDerivativeService。已有旧业务目录的 LICENSE 不代表其中仍有业务源码；不据目录名迁移、删除或重新实现业务。
 
 ## 3. 配置与实现替换
 
@@ -59,7 +59,13 @@ $this->app->bind(\PeanutAdmin\Kernel\Identity\PasswordHasher::class, \app\securi
 
 应用服务必须接受注入的策略/散列；不自行 `new` 默认实现、不用静态工厂绕过绑定。`AppService` 不再强制覆盖密码绑定。已有版本化权限 slot 继续校验白名单/合同版本，`registry()->bindings()` 交给原生容器，应用显式原生绑定优先。该 slot 不是所有技术能力的强制扩展入口。
 
-## 4. 完整消费与升级
+## 4. Web 界面组件、Shell 与主题
+
+通用Vue组件、Shell、导航、主题token、slot和应用覆盖的类型合同由 Web Core 的 [UI/Vue扩展文档](https://github.com/peanut-business/peanut-admin-core-web/blob/dev/packages/ui-vue/README.md)维护；Code只维护宿主接线与应用所有权，不复制一份组件API说明。应用自己的 `web/src/peanut.overrides.ts` 已由模板inventory标为 `app-owned`，上游更新按既有inventory/baseline保护和冲突审阅处理。
+
+Web Core 包有公开合同不等于每个产品宿主都已接入；确认某应用已采用时，应核对该应用的实际宿主消费者。界面配置不能改变既有路由、权限和业务数据合同，后端服务实现替换继续按[服务绑定](service-bindings.md)执行。
+
+## 5. 完整消费与升级
 
 新凭据写入（安装 CLI/guided、管理员/Platform 操作员/租户 owner、邀请接受、会员注册/重置/改密）执行同一个有效策略，再用注入散列服务生成摘要。登录和既有摘要重算只消费散列服务；提高最小长度不能把已有凭据变成无法验证。身份、权限、会话撤销、事务及完整性保护仍由原业务合同负责。
 
@@ -67,7 +73,7 @@ $this->app->bind(\PeanutAdmin\Kernel\Identity\PasswordHasher::class, \app\securi
 
 应用自有绑定、类及配置处于应用仓，Core 升级不直接改这些源码。若官方应用更新也触及自定义文件，沿既有基线摘要/冲突审阅流程处理，不能用升级覆盖定制。新依赖以 Composer manifest/lock 的固定源码提交为准；开发 `dev-dev#<commit>` 不是正式包发布。PHP 固定开发源码与 Web 已锁定 registry 制品可以独立组合，公开发行打包仍由 `scripts/package-release-files.py` 要求精确已发布 PHP 版本。历史发行快照与已安装实例不会因 dev 修改自动更新。
 
-## 5. 抽取准入
+## 6. 抽取准入
 
 新增能力先回答：原生框架是否已有；真实消费者是否跨模块且没有业务/渠道依赖；需要保留的安全/租户不变量是什么；默认实现能否直接用；配置与实现替换是否贯穿所有消费者。只有真实合同或多实现需要才新增接口，普通可替换服务可以用公开类及原生绑定。完整业务继续作为可复用 Code 模块分发，复用不要求进入 Core。
 

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Kernel\Tests\Integration\Schema;
 
+use Phinx\Migration\IrreversibleMigrationException;
+
 require_once __DIR__ . '/DatabaseTestCase.php';
 
 final class KernelMigrationTest extends DatabaseTestCase
@@ -22,7 +24,6 @@ final class KernelMigrationTest extends DatabaseTestCase
         'pa_role',
         'pa_role_permission',
         'pa_member_role',
-        'pa_tenant_module',
         'pa_platform_audit_event',
         'pa_tenant_audit_event',
         'pa_login_challenge',
@@ -31,8 +32,6 @@ final class KernelMigrationTest extends DatabaseTestCase
         'pa_platform_session',
         'pa_platform_session_token',
         'pa_auth_security_event',
-        'pa_ops_task',
-        'pa_ops_maintenance_window',
         'pa_protected_resource',
         'pa_target_type',
         'pa_resource_operation',
@@ -45,6 +44,25 @@ final class KernelMigrationTest extends DatabaseTestCase
         'pa_menu_definition',
         'pa_tenant_idempotency_record',
         'pa_platform_idempotency_record',
+        'pa_system_menu',
+        'pa_jobs',
+        'pa_member_job',
+        'pa_source_read_grant',
+        'pa_tenant_owner_invitation',
+        'pa_tenant_entry_binding',
+        'pa_data_permission_policy',
+        'pa_data_permission_target_set',
+        'pa_data_permission_group',
+        'pa_data_permission_target',
+        'pa_data_permission_condition',
+        'pa_api_endpoint',
+        'pa_permission_api_config',
+        'pa_permission_api',
+        'pa_plan',
+        'pa_plan_module',
+        'pa_plan_permission',
+        'pa_tenant_license',
+        'pa_migrations',
     ];
 
     public function testNativeFreshInstallAndRepeatPreserveData(): void
@@ -65,6 +83,7 @@ final class KernelMigrationTest extends DatabaseTestCase
         foreach (self::TABLES as $table) {
             self::assertTrue($this->tableExists($table), "Missing migrated table {$table}");
         }
+        self::assertFalse($this->tableExists('pa_tenant_module'));
 
         $challengeClient = $this
             ->query("SHOW COLUMNS FROM `pa_login_challenge` WHERE Field = 'client_key'")
@@ -82,33 +101,35 @@ final class KernelMigrationTest extends DatabaseTestCase
         );
     }
 
-    public function testControlledRollbackRemovesOnlyKernelSchema(): void
+    public function testOwnerRollbackRefusesDataLossAndPreservesUnrelatedData(): void
     {
         $this->runner->migrate();
-        $applicationSchema = file_get_contents(dirname(__DIR__, 6) . '/database/init.sql');
-        self::assertIsString($applicationSchema);
-        self::assertSame(1, preg_match(
-            '/CREATE TABLE `pa_config` \(.*?\) ENGINE=[^;]+;/s',
-            $applicationSchema,
-            $matches,
-        ));
-        $this->database->exec($matches[0]);
-        $this->insert('pa_config', [
-            'type' => 'website',
-            'name' => 'rollback-preserved',
-            'value' => 'Native application data',
-            'create_time' => 1784203200,
+        $this->insert('pa_account', [
+            'display_name' => 'Retained owner data',
+            'created_at' => '2026-07-16 12:00:00.000',
+            'updated_at' => '2026-07-16 12:00:00.000',
         ]);
-        $this->runner->rollbackAll();
-
-        foreach (self::TABLES as $table) {
-            self::assertFalse($this->tableExists($table), "Rollback retained table {$table}");
+        $this->database->exec('CREATE TABLE application_rollback_fixture (value VARCHAR(100) NOT NULL)');
+        $this->insert('application_rollback_fixture', ['value' => 'Native application data']);
+        try {
+            $this->runner->rollbackAll();
+            self::fail('The Identity owner must refuse destructive initial-schema rollback.');
+        } catch (IrreversibleMigrationException $exception) {
+            self::assertSame(
+                'Module data is retained. This initial schema migration cannot be rolled back.',
+                $exception->getMessage(),
+            );
         }
 
-        self::assertTrue($this->tableExists('pa_config'));
+        foreach (self::TABLES as $table) {
+            self::assertTrue($this->tableExists($table), "Rollback lost table {$table}");
+        }
+
+        self::assertSame('Retained owner data', $this->query('SELECT display_name FROM pa_account')->fetchColumn());
+        self::assertTrue($this->tableExists('application_rollback_fixture'));
         self::assertSame(
             'Native application data',
-            $this->query("SELECT value FROM pa_config WHERE type = 'website' AND name = 'rollback-preserved'")->fetchColumn(),
+            $this->query('SELECT value FROM application_rollback_fixture')->fetchColumn(),
         );
     }
 

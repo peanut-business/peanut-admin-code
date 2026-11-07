@@ -3,6 +3,7 @@ import ElementPlus from 'element-plus';
 import 'element-plus/dist/index.css';
 import 'element-plus/theme-chalk/dark/css-vars.css';
 import globalComponents from '@/components';
+import { SESSION_KEY } from '@/utils/auth';
 import router from './router';
 import store from './store';
 import i18n from './locale';
@@ -10,7 +11,6 @@ import directive from './directive';
 import App from './App.vue';
 import '@/assets/style/global.less';
 import '@/api/interceptor';
-import { SESSION_KEY } from '@/utils/auth';
 
 const app = createApp(App);
 

@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use app\common\services\audit\AuditContractHost;
+use app\common\services\authorization\EndpointPermissionGrant;
+use app\platform\services\PlatformApiAuthorization;
 use PeanutAdmin\Kernel\Auth\ValidatedPlatformSession;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 use PeanutAdmin\Kernel\Authorization\AuthorizationException;
@@ -38,7 +40,7 @@ final class OwnerInvitationBoundaryTest extends TestCase
     private TenantOwnerInvitationAdminService $admin;
     private TenantOwnerInvitationPublicService $public;
     private PlatformContext $context;
-    private PlatformAuthorizationEvaluator $authorization;
+    private PlatformApiAuthorization $authorization;
     private AuditContractHost $audit;
     private array $permissions = ['platform.tenant.create', 'platform.tenant.provision-owner'];
     private array $provisioned = [];
@@ -71,7 +73,7 @@ final class OwnerInvitationBoundaryTest extends TestCase
         $repository = $this->createStub(PlatformAuthorizationRepository::class);
         $repository->method('revision')->willReturnCallback(fn(int $id): string => hash('sha256', implode(',', $this->permissions)));
         $repository->method('permissions')->willReturnCallback(fn(int $id): EffectivePermissionSet => new EffectivePermissionSet($this->permissions));
-        $this->authorization = new PlatformAuthorizationEvaluator($repository, new RevisionPermissionCache());
+        $this->authorization = new PlatformApiAuthorization(new PlatformAuthorizationEvaluator($repository, new RevisionPermissionCache()), new EndpointPermissionGrant($app->request));
         $this->context = PlatformContext::fromValidatedSession(new ValidatedPlatformSession(1, 'fixture-session', 101, 11, 'platform-web', new DateTimeImmutable('2031-01-01T00:00:00Z')), 'owner-invitation-test');
         $this->audit = new AuditContractHost(null);
         $this->admin = $this->adminWith(new UnavailableOwnerInvitationDeliveryPort(), OwnerInvitationRuntimePolicy::fromEnvironment('development'));
@@ -108,7 +110,7 @@ final class OwnerInvitationBoundaryTest extends TestCase
 
     public function testManifestOwnsTheWholeInvitationAndPublishesOnlyItsUseAndDeliveryBoundary(): void
     {
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains('pa_tenant_owner_invitation', $manifest['database']['owned_tables']);
         foreach ([TenantOwnerInvitationAdminService::class,TenantOwnerInvitationPublicService::class,TenantOwnerInvitationException::class,OwnerInvitationDeliveryPort::class,OwnerInvitationDelivery::class,OwnerInvitationDeliveryResult::class,TenantOwnerAdminProvisioner::class] as $type) {
             self::assertContains($type, $manifest['contracts']['exports']);

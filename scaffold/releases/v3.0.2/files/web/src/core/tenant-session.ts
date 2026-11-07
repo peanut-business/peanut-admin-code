@@ -1,5 +1,0 @@
-import { isMultiTenantDeployment as coreIsMultiTenantDeployment } from '@peanut-admin/admin/core';
-
-/** Application environment adapter for the framework-neutral Tenant session contract. */
-export const isMultiTenantDeployment = (): boolean =>
-  coreIsMultiTenantDeployment(import.meta.env.VITE_DEPLOYMENT_MODE);

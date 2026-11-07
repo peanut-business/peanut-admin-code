@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace app\command;
 
-use app\platform\exception\plugin\PluginPackageException;
+use app\platform\exception\module\ModulePackageException;
 use think\console\Input;
 use think\console\Output;
 
@@ -19,12 +19,12 @@ trait ModulePackageCommandSupport
             return null;
         }
         if ($keyId === '' || $path === '' || !is_file($path)) {
-            throw new PluginPackageException('MODULE_PACKAGE_SIGNING_KEY_INVALID', 'Both signing key options are required.');
+            throw new ModulePackageException('MODULE_PACKAGE_SIGNING_KEY_INVALID', 'Both signing key options are required.');
         }
         $encoded = trim((string) file_get_contents($path));
         $secret = base64_decode($encoded, true);
         if (!is_string($secret) || strlen($secret) !== SODIUM_CRYPTO_SIGN_SECRETKEYBYTES) {
-            throw new PluginPackageException('MODULE_PACKAGE_SIGNING_KEY_INVALID', 'Signing secret key file is invalid.');
+            throw new ModulePackageException('MODULE_PACKAGE_SIGNING_KEY_INVALID', 'Signing secret key file is invalid.');
         }
         return ['key_id' => $keyId, 'secret_key' => $secret];
     }
@@ -36,7 +36,20 @@ trait ModulePackageCommandSupport
                 ? $requested
                 : dirname(__DIR__, 3) . '/' . ltrim($requested, '/');
         }
-        return dirname(__DIR__, 3) . '/.local/module-packages/' . $key . '-' . $version . '.tar';
+        $root = dirname(__DIR__, 3);
+        $hostPath = $root . '/.local/toolchain/host.json';
+        $release = 'release';
+        if (is_file($hostPath)) {
+            $host = json_decode((string) file_get_contents($hostPath), true, 512, JSON_THROW_ON_ERROR);
+            $release = $host['paths']['release'] ?? $release;
+            if (!is_string($release) || trim($release) === '') {
+                throw new ModulePackageException('MODULE_PACKAGE_OUTPUT_INVALID', 'Configured release directory is invalid.');
+            }
+        }
+        if (!str_starts_with($release, DIRECTORY_SEPARATOR)) {
+            $release = $root . '/' . $release;
+        }
+        return rtrim($release, '/') . '/modules/' . $key . '-' . $version . '.tar';
     }
 
     /** @param callable():array<string,mixed> $operation */
@@ -48,14 +61,14 @@ trait ModulePackageCommandSupport
                 JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
             ));
             return 0;
-        } catch (PluginPackageException $exception) {
+        } catch (ModulePackageException $exception) {
             $output->writeln((string) json_encode(
-                ['error' => $exception->errorCode],
+                ['error' => $exception->errorCode, 'reason' => $exception->getMessage(), 'details' => $exception->details],
                 JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
             ));
-            return 1;
-        } catch (\Throwable) {
-            $output->writeln('{"error":"MODULE_PACKAGE_FAILED"}');
+            return $exception->getCode() > 0 && $exception->getCode() < 256 ? $exception->getCode() : 1;
+        } catch (\Throwable $exception) {
+            $output->writeln((string) json_encode(['error' => 'MODULE_PACKAGE_FAILED', 'reason' => $exception->getMessage()], JSON_THROW_ON_ERROR));
             return 1;
         }
     }

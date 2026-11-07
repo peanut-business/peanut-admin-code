@@ -15,10 +15,17 @@ export default function useMenuTree() {
     return appClientMenus;
   });
   const menuTree = computed(() => {
-    const copyRouter: RouteRecordRaw[] = cloneDeep(appRoute.value);
+    const copyRouter: RouteRecordRaw[] = cloneDeep(appRoute.value).filter(
+      (route) =>
+        route.meta?.order === undefined ||
+        (typeof route.meta.order === 'number' &&
+          Number.isFinite(route.meta.order))
+    );
     if (!appStore.menuFromServer) {
       copyRouter.sort((a, b) => {
-        return (a.meta?.order || 0) - (b.meta?.order || 0);
+        const left = a.meta?.order;
+        const right = b.meta?.order;
+        return (left ?? 0) - (right ?? 0);
       });
     }
     function travel(

@@ -1,10 +1,5 @@
 import { defineStore } from 'pinia';
-import {
-  login as userLogin,
-  logout as userLogout,
-  getUserInfo,
-  LoginData,
-} from '@/api/user';
+import { getUserInfo, LoginData } from '@/api/user';
 import {
   advanceSessionGeneration,
   clearToken,
@@ -13,7 +8,6 @@ import {
 } from '@/utils/auth';
 import { selectTenant, tenantLogin, tenantLogout } from '@/api/tenant-session';
 import { disposeTenantState, isTenantAccessToken } from '@peanut-admin/vue';
-import isMultiTenantDeployment from '@/core/tenant-session';
 import { removeRouteListener } from '@/utils/route-listener';
 import { UserState } from './types';
 import useAppStore from '../app';
@@ -38,6 +32,7 @@ const useUserStore = defineStore('user', {
     certification: undefined,
     role: '',
     permissions: [],
+    action_bindings: [],
     menu: [],
     canSwitchTenant: false,
     tenantName: '',
@@ -66,10 +61,7 @@ const useUserStore = defineStore('user', {
       const snapshot = getSessionSnapshot();
       const res = await getUserInfo();
       const current = getSessionSnapshot();
-      if (
-        snapshot.generation !== current.generation ||
-        snapshot.token !== current.token
-      )
+      if (snapshot.generation !== current.generation)
         throw new Error('The request session has changed.');
       const appStore = useAppStore();
       const brandStore = useBrandStore();
@@ -94,60 +86,50 @@ const useUserStore = defineStore('user', {
         if (getSessionSnapshot().generation !== generation) {
           throw new Error('The login session has changed.');
         }
-        if (isMultiTenantDeployment()) {
-          if (loginForm.challengeToken && loginForm.tenantId) {
-            const authenticated = await selectTenant(
-              loginForm.challengeToken,
-              loginForm.tenantId,
-              generation
-            );
-            if (getSessionSnapshot().generation !== generation) {
-              throw new Error('The login session has changed.');
-            }
-            resetLoginState();
-            generation = advanceSessionGeneration();
-            setToken(authenticated.access_token);
-            return authenticated;
-          }
-          const outcome = await tenantLogin(
-            loginForm.username,
-            loginForm.password,
+        if (loginForm.challengeToken && loginForm.tenantId) {
+          const authenticated = await selectTenant(
+            loginForm.challengeToken,
+            loginForm.tenantId,
             generation
           );
-          if (!outcome || typeof outcome !== 'object') {
-            throw new Error('Tenant session returned no session data.');
-          }
           if (getSessionSnapshot().generation !== generation) {
             throw new Error('The login session has changed.');
           }
-          if (outcome.state === 'tenant_selection_required') {
-            if (!loginForm.tenantId) return outcome;
-            const authenticated = await selectTenant(
-              outcome.challenge_token,
-              loginForm.tenantId,
-              generation
-            );
-            if (getSessionSnapshot().generation !== generation) {
-              throw new Error('The login session has changed.');
-            }
-            resetLoginState();
-            generation = advanceSessionGeneration();
-            setToken(authenticated.access_token);
-            return authenticated;
-          }
           resetLoginState();
           generation = advanceSessionGeneration();
-          setToken(outcome.access_token);
-          return outcome;
+          setToken(authenticated.access_token);
+          return authenticated;
         }
-        const res = await userLogin(loginForm);
+        const outcome = await tenantLogin(
+          loginForm.username,
+          loginForm.password,
+          generation
+        );
+        if (!outcome || typeof outcome !== 'object') {
+          throw new Error('Tenant session returned no session data.');
+        }
         if (getSessionSnapshot().generation !== generation) {
           throw new Error('The login session has changed.');
         }
+        if (outcome.state === 'tenant_selection_required') {
+          if (!loginForm.tenantId) return outcome;
+          const authenticated = await selectTenant(
+            outcome.challenge_token,
+            loginForm.tenantId,
+            generation
+          );
+          if (getSessionSnapshot().generation !== generation) {
+            throw new Error('The login session has changed.');
+          }
+          resetLoginState();
+          generation = advanceSessionGeneration();
+          setToken(authenticated.access_token);
+          return authenticated;
+        }
         resetLoginState();
         generation = advanceSessionGeneration();
-        setToken(res.data.token);
-        return res.data;
+        setToken(outcome.access_token);
+        return outcome;
       } catch (err) {
         if (getSessionSnapshot().generation === generation) {
           resetLoginState();
@@ -198,21 +180,42 @@ const useUserStore = defineStore('user', {
         beforeLogout.token !== token
       )
         return false;
-      const logoutGeneration = advanceSessionGeneration();
+      const transition: { generation: number | null; token: string | null } = {
+        generation: null,
+        token,
+      };
       let cleared = false;
       try {
-        if (isTenantAccessToken(token)) {
-          await tenantLogout(token as string, logoutGeneration);
+        if (token !== null && isTenantAccessToken(token)) {
+          await tenantLogout(
+            { generation, token },
+            (currentToken, nextGeneration) => {
+              transition.token = currentToken;
+              transition.generation = nextGeneration;
+            }
+          );
         } else {
-          await userLogout();
+          transition.generation = advanceSessionGeneration();
         }
-      } finally {
-        const afterRemoteLogout = getSessionSnapshot();
+      } catch (error) {
         if (
-          afterRemoteLogout.generation === logoutGeneration &&
-          afterRemoteLogout.token === token
-        ) {
-          cleared = await this.logoutCallBack(logoutGeneration, token);
+          transition.generation === null &&
+          getSessionSnapshot().generation !== generation
+        )
+          return false;
+        throw error;
+      } finally {
+        if (transition.generation !== null) {
+          const afterRemoteLogout = getSessionSnapshot();
+          if (
+            afterRemoteLogout.generation === transition.generation &&
+            afterRemoteLogout.token === transition.token
+          ) {
+            cleared = await this.logoutCallBack(
+              transition.generation,
+              transition.token
+            );
+          }
         }
       }
       return cleared;

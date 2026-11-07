@@ -5,13 +5,9 @@ declare(strict_types=1);
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
 
 use PeanutAdmin\Modules\File\Service\Storage\StorageService;
-use PeanutAdmin\Modules\File\Composition\Storage\StorageDriverFactory;
-use app\common\execution\CurrentExecutionContext;
-use app\common\execution\ExecutionContextStore;
-use app\common\tenancy\MultiTenantDataScopePolicy;
+use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use PeanutAdmin\Kernel\Host\ApplicationHostPolicy;
-use PeanutAdmin\Modules\Identity\Tenancy\DefaultTenantContextResolver;
 use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
 
 require_once defined('PHPUNIT_COMPOSER_INSTALL')
@@ -54,6 +50,26 @@ CREATE TABLE pa_tenant_entry_binding (
   status TEXT NOT NULL,
   UNIQUE (host, client_key)
 );
+CREATE TABLE pa_module_installation (
+  module_key TEXT PRIMARY KEY, installed_version TEXT, status TEXT, revision INTEGER,
+  manifest_schema_version INTEGER, manifest_digest TEXT
+);
+CREATE TABLE pa_plan (id INTEGER PRIMARY KEY, code TEXT, name TEXT, revision INTEGER);
+CREATE TABLE pa_plan_module (plan_id INTEGER, module_key TEXT);
+CREATE TABLE pa_tenant_license (
+  id INTEGER PRIMARY KEY, tenant_id INTEGER, plan_id INTEGER, status TEXT,
+  effective_at TEXT, expires_at TEXT, revision INTEGER
+);
+CREATE TABLE pa_file_derivative (tenant_id INTEGER, derivative_file_key TEXT, source_file_key TEXT);
+CREATE TABLE pa_file_delivery_grant (
+  token_id_hash TEXT PRIMARY KEY, subject_tenant_id INTEGER, file_key TEXT, file_revision INTEGER,
+  visibility TEXT, source_file_key TEXT, source_revision INTEGER, source_visibility TEXT,
+  operation TEXT, document_id INTEGER, authorization_revision TEXT, reference_digest TEXT,
+  subject_json TEXT, expires_at TEXT
+);
+INSERT INTO pa_plan VALUES (1,'entry','Entry fixture',1);
+INSERT INTO pa_plan_module VALUES (1,'peanut.file');
+INSERT INTO pa_tenant_license VALUES (1,101,1,'active','2020-01-01',NULL,1);
 CREATE TABLE pa_storage_account (
   id INTEGER PRIMARY KEY, account_key TEXT, driver TEXT, name TEXT,
   credential_ciphertext TEXT, credential_key_version INTEGER, status TEXT
@@ -93,25 +109,19 @@ $resolver = new TenantEntryBindingResolver(
     true,
     new \PeanutAdmin\Modules\Identity\Tenancy\Infrastructure\ThinkPhpTenantEntryBindingLookup(),
 );
-$multiTenantScope = new MultiTenantDataScopePolicy(
-    new CurrentExecutionContext(new ExecutionContextStore()),
-);
+$app = new \think\App(dirname(__DIR__, 2));
+$app->env->set(['DEPLOYMENT_MODE' => 'multi-tenant', 'JWT_SECRET' => str_repeat('s', 32)]);
+$app->initialize();
 ThinkPhpTestConnection::fromPdo($pdo);
-$storage = new StorageService(
-    (new ReflectionClass(StorageDriverFactory::class))->newInstanceWithoutConstructor(),
-    $multiTenantScope,
-    new DefaultTenantContextResolver(),
-    str_repeat('s', 32),
-    'https://admin.example.test',
-    new \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery(new CurrentExecutionContext(new ExecutionContextStore())),
-);
+$manifest = $app->make(CompiledModuleRegistry::class)->requireManifest('peanut.file');
+$pdo->prepare("INSERT INTO pa_module_installation VALUES ('peanut.file',?,'active',1,?,?)")
+    ->execute([$manifest->data['version'], $manifest->data['schema_version'], $manifest->digest]);
+$storage = $app->make(StorageService::class);
 $deliverable = static function (int $tenantId, string $fileKey) use ($storage): bool {
-    try {
-        $storage->accessUrlForTenant($tenantId, $fileKey);
-        return true;
-    } catch (Throwable) {
-        return false;
-    }
+    $url = $storage->publicUrl($fileKey);
+    parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+    return ($query['tenant_id'] ?? '') === (string) $tenantId
+        && ($query['file_key'] ?? '') === $fileKey && !empty($query['token']);
 };
 entryBindingExpect(
     $deliverable(101, 'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
@@ -186,11 +196,13 @@ $insert->execute([101, 'alpha.example.test', TenantEntryBindingResolver::MEMBER_
 $multiTenantHosts = new ApplicationHostPolicy(
     'multi-tenant',
     ['platform.example.test'],
-    ['admin.example.test'],
     $resolver,
 );
 $multiTenantHosts->assertPlatform($platformRequest);
-$multiTenantHosts->assertTenantAdmin($sharedAdminRequest);
+entryBindingRejects(
+    static fn() => $multiTenantHosts->assertTenantAdmin($sharedAdminRequest),
+    'an unbound Admin Host reached a Tenant control plane',
+);
 $multiTenantHosts->assertTenantAdmin($boundRequest);
 entryBindingRejects(
     static fn() => $multiTenantHosts->assertPlatform($sharedAdminRequest),
@@ -204,7 +216,7 @@ entryBindingRejects(
     static fn() => $multiTenantHosts->assertTenantAdmin($unboundRequest),
     'an unknown Host became an implicit shared Tenant Admin entry',
 );
-(new ApplicationHostPolicy('standalone', [], [], $resolver))->assertTenantAdmin($unboundRequest);
+(new ApplicationHostPolicy('standalone', [], $resolver))->assertTenantAdmin($unboundRequest);
 entryBindingExpect(
     $resolver->boundTenantId($boundRequest, TenantEntryBindingResolver::ADMIN_CLIENT) === 101,
     'the bound Admin entry did not expose its continuous Tenant boundary',
@@ -327,7 +339,7 @@ $loginMiddleware = (string) file_get_contents(
     dirname(__DIR__, 2) . '/app/adminapi/http/middleware/LoginMiddleware.php',
 );
 $storageService = (string) file_get_contents(
-    dirname(__DIR__, 2) . '/app/modules/official/file/src/Service/Storage/StorageService.php',
+    dirname(__DIR__, 2) . '/app/modules/peanut/file/src/Service/Storage/StorageService.php',
 );
 $storageController = (string) file_get_contents(
     dirname(__DIR__, 2) . '/app/api/controller/StorageController.php',
@@ -362,17 +374,17 @@ foreach ([$productionNginx, $developmentNginx] as $nginx) {
 }
 
 $schema = (string) file_get_contents(
-    dirname(__DIR__, 2) . '/database/init.sql',
+    dirname(__DIR__, 2) . '/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php',
 );
 foreach (['pa_tenant_entry_binding', '`tenant_id`', '`host`', '`client_key`', 'fk_tenant_entry_binding_tenant'] as $token) {
     entryBindingExpect(str_contains($schema, $token), 'Tenant entry schema lost contract token: ' . $token);
 }
 entryBindingExpect(
-    str_contains($schema, 'UNIQUE KEY `uk_tenant_entry_binding` (`host`, `client_key`)'),
+    str_contains($schema, 'UNIQUE KEY `uk_tenant_entry_binding` (`host`,`client_key`)'),
     'Tenant entry schema lost the one Host/client invariant',
 );
 entryBindingExpect(
-    str_contains($schema, "CHECK (`status` IN ('active', 'disabled'))"),
+    str_contains($schema, "CONSTRAINT `chk_tenant_entry_binding_status` CHECK ((`status` in (_utf8mb4'active',_utf8mb4'disabled')))"),
     'Tenant entry schema lost its binding status constraint',
 );
 

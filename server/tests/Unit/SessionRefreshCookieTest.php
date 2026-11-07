@@ -96,7 +96,10 @@ final class SessionRefreshCookieTest extends TestCase
         $permissions = $this->createStub(PlatformAuthorizationRepository::class);
         $sessions = new PlatformOperatorSessionService(
             new PlatformAuthService($repository, new PasswordHasher(), new SystemClock(), new TokenIssuer(), str_repeat('h', 32)),
-            new PlatformAuthorizationEvaluator($permissions, new RevisionPermissionCache()),
+            new \app\platform\services\PlatformApiAuthorization(
+                new PlatformAuthorizationEvaluator($permissions, new RevisionPermissionCache()),
+                new \app\common\services\authorization\EndpointPermissionGrant(new Request()),
+            ),
             $permissions,
         );
         foreach (['', 'pa_pat_current'] as $accessToken) {
@@ -154,7 +157,7 @@ final class SessionRefreshCookieTest extends TestCase
         $endpoint = new TenantAuthEndpoint($auth);
         $old = $endpoint->refreshCookieName('pa_tat_old');
         $now = new DateTimeImmutable();
-        $context = TenantContext::fromValidatedSession(new ValidatedTenantSession(1, 'synthetic', 11, 21, 31, $auth->client()->key, $now, 1), 'cookie-contract');
+        $context = TenantContext::fromValidatedSession(new ValidatedTenantSession(1, 'synthetic', 11, 21, 31, $auth->client()->key, $now, 1, 1), 'cookie-contract');
         $authentication = new TenantAuthentication(new TenantTokenPair(new RawToken('pa_tat_new'), new RawToken('pa_trt_new'), $now, $now), $context);
         $response = (new ReflectionMethod($endpoint, 'authenticated'))->invoke($endpoint, $authentication, 'cookie-contract', [$old]);
         self::assertSame([], $response->headers);
@@ -178,7 +181,7 @@ final class SessionRefreshCookieTest extends TestCase
         $endpoint = new TenantAuthEndpoint(new TenantAuthService($repository, new PasswordHasher(), new SystemClock(), new TokenIssuer(), str_repeat('t', 32)));
         foreach ([['', true], ['pa_tat_selected', false]] as [$accessToken, $trustedOrigin]) {
             try {
-                $endpoint->refresh('pa_trt_refresh', $accessToken, $trustedOrigin, '127.0.0.1', null, 'cookie-contract');
+                $endpoint->refresh('pa_trt_refresh', $accessToken, $trustedOrigin, '127.0.0.1', null, 'cookie-contract', 11);
                 self::fail('Invalid expected access or origin must not refresh a session.');
             } catch (AuthException $error) {
                 self::assertSame('AUTH_TOKEN_INVALID', $error->errorCode);

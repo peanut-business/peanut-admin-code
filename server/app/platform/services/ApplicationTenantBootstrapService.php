@@ -13,12 +13,11 @@ use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
 use app\common\model\decoration\DecoratePage;
 use app\common\model\decoration\DecorateTabbar;
 use app\common\model\decoration\DecorationTabbarSetting;
-use app\common\model\setting\TransactionSetting;
 use app\common\model\setting\CustomerServiceSetting;
 use PeanutAdmin\Modules\Settings\Contract\TenantSettingsQuery;
 use PeanutAdmin\Modules\Settings\Contract\TenantSettingsCommands;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
-use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationCommands;
+use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use think\DbManager;
 use think\db\PDOConnection;
 
@@ -32,22 +31,18 @@ final readonly class ApplicationTenantBootstrapService
         'pa_decorate_tabbar',
         'pa_decorate_tabbar_setting',
         'pa_external_channel_binding',
-        'pa_notice_scene',
-        'pa_permission',
-        'pa_role_permission',
         'pa_tenant_setting',
-        'pa_transaction_setting',
     ];
 
     public function __construct(
-        private NotificationBootstrapCommands $notifications,
         private TaskBootstrapCommands $tasks,
         private ExecutionContextStore $executionContexts,
         private TenantSettingsQuery $tenantSettings,
         private TenantSettingsCommands $settingCommands,
         private ExternalIntegrationBootstrapCommands $externalBindings,
-        private TenantAuthorizationCommands $authorization,
         private DbManager $database,
+        private CompiledModuleRegistry $modules,
+        private ?NotificationBootstrapCommands $notifications = null,
     ) {}
 
     public function provision(int $tenantId, int $ownerMemberId, int $ownerRoleId, string $tenantCode): void
@@ -61,25 +56,24 @@ final readonly class ApplicationTenantBootstrapService
 
         $operationId = $this->executionContexts->current()?->requestId()
             ?? 'tenant-bootstrap:' . $tenantCode;
+        $selectedModules = app(\PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries::class)->activeModuleKeys($tenantId);
         $execution = new SystemExecutionContext(new TenantSystemContext(
             $tenantId,
             'platform.tenant-bootstrap',
-            'notification.provision-tenant-defaults',
+            'tenant.provision-application-defaults',
             $operationId,
         ));
         $this->executionContexts->run($execution, function () use (
             $execution,
             $tenantId,
-            $ownerMemberId,
-            $ownerRoleId,
             $tenantCode,
+            $selectedModules,
         ): void {
-            $this->grantOwnerPermissions($tenantId, $ownerMemberId, $ownerRoleId);
-            $this->seedCrontab();
+            $this->seedCrontab($execution->system, $selectedModules);
             $this->seedNoticeScenes($execution);
             $this->seedDecoration();
             $this->seedSettings($execution->system);
-            $this->seedExternalBindings($tenantId, $tenantCode);
+            $this->seedExternalBindings($tenantId, $tenantCode, $selectedModules);
         });
     }
 
@@ -90,8 +84,12 @@ final readonly class ApplicationTenantBootstrapService
             throw new \DomainException('TENANT_APPLICATION_SCHEMA_DRIVER_UNSUPPORTED');
         }
         $available = array_fill_keys($connection->getTables(), true);
+        $expected = self::REQUIRED_TABLES;
+        if ($this->notifications !== null) {
+            $expected[] = 'pa_notice_scene';
+        }
         $tables = array_values(array_filter(
-            self::REQUIRED_TABLES,
+            $expected,
             static fn(string $table): bool => isset($available[$table]),
         ));
         if ($tables === []) {
@@ -99,7 +97,6 @@ final readonly class ApplicationTenantBootstrapService
             return false;
         }
         sort($tables, SORT_STRING);
-        $expected = self::REQUIRED_TABLES;
         sort($expected, SORT_STRING);
         if ($tables !== $expected) {
             throw new \DomainException('TENANT_APPLICATION_SCHEMA_INCOMPLETE');
@@ -107,23 +104,8 @@ final readonly class ApplicationTenantBootstrapService
         return true;
     }
 
-    private function grantOwnerPermissions(int $tenantId, int $ownerMemberId, int $ownerRoleId): void
-    {
-        $execution = new SystemExecutionContext(new TenantSystemContext(
-            $tenantId,
-            'platform.tenant-bootstrap',
-            'identity.bootstrap-owner-permissions',
-            $this->executionContexts->require()->requestId(),
-        ));
-        $this->executionContexts->run($execution, fn() => $this->authorization->grantActiveModulePermissions(
-            $tenantId,
-            $ownerMemberId,
-            $ownerRoleId,
-            'peanut.admin',
-        ));
-    }
-
-    private function seedCrontab(): void
+    /** @param list<string> $selectedModules */
+    private function seedCrontab(TenantSystemContext $context, array $selectedModules): void
     {
         $defaults = [
             [
@@ -142,44 +124,48 @@ final readonly class ApplicationTenantBootstrapService
                 'create_time' => 0,
                 'update_time' => 0,
             ],
-            [
-                'name' => '代码生成归档清理',
-                'type' => 1,
-                'command' => 'generator:cleanup',
-                'params' => '',
-                'status' => 1,
-                'expression' => '0 3 * * *',
-                'error' => '',
-                'last_time' => 0,
-                'time' => 0,
-                'max_time' => 0,
-                'sort' => 20,
-                'remark' => '清理已使用或过期的代码生成下载令牌和隔离归档',
-                'create_time' => 0,
-                'update_time' => 0,
-            ],
         ];
-        $this->tasks->seedDefaults($defaults);
+        if (!in_array('peanut.payment', $selectedModules, true)) {
+            $defaults = array_values(array_filter(
+                $defaults,
+                static fn(array $row): bool => $row['command'] !== 'refund:reconcile',
+            ));
+        }
+        if ($defaults !== []) {
+            $this->tasks->seedDefaults($context, $defaults);
+        }
     }
 
     private function seedNoticeScenes(SystemExecutionContext $execution): void
     {
-        $this->notifications->provisionTenantDefaults($execution);
+        if ($this->notifications === null) {
+            return;
+        }
+        $notificationExecution = new SystemExecutionContext(new TenantSystemContext(
+            $execution->system->tenantId,
+            'platform.tenant-bootstrap',
+            'notification.provision-tenant-defaults',
+            $execution->requestId(),
+        ));
+        $this->executionContexts->run(
+            $notificationExecution,
+            fn() => $this->notifications->provisionTenantDefaults($notificationExecution),
+        );
     }
 
     private function seedDecoration(): void
     {
+        // Empty page shells are application structure, not sample business content.
+        // Module pages and links are supplied by their selected Module contributions.
         $pages = [
-            [1, '移动端首页', '[{"title":"搜索","name":"search","disabled":1,"content":{},"styles":{}},{"title":"首页轮播图","name":"banner","content":{"enabled":1,"style":1,"bg_style":1,"data":[{"is_show":1,"image":"","bg":"","name":"","link":{"target_type":"shop","target":"home"}}]},"styles":{}},{"title":"导航菜单","name":"nav","content":{"enabled":1,"style":2,"per_line":5,"show_line":2,"data":[{"is_show":1,"image":"","name":"资讯中心","link":{"target_type":"shop","target":"news"}}]},"styles":{}},{"title":"首页中部轮播图","name":"middle-banner","content":{"enabled":1,"data":[{"is_show":1,"image":"","name":"","link":{"target_type":"shop","target":"home"}}]},"styles":{}},{"title":"资讯","name":"news","disabled":1,"content":{},"styles":{}}]', '[{"title":"页面设置","name":"page-meta","content":{"title":"首页","title_type":1,"title_img":"","bg_type":1,"bg_color":"#2F80ED","bg_image":"","text_color":1},"styles":{}}]'],
-            [2, '个人中心', '[{"title":"用户信息","name":"user-info","disabled":1,"content":{},"styles":{}},{"title":"我的服务","name":"my-service","content":{"enabled":1,"style":1,"title":"我的服务","data":[{"is_show":1,"image":"","name":"我的收藏","link":{"target_type":"shop","target":"favorites"}}]},"styles":{}},{"title":"个人中心广告图","name":"user-banner","content":{"enabled":1,"data":[{"is_show":1,"image":"","name":"","link":{"target_type":"shop","target":"profile"}}]},"styles":{}}]', '[{"title":"页面设置","name":"page-meta","content":{"title":"个人中心","title_type":1,"title_img":"","bg_type":1,"bg_color":"#2F80ED","bg_image":"","text_color":1},"styles":{}}]'],
-            [3, '客服设置', '[{"title":"客服设置","name":"customer-service","content":{"title":"添加客服二维码","time":"9:30 - 19:00","mobile":"","qrcode":"","remark":"长按添加客服或拨打客服热线"},"styles":{}}]', '[]'],
-            [4, 'PC 首页', '[{"title":"首页轮播图","name":"pc-banner","content":{"enabled":1,"data":[{"image":"","name":"","link":{"target_type":"shop","target":"home"}}]},"styles":{"position":"absolute","left":"40px","top":"75px","width":"750px","height":"340px"}}]', '[]'],
+            [1, '移动端首页', '[]', '[{"title":"页面设置","name":"page-meta","content":{"title":"首页","title_type":1,"title_img":"","bg_type":1,"bg_color":"#2F80ED","bg_image":"","text_color":1},"styles":{}}]'],
+            [2, '个人中心', '[]', '[{"title":"页面设置","name":"page-meta","content":{"title":"个人中心","title_type":1,"title_img":"","bg_type":1,"bg_color":"#2F80ED","bg_image":"","text_color":1},"styles":{}}]'],
+            [3, '客服设置', '[]', '[]'],
+            [4, 'PC 首页', '[]', '[]'],
             [5, '系统风格', '{"themeColorId":3,"topTextColor":"white","navigationBarColor":"#A74BFD","themeColor1":"#A74BFD","themeColor2":"#CB60FF","buttonColor":"white"}', '[]'],
         ];
         $tabbars = [
             [0, '首页', '{"target_type":"shop","target":"home"}'],
-            [1, '资讯', '{"target_type":"shop","target":"news"}'],
-            [2, '我的', '{"target_type":"shop","target":"profile"}'],
         ];
         $existingPageTypes = array_fill_keys(array_map(
             'intval',
@@ -264,19 +250,10 @@ final readonly class ApplicationTenantBootstrapService
                 'update_time' => 0,
             ]);
         }
-        if (TransactionSetting::where([])->find() === null) {
-            TransactionSetting::create([
-                'cancel_unpaid_orders' => 1,
-                'cancel_unpaid_orders_times' => 30,
-                'verification_orders' => 1,
-                'verification_orders_times' => 24,
-                'create_time' => 0,
-                'update_time' => 0,
-            ]);
-        }
     }
 
-    private function seedExternalBindings(int $tenantId, string $tenantCode): void
+    /** @param list<string> $selectedModules */
+    private function seedExternalBindings(int $tenantId, string $tenantCode, array $selectedModules): void
     {
         $execution = new SystemExecutionContext(new TenantSystemContext(
             $tenantId,
@@ -284,8 +261,12 @@ final readonly class ApplicationTenantBootstrapService
             'integration.bootstrap-bindings',
             $this->executionContexts->require()->requestId(),
         ));
-        $this->executionContexts->run($execution, function () use ($tenantId, $tenantCode): void {
+        $this->executionContexts->run($execution, function () use ($tenantId, $tenantCode, $selectedModules): void {
             foreach (ExternalIntegrationBootstrapCommands::DEFAULT_PROVIDERS as $provider) {
+                $moduleKey = str_starts_with($provider, 'payment.') ? 'peanut.payment' : 'peanut.oauth';
+                if (!in_array($moduleKey, $selectedModules, true)) {
+                    continue;
+                }
                 $this->externalBindings->ensureUnconfiguredBinding($tenantId, $tenantCode, $provider);
             }
         });

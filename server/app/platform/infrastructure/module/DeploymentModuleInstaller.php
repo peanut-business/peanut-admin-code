@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace app\platform\infrastructure\module;
 
-use app\platform\infrastructure\plugin\ModuleCatalogApplier;
+use app\platform\infrastructure\module\ModuleLockResolver;
+
+use app\platform\infrastructure\module\ModuleCatalogApplier;
 use PeanutAdmin\Kernel\Module\ManifestDocument;
 use PeanutAdmin\Kernel\Module\ModuleException;
 use PeanutAdmin\Modules\Identity\Authorization\CatalogLifecycleService;
@@ -38,8 +40,9 @@ final readonly class DeploymentModuleInstaller
         }
 
         return Db::transaction(function () use ($manifest, $registry, $moduleKey): array {
-            $identity = $this->identityLifecycle->registerDeployedManifest($manifest);
-            $this->catalogs->apply($registry->compiled(), [$moduleKey]);
+            $identity = $this->identityLifecycle->registerDeployedManifest($manifest, false);
+            $this->catalogs->apply($registry->compiled(), [$moduleKey], false);
+            $this->catalogs->invalidateTenantAuthorization([$moduleKey]);
             return $identity;
         });
     }
@@ -51,6 +54,7 @@ final readonly class DeploymentModuleInstaller
             $this->serverRoot,
             $deploymentConfig,
             $this->catalogs,
+            lockResolver: ModuleLockResolver::forRuntime($this->serverRoot, (string) ($deploymentConfig['module_lock'] ?? '')),
         ))->registry();
     }
 }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
 
-require dirname(__DIR__, 2) . '/bootstrap/environment.php';
+require_once __DIR__ . '/../Support/CiBootstrap.php';
 
 use PeanutAdmin\Kernel\Auth\ValidatedPlatformSession;
 use PeanutAdmin\Kernel\Authorization\AuthorizationException;
@@ -17,11 +17,18 @@ use PeanutAdmin\Modules\Identity\Platform\Authorization\ThinkPhpPlatformAuthoriz
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
-require_once dirname(__DIR__, 2) . '/database/install.php';
+require_once __DIR__ . '/../Support/IdentityMysqlFixture.php';
+require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
+require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
+
+$cache = require dirname(__DIR__, 2) . '/config/cache.php';
+$cache['stores']['file']['path'] = dirname(__DIR__, 3) . '/.local/tmp/058-PlatformModuleRuntimeHttpWiringTest-cache-' . bin2hex(random_bytes(6)) . '/';
+think\Container::getInstance()->config->set($cache, 'cache');
 require_once dirname(__DIR__) . '/Support/IsolatedBackendEnvironment.php';
 
 function platformModuleHttpExpect(bool $condition, string $message): void
 {
+    $GLOBALS['platformModuleHttpExpectAssertions'] = ($GLOBALS['platformModuleHttpExpectAssertions'] ?? 0) + 1;
     if (!$condition) {
         throw new RuntimeException($message);
     }
@@ -56,9 +63,9 @@ $serverRoot = dirname(__DIR__, 2);
 $routeSource = peanut_route_registry_source($serverRoot);
 $controllerSource = (string) file_get_contents($serverRoot . '/app/platform/controller/PlatformModuleLifecycleController.php');
 $middlewareSource = (string) file_get_contents($serverRoot . '/app/platform/http/middleware/PlatformInstanceToolMiddleware.php');
-$serviceSource = (string) file_get_contents($serverRoot . '/app/platform/service/plugin/PlatformModuleRuntimeService.php');
+$serviceSource = (string) file_get_contents($serverRoot . '/app/platform/services/module/PlatformModuleRuntimeService.php');
 $commandSource = (string) file_get_contents($serverRoot . '/app/command/ModuleSync.php');
-$consoleSource = (string) file_get_contents($serverRoot . '/config/console.php');
+$moduleBridgeSource = (string) file_get_contents($serverRoot . '/module');
 $moduleConfigSource = (string) file_get_contents($serverRoot . '/config/modules.php');
 $webRouteSource = (string) file_get_contents(dirname($serverRoot) . '/web/src/router/routes/modules/dev-tools.ts');
 $webApiSource = (string) file_get_contents(dirname($serverRoot) . '/web/src/api/dev-tools/modules.ts');
@@ -75,7 +82,7 @@ $permissionKeys = [];
 foreach ($routes as [$method, $path, $action, $permission]) {
     $permissionKeys[] = $permission;
     $pattern = sprintf(
-        "~Route::%s\\('%s', \\[PlatformModuleLifecycleController::class, '%s'\\]\\)\\s*"
+        "~Route::%s\\('%s', \\[PlatformModuleLifecycleController::class, '%s'\\]\\)\\s*(?:->completeMatch\\(\\)\\s*)?"
         . "->middleware\\(PlatformLoginMiddleware::class\\)\\s*"
         . "->middleware\\(PlatformPermissionMiddleware::class, '%s'\\)\\s*"
         . "->middleware\\(PlatformInstanceToolMiddleware::class\\);~",
@@ -113,65 +120,30 @@ platformModuleHttpExpect(
     'Admin Web module page lost its existing /dev-tools plane, shared generator, or independent Platform token',
 );
 platformModuleHttpExpect(
-    str_contains($consoleSource, "'module:sync'")
+    str_contains($moduleBridgeSource, "'sync' => ['module:sync'")
         && str_contains($commandSource, "setName('module:sync')")
         && str_contains($commandSource, "addOption('module'")
         && !str_contains($moduleConfigSource, 'frontend_components'),
     'module:sync command contract or module.json-derived frontend catalog regressed',
 );
 
-$database = $argv[1] ?? '';
-platformModuleHttpExpect(
-    preg_match('/^peanut_admin_development_p0e_[a-z0-9]{1,11}_plugin_lifecycle$/D', $database) === 1,
-    'registered isolated plugin-lifecycle database name is required',
-);
-$host = IsolatedBackendEnvironment::required('DB_HOST');
-$port = IsolatedBackendEnvironment::required('DB_PORT');
-$user = IsolatedBackendEnvironment::required('DB_USER');
-$password = IsolatedBackendEnvironment::required('DB_PASS');
-$admin = new PDO(
-    "mysql:host={$host};port={$port};charset=utf8mb4",
-    $user,
-    $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false],
-);
-$exists = $admin->prepare('SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name=?');
-$exists->execute([$database]);
-platformModuleHttpExpect((int) $exists->fetchColumn() === 0, 'isolated Platform Module HTTP database already exists');
-$admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
+$database = RegisteredMysqlTestResource::configuredDatabaseName();
+[$pdo, $createdDatabase] = RegisteredMysqlTestResource::openEmptyDatabase($database);
 
-$completed = false;
-$pdo = null;
 try {
-    IsolatedBackendEnvironment::activate([
-        'APP_ENV' => 'development',
-        'APP_DEBUG' => 'true',
-        'DEPLOYMENT_MODE' => 'standalone',
-        'PEANUT_DATABASE_RESOURCE_ID' => 'peanut-admin-p0e-mysql84-gate',
-        'PEANUT_DATABASE_ENDPOINT_ID' => 'peanut-admin-p0e-mysql84-gate-host-direct',
-        'PEANUT_DATABASE_CONSUMER' => 'host',
-        'DB_HOST' => $host,
-        'DB_PORT' => $port,
-        'DB_NAME' => $database,
-        'DB_USER' => $user,
-        'DB_PASS' => $password,
-        'DB_PREFIX' => 'pa_',
-    ]);
-    $pdo = new PDO(
-        "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
-        $user,
-        $password,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false],
+    IdentityMysqlFixture::install($pdo);
+    ThinkPhpTestConnection::fromPdo($pdo);
+    $bootstrap = new \PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService(
+        new \PeanutAdmin\Modules\Identity\Audit\AuditService(),
+        new \PeanutAdmin\Kernel\Identity\PasswordHasher(),
+        new \PeanutAdmin\Kernel\Identity\PasswordPolicy(),
     );
-    platformModuleHttpExpect((int) $pdo->query('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()')->fetchColumn() === 0, 'Platform Module HTTP test database must start empty');
-    $identity = initializeCoreIdentity(
-        $pdo,
+    $identity = $bootstrap->bootstrapPlatformOwner(
         'module-http-owner@example.test',
         'ModuleHttpOwnerPassword2026',
-        null,
-        new \PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy(false, []),
+        'Module HTTP Owner',
+        'module-http-bootstrap',
     );
-    executeSqlFiles($pdo, [$serverRoot . '/database/init.sql']);
     (new CorePermissionCatalogSynchronizer(new ThinkPhpAuthorizationCatalogRepository()))->synchronize();
 
     $catalogKeys = CorePermissionCatalog::PLATFORM;
@@ -211,22 +183,15 @@ try {
         $evaluator->assertAllowed($scopedContext, $permission);
     }
 
-    $ownerAccountId = (int) $pdo->query('SELECT account_id FROM pa_platform_operator WHERE id=' . (int) $identity['operator_id'])->fetchColumn();
-    $ownerContext = platformModuleHttpContext((int) $identity['operator_id'], $ownerAccountId, 'module-http-owner');
+    $ownerAccountId = (int) $pdo->query('SELECT account_id FROM pa_platform_operator WHERE id=' . (int) $identity->operatorId)->fetchColumn();
+    $ownerContext = platformModuleHttpContext((int) $identity->operatorId, $ownerAccountId, 'module-http-owner');
     platformModuleHttpDenied(
         new PlatformAuthorizationEvaluator($repository, new RevisionPermissionCache()),
         $ownerContext,
         'platform.module.unregistered-probe',
     );
 
-    $completed = true;
-    echo "PLATFORM-MODULE-RUNTIME-HTTP-D3-001 passed database={$database}\n";
+    echo "PLATFORM-MODULE-RUNTIME-HTTP-D3-001 passed database={$database}; assertions={$GLOBALS['platformModuleHttpExpectAssertions']}\n";
 } finally {
-    IsolatedBackendEnvironment::cleanup();
-    $pdo = null;
-    if ($completed) {
-        $admin->exec("DROP DATABASE `{$database}`");
-    } else {
-        fwrite(STDERR, "PLATFORM_MODULE_HTTP_TEST_DATABASE_RETAINED={$database}\n");
-    }
+    RegisteredMysqlTestResource::cleanup($pdo, $database, $createdDatabase);
 }

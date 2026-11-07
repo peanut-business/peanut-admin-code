@@ -89,7 +89,7 @@ final readonly class ApplicationReleaseVersions
             throw new RuntimeException('APPLICATION_RELEASE_VERSIONS_PRODUCT_CORE_MISMATCH');
         }
         if ($v3) {
-            self::assertV3Dependencies($values['core_php'], $values['core_web'], dirname($path));
+            self::assertV3Dependencies($values['core_php'], $values['core_web']);
             if ($values['source_product_version'] !== $values['scaffold_template']) {
                 throw new RuntimeException('APPLICATION_RELEASE_VERSIONS_PRODUCT_TEMPLATE_MISMATCH');
             }
@@ -107,6 +107,27 @@ final readonly class ApplicationReleaseVersions
     /** Read the running instance version from the declared server or source layout. */
     public static function runningVersion(string $serverRoot): string
     {
+        if (ApplicationSourceIdentity::hasRuntime($serverRoot)) {
+            // Version presentation is not deployment admission. CLI maintenance still
+            // verifies the complete identity; HTTP only reads its version declaration.
+            if (PHP_SAPI !== 'cli') {
+                $path = $serverRoot . '/' . ApplicationSourceIdentity::RUNTIME_PATH;
+                if (!is_file($path) || is_link($path)) {
+                    throw new RuntimeException('APPLICATION_DEVELOPMENT_RUNTIME_INVALID');
+                }
+                $value = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+                $version = $value['versions']['release_sequence_version'] ?? null;
+                if (($value['protocol'] ?? null) !== 'peanut.development-server-runtime.v1'
+                    || ($value['schema_version'] ?? null) !== 1
+                    || ($value['environment'] ?? null) !== 'development'
+                    || !is_string($version) || preg_match(self::STRICT_SEMVER, $version) !== 1
+                    || ($value['application']['version'] ?? null) !== $version) {
+                    throw new RuntimeException('APPLICATION_DEVELOPMENT_RUNTIME_INVALID');
+                }
+                return $version;
+            }
+            return ApplicationSourceIdentity::load($serverRoot)->versions()['release_sequence_version'];
+        }
         $identityPath = $serverRoot . '/.peanut/release-identity.json';
         if (file_exists($identityPath) || is_link($identityPath)) {
             $version = ServerReleaseIdentity::resolve($serverRoot)->versions()['release_sequence_version'];
@@ -148,15 +169,15 @@ final readonly class ApplicationReleaseVersions
         return $this->values;
     }
 
-    private static function assertV3Dependencies(mixed $php, mixed $web, string $root): void
+    /** Runtime declarations remain valid after build inputs have left the PHP view. */
+    private static function assertV3Dependencies(mixed $php, mixed $web): void
     {
-        require_once dirname(__DIR__, 5) . '/scripts/scaffold-runtime/ReleaseDependencyIdentity.php';
+        require_once dirname(__DIR__, 2) . '/infrastructure/scaffold/ReleaseDependencyIdentity.php';
         ReleaseDependencyIdentity::validate(
             $php,
             $web,
             'APPLICATION_RELEASE_VERSIONS_CORE_PHP_INVALID',
             'APPLICATION_RELEASE_VERSIONS_CORE_WEB_INVALID',
         );
-        ReleaseDependencyIdentity::verifyArchives($root, $web, 'APPLICATION_RELEASE_VERSIONS_CORE_WEB_ARCHIVE_INVALID');
     }
 }

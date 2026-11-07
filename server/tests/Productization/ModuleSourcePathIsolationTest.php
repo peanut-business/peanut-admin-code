@@ -10,8 +10,8 @@ if (!is_string($temporary) || !str_contains($temporary, '/.local/tmp/')) {
 $fixture = $temporary . '/source-path-isolation-' . bin2hex(random_bytes(6));
 $consumer = $fixture . '/consumer';
 mkdir($consumer . '/server/app/modules', 0700, true);
-copy($source . '/app/platform/exception/plugin/PluginPackageException.php', $consumer . '/exception.php');
-copy($source . '/app/platform/infrastructure/plugin/PluginPackageSourcePromoter.php', $consumer . '/promoter.php');
+copy($source . '/app/platform/exception/module/ModulePackageException.php', $consumer . '/exception.php');
+copy($source . '/app/platform/infrastructure/module/ModulePackageSourcePromoter.php', $consumer . '/promoter.php');
 $probe = <<<'PHP'
 <?php
 declare(strict_types=1);
@@ -24,7 +24,7 @@ $root = __DIR__;
 $case = $argv[1];
 try {
     $server = $case === 'root-alias' ? $root . '/root-alias/server' : $root . '/server';
-    $promoter = new app\platform\infrastructure\plugin\PluginPackageSourcePromoter($server);
+    $promoter = new app\platform\infrastructure\module\ModulePackageSourcePromoter($server);
     if ($case === 'escape') {
         $method = new ReflectionMethod($promoter, 'assertPath');
         $method->invoke($promoter, $root . '/../outside');
@@ -33,7 +33,7 @@ try {
         if ($result !== ['status' => 'clean']) throw new RuntimeException('Unexpected recovery state.');
     }
     if ($case !== 'normal') throw new RuntimeException('Unsafe path accepted.');
-} catch (app\platform\exception\plugin\PluginPackageException $error) {
+} catch (app\platform\exception\module\ModulePackageException $error) {
     if ($case === 'normal' || $error->errorCode !== 'MODULE_PACKAGE_PATH_INVALID') throw $error;
 }
 echo json_encode(['status' => 'passed', 'case' => $case], JSON_THROW_ON_ERROR) . PHP_EOL;

@@ -4,6 +4,7 @@ services:
   php:
     image: ${PHP_IMAGE:?set PHP_IMAGE in server/docker/.env}
     restart: unless-stopped
+    stop_signal: SIGTERM
     # The owner verifies non-dumpable FPM workers through their actual /proc paths.
     # Workers must still have zero effective/permitted/inheritable/ambient capabilities.
     cap_add:
@@ -15,6 +16,15 @@ services:
     volumes:
       - ../:/run/peanut-owner/server
       - ../:/var/www/peanut-http/server:ro
+      # Source APP identity and lock stay at their canonical parent paths.
+      - ../../.peanut/application-manifest.json:/run/peanut-owner/.peanut/application-manifest.json:ro
+      - ../../release-versions.json:/run/peanut-owner/release-versions.json:ro
+      - ../../RELEASE_METADATA.json:/run/peanut-owner/RELEASE_METADATA.json:ro
+      - ../../modules.lock:/run/peanut-owner/modules.lock:ro
+      - ../../.peanut/application-manifest.json:/var/www/peanut-http/.peanut/application-manifest.json:ro
+      - ../../release-versions.json:/var/www/peanut-http/release-versions.json:ro
+      - ../../RELEASE_METADATA.json:/var/www/peanut-http/RELEASE_METADATA.json:ro
+      - ../../modules.lock:/var/www/peanut-http/modules.lock:ro
       - type: tmpfs
         target: /var/www/peanut-http/server/docker
         read_only: true
@@ -73,10 +83,13 @@ services:
       start_period: 5s
 
   mysql:
-    image: ${MYSQL_IMAGE:?set MYSQL_IMAGE in server/docker/.env}
+    # Registered-database composition never selects this service. Its fixed
+    # inactive image allows Compose interpolation without local DB settings;
+    # start.sh still requires explicit image and root credentials for bundled DB.
+    image: ${MYSQL_IMAGE:-mysql:8.4.11@sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb}
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in server/docker/.env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-}
       TZ: ${TZ:-Asia/Shanghai}
     volumes:
       - ./mysql:/var/lib/mysql

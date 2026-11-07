@@ -109,7 +109,7 @@ $schemas = [
     ],
     'AdminInfo' => [
         'type' => 'object', 'additionalProperties' => false,
-        'required' => ['id', 'username', 'nickname', 'name', 'avatar', 'role', 'root', 'roles', 'menu', 'permissions', 'tenantName', 'website', 'canSwitchTenant', 'demoMode'],
+        'required' => ['id', 'username', 'nickname', 'name', 'avatar', 'role', 'root', 'roles', 'menu', 'permissions', 'action_bindings', 'tenantName', 'website', 'canSwitchTenant', 'demoMode'],
         'properties' => [
             'id' => ['oneOf' => [['type' => 'integer'], ['type' => 'string']]],
             'username' => ['type' => 'string'], 'nickname' => ['type' => 'string'],
@@ -119,6 +119,10 @@ $schemas = [
             'roles' => $ref('StringList'),
             'menu' => ['type' => 'array', 'items' => $ref('AdminMenuNode')],
             'permissions' => $ref('StringList'),
+            'action_bindings' => ['type' => 'array', 'items' => ['type' => 'object', 'additionalProperties' => false,
+                'required' => ['page_path', 'action_key', 'permission_key'], 'properties' => [
+                    'page_path' => ['type' => 'string'], 'action_key' => ['type' => 'string'], 'permission_key' => ['type' => 'string'],
+                ]]],
             'tenantName' => ['type' => 'string'],
             'website' => $ref('WebsiteConfig'),
             'canSwitchTenant' => ['type' => 'boolean'],
@@ -128,10 +132,10 @@ $schemas = [
     'AdminRecord' => [
         'type' => 'object',
         'additionalProperties' => $ref('ApplicationDynamicValue'),
-        'required' => ['id', 'account', 'username', 'name', 'nickname', 'avatar', 'root', 'disable', 'disable_desc', 'multipoint_login', 'login_time', 'login_ip', 'create_time', 'update_time', 'role_id', 'role_ids', 'dept_id', 'jobs_id', 'role_name', 'dept_name', 'jobs_name', 'roles'],
+        'required' => ['id', 'account', 'username', 'name', 'nickname', 'avatar', 'avatar_uri', 'root', 'disable', 'disable_desc', 'multipoint_login', 'login_time', 'login_ip', 'create_time', 'update_time', 'role_id', 'role_ids', 'dept_id', 'jobs_id', 'role_name', 'dept_name', 'jobs_name', 'roles'],
         'properties' => [
             'id' => ['type' => 'integer'], 'account' => ['type' => 'string'], 'username' => ['type' => 'string'],
-            'name' => ['type' => 'string'], 'nickname' => ['type' => 'string'], 'avatar' => ['type' => 'string'],
+            'name' => ['type' => 'string'], 'nickname' => ['type' => 'string'], 'avatar' => ['type' => 'string'], 'avatar_uri' => ['type' => 'string'],
             'root' => ['type' => 'integer'], 'disable' => ['type' => 'integer', 'enum' => [0, 1]],
             'disable_desc' => ['type' => 'string'], 'multipoint_login' => ['type' => 'integer', 'enum' => [0, 1]],
             'login_time' => ['type' => 'string'], 'login_ip' => ['type' => 'string'],
@@ -162,7 +166,7 @@ $schemas = [
             'id' => ['type' => 'integer', 'minimum' => 1], 'account' => ['type' => 'string', 'format' => 'email', 'maxLength' => 255],
             'username' => ['type' => 'string', 'format' => 'email', 'maxLength' => 255],
             'name' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 120], 'nickname' => ['type' => 'string'],
-            'avatar' => ['type' => 'string', 'maxLength' => 512], 'password' => ['type' => 'string', 'description' => 'Effective UTF-8 byte bounds from getPasswordPolicy.'],
+            'password' => ['type' => 'string', 'description' => 'Effective UTF-8 byte bounds from getPasswordPolicy.'],
             'password_confirm' => ['type' => 'string'], 'role_id' => $ref('IntegerList'), 'role_ids' => $ref('IntegerList'),
             'dept_id' => $ref('IntegerList'), 'jobs_id' => $ref('IntegerList'),
             'disable' => ['type' => 'integer', 'enum' => [0, 1]], 'multipoint_login' => ['type' => 'integer', 'enum' => [0, 1]],
@@ -204,19 +208,19 @@ $schemas = [
     ],
     'AdminRole' => [
         'type' => 'object', 'additionalProperties' => false,
-        'required' => ['id', 'name', 'desc', 'sort', 'create_time', 'num', 'menu_keys', 'status', 'revision'],
+        'required' => ['id', 'name', 'desc', 'sort', 'create_time', 'num', 'permission_keys', 'status', 'revision'],
         'properties' => [
             'id' => ['type' => 'integer'], 'name' => ['type' => 'string'], 'desc' => ['type' => 'string'],
             'sort' => ['type' => 'integer'], 'create_time' => ['type' => 'string'], 'num' => ['type' => 'integer', 'minimum' => 0],
-            'menu_keys' => $ref('StringList'), 'status' => ['type' => 'string'],
+            'permission_keys' => $ref('StringList'), 'status' => ['type' => 'string'],
             'revision' => ['type' => 'integer', 'minimum' => 1],
         ],
     ],
     'AdminRoleWriteRequest' => [
-        'type' => 'object', 'required' => ['name'],
+        'type' => 'object', 'additionalProperties' => false, 'required' => ['name'],
         'properties' => [
             'id' => ['type' => 'integer', 'minimum' => 1], 'name' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 120],
-            'desc' => ['type' => 'string'], 'menu_keys' => $ref('StringList'),
+            'desc' => ['type' => 'string'], 'sort' => ['type' => 'integer'],
         ],
     ],
     'Department' => [
@@ -251,12 +255,11 @@ $schemas = [
         ],
     ],
     'JobWriteRequest' => [
-        'type' => 'object', 'required' => ['name', 'code', 'status'],
+        'type' => 'object', 'additionalProperties' => false, 'required' => ['name', 'code', 'status'],
         'properties' => [
             'id' => ['type' => 'integer', 'minimum' => 1], 'name' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 50],
             'code' => ['type' => 'string', 'maxLength' => 64], 'sort' => ['type' => 'integer', 'minimum' => 0],
             'remark' => ['type' => 'string', 'maxLength' => 200], 'status' => ['type' => 'integer', 'enum' => [0, 1]],
-            'is_disable' => ['type' => 'integer', 'enum' => [0, 1]],
         ],
     ],
     'WebsiteConfig' => [
@@ -303,6 +306,10 @@ $schemas = [
         'properties' => ['clarity_code' => ['type' => 'string', 'pattern' => '^[A-Za-z0-9_-]*$', 'maxLength' => 64]],
     ],
     'MemberProfileConfig' => [
+        'type' => 'object', 'additionalProperties' => false, 'required' => ['default_avatar', 'default_avatar_url'],
+        'properties' => ['default_avatar' => ['type' => 'string', 'maxLength' => 500], 'default_avatar_url' => ['type' => 'string']],
+    ],
+    'MemberProfileWriteRequest' => [
         'type' => 'object', 'additionalProperties' => false, 'required' => ['default_avatar'],
         'properties' => ['default_avatar' => ['type' => 'string', 'maxLength' => 500]],
     ],
@@ -325,27 +332,48 @@ $schemas = [
     'DecorationPage' => [
         'type' => 'object',
         'additionalProperties' => $ref('ApplicationDynamicValue'),
-        'required' => ['id', 'type', 'name', 'data', 'meta'],
+        'required' => ['id', 'type', 'name', 'data', 'meta', 'resource_urls'],
         'properties' => [
             'id' => ['type' => 'integer'], 'type' => ['type' => 'integer', 'enum' => [1, 2, 3, 4, 5]], 'name' => ['type' => 'string'],
-            'data' => ['type' => 'array', 'items' => $ref('ApplicationDynamicValue')],
-            'meta' => ['type' => 'object', 'additionalProperties' => $ref('ApplicationDynamicValue')],
+            'data' => ['oneOf' => [['type' => 'array', 'items' => $ref('ApplicationDynamicValue')], ['type' => 'object', 'additionalProperties' => $ref('ApplicationDynamicValue')]]],
+            'meta' => ['oneOf' => [['type' => 'array', 'items' => $ref('ApplicationDynamicValue')], ['type' => 'object', 'additionalProperties' => $ref('ApplicationDynamicValue')]]],
+            'resource_urls' => ['type' => 'object', 'additionalProperties' => ['type' => 'string']],
         ],
     ],
     'DecorationPageSaveRequest' => [
-        'type' => 'object', 'required' => ['id', 'type', 'data'],
+        'type' => 'object', 'additionalProperties' => false, 'required' => ['id', 'type', 'data'],
         'properties' => [
             'id' => ['type' => 'integer', 'minimum' => 1], 'type' => ['type' => 'integer', 'enum' => [1, 2, 3, 4, 5]],
-            'data' => ['type' => 'array', 'items' => $ref('ApplicationDynamicValue')],
-            'meta' => ['type' => 'object', 'additionalProperties' => $ref('ApplicationDynamicValue')],
+            'data' => ['oneOf' => [['type' => 'array', 'items' => $ref('ApplicationDynamicValue')], ['type' => 'object', 'additionalProperties' => $ref('ApplicationDynamicValue')]]],
+            'meta' => ['oneOf' => [['type' => 'array', 'items' => $ref('ApplicationDynamicValue')], ['type' => 'object', 'additionalProperties' => $ref('ApplicationDynamicValue')]]],
         ],
     ],
     'DecorationTabbar' => [
-        'type' => 'object', 'additionalProperties' => false, 'required' => ['style', 'list'],
+        'type' => 'object', 'additionalProperties' => false, 'required' => ['style', 'list', 'resource_urls'],
         'properties' => [
+            'resource_urls' => ['type' => 'object', 'additionalProperties' => ['type' => 'string']],
             'style' => ['type' => 'object', 'additionalProperties' => $ref('ApplicationDynamicValue')],
             'list' => ['type' => 'array', 'items' => [
                 'type' => 'object', 'additionalProperties' => $ref('ApplicationDynamicValue'),
+                'required' => ['name', 'selected', 'unselected', 'link', 'is_show'],
+                'properties' => [
+                    'name' => ['type' => 'string'], 'selected' => ['type' => 'string'], 'unselected' => ['type' => 'string'],
+                    'link' => ['type' => 'object', 'additionalProperties' => $ref('ApplicationDynamicValue')],
+                    'is_show' => ['type' => 'integer', 'enum' => [0, 1]],
+                ],
+            ]],
+        ],
+    ],
+    'DecorationTabbarSaveRequest' => [
+        'type' => 'object', 'additionalProperties' => false, 'required' => ['style', 'list'],
+        'properties' => [
+            'style' => [
+                'type' => 'object', 'additionalProperties' => false,
+                'required' => ['default_color', 'selected_color'],
+                'properties' => ['default_color' => ['type' => 'string'], 'selected_color' => ['type' => 'string']],
+            ],
+            'list' => ['type' => 'array', 'items' => [
+                'type' => 'object', 'additionalProperties' => false,
                 'required' => ['name', 'selected', 'unselected', 'link', 'is_show'],
                 'properties' => [
                     'name' => ['type' => 'string'], 'selected' => ['type' => 'string'], 'unselected' => ['type' => 'string'],
@@ -441,14 +469,6 @@ $schemas = [
             ]],
         ],
     ],
-    'TransactionConfig' => [
-        'type' => 'object', 'additionalProperties' => false,
-        'required' => ['cancel_unpaid_orders', 'cancel_unpaid_orders_times', 'verification_orders', 'verification_orders_times'],
-        'properties' => [
-            'cancel_unpaid_orders' => ['type' => 'integer', 'enum' => [0, 1]], 'cancel_unpaid_orders_times' => ['type' => 'integer', 'minimum' => 1],
-            'verification_orders' => ['type' => 'integer', 'enum' => [0, 1]], 'verification_orders_times' => ['type' => 'integer', 'minimum' => 1],
-        ],
-    ],
     'SystemInfo' => [
         'type' => 'object', 'additionalProperties' => false, 'required' => ['server', 'env', 'auth'],
         'properties' => [
@@ -511,6 +531,107 @@ $schemas = [
         ],
     ],
 ];
+
+$policyId = ['anyOf' => [['type' => 'integer', 'minimum' => 1], ['type' => 'string', 'pattern' => '^[1-9][0-9]{0,17}$']]];
+$permissionKeys = ['type' => 'array', 'items' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 160]];
+$schemas['AdminRolePermissions'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['role_id', 'key', 'revision', 'permission_keys'], 'properties' => [
+        'role_id' => $ref('NumericStringId'), 'key' => ['type' => 'string'],
+        'revision' => $ref('NumericStringId'), 'permission_keys' => $permissionKeys,
+    ]];
+$schemas['AdminRolePermissionsReplaceRequest'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['role_id', 'expected_revision', 'permission_keys'], 'properties' => [
+        'role_id' => $policyId, 'expected_revision' => $policyId,
+        'permission_keys' => $permissionKeys + ['maxItems' => 1000],
+    ]];
+$schemas['AdminRolePermissionCatalogPage'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['items', 'total', 'page_no', 'page_size'], 'properties' => [
+        'items' => ['type' => 'array', 'items' => ['type' => 'object', 'additionalProperties' => false,
+            'required' => ['key', 'name', 'module_key'], 'properties' => [
+                'key' => ['type' => 'string'], 'name' => ['type' => 'string'], 'module_key' => ['type' => 'string'],
+            ]]],
+        'total' => ['type' => 'integer', 'minimum' => 0], 'page_no' => ['type' => 'integer', 'minimum' => 1],
+        'page_size' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100],
+    ]];
+$policyConfig = ['anyOf' => [['type' => 'object', 'nullable' => true, 'maxProperties' => 0, 'additionalProperties' => false], ['type' => 'array', 'nullable' => true, 'maxItems' => 0, 'items' => ['type' => 'string']]]];
+$policyTarget = ['type' => 'object', 'additionalProperties' => false, 'required' => ['target_id'],
+    'properties' => ['target_id' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 160]]];
+$schemas['AdminDataPolicyTargetSetWrite'] = ['type' => 'object', 'additionalProperties' => false, 'nullable' => true,
+    'required' => ['name', 'target_resource_key', 'targets'], 'properties' => [
+        'name' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 120],
+        'target_resource_key' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 160],
+        'targets' => ['type' => 'array', 'minItems' => 1, 'maxItems' => 500, 'items' => $policyTarget],
+    ]];
+$schemas['AdminDataPolicyConditionWrite'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['condition_key'], 'properties' => [
+        'condition_key' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 160],
+        'target_set' => $ref('AdminDataPolicyTargetSetWrite'), 'config' => $policyConfig,
+    ]];
+$schemas['AdminDataPolicyGroupWrite'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['name', 'conditions'], 'properties' => [
+        'name' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 120],
+        'conditions' => ['type' => 'array', 'minItems' => 1, 'maxItems' => 20, 'items' => $ref('AdminDataPolicyConditionWrite')],
+    ]];
+$schemas['AdminDataPolicyWrite'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['status', 'groups'], 'properties' => [
+        'status' => ['type' => 'string', 'enum' => ['active', 'disabled']],
+        'reason' => ['type' => 'string', 'maxLength' => 300, 'nullable' => true],
+        'valid_from' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+        'valid_until' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+        'groups' => ['type' => 'array', 'maxItems' => 50, 'items' => $ref('AdminDataPolicyGroupWrite')],
+    ]];
+$schemas['AdminDataPolicyReplaceRequest'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['role_id', 'resource_key', 'operation', 'policy'], 'properties' => [
+        'role_id' => $policyId, 'resource_key' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 160],
+        'operation' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 96],
+        'expected_revision' => ['anyOf' => [['type' => 'integer', 'minimum' => 1, 'nullable' => true], ['type' => 'string', 'pattern' => '^[1-9][0-9]{0,17}$', 'nullable' => true]]], 'policy' => $ref('AdminDataPolicyWrite'),
+    ]];
+$schemas['AdminDataPolicyTargetSet'] = ['type' => 'object', 'additionalProperties' => false, 'nullable' => true,
+    'required' => ['id', 'name', 'target_mode', 'target_resource_key', 'status', 'revision', 'targets'], 'properties' => [
+        'id' => $ref('NumericStringId'), 'name' => ['type' => 'string'], 'target_mode' => ['type' => 'string'],
+        'target_resource_key' => ['type' => 'string'], 'status' => ['type' => 'string'],
+        'revision' => $ref('NumericStringId'), 'targets' => ['type' => 'array', 'items' => $policyTarget],
+    ]];
+$schemas['AdminDataPolicyCondition'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['id', 'condition_key', 'status', 'revision', 'target_set', 'config'], 'properties' => [
+        'id' => $ref('NumericStringId'), 'condition_key' => ['type' => 'string'], 'status' => ['type' => 'string'],
+        'revision' => $ref('NumericStringId'), 'target_set' => $ref('AdminDataPolicyTargetSet'), 'config' => $policyConfig,
+    ]];
+$schemas['AdminDataPolicyGroup'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['id', 'name', 'match_mode', 'sort_order', 'status', 'revision', 'conditions'], 'properties' => [
+        'id' => $ref('NumericStringId'), 'name' => ['type' => 'string'], 'match_mode' => ['type' => 'string'],
+        'sort_order' => ['type' => 'integer'], 'status' => ['type' => 'string'], 'revision' => $ref('NumericStringId'),
+        'conditions' => ['type' => 'array', 'items' => $ref('AdminDataPolicyCondition')],
+    ]];
+$schemas['AdminDataPolicy'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['id', 'tenant_id', 'role_id', 'resource_key', 'operation', 'status', 'valid_from', 'valid_until', 'revision', 'reason', 'created_at', 'updated_at', 'groups'], 'properties' => [
+        'id' => $ref('NumericStringId'), 'tenant_id' => $ref('NumericStringId'), 'role_id' => $ref('NumericStringId'),
+        'resource_key' => ['type' => 'string'], 'operation' => ['type' => 'string'],
+        'status' => ['type' => 'string', 'enum' => ['active', 'disabled']],
+        'valid_from' => ['type' => 'string', 'nullable' => true], 'valid_until' => ['type' => 'string', 'nullable' => true],
+        'revision' => $ref('NumericStringId'), 'reason' => ['type' => 'string', 'nullable' => true],
+        'created_at' => ['type' => 'string'], 'updated_at' => ['type' => 'string'],
+        'groups' => ['type' => 'array', 'items' => $ref('AdminDataPolicyGroup')],
+    ]];
+$schemas['AdminDataPolicyOperation'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['resource_key', 'module_key', 'operation', 'access_mode', 'target_cardinality'], 'properties' => [
+        'resource_key' => ['type' => 'string'], 'module_key' => ['type' => 'string'], 'operation' => ['type' => 'string'],
+        'access_mode' => ['type' => 'string'], 'target_cardinality' => ['type' => 'string'],
+    ]];
+$schemas['AdminDataPolicyCatalogPage'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['items', 'total', 'page_no', 'page_size'], 'properties' => [
+        'items' => ['type' => 'array', 'items' => $ref('AdminDataPolicyOperation')], 'total' => ['type' => 'integer'],
+        'page_no' => ['type' => 'integer'], 'page_size' => ['type' => 'integer'],
+    ]];
+$schemas['AdminDataPolicyOperationConditions'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['resource_key', 'operation', 'target_cardinality', 'conditions'], 'properties' => [
+        'resource_key' => ['type' => 'string'], 'operation' => ['type' => 'string'], 'target_cardinality' => ['type' => 'string'],
+        'conditions' => ['type' => 'array', 'items' => ['type' => 'object', 'additionalProperties' => false,
+            'required' => ['condition_key', 'target_mode', 'selector_resource_key'], 'properties' => [
+                'condition_key' => ['type' => 'string'], 'target_mode' => ['type' => 'string'],
+                'selector_resource_key' => ['type' => 'string', 'nullable' => true],
+            ]]],
+    ]];
 
 $ok = static fn(string $schema): array => ['200' => $success($ref($schema)), '401' => $error, '403' => $error];
 $mutation = ['200' => $emptySuccess, '401' => $error, '403' => $error, '422' => $error];
@@ -579,17 +700,75 @@ $add($paths, 'GET', '/adminapi/role/detail', $operation('getAdminRole', 'AdminRo
 $add($paths, 'POST', '/adminapi/role/add', $operation('createAdminRole', 'AdminRoles', $mutation + ['409' => $error], requestBody: $jsonBody($ref('AdminRoleWriteRequest'))));
 $add($paths, 'POST', '/adminapi/role/edit', $operation('updateAdminRole', 'AdminRoles', $mutation + ['404' => $error, '409' => $error], requestBody: $jsonBody($ref('AdminRoleWriteRequest'))));
 $add($paths, 'POST', '/adminapi/role/delete', $operation('archiveAdminRole', 'AdminRoles', $mutation + ['404' => $error, '409' => $error], requestBody: $idBody));
+$add($paths, 'GET', '/adminapi/role/permissions', $operation('getAdminRolePermissions', 'AdminRoles', $ok('AdminRolePermissions') + ['404' => $error, '422' => $error], [
+    ['name' => 'role_id', 'in' => 'query', 'required' => true, 'schema' => $policyId],
+]));
+$add($paths, 'PUT', '/adminapi/role/permissions', $operation('replaceAdminRolePermissions', 'AdminRoles', $ok('AdminRolePermissions') + ['404' => $error, '409' => $error, '412' => $error, '422' => $error, '428' => $error], requestBody: $jsonBody($ref('AdminRolePermissionsReplaceRequest'))));
+$add($paths, 'GET', '/adminapi/role/permissions/catalog', $operation('getAdminRolePermissionCatalog', 'AdminRoles', $ok('AdminRolePermissionCatalogPage') + ['422' => $error], [
+    ['name' => 'page_no', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 1]],
+    ['name' => 'page_size', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100]],
+    ['name' => 'search', 'in' => 'query', 'schema' => ['type' => 'string', 'maxLength' => 120]],
+]));
+$policyQuery = [$query('role_id', $policyId, true), $query('resource_key', ['type' => 'string', 'minLength' => 1, 'maxLength' => 160], true), $query('operation', ['type' => 'string', 'minLength' => 1, 'maxLength' => 96], true)];
+$add($paths, 'GET', '/adminapi/role/data-policy', $operation('getAdminRoleDataPolicy', 'AdminRoles', $ok('AdminDataPolicy') + ['404' => $error, '422' => $error], $policyQuery));
+$add($paths, 'PUT', '/adminapi/role/data-policy', $operation('replaceAdminRoleDataPolicy', 'AdminRoles', $ok('AdminDataPolicy') + ['404' => $error, '409' => $error, '412' => $error, '422' => $error, '428' => $error], requestBody: $jsonBody($ref('AdminDataPolicyReplaceRequest'))));
+$add($paths, 'GET', '/adminapi/role/data-policy/catalog', $operation('getAdminRoleDataPolicyCatalog', 'AdminRoles', ['200' => $success(['oneOf' => [$ref('AdminDataPolicyCatalogPage'), $ref('AdminDataPolicyOperationConditions')]]), '401' => $error, '403' => $error, '404' => $error, '422' => $error], [
+    $query('resource_key', ['type' => 'string', 'minLength' => 1, 'maxLength' => 160]), $query('operation', ['type' => 'string', 'minLength' => 1, 'maxLength' => 96]),
+    $query('page_no', ['type' => 'integer', 'minimum' => 1]), $query('page_size', ['type' => 'integer', 'minimum' => 1, 'maximum' => 100]),
+]));
 
 // 部门与岗位。
-$departmentList = ['type' => 'array', 'items' => $ref('Department')];
+$directoryNode = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['id', 'pid', 'name', 'sort', 'status', 'status_desc', 'realStatus', 'structuralOnly', 'selectable', 'hasChildren'],
+    'properties' => [
+        'id' => ['type' => 'integer'], 'pid' => ['type' => 'integer'], 'name' => ['type' => 'string'], 'sort' => ['type' => 'integer'],
+        'status' => ['type' => 'integer', 'enum' => [-1, 0, 1]], 'status_desc' => ['type' => 'string'],
+        'realStatus' => ['type' => 'string', 'enum' => ['active', 'disabled', 'archived']],
+        'structuralOnly' => ['type' => 'boolean'], 'selectable' => ['type' => 'boolean'], 'hasChildren' => ['type' => 'boolean'],
+        'code' => ['type' => 'string'], 'leader' => ['type' => 'string'], 'mobile' => ['type' => 'string'],
+        'revision' => ['type' => 'integer'], 'create_time' => ['type' => 'string', 'format' => 'date-time'], 'update_time' => ['type' => 'string', 'format' => 'date-time'],
+    ]];
+$departmentList = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['lists', 'ancestors', 'count', 'pageNo', 'pageSize', 'hasMore'],
+    'properties' => ['lists' => ['type' => 'array', 'maxItems' => 100, 'items' => $directoryNode],
+        'ancestors' => ['type' => 'array', 'items' => $directoryNode], 'count' => ['type' => 'integer'],
+        'pageNo' => ['type' => 'integer', 'minimum' => 1], 'pageSize' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100],
+        'hasMore' => ['type' => 'boolean']]];
+$directoryParams = [
+    $query('mode', ['type' => 'string', 'enum' => ['children', 'search', 'resolve']], true),
+    $query('pageNo', ['type' => 'integer', 'minimum' => 1], true),
+    $query('pageSize', ['type' => 'integer', 'minimum' => 1, 'maximum' => 100], true),
+    $query('parent_id', ['type' => 'integer', 'minimum' => 0]), $query('name', ['type' => 'string', 'maxLength' => 120]),
+    $query('status', ['type' => 'integer', 'enum' => [0, 1]]), $query('ids', ['type' => 'string', 'description' => 'Resolve only: comma-separated positive ids, at most pageSize.']),
+];
+$directoryResponses = ['200' => $success($departmentList), '400' => $error, '401' => $error, '403' => $error, '404' => $error, '409' => $error];
 $add($paths, 'GET', '/adminapi/dept/lists', $operation(
     'listDepartments',
     'Departments',
-    ['200' => $success($departmentList), '401' => $error, '403' => $error],
-    [$query('name', ['type' => 'string']), $query('status', ['type' => 'integer', 'enum' => [0, 1]])],
+    $directoryResponses,
+    $directoryParams,
 ));
-$add($paths, 'GET', '/adminapi/dept/all', $operation('listActiveDepartments', 'Departments', ['200' => $success($departmentList), '401' => $error, '403' => $error]));
-$add($paths, 'GET', '/adminapi/dept/leaderDept', $operation('listDepartmentLeaderOptions', 'Departments', ['200' => $success(['type' => 'array', 'items' => ['type' => 'object', 'additionalProperties' => false, 'required' => ['id', 'name'], 'properties' => ['id' => ['type' => 'integer'], 'name' => ['type' => 'string']]]]), '401' => $error, '403' => $error]));
+$add($paths, 'GET', '/adminapi/dept/all', $operation('listActiveDepartments', 'Departments', $directoryResponses, $directoryParams));
+$flatDirectoryParams = $directoryParams;
+$flatDirectoryParams[0] = $query('mode', ['type' => 'string', 'enum' => ['search', 'resolve']], true);
+$add($paths, 'GET', '/adminapi/dept/leaderDept', $operation('listDepartmentLeaderOptions', 'Departments', $directoryResponses, $flatDirectoryParams));
+$add($paths, 'GET', '/adminapi/dept/leader-candidates', $operation(
+    'listDepartmentLeaderCandidates', 'Departments',
+    ['200' => $success(['type' => 'object', 'additionalProperties' => false,
+        'required' => ['items', 'total', 'page_no', 'page_size'], 'properties' => [
+            'items' => ['type' => 'array', 'maxItems' => 50, 'items' => ['type' => 'object',
+                'additionalProperties' => false, 'required' => ['id', 'name'],
+                'properties' => ['id' => ['type' => 'integer', 'minimum' => 1], 'name' => ['type' => 'string']]]],
+            'total' => ['type' => 'integer', 'minimum' => 0], 'page_no' => ['type' => 'integer', 'minimum' => 1],
+            'page_size' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 50],
+        ]]), '401' => $error, '403' => $error, '404' => $error, '409' => $error, '422' => $error],
+    [$query('department_id', ['type' => 'string', 'pattern' => '^[1-9][0-9]{0,17}$'], true),
+        $query('page_no', ['type' => 'string', 'pattern' => '^[1-9][0-9]{0,17}$', 'default' => '1']),
+        $query('page_size', ['type' => 'integer', 'minimum' => 1, 'maximum' => 50, 'default' => 20]),
+        $query('search', ['type' => 'string', 'maxLength' => 120, 'default' => ''])],
+    errors: ['DEPARTMENT_LEADER_INPUT_INVALID', 'DEPARTMENT_INACTIVE'],
+    description: 'Requires department update permission and an active department in the current tenant. Returns active tenant members whose accounts are active, ordered by member id; search is a literal display-name substring. Only the four declared query keys are accepted; page offset must fit PHP_INT_MAX.',
+));
 $add($paths, 'GET', '/adminapi/dept/detail', $operation('getDepartment', 'Departments', $ok('Department'), $idQuery));
 foreach (['add' => 'createDepartment', 'edit' => 'updateDepartment'] as $route => $operationId) {
     $add($paths, 'POST', '/adminapi/dept/' . $route, $operation($operationId, 'Departments', $mutation + ['404' => $error, '409' => $error], requestBody: $jsonBody($ref('DepartmentWriteRequest'))));
@@ -622,7 +801,9 @@ $configContracts = [
 ];
 foreach ($configContracts as $route => [$schema, $getId, $saveId]) {
     $add($paths, 'GET', '/adminapi/config/' . $route, $operation($getId, 'TenantConfiguration', $ok($schema)));
-    $add($paths, 'POST', '/adminapi/config/' . $route . '/save', $operation($saveId, 'TenantConfiguration', $mutation, requestBody: $jsonBody($ref($schema))));
+    $saveResponse = $route === 'website' ? $ok($schema) : $mutation;
+    $requestSchema = $route === 'user' ? 'MemberProfileWriteRequest' : $schema;
+    $add($paths, 'POST', '/adminapi/config/' . $route . '/save', $operation($saveId, 'TenantConfiguration', $saveResponse, requestBody: $jsonBody($ref($requestSchema))));
 }
 $add($paths, 'GET', '/adminapi/config/copyright', $operation('getCopyrightConfig', 'TenantConfiguration', $ok('CopyrightItemList')));
 $add($paths, 'POST', '/adminapi/config/copyright/save', $operation('saveCopyrightConfig', 'TenantConfiguration', $mutation, requestBody: $jsonBody($ref('CopyrightConfig'))));
@@ -639,7 +820,7 @@ $add($paths, 'GET', '/adminapi/decoration/mobile/article', $operation(
     [$query('limit', ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 20])],
 ));
 $add($paths, 'GET', '/adminapi/decoration/tabbar/detail', $operation('getDecorationTabbar', 'Decoration', $ok('DecorationTabbar')));
-$add($paths, 'POST', '/adminapi/decoration/tabbar/save', $operation('saveDecorationTabbar', 'Decoration', $mutation, requestBody: $jsonBody($ref('DecorationTabbar')), errors: ['DECORATION_TABBAR_INVALID']));
+$add($paths, 'POST', '/adminapi/decoration/tabbar/save', $operation('saveDecorationTabbar', 'Decoration', $mutation, requestBody: $jsonBody($ref('DecorationTabbarSaveRequest')), errors: ['DECORATION_TABBAR_INVALID']));
 
 // 生成器；下载返回二进制文件而不是 JSON envelope。
 $generatorPage = static fn(string $item): array => [
@@ -675,8 +856,6 @@ $add($paths, 'GET', '/adminapi/log/lists', $operation('listOperationLogs', 'Oper
 $add($paths, 'POST', '/adminapi/log/clear', $operation('clearOperationLogs', 'OperationLogs', $mutation));
 $add($paths, 'GET', '/adminapi/setting/hot-search/config', $operation('getHotSearchConfig', 'TenantSettings', $ok('HotSearchConfig')));
 $add($paths, 'POST', '/adminapi/setting/hot-search/save', $operation('saveHotSearchConfig', 'TenantSettings', $mutation, requestBody: $jsonBody($ref('HotSearchConfig'))));
-$add($paths, 'GET', '/adminapi/setting/transaction/config', $operation('getTransactionConfig', 'TenantSettings', $ok('TransactionConfig')));
-$add($paths, 'POST', '/adminapi/setting/transaction/save', $operation('saveTransactionConfig', 'TenantSettings', $mutation, requestBody: $jsonBody($ref('TransactionConfig')), errors: ['TRANSACTION_CANCEL_MODE_INVALID', 'TRANSACTION_VERIFY_MODE_INVALID', 'TRANSACTION_CANCEL_DELAY_INVALID', 'TRANSACTION_VERIFY_DELAY_INVALID']));
 $add($paths, 'GET', '/adminapi/system/info', $operation('getSystemInformation', 'System', $ok('SystemInfo')));
 $add($paths, 'POST', '/adminapi/system/clearCache', $operation('clearSystemCache', 'System', $mutation));
 $add($paths, 'GET', '/adminapi/workbench/index', $operation('getAdminWorkbench', 'Workbench', $ok('Workbench')));
@@ -704,4 +883,6 @@ $overrides = [
     )],
 ];
 
+$paths['/adminapi/decoration/mobile/article']['x-peanut-required-modules'] = ['peanut.article'];
+$add($paths, 'GET', '/adminapi/core.tenant.license', $operation('getCurrentTenantLicense', 'TenantPlans', $ok('TenantLicenseData')));
 return ['paths' => $paths, 'overrides' => $overrides, 'components' => ['schemas' => $schemas]];

@@ -58,12 +58,13 @@ ownerInvitationExpect(
 ownerInvitationExpect(!in_array($token->expose(), $delivery->__debugInfo(), true), 'delivery debug output exposes token');
 
 $serverRoot = dirname(__DIR__, 2);
-$schema = (string) file_get_contents($serverRoot . '/database/init.sql');
+require_once $serverRoot . '/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php';
+$schema = (new ReflectionClass(InitialIdentitySchema::class))->getReflectionConstant('CREATE_SQL')->getValue()['pa_tenant_owner_invitation'];
 foreach (['pending', 'accepted', 'revoked', 'expired'] as $status) {
     ownerInvitationExpect(str_contains($schema, "'{$status}'"), "invitation status missing: {$status}");
 }
-ownerInvitationExpect(str_contains($schema, '`token_hash` CHAR(64)'), 'schema does not persist a token hash');
-ownerInvitationExpect(!str_contains($schema, '`token` VARCHAR'), 'schema persists a plaintext token column');
+ownerInvitationExpect(str_contains($schema, '`token_hash` char(64)'), 'schema does not persist a token hash');
+ownerInvitationExpect(!str_contains($schema, '`token`'), 'schema persists a plaintext token column');
 ownerInvitationExpect(
     str_contains($schema, 'GENERATED ALWAYS AS')
         && str_contains($schema, 'uk_owner_invitation_pending_tenant'),
@@ -75,13 +76,13 @@ ownerInvitationExpect(
 );
 
 $adminService = (string) file_get_contents(
-    $serverRoot . '/app/modules/official/identity/src/Invitation/TenantOwnerInvitationAdminService.php',
+    $serverRoot . '/app/modules/peanut/identity/src/Invitation/TenantOwnerInvitationAdminService.php',
 );
 $publicService = (string) file_get_contents(
-    $serverRoot . '/app/modules/official/identity/src/Invitation/TenantOwnerInvitationPublicService.php',
+    $serverRoot . '/app/modules/peanut/identity/src/Invitation/TenantOwnerInvitationPublicService.php',
 );
 $runtimePolicy = (string) file_get_contents(
-    $serverRoot . '/app/modules/official/identity/src/Invitation/OwnerInvitationRuntimePolicy.php',
+    $serverRoot . '/app/modules/peanut/identity/src/Invitation/OwnerInvitationRuntimePolicy.php',
 );
 ownerInvitationExpect(str_contains($adminService, "TenantStatus::Provisioning"), 'Tenant is not left provisioning');
 ownerInvitationExpect(str_contains($adminService, "'token_hash' => \$token->hash()"), 'plaintext token may reach persistence');
@@ -151,7 +152,7 @@ ownerInvitationExpect(
     'acceptance does not append a Core audit event',
 );
 $memberAdmin = (string) file_get_contents(
-    $serverRoot . '/app/modules/official/identity/src/Membership/Application/MemberAdminService.php',
+    $serverRoot . '/app/modules/peanut/identity/src/Membership/Application/MemberAdminService.php',
 );
 ownerInvitationExpect(
     substr_count($memberAdmin, 'assertOwnerRemovalAllowed') >= 3

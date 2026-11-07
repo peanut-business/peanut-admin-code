@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Modules\Official\Settings\Integration\Schema;
 
-use PeanutAdmin\Kernel\Persistence\Tenancy\TenantPersistenceMode;
 use PeanutAdmin\Modules\Settings\Database\Schema;
 use Tests\Modules\Official\Settings\Integration\Support\SettingsDatabaseTestCase;
 
@@ -64,38 +63,6 @@ SQL));
             'value_state', 'value_json', 'ciphertext', 'nonce', 'key_id', 'revision',
             'effective_at', 'expires_at', 'updated_by_member_id', 'created_at', 'updated_at',
         ], $this->columns('pa_setting_target_value'));
-    }
-
-    public function testInstanceScopedValueTablesOmitTenantColumnsIndexesAndForeignKeys(): void
-    {
-        $this->runner->rollbackAll();
-        $this->runner = new SettingsMigrationRunner(
-            $this->database,
-            TenantPersistenceMode::InstanceScoped,
-        );
-        $this->runner->migrate();
-
-        foreach (['pa_setting_tenant_value', 'pa_setting_target_value'] as $table) {
-            self::assertNotContains('tenant_id', $this->columns($table));
-            self::assertSame(0, (int) $this->scalar(sprintf(<<<'SQL'
-SELECT COUNT(*)
-FROM information_schema.statistics
-WHERE table_schema = DATABASE() AND table_name = '%s' AND column_name = 'tenant_id'
-SQL, $table)));
-            self::assertSame(0, (int) $this->scalar(sprintf(<<<'SQL'
-SELECT COUNT(*)
-FROM information_schema.key_column_usage
-WHERE table_schema = DATABASE() AND table_name = '%s' AND column_name = 'tenant_id'
-SQL, $table)));
-        }
-        self::assertStringNotContainsString(
-            '`tenant_id`',
-            Schema::createSql('pa_setting_tenant_value', TenantPersistenceMode::InstanceScoped),
-        );
-        self::assertStringNotContainsString(
-            '`tenant_id`',
-            Schema::createSql('pa_setting_target_value', TenantPersistenceMode::InstanceScoped),
-        );
     }
 
     public function testConstraintsRejectInvalidStatesIntervalsStorageAndForeignKeys(): void

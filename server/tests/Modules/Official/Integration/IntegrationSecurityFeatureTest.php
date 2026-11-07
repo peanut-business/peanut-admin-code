@@ -63,7 +63,7 @@ function expectCode(string $code, callable $operation, string $message): void
 }
 function context(string $operation, int $tenantId = 101, int $accountId = 301, int $memberId = 501, string $sessionKey = '01J00000000000000000000000'): AuthorizedOperationContext
 {
-    $session = new ValidatedTenantSession(1, $sessionKey, $tenantId, $accountId, $memberId, 'admin-web', new DateTimeImmutable('2026-07-24T10:00:00Z'), 1);
+    $session = new ValidatedTenantSession(1, $sessionKey, $tenantId, $accountId, $memberId, 'admin-web', new DateTimeImmutable('2026-07-24T10:00:00Z'), 1, 1);
     return AuthorizedOperationContext::fromDecision(AuthorizationDecision::allow(
         TenantContext::fromValidatedSession($session, 'req_integration_feature'),
         Package::RESOURCE_KEY,
@@ -280,6 +280,11 @@ same(false, $transport->request?->followRedirects, 'redirect disabled');
 truth(preg_match('/^v1=[0-9a-f]{64}$/D', $transport->request?->headers['X-Peanut-Signature'] ?? '') === 1, 'signature shape');
 
 $sessionAccess = new class implements TenantSessionAccess {
+    public function revalidateSession(int $tenantId, int $accountId, int $memberId, string $sessionKey, string $clientKey, string $requestId): TenantContext
+    {
+        throw new LogicException('This session-list fixture must not revalidate worker sessions.');
+    }
+
     public function ownedSessions(TenantContext $context): array
     {
         if ($context->tenantId !== 101 || $context->accountId !== 301 || $context->memberId !== 501) {

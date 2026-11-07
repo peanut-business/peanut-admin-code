@@ -48,14 +48,15 @@ def provenance_statement(name: str, version: str, statement: dict) -> dict:
 
 
 class PrepareProductReleaseCandidateTest(unittest.TestCase):
-    def test_mismatched_product_and_core_versions_fail_before_registry_or_writes(self) -> None:
+    def test_product_and_core_versions_are_independent_before_source_writes(self) -> None:
         args = ['prepare-product-release-candidate', '--version', '5.0.0',
                 '--core-php-version', '5.0.0', '--core-php-reference', '1' * 40,
                 '--core-web-version', '4.0.1', '--core-web-reference', '2' * 40]
-        with patch('sys.argv', args), patch.object(candidate, 'check_inputs') as inputs:
-            with self.assertRaisesRegex(SystemExit, 'release versions must be identical'):
+        with patch('sys.argv', args), patch.object(candidate, 'check_inputs',
+                                                    side_effect=RuntimeError('preflight reached')) as inputs:
+            with self.assertRaisesRegex(RuntimeError, 'preflight reached'):
                 candidate.main()
-            inputs.assert_not_called()
+            inputs.assert_called_once_with('5.0.0')
 
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
@@ -74,6 +75,23 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
         target = self.root / path
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(value) + "\n", encoding="utf-8")
+
+    def test_public_core_snapshot_drops_only_development_inline_core_repository(self) -> None:
+        self.write_json("server/composer.json", {
+            "require": {"peanut-admin/core": "5.0.3-alpha.6"},
+            "repositories": [
+                {"type": "path", "url": "app/modules/peanut/task"},
+                {"type": "package", "package": {"name": "peanut-admin/core", "version": "5.0.3-alpha.6"}},
+                {"type": "vcs", "url": "https://example.test/vendor/other.git"},
+            ],
+        })
+        candidate.set_composer_spec("5.0.3")
+        output = candidate.read_json(self.root / "server/composer.json")
+        self.assertEqual(output["require"]["peanut-admin/core"], "5.0.3")
+        self.assertEqual(output["repositories"], [
+            {"type": "path", "url": "app/modules/peanut/task"},
+            {"type": "vcs", "url": "https://example.test/vendor/other.git"},
+        ])
 
     def write_native_locks(self) -> None:
         self.write_json(
@@ -529,10 +547,35 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
         self.assertEqual(run.call_args.kwargs["input"], '{"fixture":true}')
         candidate.verify_npm_provenance_signature.cache_clear()
 
-    def test_rejects_existing_candidate_and_local_repository_before_writes(self) -> None:
+    def test_pending_unsealed_candidate_can_be_prepared_at_its_declared_version(self) -> None:
         self.write_manifests()
-        with self.assertRaisesRegex(SystemExit, "must be new"):
+        before = {p: (self.root / p).read_bytes() for p in ("release-versions.json", "RELEASE_METADATA.json")}
+        candidate.check_inputs("4.0.0-dev.14")
+        self.assertEqual(before, {p: (self.root / p).read_bytes() for p in before})
+
+    def test_same_version_rejects_any_sealed_or_qualified_candidate_before_writes(self) -> None:
+        self.write_manifests()
+        original = (self.root / "RELEASE_METADATA.json").read_bytes()
+        for field, value in (("result", "passed"), ("result", None),
+                             ("final_candidate_commit", "a" * 40), ("final_candidate_tree", "b" * 40),
+                             ("run_id", "qualified-run"), ("summary_sha256", "c" * 64),
+                             ("cleanup_residual_count", 0), ("groups_passed", 1), ("lease_released", True)):
+            with self.subTest(field=field, value=value):
+                metadata = json.loads(original)
+                metadata["technical_qualification"][field] = value
+                self.write_json("RELEASE_METADATA.json", metadata)
+                before = (self.root / "RELEASE_METADATA.json").read_bytes()
+                with self.assertRaisesRegex(SystemExit, "qualified release metadata|pending, unsealed"):
+                    candidate.check_inputs("4.0.0-dev.14")
+                self.assertEqual((self.root / "RELEASE_METADATA.json").read_bytes(), before)
+
+    def test_rejects_fixed_candidate_artifacts_and_local_repository_before_writes(self) -> None:
+        self.write_manifests()
+        fixed = self.root / "scaffold/releases/v4.0.0-dev.14"
+        fixed.mkdir(parents=True)
+        with self.assertRaisesRegex(SystemExit, "fixed scaffold release"):
             candidate.check_inputs("4.0.0-dev.14")
+        fixed.rmdir()
         composer = candidate.read_json(self.root / "server/composer.json")
         composer["repositories"] = [{"type": "path", "url": "../core"}]
         self.write_json("server/composer.json", composer)

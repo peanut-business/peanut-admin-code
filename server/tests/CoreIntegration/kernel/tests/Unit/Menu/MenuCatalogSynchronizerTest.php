@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PeanutAdmin\Kernel\Tests\Unit\Menu;
 
 use PeanutAdmin\Kernel\Menu\MenuCatalogRepository;
+use PeanutAdmin\Modules\Identity\Menu\CoreMenuCatalog;
 use PeanutAdmin\Modules\Identity\Menu\MenuCatalogSynchronizer;
 use PeanutAdmin\Kernel\Menu\MenuDefinition;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
@@ -70,7 +71,8 @@ final class MenuCatalogSynchronizerTest extends TestCase
 
         (new MenuCatalogSynchronizer($repository))->synchronize($registry);
 
-        self::assertCount(23, $repository->definitions);
+        $expectedKeys = array_map(static fn(MenuDefinition $menu): string => $menu->key, CoreMenuCatalog::definitions());
+        self::assertSame([...$expectedKeys, 'example.list'], array_keys($repository->definitions));
         self::assertSame(['registry-digest'], array_values(array_unique($repository->digests)));
         self::assertSame(array_keys($repository->definitions), $repository->activeKeys);
         self::assertSame('icon-user-group', $repository->definitions['core.organization']->icon);

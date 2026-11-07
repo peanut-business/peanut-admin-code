@@ -38,14 +38,20 @@ final class ControllerDeclaredDependencyMigrationTest extends TestCase
     public function testAllOwnedControllerDeclarationsAreTypedDocumentedConflictFreeAndResolvable(): void
     {
         $controllers = $this->controllerDeclarations();
-        self::assertCount(70, $controllers, 'The two CRUD samples plus all 68 migrated Controllers must be scanned.');
+        self::assertCount(42, $controllers, 'All current Code Controllers with declared dependencies must be scanned.');
 
         foreach ($controllers as $className => $declarations) {
             $controller = new ReflectionClass($className);
             self::assertTrue($controller->isSubclassOf(BaseController::class), $className);
-            self::assertSame(BaseController::class, $controller->getConstructor()?->getDeclaringClass()->getName(), $className);
-
             $app = $this->app();
+            foreach ($controller->getConstructor()?->getParameters() ?? [] as $parameter) {
+                $type = $parameter->getType();
+                self::assertInstanceOf(ReflectionNamedType::class, $type, $className);
+                self::assertFalse($type->isBuiltin(), $className);
+                if ($type->getName() !== App::class) {
+                    $app->instance($type->getName(), $this->dependencyInstance($type->getName()));
+                }
+            }
             $expected = [];
             foreach ($declarations as $name => $declaration) {
                 $property = $controller->getProperty($name . 'Class');
@@ -57,10 +63,12 @@ final class ControllerDeclaredDependencyMigrationTest extends TestCase
                 self::assertFalse($type->allowsNull());
                 self::assertSame($declaration['dependency'], $property->getDefaultValue());
                 self::assertFalse($controller->hasProperty($name), $className . ' has a real $' . $name . ' conflict');
-                self::assertStringContainsString(
-                    '@property-read ' . (new ReflectionClass($declaration['dependency']))->getShortName() . ' $' . $name,
-                    $controller->getDocComment() ?: '',
-                    $className,
+                $annotation = '@property-read ' . (new ReflectionClass($declaration['dependency']))->getShortName() . ' $' . $name;
+                $qualifiedAnnotation = '@property-read \\' . ltrim($declaration['dependency'], '\\') . ' $' . $name;
+                self::assertTrue(
+                    str_contains($controller->getDocComment() ?: '', $annotation)
+                        || str_contains($controller->getDocComment() ?: '', $qualifiedAnnotation),
+                    $className . ' must document the exact declared dependency',
                 );
 
                 $expected[$name] = $this->dependencyInstance($declaration['dependency']);
@@ -68,7 +76,7 @@ final class ControllerDeclaredDependencyMigrationTest extends TestCase
             }
 
             Container::setInstance($app);
-            $instance = $controller->newInstance($app);
+            $instance = $app->make($className);
             foreach ($expected as $name => $dependency) {
                 self::assertSame($dependency, $instance->{$name}, $className . '::$' . $name);
             }
@@ -82,7 +90,7 @@ final class ControllerDeclaredDependencyMigrationTest extends TestCase
 
         $this->expectException(LogicException::class);
         $this->expectExceptionMessage('is not bound in the current App');
-        new \app\api\controller\ArticleController($app);
+        new \app\api\controller\UploadController($app);
     }
 
     /**

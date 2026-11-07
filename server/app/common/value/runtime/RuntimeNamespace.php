@@ -7,49 +7,52 @@ namespace app\common\value\runtime;
 use think\facade\Db;
 use think\facade\Config;
 
-/** Stable, non-secret namespace shared by every replica of one application instance. */
+/** Stable non-secret namespace for identical database endpoint settings; aliases remain distinct. */
 final readonly class RuntimeNamespace
 {
     private const PROJECT_ID = 'peanut-admin';
-    private const ENVIRONMENT_PATTERN = '/^[a-z][a-z0-9._-]{1,31}$/D';
-    private const RESOURCE_PATTERN = '/^[a-z0-9][a-z0-9._-]{2,127}$/D';
 
     private function __construct(
-        private string $environment,
-        private string $resourceId,
+        private string $identity,
+        private string $tablePrefix,
     ) {}
 
     public static function fromConfiguration(): self
     {
-        return self::fromResourceId(
-            (string) Config::get('database.resource_id', ''),
-            (string) Config::get('peanut.environment', ''),
+        return self::fromDatabaseConfiguration(
+            Config::get('database', []),
+            (string) Config::get('peanut.environment', 'production'),
         );
     }
 
     /** Config files call this before ThinkPHP's configuration repository is available. */
-    public static function fromEnvironment(): self
+    public static function fromDatabaseConfiguration(array $configuration, string $environment): self
     {
-        return self::fromResourceId(
-            (string) (getenv('PEANUT_DATABASE_RESOURCE_ID') ?: ''),
-            (string) (getenv('APP_ENV') ?: ''),
-        );
-    }
-
-    public static function fromResourceId(string $resourceId, string $environment): self
-    {
-        $environment = strtolower(trim($environment));
-        $resourceId = strtolower(trim($resourceId));
-        if (preg_match(self::ENVIRONMENT_PATTERN, $environment) !== 1
-            || preg_match(self::RESOURCE_PATTERN, $resourceId) !== 1) {
-            throw new \RuntimeException('RUNTIME_NAMESPACE_RESOURCE_ID_INVALID');
+        $connections = $configuration['connections'] ?? [];
+        if ($connections === []) {
+            // Before setup there is no database identity. Native file stores are
+            // local to this application; its root also isolates the session name.
+            return new self(self::PROJECT_ID . "\0bootstrap\0" . $environment . "\0" . app()->getRootPath(), '');
         }
-        return new self($environment, $resourceId);
+        $connection = $connections[$configuration['default'] ?? ''] ?? null;
+        if (!is_array($connection) || ($connection['database'] ?? '') === '') {
+            throw new \RuntimeException('RUNTIME_NAMESPACE_DATABASE_INVALID');
+        }
+        $prefix = (string) ($connection['prefix'] ?? '');
+        return new self(implode("\0", [
+            self::PROJECT_ID,
+            $environment,
+            (string) ($connection['type'] ?? ''),
+            (string) ($connection['hostname'] ?? ''),
+            (string) ($connection['hostport'] ?? ''),
+            (string) $connection['database'],
+            $prefix,
+        ]), $prefix);
     }
 
     public function fingerprint(): string
     {
-        return substr(hash('sha256', $this->resourceId), 0, 24);
+        return substr(hash('sha256', $this->identity), 0, 24);
     }
 
     public function cachePrefix(): string
@@ -79,13 +82,10 @@ final readonly class RuntimeNamespace
             throw new \RuntimeException('RUNTIME_NAMESPACE_DATABASE_INVALID');
         }
 
-        $databaseFingerprint = substr(hash('sha256', $this->identity() . "\0" . $database), 0, 24);
+        // MySQL already scopes advisory locks to its server. All callers using
+        // the same schema/tables must contend even through different endpoints.
+        $databaseFingerprint = substr(hash('sha256', self::PROJECT_ID . "\0" . $database . "\0" . $this->tablePrefix), 0, 24);
         $logicalFingerprint = substr(hash('sha256', $logicalName), 0, 32);
         return "pa:l:{$databaseFingerprint}:{$logicalFingerprint}";
-    }
-
-    private function identity(): string
-    {
-        return self::PROJECT_ID . "\0" . $this->environment . "\0" . $this->resourceId;
     }
 }

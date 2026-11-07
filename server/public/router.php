@@ -14,6 +14,41 @@
 $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $requestPath = rawurldecode($requestPath);
 
+// Match the deployed Nginx ingress: tenant objects are available only through
+// File's controlled delivery route, which rechecks current visibility and grants.
+// The development server must not serve an existing object as a static file.
+$storageRoot = realpath(__DIR__ . '/storage');
+$requestedFile = realpath(__DIR__ . '/' . ltrim($requestPath, '/'));
+$staticFile = realpath(($_SERVER['DOCUMENT_ROOT'] ?? __DIR__) . ($_SERVER['SCRIPT_NAME'] ?? ''));
+$isStorageFile = static fn($path): bool => $storageRoot !== false && $path !== false
+    && ($path === $storageRoot || str_starts_with($path, $storageRoot . DIRECTORY_SEPARATOR));
+if (preg_match('#^/storage(?:/|$)#', $requestPath) === 1
+    || $isStorageFile($requestedFile) || $isStorageFile($staticFile)) {
+    http_response_code(404);
+    header('Cache-Control: no-store');
+    return true;
+}
+
+// The completion receipt is also the physical lock. No database probe may
+// reopen the installer, including when that database is unavailable.
+$installPage = preg_match('#^/(?:admin/)?install(?:/|$)#', $requestPath) === 1;
+$installLock = dirname(__DIR__) . '/private/installation/installed.json';
+if ($installPage && (file_exists($installLock) || is_link($installLock))) {
+    http_response_code(404);
+    header('Cache-Control: no-store');
+    return true;
+}
+if (preg_match('#^/(?:admin/)?installation(?:/|$)#', $requestPath) === 1) {
+    http_response_code(404);
+    return true;
+}
+if ($installPage) {
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: no-store');
+    readfile(__DIR__ . '/install/index.html');
+    return true;
+}
+
 if ($requestPath === '/') {
     header('Location: /admin/', true, 302);
     return true;

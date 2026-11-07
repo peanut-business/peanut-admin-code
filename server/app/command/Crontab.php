@@ -21,11 +21,21 @@ use PeanutAdmin\Kernel\Tenancy\TenantScope;
  */
 class Crontab extends ContextualCommand
 {
+    public static function __make(\think\App $app): self
+    {
+        return new self(
+            $app->make(TaskScheduler::class),
+            $app->make(AdvisoryLockExecution::class),
+            $app->make(ExecutionContextStore::class),
+            $app->make(CurrentExecutionContext::class),
+        );
+    }
+
     public function __construct(
-        ?ExecutionContextStore $contexts = null,
-        ?CurrentExecutionContext $executionContext = null,
         private readonly ?TaskScheduler $taskScheduler = null,
         private readonly ?AdvisoryLockExecution $locks = null,
+        ?ExecutionContextStore $contexts = null,
+        ?CurrentExecutionContext $executionContext = null,
     ) {
         parent::__construct($contexts, $executionContext);
     }
@@ -35,13 +45,20 @@ class Crontab extends ContextualCommand
         $this->setName('crontab')->setDescription('定时任务调度器');
     }
 
+    protected function establishesInstanceContext(): bool
+    {
+        return false;
+    }
+
     protected function handle(Input $input, Output $output): int
     {
+        $locks = $this->locks ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED');
+        $scheduler = $this->taskScheduler ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED');
         try {
-            $this->locks()->run(
+            $locks->run(
                 'peanut:crontab:scheduler',
                 0,
-                fn() => $this->scheduler()->runDue(time()),
+                fn() => $scheduler->runDue(time()),
             );
         } catch (AdvisoryLockUnavailable) {
             return 0;
@@ -53,18 +70,6 @@ class Crontab extends ContextualCommand
     /** Compatibility entry for explicit trusted scheduler callers. */
     public function start(TenantScope $scope, array $item): void
     {
-        $this->scheduler()->start($scope, $item);
-    }
-
-    private function scheduler(): TaskScheduler
-    {
-        return $this->taskScheduler
-            ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED');
-    }
-
-    private function locks(): AdvisoryLockExecution
-    {
-        return $this->locks
-            ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED');
+        ($this->taskScheduler ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED'))->start($scope, $item);
     }
 }

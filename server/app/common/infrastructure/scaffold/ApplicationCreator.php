@@ -5,29 +5,32 @@ declare(strict_types=1);
 namespace app\common\infrastructure\scaffold;
 
 use app\common\value\scaffold\EditionProfile;
+use app\common\value\scaffold\ScaffoldConfiguration;
 use app\common\value\scaffold\ScaffoldManifest;
+use app\common\value\scaffold\ScaffoldSourceIdentity;
 use app\common\value\scaffold\VersionContract;
 use app\common\validation\scaffold\ScaffoldPathGuard;
-use app\platform\infrastructure\plugin\PluginArtifactWriter;
-use app\platform\infrastructure\plugin\PluginLockResolver;
+use app\platform\infrastructure\module\ModuleArtifactWriter;
+use app\platform\infrastructure\module\ModuleLockResolver;
 use RuntimeException;
 
 require_once dirname(__DIR__, 2) . '/value/scaffold/VersionContract.php';
 require_once dirname(__DIR__, 2) . '/value/scaffold/EditionProfile.php';
 require_once dirname(__DIR__, 2) . '/value/scaffold/ScaffoldManifest.php';
+require_once dirname(__DIR__, 5) . '/scripts/scaffold-runtime/ScaffoldSourceIdentity.php';
 require_once dirname(__DIR__, 2) . '/validation/scaffold/ScaffoldPathGuard.php';
 require_once __DIR__ . '/EditionProjector.php';
-require_once dirname(__DIR__, 3) . '/platform/exception/plugin/PluginArtifactToolException.php';
-require_once dirname(__DIR__, 3) . '/platform/value/plugin/ModuleFrontendLayout.php';
-require_once dirname(__DIR__, 3) . '/platform/infrastructure/plugin/PluginArtifactWriter.php';
-require_once dirname(__DIR__, 3) . '/platform/exception/plugin/PluginLifecycleException.php';
-require_once dirname(__DIR__, 3) . '/platform/value/plugin/PluginDescriptor.php';
-require_once dirname(__DIR__, 3) . '/platform/infrastructure/plugin/PluginLockResolver.php';
+require_once dirname(__DIR__, 3) . '/platform/exception/module/ModuleArtifactToolException.php';
+require_once dirname(__DIR__, 3) . '/platform/value/module/ModuleFrontendLayout.php';
+require_once dirname(__DIR__, 3) . '/platform/infrastructure/module/ModuleArtifactWriter.php';
+require_once dirname(__DIR__, 3) . '/platform/exception/module/ModuleLifecycleException.php';
+require_once dirname(__DIR__, 3) . '/platform/value/module/ModuleDescriptor.php';
+require_once dirname(__DIR__, 3) . '/platform/infrastructure/module/ModuleLockResolver.php';
 
 final class ApplicationCreator
 {
     private const CLASSIFICATIONS = ['managed', 'generated-managed', 'app-owned', 'excluded'];
-    private const TRANSFORMS = ['copy', 'text', 'brand', 'brand-asset', 'changelog', 'docs-page', 'environment-guard', 'release-metadata', 'resources', 'readme', 'license', 'modules-config', 'package', 'plugins-lock', 'sbom', 'third-party-notices', 'version-contract', 'composer-lock'];
+    private const TRANSFORMS = ['copy', 'text', 'brand', 'brand-asset', 'changelog', 'docs-page', 'environment-guard', 'release-metadata', 'resources', 'readme', 'license', 'modules-config', 'package', 'modules-lock', 'sbom', 'third-party-notices', 'version-contract', 'composer-lock'];
     private const VARIABLES = ['APPLICATION_VERSION', 'PACKAGE_IDENTITY', 'PRODUCT_NAME', 'SLUG'];
     private const PROFILES = ['minimal', 'standard', 'full'];
     private const WRITABLE_DIRECTORIES = [
@@ -44,7 +47,10 @@ final class ApplicationCreator
         'server/private/storage',
     ];
 
-    /** @param array{commit:string,tree:string}|null $sourceIdentity */
+    /**
+     * @param array{commit:string,tree:string}|array{kind:'local',snapshot_sha256:string}|null $sourceIdentity
+     * @param string|null $apiGeneratorPath Explicit installed API tool with source-identical generation inputs.
+     */
     public function __construct(
         private readonly string $sourceRoot,
         private readonly string $inventoryPath,
@@ -52,6 +58,7 @@ final class ApplicationCreator
         private readonly ?string $adoptionManifestPath = null,
         private readonly bool $projectEdition = true,
         private readonly ?array $sourceProvenance = null,
+        private readonly ?string $apiGeneratorPath = null,
     ) {}
 
     /** @return array<string,mixed> */
@@ -63,14 +70,22 @@ final class ApplicationCreator
         string $edition,
         ?string $applicationVersion = null,
         string $profile = 'standard',
+        string $workflow = 'runtime',
+        string $demo = 'none',
     ): array {
         $journal = $this->sourceRoot . '/.local/module-source-adoption/journal.json';
         if (file_exists($journal) || is_link($journal)) {
             throw new RuntimeException('MODULE_PACKAGE_RECOVERY_REQUIRED');
         }
+        if (!in_array($demo, ['none', 'workbench'], true)) {
+            throw new RuntimeException('CREATE_APP_DEMO_PRESET_INVALID');
+        }
         $inventory = $this->loadInventory();
         if (!in_array($profile, self::PROFILES, true)) {
             throw new RuntimeException('CREATE_APP_PROFILE_INVALID');
+        }
+        if (!in_array($workflow, ['none', 'runtime', 'full'], true)) {
+            throw new RuntimeException('CREATE_APP_WORKFLOW_MODE_INVALID');
         }
         $editionProfile = EditionProfile::load(
             $this->sourceRoot . '/scaffold/edition-profiles.json',
@@ -82,36 +97,46 @@ final class ApplicationCreator
             $packageIdentity,
             $applicationVersion ?? (string) $inventory['application']['version'],
         );
-        $actualIdentity = $this->gitIdentity();
+        $actualIdentity = ($this->sourceIdentity['kind'] ?? null) === 'local'
+            ? ScaffoldSourceIdentity::local($this->sourceRoot)
+            : ['kind' => 'git', ...$this->gitIdentity()];
         $generationIdentity = $this->validateSourceIdentity($this->sourceIdentity ?? $actualIdentity);
         if ($generationIdentity !== $actualIdentity) {
             throw new RuntimeException('CREATE_APP_SOURCE_IDENTITY_MISMATCH');
         }
-        $originRepository = $this->originRepository();
+        $originRepository = ($generationIdentity['kind'] ?? 'git') === 'git' ? $this->originRepository() : null;
         $declaredProvenance = $this->sourceProvenance;
         if ($declaredProvenance !== null && ($declaredProvenance['repository'] ?? null) === null) {
             $declaredProvenance['repository'] = $originRepository;
         }
         $provenance = $this->validateSourceProvenance($declaredProvenance ?? [
             'repository' => $originRepository,
-            'requested_ref' => $generationIdentity['commit'],
+            'requested_ref' => ($generationIdentity['kind'] ?? 'git') === 'local'
+                ? 'local:' . $generationIdentity['snapshot_sha256'] : $generationIdentity['commit'],
             'channel' => 'development',
             'release_version' => null,
         ]);
+        if ($generationIdentity['kind'] === 'local' && ($provenance['channel'] !== 'development'
+            || $provenance['release_version'] !== null || $provenance['requested_ref'] !== 'local:' . $generationIdentity['snapshot_sha256'])) {
+            throw new RuntimeException('CREATE_APP_LOCAL_SOURCE_PROVENANCE_INVALID');
+        }
         if ($originRepository !== null && $provenance['repository'] !== $originRepository) {
             throw new RuntimeException('CREATE_APP_SOURCE_REPOSITORY_MISMATCH');
-        }
-        if ($this->sourceProvenance !== null
-            && (($provenance['channel'] === 'development') !== ($this->adoptionManifestPath === null))) {
-            throw new RuntimeException('CREATE_APP_SOURCE_CHANNEL_RELEASE_MISMATCH');
         }
         $inventoryDigest = hash_file('sha256', $this->inventoryPath);
         if (!is_string($inventoryDigest) || preg_match('/^[a-f0-9]{64}$/D', $inventoryDigest) !== 1) {
             throw new RuntimeException('CREATE_APP_INVENTORY_DIGEST_INVALID');
         }
         $adoption = $this->loadAdoptionManifest($inventory);
+        $candidate = $adoption !== null && isset($adoption->data['internal_core_projection']);
+        if (($candidate && $provenance['channel'] !== 'development')
+            || ($this->sourceProvenance !== null && !$candidate
+                && (($provenance['channel'] === 'development') !== ($adoption === null)))) {
+            throw new RuntimeException('CREATE_APP_SOURCE_CHANNEL_RELEASE_MISMATCH');
+        }
         if ($adoption !== null && $provenance['channel'] !== 'development') {
-            if ($adoption->version() !== $provenance['release_version']
+            if ($generationIdentity['kind'] !== 'git' || $adoption->sourceIdentity()['kind'] !== 'git'
+                || $adoption->version() !== $provenance['release_version']
                 || $adoption->release()['inventory_sha256'] !== $inventoryDigest
                 || $this->git(['rev-parse', $adoption->release()['source_commit'] . '^{tree}']) !== $adoption->release()['source_tree']) {
                 throw new RuntimeException('CREATE_APP_PUBLISHED_SEAL_INVALID');
@@ -122,6 +147,9 @@ final class ApplicationCreator
         if ($adoptsEdition && (!$this->projectEdition || $adoption->data['edition'] !== $editionProfile->identity())) {
             throw new RuntimeException('CREATE_APP_ADOPTION_EDITION_MISMATCH');
         }
+        $candidateArchives = $candidate
+            ? $this->candidateArchives($adoption, $generationIdentity, $inventoryDigest, $profile, $workflow)
+            : [];
         $target = $this->validateTarget($target);
         $parent = dirname($target);
         $stage = $parent . DIRECTORY_SEPARATOR . '.' . basename($target) . '.create-' . bin2hex(random_bytes(6));
@@ -135,6 +163,11 @@ final class ApplicationCreator
                 if ($entry['classification'] === 'excluded' || !in_array($profile, $entry['profiles'], true)) {
                     continue;
                 }
+                // Candidate managed bytes come from the selected distribution, not
+                // from a fresh source projection that merely compares equal later.
+                if ($candidate && $entry['classification'] !== 'app-owned') {
+                    continue;
+                }
                 $source = $this->sourcePath((string) $entry['path']);
                 $actualSourceDigest = self::sourceDigest($source, (string) $entry['path'], (string) $entry['transform']);
                 if (!is_string($actualSourceDigest) || !hash_equals((string) $entry['source_sha256'], $actualSourceDigest)) {
@@ -145,6 +178,12 @@ final class ApplicationCreator
                     throw new RuntimeException('CREATE_APP_SOURCE_READ_FAILED: ' . $entry['path']);
                 }
                 $content = $this->transform($content, $entry, $parameters, $stage);
+                if ($entry['target'] === 'server/config/peanut.php') {
+                    if (substr_count($content, "'preset' => 'none'") !== 1) {
+                        throw new RuntimeException('CREATE_APP_DEMO_CONFIG_INVALID');
+                    }
+                    $content = str_replace("'preset' => 'none'", "'preset' => '" . $demo . "'", $content);
+                }
                 $destination = $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string) $entry['target']);
                 $this->writeFile($destination, $content, (int) $entry['mode']);
                 $files[] = [
@@ -156,6 +195,9 @@ final class ApplicationCreator
                     'source' => $entry['path'],
                 ];
             }
+            if ($candidate) {
+                $files = array_merge($files, $this->materializeCandidate($stage, $adoption, $inventory, $parameters, $candidateArchives));
+            }
             $this->prepareWritableDirectories($stage);
             usort($files, static fn(array $a, array $b): int => strcmp((string) $a['path'], (string) $b['path']));
             $this->assertNoUnresolvedVariables($stage);
@@ -163,30 +205,37 @@ final class ApplicationCreator
             if ($adoption !== null && !$adoptsEdition) {
                 $this->assertAdoptionEquivalent($stage, $adoption, $parameters, $files);
             }
-            // Edition projection can rewrite Module/frontend bytes. Build the Plugin
-            // manifests and canonical lock only after those final release bytes exist,
-            // otherwise the generated lock is stale immediately after projection.
-            if ($this->projectEdition) {
+            // Project selected source bytes before generating their derived artifacts.
+            if ($this->projectEdition && !$candidate) {
                 $files = $this->projectEdition($stage, $inventory, $files, $editionProfile);
             }
-            $files = $this->rebuildBundledPluginArtifacts($stage, $files);
+            $projector = new EditionProjector();
+            $files = $projector->modules($stage, $files);
+            $files = $projector->workflow($stage, $files, $workflow);
+            $files = $this->materializeUniappPages($stage, $files);
+            $files = $this->materializeApiCatalog($stage, $files);
+            $files = $this->rebuildBundledModuleArtifacts($stage, $files);
+            // The catalog records modules.lock as an input; refreshing only its
+            // metadata after canonicalization leaves Module SDK bytes unchanged.
+            $files = $this->materializeApiCatalog($stage, $files, true);
             if ($adoptsEdition) {
                 $this->assertAdoptionEquivalent($stage, $adoption, $parameters, $files);
             }
-            // Verify the adopted source first, then materialize derived metadata from final APP inputs.
-            $files = $this->materializeApiCatalog($stage, $files);
             $templateIdentity = $adoption === null
                 ? [
                     'version' => $inventory['template_version'],
                     'inventory_sha256' => $inventoryDigest,
-                    'source_commit' => $generationIdentity['commit'],
-                    'source_tree' => $generationIdentity['tree'],
+                    ...(($generationIdentity['kind'] ?? 'git') === 'git'
+                        ? ['source_identity' => ['kind' => 'git', 'commit' => $generationIdentity['commit'], 'tree' => $generationIdentity['tree']],
+                            'source_commit' => $generationIdentity['commit'], 'source_tree' => $generationIdentity['tree']]
+                        : ['source_identity' => $generationIdentity]),
                 ]
                 : [
                     'version' => $adoption->version(),
                     'inventory_sha256' => $adoption->release()['inventory_sha256'],
-                    'source_commit' => $adoption->release()['source_commit'],
-                    'source_tree' => $adoption->release()['source_tree'],
+                    ...($adoption->sourceIdentity()['kind'] === 'git'
+                        ? ['source_identity' => $adoption->sourceIdentity(), 'source_commit' => $adoption->sourceIdentity()['commit'], 'source_tree' => $adoption->sourceIdentity()['tree']]
+                        : ['source_identity' => $adoption->sourceIdentity()]),
                 ];
             $manifest = $this->writeApplicationManifest(
                 $stage,
@@ -198,7 +247,19 @@ final class ApplicationCreator
                 $files,
                 $profile,
                 $editionProfile,
+                $workflow,
+                $demo,
             );
+            if ($candidate) {
+                $manifest['scaffold_candidate'] = [
+                    'manifest_sha256' => substr($adoption->digest(), strlen('sha256:')),
+                    'core_inputs_sha256' => $adoption->data['internal_core_projection']['core_inputs_sha256'],
+                    'formal_release_eligible' => false,
+                ];
+                $this->writeFile($stage . '/.peanut/application-manifest.json', json_encode(
+                    $manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
+                ) . "\n", 0644);
+            }
 
             if (is_dir($target) && !rmdir($target)) {
                 throw new RuntimeException('CREATE_APP_TARGET_NOT_EMPTY');
@@ -256,15 +317,13 @@ final class ApplicationCreator
         return $files;
     }
 
-    /** @param array{commit:string,tree:string} $identity @return array{commit:string,tree:string} */
+    /** @return array{kind:'git',commit:string,tree:string}|array{kind:'local',snapshot_sha256:string} */
     private function validateSourceIdentity(array $identity): array
     {
-        if (array_keys($identity) !== ['commit', 'tree']
-            || preg_match('/^[a-f0-9]{40}$/D', (string) $identity['commit']) !== 1
-            || preg_match('/^[a-f0-9]{40}$/D', (string) $identity['tree']) !== 1) {
-            throw new RuntimeException('CREATE_APP_SOURCE_IDENTITY_INVALID');
+        if (array_keys($identity) === ['commit', 'tree']) {
+            $identity = ['kind' => 'git', ...$identity];
         }
-        return $identity;
+        return ScaffoldSourceIdentity::validate($identity);
     }
 
     /** @param array<string,mixed> $provenance @return array{repository:?string,requested_ref:string,channel:string,release_version:?string} */
@@ -340,6 +399,125 @@ final class ApplicationCreator
             throw new RuntimeException('CREATE_APP_ADOPTION_APPLICATION_VERSION_MISMATCH');
         }
         return $manifest;
+    }
+
+    /** Fixed internal packages are selected explicitly; this never grants a published identity.
+     * @param array{commit:string,tree:string} $identity
+     * @return array<string,string> archive path => SHA-256
+     */
+    private function candidateArchives(ScaffoldManifest $adoption, array $identity, string $inventoryDigest, string $profile, string $workflow): array
+    {
+        $projection = $adoption->data['internal_core_projection'];
+        $release = $adoption->release();
+        if (!is_array($projection)
+            || ($projection['protocol'] ?? null) !== 'peanut.internal-core-scaffold-projection.v1'
+            || ($projection['scope'] ?? null) !== 'internal-upgrade-target-not-formal-release'
+            || $adoption->sourceIdentity() !== $identity
+            || ($identity['kind'] === 'local'
+                ? (($projection['source_identity'] ?? null) !== $identity || array_key_exists('source', $projection))
+                : (($projection['source'] ?? null) !== ['commit' => $identity['commit'], 'tree' => $identity['tree']]))
+            || ($release['inventory_sha256'] ?? null) !== $inventoryDigest
+            || ($projection['managed_tree_sha256']['projected'] ?? null) !== ($release['managed_tree_sha256'] ?? null)
+            || preg_match('/^[a-f0-9]{64}$/D', (string) ($projection['core_inputs_sha256'] ?? '')) !== 1
+            || !isset($adoption->data['edition']) || $profile !== 'full' || $workflow !== 'full'
+            || ($release['workflow'] ?? null) !== $workflow) {
+            throw new RuntimeException('CREATE_APP_CANDIDATE_IDENTITY_INVALID');
+        }
+        foreach (['build_scaffold_release' => 'scripts/build-scaffold-release'] as $key => $path) {
+            if (($projection['build_tools_sha256'][$key] ?? null) !== hash_file('sha256', $this->sourceRoot . '/' . $path)) {
+                throw new RuntimeException('CREATE_APP_CANDIDATE_TOOL_CHANGED');
+            }
+        }
+        $core = $projection['core'] ?? null;
+        $version = $core['resolved_version'] ?? null;
+        $phpPath = 'packages/core-php/peanut-admin-core-' . $version . '.zip';
+        $localPhp = $core['source_identity'] ?? null;
+        $localWeb = $projection['core_web_source_identity'] ?? null;
+        $localCoreIdentity = is_array($localPhp) && is_array($localWeb)
+            && ScaffoldSourceIdentity::validate($localPhp)['kind'] === 'local'
+            && ScaffoldSourceIdentity::validate($localWeb)['kind'] === 'local'
+            && !array_key_exists('source_reference', $core)
+            && !array_key_exists('web_source_reference', $projection);
+        $gitCoreIdentity = is_array($core) && !array_key_exists('source_identity', $core)
+            && !array_key_exists('core_web_source_identity', $projection)
+            && preg_match('/^[a-f0-9]{40}$/D', (string) ($core['source_reference'] ?? '')) === 1
+            && preg_match('/^[a-f0-9]{40}$/D', (string) ($projection['web_source_reference'] ?? '')) === 1;
+        if (!is_array($core) || ($core['package'] ?? null) !== 'peanut-admin/core'
+            || !ReleaseDependencyIdentity::fixed($version)
+            || ($core['archive_path'] ?? null) !== $phpPath
+            || (!$localCoreIdentity && !$gitCoreIdentity)
+            || preg_match('/^[a-f0-9]{64}$/D', (string) ($core['archive_sha256'] ?? '')) !== 1) {
+            throw new RuntimeException('CREATE_APP_CANDIDATE_CORE_INVALID');
+        }
+        $archives = [$phpPath => $core['archive_sha256']];
+        $suffixes = ['client', 'vue', 'ui-vue', 'nuxt', 'uniapp', 'testing'];
+        $web = $projection['core_web'] ?? null;
+        if (!is_array($web) || array_keys($web) !== array_map(static fn(string $suffix): string => '@peanut-admin/' . $suffix, $suffixes)) {
+            throw new RuntimeException('CREATE_APP_CANDIDATE_WEB_INVALID');
+        }
+        $webVersion = $web['@peanut-admin/client']['version'] ?? null;
+        if (!ReleaseDependencyIdentity::fixed($webVersion)) {
+            throw new RuntimeException('CREATE_APP_CANDIDATE_WEB_INVALID');
+        }
+        foreach ($suffixes as $suffix) {
+            $package = $web['@peanut-admin/' . $suffix];
+            $path = 'packages/core-web/peanut-admin-' . $suffix . '-' . $webVersion . '.tgz';
+            if (($package['version'] ?? null) !== $webVersion || ($package['archive'] ?? null) !== $path
+                || preg_match('/^[a-f0-9]{64}$/D', (string) ($package['sha256'] ?? '')) !== 1) {
+                throw new RuntimeException('CREATE_APP_CANDIDATE_WEB_INVALID');
+            }
+            $archives[$path] = $package['sha256'];
+        }
+        return $archives;
+    }
+
+    /** Render the selected candidate's managed files. Only fixed package archives
+     * may add paths outside the source inventory; app-owned defaults stay app-owned.
+     * @param array<string,mixed> $inventory
+     * @param array<string,string> $parameters
+     * @param array<string,string> $archives
+     * @return list<array<string,mixed>>
+     */
+    private function materializeCandidate(string $stage, ScaffoldManifest $adoption, array $inventory, array $parameters, array $archives): array
+    {
+        $expected = [];
+        $inventoryTargets = [];
+        foreach ($inventory['files'] as $entry) {
+            $inventoryTargets[$entry['target']] = true;
+            if (in_array($entry['classification'], ['managed', 'generated-managed'], true)
+                && in_array('full', $entry['profiles'], true)) {
+                $expected[$entry['target']] = $entry;
+            }
+        }
+        foreach ($archives as $path => $digest) {
+            if (isset($inventoryTargets[$path])) {
+                throw new RuntimeException('CREATE_APP_CANDIDATE_ARCHIVE_COLLISION');
+            }
+            $expected[$path] = ['path' => $path, 'classification' => 'managed', 'owner' => 'host', 'mode' => 0644];
+        }
+        ksort($expected, SORT_STRING);
+        $released = $adoption->files();
+        if (array_keys($expected) !== array_keys($released)) {
+            throw new RuntimeException('CREATE_APP_CANDIDATE_MANAGED_SET_MISMATCH');
+        }
+        $tokens = $adoption->release()['tokens'];
+        $values = ['product_name' => $parameters['PRODUCT_NAME'], 'slug' => $parameters['SLUG'],
+            'package_identity' => $parameters['PACKAGE_IDENTITY'], 'application_version' => $parameters['APPLICATION_VERSION']];
+        $files = [];
+        foreach ($released as $path => $artifact) {
+            $entry = $expected[$path];
+            $content = file_get_contents($adoption->artifactPath($artifact));
+            if ($artifact['classification'] !== $entry['classification'] || $artifact['mode'] !== $entry['mode']
+                || !is_string($content) || !hash_equals($artifact['template_sha256'], hash('sha256', $content))
+                || (isset($archives[$path]) && !hash_equals($archives[$path], hash('sha256', $content)))) {
+                throw new RuntimeException('CREATE_APP_CANDIDATE_ARTIFACT_INVALID: ' . $path);
+            }
+            $content = isset($archives[$path]) ? $content : $this->renderAdoptionArtifact($adoption, $artifact, $tokens, $values);
+            $this->writeFile($stage . '/' . $path, $content, $entry['mode']);
+            $files[] = ['path' => $path, 'sha256' => hash('sha256', $content), 'mode' => $entry['mode'],
+                'classification' => $entry['classification'], 'owner' => $entry['owner'], 'source' => $entry['path']];
+        }
+        return $files;
     }
 
     /**
@@ -443,17 +621,8 @@ final class ApplicationCreator
         // Content digests cannot be rendered by replacing application identity tokens.
         // These artifacts are rebuilt from the individually verified final managed inputs.
         return $path === 'server/generated/api-catalog.json'
-            || $path === 'plugins.lock'
+            || $path === 'modules.lock'
             || preg_match('#^plugins/[a-z][a-z0-9.-]*/plugin\.json$#D', $path) === 1;
-    }
-
-    /** @param array<string,string> $tokens @param array<string,string> $values */
-    private function replaceReleaseTokens(string $content, array $tokens, array $values): string
-    {
-        foreach (array_keys($tokens) as $key) {
-            $content = str_replace($tokens[$key], $values[$key], $content);
-        }
-        return $content;
     }
 
     /** @param array<string,mixed> $artifact @param array<string,string> $tokens @param array<string,string> $values */
@@ -463,22 +632,21 @@ final class ApplicationCreator
         if (!is_string($content)) {
             throw new RuntimeException('CREATE_APP_ADOPTION_ARTIFACT_INVALID: ' . ($artifact['path'] ?? ''));
         }
-        $rendered = $this->replaceReleaseTokens($content, $tokens, $values);
-        if (($artifact['transform'] ?? null) !== 'composer-lock') {
-            return $rendered;
+        $path = (string) $artifact['path'];
+        $composerContent = null;
+        if (($artifact['transform'] ?? null) === 'composer-lock') {
+            $composer = $adoption->files()['server/composer.json'] ?? null;
+            if (!is_array($composer)) {
+                throw new RuntimeException('CREATE_APP_ADOPTION_COMPOSER_COMPANION_MISSING');
+            }
+            $composerContent = file_get_contents($adoption->artifactPath($composer));
+            if (!is_string($composerContent)
+                || !hash_equals((string) ($composer['template_sha256'] ?? ''), hash('sha256', $composerContent))) {
+                throw new RuntimeException('CREATE_APP_ADOPTION_COMPOSER_COMPANION_INVALID');
+            }
         }
-        $composer = $adoption->files()['server/composer.json'] ?? null;
-        if (!is_array($composer)) {
-            throw new RuntimeException('CREATE_APP_ADOPTION_COMPOSER_COMPANION_MISSING');
-        }
-        $composerContent = file_get_contents($adoption->artifactPath($composer));
-        if (!is_string($composerContent)
-            || !hash_equals((string) ($composer['template_sha256'] ?? ''), hash('sha256', $composerContent))) {
-            throw new RuntimeException('CREATE_APP_ADOPTION_COMPOSER_COMPANION_INVALID');
-        }
-        return ScaffoldManifest::renderComposerLock(
-            $rendered,
-            $this->replaceReleaseTokens($composerContent, $tokens, $values),
+        return ScaffoldManifest::renderArtifactContent(
+            $content, $path, (string) ($artifact['transform'] ?? ''), $tokens, $values, $composerContent,
         );
     }
 
@@ -545,15 +713,15 @@ final class ApplicationCreator
             $target = ScaffoldManifest::path((string) ($entry['target'] ?? $path));
             $classification = (string) ($entry['classification'] ?? '');
             $transform = (string) ($entry['transform'] ?? 'copy');
-            if (str_starts_with($path, 'server/resources/scaffold-application/')) {
-                $expectedTarget = substr($path, strlen('server/resources/scaffold-application/'), -5);
-                $expectedClassification = $target === 'SECURITY.md' ? 'app-owned' : 'generated-managed';
-                if (!str_ends_with($path, '.stub') || $target !== $expectedTarget
-                    || (!str_starts_with($target, 'docs-site/') && !in_array($target, ['SECURITY.md', 'AGENTS.md'], true))
-                    || $classification !== $expectedClassification || $transform !== 'docs-page'
+            $mapping = ScaffoldConfiguration::load()['file_mappings'][$path] ?? null;
+            if ($mapping !== null) {
+                if ($target !== $mapping['target'] || $classification !== $mapping['classification']
+                    || $transform !== $mapping['transform'] || ($entry['profiles'] ?? null) !== $mapping['profiles']
                     || ($entry['mode'] ?? null) !== 0644) {
                     throw new RuntimeException('CREATE_APP_DOCUMENT_TEMPLATE_INVALID: ' . $path);
                 }
+            } elseif (str_starts_with($path, 'server/resources/scaffold-application/')) {
+                throw new RuntimeException('CREATE_APP_DOCUMENT_TEMPLATE_INVALID: ' . $path);
             }
             if (isset($seenSource[$path]) || isset($seenTarget[$target])) {
                 throw new RuntimeException('CREATE_APP_INVENTORY_DUPLICATE_PATH: ' . $path);
@@ -681,14 +849,14 @@ final class ApplicationCreator
             'brand-asset' => $this->brandAsset((string) $entry['path'], $parameters),
             'changelog' => $this->render($this->changelog($parameters['APPLICATION_VERSION']), $parameters),
             'docs-page' => $this->render($content, $parameters),
-            'environment-guard' => $content,
+            'environment-guard' => $this->applicationEnvironmentGuard($content),
             'release-metadata' => $this->releaseMetadata($parameters),
             'resources' => $this->resourceRegistry($parameters),
             'readme' => $this->render($this->readme(), $parameters),
             'license' => $this->render($this->license(), $parameters),
             'modules-config' => $this->modulesConfig($content),
             'package' => $this->packageTransform($content, $parameters, (string) $entry['path']),
-            'plugins-lock' => $this->pluginsLock($content),
+            'modules-lock' => $this->modulesLock($content),
             'sbom' => $this->sbom($content, $parameters),
             'third-party-notices' => $this->thirdPartyNotices($content, $parameters),
             'version-contract' => $this->versionContractDocument($parameters),
@@ -710,59 +878,52 @@ final class ApplicationCreator
         return ScaffoldManifest::renderComposerLock($content, $composer);
     }
 
+    /** Product runtime guards keep registered DB identity checks; qualification tools stay in Code. */
+    private function applicationEnvironmentGuard(string $content): string
+    {
+        $start = strpos($content, '/** Only an explicitly registered schema policy');
+        $config = strpos($content, 'function guardedDatabaseConfig(');
+        $observation = strpos($content, "/**\n * Closed acceptance observation of persisted collaboration metadata");
+        $connection = strpos($content, 'function guardedConnection(');
+        if ($start === false || $config === false || $observation === false || $connection === false) {
+            throw new RuntimeException('CREATE_APP_ENVIRONMENT_GUARD_SOURCE_INVALID');
+        }
+        $nativeConfig = substr($content, $config, $observation - $config);
+        $nativeConfig = preg_replace(
+            '/    if \\(\\$isTemplated\\) \\{.*?\\n    \\} else \\{\\n/s',
+            "    if (\$isTemplated || \$deploymentTarget === 'development-test') {\n"
+                . "        throw new RuntimeException('Qualification resources are not application runtime databases');\n"
+                . "    } else {\n",
+            $nativeConfig,
+            1,
+            $count,
+        );
+        if ($count !== 1 || !is_string($nativeConfig)) {
+            throw new RuntimeException('CREATE_APP_ENVIRONMENT_GUARD_SOURCE_INVALID');
+        }
+        return substr($content, 0, $start)
+            . "require_once __DIR__ . '/resource-registry.php';\n\n"
+            . $nativeConfig . substr($content, $connection);
+    }
+
     /** @param array<string,string> $parameters */
     private function textTransform(string $content, array $parameters, string $path): string
     {
-        $content = str_replace(
-            ['Peanut Admin', 'https://peanut-admin.007345.xyz', 'https://peanut-admin-doc.007345.xyz', '花生科技'],
-            [$parameters['PRODUCT_NAME'], 'https://example.invalid', 'https://docs.example.invalid', 'application owner'],
-            $content,
-        );
-        if ($path === 'server/database/init.sql') {
-            $content = str_replace(
-                ["-- 超级管理员（密码：admin123456）", "MD5(CONCAT(MD5('admin123456'),'abcd1234'))", '系统预置角色（仅菜单管理权限，演示用）'],
-                ['-- 超级管理员（密码必须由安装器注入）', "MD5(CONCAT(MD5('__INSTALLER_MUST_REPLACE__'),'abcd1234'))", '系统预置最小权限角色'],
-                $content,
-            );
+        // Fixed artifacts and immutable migration source identities survive APP branding byte-for-byte.
+        if (str_starts_with($path, 'server/database/schema/') || str_starts_with($path, 'server/database/migrations/')
+            || str_starts_with($path, 'server/database/installation/') || str_starts_with($path, 'server/database/seeds/')
+            || preg_match('#^(?:server/app/modules|(?:web|platform|uniapp)/src/modules|pc/modules)/#D', $path) === 1) {
+            // Official Module contents belong to their published identity. APP branding
+            // must not mutate their canonical contents or dependency fingerprints.
+            return $content;
         }
-        if ($path === 'server/database/install.php') {
-            $content = str_replace("MD5(CONCAT(MD5('admin123456'),'abcd1234'))", "MD5(CONCAT(MD5('__INSTALLER_MUST_REPLACE__'),'abcd1234'))", $content);
-        }
-        if ($path === 'server/tests/Productization/InstallerBootstrapTest.php') {
-            $content = str_replace(
-                ["MD5(CONCAT(MD5('admin123456')", '密码：admin123456', 'known password expression must not reach the database', 'installer must only replace the executable seed'],
-                ["MD5(CONCAT(MD5('__INSTALLER_MUST_REPLACE__')", '密码必须由安装器注入', 'placeholder password expression must not reach the database', 'installer must preserve the neutral seed comment'],
-                $content,
-            );
-        }
-        if ($path === 'scripts/check-local-runtime-contract') {
-            $contractIdentity = $parameters['SLUG'] . '-contract';
-            $content = str_replace(
-                [
-                    'peanut-admin-php:contract',
-                    'peanut-admin-nginx:contract',
-                    'peanut-admin-mysql84-development-host-direct',
-                    'peanut-admin-mysql84-development',
-                    'DB_HOST=192.168.192.2',
-                    'DB_PORT=20183',
-                    'DB_NAME=peanut_admin_development',
-                    'DB_USER=peanut_admin_development',
-                ],
-                [
-                    $parameters['SLUG'] . '-php:contract',
-                    $parameters['SLUG'] . '-nginx:contract',
-                    $parameters['SLUG'] . '-mysql84-contract-host',
-                    $parameters['SLUG'] . '-mysql84-contract',
-                    'DB_HOST=127.0.0.1',
-                    'DB_PORT=3306',
-                    'DB_NAME=' . $contractIdentity,
-                    'DB_USER=' . $contractIdentity,
-                ],
-                $content,
-            );
-        }
-        if ($path === 'server/app/adminapi/application/WorkbenchApplicationService.php') {
-            $content = preg_replace("/'(today_sales|total_sales|today_visitor|total_visitor|today_new_user|total_new_user|order_num|order_sum)' => [0-9]+,/", "'$1' => 0,", $content) ?? $content;
+        $replacements = ScaffoldConfiguration::load()['text_replacements'];
+        foreach ([$replacements['all'], $replacements['files'][$path] ?? []] as $pairs) {
+            foreach ($pairs as $source => $replacement) {
+                $value = is_string($replacement) ? $replacement
+                    : ($replacement['prefix'] ?? '') . $parameters[$replacement['variable']] . ($replacement['suffix'] ?? '');
+                $content = str_replace($source, $value, $content);
+            }
         }
         if ($path === 'uniapp/src/pages/as_us/as_us.vue') {
             $content = $this->replaceVersionLiteral($content, $parameters['APPLICATION_VERSION'], $path);
@@ -788,6 +949,19 @@ final class ApplicationCreator
         }
         if (!is_array($document)) {
             throw new RuntimeException('CREATE_APP_PACKAGE_JSON_INVALID: ' . $path);
+        }
+        // JSON may encode the author as \uXXXX: normalize the root attribution
+        // after decoding so the APP never inherits the scaffold owner's brand.
+        if (isset($document['author']) && is_string($document['author'])) {
+            $document['author'] = $this->textTransform($document['author'], $parameters, 'package');
+        }
+        if ($path === 'server/composer.json' && is_array($document['authors'] ?? null)) {
+            foreach ($document['authors'] as &$author) {
+                if (is_array($author) && is_string($author['name'] ?? null)) {
+                    $author['name'] = $this->textTransform($author['name'], $parameters, 'package');
+                }
+            }
+            unset($author);
         }
         // Application package identity is a field; repository references retain their source identity.
         if ($path === 'server/composer.json') {
@@ -1081,15 +1255,15 @@ final class ApplicationCreator
     private function modulesConfig(string $content): string
     {
         if (substr_count($content, "\$serverRelease = file_exists(\$serverIdentity) || is_link(\$serverIdentity);") !== 1
-            || substr_count($content, "\$pluginLockDefault = \$serverRelease ? 'plugins.lock' : '../plugins.lock';") !== 1
-            || substr_count($content, "'plugin_lock' => (string) env('PEANUT_PLUGIN_LOCK', \$pluginLockDefault)") !== 1
+            || substr_count($content, "\$pluginLockDefault = \$serverRelease || ApplicationSourceIdentity::hasRuntime(\$serverRoot)\n    ? 'modules.lock'\n    : '../modules.lock';") !== 1
+            || substr_count($content, "'module_lock' => (string) env('PEANUT_MODULE_LOCK', \$pluginLockDefault)") !== 1
         ) {
             throw new RuntimeException('CREATE_APP_MODULES_CONFIG_SOURCE_INVALID');
         }
         return $content;
     }
 
-    private function pluginsLock(string $content): string
+    private function modulesLock(string $content): string
     {
         try {
             $source = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
@@ -1098,20 +1272,21 @@ final class ApplicationCreator
         }
         if (!is_array($source)
             || ($source['schema_version'] ?? null) !== 1
-            || !is_array($source['plugins'] ?? null)
-            || !array_is_list($source['plugins'])
+            || !is_array($source['modules'] ?? null)
+            || !array_is_list($source['modules'])
         ) {
             throw new RuntimeException('CREATE_APP_PLUGIN_LOCK_SOURCE_INVALID');
         }
         $bundled = [];
         $keys = [];
-        foreach ($source['plugins'] as $plugin) {
+        foreach ($source['modules'] as $plugin) {
             $key = is_array($plugin) ? ($plugin['key'] ?? null) : null;
             if (!is_string($key) || $key === '') {
                 throw new RuntimeException('CREATE_APP_PLUGIN_LOCK_SOURCE_INVALID');
             }
-            // The source-only qualification fixture is excluded by the template inventory.
-            if ($key === 'fixture.delivery-record') {
+            // Static API collection needs the selected roots before final canonicalization.
+            if (str_starts_with($key, 'fixture.')
+                || !in_array($key, \InitialInstallationSource::MODULES, true)) {
                 continue;
             }
             if (isset($keys[$key])) {
@@ -1124,21 +1299,21 @@ final class ApplicationCreator
             throw new RuntimeException('CREATE_APP_PLUGIN_SET_EMPTY');
         }
         return json_encode(
-            ['schema_version' => 1, 'plugins' => $bundled],
+            ['schema_version' => 1, 'modules' => $bundled],
             JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
         ) . "\n";
     }
 
     /** @param list<array<string,mixed>> $files @return list<array<string,mixed>> */
-    private function rebuildBundledPluginArtifacts(string $stage, array $files): array
+    private function rebuildBundledModuleArtifacts(string $stage, array $files): array
     {
         $manifestPaths = [];
         foreach ($files as $file) {
             $path = (string) ($file['path'] ?? '');
-            if (preg_match('#^plugins/([a-z][a-z0-9.-]+)/plugin\.json$#D', $path, $matches) !== 1) {
+            if (preg_match('#^server/app/modules/([a-z][a-z0-9-]*)/([a-z][a-z0-9_]*)/module\.json$#D', $path, $matches) !== 1) {
                 continue;
             }
-            $manifestPaths[$matches[1]] = $path;
+            $manifestPaths[$matches[1] . '.' . str_replace('_', '-', $matches[2])] = $path;
         }
         ksort($manifestPaths, SORT_STRING);
         if ($manifestPaths === []) {
@@ -1149,7 +1324,7 @@ final class ApplicationCreator
         // installed. The canonical Writer uses Core Module identity/layout classes;
         // generated applications also retain the managed canonical Writer dependencies
         // for complete official graph projection through their native upgrader.
-        $writer = new PluginArtifactWriter($stage . '/server', false);
+        $writer = new ModuleArtifactWriter($stage . '/server', false);
         $rewritten = [];
         foreach ($manifestPaths as $directoryKey => $path) {
             $absolute = $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $path);
@@ -1160,20 +1335,10 @@ final class ApplicationCreator
             }
             if (!is_array($manifest) || array_is_list($manifest)
                 || ($manifest['key'] ?? null) !== $directoryKey
-                || !is_string($manifest['version'] ?? null)
-                || !is_array($manifest['modules'] ?? null)
-                || !array_is_list($manifest['modules'])
-                || $manifest['modules'] === []) {
+                || !is_string($manifest['version'] ?? null)) {
                 throw new RuntimeException('CREATE_APP_PLUGIN_MANIFEST_INVALID: ' . $path);
             }
-            $moduleSpecs = [];
-            foreach ($manifest['modules'] as $module) {
-                if (!is_array($module) || array_is_list($module)
-                    || !is_string($module['key'] ?? null) || !is_string($module['root'] ?? null)) {
-                    throw new RuntimeException('CREATE_APP_PLUGIN_MANIFEST_INVALID: ' . $path);
-                }
-                $moduleSpecs[] = $module['key'] . '=' . $module['root'];
-            }
+            $moduleSpecs = [$directoryKey . '=' . dirname($path)];
             $result = $writer->make($directoryKey, $manifest['version'], $moduleSpecs);
             if (($result['path'] ?? null) !== $path) {
                 throw new RuntimeException('CREATE_APP_PLUGIN_MANIFEST_PATH_MISMATCH: ' . $path);
@@ -1181,11 +1346,11 @@ final class ApplicationCreator
             $rewritten[$path] = true;
         }
         $lock = $writer->writeLock();
-        if (($lock['path'] ?? null) !== 'plugins.lock') {
+        if (($lock['path'] ?? null) !== 'modules.lock') {
             throw new RuntimeException('CREATE_APP_PLUGIN_LOCK_PATH_MISMATCH');
         }
-        $rewritten['plugins.lock'] = true;
-        $resolved = (new PluginLockResolver($stage . '/server', '../plugins.lock'))->all();
+        $rewritten['modules.lock'] = true;
+        $resolved = (new ModuleLockResolver($stage . '/server', '../modules.lock'))->all();
         if (array_keys($resolved) !== array_keys($manifestPaths)) {
             throw new RuntimeException('CREATE_APP_PLUGIN_LOCK_SET_MISMATCH');
         }
@@ -1211,14 +1376,82 @@ final class ApplicationCreator
     }
 
     /** @param list<array<string,mixed>> $files @return list<array<string,mixed>> */
-    private function materializeApiCatalog(string $stage, array $files): array
+    private function materializeUniappPages(string $stage, array $files): array
+    {
+        if (!is_file($stage . '/uniapp/src/pages.base.json')) {
+            return $files;
+        }
+        $toolRoot = $this->apiGeneratorPath === null ? $this->sourceRoot : dirname($this->apiGeneratorPath, 2);
+        $process = proc_open(
+            ['node', $toolRoot . '/uniapp/scripts/module-pages.mjs', '--root', $stage . '/uniapp'],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            $toolRoot,
+        );
+        if (!is_resource($process)) {
+            throw new RuntimeException('CREATE_APP_UNIAPP_PAGES_FAILED');
+        }
+        stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+        $error = stream_get_contents($pipes[2]);
+        fclose($pipes[2]);
+        if (proc_close($process) !== 0) {
+            throw new RuntimeException('CREATE_APP_UNIAPP_PAGES_FAILED: ' . trim((string) $error));
+        }
+        $result = [];
+        foreach ($files as $file) {
+            if (str_starts_with($file['path'], 'uniapp/src/')) {
+                $path = $stage . '/' . $file['path'];
+                if (!is_file($path)) {
+                    continue;
+                }
+                $file['sha256'] = hash_file('sha256', $path);
+            }
+            $result[] = $file;
+        }
+        return $result;
+    }
+
+    private function materializeApiCatalog(string $stage, array $files, bool $catalogOnly = false): array
     {
         $catalogPath = 'server/generated/api-catalog.json';
         $index = array_search($catalogPath, array_column($files, 'path'), true);
         if ($index === false) {
             return $files;
         }
-        $generator = ScaffoldPathGuard::existingFileWithin($stage, ScaffoldPathGuard::projectPath($stage, 'scripts/generate-api-contracts.php'), 'CREATE_APP_API_GENERATOR_INVALID');
+        $generator = ScaffoldPathGuard::existingFileWithin($this->sourceRoot, ScaffoldPathGuard::projectPath($this->sourceRoot, 'scripts/generate-api-contracts.php'), 'CREATE_APP_API_GENERATOR_INVALID');
+        if ($this->apiGeneratorPath !== null) {
+            $toolRoot = ScaffoldPathGuard::projectRoot(dirname($this->apiGeneratorPath, 2));
+            $toolGenerator = ScaffoldPathGuard::existingFileWithin($toolRoot, ScaffoldPathGuard::projectPath($toolRoot, 'scripts/generate-api-contracts.php'), 'CREATE_APP_API_TOOL_INVALID');
+            if ($toolGenerator !== realpath($this->apiGeneratorPath)) {
+                throw new RuntimeException('CREATE_APP_API_TOOL_INVALID');
+            }
+            // Only the installed toolchain moves; generator behavior and all APP inputs stay source-bound.
+            foreach (['scripts/generate-api-contracts.php', 'web/package.json', 'web/pnpm-lock.yaml', 'tools/toolchain.json'] as $relative) {
+                $sourceFile = ScaffoldPathGuard::existingFileWithin($this->sourceRoot, ScaffoldPathGuard::projectPath($this->sourceRoot, $relative), 'CREATE_APP_API_TOOL_INPUT_INVALID');
+                $toolFile = ScaffoldPathGuard::existingFileWithin($toolRoot, ScaffoldPathGuard::projectPath($toolRoot, $relative), 'CREATE_APP_API_TOOL_INPUT_INVALID');
+                $sourceHash = hash_file('sha256', $sourceFile);
+                $toolHash = hash_file('sha256', $toolFile);
+                if (!is_string($sourceHash) || !is_string($toolHash) || !hash_equals($sourceHash, $toolHash)) {
+                    throw new RuntimeException('CREATE_APP_API_TOOL_SOURCE_MISMATCH');
+                }
+            }
+            $installedLock = ScaffoldPathGuard::existingFileWithin($toolRoot, $toolRoot . '/web/node_modules/.pnpm/lock.yaml', 'CREATE_APP_API_TOOL_INSTALL_INVALID');
+            $installedHash = hash_file('sha256', $installedLock);
+            if (!is_string($installedHash) || !hash_equals((string) hash_file('sha256', $toolRoot . '/web/pnpm-lock.yaml'), $installedHash)) {
+                throw new RuntimeException('CREATE_APP_API_TOOL_INSTALL_MISMATCH');
+            }
+            $packagePath = ScaffoldPathGuard::existingFileWithin($toolRoot, $toolRoot . '/web/node_modules/openapi-typescript/package.json', 'CREATE_APP_API_TOOL_INSTALL_INVALID');
+            $package = json_decode((string) file_get_contents($packagePath), true, 512, JSON_THROW_ON_ERROR);
+            $declared = json_decode((string) file_get_contents($toolRoot . '/web/package.json'), true, 512, JSON_THROW_ON_ERROR);
+            $version = $declared['devDependencies']['openapi-typescript'] ?? null;
+            if (!is_string($version) || $version === '' || ($package['name'] ?? null) !== 'openapi-typescript'
+                || ($package['version'] ?? null) !== $version || ($package['bin']['openapi-typescript'] ?? null) !== 'bin/cli.js') {
+                throw new RuntimeException('CREATE_APP_API_TOOL_IDENTITY_MISMATCH');
+            }
+            ScaffoldPathGuard::existingFileWithin(dirname($packagePath), $toolRoot . '/web/node_modules/openapi-typescript/bin/cli.js', 'CREATE_APP_API_TOOL_BINARY_INVALID');
+            $generator = $toolGenerator;
+        }
         $catalog = ScaffoldPathGuard::existingFileWithin($stage, ScaffoldPathGuard::projectPath($stage, $catalogPath), 'CREATE_APP_API_CATALOG_INVALID');
         $openapiPath = ScaffoldPathGuard::existingFileWithin($stage, ScaffoldPathGuard::projectPath($stage, 'server/generated/openapi.json'), 'CREATE_APP_OPENAPI_INVALID');
         $versionPath = ScaffoldPathGuard::existingFileWithin($stage, ScaffoldPathGuard::projectPath($stage, 'release-versions.json'), 'CREATE_APP_VERSION_INPUT_INVALID');
@@ -1231,8 +1464,12 @@ final class ApplicationCreator
         }
         // The native producer hashes every final APP input, including branded contract sources.
         $pipes = [];
+        $arguments = [PHP_BINARY, $generator, '--application-root=' . $stage];
+        if ($catalogOnly) {
+            array_push($arguments, '--check', '--catalog-output=' . $catalog);
+        }
         $process = proc_open(
-            [PHP_BINARY, $generator, '--check', '--catalog-output=' . $catalog],
+            $arguments,
             [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             $stage,
@@ -1247,11 +1484,20 @@ final class ApplicationCreator
         if (proc_close($process) !== 0 || !is_string($stdout)) {
             throw new RuntimeException('CREATE_APP_API_GENERATOR_FAILED: ' . trim((string) $stderr));
         }
-        $content = file_get_contents($catalog);
-        if (!is_string($content) || (fileperms($catalog) & 0777) !== $files[$index]['mode']) {
-            throw new RuntimeException('CREATE_APP_API_CATALOG_WRITE_MISMATCH');
+        foreach ($files as &$file) {
+            $path = $file['path'];
+            if (!in_array($path, ['server/generated/api-catalog.json', 'server/generated/openapi.json', 'web/src/generated/openapi.d.ts'], true)
+                && preg_match('#^web/src/modules/[^/]+/generated/openapi\.ts$#D', $path) !== 1) {
+                continue;
+            }
+            $absolute = $stage . '/' . $path;
+            $content = file_get_contents($absolute);
+            if (!is_string($content) || (fileperms($absolute) & 0777) !== $file['mode']) {
+                throw new RuntimeException('CREATE_APP_API_CATALOG_WRITE_MISMATCH: ' . $path);
+            }
+            $file['sha256'] = hash('sha256', $content);
         }
-        $files[$index]['sha256'] = hash('sha256', $content);
+        unset($file);
         return $files;
     }
 
@@ -1320,6 +1566,8 @@ final class ApplicationCreator
         array $files,
         string $profile,
         EditionProfile $editionProfile,
+        string $workflow,
+        string $demo,
     ): array {
         $baselineRoot = '.peanut/scaffold-baseline/' . $templateIdentity['version'] . '/files';
         foreach ($files as &$file) {
@@ -1335,10 +1583,44 @@ final class ApplicationCreator
             $this->writeFile($baseline, $content, 0644);
             $file['baseline_path'] = $baselineRoot . '/' . $file['path'];
             $file['baseline_sha256'] = hash('sha256', $content);
+            $file['baseline_mode'] = $file['mode'];
         }
         unset($file);
         $managed = array_values(array_filter($files, static fn(array $file): bool => in_array($file['classification'], ['managed', 'generated-managed'], true)));
         $appOwned = array_values(array_filter($files, static fn(array $file): bool => $file['classification'] === 'app-owned'));
+        $installationSources = [];
+        foreach (['installation/*.php', 'migrations/*.php', 'schema/*.sql', 'seeds/*.php'] as $pattern) {
+            foreach (glob($this->sourceRoot . '/server/database/' . $pattern) ?: [] as $path) {
+                $relative = substr($path, strlen($this->sourceRoot) + 1);
+                $projected = $stage . '/' . $relative;
+                if (!is_file($projected)) {
+                    throw new RuntimeException('CREATE_APP_INSTALL_MIGRATION_CHANGED');
+                }
+                $digest = hash_file('sha256', $projected);
+                // Initial SQL is selected by the producer; historical PHP migrations retain their source bytes.
+                if (!is_string($digest) || (preg_match('#^server/database/(?:migrations|installation)/#D', $relative) === 1
+                    && hash_file('sha256', $path) !== $digest)) {
+                    throw new RuntimeException('CREATE_APP_INSTALL_MIGRATION_CHANGED');
+                }
+                $installationSources[$relative] = $digest;
+            }
+        }
+        ksort($installationSources, SORT_STRING);
+        $generationSource = [
+            'repository' => $sourceProvenance['repository'],
+            'requested_ref' => $sourceProvenance['requested_ref'],
+            'channel' => $sourceProvenance['channel'],
+            'release_version' => $sourceProvenance['release_version'],
+            'source_identity' => ($generationIdentity['kind'] ?? 'git') === 'git'
+                ? ['kind' => 'git', 'commit' => $generationIdentity['commit'], 'tree' => $generationIdentity['tree']]
+                : $generationIdentity,
+            'inventory_sha256' => $inventoryDigest,
+            'edition_profile_sha256' => $editionProfile->sourceSha256,
+        ];
+        if (($generationIdentity['kind'] ?? 'git') === 'git') {
+            $generationSource['commit'] = $generationIdentity['commit'];
+            $generationSource['tree'] = $generationIdentity['tree'];
+        }
         $manifest = [
             'schema_version' => 2,
             'protocol' => 'peanut.application-scaffold.v2',
@@ -1348,20 +1630,14 @@ final class ApplicationCreator
                 'package_identity' => $parameters['PACKAGE_IDENTITY'],
                 'version' => $parameters['APPLICATION_VERSION'],
                 'profile' => $profile,
+                'workflow' => $workflow,
+                'demo' => $demo,
                 'edition' => $editionProfile->edition,
             ],
             'edition' => $editionProfile->identity(),
+            'installation_migrations' => $installationSources,
             'template' => $templateIdentity,
-            'generation_source' => [
-                'repository' => $sourceProvenance['repository'],
-                'requested_ref' => $sourceProvenance['requested_ref'],
-                'channel' => $sourceProvenance['channel'],
-                'release_version' => $sourceProvenance['release_version'],
-                'commit' => $generationIdentity['commit'],
-                'tree' => $generationIdentity['tree'],
-                'inventory_sha256' => $inventoryDigest,
-                'edition_profile_sha256' => $editionProfile->sourceSha256,
-            ],
+            'generation_source' => $generationSource,
             'ownership' => [
                 'managed_default' => 'three-way against the recorded baseline; never overwrite a locally changed file without an explicit later apply decision',
                 'app_owned_default' => 'preserve; future scaffold versions do not take ownership by default',

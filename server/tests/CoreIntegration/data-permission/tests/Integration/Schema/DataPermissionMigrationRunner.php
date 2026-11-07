@@ -4,50 +4,29 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\DataPermission\Tests\Integration\Schema;
 
-use Phinx\Config\Config;
-use Phinx\Migration\Manager;
-use think\console\Input;
-use think\migration\NullOutput;
+use PDO;
+use Phinx\Db\Adapter\MysqlAdapter;
 
+/** Data permission tables are owned by the current Identity native migration. */
 final readonly class DataPermissionMigrationRunner
 {
-    public function __construct(
-        private string $database,
-        private string $host,
-        private int $port,
-        private string $username,
-        private string $password,
-    ) {}
+    public function __construct(private PDO $connection) {}
 
     public function migrate(): void
     {
-        $this->manager()->migrate('data_permission');
+        require_once dirname(__DIR__, 5) . '/Support/IdentityMysqlFixture.php';
+        \IdentityMysqlFixture::install($this->connection);
     }
 
     public function rollbackAll(): void
     {
-        $this->manager()->rollback('data_permission', 'all', true);
-    }
-
-    private function manager(): Manager
-    {
-        return new Manager(new Config([
-            'paths' => ['migrations' => dirname(__DIR__, 6) . '/app/modules/official/identity/access/database/migrations'],
-            'environments' => [
-                'default_environment' => 'data_permission',
-                'default_migration_table' => 'pa_data_permission_migration',
-                'data_permission' => [
-                    'adapter' => 'mysql',
-                    'host' => $this->host,
-                    'port' => $this->port,
-                    'name' => $this->database,
-                    'user' => $this->username,
-                    'pass' => $this->password,
-                    'charset' => 'utf8mb4',
-                    'collation' => 'utf8mb4_0900_ai_ci',
-                ],
-            ],
-            'version_order' => Config::VERSION_ORDER_CREATION_TIME,
-        ]), new Input([]), new NullOutput());
+        require_once dirname(__DIR__, 6)
+            . '/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php';
+        $migration = new \InitialIdentitySchema('testing', 20261101010001);
+        $migration->setAdapter(new MysqlAdapter([
+            'name' => $this->connection->query('SELECT DATABASE()')->fetchColumn(),
+            'connection' => $this->connection,
+        ]));
+        $migration->down();
     }
 }

@@ -90,27 +90,13 @@
         <el-col :span="12">
           <el-space>
             <el-button
-              v-permission="['official.import-export.operation-log.export']"
+              v-permission="['peanut.import-export.operation-log.export']"
               plain
               :icon="Download"
               @click="openExport"
             >
               {{ $t('systemLog.operation.export') }}
             </el-button>
-            <el-popconfirm
-              :title="$t('systemLog.clear.confirm')"
-              @confirm="handleClear"
-            >
-              <template #reference
-                ><el-button
-                  v-permission="['log/clear']"
-                  type="danger"
-                  :icon="Delete"
-                >
-                  {{ $t('systemLog.operation.clear') }}
-                </el-button></template
-              >
-            </el-popconfirm>
           </el-space>
         </el-col>
       </el-row>
@@ -240,13 +226,12 @@
   import { computed, ref, reactive } from 'vue';
   import { useI18n } from 'vue-i18n';
   import { ElMessage } from 'element-plus';
-  import { Delete, Download, Refresh, Search } from '@element-plus/icons-vue';
+  import { Download, Refresh, Search } from '@element-plus/icons-vue';
   import useLoading from '@/hooks/loading';
   import {
     getOperationLogList,
     getOperationLogExportInfo,
     exportOperationLog,
-    clearOperationLog,
     type OperationLogRecord,
     type OperationLogParams,
     type OperationLogExportInfo,
@@ -255,6 +240,7 @@
   const { t } = useI18n();
   const { loading, setLoading } = useLoading(true);
   const renderData = ref<OperationLogRecord[]>([]);
+  let latestRequest = 0;
 
   const generateFormModel = () => ({
     username: '',
@@ -290,6 +276,8 @@
   };
 
   const fetchData = async (page = 1) => {
+    latestRequest += 1;
+    const requestId = latestRequest;
     setLoading(true);
     try {
       const params: OperationLogParams = {
@@ -303,11 +291,14 @@
         page_size: pagination.pageSize,
       };
       const { data } = await getOperationLogList(params);
+      if (requestId !== latestRequest) return;
       renderData.value = data.lists;
       pagination.current = data.pageNo;
       pagination.total = data.count;
+    } catch {
+      // The shared API interceptor already reports request and session errors.
     } finally {
-      setLoading(false);
+      if (requestId === latestRequest) setLoading(false);
     }
   };
   fetchData();
@@ -316,12 +307,6 @@
   const onPageChange = (current: number) => fetchData(current);
   const reset = () => {
     formModel.value = generateFormModel();
-    fetchData(1);
-  };
-
-  const handleClear = async () => {
-    await clearOperationLog();
-    ElMessage.success(t('systemLog.tip.success'));
     fetchData(1);
   };
 

@@ -3,8 +3,10 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, realpathSync, lstatSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
 import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 
 export const coreWebPackages = [
   'client',
@@ -53,46 +55,42 @@ const integrity = (value) =>
 export function dependencyMode(versions) {
   const p = versions.core_php,
     w = versions.core_web;
-  if (
-    !keys(p, [
+  const phpGit = keys(p, [
       'package',
       'constraint',
       'resolved_version',
       'source_type',
       'source_url',
       'source_reference',
-    ]) ||
-    p.package !== 'peanut-admin/core' ||
-    p.source_type !== 'git' ||
-    !https(p.source_url) ||
-    !/^[0-9a-f]{40}$/.test(p.source_reference ?? '') ||
-    typeof p.resolved_version !== 'string'
-  )
-    fail('core_php');
+    ]) && p?.source_type === 'git' && https(p.source_url) && /^[0-9a-f]{40}$/.test(p.source_reference ?? '');
+  const phpLocal = keys(p, ['package', 'constraint', 'resolved_version', 'source_type', 'source_identity']) &&
+    p?.source_type === 'local' && object(p.source_identity) &&
+    JSON.stringify(Object.keys(p.source_identity)) === JSON.stringify(['kind', 'snapshot_sha256']) &&
+    p.source_identity.kind === 'local' && /^[0-9a-f]{64}$/.test(p.source_identity.snapshot_sha256 ?? '');
+  if ((!phpGit && !phpLocal) || p.package !== 'peanut-admin/core' || typeof p.resolved_version !== 'string') fail('core_php');
   const dev =
     /^dev-[A-Za-z0-9._-]+$/.test(p.constraint ?? '') &&
     p.constraint === p.resolved_version;
   const pinned =
     fixed(p.constraint) &&
     p.constraint === p.resolved_version.replace(/^v/, '');
-  if (!dev && !pinned) fail('core_php version');
-  if (
-    !keys(w, ['source_type', 'source_url', 'source_reference', 'packages']) ||
-    w.source_type !== 'git' ||
-    !https(w.source_url) ||
-    !/^[0-9a-f]{40}$/.test(w.source_reference ?? '') ||
-    !keys(w.packages, coreWebPackages)
-  )
-    fail('core_web');
+  if (phpLocal ? (!fixed(p.constraint) || p.constraint !== p.resolved_version) : (!dev && !pinned)) fail('core_php version');
+  const webGit = keys(w, ['source_type', 'source_url', 'source_reference', 'packages']) && w?.source_type === 'git' &&
+    https(w.source_url) && /^[0-9a-f]{40}$/.test(w.source_reference ?? '');
+  const webLocal = keys(w, ['source_type', 'source_identity', 'packages']) && w?.source_type === 'local' &&
+    object(w.source_identity) && JSON.stringify(Object.keys(w.source_identity)) === JSON.stringify(['kind', 'snapshot_sha256']) &&
+    w.source_identity.kind === 'local' && /^[0-9a-f]{64}$/.test(w.source_identity.snapshot_sha256 ?? '');
+  if ((!webGit && !webLocal) || !keys(w.packages, coreWebPackages)) fail('core_web');
   const modes = new Set();
+  const webVersions = new Set();
   for (const [name, i] of Object.entries(w.packages)) {
     if (!object(i) || typeof i.version !== 'string' || !semver.test(i.version))
       fail(name);
+    webVersions.add(i.version);
     if (keys(i, ['version', 'archive', 'sha256'])) {
+      const suffix = name.slice('@peanut-admin/'.length);
       if (
-        !/^packages\/core-web\/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\.tgz$/.test(
-          i.archive ?? ''
-        ) ||
+        i.archive !== `packages/core-web/peanut-admin-${suffix}-${i.version}.tgz` ||
         !/^[0-9a-f]{64}$/.test(i.sha256 ?? '')
       )
         fail(`${name} archive`);
@@ -103,9 +101,68 @@ export function dependencyMode(versions) {
       modes.add('registry');
     } else fail(`${name} shape`);
   }
-  if (modes.size !== 1 || (modes.has('registry') && !pinned))
+  if (modes.size !== 1 || (modes.has('registry') && !pinned) || (webLocal && !modes.has('archive')) ||
+      (webLocal && webVersions.size !== 1))
     fail('mixed development/registry identities');
   return [...modes][0];
+}
+
+/** Explicit frozen inputs authenticate archive origins, not an artifact category. */
+export function fixedArchiveInputs(root, inputPath, document, read) {
+  if (!inputPath || resolve(inputPath) !== inputPath || realpathSync(inputPath) !== inputPath || !lstatSync(inputPath).isFile() || lstatSync(inputPath).nlink !== 1)
+    fail('fixed Core input path');
+  const raw = readFileSync(inputPath);
+  const receipt = JSON.parse(raw);
+  const application = JSON.parse(read('.peanut/application-manifest.json'));
+  const sha256 = createHash('sha256').update(raw).digest('hex');
+  if (application.scaffold_candidate?.core_inputs_sha256 !== sha256 ||
+      receipt.schema_version !== 1 || receipt.status !== 'frozen-core-build-inputs-not-product-release' ||
+      dependencyMode(document) !== (receipt.php_only === true ? 'registry' : 'archive') || !fixed(document.core_php.constraint) ||
+      !isDeepStrictEqual(receipt.core_php, document.core_php) ||
+      !isDeepStrictEqual(receipt.core_web, document.core_web) ||
+      (document.core_php.source_type === 'local'
+        ? !isDeepStrictEqual(receipt.sources?.php, document.core_php.source_identity) ||
+          !isDeepStrictEqual(receipt.sources?.web, document.core_web.source_identity)
+        : receipt.sources?.php?.commit !== document.core_php.source_reference ||
+          receipt.sources?.web?.commit !== document.core_web.source_reference ||
+          !/^[a-f0-9]{40}$/.test(receipt.sources?.php?.tree ?? '') ||
+          (receipt.php_only !== true && !/^[a-f0-9]{40}$/.test(receipt.sources?.web?.tree ?? ''))))
+    fail('fixed Core input binding');
+  const php = receipt.core_php_archive;
+  if (!object(php) || php.path !== `packages/core-php/peanut-admin-core-${document.core_php.resolved_version}.zip` ||
+      !/^[a-f0-9]{64}$/.test(php.sha256 ?? '') || !/^[a-f0-9]{40}$/.test(php.sha1 ?? ''))
+    fail('fixed PHP archive identity');
+  const composer = JSON.parse(read('server/composer.json'));
+  const locked = JSON.parse(read('server/composer.lock')).packages?.filter(p => p.name === 'peanut-admin/core');
+  const expectedDist = {type: 'zip', url: `../${php.path}`,
+    reference: document.core_php.source_type === 'local' ? document.core_php.source_identity.snapshot_sha256 : document.core_php.source_reference,
+    shasum: php.sha1};
+  const modules = nativeModulePackages(read);
+  const coreRepositories = Object.values(composer.repositories ?? {}).filter(repository =>
+    !(repository.type === 'path' && repository.options?.symlink === false &&
+      Object.values(modules).some(module => module.url === repository.url)));
+  if (!isDeepStrictEqual(coreRepositories, [receipt.composer_repository]) || locked?.length !== 1 ||
+      !isDeepStrictEqual(locked[0].dist, expectedDist) ||
+      (document.core_php.source_type === 'local' ? locked[0].source != null
+        : !isDeepStrictEqual(locked[0].source, {type: document.core_php.source_type, url: document.core_php.source_url, reference: document.core_php.source_reference})))
+    fail('fixed PHP native origin');
+  const archives = [{path: php.path, sha256: php.sha256},
+    ...(receipt.php_only === true ? [] : Object.values(document.core_web.packages).map(p => ({path: p.archive, sha256: p.sha256})))];
+  const archiveCount = receipt.php_only === true ? 1 : 7;
+  if (archives.length !== archiveCount || new Set(archives.map(p => p.path)).size !== archiveCount) fail('fixed archive count');
+  for (const archive of archives) {
+    let current = root;
+    for (const part of archive.path.split('/')) {
+      if (!part || part === '.' || part === '..') fail('fixed archive path');
+      current = resolve(current, part);
+      if (!current.startsWith(root + sep) || lstatSync(current).isSymbolicLink()) fail('fixed archive symlink');
+    }
+    if (!lstatSync(current).isFile() || lstatSync(current).nlink !== 1 || realpathSync(current) !== current ||
+        createHash('sha256').update(read(archive.path)).digest('hex') !== archive.sha256)
+      fail('fixed archive bytes');
+  }
+  if (createHash('sha1').update(read(php.path)).digest('hex') !== php.sha1) fail('fixed PHP archive SHA-1');
+  return {sha256, core_php_archive: php, archives, ...(receipt.php_only === true ? {php_only: true} : {})};
 }
 
 /** 从既有锁定 OpenAPI 工具依赖取得 YAML 解析器，不自造 YAML 解析或安装新依赖。 */
@@ -120,8 +177,44 @@ export function lockedYamlParser(toolRoot) {
   return (text) => yaml.load(text, { schema: yaml.JSON_SCHEMA });
 }
 
+// Same selected-root/name/version/path contract as docker/scripts/vendor-state.py.
+function nativeModulePackages(read) {
+  const lock = JSON.parse(String(read('modules.lock')));
+  const modules = {};
+  for (const plugin of lock.modules ?? []) {
+    for (const module of plugin.modules ?? []) {
+      const root = module.root;
+      if (typeof root !== 'string' || !root.startsWith('server/app/modules/') ||
+          root.split('/').some(part => ['', '.', '..'].includes(part))) fail('Module Composer root');
+      const packageManifest = JSON.parse(String(read(`${root}/composer.json`)));
+      modules[packageManifest.name] = {version: packageManifest.version, url: root.slice(7)};
+    }
+  }
+  return modules;
+}
+
+function nativeClientModulePackages(read, client) {
+  const roots = {web: ['admin-web', 'web/src/modules'], platform: ['platform-web', 'platform/src/modules'],
+    pc: ['pc-web', 'pc/modules'], uniapp: ['uniapp', 'uniapp/src/modules']};
+  const [clientKey, prefix] = roots[client];
+  const packages = {};
+  for (const plugin of JSON.parse(String(read('modules.lock'))).modules ?? []) {
+    for (const module of plugin.modules ?? []) {
+      const definition = JSON.parse(String(read(`${module.root}/module.json`)));
+      const entry = definition.frontend?.clients?.[clientKey]?.entry ??
+        (client === 'web' ? definition.frontend?.entry : undefined);
+      if (entry === undefined) continue;
+      const root = `${prefix}/${module.key.replace('.', '-')}`;
+      if (entry !== `${root}/contribution.ts`) fail('Module frontend root');
+      const packageManifest = JSON.parse(String(read(`${root}/package.json`)));
+      packages[packageManifest.name] = {version: packageManifest.version, url: root.slice(client.length + 1)};
+    }
+  }
+  return packages;
+}
+
 /** read 只读取指定源码/锁；Git 候选检查传入 git-show，绝不执行候选中的代码。 */
-export function verifyDependencyLocks(versions, read, parseYaml) {
+export function verifyDependencyLocks(versions, read, parseYaml, internal = false) {
   const mode = dependencyMode(versions);
   const json = (path) => JSON.parse(String(read(path)));
   const p = versions.core_php,
@@ -136,14 +229,14 @@ export function verifyDependencyLocks(versions, read, parseYaml) {
     records.length !== 1 ||
     composer.require?.['peanut-admin/core'] !== p.constraint ||
     locked.version !== p.resolved_version ||
-    locked.source?.type !== p.source_type ||
-    locked.source?.url !== p.source_url ||
-    locked.source?.reference !== p.source_reference ||
-    (locked.dist?.reference && locked.dist.reference !== p.source_reference)
+    (p.source_type === 'local'
+      ? (locked.source != null || locked.dist?.reference !== p.source_identity.snapshot_sha256)
+      : (locked.source?.type !== p.source_type || locked.source?.url !== p.source_url ||
+          locked.source?.reference !== p.source_reference || (locked.dist?.reference && locked.dist.reference !== p.source_reference)))
   )
     fail('Composer manifest/lock/provenance');
   if (
-    mode === 'registry' &&
+    (mode === 'registry' || internal) &&
     (Object.values(composer.repositories ?? {}).some(
       (x) => x?.type === 'path'
     ) ||
@@ -152,7 +245,18 @@ export function verifyDependencyLocks(versions, read, parseYaml) {
         ...(composerLock['packages-dev'] ?? []),
       ].some((x) => x.dist?.type === 'path'))
   )
-    fail('Composer path dependency');
+  {
+    const modules = nativeModulePackages(read);
+    const urls = new Set(Object.values(modules).map(module => module.url));
+    if (Object.values(composer.repositories ?? {}).some(repository => repository.type === 'path' &&
+          (!urls.has(repository.url) || repository.options?.symlink !== false)) ||
+        [...(composerLock.packages ?? []), ...(composerLock['packages-dev'] ?? [])].some(packageManifest => {
+          if (packageManifest.dist?.type !== 'path') return false;
+          const module = modules[packageManifest.name];
+          return !module || module.version !== packageManifest.version || packageManifest.source != null ||
+            packageManifest.dist.url !== module.url;
+        })) fail('Composer path dependency');
+  }
   const required = {
     web: ['vue', 'ui-vue'],
     platform: ['vue', 'ui-vue'],
@@ -162,16 +266,19 @@ export function verifyDependencyLocks(versions, read, parseYaml) {
   const checked = [];
   for (const [client, suffixes] of Object.entries(required)) {
     const manifest = json(`${client}/package.json`);
+    const modules = nativeClientModulePackages(read, client);
     if (
-      mode === 'registry' &&
-      Object.values({
+      (mode === 'registry' || internal) &&
+      Object.entries({
         ...manifest.dependencies,
         ...manifest.devDependencies,
         ...manifest.optionalDependencies,
       }).some(
-        (value) =>
+        ([name, value]) =>
           typeof value !== 'string' ||
-          /^(?:file:|link:|workspace:|\/|\.\.?\/)/.test(value)
+          (/^(?:file:|link:|workspace:|\/|\.\.?\/)/.test(value) &&
+            !(internal && coreWebPackages.includes(name)) &&
+            !(client === 'web' && modules[name] && value.startsWith('workspace:')))
       )
     )
       fail(`${client} local dependency`);
@@ -182,7 +289,7 @@ export function verifyDependencyLocks(versions, read, parseYaml) {
       ...manifest.dependencies,
       ...manifest.devDependencies,
       ...manifest.optionalDependencies,
-    }).filter(([name]) => name.startsWith('@peanut-admin/'));
+    }).filter(([name]) => coreWebPackages.includes(name));
     for (const [name, specifier] of selections) {
       const i = packages[name];
       if (
@@ -191,7 +298,7 @@ export function verifyDependencyLocks(versions, read, parseYaml) {
       )
         fail(`${client}:${name} declaration`);
     }
-    if (mode === 'archive') continue; // 开发静态合同继续检查实际 tgz；不冒充原生安装验收。
+    if (mode === 'archive' && !internal) continue;
     if (client === 'web') {
       if (typeof parseYaml !== 'function')
         fail('locked YAML parser required for native pnpm lock');
@@ -202,6 +309,16 @@ export function verifyDependencyLocks(versions, read, parseYaml) {
       )
         fail('pnpm lock version');
       const importer = lock.importers?.['.'];
+      for (const section of ['dependencies', 'devDependencies', 'optionalDependencies']) {
+        for (const [name, specifier] of Object.entries(manifest[section] ?? {})) {
+          if (!specifier.startsWith('workspace:')) continue;
+          const module = modules[name];
+          const reference = importer?.[section]?.[name];
+          if (!module || reference?.specifier !== specifier ||
+              reference.version !== `link:${module.url}` || !lock.importers?.[module.url])
+            fail(`pnpm Module workspace:${name}`);
+        }
+      }
       for (const [name, specifier] of selections) {
         const reference =
           importer?.dependencies?.[name] ??
@@ -209,19 +326,22 @@ export function verifyDependencyLocks(versions, read, parseYaml) {
           importer?.optionalDependencies?.[name];
         if (
           reference?.specifier !== specifier ||
-          String(reference?.version).split('(')[0] !== packages[name].version
+          String(reference?.version).split('(')[0] !==
+            (mode === 'archive' ? `file:../${packages[name].archive}` : packages[name].version)
         )
           fail(`pnpm importer:${name}`);
       }
       for (const [key, value] of Object.entries(lock.packages ?? {})) {
         if (!key.startsWith('@peanut-admin/')) continue;
-        const name = key.slice(0, key.lastIndexOf('@')),
+        const name = coreWebPackages.find((name) => key.startsWith(`${name}@`)),
           i = packages[name];
         if (
           !i ||
-          key !== `${name}@${i.version}` ||
-          value.resolution?.integrity !== i.integrity ||
-          (value.resolution?.tarball && value.resolution.tarball !== i.resolved)
+          key !== `${name}@${mode === 'archive' ? `file:../${i.archive}` : i.version}` ||
+          value.resolution?.integrity !== (mode === 'archive' ? archiveIntegrity(read, i) : i.integrity) ||
+          (mode === 'archive'
+            ? value.resolution?.tarball !== `file:../${i.archive}`
+            : value.resolution?.tarball && value.resolution.tarball !== i.resolved)
         )
           fail(`pnpm resolution:${key}`);
         checked.push(`${client}:${name}`);
@@ -246,13 +366,21 @@ export function verifyDependencyLocks(versions, read, parseYaml) {
       for (const [path, value] of Object.entries(lock.packages ?? {})) {
         const name = path.slice(path.lastIndexOf('node_modules/') + 13);
         if (!name.startsWith('@peanut-admin/')) continue;
+        if (!coreWebPackages.includes(name)) {
+          const module = nativeClientModulePackages(read, client)[name];
+          if (!module || value.link !== true || value.resolved !== module.url ||
+              !manifest.workspaces?.includes(module.url) ||
+              lock.packages[module.url]?.name !== name || lock.packages[module.url]?.version !== module.version)
+            fail(`${client} npm Module workspace:${name}`);
+          continue;
+        }
         const i = packages[name];
         if (
           !i ||
           value.link ||
           value.version !== i.version ||
-          value.resolved !== i.resolved ||
-          value.integrity !== i.integrity
+          value.resolved !== (mode === 'archive' ? `file:../${i.archive}` : i.resolved) ||
+          value.integrity !== (mode === 'archive' ? archiveIntegrity(read, i) : i.integrity)
         )
           fail(`${client} npm resolution:${name}`);
         checked.push(`${client}:${name}`);
@@ -271,11 +399,90 @@ export function verifyDependencyLocks(versions, read, parseYaml) {
     mode,
     checked,
     proof:
-      mode === 'registry'
+      mode === 'registry' || internal
         ? 'native-lock-identity'
         : 'development-archive-identity',
     published: false,
   };
+}
+
+function archiveIntegrity(read, identity) {
+  const bytes = read(identity.archive);
+  if (createHash('sha256').update(bytes).digest('hex') !== identity.sha256)
+    fail('archive SHA-256');
+  return `sha512-${createHash('sha512').update(bytes).digest('base64')}`;
+}
+
+/** Native lock identity rows, excluding only Core; no lock rewriting. */
+export function thirdPartyLocks(read, parseYaml) {
+  const result = {};
+  for (const client of ['web', 'platform', 'pc', 'uniapp']) {
+    const lock = client === 'web'
+      ? parseYaml(String(read('web/pnpm-lock.yaml')))
+      : JSON.parse(String(read(`${client}/package-lock.json`)));
+    const rows = [];
+    for (const [key, value] of Object.entries(lock.packages ?? {})) {
+      if (!key) continue;
+      // Peer-context paths may change when Core is projected; third-party
+      // package name/version and native origin/integrity must not change.
+      const name = client === 'web' ? key.split('(')[0]
+        : key.slice(key.lastIndexOf('node_modules/') + 13);
+      const packageName = client === 'web' ? name.slice(0, name.lastIndexOf('@')) : name;
+      if (coreWebPackages.includes(packageName)) continue;
+      rows.push(JSON.stringify([name, value.version ?? null,
+        value.resolution ?? { resolved: value.resolved ?? null, integrity: value.integrity ?? null }]));
+    }
+    rows.sort();
+    result[client] = createHash('sha256').update(JSON.stringify(rows)).digest('hex');
+  }
+  return result;
+}
+
+/** Compare every regular archive payload byte with the contained installation.
+ * Python's stdlib reads archives without extracting or executing package code.
+ */
+function verifyArchivePayload(archive, location, kind, name, version) {
+  const program = String.raw`
+import hashlib,json,os,pathlib,stat,sys,tarfile,zipfile
+archive,location,kind,name,version=sys.argv[1:]
+root=pathlib.Path(location).resolve(strict=True)
+if kind=='tgz':
+    source=tarfile.open(archive,'r:gz')
+    entries=[]
+    for item in source.getmembers():
+        if item.isdir(): continue
+        if not item.isfile() or not item.name.startswith('package/'): raise ValueError('unsafe tar entry')
+        entries.append((item.name[8:],source.extractfile(item).read()))
+else:
+    source=zipfile.ZipFile(archive)
+    entries=[]
+    for item in source.infolist():
+        if item.is_dir(): continue
+        if stat.S_ISLNK(item.external_attr>>16): raise ValueError('unsafe zip entry')
+        entries.append((item.filename,source.read(item)))
+    # Composer ZIPs may contain one repository prefix.
+    if not any(p=='composer.json' for p,_ in entries):
+        prefixes={p.split('/')[0] for p,_ in entries}
+        if len(prefixes)!=1: raise ValueError('zip root')
+        entries=[(p.split('/',1)[1],b) for p,b in entries]
+seen=set()
+for relative,data in entries:
+    p=pathlib.PurePosixPath(relative)
+    if p.is_absolute() or '..' in p.parts or str(p)!=relative or relative in seen: raise ValueError('archive path')
+    seen.add(relative)
+    actual=root.joinpath(*p.parts)
+    if actual.is_symlink() or not actual.is_file() or not actual.resolve().is_relative_to(root): raise ValueError('installed path')
+    if actual.read_bytes()!=data: raise ValueError('installed payload differs: '+relative)
+for actual in root.rglob('*'):
+    if actual.is_symlink(): raise ValueError('installed payload symlink')
+    if actual.is_file() and actual.relative_to(root).as_posix() not in seen: raise ValueError('unexpected installed payload file')
+manifest=json.loads((root/('package.json' if kind=='tgz' else 'composer.json')).read_text())
+if manifest.get('name')!=name or (kind=='tgz' and manifest.get('version')!=version): raise ValueError('archive manifest')
+print(json.dumps(manifest))
+`;
+  const result = spawnSync('python3', ['-c', program, archive, location, kind, name, version], { encoding: 'utf8' });
+  if (result.status !== 0) fail(`installed archive payload:${name}: ${result.stderr?.trim()}`);
+  return JSON.parse(result.stdout);
 }
 
 /** 只解析真实安装位置；pnpm目录内链接合法，发布候选不得借用应用外源码。 */
@@ -345,10 +552,20 @@ export function verifyInstalledPhp(applicationRoot, expected) {
 }
 
 /** 开发archive模式保持本地Core连接；registry候选严格核实际PHP/Web安装位置。 */
-export function verifyInstalledDependencies(applicationRoot, document) {
+export function verifyInstalledDependencies(applicationRoot, document, internal = false, fixedInputs = null) {
   const root = realpathSync(applicationRoot),
-    independent = dependencyMode(document) === 'registry';
+    independent = dependencyMode(document) === 'registry' || internal || fixedInputs !== null;
   const php = independent ? verifyInstalledPhp(root, document.core_php) : null;
+  if (internal) {
+    const marker = JSON.parse(readFileSync(resolve(root, '.peanut/internal-candidate.json')));
+    const locked = JSON.parse(readFileSync(resolve(root, 'server/composer.lock'))).packages.find((p) => p.name === 'peanut-admin/core');
+    if (locked?.dist?.url !== `../${marker.core.path_in_archive}` || locked?.dist?.shasum !== marker.core.sha1)
+      fail('PHP internal archive origin');
+    verifyArchivePayload(resolve(root, marker.core.path_in_archive), resolve(root, php.path), 'zip', 'peanut-admin/core', document.core_php.resolved_version);
+  }
+  if (fixedInputs !== null) {
+    verifyArchivePayload(resolve(root, fixedInputs.core_php_archive.path), resolve(root, php.path), 'zip', 'peanut-admin/core', document.core_php.resolved_version);
+  }
   const web = [];
   for (const client of ['web', 'platform', 'pc', 'uniapp']) {
     const manifest = JSON.parse(
@@ -359,7 +576,7 @@ export function verifyInstalledDependencies(applicationRoot, document) {
       ...manifest.devDependencies,
       ...manifest.optionalDependencies,
     })) {
-      if (!name.startsWith('@peanut-admin/')) continue;
+      if (!coreWebPackages.includes(name)) continue;
       const file = resolve(root, client, 'node_modules', name, 'package.json');
       const actual = independent
         ? installedPath(root, file)
@@ -370,11 +587,23 @@ export function verifyInstalledDependencies(applicationRoot, document) {
         installed.version !== document.core_web.packages[name]?.version
       )
         fail(`${client} installed:${name}`);
+      if (internal || (fixedInputs !== null && fixedInputs.php_only !== true)) {
+        const identity = document.core_web.packages[name];
+        const payload = verifyArchivePayload(resolve(root, identity.archive), dirname(actual), 'tgz', name, identity.version);
+        for (const [peer, constraint] of Object.entries(payload.peerDependencies ?? {})) {
+          if (!peer.startsWith('@peanut-admin/')) continue;
+          const selected = document.core_web.packages[peer];
+          const declaration = { ...manifest.dependencies, ...manifest.devDependencies, ...manifest.optionalDependencies }[peer];
+          if (!selected || constraint !== selected.version || declaration !== `file:../${selected.archive}`)
+            fail(`${client}:${name} unresolved Core peer:${peer}`);
+        }
+      }
       web.push({
         client,
         package: name,
         version: installed.version,
         contained: actual.startsWith(root + sep),
+        ...(internal || (fixedInputs !== null && fixedInputs.php_only !== true) ? { archive: document.core_web.packages[name].archive, proof: 'archive-payload-bytes-and-contained-location' } : {}),
       });
     }
   }
@@ -395,9 +624,9 @@ if (
 ) {
   try {
     const args = process.argv.slice(2);
-    if (!args[0] || args.length > 2 || (args[1] && args[1] !== '--installed'))
+    if (!args[0] || args.slice(1).some((arg) => !['--installed', '--internal-candidate', '--third-party-only'].includes(arg) && !arg.startsWith('--tool-root=') && !arg.startsWith('--core-inputs=')))
       throw new Error(
-        'Usage: release-dependency-locks.mjs <application-root> [--installed]'
+        'Usage: release-dependency-locks.mjs <application-root> [--installed] [--internal-candidate] [--core-inputs=<absolute-receipt>] [--third-party-only] [--tool-root=<root>]'
       );
     const root = realpathSync(args[0]);
     const read = (relative) => {
@@ -407,21 +636,33 @@ if (
       return readFileSync(path);
     };
     const document = JSON.parse(read('release-versions.json'));
+    const internal = args.includes('--internal-candidate');
+    const coreInputOptions = args.filter(arg => arg.startsWith('--core-inputs='));
+    if (coreInputOptions.length > 1 || (coreInputOptions.length && (internal || args.includes('--third-party-only')))) fail('fixed Core input mode');
+    const fixedInputs = coreInputOptions.length ? fixedArchiveInputs(root, coreInputOptions[0].slice(14), document, read) : null;
+    if (internal && dependencyMode(document) !== 'archive') fail('internal candidate requires carried archives');
+    const toolRoot = args.find((arg) => arg.startsWith('--tool-root='))?.slice(12) ?? root;
+    const parseYaml = (internal || fixedInputs !== null || args.includes('--third-party-only') || dependencyMode(document) === 'registry')
+      ? lockedYamlParser(toolRoot) : undefined;
+    if (args.includes('--third-party-only')) {
+      console.log(JSON.stringify(thirdPartyLocks(read, parseYaml)));
+      process.exit(0);
+    }
     const result = verifyDependencyLocks(
       document,
       read,
-      dependencyMode(document) === 'registry'
-        ? lockedYamlParser(root)
-        : undefined
+      parseYaml,
+      internal || fixedInputs !== null
     );
     const installed =
-      args[1] === '--installed'
-        ? verifyInstalledDependencies(root, document)
+      args.includes('--installed')
+        ? verifyInstalledDependencies(root, document, internal, fixedInputs)
         : null;
     console.log(
       JSON.stringify({
         ...result,
-        installed_manifests_checked: args[1] === '--installed',
+        ...(fixedInputs !== null ? {fixed_archive_inputs: fixedInputs} : {}),
+        installed_manifests_checked: args.includes('--installed'),
         installed,
       })
     );

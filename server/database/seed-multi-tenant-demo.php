@@ -4,7 +4,7 @@
 declare(strict_types=1);
 
 use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
-use app\platform\contract\TenantOwnerAdminProvisioner;
+use PeanutAdmin\Modules\Identity\Contract\TenantOwnerAdminProvisioner;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
 use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService;
@@ -24,7 +24,7 @@ function demoMultiFail(string $message): never
 
 function demoMultiRequired(string $name): string
 {
-    $value = trim((string) (getenv($name) ?: ''));
+    $value = trim((string) (env($name, false) ?: ''));
     if ($value === '') {
         throw new RuntimeException("{$name} is required");
     }
@@ -65,7 +65,7 @@ function demoMultiBinding(int $tenantId, string $host, array $clientKeys = ['adm
 function demoMultiHostList(string $name): array
 {
     $hosts = [];
-    foreach (explode(',', (string) (getenv($name) ?: '')) as $host) {
+    foreach (explode(',', (string) (env($name, false) ?: '')) as $host) {
         $host = trim($host);
         if ($host !== '') {
             $hosts[] = TenantEntryBindingResolver::normalizeHost($host);
@@ -302,7 +302,7 @@ function demoMultiAssertFinalState(
     string $sharedPassword,
     string $tenantAHost,
     string $tenantBHost,
-    array $sharedAdminHosts,
+    string $defaultHost,
 ): void {
     $tenants = Db::name('tenant')->field('code,name,display_name,status')->order('code')->select()->toArray();
     $expectedTenants = [
@@ -379,8 +379,8 @@ function demoMultiAssertFinalState(
         $bindings[$row['host'] . "\0" . $row['client_key']] = [$row['code'], $row['status']];
     }
     $expectedBindings = [];
-    foreach ($sharedAdminHosts as $host) {
-        $expectedBindings[$host . "\0member-api"] = ['default', 'active'];
+    foreach (['admin-web', 'member-api'] as $clientKey) {
+        $expectedBindings[$defaultHost . "\0" . $clientKey] = ['default', 'active'];
     }
     foreach ([$tenantAHost => 'tenant-a', $tenantBHost => 'tenant-b'] as $host => $code) {
         foreach (['admin-web', 'member-api'] as $clientKey) {
@@ -396,15 +396,16 @@ function demoMultiAssertFinalState(
 
 function demoMultiMain(): int
 {
-    if (($_SERVER['argv'][1] ?? '') !== '--apply' || count($_SERVER['argv']) !== 2) {
-        fwrite(STDERR, "Usage: server/database/seed-multi-tenant-demo.php --apply\n");
+    if (($_SERVER['argv'][1] ?? '') !== '--apply' || count($_SERVER['argv']) !== 3
+        || !str_starts_with($_SERVER['argv'][2], '--default-host=')) {
+        fwrite(STDERR, "Usage: server/database/seed-multi-tenant-demo.php --apply --default-host=<host>\n");
         return 64;
     }
-    if (getenv('PEANUT_DEMO_MODE') !== 'enabled') {
+    if (env('PEANUT_DEMO_MODE', false) !== 'enabled') {
         throw new RuntimeException('PEANUT_DEMO_MODE=enabled is required');
     }
-    $target = demoMultiRequired('PEANUT_DEPLOYMENT_TARGET');
-    $resource = demoMultiRequired('PEANUT_DATABASE_RESOURCE_ID');
+    $target = requiredMaintenanceEnvironment('PEANUT_DEPLOYMENT_TARGET');
+    $resource = requiredMaintenanceEnvironment('PEANUT_DATABASE_RESOURCE_ID');
     $allowed = [
         'production-candidate' => 'peanut-admin-production-candidate-mysql84',
         'local-multi-tenant-demo' => 'peanut-admin-mysql84-local-multi-tenant-demo',
@@ -436,22 +437,20 @@ function demoMultiMain(): int
     $tenantBHost = TenantEntryBindingResolver::normalizeHost(
         demoMultiRequired('PEANUT_DEMO_TENANT_B_HOST'),
     );
-    $sharedAdminHosts = demoMultiHostList('TENANT_ADMIN_HOSTS');
-    if ($sharedAdminHosts === []) {
-        throw new RuntimeException('demo shared Admin Hosts are required');
-    }
+    $defaultHost = TenantEntryBindingResolver::normalizeHost(substr($_SERVER['argv'][2], strlen('--default-host=')));
+    $platformHosts = demoMultiHostList('PLATFORM_HOSTS');
     $reservedHosts = array_merge(
-        demoMultiHostList('PLATFORM_HOSTS'),
-        $sharedAdminHosts,
+        $platformHosts,
+        [$defaultHost],
     );
     if (hash_equals($tenantAHost, $tenantBHost)
+        || in_array($defaultHost, $platformHosts, true)
         || in_array($tenantAHost, $reservedHosts, true)
         || in_array($tenantBHost, $reservedHosts, true)) {
-        throw new RuntimeException('demo Tenant hosts must be distinct from Platform and shared Admin hosts');
+        throw new RuntimeException('demo Tenant hosts must be distinct from Platform and default Tenant hosts');
     }
 
-    loadConfig($serverDir);
-    require_once $serverDir . '/bootstrap/environment.php';
+    guardedDatabaseConfig();
     $app = (new App($serverDir))->initialize();
     $tenants = $app->make(PlatformTenantAdminService::class);
     $owners = $app->make(TenantOwnerAdminService::class);
@@ -469,7 +468,7 @@ function demoMultiMain(): int
         $demoAccounts,
         $tenantAHost,
         $tenantBHost,
-        $sharedAdminHosts
+        $defaultHost
     ): array {
         demoMultiAssertSeedState();
         $platforms = Db::name('platform_operator')->where('status', 'active')
@@ -518,9 +517,7 @@ function demoMultiMain(): int
         if (!is_array($defaultTenant)) {
             throw new RuntimeException('demo default Tenant is unavailable');
         }
-        foreach ($sharedAdminHosts as $sharedAdminHost) {
-            demoMultiBinding((int) $defaultTenant['id'], $sharedAdminHost, ['member-api']);
-        }
+        demoMultiBinding((int) $defaultTenant['id'], $defaultHost);
         demoMultiBinding($tenantA['tenant_id'], $tenantAHost);
         demoMultiBinding($tenantB['tenant_id'], $tenantBHost);
         demoMultiAssertFinalState(
@@ -530,7 +527,7 @@ function demoMultiMain(): int
             $sharedPassword,
             $tenantAHost,
             $tenantBHost,
-            $sharedAdminHosts,
+            $defaultHost,
         );
         return [$tenantA, $tenantB];
     });
@@ -545,8 +542,10 @@ function demoMultiMain(): int
     return 0;
 }
 
-try {
-    exit(demoMultiMain());
-} catch (Throwable $exception) {
-    demoMultiFail($exception->getMessage());
+if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
+    try {
+        exit(demoMultiMain());
+    } catch (Throwable $exception) {
+        demoMultiFail($exception->getMessage());
+    }
 }

@@ -23,13 +23,13 @@ Model在一次Controller操作内复用，新记录显式resetControllerModel；
 
 ## 3. HTTP实际顺序
 
-[HTTP入口](../../server/public/index.php)先加载受控环境，再加载Composer，最后执行Http::run、Response::send和Http::end。[CLI入口](../../server/think)同样先加载环境和依赖，再进入console。当前框架的服务初始化应区分应用service.php和框架初始化器：
+[HTTP入口](../../server/public/index.php)加载Composer后执行Http::run、Response::send和Http::end；[CLI入口](../../server/think)进入原生console。两者均由 ThinkPHP `App::initialize()` 原生加载环境和配置。当前框架的服务初始化应区分应用service.php和框架初始化器：
 
 ```text
 server/public/index.php
-→ server/bootstrap/environment.php → server/vendor/autoload.php
+→ server/vendor/autoload.php
 → new App / Http::run
-→ App::initialize → load配置、公共文件、事件和app/service.php
+→ App::initialize → loadEnv → load配置、公共文件、事件和app/service.php
 → app/service.php登记AppService → AppService::register及模块绑定
 → ModuleExtensionService::register → ThinkPHP登记模块原生Service
 → AppInit事件
@@ -40,7 +40,17 @@ server/public/index.php
 → 中间件逆序返回、日志及finally恢复 → Response::send → Http::end
 ```
 
+ThinkPHP 8.1.4 的 `Env` 读取 `server/.env`；原生 `PHP_ENV_NAME=<name>` 选择 `server/.env.<name>`。`config/*.php` 使用 `env()` 和固定默认值，业务代码读取配置或 `env()`；文件不再镜像到 `getenv()`、`$_ENV` 或 `$_SERVER`。原生 `Env` 支持 INI section，并在已加载值不存在时读取 `PHP_<KEY>` 进程变量；文件值覆盖同名进程输入，具体转换以锁定框架实现为准。独立数据库维护命令先调用原生 `App::loadEnv()`，不提前初始化应用服务。
+
 这里的 `AppService::register` 发生在加载本应用service.php时，早于AppInit；不能因为框架的RegisterService初始化器在AppInit之后，就把应用服务注册也写成之后。[AppService](../../server/app/AppService.php)登记现有身份reader、基础设施和模块接口；boot通过Model::maker为相应模型接入Scope策略。
+
+### Owner 限定的 HTTP SQL 计时
+
+默认关闭。部署 owner 可在已获准的传统 FPM pool 本地进程环境中配置 `env[PEANUT_HTTP_SQL_TIMING_REQUEST_ID]` 为一个符合 RequestTrace 格式的精确请求 ID；保留 `clear_env`，由 pool 显式传递这一个变量。只有真正的 `fpm-fcgi` 请求且 `X-Request-Id` 与该值匹配才会选择采样。选择器只读 `getenv(..., true)` 的 OS/putenv 本地值，不接受普通 SAPI/FastCGI 参数或仅靠 HTTP header 开启；此变量不从 `server/.env` 读取，不将请求值复制进本地环境。CLI、长驻 worker 和其他请求不安装新 listener、不输出采样日志。启用仍须运行资源 owner、FPM 配置和变更准入；源码具备该开关不表示保留的 APP 可立即启用，本次不修改或重载任何运行配置、环境、镜像或 deployment binding。不得改 APP_DEBUG 来取得样本。
+
+选择请求在 AppService 注册最开始确认没有既有 SQL listener 或已创建的连接后，先登记原生 Db listener，再仅为当前默认连接启用 trigger_sql。冲突时放弃采样，不清空 listener、不改变原配置；未选中时原 APP_DEBUG 的 SQL 日志行为不变。选中请求的 listener 替代原生缺省 raw SQL 日志 fallback，只累计非 CONNECT 的成功原生回调数与秒数，不保留、哈希或输出 SQL、绑定参数、DSN、身份或凭据。最终 Request 在 Http::run 初始化之后才创建，所以计数暂存为本次 FPM 请求的标量；HttpEnd 核验最终 header、owner 本地值和现有 RequestTrace ID 后，仅输出 `http_sql_timing` 的 request_id、count、sql_seconds、coverage_start、coverage_elapsed_seconds。记录发生在原生日志 save 之前，无响应字段或新指标 header。
+
+覆盖从 `AppService.register.before_composition` 到 HttpEnd；HttpEnd 后的 middleware end SQL、此前的初始化查询、直接 PDO 或没有成功原生计时回调的语句、其他未启用 trigger_sql 的连接不在此计数保证内。原生秒数从 PDO prepare 前到 bind/execute 后，不包括连接建立、result fetch/hydration；CONNECT 被排除。SQL 字符串的原生构造和回调、汇总本身仍有成本，样本是 instrumented 观测，不是零开销基线，不宣称已测响应耗时或节省比例。同一计时行用 hrtime 记录覆盖区间总秒数 coverage_elapsed_seconds，以比较 SQL 回调合计与其余覆盖区间成本；它不是端到端 HTTP 耗时，差值不能直接归到某个函数。使用普通 FPM 的请求内生命周期，不据此宣称常驻/协程采样安全。
 
 模块可以在同一个 Provider 上继承原生 `think\Service`，通过原生 register/boot 接入事件、路由及命令；普通绑定型 Provider 无需空生命周期方法。详细扩展时点、租户启停钩子和失败责任见[框架扩展与生命周期](../architecture/framework-extension-and-lifecycle.md)。
 
@@ -62,7 +72,7 @@ Controller的initialize由构造函数直接无参调用，不自动注入；Ser
 
 ## 5. 文章编辑例子
 
-`POST /adminapi/official.article.edit` 登记在[文章模块路由](../../server/app/modules/official/article/route/app.php)。该路由实际依次登记Login、OfficialModule、Auth和OperationLog中间件。
+文章模块由独立模块应用维护，不随通用脚手架交付；以下链路适用于已采用该模块的应用。`POST /adminapi/peanut.article.edit` 登记在[模块应用的文章路由](https://github.com/peanut-opensource/peanut-module-code/blob/dev/server/app/modules/peanut/article/route/app.php)。该路由实际依次登记Login、OfficialModule、Auth和OperationLog中间件。
 
 员工会话、Host和状态检查 → 模块检查 → 文章编辑权限 → ArticleController/CrudTrait::edit → ArticleValidate及允许/可写字段 → ArticleAdministration合同 → 服务核上下文和动作权限 → 事务内锁定分类、文章并核文件引用 → tenantOwnership Scope及模型写入检查 → 保存和响应 → 留痕及上下文恢复。
 
@@ -101,43 +111,56 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 ## 9. 应用生成、安装与升级
 
-客户 APP 制包绑定干净的已提交 Git commit/tree，并按 Git blob 校验当前发行源码；合法客户修改和新增文件不要求重写 `.peanut/application-manifest.json` 的上游采用摘要。该清单的归属及原受管 baseline 路径、摘要仍需严格校验并保持不变，供后续冲突检测使用。初始 generated-template 没有独立 APP Git 身份，仍须逐文件符合生成清单，不接受生成后修改。
+本节解释已有源码能力。APP在自己的Git开发、定版，生产采用固定main提交；[产品Git交付](../public/application-release.md)说明目标流程、保护与尚未接通的部分。安装、迁移及源码三方升级各用正式入口；维护资料位于源码仓 docs/maintenance，历史回执按原版本解释。
 
-维护应用源码可直接在当前工程开发。内部 `create-app` 按干净源码的实际 commit、tree、inventory 和形态生成独立应用，记录 `.peanut/application-manifest.json` 及受管基线。`generation_source` 记录仓库、请求的 ref、`development`／`prerelease`／`stable` 渠道和正式发行版本（开发来源为 `null`）；`template.version` 是升级兼容与 baseline 版本，不能替代实际源码身份。开发来源直接使用当前模板，不能借同号历史发行清单把自己的来源标成已发行。公开来源须核固定发行锁与清单，公开候选 commit/tree 和清单封存的 scaffold commit/tree 分别保留。生成应用的根 AGENTS.md 来自专用公开模板，不复制维护者入口。生成器不复制 Git 历史、私有维护资料、秘密或已安装依赖，也不改变 Core 包和许可证身份。创建工程、首次安装数据库、创建租户是三件事。取得完整产品发行包的使用者按包内说明装依赖和安装，不必先运行维护者生成器。
+开发联调明确选择本地 PHP/Web Core：PHP 使用真实 Composer path link，普通 PHP 源码修改直接由开发消费者读取，不以逐次提交、固定包、发布或重新封装 development-runtime 为前提；依赖声明、路径或配置合同变化才刷新相应原生依赖/服务登记。Web Core 保留 dist 导出，维护者在所选 Core 工作区单独运行原生 `pnpm run watch`，只启动一个编译写者；客户端启动不再托管 Core 编译器。开发链接与候选、正式 APP 的固定依赖分别使用，不把维护者目录或活链接放进交付 APP。
 
-业务 CRUD 预览另从 `server/app/adminapi/services/generator/GeneratorRenderService.php::render` 进入，目标是已登记模块的 admin-web 贡献，不是创建整个应用。其页面使用 Web 已声明的 Element Plus，表格行插槽、独立分页、确认事件和权限键遵循实际组件合同；列表与提交状态复用公开 `useAsyncList/useAsyncAction`。输入未声明软删除时不生成回收动作，已声明时保留普通/回收接口及主键类型；失败结果不能提示操作成功。预览返回 create/merge 与原文件摘要，不会自动应用合并或建表。源码仓可复用 `server/tests/fixtures/generator-element-plus-inputs.php` 的四组定义分别调用该入口；PHP 模板回归、实际前端消费者检查和完整产品安装是不同验证范围。
+维护者首次在无消费者、所选 Core 无编译写者的窗口执行 `scripts/core-dev select --php-core-dir /absolute/php-core --web-core-dir /absolute/web-core --backend-env /absolute/server/.env`，再执行 `scripts/core-dev install --client web,platform`。`--client` 接受逗号分隔的 `web`、`platform`、`pc`、`uniapp`，省略时为 `all`；`install/link/status/link-status` 只处理所选 Web 客户端，PHP 仍使用所选本地 Core。多个客户端共用一次 Web Core 依赖安装和构建，客户端自身依赖须事先按各端原生锁准备。选择保存在当前工程忽略的 `.local/core-dev.json`，不含凭据；显式源码路径优先，其次复用已保存的源码选择。首次 `select` 缺少源码路径时，可复用 `peanut config` 已明确保存在 `.local/toolchain/host.json` 的 `core.php/core.web` 绝对路径，不推断相邻仓或私有 Project。host 的 Core 路径服务工具配置和本地发行输入，`core-dev.json` 服务源码联调；二者不互相回写，后续 config 不会改变已有源码选择。`select` 只保存选择，`install` 才通过原生 Composer path 和现有 Web 链接入口激活依赖，初次生成 Web dist；两步均不连接或迁移数据库。`scripts/core-dev status --client web,platform` 核实际链接。切换 Core 或刷新依赖前重新核运行消费者和 Core 写者，不能替换在途候选现场。
 
-首次安装使用 `server/database/install.php`。开发 APP 吸收上游使用已安装 `scripts/upgrade --scope=source` 的 plan、apply、verify、recover，固定 `--instance-root`、已认证完整包 `--package` 和绝对 `--plan`；沿用 Scaffold 归属、冲突与文件恢复，只修改开发源码，不操作运行实例。APP 从自身固定提交发行 server 包后，宿主已安装 `server/docker/scripts/update.sh` 映射同一协调器的 `--scope=server`，以 APP 自有归档、外部可信摘要及 workspace 驱动唯一 product plan/state。目标未验代码不作为维护入口。
+Core 安装和构建复用当前 Code 的 `project-env` 独立 PHP/Web scope，工具来自 `peanut config` 已准备的 `.local/toolchain/cores/php|web/host.json`。PHP 入口的环境文件检查、manifest 解析、Composer、服务登记与登记验证统一使用该 PHP scope，避免前后阶段使用不同解释器。入口不再以 Corepack 选择或下载 pnpm，也不固定调用应用的 Composer wrapper；缺少 scope、工具或 prepared 状态时明确失败，先显式配置准备。所选 Core manifest 的要求仍由 `project-env` 核对。源码选择可独立于发行 Core 路径，但更换来源或工具要求后需重新核对对应 scope 的配置与准备状态。
 
-完整上游升级包的 manifest 固定 `upgrader.scope=source`，只携带源码预检与 Scaffold 工具，不携带运行实例的数据库或宿主升级驱动；迁移源码仍按 append-only 清单核完整性。运行实例只消费 APP 自身发行的 server 包。
+从 Code 根使用已准备的 Web Core 工具启动现有 watch（只启动一个）：
 
-升级包的 `compatibility.source` 使用合法 Semver 范围 `minimum_inclusive <= 当前源码版本 < maximum_exclusive`，上界必须等于目标版本。现有 `same-major` 包要求来源、下界和目标处于同一主版本，不能用于 4→5；明确跨主版本来源的包须标记 `major_policy=source-range`。跨主版本可能改变业务功能、API、依赖和迁移行为。执行前审阅所选来源→目标的变化及 APP 自有业务、依赖、API 与迁移影响，备份并解决已知风险后再尝试。CLI 跨主版本 apply 必须传入 `--confirm-major-upgrade`；AI 在执行前须向人说明来源→目标、风险和计划并取得明确确认，已提前明确授权本次操作或明确范围的可按该授权执行，不重复确认，泛开发授权不足以确认跨主版本 apply。当前开发仅吸收源码，不包含生产数据库迁移或部署；新源码尚未发行，不能据此推断既有包可跨主版本或目标兼容性已获完整验证。
+```sh
+code_root="$PWD"
+web_core="$(scripts/core-dev web-path)"
+cd "$web_core"
+python3 "$code_root/scripts/project-env" --root "$web_core" --state-root "$code_root" \
+  --host "$code_root/.local/toolchain/cores/web/host.json" exec -- pnpm run watch
+```
 
-开发来源归入公开同版本时，原生 `release-adoption-plan|apply|verify|recover` 使用同一 Scaffold 计划、锁、账本及恢复目录。只有 APP 实际 generation tree 与固定公开候选 tree、inventory 均相等，原受管 baseline 逐文件完整，且公开锁、封存清单及文件摘要核对后，才只改应用来源元数据；客户定制和 APP 自有版本保留。候选 tree 与封存 scaffold tree 是不同角色，不因版本号或 inventory 单独相同就视为等价。源码确有变化时必须使用目标版本严格升版且来源范围覆盖当前兼容版本的真实升级包，继续走现有三方合并；范围不覆盖时返回 `SOURCE_RANGE_UNSUPPORTED`。安装包本身不冒充升级包。普通源码升级和同内容归位均更新清单中的当前来源字段；同计划恢复还原旧清单，不需要网络或发行 checkout。
+选择生效后，PHP 普通源码无需重新安装。`local-core-composer` 和 Core 选择配置共用本工程 `.local/core-links/php` 临界区，依赖/配置写入在持有记录时核原生 PID 与 canonical router 进程，运行中明确拒绝切换。OPcache、常驻 worker 或已加载类仍须由其 owner 按原运行合同刷新/重启，脚本不替别人重启服务。在已选 Web Core 根单独运行 `pnpm run watch`；它先构建，再持续编译各包，通过 Core 已有的 `scripts/local-core-writer.mjs` 保护输出写集。多客户端共享这一个编译写者，各自用原生开发入口读取已链接的 dist，不为每个客户端再获取同一 Core writer。Core 根与包级原生 build/watch 共用原记录，嵌套命令只复用活祖先进程凭据。安装、切换链接或刷新依赖前，先由实际 owner 关闭相关客户端和 Core watch；现有安装/选择入口仍保护 `.local/core-links/<client>/owner.json` 与 Core writer，不能在原生客户端运行期间手工换链接。这些入口保护正常工具调用，不承诺拦截任意手工链接写入、裸包管理器操作或绕入口启动的进程。异常强杀留下记录时先核 PID、实际进程和 Core 路径，由原 owner 确认空闲后清理该记录，不把别人的编译器停掉。
 
-已安装工具核 inventory、文件 SHA-256/权限、来源/目标身份及实际受管内容。维护 PHP 使用 `PEANUT_UPGRADE_PHP` 指定已登记、满足 PHP 8.3 的绝对入口。目标 vendor 按原生锁在同一计划的 workspace 准备，锁和完整性符合时复用；不构建应用镜像。文件、依赖、数据库回执是从属证据，不另推进升级生命周期。未知 staging 或缺绑定恢复材料拒绝追认。
+各客户端配置独立：复制各自 `.env.example` 为本目录 `.env`，保留其中实际有用的字段。Web 和 Platform 各用根 `vite.config.ts`；`npm run dev` 直接启动 Vite，Web/Platform/UniApp 配置用原生 `loadEnv` 加载当前 mode，Nuxt 使用自己的 dotenv（默认 `.env`，可通过原生 `--dotenv` 显式选择）。环境变量遵循框架优先级，不再读取共享 `.local/host-client.env`、额外 selector 或拒绝普通父环境。UniApp 的 H5、小程序、custom、SSR 等 `dev:*` 直接运行原生 `uni`，保留原参数。启动不会安装依赖、改锁、构建或启动 Core watch。
 
-官方模块随维护者明确选择和审阅的固定 scaffold 来源整体吸收，绑定真实源码 commit/tree、release manifest、逐文件摘要与 canonical 模块 manifest/lock；这些摘要证明选定输入的内容，不认证发布者，不要求签名私钥。预检以已安装且通过生产 canonical 核验的官方图为起点，投影目标官方模块的完整控制器、服务、迁移及客户端贡献，先以原生 `PluginArtifactWriter::checkLock()` 核固定模板原文的完整 canonical 图；产品名称等参数渲染改变源文件字节后，按原生 make → lock 重建 APP 派生 manifest 和含原客户模块的锁并核依赖。计划同时固定原文图、渲染参数、APP 派生图与派生字节，应用及新基线使用同一派生字节，不要求渲染后摘要等于模板原文摘要。官方包与模块的变化必须提升各自版本，同版本内容不得变化；模块成员、根路径及官方归属不能借升级转给客户包。非官方 bundled 包只有在当前应用受管清单、固定 from/target 声明中的包/成员/根路径与来源合同一致，完整包文件均为 scaffold owner 且当前内容、权限、受管基线摘要全部吻合时，才能按上游整体吸收；命名空间或 bundled 标签不能替代归属证明。客户模块、app-owned 重叠和未登记的额外官方根文件受到保护，冲突不得靠单文件填入或手改摘要解决。应用/核验检查目标完整插件图，恢复检查原图；`module:adopt-package` 保持私有模块源码入口，不用于接收 official.*。
+| 客户端 | 原生开发入口 | 本目录配置 |
+| --- | --- | --- |
+| Web | `npm run dev` | `VITE_HOST`、`VITE_PORT`、`VITE_ALLOWED_HOSTS`、`VITE_OPEN_BROWSER`、`VITE_API_PROXY_TARGET`、`VITE_API_BASE_URL`、`VITE_DEPLOYMENT_MODE`、`REPORT` |
+| Platform | `npm run dev` | `VITE_HOST`、`VITE_PORT`、`VITE_ALLOWED_HOSTS`、`VITE_OPEN_BROWSER`、`VITE_API_PROXY_TARGET`、`VITE_API_BASE_URL` |
+| PC | `npm run dev` | `NUXT_HOST`、`NUXT_PORT`、`NUXT_DEV_PROXY_ORIGIN`、`NUXT_DEV_PROXY_TARGET`、`NUXT_PC_RENDER_MODE` 及 SSR/公开 runtime 配置，详见本目录示例 |
+| UniApp | `npm run dev:h5` 或所需 `dev:*` | `VITE_HOST`、`VITE_PORT`、`VITE_API_PROXY_TARGET`、`VITE_APP_BASE_URL` |
 
-server-only Compose 实例使用 `server/docker/scripts/update.sh plan|apply|verify|recover`。`--instance-server=/absolute/instance/server` 显式选择原实例；协调器和维护工具仍来自该实例已安装的 APP 制品，Compose、数据库和私有配置也取原实例。目标归档只按外部可信 SHA-256 校验后消费。plan 将已安装维护工具固化到 workspace，每次执行前由协调器复核工具清单和哈希。归档文件按路径排序后严格比较路径、内容 SHA-256 和权限；归档遍历顺序不作为内容身份。
+端口由各客户端配置；维护者填写自己登记的实际端口。Docker 对外端口仍由 Docker 编排配置管理，不替换宿主客户端配置。文档站使用自己的原生 VitePress 命令及启动参数；`DOCS_PORT` 是编排监听选项。`PHP_PORT`、网关/HTTP/Redis 端口属于其服务，不进入浏览器配置。开发 API 通过同源路径代理到明确上游，代理保留原始 Host；不设置固定租户 Host，不在浏览器 JavaScript 中设置 Host。生产也使用同域名下的 API/资源路径，浏览器 API 前缀留空；UniApp 小程序/App 的绝对后端地址按实际终端另行配置。`VITE_` 和公开 runtime 字段会交付客户端，不能存放秘密。
 
-该 Compose 的 PHP/Nginx/MySQL 只提供固定运行环境，应用代码与 vendor 位于宿主 `server/`，公共上传、runtime、私有上传及安装身份随该目录持久保留；数据库数据使用 `server/docker/mysql/` 目录挂载。运行配置取 `server/docker/.env`，应用配置取 `server/.env`，两者不互换。`start.sh` 和 `update.sh` 不构建应用镜像；APP 独立发行来源与 Peanut 上游来源分别绑定。完整开发源码包保留 APP 二开和源码吸收合同，`package-release.sh --server-only` 生成实例部署包；PC SPA 浏览器产物来自同次发行，SSR 本批后置。
+`.local` 按真实消费者保留：`toolchain/` 是本机工具绑定、缓存与 shim，`core-dev.json` 是已选择的 Core 源码，`core-links/` 是正在使用的链接写保护，均不属于普通清理目标。开发配置使用 `server/.env` 和各端自己的 `.env`；旧 `local-stack`、`local-php-runtime`、`local-multi-tenant-demo` 与其环境探针已退出开发入口，不再生成共享 `stack.env`、同步数据库配置、隐式安装依赖或代启全部服务。可选 Docker 开发编排与网关文件保留，由使用者明确选择 Compose 文件和私有 `--env-file`；`deploy/local-stack.env.example` 只提供开发编排覆盖值，`CHOKIDAR_USEPOLLING` 默认启用，生产 HTTP 端口在 `server/docker/.env` 中配置；生产编排按 `server/docker/README.md`。
 
-明确登记的临时多租户源码首次部署消费真实 `generated-template` 制品。原生生成器的 APP 自有公共资源登记尚未分配数据库时，部署允许其 `resources.databases=[]`；宿主数据库、Compose、镜像和端口仍须由维护者资源登记精确绑定，首次启动后显式选择原生安装配置并生成实例私有资源登记，不从空模板推测资源。制品已有数据库投影时仍核对所选资源唯一身份、库名和完整容器端点；永久 APP 自有 Release 始终要求该投影。此范围仅用于带固定来源、到期时间与替换 owner 的多租户首次安装，不用于自动 APP 升级，也不覆盖已有实例目录。
+清理本地残留时逐对象核 owner、活跃进程、直接引用和恢复用途。已终态且能重建的临时输出或字节相同的重复副本可删除；有效配置先保全并核完整摘要。安装身份、凭据、数据库/上传备份、FAIL/UNKNOWN 现场、冻结候选、未知 owner 和活跃 PID/shim 保留，不清空整个 `.local`，不把旧证据批量改名为永久备份。旧自动化对已退役入口的引用按当前开发期测试政策保留，另行授权测试时再按最终设计处理。
 
-只有 Nginx 配置变化时，apply 在维护/停机前用实例登记的不可变 Nginx 镜像执行目标配置的 `nginx -t`，结果绑定计划、镜像及配置 SHA-256。切换后重新创建 PHP/Nginx 容器，使文件绑定挂载读取新文件；数据库容器保持原样。Dockerfile、Compose 或其他运行配置变化仍要求独立准备兼容镜像，本入口不自动放行。
+日常可变源码联调不构成候选资格：阶段候选通过冻结合同生成 PHP ZIP、Web 六个 TGZ，并由同格式模板 TGZ 创建 APP，按候选原生 Composer/npm 锁安装到 APP 自身 `vendor`/`node_modules`，必须拒绝维护者源码链接；正式交付再核适用公开包的最终内容、来源及原生正式锁。
 
-PHP 维护容器将实例挂载为 `/instance/server`，保留发布及插件清单中的 `server/` 路径；workspace 在宿主机和各维护容器中使用同一个规范化绝对路径。私有运行确认只让 runtime、private 和 public/storage 按实例合同可写，程序文件保持只读。
+首次安装继续使用网页安装向导，控制台入口是 `php server/database/install.php`。首次空库检查、动态管理员/租户、模块选择、租户模块开通、健康检查和完成锁均由安装业务负责。结构通过官方 `migrate:run` 执行唯一 `server/database/migrations` 目录；动态身份创建后，官方 `seed:run --seed=InitialSeeder` 写默认数据并同步权限目录。种子从实际唯一默认租户读取身份，不依赖另一个 PDO 的会话变量；重复或部分初始化拒绝重放。安装完成身份位于 `server/private/installation/installed.json`，包含原生迁移版本与当前源码摘要，不能据此声称官方账本提供历史 checksum 验证。
 
-数据库迁移后调用原生模块协调命令时，子进程从自己的受控环境文件重新加载配置；父进程已加载的后端及临时安装变量不传入子进程，仍保留环境文件选择和非配置进程环境，不放宽禁止外部配置覆盖的规则。
+生成应用默认 `peanut create --demo=none`；显式 `--demo=workbench` 记录到应用manifest与 `peanut.demo.preset`，只在正常首次安装的原生锁内将稳定工作台示例写入实际默认租户的 `application.workbench-demo` 设置。工作台读取该持久记录并显示Demo标识；升级不播种，`scripts/seed-demo-data` 只提供 `--plan`，不提供安装后 `--apply`。该preset不启用下述演示账号模式或弱密码策略。
 
-迁移适配器将成对备份的数据库身份按字段排序后严格比较，保持资源、端点、库名和类型一致，不因 JSON 字段顺序误拒。SQL 目标复用安装器的 scaffold/overlay 版本解析，APP 独立发行序号仅作为自有迁移的默认版本，不用于过滤 Peanut 上游迁移。核验通过原生 runner 检查适用 SQL 的不可变摘要和 pending 集合，缺少任何应执行的迁移账本行即拒绝完成；不能只检查查询实际返回的状态行。
+既有 `server/database/seed-multi-tenant-demo.php` 仍保留专项演示数据能力；它与首次安装、脚手架开发库初始化是不同操作。需要该能力时，先按其既有 target/resource 准入及恢复合同核对明确目标，在对应后端环境配置 `PEANUT_DEMO_MODE`、演示租户邮件/密码/域名等所需值，再显式选择 `PHP_ENV_NAME` 并执行 `php server/database/seed-multi-tenant-demo.php --apply --default-host=<明确的default租户域名>`。它不负责选择工具、安装依赖、生成秘密或启动服务；不得向共享开发库重放旧演示配方，也不能把退出的聚合脚本当作当前初始化入口。
 
-数据库配置固定分层：应用后端只使用 `DB_HOST`、`DB_PORT`、`DB_NAME`、`DB_USER`、`DB_PASS`；MySQL 管理密码只在 Docker/部署编排环境使用 `MYSQL_ROOT_PASSWORD`。应用 `server/.env` 不保存 root 密码，Docker 私有环境（例如 `server/docker/.env`）不改用应用密码别名。现行实现不使用 `MYSQL_ROOT_PASSWORD_FILE`，旧 `DB_ROOT_PASS` 或旧 root 密码文件只允许被一次性兼容迁移消费，不能作为新的配置来源。Compose 向 MySQL 官方镜像映射 `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD` 仅是容器初始化边界，不改变上述应用配置命名。
+数据库只采用 ThinkPHP 原生迁移和 `pa_migrations`（可由 database.migration_table 配置）。本次最终结构为唯一 `20261101000000_initial_baseline.php`，后续用 `php server/think migrate:create <Name>` 增加标准 PHP 迁移；初始基线明确不支持回滚。旧 baseline 覆盖、自研版本账本、schema:application 及历史 partial continuation 已退役。不存在自动清库、重建身份或旧数据库兼容路径。维护者迁移合同仅见Code源码仓`docs/maintenance/migration-protocols.md`，不随生成APP交付。
 
-文件协调层仍使用已有基线和三方差异：上游变化可更新，本地变化保留，双方变化或未知冲突明确报告；应用自有和第三方文件不自动覆盖。所有权变更需要精确adoption，不能把整个后端或前端都标为自有。文件锁、计划新鲜度、恢复副本和逐文件替换不等于完整数据库事务。
+模块安装/升级仍负责信任、依赖、锁、模块状态、目录和租户业务，结构变更由应用主目录原生迁移统一交付；不再读取模块私有 SQL 目录或 backend.migrations。安装执行原生 pending 迁移并核声明的自有表，缺失结构明确拒绝，不能把模块目录提升视为数据库交付。模块 schema 的新增/删除应在应用版本中审阅并交付，卸载保留原生迁移历史。
 
-部署实例更新还要准备目标依赖、配对备份并限制写入、执行应用/模块迁移及健康/业务验证。失败恢复按同一计划处理数据库、公共与私有文件、安装身份、受管代码及依赖；activation_started 后不得自动回灌旧备份。开发源码范围的 recover 不证明数据恢复，不保证任意历史版本或未支持 rename 自动迁移。详见[模块交付](../architecture/module-development-delivery.md)与[开发规范](standard.md)。
+开发 APP 吸收脚手架源码仍使用 CLI `peanut upgrade` 或 `scripts/scaffold-upgrade` 的固定模板、完整 inventory、来源摘要、三方比较、归属与显式冲突决策。源码 apply 不安装依赖、不构建客户端、不迁移数据库、不部署。`.peanut/scaffold-baseline` 是有效源码比较元数据，与已删除的数据库基线目录无关；APP 自有业务、秘密、配置与持久文件不进入自动覆盖。
+
+产品在自己的 Git dev 开发，经审核定版 main/tag。已有产品用 `scripts/deploy-update.sh [--target=<full-commit>]` 在原 main 目录 ff-only 更新 origin/main，按变化准备锁定依赖和前端构建，再执行原生迁移与清缓存。运行前准备真实恢复材料和所需停写，运行后按环境刷新进程并确认访问和本次业务；脚本失败保留现场，不自动 reset、回灌旧数据库或重装。该入口的源码实现、必要静态检查与真实生产验收分别记录。
 
 ## 10. SSR与两种形态
 
@@ -147,7 +170,7 @@ SSR常驻Node为多个请求生成HTML，全局可变Token、租户、store或�
 
 公共 Layout 只消费既有网站公开配置；头像、昵称、登录和充值导航在 `MemberNavigation.client.vue` 中读取。新闻详情用请求级 `useAsyncData` 保存固定公开字段，匿名请求不携个人凭据，响应额外字段不进入新闻 payload。`ArticleFavorite.client.vue` 在浏览器消费既有鉴权详情接口中的收藏布尔值，收藏写入沿原权限接口；失败或失效个人会话保留可匿名阅读的正文。关于我们复用网站标题、logo、简介、slogan 和 copyright，不新增配置表。
 
-PC URL 为 `/`，物理产物仍放 `server/public/pc`；Admin、Platform、Mobile 和 PHP API 保留独立 Nginx location。`pc/.env.production` 或显式 `PEANUT_CLIENT_ENV_FILE` 选择 `NUXT_PC_RENDER_MODE=hybrid|spa`：Hybrid 执行 `npm run build` 并运行 `.output/server/index.mjs`；SPA 必须另用包含 `NUXT_PC_RENDER_MODE=spa` 的配置执行 `npm run generate`，只部署该次生成的完整 `.output/public`，无需 PC Node SSR 服务。当前部署选定 SPA，只消费同次 APP 发行生成的完整浏览器产物；SSR 常驻服务及 Hybrid 运行合同本批后置，不能将 Hybrid 的 public 目录当成完整 SPA。
+PC URL 为 `/`，物理产物仍放 `server/public/pc`；Admin、Platform、Mobile 和 PHP API 保留独立 Nginx location。在 `pc/.env`（或原生 `--dotenv` 选择的文件）/命令环境中设置 `NUXT_PC_RENDER_MODE=hybrid|spa`：Hybrid 执行 `npm run build` 并运行 `.output/server/index.mjs`；SPA 必须另用包含 `NUXT_PC_RENDER_MODE=spa` 的配置执行 `npm run generate`，只部署该次生成的完整 `.output/public`，无需 PC Node SSR 服务。当前部署选定 SPA，只消费同次 APP 发行生成的完整浏览器产物；SSR 常驻服务及 Hybrid 运行合同本批后置，不能将 Hybrid 的 public 目录当成完整 SPA。
 
 hybrid公开首屏、浏览器个人态、代理、缓存、退出及完整SPA模式需要真实HTTP/浏览器验证。类型检查、源码构建或模拟上游不能证明生产PHP、数据库、CDN及实际终端正确。发布前另核各依赖支持范围，不把开发标识当发布版本。
 

@@ -33,7 +33,7 @@ jobs:
           path: core-web
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.3.24'
           tools: composer:2.10.2
           coverage: none
       - uses: pnpm/action-setup@v4
@@ -102,7 +102,7 @@ jobs:
           path: core-web
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.3.24'
           tools: composer:2.10.2
           coverage: none
       - uses: actions/setup-node@v4

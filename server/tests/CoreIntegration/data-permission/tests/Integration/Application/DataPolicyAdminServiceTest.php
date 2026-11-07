@@ -36,13 +36,7 @@ final class DataPolicyAdminServiceTest extends DatabaseTestCase
     {
         parent::setUp();
         $this->runner->migrate();
-        (new DataPermissionMigrationRunner(
-            self::DATABASE,
-            '127.0.0.1',
-            (int) (getenv('MYSQL_PORT') ?: 3306),
-            'root',
-            getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev',
-        ))->migrate();
+        (new DataPermissionMigrationRunner($this->database))->migrate();
         (new CorePermissionCatalogSynchronizer(
             new ThinkPhpAuthorizationCatalogRepository(),
         ))->synchronize();
@@ -56,7 +50,7 @@ final class DataPolicyAdminServiceTest extends DatabaseTestCase
         $this->service = new DataPolicyAdminService(
             $registry,
             new AuditService(),
-        );
+        $this->fixtureEntitlements(['example.work-item', 'example.target']));
         $this->context = TenantContext::fromValidatedSession(
             new ValidatedTenantSession(
                 1,
@@ -67,7 +61,7 @@ final class DataPolicyAdminServiceTest extends DatabaseTestCase
                 'admin-web',
                 new DateTimeImmutable('2026-07-17T07:00:00Z'),
                 1,
-            ),
+            1),
             'req_policy_test',
         );
     }
@@ -240,15 +234,7 @@ final class DataPolicyAdminServiceTest extends DatabaseTestCase
             'updated_at' => self::NOW,
         ]);
         foreach (['example.work-item', 'example.target'] as $moduleKey) {
-            $this->insert('pa_tenant_module', [
-                'tenant_id' => $tenantId,
-                'module_key' => $moduleKey,
-                'status' => 'enabled',
-                'source' => 'manual',
-                'enabled_at' => self::NOW,
-                'created_at' => self::NOW,
-                'updated_at' => self::NOW,
-            ]);
+            $this->licenseTenantModules($tenantId, [$moduleKey], 'active');
         }
         $resourceId = $this->insert('pa_protected_resource', [
             'key' => 'example.work-item',

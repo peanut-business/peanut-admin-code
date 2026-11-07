@@ -8,9 +8,7 @@ use DateTimeImmutable;
 use PDO;
 use PeanutAdmin\Kernel\Api\ApiException;
 use PeanutAdmin\Kernel\Idempotency\IdempotencyKey;
-use PeanutAdmin\Kernel\Idempotency\IdempotencySchema;
 use PeanutAdmin\Kernel\Idempotency\IdempotencyService;
-use PeanutAdmin\Kernel\Persistence\Tenancy\TenantPersistenceMode;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
 use ThinkPhpTestConnection;
@@ -19,7 +17,7 @@ require_once dirname(__DIR__) . '/Schema/DatabaseTestCase.php';
 
 final class IdempotencyRepositoryTest extends DatabaseTestCase
 {
-    public function testInstanceRepositoryRejectsTenantSchemaBeforeUpdatingARecord(): void
+    public function testTenantRepositoryRejectsStorageWithoutTenantColumnBeforeUpdatingARecord(): void
     {
         [$tenantId, $memberId] = $this->tenantMemberFixture();
         $scope = $this->scope($tenantId);
@@ -33,12 +31,12 @@ final class IdempotencyRepositoryTest extends DatabaseTestCase
             $now->modify('+1 hour'),
             $now,
         );
+        $this->database->exec(
+            'ALTER TABLE pa_tenant_idempotency_record RENAME COLUMN tenant_id TO invalid_tenant_id',
+        );
         try {
-            (new IdempotencyService(
-                TenantPersistenceMode::InstanceScoped,
-                $tenantId,
-            ))->completeTenant($scope, $record->id, 200, ['data' => ['ok' => true]]);
-            self::fail('An instance-scoped repository must reject tenant-scoped storage.');
+            (new IdempotencyService())->completeTenant($scope, $record->id, 200, ['data' => ['ok' => true]]);
+            self::fail('Tenant storage without tenant_id must be rejected before writing.');
         } catch (\RuntimeException $exception) {
             self::assertSame('TENANT_PERSISTENCE_SCHEMA_MODE_MISMATCH', $exception->getMessage());
         }
@@ -49,68 +47,46 @@ final class IdempotencyRepositoryTest extends DatabaseTestCase
         );
     }
 
-    public function testInstanceScopedRepositoryUsesNoTenantStorageColumnAndPinsLogicalContext(): void
+    public function testTenantRecordsKeepLogicalContextsIsolated(): void
     {
         [$tenantId, $memberId] = $this->tenantMemberFixture();
-        $this->database->exec('DROP TABLE pa_tenant_idempotency_record');
-        $this->database->exec(IdempotencySchema::tenant(TenantPersistenceMode::InstanceScoped));
-
-        self::assertSame(0, (int) $this->query(<<<'SQL'
-SELECT COUNT(*) FROM information_schema.COLUMNS
-WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'pa_tenant_idempotency_record'
-  AND COLUMN_NAME = 'tenant_id'
-SQL)->fetchColumn());
-        self::assertSame(0, (int) $this->query(<<<'SQL'
-SELECT COUNT(*) FROM information_schema.STATISTICS
-WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'pa_tenant_idempotency_record'
-  AND COLUMN_NAME = 'tenant_id'
-SQL)->fetchColumn());
-        self::assertSame(0, (int) $this->query(<<<'SQL'
-SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE
-WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'pa_tenant_idempotency_record'
-  AND COLUMN_NAME = 'tenant_id'
-SQL)->fetchColumn());
-
-        $repository = new IdempotencyService(
-            TenantPersistenceMode::InstanceScoped,
-            $tenantId,
-        );
+        [$otherTenantId, $otherMemberId] = $this->tenantMemberFixture('other-idempotency');
+        $repository = new IdempotencyService();
         $scope = $this->scope($tenantId);
+        $otherScope = $this->scope($otherTenantId);
         $now = new DateTimeImmutable('2026-07-19T10:00:00Z');
-        $key = IdempotencyKey::fromString('01KPEANUTADMIN-INSTANCE-0001');
+        $key = IdempotencyKey::fromString('01KPEANUTADMIN-TENANT-0001');
+        $hash = hash('sha256', 'tenant-request');
         $created = $repository->beginTenant(
-            $scope,
-            $memberId,
-            'instanceCommand',
-            $key,
-            hash('sha256', 'instance-request'),
-            $now->modify('+1 hour'),
-            $now,
+            $scope, $memberId, 'tenantCommand', $key, $hash, $now->modify('+1 hour'), $now,
         );
-        $repository->completeTenant($scope, $created->id, 200, ['data' => ['ok' => true]]);
-        $replay = $repository->beginTenant(
-            $scope,
-            $memberId,
-            'instanceCommand',
-            $key,
-            hash('sha256', 'instance-request'),
-            $now->modify('+1 hour'),
-            $now,
+        $other = $repository->beginTenant(
+            $otherScope, $otherMemberId, 'tenantCommand', $key, $hash, $now->modify('+1 hour'), $now,
         );
         self::assertTrue($created->created);
+        self::assertTrue($other->created);
+        self::assertNotSame($created->id, $other->id);
+
+        try {
+            $repository->completeTenant($otherScope, $created->id, 200, ['data' => ['wrong' => true]]);
+            self::fail('Another tenant must not complete this record.');
+        } catch (ApiException $exception) {
+            self::assertSame('IDEMPOTENCY_STATE_CONFLICT', $exception->errorCode);
+        }
+        $repository->completeTenant($scope, $created->id, 200, ['data' => ['ok' => true]]);
+        $replay = $repository->beginTenant(
+            $scope, $memberId, 'tenantCommand', $key, $hash, $now->modify('+1 hour'), $now,
+        );
+        $otherReplay = $repository->beginTenant(
+            $otherScope, $otherMemberId, 'tenantCommand', $key, $hash, $now->modify('+1 hour'), $now,
+        );
         self::assertFalse($replay->created);
         self::assertSame('completed', $replay->status);
-
-        $this->expectException(\RuntimeException::class);
-        $repository->beginTenant(
-            $this->scope($tenantId + 1),
-            $memberId,
-            'instanceCommand',
-            $key,
-            hash('sha256', 'instance-request'),
-            $now->modify('+1 hour'),
-            $now,
-        );
+        self::assertSame(['data' => ['ok' => true]], $replay->responseBody);
+        self::assertFalse($otherReplay->created);
+        self::assertSame('processing', $otherReplay->status);
+        self::assertNull($otherReplay->responseBody);
+        self::assertSame(2, (int) $this->query('SELECT COUNT(*) FROM pa_tenant_idempotency_record')->fetchColumn());
     }
 
     public function testTenantAndPlatformRecordsArePhysicallySeparatedAndReplaySafe(): void
@@ -438,7 +414,7 @@ SQL)->fetchColumn());
     }
 
     /** @return array{int, int} */
-    private function tenantMemberFixture(): array
+    private function tenantMemberFixture(string $code = 'idempotency'): array
     {
         $this->runner->migrate();
         $now = '2026-07-19 00:00:00.000';
@@ -447,7 +423,7 @@ SQL)->fetchColumn());
             'created_at' => $now, 'updated_at' => $now,
         ]);
         $tenantId = $this->insert('pa_tenant', [
-            'code' => 'idempotency', 'name' => 'Idempotency', 'display_name' => 'Idempotency',
+            'code' => $code, 'name' => 'Idempotency', 'display_name' => 'Idempotency',
             'status' => 'active', 'locale' => 'zh-CN', 'timezone' => 'Asia/Shanghai',
             'security_revision' => 1, 'authorization_revision' => 1, 'revision' => 1,
             'activated_at' => $now, 'created_at' => $now, 'updated_at' => $now,

@@ -36,13 +36,7 @@ final class AuthorizationPathParityTest extends DatabaseTestCase
     {
         parent::setUp();
         $this->runner->migrate();
-        (new DataPermissionMigrationRunner(
-            self::DATABASE,
-            '127.0.0.1',
-            (int) (getenv('MYSQL_PORT') ?: 3306),
-            'root',
-            getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev',
-        ))->migrate();
+        (new DataPermissionMigrationRunner($this->database))->migrate();
         ThinkPhpTestConnection::fromPdo($this->database);
         $this->fixture = AuthorizationAcceptanceFixture::install();
     }
@@ -272,6 +266,28 @@ SQL);
         ));
     }
 
+    public function testOwnerCoreFallbackRereadsTenantStatusWithoutCatalogRowsOrLicense(): void
+    {
+        $key = 'core.role.read';
+        // This fixture normally synchronizes Core's catalog; omit this one definition to exercise the owner fallback.
+        $this->database->exec("DELETE FROM pa_permission WHERE `key` = '{$key}'");
+        self::assertSame(0, (int) $this->query("SELECT COUNT(*) FROM pa_permission WHERE `key` = '{$key}'")->fetchColumn());
+        $this->database->exec("DELETE FROM pa_tenant_license WHERE tenant_id = {$this->fixture->alphaTenantId}");
+        self::assertSame(0, (int) $this->query("SELECT COUNT(*) FROM pa_tenant_license WHERE tenant_id = {$this->fixture->alphaTenantId}")->fetchColumn());
+        $this->database->exec("UPDATE pa_role SET `key` = 'core.tenant-owner', is_builtin = 1 "
+            . "WHERE tenant_id = {$this->fixture->alphaTenantId} AND `key` = 'fixture-reader'");
+        $roles = $this->query('SELECT * FROM pa_role ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+        $repository = $this->fixtureAuthorizationRepository([]);
+        $actor = $this->fixture->alphaContext;
+        self::assertTrue($repository->permissionsForKeys($actor, [$key])->allows($key));
+        self::assertFalse($repository->permissionsForKeys($this->fixture->betaContext, [$key])->allows($key));
+
+        $this->database->exec("UPDATE pa_tenant SET status = 'suspended', security_revision = security_revision + 1 "
+            . "WHERE id = {$this->fixture->alphaTenantId}");
+        self::assertFalse($repository->permissionsForKeys($actor, [$key])->allows($key));
+        self::assertSame($roles, $this->query('SELECT * FROM pa_role ORDER BY id')->fetchAll(PDO::FETCH_ASSOC));
+    }
+
     public function testTenantStatusMultiTenantAccountSentinelsAndContextTypeCannotBypass(): void
     {
         self::assertSame(['A', 'A', 'B'], array_column($this->fixture->harness->list(), 'project_id'));
@@ -311,7 +327,9 @@ UPDATE pa_tenant
 SET status = 'suspended', security_revision = security_revision + 1
 WHERE id = {$this->fixture->alphaTenantId}
 SQL);
+        $recordsBeforeDenial = $this->query('SELECT * FROM fixture_record ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
         $this->expectDataError('AUTHZ_PERMISSION_DENIED', fn() => $this->fixture->harness->list());
+        self::assertSame($recordsBeforeDenial, $this->query('SELECT * FROM fixture_record ORDER BY id')->fetchAll(PDO::FETCH_ASSOC));
 
         $sentinel = TenantContext::fromValidatedSession(new ValidatedTenantSession(
             0,
@@ -322,7 +340,7 @@ SQL);
             'web',
             new DateTimeImmutable('2026-07-16T12:00:00Z'),
             1,
-        ), 'request-sentinel');
+        1), 'request-sentinel');
         $this->expectDataError('AUTHZ_MODULE_UNAVAILABLE', fn() => $this->fixture->engine->queryConstraint(
             $sentinel,
             'fixture.record',

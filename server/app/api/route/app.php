@@ -4,17 +4,20 @@ declare(strict_types=1);
 
 $peanutRouteApplication = 'api';
 $serverRoot = dirname(__DIR__, 3);
+if (!isset($peanutRouteModules)) {
+    $peanutRouteModules = [];
+    foreach (app(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry::class)->modules as $manifest) {
+        $peanutRouteModules[$manifest->data['key']] = $manifest->root;
+    }
+}
 
 require $serverRoot . '/route/public_api.php';
 
-foreach ([
-    'app/modules/official/file/route/app.php',
-    'app/modules/official/notification/route/app.php',
-    'app/modules/official/oauth/route/app.php',
-    'app/modules/official/payment/route/app.php',
-    'app/modules/official/member/route/app.php',
-] as $moduleRoute) {
-    require $serverRoot . '/' . $moduleRoute;
+foreach ($peanutRouteModules as $moduleRoot) {
+    $moduleRoute = $moduleRoot . '/route/app.php';
+    if (is_file($moduleRoute)) {
+        require $moduleRoute;
+    }
 }
 
-unset($peanutRouteApplication, $serverRoot, $moduleRoute);
+unset($peanutRouteApplication, $serverRoot, $moduleRoute, $moduleRoot, $manifest);

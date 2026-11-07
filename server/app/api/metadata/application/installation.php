@@ -36,30 +36,33 @@ $schemas = [
             'code' => ['type' => 'string'],
             'configured' => ['type' => 'boolean'],
             'application' => $ref('InstallationApplicationIdentity'),
-            'deployment_targets' => ['type' => 'array', 'items' => ['type' => 'string']],
+            'app_environments' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => ['development', 'production']]],
         ],
     ],
     'InstallationConfigureRequest' => [
         'type' => 'object', 'additionalProperties' => false,
-        'required' => ['deployment_target'],
+        'required' => ['app_env'],
         'properties' => [
-            'deployment_target' => ['type' => 'string', 'enum' => ['local-production-preview', 'production', 'production-candidate']],
-            'database_name' => ['type' => 'string', 'pattern' => '^[A-Za-z0-9_]{1,64}$'],
+            'app_env' => ['type' => 'string', 'enum' => ['development', 'production']],
+            'database_source' => ['type' => 'string', 'enum' => ['bundled', 'existing'], 'default' => 'bundled'],
+            'database_name' => ['type' => 'string', 'pattern' => '^[A-Za-z0-9_]{0,64}$'],
+            'database_host' => ['type' => 'string', 'description' => '已有数据库主机。'],
+            'database_port' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 65535, 'default' => 3306],
+            'database_user' => ['type' => 'string', 'description' => '已有普通数据库账号，不修改账号或权限。'],
+            'database_password' => ['type' => 'string', 'writeOnly' => true, 'format' => 'password'],
             'platform_hosts' => ['type' => 'string'],
-            'tenant_admin_hosts' => ['type' => 'string'],
         ],
-        'description' => '数据库业务账号和应用密钥由安装配置器生成；多租户部署必须提供 Platform/Tenant Admin Host。',
+        'description' => 'bundled 生成内置数据库账号；existing 使用普通主机、端口、库名和已有账号。仅发布私有配置，不连接、建库或授权；实际权限由后续 PDO 检查。多租户必须提供 Platform Host。',
     ],
     'InstallationConfigureResult' => [
         'type' => 'object', 'additionalProperties' => false,
-        'required' => ['state', 'code', 'restart_required', 'application', 'deployment_target', 'database_resource_id', 'database_name'],
+        'required' => ['state', 'code', 'restart_required', 'application', 'app_env', 'database_name'],
         'properties' => [
             'state' => ['type' => 'string', 'enum' => ['pending', 'configured']],
             'code' => ['type' => 'string', 'enum' => ['INSTALL_CONFIGURATION_PENDING', 'INSTALL_CONFIGURATION_COMPLETED']],
             'restart_required' => ['type' => 'boolean'],
             'application' => $ref('InstallationApplicationIdentity'),
-            'deployment_target' => ['type' => 'string'],
-            'database_resource_id' => ['type' => 'string'],
+            'app_env' => ['type' => 'string'],
             'database_name' => ['type' => 'string'],
         ],
     ],
@@ -91,6 +94,21 @@ $schemas = [
             'state' => ['type' => 'string', 'enum' => ['blocked', 'uninstalled', 'installed']],
             'code' => ['type' => 'string'], 'retryable' => ['type' => 'boolean'],
             'health' => $nullableDynamicMap,
+            'category' => ['type' => 'string', 'enum' => ['prerequisite', 'partial', 'installed_fault', 'unknown', 'installed']],
+            'stage' => ['type' => 'string'], 'reason' => ['type' => 'string'], 'remedy' => ['type' => 'string'],
+            'writes' => $dynamicMap, 'safe_retry' => ['type' => 'boolean'],
+            'completion_lock' => ['type' => 'string'],
+            'permissions_verified' => ['type' => 'boolean'],
+            'permissions_missing_or_unconfirmed' => ['type' => 'array', 'items' => ['type' => 'string']],
+            'database_check' => ['type' => 'string'], 'permission_remedy' => ['type' => 'string', 'nullable' => true],
+        ],
+    ],
+    'InstallationEntryStatus' => [
+        'type' => 'object', 'additionalProperties' => false,
+        'required' => ['installed', 'deployment_mode'],
+        'properties' => [
+            'installed' => ['type' => 'boolean'],
+            'deployment_mode' => ['type' => 'string', 'enum' => ['standalone', 'multi-tenant']],
         ],
     ],
     'InstallationExecuteRequest' => [
@@ -127,6 +145,21 @@ $schemas = [
 ];
 
 $paths = [
+    '/installapi/page' => ['get' => $operation(
+        'getInstallPage', 'Installation', [
+            '200' => ['description' => 'Uninstalled instance installer document.', 'content' => ['text/html' => ['schema' => ['type' => 'string']]]],
+            '404' => ['description' => 'Physical completion lock exists; the HTML response body is empty.',
+                'content' => ['text/html' => ['schema' => ['type' => 'string', 'maxLength' => 0]]]],
+        ], description: 'PHP owner checks the original completion lock before serving HTML; no private state is mounted into Nginx.',
+    )],
+    '/installapi/environment' => ['get' => $operation(
+        'getInstallEnvironment', 'Installation', ['200' => $success($dynamicMap), '503' => $error],
+        description: '配置前只读环境检查；不连接数据库、不写配置或安装身份。',
+    )],
+    '/installapi/database-check' => ['get' => $operation(
+        'checkInstallDatabase', 'Installation', ['200' => $success($ref('InstallationStatus')), '503' => $error],
+        description: '只读连接、空库、身份和精确有效权限检查；未知权限不视为通过。执行安装前服务器重复检查。',
+    )],
     '/installapi/password-policy' => ['get' => $operation(
         'getPasswordPolicy',
         'Installation',
@@ -166,6 +199,12 @@ $paths = [
         'Installation',
         ['200' => $success($ref('InstallationStatus')), '503' => $error],
         description: '只读安装状态与 preflight；不会执行数据库安装。',
+    )],
+    '/installapi/entry-status' => ['get' => $operation(
+        'getInstallationEntryStatus',
+        'Installation',
+        ['200' => $success($ref('InstallationEntryStatus'))],
+        description: '只读取物理安装完成锁和部署模式，供正常前端入口判断；不运行安装预检。',
     )],
     '/installapi/execute' => ['post' => $operation(
         'executeGuidedInstallation',

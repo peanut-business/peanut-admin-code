@@ -7,6 +7,51 @@ use PHPUnit\Framework\TestCase;
 /** 无数据库地核对路由清单、结构化合同质量和 SDK 消费入口。 */
 final class ApiContractCatalogTest extends TestCase
 {
+    public function testAccessExceptionsUseCanonicalPathsWithoutRemovingSessionHostBoundaries(): void
+    {
+        $root = dirname(__DIR__, 3);
+        $catalog = sys_get_temp_dir() . '/peanut-api-access-' . bin2hex(random_bytes(8)) . '.json';
+        $process = proc_open([
+            PHP_BINARY, $root . '/scripts/generate-api-contracts.php', '--check', '--catalog-output=' . $catalog,
+        ], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        self::assertIsResource($process);
+        stream_get_contents($pipes[1]);
+        $error = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $status = proc_close($process);
+        try {
+            self::assertSame(0, $status, $error);
+            $endpoints = json_decode((string) file_get_contents($catalog), true, 512, JSON_THROW_ON_ERROR)['endpoints'];
+            $routes = [];
+            foreach ($endpoints as $endpoint) {
+                $routes[$endpoint['method'] . ' ' . $endpoint['path']] = $endpoint;
+            }
+            foreach (['GET /adminapi/login/info', 'GET /adminapi/menu/route', 'POST /adminapi/api/v1/files/resolve', 'POST /adminapi/admin/editSelf'] as $path) {
+                self::assertSame('authenticated', $routes[$path]['auth']['mode']);
+                self::assertSame('authenticated', $routes[$path]['auth']['exception_registration']);
+                self::assertSame([], array_values(array_filter(
+                    $routes[$path]['permissions'],
+                    static fn(array $permission): bool => in_array($permission['kind'], ['tenant_action', 'platform_action'], true),
+                )));
+            }
+            self::assertSame('tenant_host', $routes['POST /adminapi/tenant/session/login']['auth']['mode']);
+            self::assertSame('tenant_bearer', $routes['POST /adminapi/tenant/session/logout']['auth']['mode']);
+            self::assertSame('platform_host', $routes['POST /platformapi/session/login']['auth']['mode']);
+            self::assertSame('platform_refresh', $routes['POST /platformapi/session/refresh']['auth']['mode']);
+            self::assertSame('tenant_permission', $routes['POST /adminapi/admin/add']['auth']['mode']);
+            self::assertContains(['kind' => 'tenant_action', 'key' => 'core.member.create'], $routes['POST /adminapi/admin/add']['permissions']);
+            self::assertContains(['kind' => 'tenant_action', 'key' => 'core.member.update'], $routes['POST /adminapi/admin/edit']['permissions']);
+            self::assertContains(['kind' => 'tenant_action', 'key' => 'core.member.leave'], $routes['POST /adminapi/admin/delete']['permissions']);
+            self::assertSame('complete', $routes['POST /platformapi/instance-tools/modules/update']['contract_quality']);
+            self::assertSame('complete', $routes['GET /platformapi/instance-tools/modules/tasks/{task_key}']['contract_quality']);
+        } finally {
+            if (is_file($catalog)) {
+                unlink($catalog);
+            }
+        }
+    }
+
     public function testCatalogSeparatesRoutesGeneratedOperationsAndCompleteContracts(): void
     {
         $root = dirname(__DIR__, 3);
@@ -41,11 +86,10 @@ final class ApiContractCatalogTest extends TestCase
                 $summary['route_count'],
                 $summary['complete_operations'] + $summary['partial_operations'] + $summary['route_only_operations'],
             );
-            // All current owners have completed their contracts; do not freeze the
-            // obsolete partial-delivery snapshot or accept missing routes as success.
-            self::assertSame(339, $summary['route_count']);
-            self::assertSame(339, $summary['generated_api_operations']);
-            self::assertSame(339, $summary['complete_operations']);
+            $inventory = self::runtimeInventory($root);
+            self::assertSame(self::routeIdentities($inventory['endpoints']), self::routeIdentities($endpoints));
+            self::assertSame($summary['route_count'], $summary['generated_api_operations']);
+            self::assertSame($summary['route_count'], $summary['complete_operations']);
             self::assertSame(0, $summary['partial_operations']);
             self::assertSame(0, $summary['route_only_operations']);
 
@@ -72,13 +116,14 @@ final class ApiContractCatalogTest extends TestCase
                 }
             }
 
-            self::assertOwnerCoverage($endpoints, 'official.article', 21, 21);
-            self::assertOwnerCoverage($endpoints, 'official.member', 22, 22);
-            self::assertOwnerCoverage($endpoints, 'official.file', 14, 14);
-            self::assertOwnerCoverage($endpoints, 'official.task', 10, 10);
-            self::assertApplicationCoverage($endpoints, 'adminapi', 91);
-            self::assertApplicationCoverage($endpoints, 'platform', 58);
-            self::assertApplicationCoverage($endpoints, 'installation', 5);
+            foreach ($inventory['summary']['owners'] as $owner => $count) {
+                [$type, $key] = explode(':', $owner, 2);
+                if ($type === 'module') {
+                    self::assertOwnerCoverage($endpoints, $key, $count, $count);
+                } else {
+                    self::assertApplicationCoverage($endpoints, $key, $count);
+                }
+            }
 
             $byRoute = [];
             foreach ($endpoints as $endpoint) {
@@ -90,7 +135,8 @@ final class ApiContractCatalogTest extends TestCase
             self::assertSame('public', $byRoute['GET /installapi/status']['auth']['mode']);
             self::assertSame('tenant_refresh', $byRoute['POST /adminapi/tenant/session/refresh']['auth']['mode']);
             self::assertSame('complete', $byRoute['POST /adminapi/tenant/session/logout']['contract_quality']);
-            self::assertSame('complete', $byRoute['GET /adminapi/api/v1/files/{fileKey}/content']['contract_quality']);
+            self::assertArrayNotHasKey('GET /adminapi/api/v1/files/{fileKey}/content', $byRoute);
+            self::assertSame('complete', $byRoute['GET /api/storage/delivery']['contract_quality']);
         } finally {
             if (is_file($catalog)) {
                 unlink($catalog);
@@ -107,14 +153,32 @@ final class ApiContractCatalogTest extends TestCase
         $platform = require $directory . '/platform.php';
         $installation = require $directory . '/installation.php';
 
-        self::assertSame(91, self::operationCount($admin));
-        self::assertSame(58, self::operationCount($platform));
-        self::assertSame(5, self::operationCount($installation));
+        $inventory = self::runtimeInventory($root);
+        $runtimeRoutes = self::routeIdentities($inventory['endpoints']);
+        foreach ([$admin, $platform, $installation] as $fragment) {
+            foreach (['paths', 'overrides'] as $section) {
+                foreach ($fragment[$section] ?? [] as $path => $pathItem) {
+                    if (array_diff($pathItem['x-peanut-required-modules'] ?? [], array_keys($inventory['modules'])) !== []) {
+                        continue;
+                    }
+                    foreach (['get', 'post', 'put', 'delete', 'patch'] as $method) {
+                        if (isset($pathItem[$method])) {
+                            self::assertContains(strtoupper($method) . ' ' . $path, $runtimeRoutes);
+                        }
+                    }
+                }
+            }
+        }
 
         $schemes = $shared['components']['securitySchemes'];
         self::assertSame('Host', $schemes['platformHost']['name']);
-        self::assertSame('__Host-pa_platform_refresh', $schemes['platformRefreshCookie']['name']);
-        self::assertSame('__Host-pa_tenant_refresh_admin-web', $schemes['tenantRefreshCookie']['name']);
+        foreach (['platformRefreshCookie' => '__Host-pa_platform_refresh', 'tenantRefreshCookie' => '__Host-pa_tenant_refresh_<client>'] as $scheme => $prefix) {
+            self::assertSame('http', $schemes[$scheme]['type']);
+            self::assertSame('bearer', $schemes[$scheme]['scheme']);
+            self::assertStringContainsString($prefix, $schemes[$scheme]['description']);
+            self::assertStringContainsString('SHA-256', $schemes[$scheme]['description']);
+            self::assertArrayNotHasKey('name', $schemes[$scheme]);
+        }
         self::assertSame('bearer', $schemes['installationSetupToken']['scheme']);
 
         $dynamic = $shared['components']['schemas']['ApplicationDynamicValue'];
@@ -156,7 +220,12 @@ final class ApiContractCatalogTest extends TestCase
     public function testIntegrationDeliveryContractsMatchPublicRecordSerialization(): void
     {
         $root = dirname(__DIR__, 3);
-        $fragment = require $root . '/server/app/modules/official/integration/api/metadata/openapi.php';
+        $inventory = self::runtimeInventory($root);
+        self::assertArrayHasKey('peanut.integration', $inventory['modules']);
+        $moduleRoot = $root . '/' . $inventory['modules']['peanut.integration'];
+        $manifest = json_decode((string) file_get_contents($moduleRoot . '/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('peanut.integration', $manifest['key']);
+        $fragment = require $moduleRoot . '/api/metadata/openapi.php';
         $schemas = $fragment['components']['schemas'];
         $delivery = $schemas['IntegrationDelivery'];
         $attempt = $schemas['IntegrationAttempt'];
@@ -218,19 +287,29 @@ final class ApiContractCatalogTest extends TestCase
         ), $application);
     }
 
-    /** @param array<string,mixed> $fragment */
-    private static function operationCount(array $fragment): int
+    /** @param list<array<string,mixed>> $endpoints @return list<string> */
+    private static function routeIdentities(array $endpoints): array
     {
-        $count = 0;
-        foreach (['paths', 'overrides'] as $section) {
-            foreach ($fragment[$section] ?? [] as $pathItem) {
-                foreach (['get', 'post', 'put', 'delete', 'patch'] as $method) {
-                    if (isset($pathItem[$method])) {
-                        $count++;
-                    }
-                }
-            }
-        }
-        return $count;
+        $identities = array_map(static fn(array $endpoint): string => $endpoint['method'] . ' '
+            . preg_replace('/:([A-Za-z_][A-Za-z0-9_]*)/', '{$1}', $endpoint['path']), $endpoints);
+        sort($identities, SORT_STRING);
+        return $identities;
+    }
+
+    /** @return array<string,mixed> */
+    private static function runtimeInventory(string $root): array
+    {
+        $process = proc_open([
+            PHP_BINARY, '-r',
+            'require $argv[1] . "/server/route/registry_source.php"; echo json_encode(peanut_route_endpoint_inventory($argv[1] . "/server"), JSON_THROW_ON_ERROR);',
+            $root,
+        ], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $root);
+        self::assertIsResource($process);
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        self::assertSame(0, proc_close($process), $stderr);
+        return json_decode($stdout, true, 512, JSON_THROW_ON_ERROR);
     }
 }

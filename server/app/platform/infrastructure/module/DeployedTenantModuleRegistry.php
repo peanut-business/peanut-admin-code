@@ -85,15 +85,15 @@ final readonly class DeployedTenantModuleRegistry
         return $this->compiled->isRequiredTenantFoundation($moduleKey);
     }
 
-    public function requireInstalled(string $moduleKey): ManifestDocument
+    public function requireInstalled(string $moduleKey, bool $lock = true): ManifestDocument
     {
         $manifest = $this->manifest($moduleKey);
-        $this->assertInstallation($moduleKey, $manifest, $this->installationStates->installationIdentity($moduleKey, true));
+        $this->assertInstallation($moduleKey, $manifest, $this->installationStates->installationIdentity($moduleKey, $lock));
         return $manifest;
     }
 
     /** @param list<string> $moduleKeys @return array<string, ManifestDocument> */
-    public function requireInstalledMany(array $moduleKeys): array
+    public function requireInstalledMany(array $moduleKeys, bool $lock = true): array
     {
         $knownKeys = [];
         foreach ($moduleKeys as $moduleKey) {
@@ -102,7 +102,7 @@ final readonly class DeployedTenantModuleRegistry
             }
             $knownKeys[] = $moduleKey;
         }
-        $installations = $this->installationStates->installationIdentities($knownKeys, true);
+        $installations = $this->installationStates->installationIdentities($knownKeys, $lock);
         $manifests = [];
         foreach ($moduleKeys as $moduleKey) {
             $manifest = $this->manifest($moduleKey);

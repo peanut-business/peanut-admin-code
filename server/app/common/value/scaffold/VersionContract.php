@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace app\common\value\scaffold;
 
-require_once dirname(__DIR__, 5) . '/scripts/scaffold-runtime/ReleaseDependencyIdentity.php';
+require_once dirname(__DIR__, 2) . '/infrastructure/scaffold/ReleaseDependencyIdentity.php';
 
 use app\common\infrastructure\scaffold\ReleaseDependencyIdentity;
 use Composer\Semver\VersionParser;

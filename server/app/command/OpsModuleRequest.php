@@ -17,6 +17,12 @@ use Throwable;
 /** Deployment-only preparation of an opaque Module operation request. */
 final class OpsModuleRequest extends ContextualCommand
 {
+    public static function __make(\think\App $app): self
+    {
+        return new self($app->make(ExecutionContextStore::class), $app->make(CurrentExecutionContext::class),
+            $app->make(DeploymentModuleRequests::class));
+    }
+
     public function __construct(
         ?ExecutionContextStore $contexts = null,
         ?CurrentExecutionContext $executionContext = null,
@@ -31,7 +37,7 @@ final class OpsModuleRequest extends ContextualCommand
             ->addArgument('action', Argument::REQUIRED, 'preview or prepare')
             ->addOption('delivery-resource-id', null, Option::VALUE_REQUIRED, 'Registered delivery worker resource')
             ->addOption('target-resource-id', null, Option::VALUE_REQUIRED, 'Registered deployment target')
-            ->addOption('operation', null, Option::VALUE_REQUIRED, 'update, retire, or purge')
+            ->addOption('operation', null, Option::VALUE_REQUIRED, 'install, update, retire, or purge')
             ->addOption('package-key', null, Option::VALUE_REQUIRED, 'Exact Package key')
             ->addOption('archive-sha256', null, Option::VALUE_OPTIONAL, 'Trusted inbox archive SHA-256', '')
             ->addOption('signature-key-id', null, Option::VALUE_OPTIONAL, 'Trusted signing key id', '')

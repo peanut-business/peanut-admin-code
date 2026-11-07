@@ -45,6 +45,7 @@ function fixture() {
           .digest('base64'),
     };
   const files = new Map();
+  files.set('modules.lock', { schema_version: 1, modules: [] });
   files.set('server/composer.json', {
     require: { 'peanut-admin/core': '9.2.1' },
     repositories: [],
@@ -246,6 +247,7 @@ test('existing static checker reads native V3 metadata and preserves not-ready s
     for (const name of [
       'check-release-consistency',
       'release-dependency-locks.mjs',
+      'release-template-artifacts.mjs',
     ])
       copyFileSync(join(root, 'scripts', name), join(tools, 'scripts', name));
     // 测试工具独立于候选，仅读既有锁定解析器；候选自身不带 node_modules。

@@ -10,6 +10,67 @@ require_once dirname(__DIR__) . '/Support/RegisteredMysqlTestResource.php';
 
 final class RegisteredMysqlTestResourceTest extends TestCase
 {
+    public function testRegisteredSchemaLeaseReplacesOnlyTheDatabasePortLock(): void
+    {
+        $f = $this->schemaFixture();
+        $result = \RegisteredMysqlTestResource::validateContract(...$f);
+        self::assertSame('registered_mysql_test', $result['database']);
+        foreach (['PEANUT_DATABASE_LEASE_OWNER', 'PEANUT_DATABASE_ENDPOINT_ID', 'DB_NAME'] as $field) {
+            $bad = $f; $bad[2][$field] = 'foreign';
+            $this->assertRejected($field === 'PEANUT_DATABASE_ENDPOINT_ID' ? 'REGISTERED_MYSQL_ENDPOINT_MISMATCH' : ($field === 'DB_NAME' ? 'REGISTERED_MYSQL_RESOURCE_MISMATCH' : 'REGISTERED_MYSQL_LEASE_MISMATCH'), $bad);
+        }
+        $bad = $f;
+        foreach ($bad[1]['resources'] as &$r) { if ($r[0] === 'mysql-schema') { $r[1] = '127.0.0.1:49123/foreign'; } } unset($r);
+        $this->assertRejected('REGISTERED_MYSQL_LEASE_MISMATCH', $bad);
+        $bad = $f; $bad[0]['resources']['databases'][0]['lease_policy']['physical_endpoint'] = '127.0.0.2:49123';
+        $this->assertRejected('REGISTERED_MYSQL_SCHEMA_POLICY_INVALID', $bad);
+        $bad = $f; unset($bad[0]['resources']['databases'][0]['lease_policy']);
+        $this->assertRejected('REGISTERED_MYSQL_LEASE_MISMATCH', $bad);
+    }
+
+    private function schemaFixture(): array
+    {
+        $f = $this->fixture();
+        $f[0]['resources']['databases'][0]['lease_policy'] = ['mode' => 'schema', 'physical_endpoint' => '127.0.0.1:49123', 'physical_resource_id' => 'fixture', 'max_executors' => 2, 'server_resources' => ['mysql-resource=fixture']];
+        $f[1]['resources'] = array_values(array_filter($f[1]['resources'], fn($r) => $r[0] !== 'port'));
+        $f[1]['resources'][] = ['mysql-schema', '127.0.0.1:49123/registered_mysql_test'];
+        return $f;
+    }
+
+    public function testExplicitMaintainerSourceRejectsForeignRegistry(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'registry-source-');
+        self::assertIsString($path);
+        file_put_contents($path, '{}');
+        $this->assertSourceRejected($path, (string) hash_file('sha256', $path));
+        unlink($path);
+    }
+
+    public function testExplicitMaintainerSourceRejectsWrongDigest(): void
+    {
+        $this->assertSourceRejected(dirname(__DIR__, 3) . '/resources/project-resources.json', str_repeat('0', 64));
+    }
+
+    private function assertSourceRejected(string $path, string $digest): void
+    {
+        $root = dirname(__DIR__, 3);
+        $values = ['PEANUT_DATABASE_REGISTRY_FILE' => $path,
+            'PEANUT_DATABASE_REGISTRY_TOOL' => $root . '/scripts/project-resource-registry',
+            'PEANUT_DATABASE_REGISTRY_SHA256' => $digest];
+        $previous = [];
+        foreach ($values as $key => $value) { $previous[$key] = getenv($key); putenv($key . '=' . $value); }
+        try {
+            try {
+                (new \ReflectionMethod(\RegisteredMysqlTestResource::class, 'registrySource'))->invoke(null, $root);
+                self::fail('Foreign or changed registry accepted');
+            } catch (\RuntimeException $error) {
+                self::assertSame('REGISTERED_MYSQL_REGISTRY_SOURCE_INVALID', $error->getMessage());
+            }
+        } finally {
+            foreach ($previous as $key => $value) { putenv($value === false ? $key : $key . '=' . $value); }
+        }
+    }
+
     public function testExactRegisteredContractIsAccepted(): void
     {
         [$registry, $lease, $environment, $root, $candidate, $now] = $this->fixture();
@@ -45,7 +106,7 @@ final class RegisteredMysqlTestResourceTest extends TestCase
 
     public function testP0eForeignRunAndScenarioAreRejected(): void
     {
-        foreach (['foreign_plugin_lifecycle', 'run1_unregistered'] as $suffix) {
+        foreach (['foreign_module_lifecycle', 'run1_unregistered'] as $suffix) {
             $fixture = $this->p0eFixture();
             $fixture[2]['DB_NAME'] = 'peanut_admin_development_p0e_' . $suffix;
             $this->assertRejected('REGISTERED_MYSQL_RESOURCE_MISMATCH', $fixture);
@@ -248,7 +309,7 @@ final class RegisteredMysqlTestResourceTest extends TestCase
     {
         $fixture = $this->fixture();
         $environment = &$fixture[2];
-        $environment['DB_NAME'] = 'peanut_admin_development_p0e_run1_plugin_lifecycle';
+        $environment['DB_NAME'] = 'peanut_admin_development_p0e_run1_module_lifecycle';
         $environment['PEANUT_DATABASE_RESOURCE_ID'] = 'peanut-admin-p0e-mysql84-gate';
         $environment['PEANUT_DATABASE_ENVIRONMENT'] = 'development';
         $environment['PEANUT_DATABASE_RESOURCE_SCOPE'] = 'peanut_admin_development_p0e_run1_';
@@ -266,7 +327,7 @@ final class RegisteredMysqlTestResourceTest extends TestCase
         $resource['namespace'] = 'peanut_admin_development_p0e_<run_id>_';
         $resource['run_id_pattern'] = '^[a-z0-9]{1,11}$';
         $resource['database_name_max_length'] = 64;
-        $resource['allowed_scenarios'] = ['plugin_lifecycle'];
+        $resource['allowed_scenarios'] = ['module_lifecycle'];
         $fixture[1]['metadata']['lease'] = $environment['PEANUT_DATABASE_LEASE_ID'];
         $fixture[1]['metadata']['gate'] = $environment['PEANUT_DATABASE_LEASE_GATE'];
         $fixture[1]['metadata']['thread'] = $environment['PEANUT_DATABASE_LEASE_THREAD'];

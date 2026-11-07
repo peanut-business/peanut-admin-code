@@ -3,11 +3,10 @@
 declare(strict_types=1);
 
 use app\common\contract\AdminPermissionPolicy;
-use app\adminapi\service\AdminApiAccessRegistry;
-use app\common\service\CoreServiceOverrides;
-use app\common\service\permission\RegisteredAdminPermissionPolicy;
+use app\adminapi\infrastructure\AdminApiAccessRegistry;
+use app\common\composition\CoreServiceOverrides;
+use app\common\policy\permission\RegisteredAdminPermissionPolicy;
 
-require dirname(__DIR__, 2) . '/bootstrap/environment.php';
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 function expectPermission(bool $condition, string $message): void
@@ -30,8 +29,6 @@ expectPermission(
 );
 expectPermission($policy->canAccess(false, 'admin/status', ['admin/edit'], ['admin/edit']) === false, 'URI aliases must not enlarge authorization');
 
-$app = new think\App();
-$app->initialize();
 $configuredAccess = require dirname(__DIR__, 2) . '/config/admin_api_access.php';
 $access = new AdminApiAccessRegistry((int) $configuredAccess['version'], $configuredAccess);
 expectPermission($access->version() === 1, 'admin exception metadata version must be fixed');
@@ -45,11 +42,11 @@ expectPermission($access->isPlatformPublic('POST', 'platformapi/session/login'),
 expectPermission($access->isPlatformAuthenticatedOnly('GET', 'platformapi/session/info'), 'Platform session info must be authenticated-only');
 expectPermission(!$access->isPublic('POST', 'platformapi/session/login'), 'Platform route must not enter Tenant Admin metadata');
 
-$resolution = CoreServiceOverrides::registry()->resolve(CoreServiceOverrides::ADMIN_PERMISSION_POLICY);
-expectPermission($resolution->key === 'authorization.permission.service.policy', 'PHP override key must be stable');
-expectPermission($resolution->contract === AdminPermissionPolicy::class, 'PHP override contract must be stable');
-expectPermission($resolution->contractVersion === '2.0.0', 'PHP override version must be stable');
-expectPermission($resolution->implementation === RegisteredAdminPermissionPolicy::class, 'default policy must be registered');
-expectPermission($resolution->source === 'default', 'empty application override list must resolve the default');
+expectPermission(CoreServiceOverrides::ADMIN_PERMISSION_POLICY === 'authorization.permission.service.policy', 'PHP override key must be stable');
+expectPermission(CoreServiceOverrides::CONTRACT_VERSION === '2.0.0', 'PHP override version must be stable');
+expectPermission(
+    CoreServiceOverrides::registry()->bindings() === [AdminPermissionPolicy::class => RegisteredAdminPermissionPolicy::class],
+    'empty application override list must bind the registered default policy contract',
+);
 
 echo "PB04-AUTH-HOST-001 PHP passed\n";

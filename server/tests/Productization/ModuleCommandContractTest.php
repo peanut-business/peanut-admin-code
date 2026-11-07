@@ -10,11 +10,11 @@ use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\InstanceExecutionContext;
-use app\platform\infrastructure\plugin\ModuleCatalogApplier;
-use app\platform\services\plugin\PlatformModuleRuntimeService;
-use app\platform\services\plugin\PluginCatalogSyncService;
-use app\platform\services\plugin\PluginPackageArchiveService;
-use app\platform\services\plugin\PluginRuntimeGovernanceService;
+use app\platform\infrastructure\module\ModuleCatalogApplier;
+use app\platform\services\module\PlatformModuleRuntimeService;
+use app\platform\services\module\ModuleCatalogSyncService;
+use app\platform\services\module\ModulePackageArchiveService;
+use app\platform\services\module\ModuleRuntimeGovernanceService;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use think\App;
@@ -52,8 +52,8 @@ final class ModuleCommandContractTest extends TestCase
     {
         $signingKeypair = sodium_crypto_sign_keypair();
         $archive = $this->temporary . '/signed-fixture.tar';
-        $packed = (new PluginPackageArchiveService(dirname(__DIR__, 2)))->packModule(
-            'fixture.delivery-record',
+        $packed = (new ModulePackageArchiveService(dirname(__DIR__, 2)))->packModule(
+            'peanut.content-tools',
             $archive,
             [
                 'key_id' => 'module-command-contract',
@@ -235,15 +235,20 @@ final class ModuleCommandContractTest extends TestCase
         $store = new ExecutionContextStore();
         $current = new CurrentExecutionContext($store);
         $catalogs = (new \ReflectionClass(ModuleCatalogApplier::class))->newInstanceWithoutConstructor();
-        $moduleConfig = ['plugin_lock' => '../plugins.lock'];
+        $moduleConfig = ['module_lock' => '../modules.lock'];
+        $tenantStates = new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries();
+        $governance = new ModuleRuntimeGovernanceService($this->temporary . '/server', $moduleConfig, $catalogs, $tenantStates);
         $runtime = new PlatformModuleRuntimeService(
             $this->temporary . '/server',
             $moduleConfig,
             $trustedKeys,
-            new PluginRuntimeGovernanceService($this->temporary . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries()),
-            new PluginCatalogSyncService($this->temporary . '/server', $moduleConfig, $catalogs),
+            $governance,
+            new ModuleCatalogSyncService($this->temporary . '/server', $moduleConfig, $catalogs),
             $catalogs,
-            new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries(),
+            $tenantStates,
+            new \PeanutAdmin\Modules\Ops\Service\DeploymentModuleRequestService($this->temporary, $moduleConfig, $trustedKeys, $governance, $catalogs),
+            (new \ReflectionClass(\PeanutAdmin\Modules\Ops\Service\PlatformModuleOperationExecutionService::class))->newInstanceWithoutConstructor(),
+            new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], 'command-fixture'),
         );
         $app->instance(ExecutionContextStore::class, $store);
         $app->instance(CurrentExecutionContext::class, $current);

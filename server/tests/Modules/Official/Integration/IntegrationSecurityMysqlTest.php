@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once defined('PHPUNIT_COMPOSER_INSTALL') ? PHPUNIT_COMPOSER_INSTALL : dirname(__DIR__, 4) . '/vendor/autoload.php';
 require_once dirname(__DIR__, 4) . '/tests/Support/ThinkPhpTestConnection.php';
 require_once dirname(__DIR__, 4) . '/tests/Support/RegisteredMysqlTestResource.php';
+require_once dirname(__DIR__, 4) . '/tests/Support/IdentityMysqlFixture.php';
 
 define('INTEGRATION_MYSQL_DATABASE', RegisteredMysqlTestResource::configuredDatabaseName());
 
@@ -32,7 +33,6 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Context\AuthorizationDecision;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
-use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Modules\Identity\Auth\TenantSessionAccessService;
 use PeanutAdmin\Modules\Identity\Membership\Query\ThinkPhpTenantMemberDirectory;
@@ -66,7 +66,7 @@ function dropTable(PDO $pdo, string $table): void
 }
 function operation(string $name, int $tenantId, int $accountId, int $memberId, string $sessionKey): AuthorizedOperationContext
 {
-    $session = new ValidatedTenantSession(1, $sessionKey, $tenantId, $accountId, $memberId, 'admin-web', new DateTimeImmutable('2026-07-24T10:00:00Z'), 1);
+    $session = new ValidatedTenantSession(1, $sessionKey, $tenantId, $accountId, $memberId, 'admin-web', new DateTimeImmutable('2026-07-24T10:00:00Z'), 1, 1);
     return AuthorizedOperationContext::fromDecision(AuthorizationDecision::allow(
         TenantContext::fromValidatedSession($session, 'req_c03_mysql_' . $tenantId),
         Package::RESOURCE_KEY,
@@ -86,14 +86,10 @@ try {
     foreach ($drop as $table) {
         dropTable($pdo, $table);
     }
-    foreach (['pa_account', 'pa_tenant', 'pa_tenant_member', 'pa_tenant_audit_event', 'pa_tenant_session', 'pa_tenant_session_token'] as $table) {
-        $pdo->exec(KernelSchema::createSql($table));
-    }
+    IdentityMysqlFixture::install($pdo);
     foreach (Schema::tableNames() as $table) {
         $pdo->exec(Schema::createSql($table));
     }
-    // Only system audit actors are used; no operator/account FK data are inserted.
-    $pdo->exec(KernelSchema::createSql('pa_platform_audit_event'));
 
     $pdo->exec("INSERT INTO pa_tenant(id,code,name,display_name,status,activated_at,created_at,updated_at) VALUES (101,'tenant-a','Tenant A','Tenant A','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000'),(102,'tenant-b','Tenant B','Tenant B','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000')");
     $pdo->exec("INSERT INTO pa_account(id,display_name,status,created_at,updated_at) VALUES (301,'Actor A','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000'),(302,'Actor B','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000'),(303,'Actor C','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000')");
@@ -206,21 +202,29 @@ try {
 
     $sessions = new SessionSecurityService(new TenantSessionAccessService(
         new ThinkPhpTenantMemberDirectory(),
-        new AuditService(),
+        new AuditService($maintenanceCurrent),
     ));
+    // Identity revocation facts require the real actor context and the service-owned transaction.
+    $revoke = function (string $sessionKey) use ($maintenanceContexts, $sessions, $session1) {
+        $context = operation('session-revoke', 101, 301, 501, $session1);
+        return $maintenanceContexts->run(
+            new \app\common\execution\AdminExecutionContext($context->tenantContext, 'peanut.integration.session.revoke'),
+            fn() => $sessions->revoke($context, $sessionKey),
+        );
+    };
     $listed = $sessions->list(operation('session-read', 101, 301, 501, $session1));
     same(2, count($listed), 'sessions self scoped');
     truth($listed[0]->maskedIp === '203.0.113.*' && $listed[1]->maskedIp === '203.0.113.*', 'IPs masked');
     try {
-        $sessions->revoke(operation('session-revoke', 101, 301, 501, $session1), $sessionOther);
+        $revoke($sessionOther);
         throw new RuntimeException('cross-account session revoked');
     } catch (IntegrationSecurityException $exception) {
         same('SESSION_DEVICE_NOT_FOUND', $exception->problemCode, 'cross account hidden');
     }
-    same('revoked', $sessions->revoke(operation('session-revoke', 101, 301, 501, $session1), $sessionOwnSecond)->status, 'own session revoked');
-    same('revoked', $sessions->revoke(operation('session-revoke', 101, 301, 501, $session1), $sessionOwnSecond)->status, 'own session revoke idempotent');
+    same('revoked', $revoke($sessionOwnSecond)->status, 'own session revoked');
+    same('revoked', $revoke($sessionOwnSecond)->status, 'own session revoke idempotent');
     same('revoked', (string) $pdo->query("SELECT status FROM pa_tenant_session_token WHERE token_hash='" . hash('sha256', 'token-' . $sessionOwnSecond) . "'")->fetchColumn(), 'session tokens revoked');
-    same('revoked', $sessions->revoke(operation('session-revoke', 101, 301, 501, $session1), $session1)->status, 'current session revoked');
+    same('revoked', $revoke($session1)->status, 'current session revoked');
     same(2, (int) $pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE event_type='tenant.identity.session_revoked'")->fetchColumn(), 'one Identity audit event per effective revoke');
     $identityAudit = json_encode($pdo->query("SELECT target_resource_id,metadata_json,request_id FROM pa_tenant_audit_event WHERE event_type='tenant.identity.session_revoked'")->fetchAll(), JSON_THROW_ON_ERROR);
     truth(!str_contains($identityAudit, $session1) && !str_contains($identityAudit, $sessionOwnSecond)

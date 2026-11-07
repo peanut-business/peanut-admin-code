@@ -10,21 +10,30 @@ export interface LoginData {
   challengeToken?: string;
 }
 
-export interface LoginRes {
-  token: string;
-}
-export function login(data: LoginData) {
-  return axios.post<LoginRes>('/adminapi/user/login', data);
-}
-
-export function logout() {
-  return axios.post<LoginRes>('/adminapi/user/logout');
-}
-
-export function getUserInfo() {
-  return axios.post<UserState & { website: WebsiteConfig }>(
+export async function getUserInfo() {
+  const response = await axios.post<UserState & { website: WebsiteConfig }>(
     '/adminapi/user/info'
   );
+  const bindings: unknown = response.data.action_bindings;
+  if (
+    !Array.isArray(bindings) ||
+    bindings.some(
+      (item: unknown) =>
+        typeof item !== 'object' ||
+        item === null ||
+        !('page_path' in item) ||
+        typeof item.page_path !== 'string' ||
+        !item.page_path.startsWith('/') ||
+        !('action_key' in item) ||
+        typeof item.action_key !== 'string' ||
+        !item.action_key.trim() ||
+        !('permission_key' in item) ||
+        typeof item.permission_key !== 'string' ||
+        !item.permission_key.trim()
+    )
+  )
+    throw new Error('Invalid action permission bindings');
+  return response;
 }
 
 export function getMenuList() {

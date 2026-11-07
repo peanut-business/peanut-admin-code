@@ -39,20 +39,31 @@ use PeanutAdmin\Modules\Settings\Definition\SettingDefinition;
 use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionLoader;
 use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionRegistry;
 use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionSynchronizer;
+use PeanutAdmin\Modules\Settings\Application\SettingAdminService;
+use PeanutAdmin\Modules\Settings\Application\SettingResolver;
+use PeanutAdmin\Modules\Settings\Cache\ArrayRevisionedSettingCache;
+use PeanutAdmin\Modules\Identity\Tenancy\Application\TenantWorkspaceQueryService;
+use PeanutAdmin\Modules\Identity\Module\TenantEntitlementService;
+use PeanutAdmin\Modules\Identity\Membership\Query\ThinkPhpTenantMemberDirectory;
+use PeanutAdmin\Modules\Identity\Identity\Query\ThinkPhpPlatformOperatorIdentityQuery;
+use PeanutAdmin\Settings\Secret\SecretProtector;
 use Tests\Modules\Official\Settings\Integration\Schema\SettingsMigrationRunner;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 use RuntimeException;
 use think\App;
 
+require_once dirname(__DIR__, 5) . '/Support/RegisteredMysqlTestResource.php';
+require_once dirname(__DIR__, 5) . '/Support/IdentityMysqlFixture.php';
+
 require_once dirname(__DIR__) . '/Schema/SettingsMigrationRunner.php';
 
 abstract class SettingsDatabaseTestCase extends TestCase
 {
-    protected const DATABASE = 'peanut_admin_p1_b03_settings_test';
     protected const NOW = '2026-07-19 08:00:00.000';
 
-    protected PDO $admin;
+    private string $databaseName;
+    private bool $databaseCreated;
     protected PDO $database;
     protected SettingsMigrationRunner $runner;
 
@@ -62,23 +73,12 @@ abstract class SettingsDatabaseTestCase extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        if (getenv('PEANUT_INTEGRATION') !== '1') {
-            self::markTestSkipped('Run through scripts/test-integration.');
-        }
-        $this->requiredPort('MYSQL_PORT');
-        $this->requiredPort('DB_PORT');
-
-        $this->admin = $this->connect();
-        $this->admin->exec('DROP DATABASE IF EXISTS `' . self::DATABASE . '`');
-        $this->admin->exec(
-            'CREATE DATABASE `' . self::DATABASE . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci',
-        );
-        $this->database = $this->connect(self::DATABASE);
-        $this->createParentTables();
+        $this->databaseName = \RegisteredMysqlTestResource::configuredDatabaseName();
+        [$this->database, $this->databaseCreated] = \RegisteredMysqlTestResource::openEmptyDatabase($this->databaseName);
         $this->runner = new SettingsMigrationRunner($this->database);
         $this->runner->migrate();
         $root = dirname(__DIR__, 6);
-        $app = new App($root);
+        $app = App::getInstance();
         $cache = require $root . '/config/cache.php';
         if (!is_array($cache)) {
             throw new RuntimeException('The backend cache configuration is invalid.');
@@ -94,8 +94,11 @@ abstract class SettingsDatabaseTestCase extends TestCase
         foreach ($this->temporaryFiles as $file) {
             @unlink($file);
         }
-        if (isset($this->admin)) {
-            $this->admin->exec('DROP DATABASE IF EXISTS `' . self::DATABASE . '`');
+        if (isset($this->database, $this->databaseCreated)) {
+            if ($this->database->inTransaction()) {
+                $this->database->rollBack();
+            }
+            \RegisteredMysqlTestResource::cleanup($this->database, $this->databaseName, $this->databaseCreated);
         }
         parent::tearDown();
     }
@@ -158,28 +161,55 @@ abstract class SettingsDatabaseTestCase extends TestCase
     protected function tenant(string $code): array
     {
         $statement = $this->database->prepare(
-            'INSERT INTO pa_tenant (code) VALUES (:code)',
+            "INSERT INTO pa_tenant (code, name, display_name, status, created_at, updated_at) VALUES (:code, 'Settings tenant', 'Settings tenant', 'active', :created_at, :updated_at)",
         );
-        $statement->execute(['code' => $code]);
+        $statement->execute(['code' => $code, 'created_at' => self::NOW, 'updated_at' => self::NOW]);
         $tenantId = (int) $this->database->lastInsertId();
+        $this->database->exec("INSERT INTO pa_account (display_name, created_at, updated_at) VALUES ('Settings actor', '" . self::NOW . "', '" . self::NOW . "')");
+        $accountId = (int) $this->database->lastInsertId();
         $statement = $this->database->prepare(
-            'INSERT INTO pa_tenant_member (tenant_id) VALUES (:tenant_id)',
+            "INSERT INTO pa_tenant_member (tenant_id, account_id, display_name, status, created_at, updated_at) VALUES (:tenant_id, :account_id, 'Settings member', 'active', :created_at, :updated_at)",
         );
-        $statement->execute(['tenant_id' => $tenantId]);
+        $statement->execute(['tenant_id' => $tenantId, 'account_id' => $accountId, 'created_at' => self::NOW, 'updated_at' => self::NOW]);
 
         return ['tenant_id' => $tenantId, 'member_id' => (int) $this->database->lastInsertId()];
     }
 
     protected function operator(): int
     {
-        $this->database->exec('INSERT INTO pa_platform_operator () VALUES ()');
+        $this->database->exec("INSERT INTO pa_account (display_name, created_at, updated_at) VALUES ('Settings operator', '" . self::NOW . "', '" . self::NOW . "')");
+        $accountId = (int) $this->database->lastInsertId();
+        $this->database->exec("INSERT INTO pa_platform_operator (account_id, created_at, updated_at) VALUES (" . $accountId . ", '" . self::NOW . "', '" . self::NOW . "')");
 
         return (int) $this->database->lastInsertId();
     }
 
+    protected function settingResolver(
+        SecretProtector $protector,
+        ArrayRevisionedSettingCache $cache,
+    ): SettingResolver {
+        return new SettingResolver(
+            $protector,
+            $cache,
+            new TenantWorkspaceQueryService(new TenantEntitlementService(
+                new CompiledModuleRegistry([], [], [], [], 'settings-test'),
+            )),
+        );
+    }
+
+    protected function settingAdmin(SecretProtector $protector): SettingAdminService
+    {
+        return new SettingAdminService(
+            $protector,
+            $this->settingResolver($protector, new ArrayRevisionedSettingCache()),
+            new ThinkPhpTenantMemberDirectory(),
+            new ThinkPhpPlatformOperatorIdentityQuery(),
+        );
+    }
+
     protected function additionalDatabaseConnection(): PDO
     {
-        return $this->connect(self::DATABASE);
+        return $this->connect();
     }
 
     /** @param array{tenant_id: int, member_id: int} $tenant
@@ -206,6 +236,7 @@ abstract class SettingsDatabaseTestCase extends TestCase
             'admin-web',
             new DateTimeImmutable('2026-07-19T08:00:00Z'),
             1,
+            (int) $this->scalar('SELECT authorization_revision FROM pa_tenant WHERE id = ' . $tenant['tenant_id']),
         ), $requestId);
         $typedTargets = array_map(
             static fn(string $targetId): array => [
@@ -319,20 +350,27 @@ abstract class SettingsDatabaseTestCase extends TestCase
             'X-Request-ID',
         );
         $registry = new CompiledModuleRegistry([
-            ManifestDocument::fromArray('backend/app/Modules/Example/Module', ['key' => 'example.module']),
-            ManifestDocument::fromArray('backend/app/Modules/Other/Module', ['key' => 'other.module']),
+            ManifestDocument::fromObject('backend/app/Modules/Example/Module', (object) [
+                'key' => 'example.module', 'version' => '1.0.0', 'schema_version' => 1,
+                'tenant' => (object) ['enableable' => false],
+            ]),
+            ManifestDocument::fromObject('backend/app/Modules/Other/Module', (object) [
+                'key' => 'other.module', 'version' => '1.0.0', 'schema_version' => 1,
+                'tenant' => (object) ['enableable' => false],
+            ]),
         ], [], [], [], 'settings-host-revision');
         $installation = $this->database->prepare(<<<'SQL'
-INSERT IGNORE INTO pa_module_installation (module_key, status)
-VALUES (:module_key, 'active')
-SQL);
-        $tenantModule = $this->database->prepare(<<<'SQL'
-INSERT IGNORE INTO pa_tenant_module (tenant_id, module_key, status)
-VALUES (:tenant_id, :module_key, 'enabled')
+INSERT IGNORE INTO pa_module_installation (
+    module_key, installed_version, manifest_schema_version, manifest_digest, status, created_at, updated_at
+) VALUES (:module_key, '1.0.0', 1, :manifest_digest, 'active', :created_at, :updated_at)
 SQL);
         foreach (['example.module', 'other.module'] as $moduleKey) {
-            $installation->execute(['module_key' => $moduleKey]);
-            $tenantModule->execute(['tenant_id' => $tenantId, 'module_key' => $moduleKey]);
+            $installation->execute([
+                'module_key' => $moduleKey,
+                'manifest_digest' => $registry->requireManifest($moduleKey)->digest,
+                'created_at' => self::NOW,
+                'updated_at' => self::NOW,
+            ]);
         }
         $tenantRepository = new class ($operation->permission->permissionKeys) implements TenantAuthorizationRepository {
             /** @param list<string> $permissions */
@@ -357,6 +395,11 @@ SQL);
             {
                 return new EffectivePermissionSet($this->permissions);
             }
+
+            public function permissionsForKeys(TenantContext $context, array $permissionKeys): EffectivePermissionSet
+            {
+                return new EffectivePermissionSet(array_values(array_intersect($permissionKeys, $this->permissions)));
+            }
         };
         $platformRepository = new class implements PlatformAuthorizationRepository {
             public function revision(int $operatorId): string
@@ -370,14 +413,17 @@ SQL);
             }
         };
         $permissions = new PermissionMiddleware(
-            new TenantAuthorizationEvaluator($tenantRepository, new RevisionPermissionCache()),
+            new TenantAuthorizationEvaluator($tenantRepository),
             new PlatformAuthorizationEvaluator($platformRepository, new RevisionPermissionCache()),
         );
 
         return new ExternalOperationHost(
             $configuration,
             new TrustedContextAdapter($configuration),
-            new ModuleAvailabilityAdapter($registry, new ModuleAvailabilityService()),
+            new ModuleAvailabilityAdapter($registry, new ModuleAvailabilityService(
+                $registry,
+                new TenantEntitlementService($registry),
+            )),
             new PermissionAdapter($permissions),
             new TypedTargetAdapter($dataPermission),
             new IdempotencyService(),
@@ -386,83 +432,18 @@ SQL);
         );
     }
 
-    private function createParentTables(): void
+    private function connect(): PDO
     {
-        $this->database->exec(<<<'SQL'
-CREATE TABLE pa_tenant (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  code VARCHAR(64) NOT NULL,
-  PRIMARY KEY (id),
-  UNIQUE KEY uk_tenant_code (code)
-) ENGINE=InnoDB
-SQL);
-        $this->database->exec(<<<'SQL'
-CREATE TABLE pa_tenant_member (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  tenant_id BIGINT UNSIGNED NOT NULL,
-  PRIMARY KEY (id),
-  UNIQUE KEY uk_tenant_member_tenant_id (tenant_id, id),
-  CONSTRAINT fk_test_member_tenant FOREIGN KEY (tenant_id) REFERENCES pa_tenant (id) ON DELETE RESTRICT
-) ENGINE=InnoDB
-SQL);
-        $this->database->exec(<<<'SQL'
-CREATE TABLE pa_platform_operator (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  PRIMARY KEY (id)
-) ENGINE=InnoDB
-SQL);
-        $this->database->exec(<<<'SQL'
-CREATE TABLE pa_module_installation (
-  module_key VARCHAR(96) NOT NULL,
-  status VARCHAR(24) NOT NULL,
-  PRIMARY KEY (module_key)
-) ENGINE=InnoDB
-SQL);
-        $this->database->exec(<<<'SQL'
-CREATE TABLE pa_tenant_module (
-  tenant_id BIGINT UNSIGNED NOT NULL,
-  module_key VARCHAR(96) NOT NULL,
-  status VARCHAR(32) NOT NULL,
-  effective_at DATETIME(3) NULL,
-  expires_at DATETIME(3) NULL,
-  PRIMARY KEY (tenant_id, module_key),
-  CONSTRAINT fk_test_tenant_module_tenant FOREIGN KEY (tenant_id) REFERENCES pa_tenant (id) ON DELETE RESTRICT
-) ENGINE=InnoDB
-SQL);
-    }
-
-    private function connect(?string $database = null): PDO
-    {
-        $dsn = sprintf(
-            'mysql:host=127.0.0.1;port=%d%s;charset=utf8mb4',
-            $this->requiredPort('DB_PORT'),
-            $database === null ? '' : ';dbname=' . $database,
+        \RegisteredMysqlTestResource::assertSelectedDatabase($this->database, $this->databaseName);
+        $pdo = new PDO(
+            sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', env('DB_HOST'), env('DB_PORT'), $this->databaseName),
+            env('DB_USER'),
+            env('DB_PASS'),
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false],
         );
+        \RegisteredMysqlTestResource::assertSelectedDatabase($pdo, $this->databaseName);
 
-        return new PDO(
-            $dsn,
-            'root',
-            getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev',
-            [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
-            ],
-        );
+        return $pdo;
     }
-
-    protected function requiredPort(string $name): int
-    {
-        $value = getenv($name);
-        if (!is_string($value) || preg_match('/^[0-9]+$/D', $value) !== 1) {
-            throw new \RuntimeException("Missing required environment variable: {$name}.");
-        }
-        $port = (int) $value;
-        if ($port < 1 || $port > 65535) {
-            throw new \RuntimeException("Invalid port in environment variable: {$name}.");
-        }
-
-        return $port;
-    }
-
 }

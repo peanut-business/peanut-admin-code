@@ -96,7 +96,7 @@ if [ -e .env ] || [ -e private/resources/project-resources.json ] || [ -e privat
     configured=1
 fi
 if { [ -e private/resources/configuration.lock ] || [ -L private/resources/configuration.lock ]; } &&
-    { [ ! -f .env ] || [ ! -f private/resources/project-resources.json ] || [ ! -f private/resources/configuration.json ]; }; then
+    { [ ! -f .env ] || [ ! -f private/resources/configuration.json ]; }; then
     blocked=1
 fi
 
@@ -128,7 +128,7 @@ fi
 if [ "${installed:-0}" -eq 1 ]; then
     [ "${blocked:-0}" -ne 1 ] &&
         [ -f private/installation/installed.json ] && [ ! -L private/installation/installed.json ] &&
-        [ -f .env ] && [ -f private/resources/project-resources.json ] || {
+        [ -f .env ] || {
         echo 'installed instance is incomplete' >&2; exit 1;
     }
     if grep -Eq '^PEANUT_INSTALLATION_MODE=guided$' .env && [ ! -f private/resources/configuration.json ]; then
@@ -136,7 +136,7 @@ if [ "${installed:-0}" -eq 1 ]; then
     fi
 elif [ "${blocked:-0}" -eq 1 ] || {
     [ "${configured:-0}" -eq 1 ] &&
-    { [ ! -f .env ] || [ ! -f private/resources/project-resources.json ] || [ ! -f private/resources/configuration.json ]; }; }; then
+    { [ ! -f .env ] || [ ! -f private/resources/configuration.json ]; }; }; then
     echo 'partial or legacy installation state blocks permission preparation' >&2
     exit 1
 fi
@@ -164,7 +164,38 @@ for path in private private/storage private/installation private/resources priva
     esac
 done
 
+if [ -e private/collaboration ] || [ -L private/collaboration ]; then
+    safe_dir private/collaboration
+    owner=$(stat -c %u private/collaboration)
+    [ "$owner" -eq 0 ] || [ "$owner" -eq "$root_uid" ] || { echo 'unknown collaboration directory owner' >&2; exit 1; }
+    chown "0:$app_gid" private/collaboration
+    chmod 0710 private/collaboration
+fi
+if [ -e private/collaboration/service ] || [ -L private/collaboration/service ]; then
+    safe_dir private/collaboration/service
+    owner=$(stat -c %u private/collaboration/service)
+    [ "$owner" -eq 0 ] || [ "$owner" -eq "$root_uid" ] || { echo 'unknown collaboration service directory owner' >&2; exit 1; }
+    for path in private/collaboration/service/* private/collaboration/service/.[!.]* private/collaboration/service/..?*; do
+        [ -e "$path" ] || [ -L "$path" ] || continue
+        case "$path" in
+            private/collaboration/service/service-secret|private/collaboration/service/ca.pem) ;;
+            *) echo 'unexpected collaboration service directory contents' >&2; exit 1 ;;
+        esac
+    done
+    chown "0:$app_gid" private/collaboration/service
+    chmod 0710 private/collaboration/service
+fi
+if [ -e private/collaboration/service/ca.pem ] || [ -L private/collaboration/service/ca.pem ]; then
+    path=private/collaboration/service/ca.pem
+    [ -f "$path" ] && [ ! -L "$path" ] && [ "$(stat -c %h "$path")" = 1 ] || { echo 'unsafe collaboration public CA' >&2; exit 1; }
+    owner=$(stat -c %u "$path"); mode=$(stat -c %a "$path")
+    [ "$owner" -eq 0 ] || [ "$owner" -eq "$root_uid" ] || [ "$owner" -eq "$app_uid" ] || { echo 'unknown collaboration public CA owner' >&2; exit 1; }
+    [ $((0$mode & 0022)) -eq 0 ] || { echo 'writable collaboration public CA' >&2; exit 1; }
+    chown "$app_uid:$app_gid" "$path"
+    chmod 0644 "$path"
+fi
 for path in .env .env.bootstrap .env.installing \
+    private/collaboration/service/service-secret private/collaboration/ticket-secret \
     private/resources/project-resources.json private/resources/configuration.json \
     private/resources/configuration.lock private/resources/database-provisioned.json \
     private/installation/installed.json private/installation/executing.json \

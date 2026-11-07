@@ -1,16 +1,11 @@
 <?php
 
-$requiredDatabaseValue = static function (string $name): string {
-    $value = env($name, null);
-    if (!is_string($value) && !is_int($value)) {
-        throw new RuntimeException("BACKEND_ENVIRONMENT_REQUIRED:{$name}");
-    }
-    $value = (string) $value;
-    if (trim($value) === '') {
-        throw new RuntimeException("BACKEND_ENVIRONMENT_REQUIRED:{$name}");
-    }
-    return $value;
-};
+$databaseName = env('DB_NAME', '');
+$databaseUser = env('DB_USER', '');
+$databasePassword = env('DB_PASS', null);
+// Configuration must load before first setup. An absent connection is rejected
+// by ThinkPHP when used; an explicitly configured empty password remains valid.
+$databaseConfigured = $databaseName !== '' && $databaseUser !== '' && $databasePassword !== null;
 
 $databaseConnectTimeout = env('DB_CONNECT_TIMEOUT_SECONDS', 5);
 if (
@@ -23,9 +18,6 @@ if (
 $databaseConnectTimeout = (int) $databaseConnectTimeout;
 
 return [
-    // Stable project registry identity used for cache/session/advisory-lock namespaces.
-    'resource_id'     => $requiredDatabaseValue('PEANUT_DATABASE_RESOURCE_ID'),
-
     // 默认使用的数据库连接配置
     'default'         => env('DB_DRIVER', 'mysql'),
 
@@ -44,20 +36,20 @@ return [
     'datetime_field'  => '',
 
     // 数据库连接配置信息
-    'connections'     => [
+    'connections'     => $databaseConfigured ? [
         'mysql' => [
             // 数据库类型
             'type'            => env('DB_TYPE', 'mysql'),
             // 服务器地址
-            'hostname'        => $requiredDatabaseValue('DB_HOST'),
+            'hostname'        => env('DB_HOST', '127.0.0.1'),
             // 数据库名
-            'database'        => $requiredDatabaseValue('DB_NAME'),
+            'database'        => $databaseName,
             // 用户名
-            'username'        => $requiredDatabaseValue('DB_USER'),
+            'username'        => $databaseUser,
             // 密码
-            'password'        => $requiredDatabaseValue('DB_PASS'),
+            'password'        => $databasePassword,
             // 端口
-            'hostport'        => $requiredDatabaseValue('DB_PORT'),
+            'hostport'        => env('DB_PORT', '3306'),
             // 数据库连接参数
             'params'          => [
                 PDO::ATTR_TIMEOUT => $databaseConnectTimeout,
@@ -65,7 +57,7 @@ return [
             // 数据库编码
             'charset'         => env('DB_CHARSET', 'utf8mb4'),
             // 数据库表前缀
-            'prefix'          => $requiredDatabaseValue('DB_PREFIX'),
+            'prefix'          => env('DB_PREFIX', 'pa_'),
 
             // 数据库部署方式:0 集中式(单一服务器),1 分布式(主从服务器)
             'deploy'          => 0,
@@ -79,12 +71,12 @@ return [
             'fields_strict'   => true,
             // 是否需要断线重连
             'break_reconnect' => false,
-            // 监听SQL
-            'trigger_sql'     => env('APP_DEBUG', true),
+            // Preserve normal debug logging; an owner-selected FPM sample enables this connection only after its safe listener is installed.
+            'trigger_sql'     => env('APP_DEBUG', false),
             // 开启字段缓存
             'fields_cache'    => false,
         ],
 
         // 更多的数据库配置信息
-    ],
+    ] : [],
 ];

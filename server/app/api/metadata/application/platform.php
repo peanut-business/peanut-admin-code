@@ -46,12 +46,23 @@ $schemas = [
     ],
     'PlatformSessionInfo' => [
         'type' => 'object', 'additionalProperties' => false,
-        'required' => ['audience', 'account_id', 'platform_operator_id', 'permissions', 'navigation'],
+        'required' => ['audience', 'account_id', 'platform_operator_id', 'permissions', 'api_access', 'navigation'],
         'properties' => [
             'audience' => ['type' => 'string', 'enum' => ['platform']],
             'account_id' => ['type' => 'string', 'pattern' => '^[1-9][0-9]*$'],
             'platform_operator_id' => ['type' => 'string', 'pattern' => '^[1-9][0-9]*$'],
             'permissions' => $stringList,
+            'api_access' => [
+                'type' => 'array',
+                'description' => 'Current instance API access for UI presentation; every request is authorized again on the server.',
+                'items' => [
+                    'type' => 'object', 'additionalProperties' => false, 'required' => ['method', 'path'],
+                    'properties' => [
+                        'method' => ['type' => 'string', 'enum' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']],
+                        'path' => ['type' => 'string', 'pattern' => '^/platformapi/'],
+                    ],
+                ],
+            ],
             'navigation' => ['type' => 'array', 'items' => ['type' => 'string', 'pattern' => '^/platform/']],
         ],
     ],
@@ -84,7 +95,7 @@ $schemas = [
             'scope' => ['type' => 'string', 'enum' => ['application-instance']],
             'permission_catalog' => ['type' => 'string', 'enum' => ['platform.*']],
             'tenant_business_access' => ['type' => 'boolean', 'enum' => [false]],
-            'operations' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => ['platform.tenant.create', 'platform.tenant.lifecycle', 'platform.tenant.provision-owner', 'platform.tenant.module.manage']]],
+            'operations' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => ['platform.tenant.create', 'platform.tenant.lifecycle', 'platform.tenant.provision-owner', 'platform.tenant.license.manage']]],
         ],
     ],
     'PlatformOperator' => [
@@ -148,20 +159,6 @@ $schemas = [
             'updated_at' => $nullableString, 'installed_version' => ['type' => 'string'], 'installation_status' => ['type' => 'string'],
         ],
     ],
-    'PlatformTenantModuleRecord' => [
-        'type' => 'object', 'additionalProperties' => false,
-        'required' => ['id', 'tenant_id', 'module_key', 'status', 'source', 'config_revision', 'authorization_revision', 'effective_at', 'expires_at', 'enabled_at', 'disabled_at', 'disabled_reason', 'created_at', 'updated_at', 'config'],
-        'properties' => [
-            'id' => ['type' => 'string', 'pattern' => '^[1-9][0-9]*$'],
-            'tenant_id' => ['type' => 'string', 'pattern' => '^[1-9][0-9]*$'],
-            'module_key' => ['type' => 'string'], 'status' => ['type' => 'string'], 'source' => ['type' => 'string'],
-            'config_revision' => ['type' => 'string', 'pattern' => '^[0-9]+$'],
-            'authorization_revision' => ['type' => 'string', 'pattern' => '^[0-9]+$'],
-            'effective_at' => $nullableString, 'expires_at' => $nullableString, 'enabled_at' => $nullableString,
-            'disabled_at' => $nullableString, 'disabled_reason' => $nullableString,
-            'created_at' => ['type' => 'string'], 'updated_at' => ['type' => 'string'], 'config' => $dynamicMap,
-        ],
-    ],
     'PlatformTenantOwner' => [
         'type' => 'object', 'additionalProperties' => false,
         'required' => ['member_id', 'tenant_id', 'account_id', 'display_name', 'member_status', 'security_revision', 'authorization_revision', 'joined_at', 'created_at', 'updated_at', 'account_display_name', 'account_status', 'email', 'role_id', 'role_key'],
@@ -209,7 +206,7 @@ $schemas = [
     ],
     'PlatformModuleDescriptor' => [
         'type' => 'object', 'additionalProperties' => false,
-        'required' => ['module_key', 'name', 'version', 'manifest_digest', 'package_key', 'package_version', 'dependencies', 'package_modules', 'lifecycle_protected', 'status', 'tenant_enabled_count', 'blockers', 'dependents'],
+        'required' => ['module_key', 'name', 'version', 'manifest_digest', 'package_key', 'package_version', 'dependencies', 'package_modules', 'lifecycle_protected', 'status', 'tenant_enabled_count', 'blockers', 'dependents', 'tenant'],
         'properties' => [
             'module_key' => ['type' => 'string'], 'name' => ['type' => 'string'], 'version' => ['type' => 'string'],
             'manifest_digest' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$'], 'package_key' => ['type' => 'string'],
@@ -217,6 +214,7 @@ $schemas = [
             'dependencies' => ['type' => 'array', 'items' => ['type' => 'object', 'additionalProperties' => false, 'required' => ['module_key', 'version'], 'properties' => ['module_key' => ['type' => 'string'], 'version' => ['type' => 'string']]]],
             'package_modules' => $stringList, 'lifecycle_protected' => ['type' => 'boolean'], 'status' => ['type' => 'string'],
             'tenant_enabled_count' => ['type' => 'integer', 'minimum' => 0], 'blockers' => $stringList, 'dependents' => $stringList,
+            'tenant' => ['type' => 'object', 'additionalProperties' => false, 'required' => ['enableable','required','requires'], 'properties' => ['enableable' => ['type' => 'boolean'], 'required' => ['type' => 'boolean'], 'requires' => $stringList]],
         ],
     ],
     'PlatformModuleLifecycleResult' => [
@@ -289,9 +287,30 @@ $schemas = [
                     ]],
                 ],
             ],
-            'version' => ['type' => 'object', 'additionalProperties' => false, 'required' => ['commit', 'tree', 'release_key', 'built_at'], 'properties' => ['commit' => ['type' => 'string'], 'tree' => ['type' => 'string'], 'release_key' => $nullableString, 'built_at' => $dateTime]],
+            'version' => ['type' => 'object', 'additionalProperties' => false, 'required' => ['commit', 'tree', 'release_key', 'built_at'], 'properties' => ['commit' => $nullableString, 'tree' => $nullableString, 'release_key' => $nullableString, 'built_at' => $dateTime]],
             'migrations' => ['type' => 'object', 'additionalProperties' => false, 'required' => ['applied', 'target', 'pending', 'inventory_digest', 'drift'], 'properties' => ['applied' => ['type' => 'integer'], 'target' => ['type' => 'integer'], 'pending' => ['type' => 'integer', 'minimum' => 0], 'inventory_digest' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$'], 'drift' => ['type' => 'boolean']]],
-            'upgrade' => ['type' => 'object', 'additionalProperties' => false, 'required' => ['state', 'code', 'source_commit', 'target_commit', 'repository_clean', 'backup_verified', 'source_evidence_matches'], 'properties' => ['state' => ['type' => 'string'], 'code' => ['type' => 'string'], 'source_commit' => ['type' => 'string'], 'target_commit' => ['type' => 'string'], 'repository_clean' => ['type' => 'boolean'], 'backup_verified' => ['type' => 'boolean'], 'source_evidence_matches' => ['type' => 'boolean']]],
+            'upgrade' => ['type' => 'object', 'additionalProperties' => false, 'required' => ['state', 'code', 'source_commit', 'target_commit', 'repository_clean', 'backup_verified', 'source_evidence_matches'], 'properties' => ['state' => ['type' => 'string'], 'code' => ['type' => 'string'], 'source_commit' => $nullableString, 'target_commit' => $nullableString, 'repository_clean' => ['type' => 'boolean', 'nullable' => true], 'backup_verified' => ['type' => 'boolean'], 'source_evidence_matches' => ['type' => 'boolean']]],
+        ],
+    ],
+    'PlatformOpsLogPage' => [
+        'type' => 'object', 'additionalProperties' => false,
+        'description' => '最近 24 小时的平台审计脱敏摘要；最多读取 100 个聚合组后按最低级别过滤，不提供完整搜索或游标分页。',
+        'required' => ['items', 'next_cursor'],
+        'properties' => [
+            'items' => ['type' => 'array', 'maxItems' => 100, 'items' => [
+                'type' => 'object', 'additionalProperties' => false,
+                'required' => ['event_key', 'severity', 'component_key', 'message', 'occurred_at', 'request_id', 'occurrences'],
+                'properties' => [
+                    'event_key' => ['type' => 'string'],
+                    'severity' => ['type' => 'string', 'enum' => ['info', 'warning', 'error', 'critical']],
+                    'component_key' => ['type' => 'string', 'enum' => ['platform.audit']],
+                    'message' => ['type' => 'string', 'description' => '受控消息目录中的通用说明，不含原始日志消息、身份或载荷。'],
+                    'occurred_at' => $dateTime,
+                    'request_id' => $nullableString,
+                    'occurrences' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 1000000],
+                ],
+            ]],
+            'next_cursor' => ['type' => 'string', 'nullable' => true, 'description' => '下一页游标；null 表示有界摘要已读完。'],
         ],
     ],
     'PlatformOpsSnapshot' => [
@@ -303,6 +322,8 @@ $schemas = [
             'backup_contract_status' => ['type' => 'string', 'enum' => ['missing', 'current', 'unsupported_schema']],
             'restore_contract_status' => ['type' => 'string', 'enum' => ['missing', 'current', 'unsupported_schema']],
             'new_paired_backup_required' => ['type' => 'boolean'],
+            'source_identity_known' => ['type' => 'boolean'],
+            'page' => ['type' => 'integer', 'minimum' => 1], 'page_size' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100], 'total' => ['type' => 'integer', 'minimum' => 0],
             'tasks' => ['type' => 'array', 'items' => $ref('PlatformOpsTask')],
             'items' => ['type' => 'array', 'items' => $ref('ApplicationDynamicValue')],
             'status' => ['type' => 'string'], 'ready' => ['type' => 'boolean'],
@@ -506,20 +527,6 @@ $add($paths, 'POST', '/platformapi/tenant-entry-bindings/disable', $operation(
     errors: ['TENANT_ENTRY_INPUT_INVALID', 'TENANT_ENTRY_BINDING_NOT_FOUND'],
 ));
 
-$tenantModuleBase = ['tenant_id' => $positiveId, 'module_key' => ['type' => 'string', 'pattern' => '^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$', 'maxLength' => 96], 'change_reason' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 500]];
-$add($paths, 'POST', '/platformapi/tenants/modules/enable', $operation(
-    'enablePlatformTenantModule',
-    'PlatformTenantModules',
-    $responses('PlatformTenantModuleRecord'),
-    requestBody: $jsonBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['tenant_id', 'module_key', 'change_reason'], 'properties' => $tenantModuleBase + ['config' => $dynamicMap, 'effective_at' => $dateTime, 'expires_at' => $dateTime]]),
-));
-$add($paths, 'POST', '/platformapi/tenants/modules/disable', $operation(
-    'disablePlatformTenantModule',
-    'PlatformTenantModules',
-    $responses('PlatformTenantModuleRecord'),
-    requestBody: $jsonBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['tenant_id', 'module_key', 'change_reason'], 'properties' => $tenantModuleBase]),
-));
-
 // 实例级 Module 工具；安装是 multipart tar，不是 JSON。
 $add($paths, 'GET', '/platformapi/instance-tools/modules', $operation(
     'listInstanceModules',
@@ -533,6 +540,21 @@ $add($paths, 'POST', '/platformapi/instance-tools/modules/install', $operation(
     $responses('PlatformModuleLifecycleResult'),
     requestBody: $multipartBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['package', 'expected_sha256'], 'properties' => ['package' => ['type' => 'string', 'format' => 'binary'], 'expected_sha256' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$'], 'signature_key_id' => ['type' => 'string']]]),
     errors: ['MODULE_PACKAGE_REQUEST_INVALID'],
+));
+$add($paths, 'POST', '/platformapi/instance-tools/modules/update', $operation(
+    'updateInstanceModule',
+    'PlatformModules',
+    $responses('PlatformOpsTask'),
+    [$header('Idempotency-Key', ['type' => 'string', 'minLength' => 8, 'maxLength' => 200, 'pattern' => '^[!-~]+$'], true)],
+    requestBody: $multipartBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['package', 'expected_sha256'], 'properties' => ['package' => ['type' => 'string', 'format' => 'binary'], 'expected_sha256' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$'], 'signature_key_id' => ['type' => 'string']]]),
+    errors: ['MODULE_PACKAGE_REQUEST_INVALID', 'OPS_MODULE_REQUEST_INVALID'],
+));
+$add($paths, 'GET', '/platformapi/instance-tools/modules/tasks/{task_key}', $operation(
+    'getInstanceModuleTask',
+    'PlatformModules',
+    $responses('PlatformOpsTask'),
+    [$path('task_key', ['type' => 'string', 'pattern' => '^job_[a-f0-9]{32}$'])],
+    errors: ['OPS_TASK_NOT_FOUND'],
 ));
 $add($paths, 'POST', '/platformapi/instance-tools/modules/create', $operation(
     'createInstanceModule',
@@ -557,13 +579,15 @@ $add($paths, 'POST', '/platformapi/instance-tools/modules/uninstall', $operation
     'uninstallInstanceModule',
     'PlatformModules',
     $responses('PlatformModuleLifecycleResult'),
+    [$header('Idempotency-Key', ['type' => 'string', 'minLength' => 8, 'maxLength' => 200, 'pattern' => '^[!-~]+$'], false)],
     requestBody: $jsonBody([
         'oneOf' => [
             ['type' => 'object', 'additionalProperties' => false, 'required' => ['module_key', 'purge', 'preview'], 'properties' => ['module_key' => ['type' => 'string', 'maxLength' => 96], 'purge' => ['type' => 'boolean'], 'preview' => ['type' => 'boolean', 'enum' => [true]]]],
             ['type' => 'object', 'additionalProperties' => false, 'required' => ['module_key', 'purge', 'preview', 'change_reason', 'confirm_plan', 'confirm_plan_digest', 'confirm_package_key'], 'properties' => ['module_key' => ['type' => 'string', 'maxLength' => 96], 'purge' => ['type' => 'boolean'], 'preview' => ['type' => 'boolean', 'enum' => [false]], 'change_reason' => ['type' => 'string', 'minLength' => 3, 'maxLength' => 500], 'confirm_plan' => $dynamicMap, 'confirm_plan_digest' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$'], 'confirm_package_key' => ['type' => 'string']]],
         ],
     ]),
-    errors: ['MODULE_UNINSTALL_PLAN_CHANGED'],
+    errors: ['MODULE_UNINSTALL_PLAN_CHANGED', 'MODULE_UNINSTALL_REQUEST_INVALID'],
+    description: 'preview=true 返回确认计划；preview=false 必须提供 Idempotency-Key，提交 Ops 模块卸载任务并返回任务状态。',
 ));
 $add($paths, 'GET', '/platformapi/developer-center/catalog', $operation(
     'getPlatformDeveloperCatalog',
@@ -579,6 +603,18 @@ $setOverride = static function (array &$overrides, string $method, string $pathN
     $overrides[$pathName][strtolower($method)] = $contract;
 };
 $add($paths, 'GET', '/platformapi/v1/ops/status', $operation('getPlatformOpsStatus', 'PlatformOps', $opsOk('PlatformOpsStatus')));
+$add($paths, 'GET', '/platformapi/v1/ops/logs', $operation(
+    'listPlatformOpsLogs',
+    'PlatformOps',
+    ['200' => $success($ref('PlatformOpsLogPage')), '400' => $error, '401' => $error, '403' => $error, '503' => $error],
+    [
+        $query('source', ['type' => 'string', 'enum' => ['platform.audit'], 'default' => 'platform.audit']),
+        $query('severity', ['type' => 'string', 'enum' => ['info', 'warning', 'error', 'critical'], 'default' => 'info']),
+        $query('page_size', ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 20]),
+        $query('cursor', ['type' => 'string', 'maxLength' => 128, 'description' => '使用响应的 next_cursor；摘要变化后游标失效，需重新从第一页读取。']),
+    ],
+    errors: ['OPS_REQUEST_INVALID', 'OPS_LOGS_UNAVAILABLE'],
+));
 $add($paths, 'GET', '/platformapi/v1/ops/diagnostics', $operation(
     'downloadPlatformDiagnostics',
     'PlatformOps',
@@ -606,7 +642,12 @@ foreach ([
     '/platformapi/v1/ops/upgrades' => ['listPlatformUpgrades', 'PlatformOpsSnapshot'],
     '/platformapi/v1/ops/backups' => ['listPlatformBackups', 'PlatformOpsSnapshot'],
 ] as $pathName => [$operationId, $schema]) {
-    $setOverride($overrides, 'GET', $pathName, $operation($operationId, 'PlatformOps', $opsOk($schema)));
+    $pagination = in_array($pathName, ['/platformapi/v1/ops/providers', '/platformapi/v1/ops/backups'], true)
+        ? [$query('page', ['type' => 'integer', 'minimum' => 1, 'maximum' => 999999, 'default' => 1]),
+            $query('page_size', ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 20])] : [];
+    $responses = $opsOk($schema);
+    if ($pagination !== []) { $responses['400'] = $error; }
+    $setOverride($overrides, 'GET', $pathName, $operation($operationId, 'PlatformOps', $responses, $pagination));
 }
 $setOverride($overrides, 'GET', '/platformapi/v1/ops/tasks/{task_key}', $operation(
     'getPlatformOpsTask',
@@ -644,5 +685,48 @@ foreach ($opsTasks as $route => [$operationId, $schema]) {
         errors: $route === 'restore' ? ['OPS_RESTORE_UNSUPPORTED_SCHEMA'] : [],
     ));
 }
+
+$planProperties = [
+    'id' => $positiveId, 'code' => ['type' => 'string'], 'name' => ['type' => 'string'],
+    'status' => ['type' => 'string', 'enum' => ['active','inactive']], 'revision' => $positiveId,
+    'module_keys' => $stringList, 'permission_keys' => $stringList,
+];
+$schemas['TenantPlan'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => array_keys($planProperties), 'properties' => $planProperties];
+$licenseProperties = [
+    'id' => $positiveId, 'tenant_id' => $positiveId, 'plan_id' => $positiveId,
+    'plan_code' => ['type' => 'string'], 'plan_name' => ['type' => 'string'],
+    'status' => ['type' => 'string', 'enum' => ['active','suspended']],
+    'effective_at' => $dateTime, 'expires_at' => $dateTime + ['nullable' => true],
+    'revision' => $positiveId, 'effective' => ['type' => 'boolean'],
+    'state' => ['type' => 'string', 'enum' => ['active','suspended','upcoming','expired']],
+];
+$schemas['TenantLicense'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => array_keys($licenseProperties), 'properties' => $licenseProperties];
+$schemas['TenantLicenseData'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['tenant_id','license'], 'properties' => ['tenant_id' => $positiveId,
+        'license' => ['allOf' => [$ref('TenantLicense')], 'nullable' => true]]];
+$planWrite = ['name' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 160],
+    'module_keys' => $stringList, 'permission_keys' => $stringList,
+    'change_reason' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 500]];
+$schemas['TenantPlanCreate'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['code', ...array_keys($planWrite)], 'properties' => ['code' => ['type' => 'string', 'maxLength' => 64, 'pattern' => '^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$'], ...$planWrite]];
+$schemas['TenantPlanUpdate'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['id','expected_revision','status', ...array_keys($planWrite)],
+    'properties' => ['id' => $positiveId, 'expected_revision' => $positiveId, 'status' => $planProperties['status'], ...$planWrite]];
+$licenseWrite = ['tenant_id' => $positiveId, 'plan_id' => $positiveId, 'status' => $licenseProperties['status'],
+    'effective_at' => $dateTime, 'expires_at' => $dateTime + ['nullable' => true],
+    'expected_revision' => ['type' => 'integer', 'minimum' => 0], 'change_reason' => $planWrite['change_reason']];
+$schemas['TenantLicenseWrite'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => array_keys($licenseWrite), 'properties' => $licenseWrite];
+$add($paths, 'GET', '/platformapi/plans', $operation('listTenantPlans', 'TenantPlans', [
+    '200' => $success(['type' => 'object', 'additionalProperties' => false, 'required' => ['lists','count'],
+        'properties' => ['lists' => ['type' => 'array', 'items' => $ref('TenantPlan')], 'count' => ['type' => 'integer', 'minimum' => 0]]]),
+    '401' => $error, '403' => $error, '422' => $error,
+], [$query('page', ['type' => 'integer', 'minimum' => 1, 'default' => 1]), $query('page_size', ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 20])]));
+$add($paths, 'POST', '/platformapi/plans', $operation('createTenantPlan', 'TenantPlans', ['200' => $success($ref('TenantPlan')), '401' => $error, '403' => $error, '404' => $error, '409' => $error, '422' => $error], requestBody: $jsonBody($ref('TenantPlanCreate'))));
+$add($paths, 'PUT', '/platformapi/plans', $operation('updateTenantPlan', 'TenantPlans', ['200' => $success($ref('TenantPlan')), '401' => $error, '403' => $error, '404' => $error, '409' => $error, '422' => $error], requestBody: $jsonBody($ref('TenantPlanUpdate'))));
+$add($paths, 'GET', '/platformapi/tenants/license', $operation('getTenantLicense', 'TenantPlans', ['200' => $success($ref('TenantLicenseData')), '401' => $error, '403' => $error, '404' => $error, '409' => $error, '422' => $error], [$query('tenant_id', $positiveId, true)]));
+$add($paths, 'PUT', '/platformapi/tenants/license', $operation('updateTenantLicense', 'TenantPlans', ['200' => $success($ref('TenantLicenseData')), '401' => $error, '403' => $error, '404' => $error, '409' => $error, '422' => $error], requestBody: $jsonBody($ref('TenantLicenseWrite'))));
 
 return ['paths' => $paths, 'overrides' => $overrides, 'components' => ['schemas' => $schemas]];

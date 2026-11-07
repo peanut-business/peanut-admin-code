@@ -17,7 +17,6 @@ use PeanutAdmin\Modules\Identity\Membership\Application\MemberAdminService;
 use PeanutAdmin\Modules\Identity\Platform\Application\PlatformAccessAdminService;
 use PeanutAdmin\Modules\Identity\Platform\Application\TenantOwnerAdminService;
 use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
-use PeanutAdmin\Modules\Member\Service\MemberIdentityContractService;
 use think\App;
 
 $assertions = 0;
@@ -64,6 +63,7 @@ final class PasswordOverrideProvisionerFixture implements \PeanutAdmin\Modules\I
 
 $app = new App(dirname(__DIR__, 2));
 // Exercise real Provider/Service/Module bindings without starting resource-dependent initializers.
+$app->config->set(['mode' => 'standalone'], 'deployment');
 $app->config->load(dirname(__DIR__, 2) . '/config/modules.php', 'modules');
 (new AppService($app))->register();
 $policy = $app->make(PasswordPolicy::class);
@@ -114,8 +114,7 @@ $policyResponse = $app->invokeMethod([$policyController, 'passwordPolicy'])->get
 passwordExpect($policyResponse['data'] === ['minimum_length' => 2, 'maximum_length' => 8, 'length_unit' => 'utf8_bytes'], 'Public limits bypassed native policy binding');
 
 foreach ([MemberAdminService::class, AccountSelfService::class, PlatformAccessAdminService::class,
-    TenantOwnerAdminService::class, BootstrapService::class, TenantOwnerInvitationPublicService::class,
-    MemberIdentityContractService::class] as $class) {
+    TenantOwnerAdminService::class, BootstrapService::class, TenantOwnerInvitationPublicService::class] as $class) {
     $app->delete($class);
     $service = $app->make($class);
     passwordExpect(passwordDependency($service, 'passwords') === $customHasher, $class . ' bypassed hasher binding');

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use app\platform\infrastructure\plugin\DevelopmentModuleDiscovery;
+use app\platform\infrastructure\module\DevelopmentModuleDiscovery;
 use PeanutAdmin\Kernel\Module\ModuleHostLayout;
 use PeanutAdmin\Kernel\Module\ModuleKey;
 
@@ -20,14 +20,16 @@ function moduleCreateRun(string $serverRoot, array $arguments): array
 {
     $pipes = [];
     $process = proc_open(
-        [PHP_BINARY, $serverRoot . '/think', 'module:create', ...$arguments],
-        [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+        [PHP_BINARY, $serverRoot . '/module'],
+        [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
         $pipes,
         $serverRoot,
     );
     if (!is_resource($process)) {
         throw new RuntimeException('module:create process could not start');
     }
+    fwrite($pipes[0], json_encode(['operation' => 'create', 'arguments' => $arguments], JSON_THROW_ON_ERROR));
+    fclose($pipes[0]);
     $stdout = stream_get_contents($pipes[1]);
     $stderr = stream_get_contents($pipes[2]);
     fclose($pipes[1]);
@@ -95,7 +97,7 @@ $serverRoot = dirname(__DIR__, 2);
 $projectRoot = dirname($serverRoot);
 $layout = new ModuleHostLayout('server/app/modules', 'app\\modules', 'web/src/modules');
 $suffix = bin2hex(random_bytes(6));
-$officialKey = 'official.generated-' . $suffix;
+$officialKey = 'peanut.generated-' . $suffix;
 $customKey = 'acme.custom-generated-' . $suffix;
 $officialModuleKey = ModuleKey::fromString($officialKey);
 $customModuleKey = ModuleKey::fromString($customKey);
@@ -112,7 +114,7 @@ try {
     $official = moduleCreateRun($serverRoot, [$officialKey, '--client=admin-web']);
     moduleCreateExpect($official['code'] === 0, 'default Official Module creation failed: ' . $official['output']);
     moduleCreateExpect(($official['json']['module_key'] ?? null) === $officialKey, 'Official creation returned another key');
-    moduleCreateExpect(($official['json']['vendor'] ?? null) === 'official', 'Official vendor was not derived');
+    moduleCreateExpect(($official['json']['vendor'] ?? null) === 'peanut', 'Official vendor was not derived');
 
     $custom = moduleCreateRun($serverRoot, [$customKey, '--vendor=acme', '--client=admin-web']);
     moduleCreateExpect($custom['code'] === 0, 'custom vendor Module creation failed: ' . $custom['output']);
@@ -129,7 +131,7 @@ try {
             'module.json', 'src/ModuleProvider.php',
             'route/app.php',
             'resources/permissions.json', 'resources/menus.json',
-            'resources/setting-definitions.json', 'database/migrations/README.md', 'composer.json',
+            'resources/setting-definitions.json', 'composer.json',
         ];
         foreach ($expectedBackendFiles as $relative) {
             moduleCreateExpect(is_file($root . '/' . $relative), "generated backend file is missing: {$relative}");
@@ -157,7 +159,7 @@ try {
 
     $officialManifest = json_decode((string) file_get_contents($officialBackend . '/module.json'), true, 64, JSON_THROW_ON_ERROR);
     moduleCreateExpect(($officialManifest['frontend']['entry'] ?? null) === 'web/src/modules/' . $officialModuleKey->slug() . '/contribution.ts', 'frontend.entry is not key-derived');
-    moduleCreateExpect(($officialManifest['backend']['migrations'] ?? null) === 'database/migrations', 'generated migrations declaration is missing');
+    moduleCreateExpect(($officialManifest['database']['owned_tables'] ?? null) === [] && !isset($officialManifest['backend']['migrations']), 'empty Module skeleton declares database ownership or migrations');
     moduleCreateExpect(($officialManifest['backend']['setting_definitions'] ?? null) === 'resources/setting-definitions.json', 'generated setting definitions declaration is missing');
     moduleCreateExpect(($officialManifest['contracts']['exports'] ?? null) === [], 'generator must not publish an invented empty command interface');
     moduleCreateExpect(($officialManifest['lifecycle']['protected'] ?? null) === false, 'generated Module must be removable by default');
@@ -176,8 +178,15 @@ try {
     moduleCreateExpect(($roots[$officialKey] ?? null) === realpath($officialBackend), 'generated Official Module was not discovered');
     moduleCreateExpect(($roots[$customKey] ?? null) === realpath($customBackend), 'generated custom Module was not discovered');
 
+    try {
+        \app\platform\value\module\ModuleFrontendLayout::contributions(['entry' => 'web/src/modules/wrong/contribution.ts'], $customKey);
+        throw new RuntimeException('mismatched frontend contribution was accepted');
+    } catch (InvalidArgumentException $exception) {
+        moduleCreateExpect(str_contains($exception->getMessage(), 'canonical admin-web entry'), 'unexpected frontend rejection');
+    }
+
     $vite = moduleCreateRunViteDiscovery($projectRoot);
-    moduleCreateExpect($vite['code'] === 0, 'Vite dev did not discover generated contributions: ' . $vite['output']);
+    moduleCreateExpect($vite['code'] === 0, 'Vite contribution contract failed: ' . $vite['output']);
 
     $beforeDuplicate = moduleCreateTreeDigest($officialBackend) . moduleCreateTreeDigest($officialFrontend);
     $duplicate = moduleCreateRun($serverRoot, [$officialKey]);
@@ -186,10 +195,11 @@ try {
     moduleCreateExpect(($duplicate['json']['error'] ?? null) === 'MODULE_CREATE_TARGET_EXISTS', 'duplicate failure code changed');
     moduleCreateExpect($beforeDuplicate === $afterDuplicate, 'duplicate creation changed the existing Module');
 
-    // Official and peanut share PeanutAdmin\\Modules; custom vendors own separate prefixes.
-    $namespaceCollision = moduleCreateRun($serverRoot, ['peanut.generated-' . $suffix, '--vendor=peanut']);
-    moduleCreateExpect($namespaceCollision['code'] === 1, 'cross-vendor PHP namespace collision was accepted');
-    moduleCreateExpect(($namespaceCollision['json']['error'] ?? null) === 'MODULE_CREATE_NAMESPACE_CONFLICT', 'namespace collision failure code changed');
+    // The historical spelling is an ordinary vendor, never an official alias.
+    $historical = moduleCreateRun($serverRoot, ['official.generated-' . $suffix]);
+    moduleCreateExpect($historical['code'] === 0, 'ordinary vendor was treated as an official alias');
+    $historicalComposer = json_decode((string) file_get_contents($projectRoot . '/' . $historical['json']['backend_path'] . '/composer.json'), true, 64, JSON_THROW_ON_ERROR);
+    moduleCreateExpect(isset($historicalComposer['autoload']['psr-4']['Official\\Modules\\Generated' . ucfirst($suffix) . '\\']), 'ordinary vendor prefix changed');
 
     $invalid = moduleCreateRun($serverRoot, ['Invalid/../key']);
     moduleCreateExpect($invalid['code'] === 1, 'invalid Module key was accepted');
@@ -197,6 +207,10 @@ try {
 
     echo "MODULE-CREATE-001 passed official={$officialKey} custom={$customKey}\n";
 } finally {
+    if (isset($historical['json']['backend_path'], $historical['json']['test_path'])) {
+        moduleCreateRemoveTree($projectRoot . '/' . $historical['json']['backend_path']);
+        moduleCreateRemoveTree($projectRoot . '/' . $historical['json']['test_path']);
+    }
     moduleCreateRemoveTree($officialBackend);
     moduleCreateRemoveTree($officialFrontend);
     moduleCreateRemoveTree($customBackend);

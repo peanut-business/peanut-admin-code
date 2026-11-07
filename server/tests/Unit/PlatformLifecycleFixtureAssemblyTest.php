@@ -110,7 +110,10 @@ final class PlatformLifecycleFixtureAssemblyTest extends TestCase
         self::assertInstanceOf(\PeanutAdmin\Modules\Settings\Contract\TenantSettingsQuery::class, $settings);
         self::assertSame($settings, $get($host, 'settingCommands'));
         self::assertSame($database, $get($host, 'database'));
-        self::assertSame($get($get($host, 'externalBindings'), 'execution'), $get($get($host, 'authorization'), 'execution'));
+        self::assertSame($get($host, 'executionContexts'), $get($get($get($host, 'externalBindings'), 'execution'), 'store'));
+        self::assertInstanceOf(\PeanutAdmin\Modules\Task\Contract\TaskBootstrapCommands::class, $get($host, 'tasks'));
+        self::assertSame($get(\think\Container::getInstance()->make(\PeanutAdmin\Modules\Identity\Module\TenantEntitlementService::class), 'registry'), $get($host, 'modules'));
+        self::assertNull($get($host, 'notifications'));
         self::assertSame([], $pdo->query("SELECT name FROM sqlite_master WHERE type='table'")->fetchAll(\PDO::FETCH_COLUMN));
         self::assertFalse($pdo->inTransaction());
     }

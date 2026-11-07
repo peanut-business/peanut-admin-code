@@ -50,9 +50,9 @@ final class SettingCatalogBoundaryTest extends TestCase
     public function testHostUsesPublishedCatalogWithoutReadingSettingsTables(): void
     {
         $root = dirname(__DIR__, 3);
-        $manifest = json_decode(file_get_contents($root . '/server/app/modules/official/settings/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents($root . '/server/app/modules/peanut/settings/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(SettingCatalogService::class, $manifest['contracts']['exports']);
-        $source = file_get_contents($root . '/server/app/platform/infrastructure/plugin/ModuleCatalogApplier.php');
+        $source = file_get_contents($root . '/server/app/platform/infrastructure/module/ModuleCatalogApplier.php');
         foreach (['SettingDefinitionSynchronizer', 'SettingDefinitionRegistry', 'SettingDefinitionLoader', "Db::name('setting_definition')", "'settings' => 'pa_setting_definition'"] as $internal) {
             self::assertStringNotContainsString($internal, $source);
         }
@@ -70,7 +70,7 @@ final class SettingCatalogBoundaryTest extends TestCase
         self::assertSame(2, $this->catalog->activeCount(['fixture.alpha', 'fixture.beta']));
         $before = $this->catalog->revisionRows();
         self::assertSame(['id', 'module_key', 'setting_key', 'status', 'revision', 'definition_digest'], array_keys($before[0]));
-        $this->catalog->synchronize(['fixture.alpha' => ManifestDocument::fromArray($alpha->root, ['key' => 'fixture.alpha'])], $this->now());
+        $this->catalog->synchronize(['fixture.alpha' => ManifestDocument::fromObject($alpha->root, (object) ['key' => 'fixture.alpha'])], $this->now());
         $retired = $this->catalog->revisionRows();
         self::assertSame('retired', $retired[0]['status']);
         self::assertSame(2, (int) $retired[0]['revision']);
@@ -118,8 +118,8 @@ final class SettingCatalogBoundaryTest extends TestCase
     public function testInvalidOwnerAndResourceEscapeDoNotWriteCatalogs(): void
     {
         foreach ([
-            ManifestDocument::fromArray($this->directory, ['key' => 'fixture.beta']),
-            ManifestDocument::fromArray($this->directory, ['key' => 'fixture.alpha', 'backend' => ['setting_definitions' => '../outside.json']]),
+            ManifestDocument::fromObject($this->directory, (object) ['key' => 'fixture.beta']),
+            ManifestDocument::fromObject($this->directory, (object) ['key' => 'fixture.alpha', 'backend' => (object) ['setting_definitions' => '../outside.json']]),
         ] as $manifest) {
             try {
                 $this->catalog->synchronize(['fixture.alpha' => $manifest], $this->now());
@@ -155,12 +155,14 @@ final class SettingCatalogBoundaryTest extends TestCase
         $this->database->exec(<<<'SQL'
             CREATE TABLE pa_permission (id INTEGER PRIMARY KEY, "key" TEXT, module_key TEXT, status TEXT, retired_at TEXT);
             CREATE TABLE pa_menu_definition (id INTEGER PRIMARY KEY, "key" TEXT, module_key TEXT, status TEXT, manifest_digest TEXT);
+            CREATE TABLE pa_api_endpoint (id TEXT PRIMARY KEY, method TEXT, path TEXT, audience TEXT, module_key TEXT, access_mode TEXT, status TEXT, default_permission_keys TEXT, prerequisite_permission_keys TEXT);
+            CREATE TABLE pa_permission_api (permission_id INTEGER, api_id TEXT);
             SQL);
         $host = ThinkPhpTestConnection::moduleCatalogs($this->database);
         $before = $host->catalogRevision();
         $manifest = $this->manifest('fixture.alpha', [$this->definition('theme')]);
         $this->catalog->synchronize(['fixture.alpha' => $manifest], $this->now());
-        $rows = ['pa_permission' => [], 'pa_menu_definition' => [], 'pa_setting_definition' => $this->catalog->revisionRows(), 'pa_reference_code_set' => []];
+        $rows = ['pa_permission' => [], 'api_permissions' => ['endpoints' => [], 'bindings' => []], 'pa_menu_definition' => [], 'pa_setting_definition' => $this->catalog->revisionRows(), 'pa_reference_code_set' => []];
         self::assertSame(hash('sha256', json_encode($rows, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)), $host->catalogRevision());
         self::assertNotSame($before, $host->catalogRevision());
         self::assertSame(['menus' => 0, 'permissions' => 0, 'settings' => 1, 'reference_codes' => 0], (new ReflectionMethod($host, 'activeCounts'))->invoke($host, ['fixture.alpha']));
@@ -179,7 +181,7 @@ final class SettingCatalogBoundaryTest extends TestCase
         $directory = $this->directory . '/' . $key;
         mkdir($directory, 0700, true);
         file_put_contents($directory . '/settings.json', json_encode($definitions, JSON_THROW_ON_ERROR));
-        return ManifestDocument::fromArray($directory, ['key' => $key, 'backend' => ['setting_definitions' => 'settings.json']]);
+        return ManifestDocument::fromObject($directory, (object) ['key' => $key, 'backend' => (object) ['setting_definitions' => 'settings.json']]);
     }
 
     private function tenantValues(): array

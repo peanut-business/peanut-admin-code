@@ -18,11 +18,12 @@ use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
 use PeanutAdmin\Kernel\Authorization\TenantAuthorizationEvaluator;
 use PeanutAdmin\Modules\Identity\Authorization\ThinkPhpTenantAuthorizationRepository;
-use PeanutAdmin\Kernel\Migration\ModuleSchema;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
 use PeanutAdmin\Modules\Identity\Module\ModuleAvailabilityService;
-use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
+use PeanutAdmin\Modules\Identity\Module\TenantEntitlementService;
+use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationQuery;
+use PeanutAdmin\Modules\Identity\Membership\Query\ThinkPhpTenantMemberDirectory;
 use PHPUnit\Framework\TestCase;
 use think\App;
 use think\db\Query;
@@ -31,6 +32,7 @@ use think\facade\Db;
 
 require_once dirname(__DIR__, 4) . '/Support/ThinkPhpTestConnection.php';
 require_once dirname(__DIR__, 4) . '/Support/RegisteredMysqlTestResource.php';
+require_once dirname(__DIR__, 4) . '/Support/IdentityMysqlFixture.php';
 
 final class SourceReadScopeIntegrationTest extends TestCase
 {
@@ -40,15 +42,12 @@ final class SourceReadScopeIntegrationTest extends TestCase
 
     protected function setUp(): void
     {
-        if (getenv('PEANUT_INTEGRATION') !== '1') {
-            self::markTestSkipped('Run with the registered A1 IAM integration database.');
-        }
         // 必须先核验登记端点、精确库名、当前候选和租约；已有非空库绝不清空。
         [$this->database, $this->createdDatabase] = \RegisteredMysqlTestResource::openEmptyDatabase(
             $this->testDatabase(),
         );
         $serverRoot = dirname(__DIR__, 5);
-        $app = new App($serverRoot);
+        $app = \think\Container::getInstance();
         $cache = require $serverRoot . '/config/cache.php';
         if (!is_array($cache)) {
             throw new \RuntimeException('The backend cache configuration is invalid.');
@@ -56,17 +55,8 @@ final class SourceReadScopeIntegrationTest extends TestCase
         $app->config->set($cache, 'cache');
         $app->cache->clear();
         \ThinkPhpTestConnection::fromPdo($this->database);
-        foreach (KernelSchema::tableNames() as $table) {
-            $this->database->exec(KernelSchema::createSql($table));
-        }
-        $this->database->exec(KernelSchema::addTenantMemberDepartmentForeignKeySql());
-        foreach (ModuleSchema::tableNames() as $table) {
-            $this->database->exec(ModuleSchema::createSql($table));
-        }
-        $migration = $serverRoot
-            . '/app/modules/official/identity/database/migrations/20260921020000_create_pa_source_read_grant.sql';
-        $this->database->exec((string) file_get_contents($migration));
-        $identityManifest = (new ManifestLoader())->load($serverRoot . '/app/modules/official/identity');
+        \IdentityMysqlFixture::install($this->database);
+        $identityManifest = (new ManifestLoader())->load($serverRoot . '/app/modules/peanut/identity');
         $this->modules = new CompiledModuleRegistry(
             [$identityManifest],
             [],
@@ -93,9 +83,9 @@ CREATE TABLE `pa_scope_order_line` (
 SQL);
         $this->fixtures();
         $statement = $this->database->prepare(
-            'UPDATE pa_module_installation SET manifest_digest=? WHERE module_key=?',
+            'UPDATE pa_module_installation SET manifest_digest=?,installed_version=? WHERE module_key=?',
         );
-        $statement->execute([$identityManifest->digest, 'official.identity']);
+        $statement->execute([$identityManifest->digest, $identityManifest->data['version'], 'peanut.identity']);
     }
 
     protected function tearDown(): void
@@ -112,15 +102,17 @@ SQL);
             new SourceReadCapability(
                 'fixture.order-summary',
                 'aggregate',
-                'official.identity',
+                'peanut.identity',
                 'core.role.read',
                 'core.role.data-policy.manage',
                 ['id', 'amount', 'status'],
             ),
         ]);
-        $repository = new ThinkPhpTenantAuthorizationRepository();
+        $entitlements = new TenantEntitlementService($this->modules);
+        $repository = new ThinkPhpTenantAuthorizationRepository($entitlements,
+            new TenantAuthorizationQuery(new ThinkPhpTenantMemberDirectory(), $this->modules));
         $permissions = new TenantAuthorizationEvaluator($repository, new RevisionPermissionCache());
-        $modules = new ModuleAvailabilityService($this->modules);
+        $modules = new ModuleAvailabilityService($this->modules, $entitlements);
         $grants = new SourceReadGrantAdministrationService(
             $registry,
             $permissions,
@@ -264,7 +256,9 @@ SQL);
                 'official.summary',
             ),
         ]);
-        $repository = new ThinkPhpTenantAuthorizationRepository();
+        $entitlements = new TenantEntitlementService($this->modules);
+        $repository = new ThinkPhpTenantAuthorizationRepository($entitlements,
+            new TenantAuthorizationQuery(new ThinkPhpTenantMemberDirectory(), $this->modules));
         $permissions = new TenantAuthorizationEvaluator($repository, new RevisionPermissionCache());
         // 这一组只替换模块状态来源，实际授权存储、租户、权限、SQL 和撤销仍用真实 MySQL。
         $moduleCalls = [];
@@ -320,11 +314,7 @@ INSERT INTO pa_role (id,tenant_id,`key`,name,is_builtin,status,created_at,update
 INSERT INTO pa_member_role (tenant_id,tenant_member_id,role_id,assigned_at) VALUES
  (101,501,601,UTC_TIMESTAMP(3)),(202,502,602,UTC_TIMESTAMP(3)),(303,503,603,UTC_TIMESTAMP(3));
 INSERT INTO pa_module_installation (module_key,installed_version,manifest_schema_version,manifest_digest,status,revision,installed_at,activated_at,created_at,updated_at)
- VALUES ('official.identity','4.0.0-dev',1,REPEAT('a',64),'active',1,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3));
-INSERT INTO pa_tenant_module (tenant_id,module_key,status,source,enabled_at,created_at,updated_at) VALUES
- (101,'official.identity','enabled','manual',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3)),
- (202,'official.identity','enabled','manual',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3)),
- (303,'official.identity','enabled','manual',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3));
+ VALUES ('peanut.identity','4.0.0-dev',1,REPEAT('a',64),'active',1,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3));
 INSERT INTO pa_scope_order (tenant_id,id,amount,status) VALUES
  (101,1,999,'local'),(202,1,10,'open'),(202,7,70,'denied'),(303,1,20,'open'),(303,2,30,'not-granted');
 INSERT INTO pa_scope_order_line (tenant_id,id,order_id,quantity) VALUES
@@ -342,6 +332,7 @@ SQL);
             $memberId,
             'admin-web',
             new \DateTimeImmutable('2031-01-01T00:00:00Z'),
+            1,
             1,
         ), 'scope-' . $request);
     }

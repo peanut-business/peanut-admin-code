@@ -118,18 +118,11 @@ final class AuthorizationPersistenceTest extends DatabaseTestCase
             'created_at' => self::NOW,
             'updated_at' => self::NOW,
         ]);
-        $this->insert('pa_tenant_module', [
-            'tenant_id' => $tenant,
-            'module_key' => 'example',
-            'status' => 'enabled',
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
+        $this->licenseTenantModules($tenant, ['example'], 'active');
 
         $revisions = new ThinkPhpAuthorizationRevisionRepository();
         self::assertSame(2, $revisions->bumpTenant($tenant));
         self::assertSame(2, $revisions->bumpMember($tenant, $member));
         self::assertSame(2, $revisions->bumpRole($tenant, $role));
-        self::assertSame(2, $revisions->bumpTenantModule($tenant, 'example'));
     }
 }

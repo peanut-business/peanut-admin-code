@@ -44,10 +44,10 @@ final class DemoAccountPolicyBoundaryTest extends TestCase
 
     public function testPolicyIsPublishedByIdentityWithNoCompatibilityClass(): void
     {
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(DemoAccountPolicy::class, $manifest['contracts']['exports']);
         self::assertFileDoesNotExist(dirname(__DIR__, 2) . '/app/common/policy/DemoAccountPolicy.php');
-        self::assertStringContainsString('/modules/official/identity/src/', (new \ReflectionClass(DemoAccountPolicy::class))->getFileName());
+        self::assertStringContainsString('/modules/peanut/identity/src/', (new \ReflectionClass(DemoAccountPolicy::class))->getFileName());
     }
 
     public function testDisabledDemoDoesNotReadCredentialStorageOrLockNormalDeployments(): void
@@ -82,6 +82,7 @@ final class DemoAccountPolicyBoundaryTest extends TestCase
             $policy->assertPasswordChangeAllowed($accountId);
         }
         self::assertTrue($policy->mutationLocked(['username' => 'demo@example.test'], '/ADMIN/EDIT/'));
+        self::assertTrue($policy->mutationLocked(['username' => 'demo@example.test'], 'core.menu.manage'));
         self::assertFalse($policy->mutationLocked(['username' => 'normal@example.test'], 'admin/edit'));
         self::assertFalse($policy->mutationLocked(['username' => 'demo@example.test'], 'article/read'));
         $this->expectException(\DomainException::class);

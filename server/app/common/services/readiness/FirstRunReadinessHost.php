@@ -22,12 +22,12 @@ use PeanutAdmin\Modules\Ops\Contract\InstanceSafetyQueries;
 final class FirstRunReadinessHost
 {
     public function __construct(
-        private readonly NotificationQueries $notifications,
         private readonly CoreTenantModuleAdminBridge $modules,
         private readonly StorageConfiguration $storage,
         private readonly WebsiteConfigService $website,
         private readonly InstanceSafetyQueries $instanceSafety,
         private readonly PasswordPolicy $passwords,
+        private readonly ?NotificationQueries $notifications = null,
     ) {}
 
     /** @return array{production_ready:bool,summary:array<string,int>,items:list<array<string,mixed>>} */
@@ -39,11 +39,11 @@ final class FirstRunReadinessHost
         $tenantId = $context->tenantId;
         $registeredPermissions = $this->modules->registeredPermissions($tenantId);
         $notificationEnabled = in_array(
-            'official.notification.channel.detail',
+            'peanut.notification.channel.detail',
             $registeredPermissions,
             true,
         );
-        $taskEnabled = in_array('official.task.list', $registeredPermissions, true);
+        $taskEnabled = in_array('peanut.task.list', $registeredPermissions, true);
 
         $items = [
             $this->brand($context),
@@ -109,7 +109,7 @@ final class FirstRunReadinessHost
     {
         $smsConfigured = false;
         if ($moduleEnabled) {
-            $detail = $this->notifications->channelDetail();
+            $detail = ($this->notifications ?? throw new \LogicException('NOTIFICATION_MODULE_UNAVAILABLE'))->channelDetail();
             $smsConfigured = (bool) ($detail['status']['sms'] ?? false);
         }
 

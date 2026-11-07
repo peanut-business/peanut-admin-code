@@ -25,7 +25,11 @@ final class InstanceToolAccessBoundaryTest extends TestCase
             $serverRoot . '/app/platform/http/middleware/PlatformInstanceToolMiddleware.php',
         );
         self::assertStringContainsString('InstanceToolAccessGuard::fromConfiguredValue', $middleware);
-        self::assertStringContainsString('->allows()', $middleware);
+        self::assertStringContainsString('->platformModulePermission($this->execution)', $middleware);
+        self::assertStringContainsString('$this->sessions->assertAllowed(', $middleware);
+        self::assertStringContainsString("Config::get('peanut.environment'", $middleware);
+        self::assertStringContainsString("!app()->isDebug()", $middleware);
+        self::assertStringNotContainsString('->allows()', $middleware);
         self::assertStringNotContainsString('allowsCliDevelopmentMaintenance', $middleware);
     }
 

@@ -2,101 +2,96 @@
 
 declare(strict_types=1);
 
-function expectReferenceCodes(bool $condition, string $message): void
-{
+use PeanutAdmin\Kernel\Auth\TenantContext;
+use PeanutAdmin\Modules\ReferenceCodes\Contract\DictionaryQuery;
+use PeanutAdmin\Modules\ReferenceCodes\Contract\TenantDictionaryCommands;
+use PeanutAdmin\Modules\ReferenceCodes\Infrastructure\ThinkPhpTenantDictionaryProvider;
+use PeanutAdmin\Modules\ReferenceCodes\ModuleProvider;
+use PeanutAdmin\Modules\ReferenceCodes\Service\DictionaryRuntime;
+
+require dirname(__DIR__, 4) . '/vendor/autoload.php';
+
+$checks = 0;
+$assert = static function (bool $condition, string $message) use (&$checks): void {
     if (!$condition) {
         throw new RuntimeException($message);
     }
-}
+    ++$checks;
+};
 
 $serverRoot = dirname(__DIR__, 4);
-$repositoryRoot = dirname($serverRoot);
+$applicationRoot = dirname($serverRoot);
+$moduleRoot = $serverRoot . '/app/modules/peanut/reference_codes';
+$manifest = json_decode((string) file_get_contents($moduleRoot . '/module.json'), true, 512, JSON_THROW_ON_ERROR);
 
-$coreEvidence = json_decode((string) file_get_contents(
-    $repositoryRoot . '/output/playwright/t01/system-tools-core-summary.json',
-), true, 512, JSON_THROW_ON_ERROR);
-$frontendEvidence = json_decode((string) file_get_contents(
-    $repositoryRoot . '/output/playwright/t01/frontend-summary.json',
-), true, 512, JSON_THROW_ON_ERROR);
+$assert($manifest['key'] === 'peanut.reference-codes', 'incorrect native Module owner');
+$assert($manifest['backend']['provider'] === ModuleProvider::class, 'native Module provider registration changed');
+$assert($manifest['backend']['migrations'] === 'database/migrations', 'native Module no longer owns its schema');
+$assert(in_array('pa_dict_type', $manifest['database']['owned_tables'], true)
+    && in_array('pa_dict_data', $manifest['database']['owned_tables'], true)
+    && in_array('pa_reference_code_set', $manifest['database']['owned_tables'], true),
+    'native Module dictionary/reference-code tables were lost');
 
-expectReferenceCodes(($coreEvidence['status'] ?? null) === 'passed', 'sealed T01 core evidence must pass');
+$provider = new ModuleProvider();
+$bindings = $provider->bindings();
+$assert($provider->moduleKey() === $manifest['key'], 'provider/manifest mismatch');
+$assert(($bindings[DictionaryQuery::class] ?? null) === DictionaryRuntime::class
+    && ($bindings[TenantDictionaryCommands::class] ?? null) === DictionaryRuntime::class,
+    'host no longer resolves public dictionary contracts through the selected Module');
+$assert(is_subclass_of(ThinkPhpTenantDictionaryProvider::class,
+    \PeanutAdmin\Modules\ReferenceCodes\Contract\TenantDictionaryCommandProvider::class),
+    'tenant-owned dictionary implementation no longer implements its contract');
+$reflection = new ReflectionMethod(TenantDictionaryCommands::class, 'replaceType');
+$assert($reflection->getParameters()[0]->getType()?->getName() === TenantContext::class,
+    'dictionary mutations no longer require a trusted Tenant context');
+
+$tenantProvider = (string) file_get_contents($moduleRoot . '/src/Infrastructure/ThinkPhpTenantDictionaryProvider.php');
+$dataService = (string) file_get_contents($moduleRoot . '/src/Service/DictDataApplicationService.php');
+$route = (string) file_get_contents($moduleRoot . '/route/app.php');
+$assert(str_contains($tenantProvider, 'Db::transaction(')
+    && str_contains($tenantProvider, '->lock(true)'),
+    'type rename/delete lost its native transaction or row locks');
+$assert(str_contains($tenantProvider, "->where('type_id'")
+    && str_contains($tenantProvider, "'type_value' =>"),
+    'type rename lost dependent entry synchronization');
+$assert(str_contains($tenantProvider, 'DICTIONARY_TYPE_IN_USE'),
+    'occupied dictionary type deletion no longer fails closed');
+$assert(str_contains($tenantProvider, "->where('is_disable', 0)")
+    && str_contains($dataService, 'enabledByType'),
+    'dictionary enabled-only public query changed');
+$assert(str_contains($route, "'peanut.reference-codes.read'")
+    && str_contains($route, "'peanut.reference-codes.manage'")
+    && str_contains($route, 'AuthMiddleware::class'),
+    'read and manage routes no longer declare separate authorization');
+$assert(str_contains($route, 'OfficialModuleMiddleware::class'),
+    'dictionary endpoint no longer gates selected Module availability');
+
 foreach ([
-    'dict_rename_synchronized',
-    'dict_occupied_delete_rejected',
-    'dict_invalid_delete_rejected',
-    'dict_cleanup_delete_succeeded',
-] as $check) {
-    expectReferenceCodes(($coreEvidence['checks'][$check] ?? false) === true, 'missing T01 check: ' . $check);
-}
-expectReferenceCodes(($coreEvidence['fixtures_cleaned'] ?? false) === true, 'T01 core fixtures must be clean');
-expectReferenceCodes(($frontendEvidence['ok'] ?? false) === true, 'sealed T01 frontend evidence must pass');
-expectReferenceCodes(($frontendEvidence['reference']['read_only'] ?? false) === true, 'reference verification must remain read-only');
-expectReferenceCodes(($frontendEvidence['peanut']['dict']['type_renamed'] ?? false) === true, 'type rename evidence missing');
-expectReferenceCodes(($frontendEvidence['peanut']['dict']['data_item_visible'] ?? false) === true, 'data visibility evidence missing');
-expectReferenceCodes(
-    ($frontendEvidence['peanut']['dict']['occupied_delete_rejected_with_visible_message'] ?? false) === true,
-    'occupied delete UI evidence missing',
-);
-expectReferenceCodes(($frontendEvidence['cleanup']['dict_types'] ?? -1) === 0, 'T01 type fixtures must be zero');
-expectReferenceCodes(($frontendEvidence['cleanup']['dict_data'] ?? -1) === 0, 'T01 data fixtures must be zero');
-
-$ownedFiles = [
-    'app/modules/official/reference_codes/src/Controller/DictTypeController.php',
-    'app/modules/official/reference_codes/src/Controller/DictDataController.php',
-    'app/modules/official/reference_codes/src/Validation/DictTypeValidate.php',
-    'app/modules/official/reference_codes/src/Validation/DictDataValidate.php',
-    'app/modules/official/reference_codes/src/Service/DictTypeApplicationService.php',
-    'app/modules/official/reference_codes/src/Service/DictDataApplicationService.php',
-    'app/modules/official/reference_codes/src/Model/DictType.php',
-    'app/modules/official/reference_codes/src/Model/DictData.php',
-    'app/modules/official/reference_codes/src/Infrastructure/ThinkPhpTenantDictionaryProvider.php',
-    'app/modules/official/reference_codes/src/Infrastructure/ThinkPhpSystemDictionaryProvider.php',
-];
-$sources = [];
-foreach ($ownedFiles as $relativePath) {
-    $absolutePath = $serverRoot . '/' . $relativePath;
-    expectReferenceCodes(is_file($absolutePath), 'missing application owner: ' . $relativePath);
-    $sources[$relativePath] = (string) file_get_contents($absolutePath);
+    'src/Controller/DictTypeController.php',
+    'src/Controller/DictDataController.php',
+    'src/Validation/DictTypeValidate.php',
+    'src/Validation/DictDataValidate.php',
+    'src/Service/DictTypeApplicationService.php',
+    'src/Service/DictDataApplicationService.php',
+    'src/Model/DictType.php',
+    'src/Model/DictData.php',
+    'src/Infrastructure/ThinkPhpTenantDictionaryProvider.php',
+    'src/Infrastructure/ThinkPhpSystemDictionaryProvider.php',
+] as $relative) {
+    $path = $moduleRoot . '/' . $relative;
+    $assert(is_file($path) && !is_link($path), 'missing native Module file: ' . $relative);
+    $source = (string) file_get_contents($path);
+    $assert(str_contains($source, 'namespace PeanutAdmin\\Modules\\ReferenceCodes\\'),
+        'source escaped current Module namespace: ' . $relative);
+    $assert(!str_contains($source, 'PeanutAdmin\\ReferenceCodes\\'),
+        'source still imports the retired independent Core dictionary: ' . $relative);
 }
 
-$typeLogic = $sources['app/modules/official/reference_codes/src/Service/DictTypeApplicationService.php'];
-$dataLogic = $sources['app/modules/official/reference_codes/src/Service/DictDataApplicationService.php'];
-$tenantProvider = $sources['app/modules/official/reference_codes/src/Infrastructure/ThinkPhpTenantDictionaryProvider.php'];
-expectReferenceCodes(str_contains($tenantProvider, 'Db::transaction('), 'type mutations must retain a transaction');
-expectReferenceCodes(str_contains($tenantProvider, '->lock(true)'), 'type mutations must retain row locks');
-expectReferenceCodes(
-    str_contains($tenantProvider, "->where('type_id'")
-        && str_contains($tenantProvider, "'type_value' =>"),
-    'type rename must synchronize data.type_value',
-);
-expectReferenceCodes(
-    str_contains($tenantProvider, '字典类型已被数据项使用，请先删除数据项'),
-    'occupied type deletion must fail closed',
-);
-expectReferenceCodes(
-    str_contains($tenantProvider, "->where('is_disable', 0)")
-        && str_contains($dataLogic, 'enabledByType'),
-    'byType must expose enabled data only',
-);
+$zhLocale = (string) file_get_contents($applicationRoot . '/web/src/views/system/dict/locale/zh-CN.ts');
+$enLocale = (string) file_get_contents($applicationRoot . '/web/src/views/system/dict/locale/en-US.ts');
+$assert(str_contains($zhLocale, '存在字典数据时不能删除'),
+    'Chinese delete warning no longer describes rejection');
+$assert(str_contains($enLocale, 'cannot be deleted while it contains data'),
+    'English delete warning no longer describes rejection');
 
-foreach ($sources as $relativePath => $source) {
-    expectReferenceCodes(
-        !str_contains($source, 'PeanutAdmin\\ReferenceCodes'),
-        'application dict owner must not deep import core: ' . $relativePath,
-    );
-    expectReferenceCodes(
-        !str_contains($source, 'reference_code_'),
-        'application dict owner must not bind core schema: ' . $relativePath,
-    );
-}
-
-$zhLocale = (string) file_get_contents(
-    $repositoryRoot . '/web/src/views/system/dict/locale/zh-CN.ts',
-);
-$enLocale = (string) file_get_contents(
-    $repositoryRoot . '/web/src/views/system/dict/locale/en-US.ts',
-);
-expectReferenceCodes(str_contains($zhLocale, '存在字典数据时不能删除'), 'Chinese delete copy must describe rejection');
-expectReferenceCodes(str_contains($enLocale, 'cannot be deleted while it contains data'), 'English delete copy must describe rejection');
-
-echo "PB04-REFERENCE-CODES-HOST-001 passed\n";
+echo "PB04-REFERENCE-CODES-HOST-001 passed; current Module contract; {$checks} checks; browser/real-MySQL NOT_RUN\n";

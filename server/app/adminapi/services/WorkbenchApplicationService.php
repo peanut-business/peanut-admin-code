@@ -8,6 +8,7 @@ use app\common\services\authorization\AdminAuthorizationService;
 use PeanutAdmin\Modules\File\Contract\FileReferences;
 use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
+use PeanutAdmin\Modules\Settings\Contract\TenantSettingsQuery;
 
 class WorkbenchApplicationService
 {
@@ -18,18 +19,22 @@ class WorkbenchApplicationService
         private readonly string $projectVersion,
         private readonly string $projectBased,
         private readonly array $defaultImages,
+        private readonly TenantSettingsQuery $settings,
     ) {}
 
     public function index(TenantContext $context): array
     {
         $website = $this->website->get($context);
+        $demo = $this->settings->get($context, 'application.workbench-demo')->document;
+        $available = ($demo['preset'] ?? null) === 'workbench';
         return [
             'version' => $this->versionInfo($context, $website),
-            'today'   => self::today(),
+            'statistics_state' => $available ? 'demo' : 'unavailable',
+            'today'   => $available ? $demo['today'] : self::today(),
             'menu'    => self::menu($context),
-            'visitor' => self::visitor(),
+            'visitor' => $available ? $demo['visitor'] : ['date' => [], 'list' => []],
             'support' => $this->support($context, $website),
-            'sale'    => self::sale(),
+            'sale'    => $available ? $demo['sale'] : ['date' => [], 'list' => []],
         ];
     }
 
@@ -51,26 +56,25 @@ class WorkbenchApplicationService
     public function today(): array
     {
         return [
-            'time'           => date('Y-m-d H:i:s'),
-            'today_sales'    => 100,
-            'total_sales'    => 1000,
-            'today_visitor'  => 10,
-            'total_visitor'  => 100,
-            'today_new_user' => 30,
-            'total_new_user' => 3000,
-            'order_num'      => 12,
-            'order_sum'      => 255,
+            'time'           => '',
+            'today_sales'    => 0,
+            'total_sales'    => 0,
+            'today_visitor'  => 0,
+            'total_visitor'  => 0,
+            'today_new_user' => 0,
+            'total_new_user' => 0,
+            'order_num'      => 0,
+            'order_sum'      => 0,
         ];
     }
 
     public function menu(TenantContext $context): array
     {
         $items = [
-            ['name' => '管理员', 'image' => 'menu_admin', 'url' => '/system/admin'],
-            ['name' => '角色管理', 'image' => 'menu_role', 'url' => '/system/role'],
-            ['name' => '部门管理', 'image' => 'menu_dept', 'url' => '/system/dept'],
+            ['name' => '管理员', 'image' => 'menu_admin', 'url' => '/app/members'],
+            ['name' => '角色管理', 'image' => 'menu_role', 'url' => '/app/roles'],
+            ['name' => '部门管理', 'image' => 'menu_dept', 'url' => '/app/departments'],
             ['name' => '字典管理', 'image' => 'menu_dict', 'url' => '/system/dict'],
-            ['name' => '代码生成器', 'image' => 'menu_generator', 'url' => '/dev-tools/code'],
             ['name' => '素材中心', 'image' => 'menu_file', 'url' => '/system/file'],
             ['name' => '菜单权限', 'image' => 'menu_auth', 'url' => '/system/menu'],
             ['name' => '网站信息', 'image' => 'menu_web', 'url' => '/app-setting/website'],
@@ -102,38 +106,6 @@ class WorkbenchApplicationService
             }
         }
         return false;
-    }
-
-    public function visitor(): array
-    {
-        $date = [];
-        $data = [];
-        for ($i = 0; $i < 15; $i++) {
-            $timestamp = strtotime("- {$i} day");
-            $date[] = date('m/d', $timestamp);
-            $data[] = rand(0, 100);
-        }
-
-        return [
-            'date' => $date,
-            'list' => [['name' => '访客数', 'data' => $data]],
-        ];
-    }
-
-    public function sale(): array
-    {
-        $date = [];
-        $data = [];
-        for ($i = 0; $i < 7; $i++) {
-            $timestamp = strtotime("- {$i} day");
-            $date[] = date('m/d', $timestamp);
-            $data[] = rand(30, 200);
-        }
-
-        return [
-            'date' => $date,
-            'list' => [['name' => '销售量', 'data' => $data]],
-        ];
     }
 
     public function support(TenantContext $context, ?array $website = null): array

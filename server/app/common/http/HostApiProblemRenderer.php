@@ -30,12 +30,14 @@ final readonly class HostApiProblemRenderer
     {
         $application = $this->app->http->getName();
         $problem = $this->problems->map($exception);
+        $diagnostic = [];
         if (!$problem instanceof ApiProblem) {
             $fallback = self::FALLBACKS[$application] ?? null;
             if ($fallback === null) {
                 return null;
             }
             $problem = new ApiProblem($fallback[0], 500, $fallback[1]);
+            $diagnostic = $this->unexpectedDiagnostic($exception);
         }
 
         $requestId = RequestTrace::id($this->executionContext, $request, $application !== '' ? $application : 'http');
@@ -46,7 +48,7 @@ final readonly class HostApiProblemRenderer
             'error_code' => $problem->errorCode,
             'api_code' => $problem->apiCode(),
             'request_id' => $requestId,
-        ]);
+        ] + $diagnostic);
 
         return JsonResponseFactory::response(
             $problem->apiCode(),
@@ -54,5 +56,37 @@ final readonly class HostApiProblemRenderer
             $problem->data(),
             $problem->httpStatus,
         )->header(['X-Request-Id' => $requestId] + $problem->headers);
+    }
+
+    /** @return array{exception_class:string,exception_file:string,exception_line:int,exception_trace:list<array{class:?string,function:?string,line:?int}>} */
+    private function unexpectedDiagnostic(\Throwable $exception): array
+    {
+        $trace = [];
+        foreach (array_slice($exception->getTrace(), 0, 5) as $frame) {
+            $trace[] = [
+                'class' => is_string($frame['class'] ?? null) ? $frame['class'] : null,
+                'function' => is_string($frame['function'] ?? null) ? $frame['function'] : null,
+                'line' => is_int($frame['line'] ?? null) ? $frame['line'] : null,
+            ];
+        }
+
+        return [
+            'exception_class' => $exception::class,
+            'exception_file' => $this->safeFile($exception->getFile()),
+            'exception_line' => $exception->getLine(),
+            'exception_trace' => $trace,
+        ];
+    }
+
+    private function safeFile(string $file): string
+    {
+        $root = realpath($this->app->getRootPath());
+        $resolved = realpath($file);
+        if (is_string($root) && is_string($resolved)
+            && str_starts_with($resolved, rtrim($root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)) {
+            return substr($resolved, strlen(rtrim($root, DIRECTORY_SEPARATOR)) + 1);
+        }
+
+        return basename($file);
     }
 }

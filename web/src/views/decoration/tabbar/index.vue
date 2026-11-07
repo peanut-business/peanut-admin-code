@@ -26,7 +26,11 @@
                 >
                   <img
                     v-if="index === 0 ? item.selected : item.unselected"
-                    :src="index === 0 ? item.selected : item.unselected"
+                    :src="
+                      images.preview(
+                        index === 0 ? item.selected : item.unselected
+                      )
+                    "
                     alt=""
                   />
                   <span v-else class="tabbar-icon-placeholder">●</span>
@@ -86,6 +90,7 @@
                       <el-button
                         type="danger"
                         size="small"
+                        :disabled="form.list.length <= 2"
                         @click="removeItem(index)"
                         >删除</el-button
                       >
@@ -95,32 +100,47 @@
               </template>
               <el-form :model="item" label-position="top">
                 <el-form-item label="名称">
-                  <el-input v-model="item.name" :maxlength="20" />
+                  <el-input
+                    v-model="item.name"
+                    :maxlength="20"
+                    show-word-limit
+                    placeholder="名称不能为空且最多 20 个字"
+                  />
                 </el-form-item>
                 <el-space wrap>
                   <el-form-item label="未选中图标">
                     <div class="icon-field">
                       <img
                         v-if="item.unselected"
-                        :src="item.unselected"
+                        :src="images.preview(item.unselected)"
                         alt=""
                       />
                       <FilePicker
                         :type="10"
                         :limit="1"
                         button-text="选择图标"
-                        @select="(urls) => setImage(item, 'unselected', urls)"
+                        @select="
+                          (urls, files) =>
+                            setImage(item, 'unselected', urls, files)
+                        "
                       />
                     </div>
                   </el-form-item>
                   <el-form-item label="选中图标">
                     <div class="icon-field">
-                      <img v-if="item.selected" :src="item.selected" alt="" />
+                      <img
+                        v-if="item.selected"
+                        :src="images.preview(item.selected)"
+                        alt=""
+                      />
                       <FilePicker
                         :type="10"
                         :limit="1"
                         button-text="选择图标"
-                        @select="(urls) => setImage(item, 'selected', urls)"
+                        @select="
+                          (urls, files) =>
+                            setImage(item, 'selected', urls, files)
+                        "
                       />
                     </div>
                   </el-form-item>
@@ -134,7 +154,13 @@
                       @change="ensureQuery(item)"
                     >
                       <el-option label="站内页面" value="shop" />
-                      <el-option label="文章" value="article" />
+                      <el-option
+                        :label="
+                          articleOptions.length ? '文章' : '文章（暂无可选项）'
+                        "
+                        value="article"
+                        :disabled="articleOptions.length === 0"
+                      />
                       <el-option label="自定义链接" value="custom" />
                       <el-option label="小程序" value="mini_program" />
                     </el-select>
@@ -194,7 +220,7 @@
             >
             <div class="actions">
               <el-button
-                v-permission="['decoration/tabbar/save']"
+                v-permission="['peanut.settings.manage']"
                 type="primary"
                 :loading="submitLoading"
                 @click="handleSubmit"
@@ -212,6 +238,8 @@
   import { computed, reactive, ref } from 'vue';
   import { ElMessage } from 'element-plus';
   import FilePicker from '@/components/file-picker/index.vue';
+  import usePublicImageReferences from '@/hooks/public-image-references';
+  import type { FileRecord } from '@/modules/peanut-file/api';
   import {
     getDecorationTabbar,
     getDecorationArticleOptions,
@@ -242,6 +270,7 @@
   const loading = ref(true);
   const submitLoading = ref(false);
   const articleOptions = ref<DecorationArticleOption[]>([]);
+  const images = usePublicImageReferences();
   const visibleItems = computed(() =>
     form.list.filter((item) => item.is_show === 1)
   );
@@ -250,6 +279,7 @@
     loading.value = true;
     try {
       const { data } = await getDecorationTabbar();
+      images.replace(data.resource_urls);
       Object.assign(form.style, data.style);
       form.list.splice(
         0,
@@ -293,9 +323,10 @@
   const setImage = (
     item: DecorationTabbarItem,
     field: 'selected' | 'unselected',
-    urls: string[]
+    urls: string[],
+    files: FileRecord[]
   ) => {
-    item[field] = urls[0] || '';
+    item[field] = images.select(urls, files, item[field]);
   };
   const ensureQuery = (item: DecorationTabbarItem) => {
     item.link.query ||= {};
@@ -312,6 +343,15 @@
     }
     if (form.list.length < 2 || form.list.length > 5) {
       ElMessage.error('Tabbar 总项数必须为 2～5 项');
+      return;
+    }
+    if (
+      form.list.some((item) => {
+        const name = item.name.trim();
+        return name === '' || Array.from(name).length > 20;
+      })
+    ) {
+      ElMessage.error('Tabbar 名称不能为空且最多 20 个字');
       return;
     }
     const visible = form.list.filter((item) => item.is_show === 1).length;
@@ -331,6 +371,8 @@
         list: form.list.map((item, position) => ({ ...item, position })),
       });
       ElMessage.success('保存成功');
+    } catch {
+      // The shared Axios interceptor displays the server error.
     } finally {
       submitLoading.value = false;
     }

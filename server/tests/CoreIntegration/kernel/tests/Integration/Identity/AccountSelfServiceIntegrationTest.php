@@ -73,15 +73,26 @@ final class AccountSelfServiceIntegrationTest extends DatabaseTestCase
             'created_at' => self::NOW,
             'updated_at' => self::NOW,
         ]);
-        $this->service = new AccountSelfService(new AuditService(), $this->passwords);
+        $this->service = new AccountSelfService(new AuditService(), $this->passwords, new \PeanutAdmin\Kernel\Identity\PasswordPolicy());
     }
 
     public function testProfileIsSelfScopedMaskedAndAuditedOnUpdate(): void
     {
+        $otherTenantId = $this->insert('pa_tenant', [
+            'code' => 'profile-other', 'name' => 'Other tenant', 'display_name' => 'Other tenant', 'status' => 'active',
+            'created_at' => self::NOW, 'updated_at' => self::NOW,
+        ]);
+        $otherMemberId = $this->insert('pa_tenant_member', [
+            'tenant_id' => $otherTenantId, 'account_id' => $this->accountId, 'display_name' => 'Other tenant member',
+            'status' => 'active', 'joined_at' => self::NOW, 'created_at' => self::NOW, 'updated_at' => self::NOW,
+        ]);
+        $otherName = $this->database->prepare('SELECT display_name FROM pa_tenant_member WHERE tenant_id = ? AND id = ?');
+        $otherName->execute([$otherTenantId, $otherMemberId]);
+        self::assertSame('Other tenant member', $otherName->fetchColumn());
         $profile = $this->service->profile($this->context('request-profile'));
 
         self::assertSame((string) $this->accountId, $profile['account_id']);
-        self::assertSame('Original name', $profile['display_name']);
+        self::assertSame('Tenant member', $profile['display_name']);
         self::assertSame('o***@example.test', $profile['credential']['identifier_masked']);
         self::assertArrayNotHasKey('secret_hash', $profile['credential']);
 
@@ -99,6 +110,11 @@ final class AccountSelfServiceIntegrationTest extends DatabaseTestCase
         );
 
         self::assertSame('Updated name', $updated['display_name']);
+        self::assertSame('Updated name', $this->service->profile($this->context('request-profile-reread'))['display_name']);
+        self::assertSame('Updated name', $this->query("SELECT display_name FROM pa_tenant_member WHERE tenant_id = {$this->tenantId} AND id = {$this->memberId}")->fetchColumn());
+        self::assertSame('Original name', $this->query("SELECT display_name FROM pa_account WHERE id = {$this->accountId}")->fetchColumn());
+        $otherName->execute([$otherTenantId, $otherMemberId]);
+        self::assertSame('Other tenant member', $otherName->fetchColumn());
         self::assertSame('https://cdn.example.test/avatar.png', $updated['avatar_uri']);
         self::assertSame('account.profile.changed', (string) $this->query(
             'SELECT action FROM pa_tenant_audit_event ORDER BY id DESC LIMIT 1',
@@ -243,13 +259,16 @@ final class AccountSelfServiceIntegrationTest extends DatabaseTestCase
             'created_at' => self::NOW,
         ]);
 
-        $this->service->changePassword(
-            $this->context('request-password-change', sessionKey: 'tenant-session-key-000001'),
-            self::CURRENT_PASSWORD,
-            'Replacement-password-456!',
-            '127.0.0.1',
-            'integration-test',
+        $actor = $this->context('request-password-change', sessionKey: 'tenant-session-key-000001');
+        $contexts = new \app\common\execution\ExecutionContextStore();
+        $service = new AccountSelfService(
+            new AuditService(new \app\common\execution\CurrentExecutionContext($contexts)),
+            $this->passwords,
+            new \PeanutAdmin\Kernel\Identity\PasswordPolicy(),
         );
+        $contexts->run(new \app\common\execution\AdminExecutionContext($actor, 'account.password.changed'), fn() => $service->changePassword(
+            $actor, self::CURRENT_PASSWORD, 'Replacement-password-456!', '127.0.0.1', 'integration-test',
+        ));
 
         $hash = (string) $this->query(
             "SELECT secret_hash FROM pa_credential WHERE id = {$this->credentialId}",
@@ -267,8 +286,11 @@ final class AccountSelfServiceIntegrationTest extends DatabaseTestCase
         self::assertSame('password_changed', (string) $this->query(
             'SELECT event_type FROM pa_auth_security_event ORDER BY id DESC LIMIT 1',
         )->fetchColumn());
+        // Revocation facts follow the business audit in this same operation.
         self::assertSame('account.password.changed', (string) $this->query(
-            'SELECT action FROM pa_tenant_audit_event ORDER BY id DESC LIMIT 1',
+            "SELECT action FROM pa_tenant_audit_event WHERE tenant_id = {$this->tenantId} "
+            . "AND request_id = 'request-password-change' AND event_type = 'account.password.changed' "
+            . "AND target_resource_type = 'account' AND target_resource_id = '{$this->accountId}' ORDER BY id DESC LIMIT 1",
         )->fetchColumn());
     }
 
@@ -430,22 +452,17 @@ SQL)->fetchColumn());
             );
         }
         $other = $this->secondaryIdentity('concurrent-other');
-        $suffix = (string) getmypid() . '_' . bin2hex(random_bytes(4));
-        $gateLock = 'pa_pwd_gate_' . $suffix;
-        $firstArrivedLock = 'pa_pwd_arrived_1_' . $suffix;
-        $secondArrivedLock = 'pa_pwd_arrived_2_' . $suffix;
         $sourceIpLock = $this->passwordChangeIpLockName('192.0.2.50');
         $firstRequestId = 'request-concurrent-first';
         $secondRequestId = 'request-concurrent-second';
         $gateConnection = null;
-        $gateHeld = false;
-        $triggerCreated = false;
         $processes = [];
         $sockets = [];
         $statuses = [];
         $outcomes = [];
         $firstArrived = false;
         $secondState = 'not_started';
+        self::assertSame(4, $this->deniedCountForIp('192.0.2.50'));
 
         try {
             $first = $this->startPasswordChangeProcess(
@@ -467,45 +484,39 @@ SQL)->fetchColumn());
             $secondReady = $this->readSocketMessage($second['socket']);
 
             $gateConnection = $this->connect($this->databaseName);
-            $gateHeld = $this->acquireNamedLock($gateConnection, $gateLock) === 1;
-            if (!$gateHeld) {
-                throw new RuntimeException('Could not acquire the password-change test gate.');
-            }
-            $this->createPasswordDeniedGateTrigger(
-                $gateConnection,
-                $gateLock,
-                $firstArrivedLock,
-                $secondArrivedLock,
-                $firstRequestId,
-                $secondRequestId,
-            );
-            $triggerCreated = true;
+            $gateConnection->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+            $gateConnection->beginTransaction();
+            $maximumEventId = (int) $gateConnection->query('SELECT COALESCE(MAX(id), 0) FROM pa_auth_security_event')->fetchColumn();
+            // The first real denied-event INSERT stops after the rate-limit read,
+            // retaining its native source-IP lock until this supremum gap opens.
+            $gap = $gateConnection->prepare('SELECT id FROM pa_auth_security_event FORCE INDEX (PRIMARY) WHERE id > ? ORDER BY id FOR UPDATE');
+            $gap->execute([$maximumEventId]);
+            self::assertSame([], $gap->fetchAll(PDO::FETCH_COLUMN));
 
             $this->writeSocketMessage($first['socket'], ['command' => 'start']);
-            $firstArrived = $this->waitForNamedLockOwner($gateConnection, $firstArrivedLock);
-            $this->writeSocketMessage($second['socket'], ['command' => 'start']);
-            $secondState = $this->waitForSecondPasswordAttemptState(
-                $gateConnection,
-                $sourceIpLock,
-                (int) ($secondReady['connection_id'] ?? 0),
-                $secondArrivedLock,
+            $firstConnectionId = (int) ($firstReady['connection_id'] ?? 0);
+            $firstArrived = $this->waitForPasswordStatement(
+                $gateConnection, $firstConnectionId, '/^insert\s+into\s+pa_auth_security_event\b/s', $sourceIpLock, $firstConnectionId,
             );
+            self::assertTrue($firstArrived, 'First attempt did not reach its denied-event INSERT while owning the source-IP lock.');
+            $this->writeSocketMessage($second['socket'], ['command' => 'start']);
+            $secondWaiting = $this->waitForPasswordStatement(
+                $gateConnection,
+                (int) ($secondReady['connection_id'] ?? 0),
+                '/^select\s+get_lock\s*\(\s*\'' . preg_quote($sourceIpLock, '/') . '\'\s*,\s*10\s*\)/s',
+                $sourceIpLock,
+                $firstConnectionId,
+            );
+            $secondState = $secondWaiting ? 'waiting_for_source_ip_lock' : 'not_observed';
 
-            if ($this->releaseNamedLock($gateConnection, $gateLock) !== 1) {
-                throw new RuntimeException('Could not release the password-change test gate.');
-            }
-            $gateHeld = false;
+            $gateConnection->rollBack();
             $outcomes = [
                 (string) ($this->readSocketMessage($first['socket'])['outcome'] ?? ''),
                 (string) ($this->readSocketMessage($second['socket'])['outcome'] ?? ''),
             ];
         } finally {
-            if ($gateHeld && $gateConnection instanceof PDO) {
-                try {
-                    $this->releaseNamedLock($gateConnection, $gateLock);
-                } catch (Throwable) {
-                    // Dropping the dedicated connection below also releases its named locks.
-                }
+            if ($gateConnection instanceof PDO && $gateConnection->inTransaction()) {
+                $gateConnection->rollBack();
             }
             foreach ($sockets as $socket) {
                 if (is_resource($socket)) {
@@ -515,23 +526,19 @@ SQL)->fetchColumn());
             foreach ($processes as $name => $processId) {
                 $statuses[$name] = $this->terminateAndReapProcess($processId);
             }
-            if ($triggerCreated && $gateConnection instanceof PDO) {
-                $gateConnection->exec('DROP TRIGGER IF EXISTS test_pause_password_change_denied');
-            }
             $gateConnection = null;
             $this->admin = $this->connect();
             $this->database = $this->connect($this->databaseName);
             ThinkPhpTestConnection::fromPdo($this->database);
-            $this->service = new AccountSelfService(new AuditService(), $this->passwords);
+            $this->service = new AccountSelfService(new AuditService(), $this->passwords, new \PeanutAdmin\Kernel\Identity\PasswordPolicy());
         }
 
         self::assertSame('ready', $firstReady['type'] ?? null);
         self::assertSame('ready', $secondReady['type'] ?? null);
-        self::assertTrue($firstArrived);
         self::assertSame(
             'waiting_for_source_ip_lock',
             $secondState,
-            'The second request crossed the old precheck and reached the denied-event trigger.',
+            'The second request crossed the source-IP lock before the first denied-event INSERT committed.',
         );
         sort($outcomes);
         self::assertSame(['CURRENT_PASSWORD_INVALID', 'PASSWORD_CHANGE_RATE_LIMITED'], $outcomes);
@@ -729,41 +736,12 @@ SQL);
             'admin-web',
             new DateTimeImmutable(self::NOW, new DateTimeZone('UTC')),
             1,
-        ), $requestId);
+        1), $requestId);
     }
 
     private function passwordChangeIpLockName(string $ipAddress): string
     {
         return 'pa-pwd:' . substr(hash('sha256', $ipAddress), 0, 57);
-    }
-
-    private function createPasswordDeniedGateTrigger(
-        PDO $pdo,
-        string $gateLock,
-        string $firstArrivedLock,
-        string $secondArrivedLock,
-        string $firstRequestId,
-        string $secondRequestId,
-    ): void {
-        $pdo->exec(<<<SQL
-CREATE TRIGGER test_pause_password_change_denied
-BEFORE INSERT ON pa_auth_security_event
-FOR EACH ROW
-BEGIN
-    IF NEW.event_type = 'password_change_denied' AND NEW.request_id = '{$firstRequestId}' THEN
-        SET @password_first_arrived = GET_LOCK('{$firstArrivedLock}', 0);
-        SET @password_first_gate = GET_LOCK('{$gateLock}', 15);
-        SET @password_first_gate_release = RELEASE_LOCK('{$gateLock}');
-        SET @password_first_arrived_release = RELEASE_LOCK('{$firstArrivedLock}');
-    END IF;
-    IF NEW.event_type = 'password_change_denied' AND NEW.request_id = '{$secondRequestId}' THEN
-        SET @password_second_arrived = GET_LOCK('{$secondArrivedLock}', 0);
-        SET @password_second_gate = GET_LOCK('{$gateLock}', 15);
-        SET @password_second_gate_release = RELEASE_LOCK('{$gateLock}');
-        SET @password_second_arrived_release = RELEASE_LOCK('{$secondArrivedLock}');
-    END IF;
-END
-SQL);
     }
 
     /** @return array{process_id: int, socket: resource} */
@@ -823,7 +801,7 @@ SQL);
             }
 
             ThinkPhpTestConnection::fromPdo($pdo);
-            $service = new AccountSelfService(new AuditService(), new PasswordHasher());
+            $service = new AccountSelfService(new AuditService(), new PasswordHasher(), new \PeanutAdmin\Kernel\Identity\PasswordPolicy());
             try {
                 $service->changePassword(
                     $this->context(
@@ -940,71 +918,32 @@ SQL);
         return $message;
     }
 
-    private function acquireNamedLock(PDO $pdo, string $lockName): int
-    {
-        $statement = $pdo->prepare('SELECT GET_LOCK(:lock_name, 0)');
-        $statement->execute(['lock_name' => $lockName]);
-
-        return (int) $statement->fetchColumn();
-    }
-
-    private function releaseNamedLock(PDO $pdo, string $lockName): int
-    {
-        $statement = $pdo->prepare('SELECT RELEASE_LOCK(:lock_name)');
-        $statement->execute(['lock_name' => $lockName]);
-
-        return (int) $statement->fetchColumn();
-    }
-
-    private function waitForNamedLockOwner(PDO $pdo, string $lockName): bool
-    {
-        $statement = $pdo->prepare('SELECT IS_USED_LOCK(:lock_name)');
-        $deadline = microtime(true) + self::CONCURRENCY_TIMEOUT_SECONDS;
-        do {
-            $statement->execute(['lock_name' => $lockName]);
-            if ($statement->fetchColumn() !== null) {
-                return true;
-            }
-            usleep(10_000);
-        } while (microtime(true) < $deadline);
-
-        return false;
-    }
-
-    private function waitForSecondPasswordAttemptState(
+    private function waitForPasswordStatement(
         PDO $pdo,
-        string $sourceIpLock,
         int $connectionId,
-        string $arrivedLock,
-    ): string {
-        $pending = $pdo->prepare(<<<'SQL'
-SELECT COUNT(*)
-FROM performance_schema.metadata_locks lock_state
-JOIN performance_schema.threads thread_state
-  ON thread_state.THREAD_ID = lock_state.OWNER_THREAD_ID
-WHERE lock_state.OBJECT_TYPE = 'USER LEVEL LOCK'
-  AND lock_state.OBJECT_NAME = :lock_name
-  AND lock_state.LOCK_STATUS = 'PENDING'
-  AND thread_state.PROCESSLIST_ID = :connection_id
-SQL);
-        $arrived = $pdo->prepare('SELECT IS_USED_LOCK(:lock_name)');
+        string $pattern,
+        string $sourceIpLock,
+        int $firstConnectionId,
+    ): bool {
+        $owner = $pdo->prepare('SELECT IS_USED_LOCK(?)');
         $deadline = microtime(true) + self::CONCURRENCY_TIMEOUT_SECONDS;
         do {
-            $pending->execute([
-                'lock_name' => $sourceIpLock,
-                'connection_id' => $connectionId,
-            ]);
-            if ((int) $pending->fetchColumn() === 1) {
-                return 'waiting_for_source_ip_lock';
-            }
-            $arrived->execute(['lock_name' => $arrivedLock]);
-            if ($arrived->fetchColumn() !== null) {
-                return 'crossed_precheck';
+            foreach ($pdo->query('SHOW FULL PROCESSLIST')->fetchAll(PDO::FETCH_ASSOC) as $process) {
+                if ((int) $process['Id'] !== $connectionId || $process['db'] !== $this->databaseName) {
+                    continue;
+                }
+                $sql = strtolower(str_replace('`', '', (string) $process['Info']));
+                if (preg_match($pattern, $sql) !== 1) {
+                    continue;
+                }
+                $owner->execute([$sourceIpLock]);
+                if ((int) $owner->fetchColumn() === $firstConnectionId) {
+                    return true;
+                }
             }
             usleep(10_000);
         } while (microtime(true) < $deadline);
-
-        return 'timed_out';
+        return false;
     }
 
     private function terminateAndReapProcess(int $processId): int|false|null

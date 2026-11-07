@@ -5,23 +5,36 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { lockedYamlParser } from './release-dependency-locks.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(scriptDir, '..');
 const checkOnly = process.argv.includes('--check');
 
-const expectedCounts = {
-  'composer': 68,
-  'web': 847,
-  'platform': 152,
-  'pc': 922,
-  'uniapp': 1012,
-  'quality-composer': 38,
-  'quality-js': 144,
-};
-
 const readJson = (relativePath) =>
   JSON.parse(readFileSync(resolve(rootDir, relativePath), 'utf8'));
+const parseYaml = lockedYamlParser(rootDir);
+const composerLockCount = (relativePath) => {
+  const lock = readJson(relativePath);
+  return lock.packages.length + lock['packages-dev'].length;
+};
+const npmLockCount = (relativePath) =>
+  Object.entries(readJson(relativePath).packages).filter(
+    ([packagePath, pkg]) => packagePath && pkg.version
+  ).length;
+const pnpmLockCount = (relativePath) =>
+  Object.keys(
+    parseYaml(readFileSync(resolve(rootDir, relativePath), 'utf8')).packages
+  ).length;
+const expectedCounts = {
+  'composer': composerLockCount('server/composer.lock'),
+  'web': pnpmLockCount('web/pnpm-lock.yaml'),
+  'platform': npmLockCount('platform/package-lock.json'),
+  'pc': npmLockCount('pc/package-lock.json'),
+  'uniapp': npmLockCount('uniapp/package-lock.json'),
+  'quality-composer': composerLockCount('tools/quality/composer.lock'),
+  'quality-js': pnpmLockCount('tools/quality/pnpm-lock.yaml'),
+};
 const versionContract = readJson('release-versions.json');
 const releaseMetadata = readJson('RELEASE_METADATA.json');
 const currentVersionContract = [2, 3].includes(versionContract.schema_version);

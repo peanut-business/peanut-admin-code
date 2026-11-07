@@ -107,6 +107,7 @@
 
 <script lang="ts" setup>
   import { computed, reactive, ref } from 'vue';
+  import { useRoute } from 'vue-router';
   import { ElMessage, type UploadRequestOptions } from 'element-plus';
   import {
     Document,
@@ -121,11 +122,13 @@
     getFileCateList,
     getFileList,
     uploadFile,
+    fileUploadAccept,
     type FileCateRecord,
     type FileRecord,
     type FileType,
-  } from '@/modules/official-file/api';
+  } from '@/modules/peanut-file/api';
 
+  const route = useRoute();
   const props = withDefaults(
     defineProps<{
       type: FileType;
@@ -155,16 +158,16 @@
   });
   const canBrowse = computed(
     () =>
-      hasPermission('official.file.list') &&
-      hasPermission('official.file.category.list')
+      hasPermission('peanut.file.list', route.path) &&
+      hasPermission('peanut.file.category.list', route.path)
   );
   const uploadPermissionMap: Record<FileType, string> = {
-    10: 'official.file.upload.image',
-    20: 'official.file.upload.video',
-    30: 'official.file.upload.file',
+    10: 'peanut.file.upload.image',
+    20: 'peanut.file.upload.video',
+    30: 'peanut.file.upload.file',
   };
   const canUpload = computed(() =>
-    hasPermission(uploadPermissionMap[props.type])
+    hasPermission(uploadPermissionMap[props.type], route.path)
   );
   const loading = ref(false);
   const categories = ref<FileCateRecord[]>([]);
@@ -175,11 +178,7 @@
   const name = ref('');
   const page = reactive({ current: 1, pageSize: 15, total: 0 });
   const effectiveLimit = computed(() => Math.max(1, props.limit));
-  const acceptMap: Record<FileType, string> = {
-    10: 'image/*',
-    20: 'video/*',
-    30: '.zip,.rar,.txt,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.7z,.gz',
-  };
+  const acceptMap = fileUploadAccept;
   const flatCategories = computed(() => {
     const result: Array<FileCateRecord & { depth: number }> = [];
     const walk = (items: FileCateRecord[], depth: number) => {

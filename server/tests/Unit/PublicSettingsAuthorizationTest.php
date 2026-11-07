@@ -56,9 +56,9 @@ final class PublicSettingsAuthorizationTest extends TestCase
             }
         });
         self::assertSame([
-            'official.settings.read', 'official.settings.manage', 'official.settings.manage',
-            'official.reference-codes.read', 'official.reference-codes.read', 'official.reference-codes.read',
-            'official.reference-codes.manage', 'official.reference-codes.manage', 'official.reference-codes.manage',
+            'peanut.settings.read', 'peanut.settings.manage', 'peanut.settings.manage',
+            'peanut.reference-codes.read', 'peanut.reference-codes.read', 'peanut.reference-codes.read',
+            'peanut.reference-codes.manage', 'peanut.reference-codes.manage', 'peanut.reference-codes.manage',
         ], $seen);
         self::assertTrue($contexts->isEmpty());
     }
@@ -84,7 +84,7 @@ final class PublicSettingsAuthorizationTest extends TestCase
         $tenant = $this->tenant();
         $auth = $this->createMock(AdminAuthorizationQuery::class);
         $auth->expects(self::once())->method('decide')->willReturnCallback(static function ($context, $actor, $permission): PermissionDecision {
-            self::assertSame('official.settings.read', $permission);
+            self::assertSame('peanut.settings.read', $permission);
             return PermissionDecision::allow($permission);
         });
         [$settings] = $this->services($contexts, $auth);
@@ -135,7 +135,7 @@ final class PublicSettingsAuthorizationTest extends TestCase
 
     private function tenant(int $tenantId = 101, int $revision = 1): TenantContext
     {
-        return TenantContext::fromValidatedSession(new ValidatedTenantSession(1, '01J00000000000000000000000', $tenantId, 301, 501, 'admin-web', new DateTimeImmutable('2031-01-01T00:00:00Z'), $revision), 'settings-test');
+        return TenantContext::fromValidatedSession(new ValidatedTenantSession(1, '01J00000000000000000000000', $tenantId, 301, 501, 'admin-web', new DateTimeImmutable('2031-01-01T00:00:00Z'), $revision, 1), 'settings-test');
     }
 
     private function principal(): array

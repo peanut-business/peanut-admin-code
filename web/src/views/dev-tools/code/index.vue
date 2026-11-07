@@ -1,10 +1,10 @@
 <template>
   <div class="container">
-    <Breadcrumb :items="['开发工具', '代码生成器']" />
+    <Breadcrumb :items="['menu.devTools', 'menu.devTools.code']" />
     <el-card class="general-card">
       <template #header>代码生成器</template>
       <el-row
-        align="center"
+        align="middle"
         justify="space-between"
         style="margin-bottom: 16px"
       >
@@ -23,7 +23,7 @@
         <el-col>
           <el-space>
             <el-button
-              v-permission="['generator/import']"
+              v-permission="['core.generator.manage']"
               type="primary"
               @click="openSourceTables"
             >
@@ -31,7 +31,7 @@
               导入数据表
             </el-button>
             <el-button
-              v-permission="['generator/generate']"
+              v-permission="['core.generator.generate']"
               :disabled="selectedKeys.length === 0"
               :loading="generateLoading"
               @click="generateSelected"
@@ -44,6 +44,7 @@
       </el-row>
 
       <el-table
+        ref="generatorTable"
         row-key="id"
         :loading="loading"
         :data="renderData"
@@ -67,19 +68,19 @@
           ><template #default="{ row }"
             ><el-space
               ><el-button
-                v-permission="['generator/detail']"
+                v-permission="['core.generator.read']"
                 link
                 size="small"
                 @click="openEdit(row)"
                 >配置</el-button
               ><el-button
-                v-permission="['generator/sync']"
+                v-permission="['core.generator.manage']"
                 link
                 size="small"
                 @click="handleSync(row)"
                 >同步字段</el-button
               ><el-button
-                v-permission="['generator/preview']"
+                v-permission="['core.generator.read']"
                 link
                 size="small"
                 @click="openPreview(row)"
@@ -89,7 +90,7 @@
                 @confirm="handleDelete(row)"
                 ><template #reference
                   ><el-button
-                    v-permission="['generator/delete']"
+                    v-permission="['core.generator.manage']"
                     link
                     type="danger"
                     size="small"
@@ -154,6 +155,7 @@
       <template #footer
         ><el-button @click="sourceVisible = false">取消</el-button
         ><el-button
+          v-permission="['core.generator.manage']"
           type="primary"
           :loading="importLoading"
           @click="handleImport"
@@ -183,6 +185,10 @@
           <el-col :span="8">
             <el-form-item prop="module_name" label="模块名称">
               <el-input v-model="editForm.module_name" />
+              <div class="form-tip"
+                >仅可选择已登记且声明 admin-web 前端贡献的模块；请先用
+                module:create/module:check 建立并检查模块。</div
+              >
             </el-form-item>
           </el-col>
           <el-col :span="8">
@@ -412,7 +418,11 @@
       </el-form>
       <template #footer
         ><el-button @click="editVisible = false">取消</el-button
-        ><el-button type="primary" :loading="saveLoading" @click="handleSave"
+        ><el-button
+          v-permission="['core.generator.manage']"
+          type="primary"
+          :loading="saveLoading"
+          @click="handleSave"
           >保存</el-button
         ></template
       >
@@ -427,6 +437,7 @@
         <el-tab-pane
           v-for="file in previewFiles"
           :key="file.path"
+          :name="file.path"
           :label="file.path"
         >
           <el-text style="display: block; margin-bottom: 8px">{{
@@ -483,6 +494,7 @@
   const renderData = ref<GeneratorRecord[]>([]);
   const keyword = ref('');
   const selectedKeys = ref<number[]>([]);
+  const generatorTable = ref<{ clearSelection: () => void }>();
   const pagination = reactive({
     current: 1,
     pageSize: 15,
@@ -504,6 +516,8 @@
       selectedKeys.value = selectedKeys.value.filter((id) =>
         renderData.value.some((row) => row.id === id)
       );
+    } catch {
+      // The shared API interceptor already reports the request failure.
     } finally {
       setLoading(false);
     }
@@ -537,6 +551,8 @@
       sourceTables.value = data.lists;
       sourcePagination.current = data.pageNo;
       sourcePagination.total = data.count;
+    } catch {
+      // The shared API interceptor already reports the request failure.
     } finally {
       sourceLoading.value = false;
     }
@@ -561,6 +577,8 @@
       sourceVisible.value = false;
       await fetchData(1);
       return true;
+    } catch {
+      return false;
     } finally {
       importLoading.value = false;
     }
@@ -599,35 +617,40 @@
     target_edition: [{ required: true, message: '请选择目标 Edition' }],
   };
   const openEdit = async (record: GeneratorRecord) => {
-    const [{ data }, modelResult] = await Promise.all([
-      getGeneratorDetail(record.id),
-      getGeneratorModels(),
-    ]);
-    Object.assign(editForm, {
-      id: data.id,
-      table_comment: data.table_comment,
-      module_name: data.module_name,
-      entity_name: data.entity_name,
-      template_type: data.template_type === 'tree' ? 'tree' : 'crud',
-      data_owner: data.data_owner,
-      target_edition: data.target_edition,
-      author: data.author || '',
-      tree_config: {
-        id_field: data.tree_config?.id_field || '',
-        parent_field: data.tree_config?.parent_field || '',
-        name_field: data.tree_config?.name_field || '',
-      },
-      relations: (data.relations || []).map((relation) => ({ ...relation })),
-      soft_delete: {
-        enabled: data.soft_delete?.enabled === true,
-        field: data.soft_delete?.field || '',
-      },
-      columns: (data.columns || []).map((column) => ({ ...column })),
-    });
-    models.value = modelResult.data.filter(
-      (model) => model.id !== data.id && model.module_name === data.module_name
-    );
-    editVisible.value = true;
+    try {
+      const [{ data }, modelResult] = await Promise.all([
+        getGeneratorDetail(record.id),
+        getGeneratorModels(),
+      ]);
+      Object.assign(editForm, {
+        id: data.id,
+        table_comment: data.table_comment,
+        module_name: data.module_name,
+        entity_name: data.entity_name,
+        template_type: data.template_type === 'tree' ? 'tree' : 'crud',
+        data_owner: data.data_owner,
+        target_edition: data.target_edition,
+        author: data.author || '',
+        tree_config: {
+          id_field: data.tree_config?.id_field || '',
+          parent_field: data.tree_config?.parent_field || '',
+          name_field: data.tree_config?.name_field || '',
+        },
+        relations: (data.relations || []).map((relation) => ({ ...relation })),
+        soft_delete: {
+          enabled: data.soft_delete?.enabled === true,
+          field: data.soft_delete?.field || '',
+        },
+        columns: (data.columns || []).map((column) => ({ ...column })),
+      });
+      models.value = modelResult.data.filter(
+        (model) =>
+          model.id !== data.id && model.module_name === data.module_name
+      );
+      editVisible.value = true;
+    } catch {
+      // The shared API interceptor already reports the request failure.
+    }
   };
   const handleSave = async () => {
     const valid = await formRef.value?.validate().catch(() => false);
@@ -653,6 +676,8 @@
       editVisible.value = false;
       await fetchData(pagination.current);
       return true;
+    } catch {
+      return false;
     } finally {
       saveLoading.value = false;
     }
@@ -681,25 +706,38 @@
   );
 
   const handleSync = async (record: GeneratorRecord) => {
-    await syncGenerator(record.id);
-    ElMessage.success('同步成功');
-    await fetchData(pagination.current);
+    try {
+      await syncGenerator(record.id);
+      ElMessage.success('同步成功');
+      await fetchData(pagination.current);
+    } catch {
+      // The shared API interceptor already reports the request failure.
+    }
   };
   const handleDelete = async (record: GeneratorRecord) => {
-    await deleteGenerator([record.id]);
-    ElMessage.success('删除成功');
-    selectedKeys.value = selectedKeys.value.filter((id) => id !== record.id);
-    await fetchData(pagination.current);
+    try {
+      await deleteGenerator([record.id]);
+      ElMessage.success('删除成功');
+      selectedKeys.value = selectedKeys.value.filter((id) => id !== record.id);
+      await fetchData(pagination.current);
+    } catch {
+      // The shared API interceptor already reports the request failure.
+    }
   };
 
   const previewVisible = ref(false);
   const previewFiles = ref<GeneratorPreviewFile[]>([]);
   const previewActiveKey = ref('');
   const openPreview = async (record: GeneratorRecord) => {
-    const { data } = await previewGenerator(record.id);
-    previewFiles.value = data;
-    previewActiveKey.value = data[0]?.path || '';
-    previewVisible.value = true;
+    try {
+      const { data } = await previewGenerator(record.id);
+      previewFiles.value = data;
+      previewActiveKey.value = data[0]?.path || '';
+      previewVisible.value = true;
+    } catch {
+      previewFiles.value = [];
+      previewActiveKey.value = '';
+    }
   };
   const copyPreview = async (content: string) => {
     await navigator.clipboard.writeText(content);
@@ -716,7 +754,10 @@
       // eslint-disable-next-line no-use-before-define
       await downloadGenerated(data);
       ElMessage.success('代码已生成并下载');
+      generatorTable.value?.clearSelection();
       selectedKeys.value = [];
+    } catch {
+      // The shared API interceptor already reports the request failure.
     } finally {
       generateLoading.value = false;
     }

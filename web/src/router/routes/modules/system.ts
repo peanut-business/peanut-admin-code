@@ -19,37 +19,37 @@ const SYSTEM: AppRouteRecordRaw = {
       meta: {
         locale: 'menu.system.menu',
         requiresAuth: true,
-        roles: ['admin'],
+        requiredPermissions: ['core.menu.read'],
       },
     },
     {
-      path: 'role',
-      name: 'SystemRole',
+      path: '/app/roles',
+      name: 'tenant.roles.list',
       component: () => import('@/views/system/role/index.vue'),
       meta: {
         locale: 'menu.system.role',
         requiresAuth: true,
-        roles: ['admin'],
+        requiredPermissions: 'core.role.read',
       },
     },
     {
-      path: 'admin',
-      name: 'SystemAdmin',
+      path: '/app/members',
+      name: 'tenant.members.list',
       component: () => import('@/views/system/admin/index.vue'),
       meta: {
         locale: 'menu.system.admin',
         requiresAuth: true,
-        roles: ['admin'],
+        requiredPermissions: 'core.member.read',
       },
     },
     {
-      path: 'dept',
-      name: 'SystemDept',
+      path: '/app/departments',
+      name: 'tenant.departments.list',
       component: () => import('@/views/system/dept/index.vue'),
       meta: {
         locale: 'menu.system.dept',
         requiresAuth: true,
-        roles: ['admin'],
+        requiredPermissions: 'core.department.read',
       },
     },
     {
@@ -59,7 +59,7 @@ const SYSTEM: AppRouteRecordRaw = {
       meta: {
         locale: 'menu.system.jobs',
         requiresAuth: true,
-        roles: ['admin'],
+        requiredPermissions: ['core.job.read'],
       },
     },
     {
@@ -69,7 +69,8 @@ const SYSTEM: AppRouteRecordRaw = {
       meta: {
         locale: 'menu.system.dict',
         requiresAuth: true,
-        roles: ['admin'],
+        tenantModuleKey: 'peanut.reference-codes',
+        requiredPermissions: ['peanut.reference-codes.read'],
       },
     },
     {
@@ -79,7 +80,7 @@ const SYSTEM: AppRouteRecordRaw = {
       meta: {
         locale: 'menu.system.log',
         requiresAuth: true,
-        roles: ['admin'],
+        requiredPermissions: ['core.audit.read'],
       },
     },
     {
@@ -89,7 +90,7 @@ const SYSTEM: AppRouteRecordRaw = {
       meta: {
         locale: 'menu.system.maintenance',
         requiresAuth: true,
-        roles: ['admin'],
+        requiredPermissions: ['core.system.read'],
         instanceTool: true,
       },
     },

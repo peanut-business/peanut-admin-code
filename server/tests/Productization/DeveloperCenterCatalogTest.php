@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use app\platform\services\developer\DeveloperCenterCatalogService;
+use app\common\services\authorization\GeneratedApiCatalog;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
@@ -14,19 +15,17 @@ function developerCenterExpect(bool $condition, string $message): void
 }
 
 $serverRoot = dirname(__DIR__, 2);
-$configuration = [
-    'roots' => [],
-    'plugin_lock' => '../plugins.lock',
-    'kernel_version' => '1.0.0',
-    'registered_client_keys' => ['admin-web', 'platform-web'],
-];
-$registry = (new \app\platform\composition\plugin\ModuleDefinitionRegistryFactory($serverRoot))->fromPluginLock(
-    new \app\platform\infrastructure\plugin\PluginLockResolver($serverRoot, $configuration['plugin_lock']),
+$app = new \think\App($serverRoot);
+$app->env->set('DEPLOYMENT_MODE', 'multi-tenant');
+$app->initialize();
+$configuration = $app->config->get('modules');
+$registry = (new \app\platform\composition\module\ModuleDefinitionRegistryFactory($serverRoot))->fromModuleLock(
+    new \app\platform\infrastructure\module\ModuleLockResolver($serverRoot, $configuration['module_lock']),
     $configuration,
 );
-$service = new DeveloperCenterCatalogService($serverRoot, $registry);
-$first = $service->snapshot('official.article');
-$second = $service->snapshot('official.article');
+$service = new DeveloperCenterCatalogService($serverRoot, $registry, $app);
+$first = $service->snapshot('peanut.file');
+$second = $service->snapshot('peanut.file');
 
 developerCenterExpect($first['read_only'] === true, 'developer catalog is not explicitly read-only');
 developerCenterExpect(
@@ -40,7 +39,7 @@ developerCenterExpect(
 );
 developerCenterExpect(count($first['modules']) === 1, 'exact Module filtering changed');
 $module = $first['modules'][0];
-developerCenterExpect($module['key'] === 'official.article', 'wrong Module returned');
+developerCenterExpect($module['key'] === 'peanut.file', 'wrong Module returned');
 developerCenterExpect(count($module['routes']) > 0, 'route registry was not joined to the Module');
 developerCenterExpect(count($module['generated_api']) > 0, 'generated API catalog was not joined to the Module');
 developerCenterExpect(count($module['permissions']) > 0, 'permission catalog was not loaded from the manifest source');
@@ -60,7 +59,7 @@ foreach ($module['package_preview']['files'] as $file) {
     developerCenterExpect(!str_contains(basename($path), '.env'), 'package preview included an environment file');
 }
 
-foreach (['official.identity', 'peanut.artifact-revision', 'peanut.entitlement-quota', 'peanut.workflow'] as $backendOnlyKey) {
+foreach (['peanut.identity'] as $backendOnlyKey) {
     $backendOnly = $service->snapshot($backendOnlyKey)['modules'][0] ?? null;
     developerCenterExpect(is_array($backendOnly), 'backend-only Module was not discovered: ' . $backendOnlyKey);
     developerCenterExpect(
@@ -74,20 +73,20 @@ foreach (['official.identity', 'peanut.artifact-revision', 'peanut.entitlement-q
     developerCenterExpect($frontendFiles === [], 'backend-only preview invented frontend files: ' . $backendOnlyKey);
 }
 
-$ops = $service->snapshot('official.ops')['modules'][0] ?? null;
-developerCenterExpect(is_array($ops), 'official.ops was not discovered');
+$ops = $service->snapshot('peanut.ops')['modules'][0] ?? null;
+developerCenterExpect(is_array($ops), 'peanut.ops was not discovered');
 developerCenterExpect(
     ($ops['source']['frontend_clients'][0]['client_key'] ?? null) === 'platform-web'
-        && ($ops['source']['frontend_clients'][0]['entry'] ?? null) === 'platform/src/modules/official-ops/contribution.ts',
-    'official.ops platform contribution is missing from the catalog',
+        && ($ops['source']['frontend_clients'][0]['entry'] ?? null) === 'platform/src/modules/peanut-ops/contribution.ts',
+    'peanut.ops platform contribution is missing from the catalog',
 );
 developerCenterExpect(
     in_array(
-        'platform/src/modules/official-ops/contribution.ts',
+        'platform/src/modules/peanut-ops/contribution.ts',
         array_column($ops['package_preview']['files'] ?? [], 'path'),
         true,
     ),
-    'official.ops package preview omitted the platform contribution',
+    'peanut.ops package preview omitted the platform contribution',
 );
 
 $routes = (string) file_get_contents($serverRoot . '/route/platform.php');
@@ -104,7 +103,7 @@ developerCenterExpect(
 );
 
 try {
-    $service->snapshot('../official.article');
+    $service->snapshot('../peanut.file');
     throw new RuntimeException('invalid Module key was accepted');
 } catch (InvalidArgumentException) {
     // Expected: no arbitrary path reaches discovery or package tooling.
@@ -118,25 +117,23 @@ $inputs = [
     ['path' => 'release-versions.json', 'sha256' => hash_file('sha256', $fixture . '/release-versions.json')],
     ['path' => 'server/config/input.php', 'sha256' => hash_file('sha256', $fixture . '/server/config/input.php')],
 ];
-$freshness = new ReflectionMethod(DeveloperCenterCatalogService::class, 'apiCatalogFreshness');
-$fixtureService = new DeveloperCenterCatalogService($fixture . '/server', $registry);
 try {
     developerCenterExpect(
-        $freshness->invoke($fixtureService, $inputs) === null,
+        GeneratedApiCatalog::freshness($fixture . '/server', $inputs) === null,
         'the canonical generator root version input and server inputs must be accepted together',
     );
     foreach (['other-root.json', 'server/../release-versions.json', 'server//config/input.php'] as $invalidPath) {
         developerCenterExpect(
-            $freshness->invoke($fixtureService, [['path' => $invalidPath, 'sha256' => str_repeat('a', 64)]]) !== null,
+            GeneratedApiCatalog::freshness($fixture . '/server', [['path' => $invalidPath, 'sha256' => str_repeat('a', 64)]]) !== null,
             'undeclared or noncanonical API input path was accepted',
         );
     }
     developerCenterExpect(
-        $freshness->invoke($fixtureService, array_reverse($inputs)) !== null,
+        GeneratedApiCatalog::freshness($fixture . '/server', array_reverse($inputs)) !== null,
         'catalog input ordering must remain canonical',
     );
     developerCenterExpect(
-        $freshness->invoke($fixtureService, [$inputs[0], $inputs[0]]) !== null,
+        GeneratedApiCatalog::freshness($fixture . '/server', [$inputs[0], $inputs[0]]) !== null,
         'duplicate catalog source identities must be rejected',
     );
     mkdir($fixture . '/server/.peanut', 0700);
@@ -144,31 +141,31 @@ try {
     file_put_contents($fixture . '/server/.peanut/release-identity.json', "{}\n");
     unlink($fixture . '/release-versions.json');
     developerCenterExpect(
-        $freshness->invoke($fixtureService, $inputs) === null,
+        GeneratedApiCatalog::freshness($fixture . '/server', $inputs) === null,
         'a Server release must use its exact canonical version-source projection',
     );
     file_put_contents($fixture . '/server/.peanut/release-versions.json', "{}\n");
     developerCenterExpect(
-        $freshness->invoke($fixtureService, $inputs) !== null,
+        GeneratedApiCatalog::freshness($fixture . '/server', $inputs) !== null,
         'a changed Server version projection must invalidate the catalog',
     );
     unlink($fixture . '/server/.peanut/release-versions.json');
     file_put_contents($fixture . '/release-versions.json', "{\"source_product_version\":\"5.0.1\"}\n");
     developerCenterExpect(
-        $freshness->invoke($fixtureService, $inputs) !== null,
+        GeneratedApiCatalog::freshness($fixture . '/server', $inputs) !== null,
         'a missing Server projection must not fall back to an unrelated root version file',
     );
     unlink($fixture . '/server/.peanut/release-identity.json');
     rmdir($fixture . '/server/.peanut');
     file_put_contents($fixture . '/release-versions.json', "{}\n");
     developerCenterExpect(
-        $freshness->invoke($fixtureService, $inputs) !== null,
+        GeneratedApiCatalog::freshness($fixture . '/server', $inputs) !== null,
         'changing the root version source must invalidate the catalog',
     );
     unlink($fixture . '/server/config/input.php');
     symlink($fixture . '/release-versions.json', $fixture . '/server/config/input.php');
     developerCenterExpect(
-        str_contains((string) $freshness->invoke($fixtureService, [$inputs[1]]), 'linked'),
+        str_contains((string) GeneratedApiCatalog::freshness($fixture . '/server', [$inputs[1]]), 'linked'),
         'links must not bypass API source freshness checks',
     );
 } finally {

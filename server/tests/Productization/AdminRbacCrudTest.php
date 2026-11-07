@@ -2,233 +2,170 @@
 
 declare(strict_types=1);
 
-use app\adminapi\application\auth\AdminApplicationService;
-use app\adminapi\application\auth\MenuApplicationService;
-use app\adminapi\application\auth\RoleApplicationService;
-use app\adminapi\application\dept\DeptApplicationService;
-use app\adminapi\application\dept\JobsApplicationService;
-use app\common\model\auth\SystemMenu;
-use app\common\model\dept\Jobs;
+use app\adminapi\services\auth\AdminApplicationService;
+use app\adminapi\services\auth\MenuApplicationService;
+use app\adminapi\services\auth\RoleApplicationService;
+use app\adminapi\services\dept\DeptApplicationService;
+use app\adminapi\services\dept\JobsApplicationService;
+use app\common\exception\BusinessException;
+use app\common\execution\AdminExecutionContext;
+use app\common\execution\CurrentExecutionContext;
+use app\common\execution\ExecutionContextStore;
+use app\common\services\authorization\AdminAuthorizationService;
+use PeanutAdmin\Kernel\Auth\TenantContext;
+use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
+use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
+use PeanutAdmin\Kernel\Identity\PasswordHasher;
+use PeanutAdmin\Kernel\Identity\PasswordPolicy;
+use PeanutAdmin\Modules\Identity\Audit\AuditService;
+use PeanutAdmin\Modules\Identity\Authorization\Application\RoleAdminService;
+use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer;
+use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
+use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
 use think\facade\Db;
 
-require dirname(__DIR__, 2) . '/bootstrap/environment.php';
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
+require_once __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
+require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
+require_once __DIR__ . '/../Support/IdentityMysqlFixture.php';
 
+$crudAssertions = 0;
 function expectCrud(bool $condition, string $message): void
 {
-    if (!$condition) {
-        throw new RuntimeException($message);
-    }
+    global $crudAssertions;
+    $crudAssertions++;
+    if (!$condition) { throw new RuntimeException($message); }
 }
 
-function expectCrudFailure(bool $result, string $actualError, string $expectedError): void
+function expectCrudFailure(Closure $operation, string $errorCode): void
 {
-    expectCrud($result === false, 'operation unexpectedly succeeded: ' . $expectedError);
-    expectCrud(str_contains($actualError, $expectedError), sprintf(
-        'unexpected error: expected "%s", got "%s"',
-        $expectedError,
-        $actualError,
-    ));
+    try {
+        $operation();
+    } catch (BusinessException|AdminAccessException $exception) {
+        expectCrud($exception->errorCode === $errorCode, 'Expected ' . $errorCode . ', received ' . $exception->errorCode);
+        return;
+    }
+    throw new RuntimeException('Operation unexpectedly accepted: ' . $errorCode);
 }
 
-$app = new think\App();
-$app->initialize();
-
-$suffix = strtolower(substr(bin2hex(random_bytes(6)), 0, 12));
-$names = [
-    'admin' => 'pb04_admin_' . $suffix,
-    'nickname' => 'PB04管理员' . $suffix,
-    'role' => 'PB04角色' . $suffix,
-    'dept' => 'PB04部门' . $suffix,
-    'jobs' => 'PB04岗位' . $suffix,
-    'jobs_code' => 'pb04_jobs_' . $suffix,
-    'menu_parent' => 'PB04目录' . $suffix,
-    'menu_child' => 'PB04菜单' . $suffix,
-    'menu_parent_perm' => 'pb04/' . $suffix . '/parent',
-    'menu_child_perm' => 'pb04/' . $suffix . '/child',
-];
-$ids = [
-    'admin' => 0,
-    'role' => 0,
-    'dept' => 0,
-    'jobs' => 0,
-    'menu_parent' => 0,
-    'menu_child' => 0,
-];
-
-$rootAdmin = Db::name('admin')->where('root', 1)->where('disable', 0)->find();
-expectCrud(is_array($rootAdmin), 'active root administrator is required');
-$rootDept = Db::name('dept')->where('pid', 0)->where('status', 1)->find();
-expectCrud(is_array($rootDept), 'active root department is required');
-
+$database = RegisteredMysqlTestResource::configuredDatabaseName();
+[$pdo, $created] = RegisteredMysqlTestResource::openEmptyDatabase($database);
+$failure = null;
 try {
-    expectCrud(app(MenuApplicationService::class)->add([
-        'pid' => 0,
-        'type' => 'M',
-        'name' => $names['menu_parent'],
-        'perms' => $names['menu_parent_perm'],
-        'paths' => '/pb04-' . $suffix,
-        'component' => '',
-        'is_cache' => 0,
-        'is_show' => 1,
-        'is_disable' => 0,
-    ]), app(MenuApplicationService::class)->getError());
-    $ids['menu_parent'] = (int) SystemMenu::where('perms', $names['menu_parent_perm'])->value('id');
-    expectCrud($ids['menu_parent'] > 0, 'parent menu was not created');
-
-    expectCrud(app(MenuApplicationService::class)->add([
-        'pid' => $ids['menu_parent'],
-        'type' => 'C',
-        'name' => $names['menu_child'],
-        'perms' => $names['menu_child_perm'],
-        'paths' => '/pb04-' . $suffix . '/child',
-        'component' => 'pb04/child',
-        'is_cache' => 0,
-        'is_show' => 1,
-        'is_disable' => 0,
-    ]), app(MenuApplicationService::class)->getError());
-    $ids['menu_child'] = (int) SystemMenu::where('perms', $names['menu_child_perm'])->value('id');
-    expectCrud($ids['menu_child'] > 0, 'child menu was not created');
-
-    expectCrudFailure(
-        app(MenuApplicationService::class)->delete($ids['menu_parent']),
-        app(MenuApplicationService::class)->getError(),
-        '已关联下级菜单',
+    IsolatedBackendEnvironment::activateDatabase(
+        IsolatedBackendEnvironment::required('DB_HOST'), IsolatedBackendEnvironment::required('DB_PORT'),
+        $database, IsolatedBackendEnvironment::required('DB_USER'), IsolatedBackendEnvironment::required('DB_PASS'), 'multi-tenant',
     );
+    IdentityMysqlFixture::install($pdo);
+    $app = think\Container::getInstance();
+    expectCrud($app instanceof think\App, 'Explicit environment did not establish the native App');
+    $app->initialize();
+    // File's unused export dependency still requires its ordinary signing configuration.
+    $app->config->set(['secret' => str_repeat('fixture-only-', 4)], 'jwt');
+    ThinkPhpTestConnection::fromPdo($pdo);
+    (new CorePermissionCatalogSynchronizer(new ThinkPhpAuthorizationCatalogRepository()))->synchronize();
+    $contexts = $app->make(ExecutionContextStore::class);
+    $audit = new AuditService($app->make(CurrentExecutionContext::class));
+    $bootstrap = new BootstrapService($audit, new PasswordHasher(), new PasswordPolicy());
+    $operator = $bootstrap->bootstrapPlatformOwner('platform@example.test', 'PlatformPassword2026', 'Platform', 'rbac-platform');
+    $owner = $bootstrap->provisionTenantOwnerCandidate($operator->operatorId, 'rbac', 'RBAC fixture',
+        'owner@example.test', 'OwnerPassword2026', 'Owner', 'rbac-owner');
+    $bootstrap->activateTenantOwner($operator->operatorId, $owner->tenantId, $owner->memberId, 'rbac-owner-active');
+    $bootstrap->activateTenant($operator->operatorId, $owner->tenantId, 'rbac-tenant-active');
+    $authorization = $app->make(AdminAuthorizationService::class);
+    // Reload revisions and the server-derived principal after each preceding IAM mutation.
+    $run = static function (Closure $operation, ?int $memberId = null) use ($owner, $authorization, $contexts): mixed {
+        $memberId ??= $owner->memberId;
+        $member = Db::name('tenant_member')->where('tenant_id', $owner->tenantId)->where('id', $memberId)->find();
+        $tenantRevision = (int) Db::name('tenant')->where('id', $owner->tenantId)->value('authorization_revision');
+        $context = TenantContext::fromValidatedSession(new ValidatedTenantSession(
+            $memberId, 'rbac-fixture-' . $memberId, $owner->tenantId, (int) $member['account_id'], $memberId,
+            'admin-web', new DateTimeImmutable('now', new DateTimeZone('UTC')),
+            (int) $member['authorization_revision'], $tenantRevision,
+        ), 'rbac-' . bin2hex(random_bytes(8)));
+        $principal = $authorization->principal($context)->toArray();
+        return $contexts->run(new AdminExecutionContext($context, 'rbac.crud', $principal), static fn() => $operation($context));
+    };
+    $admins = $app->make(AdminApplicationService::class);
+    $roles = $app->make(RoleApplicationService::class);
+    $roleCommands = $app->make(RoleAdminService::class);
+    $menus = $app->make(MenuApplicationService::class);
+    $departments = $app->make(DeptApplicationService::class);
+    $jobs = $app->make(JobsApplicationService::class);
 
-    $parent = SystemMenu::findOrEmpty($ids['menu_parent'])->toArray();
-    $parent['pid'] = $ids['menu_child'];
-    expectCrudFailure(
-        app(MenuApplicationService::class)->edit($parent),
-        app(MenuApplicationService::class)->getError(),
-        '上级菜单不可是当前菜单或其下级菜单',
-    );
+    $parentInput = ['name' => 'RBAC directory', 'type' => 'M', 'parent_key' => null,
+        'paths' => '/rbac', 'component' => '', 'perms' => '', 'sort' => 0, 'is_show' => 1, 'is_disable' => 0];
+    expectCrud($menus->add($parentInput), 'Parent menu creation failed');
+    $parentKey = (string) Db::name('system_menu')->where('name', 'RBAC directory')->value('menu_key');
+    $childInput = ['name' => 'RBAC members', 'type' => 'C', 'parent_key' => $parentKey,
+        'paths' => '/rbac/members', 'component' => 'rbac/members', 'perms' => 'core.member.read',
+        'sort' => 0, 'is_show' => 1, 'is_disable' => 0];
+    expectCrud($menus->add($childInput), 'Child menu creation failed');
+    $childKey = (string) Db::name('system_menu')->where('name', 'RBAC members')->value('menu_key');
+    expectCrudFailure(static fn() => $menus->delete($parentKey), 'ADMIN_MENU_HAS_CHILDREN');
+    expectCrudFailure(static fn() => $menus->edit(array_replace($parentInput,
+        ['menu_key' => $parentKey, 'parent_key' => $childKey])), 'ADMIN_MENU_PARENT_INVALID');
 
-    expectCrud(app(RoleApplicationService::class)->add([
-        'name' => $names['role'],
-        'desc' => 'PB04 productization probe',
-        'sort' => 0,
-        'menu_id' => [$ids['menu_child']],
-    ]), app(RoleApplicationService::class)->getError());
-    $ids['role'] = (int) Db::name('system_role')->where('name', $names['role'])->value('id');
-    expectCrud($ids['role'] > 0, 'role was not created');
+    $run(static fn(TenantContext $context) => $roles->add($context, ['name' => 'RBAC reader', 'desc' => 'Read only']));
+    $roleId = (int) Db::name('role')->where('tenant_id', $owner->tenantId)->where('name', 'RBAC reader')->value('id');
+    $run(static fn(TenantContext $context) => $roleCommands->replacePermissions($context, $roleId,
+        ['core.member.read'], (int) Db::name('role')->where('id', $roleId)->value('authorization_revision')));
+    expectCrudFailure(static fn() => $menus->delete($childKey), 'ADMIN_MENU_IN_USE');
+    $run(static fn(TenantContext $context) => $departments->add($context,
+        ['name' => 'RBAC department', 'pid' => 0, 'code' => 'rbac.department', 'status' => 1]));
+    $departmentId = (int) Db::name('department')->where('tenant_id', $owner->tenantId)->where('code', 'rbac.department')->value('id');
+    $run(static fn(TenantContext $context) => $jobs->add($context, ['name' => 'RBAC job', 'code' => 'rbac-job', 'status' => 1]));
+    $jobId = (int) Db::name('jobs')->where('tenant_id', $owner->tenantId)->where('code', 'rbac-job')->value('id');
+    $memberInput = ['account' => 'reader@example.test', 'name' => 'RBAC reader', 'password' => 'ReaderPassword2026',
+        'disable' => 0, 'role_id' => [$roleId], 'dept_id' => [$departmentId], 'jobs_id' => [$jobId]];
+    $run(static fn(TenantContext $context) => $admins->add($context, $memberInput));
+    $memberId = (int) Db::name('tenant_member')->where('tenant_id', $owner->tenantId)->where('display_name', 'RBAC reader')->value('id');
+    expectCrud($memberId > 0, 'Administrator membership creation failed');
+    expectCrud(Db::name('member_role')->where('tenant_id', $owner->tenantId)->where('tenant_member_id', $memberId)->where('role_id', $roleId)->count() === 1, 'Member role relation missing');
+    expectCrud((int) Db::name('tenant_member')->where('id', $memberId)->value('primary_department_id') === $departmentId, 'Primary department missing');
+    expectCrud(Db::name('member_job')->where('tenant_id', $owner->tenantId)->where('tenant_member_id', $memberId)->where('job_id', $jobId)->count() === 1, 'Member job relation missing');
 
-    expectCrudFailure(
-        app(MenuApplicationService::class)->delete($ids['menu_child']),
-        app(MenuApplicationService::class)->getError(),
-        '菜单已被角色使用',
-    );
+    expectCrudFailure(static fn() => $run(static fn(TenantContext $context) => $admins->delete($context, $owner->memberId, $owner->memberId)), 'ADMIN_SELF_OPERATION_FORBIDDEN');
+    expectCrudFailure(static fn() => $run(static fn(TenantContext $context) => $admins->updateStatus($context, $owner->memberId, 1, $owner->memberId)), 'ADMIN_SELF_OPERATION_FORBIDDEN');
+    expectCrudFailure(static fn() => $run(static fn(TenantContext $context) => $admins->delete($context, $owner->memberId)), 'LAST_ACTIVE_OWNER_REQUIRED');
+    expectCrudFailure(static fn() => $run(static fn(TenantContext $context) => $admins->updateStatus($context, $owner->memberId, 1)), 'LAST_ACTIVE_OWNER_REQUIRED');
+    expectCrudFailure(static fn() => $run(static fn(TenantContext $context) => $departments->delete($context, $departmentId)), 'DEPARTMENT_NOT_EMPTY');
+    expectCrudFailure(static fn() => $run(static fn(TenantContext $context) => $jobs->delete($context, $jobId)), 'ADMIN_JOB_IN_USE');
+    $ownerRoleId = (int) Db::name('role')->where('tenant_id', $owner->tenantId)->where('key', 'core.tenant-owner')->value('id');
+    expectCrudFailure(static fn() => $run(static fn(TenantContext $context) => $admins->add($context,
+        array_replace($memberInput, ['account' => 'escalated@example.test', 'role_id' => [$ownerRoleId]])), $memberId), 'MEMBER_PERMISSION_DENIED');
+    expectCrud(Db::name('credential')->where('identifier_normalized', 'escalated@example.test')->count() === 0, 'Denied escalation created an account credential');
 
-    expectCrud(app(DeptApplicationService::class)->add([
-        'pid' => (int) $rootDept['id'],
-        'name' => $names['dept'],
-        'leader' => '',
-        'mobile' => '',
-        'sort' => 0,
-        'status' => 1,
-    ]), app(DeptApplicationService::class)->getError());
-    $ids['dept'] = (int) Db::name('dept')->where('name', $names['dept'])->value('id');
-    expectCrud($ids['dept'] > 0, 'department was not created');
-
-    expectCrud(app(JobsApplicationService::class)->add([
-        'name' => $names['jobs'],
-        'code' => $names['jobs_code'],
-        'sort' => 0,
-        'status' => 1,
-        'remark' => 'PB04 productization probe',
-    ]), app(JobsApplicationService::class)->getError());
-    $ids['jobs'] = (int) Jobs::where('code', $names['jobs_code'])->value('id');
-    expectCrud($ids['jobs'] > 0, 'job was not created');
-
-    expectCrud(app(AdminApplicationService::class)->add([
-        'account' => $names['admin'],
-        'name' => $names['nickname'],
-        'password' => 'pb04-test-password',
-        'avatar' => '',
-        'disable' => 0,
-        'multipoint_login' => 1,
-        'role_id' => [$ids['role']],
-        'dept_id' => [$ids['dept']],
-        'jobs_id' => [$ids['jobs']],
-    ]), app(AdminApplicationService::class)->getError());
-    $ids['admin'] = (int) Db::name('admin')->where('username', $names['admin'])->value('id');
-    expectCrud($ids['admin'] > 0, 'administrator was not created');
-    expectCrud(Db::name('admin_role')->where(['admin_id' => $ids['admin'], 'role_id' => $ids['role']])->count() === 1, 'admin role relation missing');
-    expectCrud(Db::name('admin_dept')->where(['admin_id' => $ids['admin'], 'dept_id' => $ids['dept']])->count() === 1, 'admin department relation missing');
-    expectCrud(Db::name('admin_jobs')->where(['admin_id' => $ids['admin'], 'jobs_id' => $ids['jobs']])->count() === 1, 'admin job relation missing');
-
-    expectCrudFailure(
-        app(AdminApplicationService::class)->delete($ids['admin'], $ids['admin']),
-        app(AdminApplicationService::class)->getError(),
-        '不能操作当前登录的管理员',
-    );
-    expectCrudFailure(
-        app(AdminApplicationService::class)->updateStatus($ids['admin'], 1, $ids['admin']),
-        app(AdminApplicationService::class)->getError(),
-        '不能操作当前登录的管理员',
-    );
-    expectCrudFailure(
-        app(AdminApplicationService::class)->delete((int) $rootAdmin['id']),
-        app(AdminApplicationService::class)->getError(),
-        '超级管理员不允许被删除',
-    );
-    expectCrudFailure(
-        app(AdminApplicationService::class)->updateStatus((int) $rootAdmin['id'], 1),
-        app(AdminApplicationService::class)->getError(),
-        '超级管理员不允许被禁用',
-    );
-    expectCrudFailure(app(RoleApplicationService::class)->delete($ids['role']), app(RoleApplicationService::class)->getError(), '有管理员在使用该角色');
-    expectCrudFailure(app(DeptApplicationService::class)->delete($ids['dept']), app(DeptApplicationService::class)->getError(), '已关联管理员');
-    expectCrudFailure(app(JobsApplicationService::class)->delete($ids['jobs']), app(JobsApplicationService::class)->getError(), '已关联管理员');
-
-    expectCrud(app(AdminApplicationService::class)->delete($ids['admin'], (int) $rootAdmin['id']), app(AdminApplicationService::class)->getError());
-    expectCrud(app(RoleApplicationService::class)->delete($ids['role']), app(RoleApplicationService::class)->getError());
-    expectCrud(app(MenuApplicationService::class)->delete($ids['menu_child']), app(MenuApplicationService::class)->getError());
-    expectCrud(app(MenuApplicationService::class)->delete($ids['menu_parent']), app(MenuApplicationService::class)->getError());
-    expectCrud(app(DeptApplicationService::class)->delete($ids['dept']), app(DeptApplicationService::class)->getError());
-    expectCrud(app(JobsApplicationService::class)->delete($ids['jobs']), app(JobsApplicationService::class)->getError());
+    $run(static fn(TenantContext $context) => $admins->updateStatus($context, $memberId, 1));
+    expectCrud(Db::name('tenant_member')->where('id', $memberId)->value('status') === 'suspended', 'Suspension failed');
+    $run(static fn(TenantContext $context) => $admins->updateStatus($context, $memberId, 0));
+    expectCrud(Db::name('tenant_member')->where('id', $memberId)->value('status') === 'active', 'Reactivation failed');
+    $run(static fn(TenantContext $context) => $admins->edit($context,
+        ['id' => $memberId, 'name' => 'RBAC edited', 'disable' => 0, 'role_id' => [$roleId], 'dept_id' => [], 'jobs_id' => []]));
+    $run(static fn(TenantContext $context) => $departments->delete($context, $departmentId));
+    $run(static fn(TenantContext $context) => $jobs->delete($context, $jobId));
+    expectCrud(Db::name('department')->where('id', $departmentId)->value('status') === 'archived', 'Department archival failed');
+    expectCrud(Db::name('jobs')->where('id', $jobId)->value('delete_time') !== null, 'Job soft deletion failed');
+    // IAM archives assigned roles and revokes their grants while retaining membership history.
+    $run(static fn(TenantContext $context) => $roles->delete($context, $roleId));
+    expectCrud(Db::name('role')->where('id', $roleId)->value('status') === 'archived', 'Role archival failed');
+    $run(static function (TenantContext $context) use ($authorization): void {
+        expectCrud(!$authorization->decide($context, $authorization->principal($context), 'core.member.read')->allowed,
+            'Archived role still granted read access');
+    }, $memberId);
+    $run(static fn(TenantContext $context) => $admins->delete($context, $memberId));
+    expectCrud(Db::name('tenant_member')->where('id', $memberId)->value('status') === 'left', 'Administrator departure failed');
+    expectCrud($menus->edit(array_replace($childInput, ['menu_key' => $childKey, 'perms' => ''])), 'Menu binding edit failed');
+    expectCrud($menus->delete($childKey) && $menus->delete($parentKey), 'Custom menu deletion failed');
+    expectCrud(Db::name('system_menu')->whereIn('menu_key', [$parentKey, $childKey])->count() === 0, 'Custom menu rows remained');
+} catch (Throwable $exception) {
+    $failure = $exception;
 } finally {
-    Db::transaction(static function () use ($ids): void {
-        $adminIds = array_values(array_filter([(int) $ids['admin']]));
-        $roleIds = array_values(array_filter([(int) $ids['role']]));
-        $deptIds = array_values(array_filter([(int) $ids['dept']]));
-        $jobsIds = array_values(array_filter([(int) $ids['jobs']]));
-        $menuIds = array_values(array_filter([
-            (int) $ids['menu_parent'],
-            (int) $ids['menu_child'],
-        ]));
-
-        if ($adminIds !== []) {
-            Db::name('admin_session')->whereIn('admin_id', $adminIds)->delete();
-            Db::name('admin_role')->whereIn('admin_id', $adminIds)->delete();
-            Db::name('admin_dept')->whereIn('admin_id', $adminIds)->delete();
-            Db::name('admin_jobs')->whereIn('admin_id', $adminIds)->delete();
-            Db::name('admin')->whereIn('id', $adminIds)->delete();
-        }
-        if ($roleIds !== []) {
-            Db::name('admin_role')->whereIn('role_id', $roleIds)->delete();
-            Db::name('system_role_menu')->whereIn('role_id', $roleIds)->delete();
-            Db::name('system_role')->whereIn('id', $roleIds)->delete();
-        }
-        if ($menuIds !== []) {
-            Db::name('system_role_menu')->whereIn('menu_id', $menuIds)->delete();
-            Db::name('system_menu')->whereIn('id', $menuIds)->delete();
-        }
-        if ($deptIds !== []) {
-            Db::name('admin_dept')->whereIn('dept_id', $deptIds)->delete();
-            Db::name('dept')->whereIn('id', $deptIds)->delete();
-        }
-        if ($jobsIds !== []) {
-            Db::name('admin_jobs')->whereIn('jobs_id', $jobsIds)->delete();
-            Db::name('jobs')->whereIn('id', $jobsIds)->delete();
-        }
-    });
+    RegisteredMysqlTestResource::cleanup($pdo, $database, $created);
 }
-
-expectCrud(Db::name('admin')->where('username', $names['admin'])->count() === 0, 'temporary administrator cleanup failed');
-expectCrud(Db::name('system_role')->where('name', $names['role'])->count() === 0, 'temporary role cleanup failed');
-expectCrud(Db::name('dept')->where('name', $names['dept'])->count() === 0, 'temporary department cleanup failed');
-expectCrud(Db::name('jobs')->where('code', $names['jobs_code'])->count() === 0, 'temporary job cleanup failed');
-expectCrud(Db::name('system_menu')->whereIn('perms', [$names['menu_parent_perm'], $names['menu_child_perm']])->count() === 0, 'temporary menu cleanup failed');
-
-echo "PB04-AUTH-CRUD-001 passed\n";
+if ($failure !== null) {
+    fwrite(STDERR, $failure::class . ': ' . $failure->getMessage() . ' at ' . $failure->getFile() . ':' . $failure->getLine() . "\n");
+    exit(1);
+}
+echo "PB04-AUTH-CRUD-001 current IAM CRUD and rejection contracts passed; assertions={$crudAssertions}\n";

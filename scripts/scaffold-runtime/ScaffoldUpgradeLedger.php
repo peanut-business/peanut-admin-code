@@ -25,13 +25,18 @@ final class ScaffoldUpgradeLedger
             }
             $entry = ['recorded_at' => gmdate('c')] + $entry;
             $json = json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-            if (fwrite($handle, $json . "\n") === false || !fflush($handle)) {
+            if (fwrite($handle, $json . "\n") !== strlen($json) + 1 || !fflush($handle) || !fsync($handle)) {
                 throw new RuntimeException('SCAFFOLD_LEDGER_APPEND_FAILED');
             }
         } finally {
             flock($handle, LOCK_UN);
             fclose($handle);
         }
+        $directory = fopen(dirname($this->path), 'r');
+        if ($directory === false || !fsync($directory)) {
+            throw new RuntimeException('SCAFFOLD_LEDGER_SYNC_FAILED');
+        }
+        fclose($directory);
     }
 
     /** @return list<array<string,mixed>> */

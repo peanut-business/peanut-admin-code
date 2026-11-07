@@ -7,6 +7,7 @@ namespace app\common\validation\instance;
 use app\common\enum\instance\DeploymentMode;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\InstanceExecutionContext;
+use app\common\execution\PlatformExecutionContext;
 
 final class InstanceToolAccessGuard
 {
@@ -20,6 +21,26 @@ final class InstanceToolAccessGuard
     public function allows(): bool
     {
         return $this->mode === DeploymentMode::Standalone;
+    }
+
+    /** Exact Platform Module routes only; the middleware also enforces their existing permissions. */
+    public function platformModulePermission(CurrentExecutionContext $executionContext): ?string
+    {
+        $context = $executionContext->current();
+        if (!in_array($this->mode, [DeploymentMode::Standalone, DeploymentMode::MultiTenant], true)
+            || !$context instanceof PlatformExecutionContext) {
+            return null;
+        }
+        return match ($context->operation()) {
+            'http.platform.get.instance-tools/modules' => 'platform.module.read',
+            'http.platform.post.instance-tools/modules/create' => 'platform.module.create',
+            'http.platform.post.instance-tools/modules/install' => 'platform.module.install',
+            'http.platform.post.instance-tools/modules/update' => 'platform.module.update',
+            'http.platform.post.instance-tools/modules/uninstall' => 'platform.module.uninstall',
+            'http.platform.post.instance-tools/modules/disable' => 'platform.module.disable',
+            'http.platform.post.instance-tools/modules/sync' => 'platform.module.sync',
+            default => null,
+        };
     }
 
     /**

@@ -1,0 +1,224 @@
+{
+    "template_version": 2,
+    "module_key": "fixture.workflow-business",
+    "workflow_key": "receipt",
+    "scenario_contract_version": 1,
+    "graph_sha256": "ee5cdd62d3fd0fb472042b9f21451aee02ae5c1e25d48919dd75f0592c67b430",
+    "graph": {
+        "contract_version": 2,
+        "scenario_contract_version": 1,
+        "subject_resource_key": "fixture.workflow-business.receipt",
+        "subject_read_operation": "read",
+        "subject_start_operation": "start",
+        "start_permission_keys": [
+            "fixture.workflow-business.start",
+            "peanut.workflow.instance.start"
+        ],
+        "required_capabilities": [
+            "workflow.claim",
+            "workflow.human_task",
+            "workflow.exclusive_gateway",
+            "workflow.return",
+            "workflow.service_task"
+        ],
+        "nodes": [
+            {
+                "key": "start",
+                "label": "开始",
+                "type": "start",
+                "config": []
+            },
+            {
+                "key": "handle",
+                "label": "仓管验收并填写结果",
+                "type": "human_task",
+                "config": {
+                    "allocation_mode": "claim",
+                    "aggregation_policy": null,
+                    "assignments": [
+                        {
+                            "kind": "role_members",
+                            "key": "workflow-warehouse-keeper",
+                            "required": true,
+                            "department_scope": "workflow-receiving"
+                        }
+                    ],
+                    "participant_rules": [
+                        {
+                            "kind": "subject_owner",
+                            "key": null,
+                            "required": true,
+                            "department_scope": null
+                        }
+                    ],
+                    "watcher_rules": [],
+                    "allow_self_approval": false,
+                    "opinion_required": true
+                }
+            },
+            {
+                "key": "acceptance",
+                "label": "验收结果分支",
+                "type": "exclusive_gateway",
+                "config": {
+                    "branches": [
+                        {
+                            "transition_key": "acceptance-exception",
+                            "condition": {
+                                "field": "result",
+                                "operator": "eq",
+                                "value": "rejected"
+                            }
+                        }
+                    ],
+                    "default_transition_key": "acceptance-accepted"
+                }
+            },
+            {
+                "key": "exception",
+                "label": "主管解决验收异常",
+                "type": "human_task",
+                "config": {
+                    "allocation_mode": "claim",
+                    "aggregation_policy": null,
+                    "assignments": [
+                        {
+                            "kind": "role_members",
+                            "key": "workflow-warehouse-supervisor",
+                            "required": true,
+                            "department_scope": "workflow-receiving"
+                        }
+                    ],
+                    "participant_rules": [
+                        {
+                            "kind": "subject_owner",
+                            "key": null,
+                            "required": true,
+                            "department_scope": null
+                        }
+                    ],
+                    "watcher_rules": [],
+                    "allow_self_approval": false,
+                    "opinion_required": true
+                }
+            },
+            {
+                "key": "effect-completed",
+                "label": "登记合成业务结果",
+                "type": "service_task",
+                "config": {
+                    "action_key": "fixture.workflow-business.receipt.receive-stock",
+                    "contract_version": 1,
+                    "input": {
+                        "subject_key": {
+                            "source": "instance",
+                            "field": "subject_key"
+                        },
+                        "revision_key": {
+                            "source": "instance",
+                            "field": "subject_revision_key"
+                        },
+                        "result": {
+                            "source": "literal",
+                            "value": "completed"
+                        }
+                    }
+                }
+            },
+            {
+                "key": "completed",
+                "label": "完成",
+                "type": "end",
+                "config": {
+                    "result_code": "completed"
+                }
+            }
+        ],
+        "transitions": [
+            {
+                "key": "start-handle",
+                "from": "start",
+                "to": "handle",
+                "action": "advance",
+                "operation": "start",
+                "permission_keys": [
+                    "fixture.workflow-business.start"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            },
+            {
+                "key": "handle-acceptance",
+                "from": "handle",
+                "to": "acceptance",
+                "action": "complete",
+                "operation": "complete",
+                "permission_keys": [
+                    "fixture.workflow-business.complete"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            },
+            {
+                "key": "acceptance-exception",
+                "from": "acceptance",
+                "to": "exception",
+                "action": "branch",
+                "operation": "read",
+                "permission_keys": [
+                    "fixture.workflow-business.read"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            },
+            {
+                "key": "acceptance-accepted",
+                "from": "acceptance",
+                "to": "effect-completed",
+                "action": "branch",
+                "operation": "read",
+                "permission_keys": [
+                    "fixture.workflow-business.read"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            },
+            {
+                "key": "exception-effect",
+                "from": "exception",
+                "to": "effect-completed",
+                "action": "complete",
+                "operation": "complete",
+                "permission_keys": [
+                    "fixture.workflow-business.complete"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            },
+            {
+                "key": "exception-return",
+                "from": "exception",
+                "to": "handle",
+                "action": "return",
+                "operation": "return",
+                "permission_keys": [
+                    "fixture.workflow-business.return"
+                ],
+                "return_edge": true,
+                "max_traversals": 3
+            },
+            {
+                "key": "effect-end",
+                "from": "effect-completed",
+                "to": "completed",
+                "action": "succeeded",
+                "operation": "receive",
+                "permission_keys": [
+                    "fixture.workflow-business.receive"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            }
+        ]
+    }
+}

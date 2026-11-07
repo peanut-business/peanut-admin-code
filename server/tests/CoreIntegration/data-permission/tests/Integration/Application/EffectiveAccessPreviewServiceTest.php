@@ -14,7 +14,6 @@ use PeanutAdmin\DataPermission\Constraint\ThinkPhpQueryConstraintApplier;
 use PeanutAdmin\DataPermission\Engine\DataPermissionEngine;
 use PeanutAdmin\DataPermission\Exception\DataAuthorizationException;
 use PeanutAdmin\Modules\Identity\DataPermission\Policy\ThinkPhpPolicyRepository;
-use PeanutAdmin\DataPermission\Policy\PolicyCache;
 use PeanutAdmin\DataPermission\Provider\ConditionProviderRegistry;
 use PeanutAdmin\Modules\Identity\DataPermission\Provider\ThinkPhpDepartmentHierarchyProvider;
 use PeanutAdmin\Modules\Identity\DataPermission\Provider\ThinkPhpTargetSetMembershipProvider;
@@ -34,7 +33,6 @@ use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer;
 use PeanutAdmin\Modules\Identity\Authorization\ThinkPhpTenantAuthorizationRepository;
 use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
-use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
 use PeanutAdmin\Kernel\Authorization\TenantAuthorizationEvaluator;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
 use think\db\PDOConnection;
@@ -64,13 +62,7 @@ final class EffectiveAccessPreviewServiceTest extends DatabaseTestCase
     {
         parent::setUp();
         $this->runner->migrate();
-        (new DataPermissionMigrationRunner(
-            self::DATABASE,
-            '127.0.0.1',
-            (int) (getenv('MYSQL_PORT') ?: 3306),
-            'root',
-            getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev',
-        ))->migrate();
+        (new DataPermissionMigrationRunner($this->database))->migrate();
         $this->database->exec(<<<'SQL'
 CREATE TABLE pa_preview_record (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -103,9 +95,9 @@ SQL);
 
         $this->seedOperations();
         $this->seedConditionalPolicies();
-        $this->authorization = new ThinkPhpTenantAuthorizationRepository();
+        $this->authorization = $this->fixtureAuthorizationRepository(['preview.unavailable']);
         $this->connection = ThinkPhpTestConnection::fromPdo($this->database);
-        $this->catalog = new ThinkPhpResourceOperationCatalog();
+        $this->catalog = new ThinkPhpResourceOperationCatalog($this->fixtureEntitlements(['preview.unavailable']));
         $this->policies = new ThinkPhpPolicyRepository();
         $this->actor = TenantContext::fromValidatedSession(new ValidatedTenantSession(
             1,
@@ -116,7 +108,7 @@ SQL);
             'admin-web',
             new DateTimeImmutable('2026-07-19T08:00:00Z'),
             1,
-        ), 'req_effective_access');
+        1), 'req_effective_access');
     }
 
     public function testBuildsExactRedactedModesDigestAndOneAuditEvent(): void
@@ -251,7 +243,7 @@ SQL)->fetchColumn();
             'parity-test',
             new DateTimeImmutable('2026-07-19T08:00:00Z'),
             1,
-        ), 'req_effective_access_parity');
+        1), 'req_effective_access_parity');
         $engine = $this->engine();
 
         foreach (['preview.a-functional-denied', 'preview.j-unbound'] as $resourceKey) {
@@ -415,8 +407,7 @@ SQL)->fetchColumn();
         return new DataPermissionEngine(
             $this->catalog,
             $this->policies,
-            new PolicyCache(),
-            new TenantAuthorizationEvaluator($this->authorization, new RevisionPermissionCache()),
+            new TenantAuthorizationEvaluator($this->authorization),
             $providers,
             new TargetResolverRegistry(),
             new TargetCatalogProviderRegistry(),
@@ -509,14 +500,7 @@ SQL)->fetchColumn();
             'created_at' => self::NOW,
             'updated_at' => self::NOW,
         ]);
-        $this->insert('pa_tenant_module', [
-            'tenant_id' => $this->tenantId,
-            'module_key' => 'preview.unavailable',
-            'status' => 'disabled',
-            'source' => 'manual',
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
+        $this->licenseTenantModules($this->tenantId, ['preview.unavailable'], 'suspended');
         $resourceId = $this->insert('pa_protected_resource', [
             'key' => 'preview.z-unavailable',
             'module_key' => 'preview.unavailable',

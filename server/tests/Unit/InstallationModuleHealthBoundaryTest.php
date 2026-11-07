@@ -30,16 +30,12 @@ final class InstallationModuleHealthBoundaryTest extends TestCase
         $this->database->exec(<<<'SQL'
             CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY, code TEXT COLLATE NOCASE, status TEXT);
             CREATE TABLE pa_module_installation (module_key TEXT COLLATE NOCASE, status TEXT);
-            CREATE TABLE pa_tenant_module (id INTEGER PRIMARY KEY, tenant_id INTEGER, module_key TEXT COLLATE NOCASE, status TEXT, effective_at TEXT, expires_at TEXT);
+            CREATE TABLE pa_tenant_license (id INTEGER PRIMARY KEY, tenant_id INTEGER, plan_id INTEGER, status TEXT, effective_at TEXT, expires_at TEXT);
+            CREATE TABLE pa_plan_module (plan_id INTEGER, module_key TEXT COLLATE NOCASE);
             INSERT INTO pa_tenant VALUES (1,'alpha','active'),(2,'beta','suspended');
             INSERT INTO pa_module_installation VALUES ('fixture.active','active'),('fixture.failed','failed'),('fixture.other','active');
-            INSERT INTO pa_tenant_module VALUES
-                (1,1,'fixture.active','enabled',NULL,NULL),
-                (2,1,'fixture.expired','enabled',NULL,'2000-01-01 00:00:00'),
-                (3,1,'fixture.future','enabled','2099-01-01 00:00:00',NULL),
-                (4,1,'fixture.disabled','disabled',NULL,NULL),
-                (5,2,'fixture.active','enabled',NULL,NULL),
-                (6,999,'fixture.orphan','enabled',NULL,NULL);
+            INSERT INTO pa_tenant_license VALUES (1,1,1,'active','2000-01-01',NULL),(2,2,2,'suspended','2099-01-01',NULL),(3,999,3,'active','2000-01-01',NULL);
+            INSERT INTO pa_plan_module VALUES (1,'fixture.active'),(1,'fixture.expired'),(1,'fixture.future'),(2,'fixture.active'),(3,'fixture.orphan');
             SQL);
         $this->states = new TenantModuleStateQueries();
     }
@@ -81,10 +77,10 @@ final class InstallationModuleHealthBoundaryTest extends TestCase
     }
 
     #[DataProvider('tenantSelections')]
-    public function testEnabledSelectionCountPreservesTheExactOldJoin(string $code, array $keys, int $expected): void
+    public function testEnabledSelectionCountUsesLicensePlanMembership(string $code, array $keys, int $expected): void
     {
         $placeholders = implode(',', array_fill(0, count($keys), '?'));
-        $original = $this->database->prepare("SELECT COUNT(*) FROM pa_tenant_module tm JOIN pa_tenant t ON t.id=tm.tenant_id WHERE t.code=? AND tm.status='enabled' AND tm.module_key IN ({$placeholders})");
+        $original = $this->database->prepare("SELECT COUNT(*) FROM pa_tenant_license license JOIN pa_tenant t ON t.id=license.tenant_id JOIN pa_plan_module detail ON detail.plan_id=license.plan_id WHERE t.code=? AND detail.module_key IN ({$placeholders})");
         $original->execute([$code, ...$keys]);
         self::assertSame($expected, (int) $original->fetchColumn());
         self::assertSame($expected, $this->states->enabledTenantSelectionCount($code, $keys));
@@ -92,14 +88,14 @@ final class InstallationModuleHealthBoundaryTest extends TestCase
 
     public function testEmptySelectionAvoidsReadingEitherLedger(): void
     {
-        $this->database->exec('DROP TABLE pa_module_installation; DROP TABLE pa_tenant_module; DROP TABLE pa_tenant;');
+        $this->database->exec('DROP TABLE pa_module_installation; DROP TABLE pa_plan_module; DROP TABLE pa_tenant_license; DROP TABLE pa_tenant;');
         self::assertSame(0, $this->states->activeInstallationCount([]));
         self::assertSame(0, $this->states->enabledTenantSelectionCount('alpha', []));
     }
 
     public function testDuplicateStoredRowsAreNotHiddenByDistinctOrDeduplication(): void
     {
-        $this->database->exec("INSERT INTO pa_module_installation VALUES ('fixture.active','active'); INSERT INTO pa_tenant_module VALUES (7,1,'fixture.active','enabled',NULL,NULL);");
+        $this->database->exec("INSERT INTO pa_module_installation VALUES ('fixture.active','active'); INSERT INTO pa_plan_module VALUES (1,'fixture.active');");
         self::assertSame(2, $this->states->activeInstallationCount(['fixture.active']));
         self::assertSame(2, $this->states->enabledTenantSelectionCount('alpha', ['fixture.active']));
     }
@@ -111,7 +107,7 @@ final class InstallationModuleHealthBoundaryTest extends TestCase
         self::assertSame($this->database, Db::connect()->getPdo());
         try {
             Db::transaction(function (): void {
-                Db::name('tenant_module')->where('id', 1)->update(['status' => 'disabled']);
+                Db::name('plan_module')->where('plan_id', 1)->where('module_key', 'fixture.active')->delete();
                 self::assertSame(0, $this->states->enabledTenantSelectionCount('alpha', ['fixture.active']));
                 throw new RuntimeException('HEALTH_FIXTURE_ROLLBACK');
             });
@@ -125,7 +121,7 @@ final class InstallationModuleHealthBoundaryTest extends TestCase
     public static function missingLedgers(): array
     {
         return [['pa_module_installation', 'activeInstallationCount', [['fixture.active']]],
-            ['pa_tenant_module', 'enabledTenantSelectionCount', ['alpha', ['fixture.active']]]];
+            ['pa_plan_module', 'enabledTenantSelectionCount', ['alpha', ['fixture.active']]]];
     }
 
     #[DataProvider('missingLedgers')]
@@ -151,9 +147,9 @@ final class InstallationModuleHealthBoundaryTest extends TestCase
         self::assertStringContainsString('\\assertCurrentDatabase($pdo)', $source);
         $composition = file_get_contents((new ReflectionClass(AppService::class))->getFileName());
         self::assertStringContainsString('$this->app->make(\\PeanutAdmin\\Modules\\Identity\\Contract\\TenantModuleStateQueries::class)', $composition);
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(TenantModuleStateQueries::class, $manifest['contracts']['exports']);
-        $parameter = (new ReflectionMethod(InstallationExecutionHost::class, '__construct'))->getParameters()[5];
+        $parameter = (new ReflectionMethod(InstallationExecutionHost::class, '__construct'))->getParameters()[2];
         self::assertSame('moduleStates', $parameter->getName());
         self::assertSame(TenantModuleStateQueries::class, (string) $parameter->getType());
         self::assertFalse($parameter->isOptional());

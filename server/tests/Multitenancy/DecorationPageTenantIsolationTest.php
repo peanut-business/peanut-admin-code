@@ -2,19 +2,20 @@
 
 declare(strict_types=1);
 
-use app\adminapi\application\decoration\DecorationPageApplicationService;
+use app\adminapi\services\decoration\DecorationPageApplicationService;
 use app\common\enum\decoration\DecorationEnum;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
-use app\common\service\decoration\DecorationReadService;
+use app\common\services\decoration\DecorationReadService;
 use app\common\model\decoration\DecoratePage;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
-use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once __DIR__ . '/../Support/CiBootstrap.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
+require_once __DIR__ . '/../Support/IdentityMysqlFixture.php';
+require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 
 function expectDecorationTenant(bool $condition, string $message): void
 {
@@ -44,49 +45,28 @@ function decorationTenantContext(int $tenantId, int $memberId, string $requestId
         'admin-web',
         new DateTimeImmutable('2031-01-01T00:00:00Z'),
         1,
+        1,
     ), $requestId);
-}
-
-function decorationTenantDatabase(PDO $admin): string
-{
-    $database = 'peanut_admin_fresh_decorate_' . strtolower(bin2hex(random_bytes(5)));
-    $admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
-    return $database;
-}
-
-function decorationTenantPdo(string $host, int $port, string $user, string $password, string $database): PDO
-{
-    return new PDO(
-        "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
-        $user,
-        $password,
-        [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_EMULATE_PREPARES => false,
-            PDO::MYSQL_ATTR_MULTI_STATEMENTS => true,
-        ],
-    );
 }
 
 function decorationFreshSchema(PDO $pdo, string $serverRoot): void
 {
-    foreach (KernelSchema::tableNames() as $table) {
-        $pdo->exec(KernelSchema::createSql($table));
-    }
-    $pdo->exec(KernelSchema::addTenantMemberDepartmentForeignKeySql());
+    IdentityMysqlFixture::install($pdo, [
+        $serverRoot . '/app/modules/peanut/file/database/migrations',
+        $serverRoot . '/app/modules/peanut/settings/database/migrations',
+        $serverRoot . '/database/installation',
+    ]);
     $pdo->exec(<<<'SQL'
 INSERT INTO pa_tenant
   (id, code, name, display_name, status, activated_at, created_at, updated_at)
 VALUES
   (101, 'default', 'Alpha', 'Alpha', 'active', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3), UTC_TIMESTAMP(3));
 SQL);
-    $schema = (string) file_get_contents($serverRoot . '/database/init.sql');
-    expectDecorationTenant($schema !== '', 'canonical application schema is missing');
-    $pdo->exec($schema);
+    $pdo->exec("INSERT INTO pa_decorate_page (tenant_id, type, name, data, meta) VALUES (101, 4, 'Alpha PC', '[]', '[]')");
 }
 
 /** @return array<int,array<string,mixed>> */
-function decorationPcPage(string $name, int $articleId): array
+function decorationPcPage(string $name): array
 {
     return [[
         'title' => 'PC Banner',
@@ -96,7 +76,7 @@ function decorationPcPage(string $name, int $articleId): array
             'data' => [[
                 'image' => '',
                 'name' => $name,
-                'link' => ['target_type' => 'article', 'target' => $articleId],
+                'link' => ['target_type' => 'shop', 'target' => 'home'],
             ]],
         ],
         'styles' => [
@@ -114,34 +94,22 @@ $host = IsolatedBackendEnvironment::required('DB_HOST');
 $port = (int) IsolatedBackendEnvironment::required('DB_PORT');
 $user = IsolatedBackendEnvironment::required('DB_USER');
 $password = IsolatedBackendEnvironment::required('DB_PASS');
-$admin = new PDO(
-    "mysql:host={$host};port={$port};charset=utf8mb4",
-    $user,
-    $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
-);
-$database = decorationTenantDatabase($admin);
+$database = RegisteredMysqlTestResource::configuredDatabaseName();
+[$pdo, $createdDatabase] = RegisteredMysqlTestResource::openEmptyDatabase($database);
 
 try {
-    $pdo = decorationTenantPdo($host, $port, $user, $password, $database);
     decorationFreshSchema($pdo, $serverRoot);
     $pdo->exec(<<<'SQL'
 INSERT INTO pa_tenant
   (id, code, name, display_name, status, activated_at, created_at, updated_at)
 VALUES
   (202, 'beta', 'Beta', 'Beta', 'active', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3), UTC_TIMESTAMP(3));
-INSERT INTO pa_article_cate (id, tenant_id, name, is_show) VALUES
-  (11, 101, 'Alpha Category', 1),
-  (12, 202, 'Beta Category', 1);
-INSERT INTO pa_article (id, tenant_id, cid, title, is_show) VALUES
-  (21, 101, 11, 'Alpha Article', 1),
-  (22, 202, 12, 'Beta Article', 1);
 UPDATE pa_decorate_page SET name = 'Alpha PC' WHERE tenant_id = 101 AND type = 4;
 SQL);
     $alphaPageId = (int) $pdo->query(
         'SELECT id FROM pa_decorate_page WHERE tenant_id = 101 AND type = 4',
     )->fetchColumn();
-    $betaData = json_encode(decorationPcPage('Beta original', 22), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    $betaData = json_encode(decorationPcPage('Beta original'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     $insertBeta = $pdo->prepare(
         'INSERT INTO pa_decorate_page (tenant_id, type, name, data, meta) VALUES (202, 4, ?, ?, ?)',
     );
@@ -167,16 +135,13 @@ SQL);
     IsolatedBackendEnvironment::activateDatabase($host, $port, $database, $user, $password, 'multi-tenant');
     $app = new think\App($serverRoot);
     $app->initialize();
+    ThinkPhpTestConnection::fromPdo($pdo);
     $decorationReads = app(DecorationReadService::class);
 
     $alpha = decorationTenantContext(101, 501, 'fresh-decoration-alpha');
     $beta = decorationTenantContext(202, 502, 'fresh-decoration-beta');
-    try {
-        app(CurrentExecutionContext::class)->tenantAdmin();
-        throw new RuntimeException('missing TenantContext unexpectedly reached decoration Runtime');
-    } catch (Throwable $exception) {
-        expectDecorationTenant($exception->getMessage() !== '', 'missing context denial lost its shape');
-    }
+    $missingContext = decorationFailure(fn() => app(CurrentExecutionContext::class)->tenantAdmin());
+    expectDecorationTenant($missingContext[1] === 'EXECUTION_CONTEXT_REQUIRED', 'missing context denial lost its shape');
 
     expectDecorationTenant(
         count(app(ExecutionContextStore::class)->run(
@@ -224,7 +189,7 @@ SQL);
             'id' => $betaPageId,
             'tenant_id' => 101,
             'type' => DecorationEnum::PC_HOME,
-            'data' => decorationPcPage('Cross Tenant', 21),
+            'data' => decorationPcPage('Cross Tenant'),
             'meta' => [],
         ], [DecorationEnum::PC_HOME]),
     ));
@@ -234,35 +199,12 @@ SQL);
             'id' => 999999,
             'tenant_id' => 101,
             'type' => DecorationEnum::PC_HOME,
-            'data' => decorationPcPage('Missing', 21),
+            'data' => decorationPcPage('Missing'),
             'meta' => [],
         ], [DecorationEnum::PC_HOME]),
     ));
     expectDecorationTenant($saveDenied === $missingSaveDenied, 'decoration save enumerated Tenant ownership');
     expectDecorationTenant($saveDenied[0] === 'DECORATION_PAGE_NOT_FOUND', 'decoration save denial code changed');
-
-    $articleDenied = decorationFailure(fn() => app(ExecutionContextStore::class)->run(
-        new \app\common\execution\AdminExecutionContext($alpha, 'test.decoration.page.save.cross-tenant-link'),
-        fn() => app(DecorationPageApplicationService::class)->save($alpha, [
-            'id' => $alphaPageId,
-            'tenant_id' => 202,
-            'type' => DecorationEnum::PC_HOME,
-            'data' => decorationPcPage('Forged Article', 22),
-            'meta' => [],
-        ], [DecorationEnum::PC_HOME]),
-    ));
-    $missingArticleDenied = decorationFailure(fn() => app(ExecutionContextStore::class)->run(
-        new \app\common\execution\AdminExecutionContext($alpha, 'test.decoration.page.save.missing-link'),
-        fn() => app(DecorationPageApplicationService::class)->save($alpha, [
-            'id' => $alphaPageId,
-            'tenant_id' => 202,
-            'type' => DecorationEnum::PC_HOME,
-            'data' => decorationPcPage('Missing Article', 999999),
-            'meta' => [],
-        ], [DecorationEnum::PC_HOME]),
-    ));
-    expectDecorationTenant($articleDenied === $missingArticleDenied, 'Article link validation enumerated Tenant ownership');
-    expectDecorationTenant($articleDenied[0] === 'DECORATION_PAGE_INVALID', 'Article link denial code changed');
 
     expectDecorationTenant(
         app(ExecutionContextStore::class)->run(
@@ -271,7 +213,7 @@ SQL);
                 'id' => $alphaPageId,
                 'tenant_id' => 202,
                 'type' => DecorationEnum::PC_HOME,
-                'data' => decorationPcPage('Alpha saved', 21),
+            'data' => decorationPcPage('Alpha saved'),
                 'meta' => [],
             ], [DecorationEnum::PC_HOME]),
         ),
@@ -312,14 +254,10 @@ SQL);
         )['name'] === 'Beta PC',
         'public Beta read selected another Tenant page',
     );
-    try {
-        DecoratePage::where([])->count();
-        throw new RuntimeException('untrusted public decoration context unexpectedly succeeded');
-    } catch (Throwable $exception) {
-        expectDecorationTenant($exception->getMessage() !== '', 'untrusted context denial lost its shape');
-    }
+    $untrustedContext = decorationFailure(fn() => DecoratePage::where([])->count());
+    expectDecorationTenant($untrustedContext[1] === 'EXECUTION_CONTEXT_REQUIRED', 'untrusted context denial lost its shape');
 
     echo "MT02-DECORATION-PAGE-TENANT-ISOLATION-001 passed\n";
 } finally {
-    $admin->exec("DROP DATABASE IF EXISTS `{$database}`");
+    RegisteredMysqlTestResource::cleanup($pdo, $database, $createdDatabase);
 }

@@ -105,7 +105,10 @@ final class ModuleNamespaceHostRegistrationTest extends TestCase
     {
         $root = $this->root . '/modules/' . $directory;
         mkdir($root . '/src', 0700, true);
-        file_put_contents($root . '/composer.json', json_encode(['autoload' => ['psr-4' => [$prefix => 'src/']]], JSON_THROW_ON_ERROR));
+        file_put_contents($root . '/composer.json', json_encode([
+            'name' => 'example/' . $directory,
+            'autoload' => ['psr-4' => [$prefix => 'src/']],
+        ], JSON_THROW_ON_ERROR));
         return $root;
     }
 

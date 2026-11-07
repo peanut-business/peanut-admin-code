@@ -5,21 +5,12 @@ declare(strict_types=1);
 require dirname(__DIR__, 4) . '/vendor/autoload.php';
 
 use app\common\composition\ModuleComposition;
-use app\common\services\authorization\AdminAuthorizationService;
 use PeanutAdmin\Kernel\Async\VerifiedJobEnvelope;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ManifestDocument;
 use PeanutAdmin\Kernel\Module\ModuleException;
 use PeanutAdmin\Kernel\Module\ModuleProvider;
-use PeanutAdmin\Modules\ImportExport\ModuleProvider as ImportExportModuleProvider;
-use PeanutAdmin\Modules\Notification\ModuleProvider as NotificationModuleProvider;
-use PeanutAdmin\Modules\Notification\Delivery\Task\NotificationTaskWorkerDefinition;
-use PeanutAdmin\Modules\Notification\Delivery\Persistence\NotificationRepository;
-use PeanutAdmin\Modules\Notification\Delivery\Persistence\NotificationStore;
-use PeanutAdmin\Modules\Notification\Delivery\Sms\DisabledSmsProvider;
-use PeanutAdmin\Modules\Notification\Delivery\Sms\SmsProvider;
-use PeanutAdmin\Modules\ImportExport\Service\ImportExportTaskWorkerDefinition;
 use PeanutAdmin\Modules\Task\Contract\JobExecution;
 use PeanutAdmin\Modules\Task\Contract\TaskHandler;
 use PeanutAdmin\Modules\Task\Contract\TaskWorkerContributor;
@@ -92,9 +83,9 @@ final class FixtureWorkerProvider implements ModuleProvider, TaskWorkerContribut
 }
 
 $registry = new CompiledModuleRegistry([
-    ManifestDocument::fromArray('/fixture/worker', [
+    ManifestDocument::fromObject('/fixture/worker', (object) [
         'key' => 'fixture.worker',
-        'backend' => ['provider' => FixtureWorkerProvider::class],
+        'backend' => (object) ['provider' => FixtureWorkerProvider::class],
     ]),
 ], [], [], [], 'test');
 $app = new App(dirname(__DIR__, 4));
@@ -103,33 +94,6 @@ $definitions = $app->make(TaskWorkerDefinitionRegistry::class)->resolve($app);
 workerExpect(count($definitions) === 1, 'compiled worker contribution missing');
 workerExpect($definitions[0] instanceof FixtureWorkerDefinition, 'compiled worker definition type changed');
 workerExpect(count([...$definitions[0]->handlers()]) === 1, 'compiled worker handler missing');
-
-$importDefinitions = (new ImportExportModuleProvider())->taskWorkerDefinitions();
-$notificationDefinitions = (new NotificationModuleProvider())->taskWorkerDefinitions();
-workerExpect($importDefinitions === [ImportExportTaskWorkerDefinition::class], 'Import/Export worker declaration changed');
-workerExpect($notificationDefinitions === [NotificationTaskWorkerDefinition::class], 'Notification worker declaration changed');
-
-$notificationApp = new App(dirname(__DIR__, 4));
-(new ModuleComposition($notificationApp))->register(new CompiledModuleRegistry([
-    ManifestDocument::fromArray('/official/notification', [
-        'key' => 'official.notification',
-        'backend' => ['provider' => NotificationModuleProvider::class],
-    ]),
-], [], [], [], 'test'));
-$notificationApp->instance(
-    NotificationRepository::class,
-    (new ReflectionClass(NotificationStore::class))->newInstanceWithoutConstructor(),
-);
-$notificationApp->instance(
-    AdminAuthorizationService::class,
-    (new ReflectionClass(AdminAuthorizationService::class))->newInstanceWithoutConstructor(),
-);
-$notificationWorker = $notificationApp->make(TaskWorkerDefinitionRegistry::class)->resolve($notificationApp)[0] ?? null;
-workerExpect($notificationWorker instanceof NotificationTaskWorkerDefinition, 'Notification worker did not resolve through Module composition');
-$handlerKeys = array_map(static fn(TaskHandler $handler): string => $handler->key(), [...$notificationWorker->handlers()]);
-sort($handlerKeys, SORT_STRING);
-workerExpect($handlerKeys === ['notification.inbox', 'notification.sms'], 'Notification handlers are incomplete');
-workerExpect($notificationApp->make(SmsProvider::class) instanceof DisabledSmsProvider, 'non-development SMS provider did not fail closed');
 
 try {
     new TaskWorkerDefinitionRegistry([

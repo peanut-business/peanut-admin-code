@@ -41,20 +41,15 @@ use PeanutAdmin\Kernel\Module\ModuleHostLayout;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationRepository;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
-use PeanutAdmin\Kernel\Tests\Integration\Schema\KernelMigrationRunner;
-use PHPUnit\Framework\TestCase;
+use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
 use RuntimeException;
 use think\App;
 use think\facade\Db;
 
-require_once dirname(__DIR__) . '/Schema/KernelMigrationRunner.php';
+require_once dirname(__DIR__) . '/Schema/DatabaseTestCase.php';
 
-final class ExternalOperationHostIntegrationTest extends TestCase
+final class ExternalOperationHostIntegrationTest extends DatabaseTestCase
 {
-    private const DATABASE = 'peanut_admin_p1_r02_external_host_test';
-
-    private PDO $admin;
-    private PDO $database;
     private ExternalOperationHost $host;
     private App $app;
 
@@ -70,14 +65,8 @@ final class ExternalOperationHostIntegrationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        if (getenv('PEANUT_INTEGRATION') !== '1') {
-            self::markTestSkipped('Run with the isolated R02 MySQL environment.');
-        }
-        $this->requiredPort('MYSQL_PORT');
-        $port = $this->requiredPort('DB_PORT');
-
         $root = dirname(__DIR__, 6);
-        $this->app = new App($root);
+        $this->app = \think\Container::getInstance();
         $cache = require $root . '/config/cache.php';
         if (!is_array($cache)) {
             throw new RuntimeException('The backend cache configuration is invalid.');
@@ -85,20 +74,8 @@ final class ExternalOperationHostIntegrationTest extends TestCase
         $this->app->config->set($cache, 'cache');
         $this->app->cache->clear();
 
-        $this->admin = $this->connect();
-        $this->admin->exec('DROP DATABASE IF EXISTS `' . self::DATABASE . '`');
-        $this->admin->exec(
-            'CREATE DATABASE `' . self::DATABASE . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci',
-        );
-        $this->database = $this->connect(self::DATABASE);
         ThinkPhpTestConnection::fromPdo($this->database);
-        (new KernelMigrationRunner(
-            self::DATABASE,
-            '127.0.0.1',
-            $port,
-            'root',
-            getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev',
-        ))->migrate();
+        $this->runner->migrate();
         $this->createFixtureSchema();
         $this->seedFixture();
         $this->host = $this->host();
@@ -108,9 +85,6 @@ final class ExternalOperationHostIntegrationTest extends TestCase
     {
         if (isset($this->app)) {
             $this->app->cache->clear();
-        }
-        if (isset($this->admin)) {
-            $this->admin->exec('DROP DATABASE IF EXISTS `' . self::DATABASE . '`');
         }
         parent::tearDown();
     }
@@ -482,7 +456,7 @@ final class ExternalOperationHostIntegrationTest extends TestCase
                     ExternalOperationRequest $command,
                 ) use ($worker, &$unrelatedCommitObserved, &$targetWaitObserved): void {
                     $context = $this->tenantContext($authorized);
-                    $guard = new ModuleAvailabilityService();
+                    $guard = new ModuleAvailabilityService($this->fixtureModuleRegistry(['fixture.record']), $this->fixtureEntitlements(['fixture.record']));
                     $guard->assertDeployment($authorized->operation->moduleKey, true);
                     $guard->assertTenant(
                         TenantScope::fromTrustedContext($context->tenantId, 'external-host-lock-test'),
@@ -491,11 +465,15 @@ final class ExternalOperationHostIntegrationTest extends TestCase
                         true,
                     );
 
+                    $observer = $this->connect($this->databaseName);
+                    $this->assertTargetLicenseLocked($observer);
+                    $unrelatedRevision = (int) $observer->query('SELECT revision FROM pa_tenant_license WHERE tenant_id = 2')->fetchColumn();
                     fwrite($worker['pipes'][0], "go\n");
                     fflush($worker['pipes'][0]);
                     $unrelated = $this->readTenantDisableWorkerMessage($worker);
-                    $unrelatedCommitObserved = ($unrelated['kind'] ?? null) === 'unrelated_committed';
-                    $targetWaitObserved = $this->waitForConnectionLock($worker['connection_id']);
+                    $unrelatedCommitObserved = ($unrelated['kind'] ?? null) === 'unrelated_committed'
+                        && (int) $observer->query('SELECT revision FROM pa_tenant_license WHERE tenant_id = 2')->fetchColumn() === $unrelatedRevision + 1;
+                    $targetWaitObserved = $this->waitForConnectionLock($observer, $worker['connection_id']);
                 },
             );
 
@@ -511,8 +489,8 @@ final class ExternalOperationHostIntegrationTest extends TestCase
             }
             $disabled = $this->readTenantDisableWorkerMessage($worker);
             self::assertSame('target_disabled', $disabled['kind'] ?? null);
-            self::assertSame('disabled', $this->tenantModuleStatus(1));
-            self::assertSame('enabled', $this->tenantModuleStatus(2));
+            self::assertSame('suspended', $this->tenantModuleStatus(1));
+            self::assertSame('active', $this->tenantModuleStatus(2));
         } finally {
             $this->closeTenantDisableWorker($worker);
         }
@@ -532,7 +510,7 @@ final class ExternalOperationHostIntegrationTest extends TestCase
             'X-Request-ID',
         );
         $registry = new CompiledModuleRegistry([
-            ManifestDocument::fromArray('backend/app/Modules/Fixture/Record', ['key' => 'fixture.record']),
+            $this->fixtureModuleRegistry(['fixture.record'])->requireManifest('fixture.record'),
         ], ['fixture.scope' => 'fixture.record'], ['fixture_record' => 'fixture.record'], [], 'fixture-revision');
         $tenantRepository = new class implements TenantAuthorizationRepository {
             public function member(int $tenantId, int $memberId): ?array
@@ -556,6 +534,13 @@ final class ExternalOperationHostIntegrationTest extends TestCase
                     'fixture.record.status',
                 ]);
             }
+            public function permissionsForKeys(TenantContext $context, array $permissionKeys): EffectivePermissionSet
+            {
+                return new EffectivePermissionSet(array_values(array_intersect(
+                    $permissionKeys,
+                    $this->permissions($context->tenantId, $context->memberId)->keys(),
+                )));
+            }
         };
         $platformRepository = new class implements PlatformAuthorizationRepository {
             public function revision(int $operatorId): string
@@ -568,7 +553,7 @@ final class ExternalOperationHostIntegrationTest extends TestCase
             }
         };
         $permissions = new PermissionMiddleware(
-            new TenantAuthorizationEvaluator($tenantRepository, new RevisionPermissionCache()),
+            new TenantAuthorizationEvaluator($tenantRepository),
             new PlatformAuthorizationEvaluator($platformRepository, new RevisionPermissionCache()),
         );
         $dataPermission = new DataPermissionAdapter(
@@ -588,7 +573,7 @@ final class ExternalOperationHostIntegrationTest extends TestCase
             new TrustedContextAdapter($configuration),
             new ModuleAvailabilityAdapter(
                 $registry,
-                new ModuleAvailabilityService(),
+                new ModuleAvailabilityService($this->fixtureModuleRegistry(['fixture.record']), $this->fixtureEntitlements(['fixture.record'])),
             ),
             new PermissionAdapter($permissions),
             new TypedTargetAdapter($dataPermission),
@@ -680,7 +665,7 @@ final class ExternalOperationHostIntegrationTest extends TestCase
             'fixture-web',
             new DateTimeImmutable('2026-07-19T00:00:00Z'),
             1,
-        ), $requestId);
+        1), $requestId);
     }
 
     private function tenantContext(AuthorizedExternalOperation $authorized): TenantContext
@@ -774,7 +759,12 @@ SQL);
     private function seedFixture(): void
     {
         $now = '2026-07-19 00:00:00.000';
-        $this->database->exec("INSERT INTO pa_module_installation (module_key, installed_version, manifest_schema_version, manifest_digest, status, revision, installed_at, activated_at, created_at, updated_at) VALUES ('fixture.record', '1.0.0', 1, REPEAT('a', 64), 'active', 1, '{$now}', '{$now}', '{$now}', '{$now}')");
+        $this->insert('pa_module_installation', [
+            'module_key' => 'fixture.record', 'installed_version' => '1.0.0', 'manifest_schema_version' => 1,
+            'manifest_digest' => $this->fixtureModuleRegistry(['fixture.record'])->requireManifest('fixture.record')->digest,
+            'status' => 'active', 'revision' => 1, 'installed_at' => $now, 'activated_at' => $now,
+            'created_at' => $now, 'updated_at' => $now,
+        ]);
         foreach ([1, 2] as $tenantSequence) {
             $accountId = $this->insert('pa_account', [
                 'display_name' => "Fixture {$tenantSequence}",
@@ -809,18 +799,7 @@ SQL);
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
-            $this->insert('pa_tenant_module', [
-                'tenant_id' => $tenantId,
-                'module_key' => 'fixture.record',
-                'status' => 'enabled',
-                'source' => 'manual',
-                'config_revision' => 1,
-                'authorization_revision' => 1,
-                'effective_at' => $now,
-                'enabled_at' => $now,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
+            $this->licenseTenantModules($tenantId, ['fixture.record'], 'active');
             $scopeId = $this->insert('fixture_scope', [
                 'tenant_id' => $tenantId,
                 'name' => "Scope {$tenantSequence}",
@@ -829,20 +808,6 @@ SQL);
             $this->memberIds[$tenantId] = $memberId;
             $this->scopeIds[$tenantId] = $scopeId;
         }
-    }
-
-    /** @param array<string, int|string|null> $values */
-    private function insert(string $table, array $values): int
-    {
-        $columns = array_keys($values);
-        $statement = $this->database->prepare(sprintf(
-            'INSERT INTO `%s` (`%s`) VALUES (:%s)',
-            $table,
-            implode('`, `', $columns),
-            implode(', :', $columns),
-        ));
-        $statement->execute($values);
-        return (int) $this->database->lastInsertId();
     }
 
     /** @return list<int> */
@@ -873,14 +838,18 @@ SQL);
             PHP_BINARY,
             '-r',
             $this->tenantDisableWorkerSource(),
-            (string) $this->requiredPort('DB_PORT'),
-            (string) (getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev'),
-            self::DATABASE,
         ], [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],
             2 => ['pipe', 'w'],
-        ], $pipes);
+        ], $pipes, null, [
+            ...getenv(),
+            'DB_HOST' => $this->databaseConfig['host'],
+            'DB_PORT' => (string) $this->databaseConfig['port'],
+            'DB_NAME' => $this->databaseName,
+            'DB_USER' => $this->databaseConfig['user'],
+            'DB_PASS' => $this->databaseConfig['password'],
+        ]);
         self::assertIsResource($process);
         foreach ($pipes as $pipe) {
             stream_set_timeout($pipe, 10);
@@ -933,19 +902,40 @@ SQL);
         proc_close($worker['process']);
     }
 
-    private function waitForConnectionLock(int $connectionId): bool
+    private function assertTargetLicenseLocked(PDO $observer): void
     {
-        $statement = $this->admin->prepare(<<<'SQL'
-SELECT COUNT(*)
-FROM performance_schema.data_lock_waits lock_wait
-JOIN performance_schema.threads thread
-  ON thread.THREAD_ID = lock_wait.REQUESTING_THREAD_ID
-WHERE thread.PROCESSLIST_ID = :connection_id
-SQL);
+        $targetId = (int) $observer->query('SELECT id FROM pa_tenant_license WHERE tenant_id = 1')->fetchColumn();
+        self::assertGreaterThan(0, $targetId);
+        $conflict = false;
+        $observer->beginTransaction();
+        try {
+            $observer->query('SELECT id FROM pa_tenant_license WHERE id = ' . $targetId . ' FOR UPDATE NOWAIT')->fetchAll();
+        } catch (\PDOException $exception) {
+            if ((int) ($exception->errorInfo[1] ?? 0) !== 3572) {
+                throw $exception;
+            }
+            $conflict = true;
+        } finally {
+            $observer->rollBack();
+        }
+        self::assertTrue($conflict, 'The parent guard must retain the target license before releasing the worker.');
+    }
+
+    private function waitForConnectionLock(PDO $observer, int $connectionId): bool
+    {
         $deadline = microtime(true) + 5.0;
         do {
-            $statement->execute(['connection_id' => $connectionId]);
-            if ((int) $statement->fetchColumn() > 0) {
+            foreach ($observer->query('SHOW FULL PROCESSLIST')->fetchAll(PDO::FETCH_ASSOC) as $process) {
+                if ((int) $process['Id'] !== $connectionId || $process['db'] !== $this->databaseName) {
+                    continue;
+                }
+                $sql = strtolower(str_replace('`', '', (string) $process['Info']));
+                if (preg_match('/^update\s+pa_tenant_license\b/s', $sql) !== 1
+                    || preg_match('/\btenant_id\s*=\s*\'?1\'?(?=\s|$)/', $sql) !== 1) {
+                    continue;
+                }
+                // Before release, the probe proved only the parent owns this row.
+                // The worker's exact UPDATE cannot complete until that guard commits.
                 return true;
             }
             usleep(10_000);
@@ -957,8 +947,8 @@ SQL);
     private function tenantModuleStatus(int $tenantId): string
     {
         $statement = $this->database->prepare(<<<'SQL'
-SELECT status FROM pa_tenant_module
-WHERE tenant_id = :tenant_id AND module_key = 'fixture.record'
+SELECT status FROM pa_tenant_license
+WHERE tenant_id = :tenant_id
 SQL);
         $statement->execute(['tenant_id' => $tenantId]);
 
@@ -969,9 +959,9 @@ SQL);
     {
         return <<<'PHP'
 $pdo = new PDO(
-    sprintf('mysql:host=127.0.0.1;port=%d;dbname=%s;charset=utf8mb4', (int) $argv[1], $argv[3]),
-    'root',
-    $argv[2],
+    sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', getenv('DB_HOST'), (int) getenv('DB_PORT'), getenv('DB_NAME')),
+    getenv('DB_USER'),
+    getenv('DB_PASS'),
     [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -988,17 +978,17 @@ if (fgets(STDIN) !== "go\n") {
     throw new RuntimeException('The Tenant Module disable worker was not released.');
 }
 $unrelated = $pdo->prepare(<<<'SQL'
-UPDATE pa_tenant_module
-SET authorization_revision = authorization_revision + 1
-WHERE tenant_id = 2 AND module_key = 'fixture.record'
+UPDATE pa_tenant_license
+SET revision = revision + 1
+WHERE tenant_id = 2
 SQL);
 $unrelated->execute();
 fwrite(STDOUT, json_encode(['kind' => 'unrelated_committed'], JSON_THROW_ON_ERROR) . "\n");
 fflush(STDOUT);
 $target = $pdo->prepare(<<<'SQL'
-UPDATE pa_tenant_module
-SET status = 'disabled', authorization_revision = authorization_revision + 1
-WHERE tenant_id = 1 AND module_key = 'fixture.record'
+UPDATE pa_tenant_license
+SET status = 'suspended', revision = revision + 1
+WHERE tenant_id = 1
 SQL);
 $target->execute();
 fwrite(STDOUT, json_encode(['kind' => 'target_disabled'], JSON_THROW_ON_ERROR) . "\n");
@@ -1006,31 +996,4 @@ fflush(STDOUT);
 PHP;
     }
 
-    private function connect(?string $database = null): PDO
-    {
-        $dsn = sprintf(
-            'mysql:host=127.0.0.1;port=%d%s;charset=utf8mb4',
-            $this->requiredPort('DB_PORT'),
-            $database === null ? '' : ";dbname={$database}",
-        );
-        return new PDO($dsn, 'root', getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev', [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-        ]);
-    }
-
-    private function requiredPort(string $name): int
-    {
-        $value = getenv($name);
-        if (!is_string($value) || preg_match('/^[0-9]+$/D', $value) !== 1) {
-            throw new RuntimeException("Missing required environment variable: {$name}.");
-        }
-        $port = (int) $value;
-        if ($port < 1 || $port > 65535) {
-            throw new RuntimeException("Invalid port in environment variable: {$name}.");
-        }
-
-        return $port;
-    }
 }

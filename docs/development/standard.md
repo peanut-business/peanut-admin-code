@@ -69,7 +69,7 @@ Peanut 产品入口使用 vendor.module 两段小写标识。Core 通用解析�
 
 模块 PHP 前缀由自己的 composer.json → src/ 声明，宿主正式注册。dcs.product 对应 server/app/modules/dcs/product、Dcs\\Modules\\Product、web/src/modules/dcs-product、tests/Modules/Dcs/Product；这不是对下游产品创建业务的授权。
 
-骨架只创建选定能力真正需要的文件。纯后端不生成空前端，纯查询不强迫带空 Commands。模块安装、租户开通、人员授权和代码发现分开。Module 与 Plugin 现有协议继续使用，不新增另一 manifest。
+骨架只创建选定能力真正需要的文件。纯后端不生成空前端，纯查询不强迫带空 Commands。模块安装、租户开通、人员授权和代码发现分开。Module 是自有产品的唯一模块实体；声明、运行贡献、锁和原生生命周期沿现有 Module 协议，不新增另一 manifest。第三方生态 Plugin 名称及历史迁移身份保持原义。
 
 contracts.exports 是模块公开面，不是所有可 autoload 类的目录。生产公开 Model / Query / Repository / 持久化实现仍不作为任意可写公开能力导出；一般业务协作使用公开查询、命令、稳定结果或技术协议。当前敏捷阶段允许同库模块通过ThinkPHP模型关系、预加载和JOIN进行有tenant隔离、最小字段的只读关联；条件见[模块调用规则](../architecture/module-development-delivery.md#3-模块之间怎样调用)。这不授权保存、修改或删除来源模块数据，不暴露其敏感字段或可写ORM对象，也不要求新增View/ReadModel/独立查询服务。内部模型仍由所属模块维护，收回导出不等于删除数据库实现；跨模块写入仍由所属模块业务入口承担。
 
@@ -136,19 +136,25 @@ function readInstallationState(value: unknown): InstallationState {
 
 ### 产品使用者与维护者的职责分开
 
-使用者取得完整发行包后，按包内原生锁安装真实Core与第三方依赖，再配置并执行首次安装；不要求先使用维护者生成器、读取私有Project或手工拼装开发归档。发行包保留开发源码、模块、构建配置、锁、浏览器产物、迁移、安装/独立升级入口、部署模板、公开资料及许可证，不复制任何层级vendor、node_modules或缓存。浏览器构建中合并的运行代码不等于复制依赖目录；不承诺无需下载依赖的离线安装。
+模板源码快照由 `scripts/scaffold-runtime/scaffold.conf.json` 的 `source_snapshot` 过滤，最终清单由正式 inventory 入口生成并按 `inventory_omissions` 省略指定条目。后端 `server/.peanut`、`server/plugins`、`server/modules.lock`、`server/resources/project-resources.json` 及配置中列明的旧脚本投影属于运行产物，不作为模板源码。`packages/core-web/*.tgz` 与 `packages/core-php/*.zip` 仅交付本次 Core 身份及原生依赖声明明确引用的归档，保留 `--with-local-core` 的真实输入，不继承陈旧归档。
+
+使用者由CLI从固定模板包首次创建APP，再按APP原生锁准备真实Core与第三方依赖、必要构建和配置，通过网页向导首次安装并确认访问后同步产品自己的Git；不要求维护者源码仓、私有Project或人工prepare。模板创建载荷保留开发源码、模块、构建配置、锁、迁移、安装/升级入口、部署模板、公开资料及许可证，不复制APP的vendor、node_modules或缓存。模板中独立的tooling域仅封存源码升级工具及其锁定生产依赖，不进入APP创建载荷、受管树或APP运行依赖；CLI验证后调用同一原生升级器，不隐式安装依赖。既有APP保留原目录、专库、Git和定制，不默认重建。
 
 首次安装预检环境、配置、发行身份和依赖，解析模块依赖，执行适用初始迁移及账号/默认租户初始化，再健康检查并登记版本。Standalone不强制平台运营账号；重复执行不得清库、重建账号或重置系统。缺依赖给出安装提示，不直接落入类加载错误。安装模块、开通租户和授予人员权限是独立动作。
 
-升级从已安装 `scripts/upgrade` 入口校验完整 inventory、逐文件 SHA-256 与版本/来源/目标身份，不能先运行未校验包内代码；`install.php --migrate` 或git pull不等于完整升级。复用既有计划、归属、冲突、锁和恢复机制：识别现状与目标→兼容及定制预检→独立准备目标依赖和前端→备份、限写、排空→应用/模块迁移→切换、重载及真实健康检查→完成版本登记。各阶段记录前置与失败状态；失败不能破坏仍运行的实例。
+上游源码升级由CLI固定模板并调用模板内原生 `scripts/scaffold-upgrade`，校验完整 inventory、逐文件 SHA-256 与版本/来源/目标身份，不能先运行未校验包内代码。产品 Git 更新使用 `scripts/deploy-update.sh`，不能与 CLI 模板源码升级混为一步。升级复用baseline三方比较、归属、冲突、锁、计划和文件恢复；明确保留缺失受管路径时，以既有app-owned归属记录该缺失，不恢复旧文件或生成新baseline；后续重新采用须显式解决app-owned冲突，同一路径保持唯一归属。源码apply不安装依赖、不构建客户端、不迁移DB或部署。依赖、构建、迁移和业务确认按本次变化另行处理。
+
+产品在自己的Git `dev`开发，人工审核定版到`main`及tag。生产首次从固定main提交在空目录、空库准备依赖、构建和配置，经网页向导安装；既有实例在原目录更新固定main，按变化处理锁、构建、pending迁移、缓存/进程和业务确认。该协调尚未完整接通，具体保护与缺口见[产品Git交付](../public/application-release.md)。旧包更新器和固定 Git 包准备链已退役；`git pull`或单独迁移命令不等于完整升级。
+
+受管文件的路径重命名属于 Scaffold 升级合同，必须由目标 manifest 显式声明旧路径、新路径和同一 owner；禁止用名称、内容相似或 Git rename 猜测替代声明。旧路径未定制且目标空闲时可自动迁移；任一侧存在下游内容时进入同一 plan 的显式冲突决策，application manifest 已占用目标、归属不一致、链式/循环声明或计划后路径漂移均拒绝自动接管。APP-owned、第三方模块和秘密继续不进入自动写集。
 
 代码恢复与数据恢复分开；重复或未知结果先核现场，不伪造不可逆DDL的down，不盲切不兼容旧代码。激活前按同计划恢复数据库、公共/私有文件及受管代码，activation_started后不得自动回灌旧备份。SSR运行依赖由目标环境按锁安装和构建，不能删除.output中的依赖后声称SSR仍完整可运行。当前实现入口及配置区别见[源码导读](current-code-lifecycle.md#9-应用生成安装与升级)。
 
-维护者负责固定产品、包、模块、API/事件及迁移身份，先完成所选组合验证，再按授权发布可取得的Core和产品。Peanut 上游应用、PHP Core、Web Core 六包及其内部依赖使用同一个发行版本；破坏性变化要求升主版本时统一升版，不给本轮组件另设版本。生成 APP 自有版本、模块/API/事件/schema 身份仍按各自合同维护，不重写历史发行。内部开发候选不冒充正式版本。Composer与npm按各自版本语义验证，不手改锁摘要、不覆写既有版本/tag。公开使用说明不授予发包、生产或客户数据操作权限，也不把完整产品资格附加成每次纯规范整理的任务。
+维护者负责固定产品、包、模块、API/事件及迁移身份，先完成所选组合验证，再按授权发布可取得的Core和产品。脚手架、PHP Core、Web Core各自独立发行和升版，分别按自身变化决定SemVer；脚手架更新不要求Core跟随发版。Web Core六包及其内部依赖仍使用同一个Web Core发行版本。生成 APP 自有版本、模块/API/事件/schema 身份仍按各自合同维护，不重写历史发行。日常联合开发直接使用显式选择的本地Core源码与所需watch，详见[日常入口](current-code-lifecycle.md#9-应用生成安装与升级)；阶段候选组合才消费固定源码commit/tree、精确包版本和摘要的本地Core候选，使用同一模板归档与创建/升级合同，明确保留development来源及不可正式发行标记。Composer与npm按各自版本语义验证，不手改锁摘要、不覆写既有版本/tag。公开使用说明不授予发包、生产或客户数据操作权限，也不把完整产品资格附加成每次纯规范整理的任务。
 
-PHP Core 与 Web Core 的发行操作以各自仓库已验收的远端 `main` 当前提交为准。发行前独立完成所需的 `dev` → `main` 源码集成、Packagist hook 或六包 npm 可信发布者设置；真正触发发行时只创建并推送不可复用的注释式 tag，不同时合并或推送 `main`。工作流核对固定源码并自动完成 Packagist/npm 发行，最后以 Action、公开包身份及 GitHub Release 三方结果判断完成。Web 多包部分成功后的续跑、远端 `main` 变动的停止线、精确命令与本次演练证据统一见[Core 独立发行](core-release.md)。缺少渠道绑定或资格时停止对应发行，不用手动上传或本地压缩包冒充自动发行。
+PHP Core与Web Core由其维护者按固定main来源、注释tag、已获准渠道和实际发布结果正式交付；下游APP正式交付只消费适用的已发布依赖，不需要执行上游发包任务。源级发布操作由源码仓的docs/maintenance入口和Core发行说明维护，不随APP教程复制。缺少公开固定依赖时停止相应正式交付；开发候选按Code源码仓`docs/maintenance/release-producers.md`中的冻结合同生成和验证，不以内部压缩包冒充渠道已发布；该合同不随生成APP交付。
 
-正式版 tag 为 `vX.Y.Z`；经单独授权的演练用 `vX.Y.Z-rc.N`，Web 六包与内部依赖保持同一 `X.Y.Z-rc.N`，npm 预发行使用 `rc` dist-tag。首次建包可能遗留指向演练版的 `latest`，须核对并清理后才可将无版本安装视为正式渠道。公开版本不可复用；演练版本不进入正式产品锁。两个 Core 的目标稳定版本真实可取得后，才进入产品依赖锁、组装和独立验收。
+正式版 tag 为 `vX.Y.Z`；经单独授权的演练用 `vX.Y.Z-rc.N`，Web 六包与内部依赖保持同一 `X.Y.Z-rc.N`，npm 预发行使用 `rc` dist-tag。首次建包可能遗留指向演练版的 `latest`，须核对并清理后才可将无版本安装视为正式渠道。公开版本不可复用；演练版本不进入正式产品锁。正式交付前核两个Core各自公开版本、内容/摘要与精确来源，生成原生正式依赖锁并复核最终组合；稳定正式交付要求稳定Core。候选组合的验证不证明最终公开包已等同采用，不能省略受影响的最终资格与人工Gate。
 
 ## 10. 规范、知识和 AI
 

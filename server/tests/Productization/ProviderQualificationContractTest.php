@@ -4,40 +4,28 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
 
-use app\platform\service\provider\PlatformProviderQualificationService;
-use app\platform\service\provider\ProviderQualificationContributor;
-use app\platform\service\provider\ProviderQualificationEvidenceRepository;
-use app\platform\service\provider\ProviderQualificationSubject;
+use app\platform\services\provider\PlatformProviderQualificationService;
+use app\platform\contract\provider\ProviderQualificationContributor;
+use app\platform\value\provider\ProviderQualificationSubject;
 use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Modules\Ops\Domain\Application\OpsConsoleException;
 use PeanutAdmin\Modules\Ops\Domain\Application\PlatformPermissionChecker;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
-$providerSource = dirname(__DIR__, 2) . '/app/platform/service/provider/';
-foreach ([
-    'ProviderQualificationContributor.php',
-    'ProviderQualificationSubject.php',
-    'ProviderQualificationEvidenceRepository.php',
-    'PlatformProviderQualificationService.php',
-] as $source) {
-    require_once $providerSource . $source;
-}
+require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
+$app = new \think\App(dirname(__DIR__, 2));
+$pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+ThinkPhpTestConnection::fromPdo($pdo);
+$pdo->exec('CREATE TABLE pa_provider_qualification_evidence (
+    id INTEGER PRIMARY KEY, evidence_key TEXT, provider_key TEXT, scope_type TEXT,
+    tenant_id INTEGER, scope_reference TEXT, evidence_type TEXT, outcome TEXT,
+    config_digest TEXT, status_code TEXT, observed_at TEXT, expires_at TEXT
+)');
 
 function expectProviderQualification(bool $condition, string $message): void
 {
     if (!$condition) {
         throw new RuntimeException($message);
-    }
-}
-
-final class FakeProviderQualificationRepository implements ProviderQualificationEvidenceRepository
-{
-    /** @var list<array<string,mixed>> */
-    public array $rows = [];
-
-    public function evidenceFor(array $subjects): array
-    {
-        return $this->rows;
     }
 }
 
@@ -104,9 +92,8 @@ $email = new ProviderQualificationSubject(
     false,
 );
 $contributor = new FakeProviderQualificationContributor([$tenantA, $tenantB, $email]);
-$repository = new FakeProviderQualificationRepository();
 foreach (['connectivity', 'callback', 'production'] as $offset => $type) {
-    $repository->rows[] = [
+    $row = [
         'evidence_key' => 'pqe_' . str_repeat((string) ($offset + 1), 32),
         'provider_key' => 'payment.wechat',
         'scope_type' => 'tenant',
@@ -119,16 +106,18 @@ foreach (['connectivity', 'callback', 'production'] as $offset => $type) {
         'observed_at' => '2026-08-28 10:0' . $offset . ':00.000000',
         'expires_at' => '2026-09-04 10:00:00.000000',
     ];
+    $pdo->prepare('INSERT INTO pa_provider_qualification_evidence (' . implode(',', array_keys($row))
+        . ') VALUES (' . implode(',', array_fill(0, count($row), '?')) . ')')->execute(array_values($row));
 }
 $service = new PlatformProviderQualificationService(
     new FakeProviderQualificationPermission(true),
-    $repository,
     [$contributor],
     str_repeat('s', 32),
     static fn(): DateTimeImmutable => $now,
 );
 $snapshot = $service->snapshot($context);
-expectProviderQualification(array_keys($snapshot) === ['schema_version', 'generated_at', 'providers'], 'top-level DTO changed');
+expectProviderQualification(array_keys($snapshot) === ['schema_version', 'generated_at', 'providers', 'page', 'page_size', 'total'], 'top-level DTO changed');
+expectProviderQualification($snapshot['page'] === 1 && $snapshot['page_size'] === 20 && $snapshot['total'] === 3, 'pagination defaults changed');
 expectProviderQualification(count($snapshot['providers']) === 3, 'provider subjects were lost');
 $byIdentity = [];
 foreach ($snapshot['providers'] as $provider) {
@@ -164,7 +153,6 @@ $changed = new ProviderQualificationSubject(
 );
 $staleService = new PlatformProviderQualificationService(
     new FakeProviderQualificationPermission(true),
-    $repository,
     [new FakeProviderQualificationContributor([$changed])],
     str_repeat('s', 32),
     static fn(): DateTimeImmutable => $now,
@@ -175,7 +163,6 @@ expectProviderQualification(!$stale['qualified'] && $stale['status_code'] === 'P
 $expiredNow = new DateTimeImmutable('2026-09-05T12:00:00Z');
 $expiredService = new PlatformProviderQualificationService(
     new FakeProviderQualificationPermission(true),
-    $repository,
     [new FakeProviderQualificationContributor([$tenantA])],
     str_repeat('s', 32),
     static fn(): DateTimeImmutable => $expiredNow,
@@ -186,7 +173,6 @@ expectProviderQualification(!$expired['qualified'] && $expired['status_code'] ==
 $deniedContributor = new FakeProviderQualificationContributor([$tenantA]);
 $deniedService = new PlatformProviderQualificationService(
     new FakeProviderQualificationPermission(false),
-    $repository,
     [$deniedContributor],
     str_repeat('s', 32),
 );
@@ -207,7 +193,7 @@ foreach ([
     'PaymentQualificationContributor.php', 'NotificationQualificationContributor.php',
     'OauthQualificationContributor.php', 'StorageQualificationContributor.php',
 ] as $file) {
-    $source = (string) file_get_contents(dirname(__DIR__, 2) . '/app/platform/service/provider/' . $file);
+    $source = (string) file_get_contents(dirname(__DIR__, 2) . '/app/platform/infrastructure/provider/' . $file);
     foreach (['curl_', 'file_get_contents("http', 'file_get_contents(\'http', 'Prepay', 'sendSms('] as $forbiddenCall) {
         expectProviderQualification(!str_contains($source, $forbiddenCall), 'read contributor performs an external or financial action');
     }

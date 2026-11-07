@@ -61,7 +61,11 @@ foreach (glob($root . '/server/app/modules/*/*/module.json') ?: [] as $manifestP
             || is_string($export) && namespaceSymbolExists('enum', $export), "Export is not autoloadable: {$moduleKey}.");
     }
 }
-namespaceCheck(count($moduleRoots) === 18, 'Discovered Module count changed.');
+$locked = array_column(namespaceJson($root . '/modules.lock')['modules'], 'key');
+$discovered = array_keys($moduleRoots);
+sort($locked, SORT_STRING);
+sort($discovered, SORT_STRING);
+namespaceCheck($locked !== [] && $locked === $discovered, 'Discovered Modules differ from the locked application.');
 ModulePhpNamespace::map($moduleRoots);
 
 $hostComposer = namespaceJson($root . '/server/composer.json');
@@ -73,19 +77,24 @@ if (is_array($hostPsr4)) {
 namespaceCheck($hostPsr4 === $expectedHostPsr4, 'Host Composer PSR-4 mappings differ from Module declarations.');
 
 $reflected = 0;
-foreach ($mapping['symbols'] ?? [] as $entry) {
-    namespaceCheck(is_array($entry), 'Migration symbol entry is invalid.');
-    $old = $entry['old_fqcn'] ?? null;
-    $new = $entry['new_fqcn'] ?? null;
-    $kind = $entry['kind'] ?? null;
-    $relativeFile = $entry['new_file'] ?? null;
-    namespaceCheck(is_string($old) && is_string($new) && is_string($kind) && is_string($relativeFile), 'Migration symbol metadata is incomplete.');
-    namespaceCheck(namespaceSymbolExists($kind, $new), "Migrated symbol is not autoloadable: {$new}.");
-    $reflection = new ReflectionClass($new);
-    $actual = $reflection->getFileName();
-    namespaceCheck(is_string($actual) && realpath($actual) === realpath($root . '/' . $relativeFile), "Migrated symbol resolved from another file: {$new}.");
-    namespaceCheck(!namespaceSymbolExists($kind, $old), "Relocated symbol remains autoloadable under its old name: {$old}.");
-    $reflected++;
+foreach ($moduleRoots as $moduleKey => $moduleRoot) {
+    $source = $moduleRoot . '/src/';
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS)) as $file) {
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
+        $name = substr($file->getPathname(), strlen($source), -4);
+        $symbol = $namespaces[$moduleKey] . str_replace(DIRECTORY_SEPARATOR, '\\', $name);
+        namespaceCheck(class_exists($symbol) || interface_exists($symbol) || trait_exists($symbol) || enum_exists($symbol),
+            "Declared Module type is not autoloadable: {$symbol}.");
+        $actual = (new ReflectionClass($symbol))->getFileName();
+        namespaceCheck(is_string($actual) && realpath($actual) === $file->getRealPath(), "Module type resolved outside its owner: {$symbol}.");
+        ++$reflected;
+    }
+}
+foreach ($mapping['symbols'] as $entry) {
+    $old = $entry['old_fqcn'];
+    namespaceCheck(!namespaceSymbolExists($entry['kind'], $old), "Relocated symbol remains autoloadable under its old name: {$old}.");
 }
 
 echo json_encode([

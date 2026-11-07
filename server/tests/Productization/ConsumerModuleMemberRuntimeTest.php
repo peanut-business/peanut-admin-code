@@ -9,8 +9,9 @@ use app\common\execution\ExecutionContextStore;
 use app\common\infrastructure\authorization\CoreTenantModuleAdminBridge;
 use app\common\policy\permission\RegisteredAdminPermissionPolicy;
 use app\common\services\authorization\AdminAuthorizationService;
+use app\common\services\authorization\EndpointPermissionGrant;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
-use app\platform\infrastructure\plugin\ModuleCatalogApplier;
+use app\platform\infrastructure\module\ModuleCatalogApplier;
 use PeanutAdmin\Kernel\Auth\Clock;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\TokenIssuer;
@@ -26,6 +27,9 @@ use PeanutAdmin\Modules\Identity\Membership\Query\ThinkPhpTenantMemberDirectory;
 use PeanutAdmin\Modules\Identity\Menu\ThinkPhpMenuCatalogRepository;
 use PeanutAdmin\Modules\Identity\Authorization\ThinkPhpTenantAuthorizationRepository;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
+use PeanutAdmin\Kernel\Identity\PasswordPolicy;
+use PeanutAdmin\Modules\Identity\Menu\MenuAdministrationService;
+use PeanutAdmin\Modules\Identity\Module\TenantEntitlementService;
 use think\Container;
 use think\db\builder\Sqlite as SqliteBuilder;
 use think\db\connector\Sqlite;
@@ -33,9 +37,10 @@ use think\db\Raw;
 use think\DbManager;
 use think\facade\Db;
 
-require dirname(__DIR__, 2) . '/bootstrap/environment.php';
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once dirname(__DIR__) . '/Support/CiBootstrap.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
+require_once dirname(__DIR__) . '/Support/IdentityMysqlFixture.php';
 
 function memberRuntimeExpect(bool $condition, string $message): void
 {
@@ -104,14 +109,7 @@ function memberRuntimeCreateSchema(PDO $pdo): void
 {
     if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql') {
         // Native schema and its CHECK/FK constraints remain intact in real MySQL.
-        foreach (PeanutAdmin\Kernel\Persistence\Schema\KernelSchema::tableNames() as $table) {
-            $pdo->exec(PeanutAdmin\Kernel\Persistence\Schema\KernelSchema::createSql($table));
-        }
-        $pdo->exec(PeanutAdmin\Kernel\Persistence\Schema\KernelSchema::addTenantMemberDepartmentForeignKeySql());
-        foreach (PeanutAdmin\Kernel\Migration\ModuleSchema::tableNames() as $table) {
-            $pdo->exec(PeanutAdmin\Kernel\Migration\ModuleSchema::createSql($table));
-        }
-        $pdo->exec('CREATE TABLE pa_plugin_module (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, plugin_key VARCHAR(96) NOT NULL, module_key VARCHAR(96) NOT NULL UNIQUE, module_version VARCHAR(64) NOT NULL, manifest_digest CHAR(64) NOT NULL, created_at DATETIME(3) NOT NULL, updated_at DATETIME(3) NOT NULL) ENGINE=InnoDB');
+        IdentityMysqlFixture::install($pdo);
         $pdo->exec('CREATE TABLE pa_acme_reference_chain_record (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, tenant_id BIGINT UNSIGNED NOT NULL, reference VARCHAR(120) NOT NULL, created_at DATETIME(3) NOT NULL, FOREIGN KEY (tenant_id) REFERENCES pa_tenant(id)) ENGINE=InnoDB');
         return;
     }
@@ -121,12 +119,15 @@ function memberRuntimeCreateSchema(PDO $pdo): void
         'CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL UNIQUE, name TEXT NOT NULL, display_name TEXT NOT NULL, status TEXT NOT NULL DEFAULT "active", security_revision INTEGER NOT NULL DEFAULT 1, authorization_revision INTEGER NOT NULL DEFAULT 1, revision INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)',
         'CREATE TABLE pa_tenant_member (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER NOT NULL, account_id INTEGER NOT NULL, display_name TEXT NOT NULL DEFAULT "", member_no TEXT NULL, member_type TEXT NOT NULL DEFAULT "administrator", primary_department_id INTEGER NULL, status TEXT NOT NULL DEFAULT "active", security_revision INTEGER NOT NULL DEFAULT 1, authorization_revision INTEGER NOT NULL DEFAULT 1, joined_at TEXT NULL, suspended_at TEXT NULL, left_at TEXT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)',
         'CREATE TABLE pa_role (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER NOT NULL, key TEXT NOT NULL, name TEXT NOT NULL, description TEXT NULL, is_builtin INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT "active", authorization_revision INTEGER NOT NULL DEFAULT 1, archived_at TEXT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE (tenant_id, key))',
+        'CREATE TABLE pa_member_job (tenant_id INTEGER NOT NULL, tenant_member_id INTEGER NOT NULL, job_id INTEGER NOT NULL, PRIMARY KEY (tenant_id, tenant_member_id, job_id))',
         'CREATE TABLE pa_member_role (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER NOT NULL, tenant_member_id INTEGER NOT NULL, role_id INTEGER NOT NULL, assigned_by_member_id INTEGER NULL, assigned_at TEXT NULL, UNIQUE (tenant_id, tenant_member_id, role_id))',
         'CREATE TABLE pa_permission (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL UNIQUE, module_key TEXT NOT NULL, type TEXT NOT NULL, name TEXT NOT NULL, description TEXT NULL, risk_level TEXT NOT NULL DEFAULT "normal", status TEXT NOT NULL DEFAULT "active", manifest_version TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, retired_at TEXT NULL)',
         'CREATE TABLE pa_role_permission (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER NOT NULL, role_id INTEGER NOT NULL, permission_id INTEGER NOT NULL, granted_by_member_id INTEGER NULL, granted_at TEXT NULL, UNIQUE (tenant_id, role_id, permission_id))',
         'CREATE TABLE pa_module_installation (module_key TEXT PRIMARY KEY, installed_version TEXT NOT NULL, manifest_schema_version INTEGER NOT NULL, manifest_digest TEXT NOT NULL, status TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1, activated_at TEXT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)',
-        'CREATE TABLE pa_plugin_module (id INTEGER PRIMARY KEY AUTOINCREMENT, plugin_key TEXT NOT NULL, module_key TEXT NOT NULL UNIQUE, module_version TEXT NOT NULL, manifest_digest TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)',
-        'CREATE TABLE pa_tenant_module (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER NOT NULL, module_key TEXT NOT NULL, status TEXT NOT NULL, source TEXT NOT NULL DEFAULT "manual", config_revision INTEGER NOT NULL DEFAULT 1, effective_at TEXT NULL, expires_at TEXT NULL, enabled_at TEXT NULL, disabled_at TEXT NULL, disabled_reason TEXT NULL, authorization_revision INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE (tenant_id, module_key))',
+        'CREATE TABLE pa_plan (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL UNIQUE, name TEXT NOT NULL, status TEXT NOT NULL DEFAULT "active", revision INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)',
+        'CREATE TABLE pa_plan_module (plan_id INTEGER NOT NULL, module_key TEXT NOT NULL, PRIMARY KEY (plan_id, module_key))',
+        'CREATE TABLE pa_plan_permission (plan_id INTEGER NOT NULL, permission_key TEXT NOT NULL, PRIMARY KEY (plan_id, permission_key))',
+        'CREATE TABLE pa_tenant_license (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER NOT NULL UNIQUE, plan_id INTEGER NOT NULL, status TEXT NOT NULL DEFAULT "active", effective_at TEXT NOT NULL, expires_at TEXT NULL, revision INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)',
         'CREATE TABLE pa_menu_definition (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL, module_key TEXT NOT NULL, scope TEXT NOT NULL, parent_key TEXT NULL, type TEXT NOT NULL, name TEXT NOT NULL, route_name TEXT NULL, route_path TEXT NULL, component_key TEXT NULL, icon TEXT NULL, sort_order INTEGER NOT NULL DEFAULT 0, required_permission_id INTEGER NULL, client_keys_json TEXT NOT NULL DEFAULT "[]", status TEXT NOT NULL DEFAULT "active", manifest_digest TEXT NOT NULL DEFAULT "", created_at TEXT NOT NULL, updated_at TEXT NOT NULL)',
         'CREATE TABLE pa_auth_security_event (id INTEGER PRIMARY KEY AUTOINCREMENT, audience TEXT NOT NULL, event_type TEXT NOT NULL, outcome TEXT NOT NULL, reason_code TEXT NULL, account_id INTEGER NULL, credential_id INTEGER NULL, session_key TEXT NULL, identifier_hmac TEXT NULL, request_id TEXT NOT NULL, ip_address TEXT NULL, user_agent_hash TEXT NULL, metadata_json TEXT NULL, occurred_at TEXT NOT NULL)',
         'CREATE TABLE pa_tenant_session (id INTEGER PRIMARY KEY AUTOINCREMENT, session_key TEXT NOT NULL UNIQUE, tenant_id INTEGER NOT NULL, account_id INTEGER NOT NULL, tenant_member_id INTEGER NOT NULL, client_key TEXT NOT NULL, status TEXT NOT NULL DEFAULT "active", account_security_revision INTEGER NOT NULL, tenant_security_revision INTEGER NOT NULL, member_security_revision INTEGER NOT NULL, authorization_revision INTEGER NOT NULL DEFAULT 1, issued_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, idle_expires_at TEXT NOT NULL, absolute_expires_at TEXT NOT NULL, ip_address TEXT NULL, user_agent_hash TEXT NULL, revoked_at TEXT NULL, revoke_reason TEXT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)',
@@ -156,7 +157,9 @@ function memberRuntimeModuleRoot(string $root): string
         throw new RuntimeException('runtime module root unavailable');
     }
     file_put_contents($moduleRoot . '/composer.json', json_encode([
+        'name' => 'acme/reference-chain',
         'autoload' => ['psr-4' => ['Acme\\Modules\\ReferenceChain\\' => 'src/']],
+        'extra' => ['peanut' => ['editions' => ['multi-tenant']]],
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
     file_put_contents($moduleRoot . '/module.json', json_encode([
         'schema_version' => 1,
@@ -252,8 +255,17 @@ if ($mode === '--mysql') {
     $pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
     $pdo->sqliteCreateFunction('UTC_TIMESTAMP', static fn(): string => '2026-09-28 00:00:00');
 }
-$completed = false;
 try {
+    $app = Container::getInstance();
+    if (!$app instanceof think\App) {
+        $app = new think\App($serverRoot);
+    }
+    require_once $app->getThinkPath() . 'helper.php';
+    $app->config->set(['mode' => 'multi-tenant'], 'deployment');
+    $app->config->set([
+        'default' => 'file',
+        'stores' => ['file' => ['type' => 'File', 'path' => $temporaryRoot . '/cache/']],
+    ], 'cache');
     memberRuntimeUseThinkPhpConnection($pdo);
     memberRuntimeCreateSchema($pdo);
     $moduleRoot = memberRuntimeModuleRoot($temporaryRoot);
@@ -300,21 +312,19 @@ try {
         'created_at' => $now,
         'updated_at' => $now,
     ]);
-    memberRuntimeInsert($pdo, 'pa_plugin_module', [
-        'plugin_key' => 'deployment',
-        'module_key' => 'acme.reference-chain',
-        'module_version' => '1.0.0',
-        'manifest_digest' => $manifest->digest,
+    $planId = memberRuntimeInsert($pdo, 'pa_plan', [
+        'code' => 'reference-runtime',
+        'name' => 'Reference Runtime',
         'created_at' => $now,
         'updated_at' => $now,
     ]);
+    memberRuntimeInsert($pdo, 'pa_plan_module', ['plan_id' => $planId, 'module_key' => 'acme.reference-chain']);
     foreach ([$tenantA, $tenantB] as $tenantId) {
-        memberRuntimeInsert($pdo, 'pa_tenant_module', [
+        memberRuntimeInsert($pdo, 'pa_tenant_license', [
             'tenant_id' => $tenantId,
-            'module_key' => 'acme.reference-chain',
-            'status' => 'enabled',
-            'source' => 'manual',
-            'enabled_at' => $now,
+            'plan_id' => $planId,
+            'status' => 'active',
+            'effective_at' => $now,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -330,20 +340,29 @@ try {
         'created_at' => $now,
         'updated_at' => $now,
     ]);
+    memberRuntimeInsert($pdo, 'pa_plan_permission', ['plan_id' => $planId, 'permission_key' => 'acme.reference-chain.write']);
 
     $members = new ThinkPhpTenantMemberDirectory();
-    $tenantAuthorization = new TenantAuthorizationQuery($members);
+    $registry = $provider->registry()->compiled();
+    $entitlements = new TenantEntitlementService($registry);
+    $app->instance(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry::class, $registry);
+    $app->instance(TenantEntitlementService::class, $entitlements);
+    $contexts = new ExecutionContextStore();
+    $current = new CurrentExecutionContext($contexts);
+    $tenantAuthorization = new TenantAuthorizationQuery($members, $registry);
     $authorization = new AdminAuthorizationService(
         new CoreTenantModuleAdminBridge(
             $provider,
-            new ThinkPhpTenantAuthorizationRepository(),
-            new ThinkPhpMenuCatalogRepository(),
+            new ThinkPhpTenantAuthorizationRepository($entitlements, $tenantAuthorization),
+            new ThinkPhpMenuCatalogRepository($entitlements),
             $tenantAuthorization,
+            new MenuAdministrationService(),
+            $entitlements,
         ),
         new RegisteredAdminPermissionPolicy(),
-        $members,
-        new AdminDirectoryQuery(new CurrentExecutionContext(new ExecutionContextStore())),
+        new AdminDirectoryQuery($current),
         $tenantAuthorization,
+        new EndpointPermissionGrant(new think\Request()),
     );
     $auth = new TenantAuthService(
         new ThinkPhpTenantAuthRepository(),
@@ -356,8 +375,9 @@ try {
     memberRuntimeExpect($ownerLogin instanceof TenantAuthentication, 'owner login did not authenticate');
     $ownerContext = $ownerLogin->context;
 
-    $roleService = new RoleAdminService(new AuditService());
-    $memberService = new MemberAdminService(new AuditService(), $passwords);
+    $audit = new AuditService($current);
+    $roleService = new RoleAdminService($audit, $entitlements);
+    $memberService = new MemberAdminService($audit, $passwords, new PasswordPolicy());
     $business = new Acme\Modules\ReferenceChain\Service\ReferenceChainService($authorization, $provider->qualification());
 
     $role = $roleService->create($ownerContext, 'reference-member', 'Reference Member', null);
@@ -386,7 +406,10 @@ try {
     memberRuntimeExpect($created['tenant_id'] === $tenantA, 'business write used the wrong tenant');
     memberRuntimeExpect(count($business->list($memberContext)['items']) === 1, 'business read did not return granted member row');
 
-    $role = $roleService->replacePermissions($ownerContext, (int) $role['id'], [], (int) $role['revision']);
+    $role = $contexts->run(
+        new \app\common\execution\AdminExecutionContext($ownerContext, 'peanut.identity.role.permissions.replace'),
+        fn() => $roleService->replacePermissions($ownerContext, (int) $role['id'], [], (int) $role['revision']),
+    );
     memberRuntimeExpect($role['permission_keys'] === [], 'role revoke was not visible');
     memberRuntimeDeny(fn() => $business->create($memberContext, 'after-revoke'), $pdo);
     memberRuntimeDeny(fn() => $business->list($memberContext), $pdo);
@@ -423,7 +446,6 @@ try {
     memberRuntimeDeny(fn() => $business->create($tenantBLogin->context, 'tenant-b-denied'), $pdo);
     memberRuntimeDeny(fn() => $business->list($tenantBLogin->context), $pdo);
     memberRuntimeExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE actor_type='member' AND outcome='success' AND actor_tenant_member_id=" . $ownerMember)->fetchColumn() > 0, 'native audit actor/outcome fields missing');
-    $completed = true;
 
     echo json_encode([
         'status' => 'passed',
@@ -446,7 +468,7 @@ try {
     echo "CONSUMER-MEMBER-RUNTIME-001 passed (7 checks)\n";
 
 } finally {
-    if ($mode === '--mysql' && $completed) {
+    if ($mode === '--mysql') {
         RegisteredMysqlTestResource::cleanup($pdo, $databaseName, $databaseCreated);
     }
 }

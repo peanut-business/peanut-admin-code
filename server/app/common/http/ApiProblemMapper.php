@@ -11,12 +11,14 @@ use app\common\exception\http\OutboundHttpException;
 use app\common\exception\storage\StorageProviderException;
 use PeanutAdmin\Modules\Identity\Invitation\TenantOwnerInvitationException;
 use app\platform\exception\PlatformRefreshCredentialException;
-use app\platform\exception\plugin\PluginLifecycleException;
-use app\platform\exception\plugin\PluginPackageException;
+use app\platform\exception\module\ModuleLifecycleException;
+use app\platform\exception\module\ModulePackageException;
 use PeanutAdmin\Kernel\Auth\AuthException;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Module\ModuleException;
 use PeanutAdmin\Modules\Ops\Domain\Application\OpsConsoleException;
+use think\exception\RouteNotFoundException;
+use think\exception\HttpException;
 use think\exception\ValidateException;
 
 /** Maps stable domain failures into the single public API error type. */
@@ -26,6 +28,18 @@ final class ApiProblemMapper
     {
         return match (true) {
             $exception instanceof ApiProblem => $exception,
+            $exception instanceof RouteNotFoundException => new ApiProblem(
+                'ROUTE_NOT_FOUND',
+                404,
+                'Route not found.',
+            ),
+            $exception instanceof HttpException
+                && $exception->getStatusCode() >= 400 && $exception->getStatusCode() <= 599 => new ApiProblem(
+                    'HTTP_ERROR_' . $exception->getStatusCode(),
+                    $exception->getStatusCode(),
+                    'HTTP request was rejected.',
+                    headers: $exception->getHeaders(),
+                ),
             $exception instanceof BusinessException => new ApiProblem(
                 $exception->errorCode,
                 $exception->httpStatus,
@@ -73,14 +87,24 @@ final class ApiProblemMapper
                 $exception->errorCode,
                 $exception->httpStatus,
                 $exception->getMessage(),
+                $exception->details(),
             ),
             $exception instanceof OpsConsoleException => (new ApiProblem(
                 $exception->problemCode,
                 $exception->status,
                 'Operations request was rejected.',
             ))->withHeaders(['Cache-Control' => 'no-store']),
-            $exception instanceof PluginLifecycleException
-                || $exception instanceof PluginPackageException
+            $exception instanceof ModulePackageException
+                && (str_starts_with($exception->errorCode, 'MODULE_DEPENDENC')
+                    || in_array($exception->errorCode, ['MODULE_REQUIRED_DEPENDENCY_UNAVAILABLE',
+                        'MODULE_DEVELOPMENT_DEPENDENCY_UNSATISFIED', 'MODULE_WORKSPACE_CONFIGURATION_REQUIRED'], true)) => new ApiProblem(
+                    $exception->errorCode,
+                    $this->moduleLifecycleStatus($exception->errorCode),
+                    $exception->getMessage(),
+                    $exception->details,
+                ),
+            $exception instanceof ModuleLifecycleException
+                || $exception instanceof ModulePackageException
                 || $exception instanceof ModuleScaffoldException => new ApiProblem(
                     $exception->errorCode,
                     $this->moduleLifecycleStatus($exception->errorCode),

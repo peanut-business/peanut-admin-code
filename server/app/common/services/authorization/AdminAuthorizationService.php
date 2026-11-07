@@ -12,15 +12,14 @@ use app\common\dto\authorization\AdminAccessData;
 use app\common\dto\authorization\AdminPrincipal;
 use app\common\dto\authorization\PermissionDecision;
 use app\common\model\auth\SystemMenu;
-use PeanutAdmin\Modules\ImportExport\Contract\ImportExportCommands;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\AuthorizationDecision;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use PeanutAdmin\Kernel\Context\RequestedTargetSet;
 use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationQuery;
-use PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory;
 use PeanutAdmin\Modules\Identity\Platform\InstanceControlPlanePolicy;
+use app\common\validation\instance\InstanceToolAccessGuard;
 
 /** Tenant Admin identity, RBAC and access projection service. */
 final class AdminAuthorizationService implements AdminAuthorizationQuery, AuthorizedOperationFactory
@@ -28,26 +27,21 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
     public function __construct(
         private readonly CoreTenantModuleAdminBridge $moduleAdmin,
         private readonly AdminPermissionPolicy $permissionPolicy,
-        private readonly TenantMemberDirectory $members,
         private readonly AdminDirectoryQuery $directory,
         private readonly TenantAuthorizationQuery $identityAuthorization,
+        private readonly EndpointPermissionGrant $endpointGrant,
     ) {}
 
     public function principal(TenantContext $tenantContext): AdminPrincipal
     {
-        $member = $this->members->activeMembership($tenantContext->tenantId, $tenantContext->memberId);
-        if ($member === null
-            || $member->accountId !== $tenantContext->accountId) {
+        $snapshot = $this->directory->activePrincipalProfileWithRoles($tenantContext->tenantId, $tenantContext->accountId, true);
+        if ($snapshot === null || $snapshot['profile']['member']->memberId !== $tenantContext->memberId) {
             throw new \DomainException('TENANT_ADMIN_PRINCIPAL_UNAVAILABLE');
         }
-
-        $profile = $this->directory->activePrincipalProfile($member->tenantId, $member->accountId);
-        if ($profile === null) {
-            throw new \DomainException('TENANT_ADMIN_PRINCIPAL_UNAVAILABLE');
-        }
-
-        $roles = $this->identityAuthorization->roles($tenantContext->tenantId, $tenantContext->memberId);
-        $switchableTenantCount = $this->members->activeMembershipCount($member->accountId);
+        $profile = $snapshot['profile'];
+        $member = $profile['member'];
+        $roles = $snapshot['roles'];
+        $switchableTenantCount = $profile['switchable_tenant_count'];
         $root = false;
         foreach ($roles as $role) {
             $root = $root || ($role['key'] === 'core.tenant-owner' && $role['is_builtin']);
@@ -72,19 +66,88 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         );
     }
 
+    /** Native Request storage is confined to the Login -> Auth middleware handoff. */
+    public function principalForRequest(\think\Request $request, TenantContext $context): AdminPrincipal
+    {
+        $principal = $this->principal($context);
+        $request->withMiddleware([self::class => ['context' => $context, 'principal' => $principal]]);
+        return $principal;
+    }
+
+    /** Consume only the server-loaded identity for this exact Request and context. */
+    public function decideForRequest(\think\Request $request, TenantContext $context, string $accessUri): PermissionDecision
+    {
+        $handoff = $request->middleware(self::class);
+        $request->withMiddleware([self::class => null]);
+        $principal = is_array($handoff) ? ($handoff['principal'] ?? null) : null;
+        if (!is_array($handoff) || ($handoff['context'] ?? null) !== $context || !$principal instanceof AdminPrincipal
+            || !$this->validContext($context, $principal)) {
+            return PermissionDecision::deny($accessUri, 'INVALID_TENANT_ADMIN_CONTEXT');
+        }
+        return $this->permissionDecision($context, $principal, $accessUri);
+    }
+
+    /** ALL prerequisites, then ANY granted bundle, each within the current license ceiling. */
+    public function decideApiForRequest(\think\Request $request, TenantContext $context, array $endpoint, array $keys): PermissionDecision
+    {
+        $handoff = $request->middleware(self::class);
+        $request->withMiddleware([self::class => null]);
+        $principal = is_array($handoff) ? ($handoff['principal'] ?? null) : null;
+        if (!is_array($handoff) || ($handoff['context'] ?? null) !== $context || !$principal instanceof AdminPrincipal
+            || !$this->validContext($context, $principal)) {
+            return PermissionDecision::deny($endpoint['path'], 'INVALID_TENANT_ADMIN_CONTEXT');
+        }
+        $prerequisites = json_decode($endpoint['prerequisite_permission_keys'], true, 32, JSON_THROW_ON_ERROR);
+        $inputs = $this->moduleAdmin->permissionInputs($context, [...$keys, ...$prerequisites]);
+        $registered = $inputs['registered'];
+        $owned = $inputs['owned'];
+        foreach ($prerequisites as $required) {
+            if (in_array($required, InstanceControlPlanePolicy::tenantAdminPermissions(), true)
+                || !$this->permissionPolicy->canAccess(false, $required, $registered, $owned)) {
+                return PermissionDecision::deny($endpoint['path'], 'API_PREREQUISITE_NOT_GRANTED');
+            }
+        }
+        foreach ($keys as $key) {
+            if (!in_array($key, InstanceControlPlanePolicy::tenantAdminPermissions(), true)
+                && $this->permissionPolicy->canAccess(false, $key, $registered, $owned)) {
+                $this->endpointGrant->record($context, $endpoint);
+                return PermissionDecision::allow($key);
+            }
+        }
+        return PermissionDecision::deny($endpoint['path'], 'API_PERMISSION_NOT_GRANTED');
+    }
+
     public function accessData(TenantContext $tenantContext, AdminPrincipal $admin): AdminAccessData
     {
         $admin = $this->currentPrincipal($tenantContext, $admin);
         if (!$admin instanceof AdminPrincipal) {
             return new AdminAccessData([], []);
         }
+        return $this->accessDataForPrincipal($tenantContext, $admin);
+    }
+
+    /** The caller has loaded and validated this principal in the current invocation. */
+    private function accessDataForPrincipal(TenantContext $tenantContext, AdminPrincipal $admin): AdminAccessData
+    {
         $bridge = $this->moduleAdmin;
-        $native = $bridge->accessData($tenantContext);
+        $native = $bridge->adminShellAccessData($tenantContext);
         $permissions = $native['permissions'];
         $menus = array_values(array_replace(
-            array_column($this->compatibilityMenus($tenantContext, $admin, $permissions), null, 'menu_key'),
+            array_column($this->compatibilityMenus(
+                $tenantContext,
+                $admin,
+                $permissions,
+                $native['registered_system_menu_permissions'],
+                $native['managed_menu_keys'],
+            ), null, 'menu_key'),
             array_column($native['menu'], null, 'menu_key'),
         ));
+        if (!InstanceToolAccessGuard::fromConfiguredValue(config('deployment.mode'))->allows()) {
+            $menus = array_values(array_filter(
+                $menus,
+                static fn(array $row): bool => strtolower(trim((string) ($row['paths'] ?? ''))) !== '/system/menu',
+            ));
+        }
         do {
             $before = count($menus);
             $ids = array_column($menus, 'menu_key');
@@ -95,10 +158,39 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
 
         return new AdminAccessData(
             menu: linear_to_tree($menus, 'children', 'menu_key', 'parent_key'),
-            permissions: $admin->root
-                ? $bridge->registeredPermissions($tenantContext->tenantId)
-                : array_values(array_unique($permissions)),
+            permissions: array_values(array_unique($permissions)),
+            actionBindings: $this->actionBindings(
+                $native['system_menu_rows'],
+                $native['managed_menu_keys'],
+                $native['assignable_menu_records'],
+            ),
         );
+    }
+
+    private function actionBindings(array $rows, array $managedMenuKeys, array $assignableMenuRecords): array
+    {
+        $managed = array_fill_keys($managedMenuKeys, true);
+        $pages = array_column($assignableMenuRecords, null, 'menu_key');
+        foreach ($rows as $row) {
+            if ($row['type'] === 'C' && !isset($managed[$row['menu_key']]) && (int) $row['is_disable'] === 0) {
+                $pages[$row['menu_key']] = $row;
+            }
+        }
+        $byId = array_column($rows, null, 'id');
+        $bindings = [];
+        foreach ($rows as $row) {
+            if ($row['type'] !== 'A' || $row['perms'] === '' || $row['paths'] === '') {
+                continue;
+            }
+            $parentKey = $row['parent_key'] ?: ($byId[(int) $row['pid']]['menu_key'] ?? null);
+            $page = $pages[$parentKey] ?? null;
+            if ($page === null || $page['type'] !== 'C' || $page['paths'] === '') {
+                continue;
+            }
+            $identity = $page['paths'] . "\0" . $row['paths'];
+            $bindings[$identity . "\0" . $row['perms']] = ['page_path' => $page['paths'], 'action_key' => $row['paths'], 'permission_key' => $row['perms']];
+        }
+        return array_values($bindings);
     }
 
     public function menusForAdminId(TenantContext $tenantContext, int $memberId): array
@@ -108,7 +200,10 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         }
 
         try {
-            return $this->accessData($tenantContext, $this->principal($tenantContext))->menu;
+            $admin = $this->principal($tenantContext);
+            return $this->validContext($tenantContext, $admin)
+                ? $this->accessDataForPrincipal($tenantContext, $admin)->menu
+                : [];
         } catch (\Throwable) {
             return [];
         }
@@ -124,7 +219,7 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         return $this->accessData($tenantContext, $admin)->permissions;
     }
 
-    /** Authorizes only active permissions owned by the application or an installed and enabled Module. */
+    /** Core owner grants are supplied by Identity; business grants remain explicit. */
     public function decide(
         ?TenantContext $tenantContext,
         AdminPrincipal $admin,
@@ -137,21 +232,78 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         if (!$admin instanceof AdminPrincipal) {
             return PermissionDecision::deny($accessUri, 'STALE_TENANT_ADMIN_PRINCIPAL');
         }
+        if ($this->endpointGrant->allows($tenantContext, $accessUri)) {
+            return PermissionDecision::allow($accessUri);
+        }
+        return $this->permissionDecision($tenantContext, $admin, $accessUri);
+    }
+
+    /** Reuse this request's exact endpoint admission; pending keys use a fresh projection. */
+    public function decisions(TenantContext $tenantContext, array $accessUris): array
+    {
+        if ($accessUris === []) {
+            return [];
+        }
+        $decisions = [];
+        $pending = [];
+        foreach ($accessUris as $accessUri) {
+            if (InstanceControlPlanePolicy::isTenantAdminRoute($accessUri)) {
+                $decisions[$accessUri] = PermissionDecision::deny($accessUri, 'PLATFORM_ROUTE_FORBIDDEN');
+            } elseif ($this->endpointGrant->allows($tenantContext, $accessUri)) {
+                $decisions[$accessUri] = PermissionDecision::allow($accessUri);
+            } else {
+                $pending[] = $accessUri;
+            }
+        }
+        if ($pending === []) {
+            return $decisions;
+        }
+        // Unadmitted permissions still read current membership and credential together.
+        $profile = $this->directory->activePrincipalProfile($tenantContext->tenantId, $tenantContext->accountId);
+        if ($profile === null || $profile['member']->memberId !== $tenantContext->memberId) {
+            throw new \DomainException('TENANT_ADMIN_PRINCIPAL_UNAVAILABLE');
+        }
+        $member = $profile['member'];
+        if ($tenantContext->authorizationRevision < 1
+            || $member->authorizationRevision !== $tenantContext->authorizationRevision
+            || $tenantContext->sessionKey === '' || $tenantContext->clientKey === '' || $tenantContext->requestId === '') {
+            foreach ($pending as $accessUri) {
+                $decisions[$accessUri] = PermissionDecision::deny($accessUri, 'INVALID_TENANT_ADMIN_CONTEXT');
+            }
+            return $decisions;
+        }
+        $keys = array_map(static fn(string $uri): string => strtolower(trim($uri, '/')), $pending);
+        $inputs = $this->moduleAdmin->permissionInputs(
+            $tenantContext,
+            array_values(array_unique(array_filter($keys, static fn(string $key): bool => $key !== ''))),
+        );
+        $registered = $inputs['registered'];
+        $owned = $inputs['owned'];
+        foreach ($pending as $accessUri) {
+            $key = strtolower(trim($accessUri, '/'));
+            $allowed = !in_array($key, InstanceControlPlanePolicy::tenantAdminPermissions(), true)
+                && $this->permissionPolicy->canAccess(false, $accessUri, $registered, $owned);
+            $decisions[$accessUri] = $allowed
+                ? PermissionDecision::allow($accessUri)
+                : PermissionDecision::deny($accessUri, 'PERMISSION_NOT_GRANTED');
+        }
+        return $decisions;
+    }
+
+    private function permissionDecision(TenantContext $tenantContext, AdminPrincipal $admin, string $accessUri): PermissionDecision
+    {
         if (InstanceControlPlanePolicy::isTenantAdminRoute($accessUri)) {
             return PermissionDecision::deny($accessUri, 'PLATFORM_ROUTE_FORBIDDEN');
         }
 
         $bridge = $this->moduleAdmin;
-        $registered = [
-            ...$bridge->registeredPermissions($tenantContext->tenantId),
-        ];
-        $registered = array_values(array_diff(
-            array_unique($registered),
-            InstanceControlPlanePolicy::tenantAdminPermissions(),
-        ));
+        $permissionKey = strtolower(trim($accessUri, '/'));
+        $registered = $permissionKey !== '' && $bridge->registeredPermission($tenantContext->tenantId, $permissionKey)
+            && !in_array($permissionKey, InstanceControlPlanePolicy::tenantAdminPermissions(), true)
+            ? [$permissionKey] : [];
         $owned = $bridge->permissionsOnly($tenantContext);
         $allowed = $this->permissionPolicy->canAccess(
-            $admin->root,
+            false,
             $accessUri,
             $registered,
             $owned,
@@ -170,14 +322,18 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         return $this->authorizedOperation(
             $tenantContext,
             $admin,
-            ImportExportCommands::RESOURCE_KEY,
+            'peanut.import-export',
             'create',
             [],
             $operationId,
         );
     }
 
-    /** @param list<RequestedTargetSet> $requestedTargets */
+    /**
+     * Creates trusted context for the export operation only; callers cannot widen its targets.
+     *
+     * @param list<RequestedTargetSet> $requestedTargets
+     */
     public function authorizedOperation(
         TenantContext $tenantContext,
         AdminPrincipal $admin,
@@ -186,13 +342,13 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         array $requestedTargets,
         string $operationId = '',
     ): AuthorizedOperationContext {
-        if ($resourceKey !== ImportExportCommands::RESOURCE_KEY
+        if ($resourceKey !== 'peanut.import-export'
             || $operation !== 'create'
             || $requestedTargets !== []
         ) {
             throw new \DomainException('ASYNC_OPERATION_CONTEXT_INVALID');
         }
-        if (!$this->decide($tenantContext, $admin, 'official.import-export.operation-log.export')->allowed) {
+        if (!$this->decide($tenantContext, $admin, 'peanut.import-export.operation-log.export')->allowed) {
             throw new \DomainException('ASYNC_EXPORT_PERMISSION_DENIED');
         }
 
@@ -205,7 +361,7 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
                 (string) $tenantContext->tenantId,
                 (string) $tenantContext->memberId,
                 (string) $tenantContext->authorizationRevision,
-                'official.import-export.operation-log.export',
+                'peanut.import-export.operation-log.export',
                 $operationId,
             ], static fn(string $value): bool => $value !== ''))),
         ));
@@ -229,20 +385,19 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         return $this->moduleAdmin->accessData($tenantContext)['menu'];
     }
 
-    /** @param list<string> $permissions */
+    /** @param list<string> $permissions @param list<string> $registered @param list<string> $managedMenuKeys */
     private function compatibilityMenus(
         TenantContext $tenantContext,
         AdminPrincipal $admin,
         array $permissions,
+        array $registered,
+        array $managedMenuKeys,
     ): array {
         if (!$this->validContext($tenantContext, $admin)) {
             return [];
         }
 
-        $registered = $this->moduleAdmin->registeredSystemMenuPermissions($tenantContext->tenantId);
-        $visiblePermissions = $admin->root
-            ? $registered
-            : array_values(array_intersect($permissions, $registered));
+        $visiblePermissions = array_values(array_intersect($permissions, $registered));
         $query = SystemMenu::where('type', 'in', ['M', 'C'])
             ->where('is_disable', 0)
             ->whereNotIn('perms', InstanceControlPlanePolicy::tenantAdminPermissions())
@@ -251,7 +406,7 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
                 $query->where('perms', '')->whereOr('perms', 'in', $visiblePermissions ?: ['__none__']);
             });
 
-        $nativeKeys = array_fill_keys($this->moduleAdmin->managedMenuKeys(), true);
+        $nativeKeys = array_fill_keys($managedMenuKeys, true);
         return array_values(array_filter(
             $query->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray(),
             static fn(array $row): bool => !isset($nativeKeys[$row['menu_key']]),

@@ -44,11 +44,14 @@ final class PlatformProviderQualificationService
             : \Closure::fromCallable($clock);
     }
 
-    /** @return array{schema_version:int,generated_at:string,providers:list<array<string,mixed>>} */
-    public function snapshot(PlatformContext $context): array
+    /** @return array{schema_version:int,generated_at:string,providers:list<array<string,mixed>>,page:int,page_size:int,total:int} */
+    public function snapshot(PlatformContext $context, int $page = 1, int $pageSize = 20): array
     {
         if (!$this->permissions->allows($context, OpsStatusService::READ_PERMISSION)) {
             throw OpsConsoleException::denied();
+        }
+        if ($page < 1 || $pageSize < 1 || $pageSize > 100) {
+            throw OpsConsoleException::invalid();
         }
         $subjects = [];
         foreach ($this->contributors as $contributor) {
@@ -74,7 +77,8 @@ final class PlatformProviderQualificationService
         return [
             'schema_version' => 1,
             'generated_at' => $now->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z'),
-            'providers' => $providers,
+            'providers' => array_slice($providers, ($page - 1) * $pageSize, $pageSize),
+            'page' => $page, 'page_size' => $pageSize, 'total' => count($providers),
         ];
     }
 

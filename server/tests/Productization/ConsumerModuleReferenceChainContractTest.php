@@ -23,10 +23,9 @@ $root = dirname(__DIR__, 3);
 $createApp = file_get_contents($root . '/scripts/create-app');
 referenceChainContractExpect(is_string($createApp), 'public create-app source is unavailable');
 referenceChainContractExpect(
-    preg_match(
-        '/new ApplicationCreator\(\s*\$root,\s*\$inventoryPath,\s*null,\s*\$adoption->path,/s',
-        $createApp,
-    ) === 1,
+    str_contains($createApp, "\$specifiedSourceIdentity = isset(\$options['source-commit'], \$options['source-tree'])")
+        && str_contains($createApp, "['kind' => 'local', 'snapshot_sha256' => \$options['source-snapshot-sha256']]")
+        && preg_match('/new ApplicationCreator\(\s*\$root,\s*\$inventoryPath,\s*\$specifiedSourceIdentity,\s*\$adoptionPath,/s', $createApp) === 1,
     'public create-app must derive generation source identity independently from the adoption manifest',
 );
 
@@ -34,58 +33,35 @@ $path = $root . '/scripts/consumer-module-reference-chain';
 $source = file_get_contents($path);
 referenceChainContractExpect(is_string($source), 'reference-chain source is unavailable');
 
-// CR21 now consumes one fixed Edition installer for A and B. Source generation
-// is verified by that artifact's provenance, not a removed create_application helper.
+// The two installed APPs must be bound to the same native P0-E source and protected configuration.
 $execution = referenceChainContractSection($source, 'def run_chain(', 'def parse_arguments(');
 foreach ([
-    'extract_installer(installer_package, installer_artifact, author)',
-    'extract_installer(installer_package, installer_artifact, consumer)',
-    'artifact_input = validate_installer_artifact(',
-    '"artifact_input": artifact_input',
-    '("installer-archive-sha256", args.installer_sha256)',
-    '("installer-manifest-sha256", args.installer_manifest_sha256)',
+    'native["lifecycle_inputs"](args, candidate_tree)',
+    'qualification.get("lifecycle_inputs") == inputs',
+    'qualification.get("template_artifacts") == inputs["template_artifacts"]',
+    'native["verify_lease"](native_args, qualification)',
+    'author_app, consumer_app = apps["standalone"], apps["multi-tenant"]',
+    'args.author_app != args.consumer_app',
+    'native["verify_runtime_admission"](admission, qualification["owner"], qualification["thread"])',
+    'status.get("state") == "installed"',
+    'seed.stat().st_mode & 0o777 == 0o600',
+    'owned_after == owned_before',
 ] as $required) {
-    referenceChainContractExpect(
-        str_contains($execution, $required),
-        'fixed installer identity or shared A/B input is not checked: ' . $required,
-    );
+    referenceChainContractExpect(str_contains($execution, $required), 'installed APP admission is missing: ' . $required);
 }
-foreach ([
-    'protocol != "peanut.edition-installer.v1"',
-    'protocol != "peanut.internal-edition-candidate.v1"',
-    'installer_artifact.get("scope") != "internal-candidate"',
-    'installer_artifact.get("formal_release", {}).get("eligible") is not False',
-    'archive_file.getmember(expected_member)',
-    'internal Edition candidate Core archive digest differs',
-] as $required) {
-    referenceChainContractExpect(
-        str_contains($source, $required),
-        'formal/internal installer protocol boundary is not checked: ' . $required,
-    );
+foreach (['extract_installer(', 'scripts/create-app', 'ApplicationCreator', 'source_builder'] as $retired) {
+    referenceChainContractExpect(!str_contains($execution, $retired), 'existing APP qualification replaced its source or installation');
 }
-referenceChainContractExpect(
-    !str_contains($execution, 'ApplicationCreator')
-        && !str_contains($execution, 'source_builder')
-        && !str_contains($execution, 'scripts/create-app'),
-    'the fixed installer consumer retained a source-generation substitute',
-);
 $arguments = referenceChainContractSection($source, 'def parse_arguments(', 'def main(');
-foreach (['--installer-package', '--installer-manifest', '--installer-sha256', '--installer-manifest-sha256'] as $option) {
-    referenceChainContractExpect(
-        str_contains($arguments, 'parser.add_argument("' . $option . '", required=True'),
-        'a fixed installer input is not required: ' . $option,
-    );
+foreach (['--lifecycle-input', '--lifecycle-input-sha256', '--qualification-plan', '--author-app', '--consumer-app', '--identity-seed-file'] as $option) {
+    referenceChainContractExpect(str_contains($arguments, 'parser.add_argument("' . $option . '", required=True'), 'fixed APP input missing: ' . $option);
 }
-referenceChainContractExpect(
-    str_contains($arguments, 'parser.add_argument("--installer-mode", choices=("formal", "internal-candidate"), default="formal")'),
-    'internal candidates must require an explicit non-default installer mode',
-);
 
 $helper = referenceChainContractSection($source, 'def lifecycle_helper()', 'def helper_action(');
 foreach ([
-    'PluginPackageInstaller',
+    'ModulePackageInstaller',
     'PlatformModuleRuntimeService',
-    'PluginRuntimeGovernanceService',
+    'ModuleRuntimeGovernanceService',
 ] as $forbidden) {
     referenceChainContractExpect(
         !str_contains($helper, $forbidden),
@@ -97,7 +73,7 @@ foreach ([
     'RoleAdministrationRuntime::class',
     'Acme\\Modules\\ReferenceChain\\Contract\\ReferenceChainCommands::class',
     'PlatformOperatorSessionService::class',
-    'PlatformOperatorIdentityPort::class',
+    'native_platform_login',
     'TenantAuthService::class',
     'TenantOwnerInvitationAdminService::class',
     'TenantOwnerInvitationPublicService::class',
@@ -119,7 +95,7 @@ foreach ([
 }
 foreach ([
     'issue-identities',
-    'native_auth_services_after_consumer_install',
+    'native_auth_services_existing_consumer',
     'native_invitation_accept_login',
     'CR21_IDENTITY_SEED',
     '_FILE_INVALID',
@@ -168,17 +144,17 @@ referenceChainContractExpect(
     'the generated Module service does not use the public Module qualification contract',
 );
 foreach ([
-    '20260828010101_create_reference_chain.sql',
+    '20260828010101_create_reference_chain.php',
     'CREATE TABLE `pa_acme_reference_chain_record`',
     'FOREIGN KEY (`tenant_id`) REFERENCES `pa_tenant` (`id`)',
-    '20260828010201_add_revision_note.sql',
+    '20260828010201_add_revision_note.php',
     'ALTER TABLE `pa_acme_reference_chain_record` ADD COLUMN `revision_note`',
     'seeded.get("owned_rows") == 1 and seeded.get("migration_count") == 1',
     'len(seeded.get("service_read", {}).get("items", [])) == 1',
     'after_update.get("migration_count") == 2 and after_update.get("v2_column") is True',
     'len(after_update.get("service_read", {}).get("items", [])) == 1',
     'after_retire.get("owned_table") is True and after_retire.get("owned_rows") == 1',
-    'after_purge.get("owned_table") is False and after_purge.get("migration_count") == 0',
+    'after_purge.get("owned_table") is False and after_purge.get("migration_count") == 2',
 ] as $required) {
     referenceChainContractExpect(
         str_contains($source, $required),
@@ -188,10 +164,10 @@ foreach ([
 
 $lifecycle = referenceChainContractSection($source, 'def package_install(', 'def run_chain(');
 foreach ([
-    'module:install-package',
-    'module:update-package',
-    'module:disable-package',
-    'module:uninstall-package',
+    'run_module(consumer, env, "install"',
+    'run_module(consumer, env, "upgrade"',
+    'run_module(consumer, env, "disable"',
+    'run_module(consumer, env, "uninstall"',
 ] as $command) {
     referenceChainContractExpect(
         str_contains($lifecycle, $command),
@@ -214,100 +190,22 @@ referenceChainContractExpect(
     'the reference chain still reports ordinary non-root member authorization as unproven',
 );
 
-// Execute the real archive extractor on owned positive/negative fixture archives.
-$archiveProcess = proc_open(
-    ['python3', $root . '/scripts/tests/consumer-module-installer-test.py'],
-    [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-    $archivePipes,
-    $root,
-);
-referenceChainContractExpect(is_resource($archiveProcess), 'installer archive runner is unavailable');
-$archiveOutput = stream_get_contents($archivePipes[1]);
-$archiveError = stream_get_contents($archivePipes[2]);
-fclose($archivePipes[1]);
-fclose($archivePipes[2]);
-referenceChainContractExpect(
-    proc_close($archiveProcess) === 0
-        && str_contains((string) $archiveOutput, 'CONSUMER-INSTALLER-ARCHIVE-001 passed (15 cases)'),
-    'fixed installer archive contract failed: ' . $archiveError,
-);
-echo $archiveOutput;
-
-// 真实 Python 资源选择器的正反例；静态源码检查不能代替资源边界行为。
-$resourceProcess = proc_open(
-    ['python3', $root . '/scripts/tests/consumer-module-resource-test.py'],
-    [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-    $resourcePipes,
-    $root,
-);
-referenceChainContractExpect(is_resource($resourceProcess), 'resource contract runner is unavailable');
-$resourceOutput = stream_get_contents($resourcePipes[1]);
-$resourceError = stream_get_contents($resourcePipes[2]);
-fclose($resourcePipes[1]);
-fclose($resourcePipes[2]);
-referenceChainContractExpect(
-    proc_close($resourceProcess) === 0
-    && str_contains((string) $resourceOutput, 'CONSUMER-RESOURCE-CONTRACT-001 passed (9 cases)'),
-    'reference-chain resource contract failed: ' . $resourceError,
-);
-echo $resourceOutput;
-
-// Run the actual generated PHP sample service against controlled fixtures.
-$sampleProcess = proc_open(
-    ['python3', $root . '/scripts/tests/consumer-module-sample-test.py'],
-    [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-    $samplePipes,
-    $root,
-);
-referenceChainContractExpect(is_resource($sampleProcess), 'sample service runner is unavailable');
-$sampleOutput = stream_get_contents($samplePipes[1]);
-$sampleError = stream_get_contents($samplePipes[2]);
-fclose($samplePipes[1]);
-fclose($samplePipes[2]);
-referenceChainContractExpect(
-    proc_close($sampleProcess) === 0
-    && str_contains((string) $sampleOutput, 'CONSUMER-MODULE-SAMPLE-001 passed (2 cases)'),
-    'reference-chain generated sample service contract failed: ' . $sampleError,
-);
-echo $sampleOutput;
-
-// Generated file handling and native signatures are not real login/MySQL proof.
-$identityProcess = proc_open(
-    ['python3', $root . '/scripts/tests/consumer-module-identity-test.py'],
-    [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-    $identityPipes,
-    $root,
-);
-referenceChainContractExpect(is_resource($identityProcess), 'identity contract runner is unavailable');
-$identityOutput = stream_get_contents($identityPipes[1]);
-$identityError = stream_get_contents($identityPipes[2]);
-fclose($identityPipes[1]);
-fclose($identityPipes[2]);
-referenceChainContractExpect(
-    proc_close($identityProcess) === 0
-    && str_contains((string) $identityOutput, 'CONSUMER-IDENTITY-NATIVE-001 passed (23 checks)')
-    && str_contains((string) $identityOutput, 'CONSUMER-IDENTITY-CONTRACT-001 passed (18 checks)'),
-    'reference-chain identity boundary failed: ' . $identityError,
-);
-echo $identityOutput;
-
-// Run an independent native service chain for ordinary non-root member grant/revoke.
-$memberRuntimeProcess = proc_open(
-    ['php', $root . '/server/tests/Productization/ConsumerModuleMemberRuntimeTest.php'],
-    [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-    $memberRuntimePipes,
-    $root,
-);
-referenceChainContractExpect(is_resource($memberRuntimeProcess), 'member runtime runner is unavailable');
-$memberRuntimeOutput = stream_get_contents($memberRuntimePipes[1]);
-$memberRuntimeError = stream_get_contents($memberRuntimePipes[2]);
-fclose($memberRuntimePipes[1]);
-fclose($memberRuntimePipes[2]);
-referenceChainContractExpect(
-    proc_close($memberRuntimeProcess) === 0
-    && str_contains((string) $memberRuntimeOutput, 'CONSUMER-MEMBER-RUNTIME-001 passed (7 checks)'),
-    'ordinary member runtime authorization failed: ' . $memberRuntimeError,
-);
-echo $memberRuntimeOutput;
+// Exercise the installed APP boundaries with synthetic files or SQLite, without touching a running APP.
+foreach ([
+    ['scripts/tests/consumer-module-installer-test.py', 'CONSUMER-INSTALLED-FILES-001 passed (4 tests)'],
+    ['scripts/tests/consumer-module-resource-test.py', 'CONSUMER-RESOURCE-CONTRACT-001 passed (3 tests)'],
+    ['scripts/tests/consumer-module-sample-test.py', 'CONSUMER-MODULE-SAMPLE-001 passed (2 cases)'],
+    ['scripts/tests/consumer-module-identity-test.py', 'CONSUMER-IDENTITY-NATIVE-001 passed (23 checks)'],
+    ['server/tests/Productization/ConsumerModuleMemberRuntimeTest.php', 'CONSUMER-MEMBER-RUNTIME-001 passed (7 checks)'],
+] as [$fixture, $marker]) {
+    $binary = str_ends_with($fixture, '.php') ? PHP_BINARY : 'python3';
+    $process = proc_open([$binary, $root . '/' . $fixture], [1 => ['pipe', 'w'], 2 => ['redirect', 1]], $pipes, $root);
+    referenceChainContractExpect(is_resource($process), 'fixture runner unavailable: ' . $fixture);
+    $output = stream_get_contents($pipes[1]);
+    fclose($pipes[1]);
+    $exit = proc_close($process);
+    referenceChainContractExpect($exit === 0 && str_contains((string) $output, $marker), $fixture . ' failed: ' . $output);
+    echo $marker . "\n";
+}
 
 echo "CONSUMER-MODULE-REFERENCE-CHAIN-CONTRACT-001 passed\n";

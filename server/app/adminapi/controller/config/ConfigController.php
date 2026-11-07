@@ -44,8 +44,7 @@ class ConfigController extends BaseAdminController
             throw ApiProblem::fromEnvelope('管理入口不可用', null, 40300);
         }
         try {
-            $tenantId = $this->entries->boundTenantId($this->request, TenantEntryBindingResolver::ADMIN_CLIENT);
-            $context = $tenantId === null ? null : $this->entries->system(
+            $context = $this->entries->system(
                 $this->request,
                 TenantEntryBindingResolver::ADMIN_CLIENT,
                 'peanut.admin.public-brand',
@@ -56,19 +55,18 @@ class ConfigController extends BaseAdminController
             throw ApiProblem::fromEnvelope('租户入口不可用', null, 50300);
         }
         $read = fn(): array => [
-            'website' => $context === null ? WebsiteConfigService::defaults() : $this->website->get($context),
-            'tenantName' => $context === null ? '' : $this->tenants->activeName($context->tenantId),
+            'website' => $this->website->get($context),
+            'tenantName' => $this->tenants->activeName($context->tenantId),
             'demo' => DemoAccountPolicy::publicLoginConfiguration((string) $this->request->host(), [
                 'enabled' => $this->demoAccounts->enabled(),
                 'tenant_a_host' => (string) Config::get('peanut.demo.tenant_a_host', ''),
                 'tenant_b_host' => (string) Config::get('peanut.demo.tenant_b_host', ''),
-                'shared_hosts' => ApplicationHostPolicy::hostList((string) Config::get('deployment.tenant_admin_hosts', '')),
                 'tenant_a_email' => (string) Config::get('peanut.demo.tenant_a_email', ''),
                 'tenant_b_email' => (string) Config::get('peanut.demo.tenant_b_email', ''),
                 'password' => (string) Config::get('peanut.demo.shared_password', ''),
             ]),
         ];
-        return $this->data($context === null ? $read() : $this->contexts->run(
+        return $this->data($this->contexts->run(
             ConsumerExecutionContext::publicTenant($context),
             $read,
         ));
@@ -81,11 +79,10 @@ class ConfigController extends BaseAdminController
 
     public function saveWebsite()
     {
-        $this->configuration->saveWebsite(
+        return $this->data($this->configuration->saveWebsite(
             $this->tenantAdminContext(),
             $this->request->post(),
-        );
-        return $this->success('操作成功');
+        ));
     }
 
     public function getCopyright()
@@ -131,8 +128,14 @@ class ConfigController extends BaseAdminController
 
     private function save(string $scene, string $method)
     {
-        $params = $this->request->post();
-        $this->validate($params, WebsiteValidate::class . '.' . $scene);
+        $fields = match ($scene) {
+            'copyright' => ['config'],
+            'agreement' => ['service_title', 'service_content', 'privacy_title', 'privacy_content'],
+            'statistics' => ['clarity_code'],
+            'user' => ['default_avatar'],
+            'login' => ['login_way', 'coerce_mobile', 'login_agreement', 'third_auth', 'wechat_auth'],
+        };
+        $params = $this->validateInput($this->request->post(), WebsiteValidate::class . '.' . $scene, $fields)->writable();
         $this->configuration->$method($this->tenantAdminContext(), $params);
         return $this->success('操作成功');
     }

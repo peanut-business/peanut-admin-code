@@ -1,8 +1,12 @@
 <?php
 
 use app\common\value\runtime\RuntimeNamespace;
+use app\common\infrastructure\runtime\FileCache;
 
-$runtimeNamespace = RuntimeNamespace::fromEnvironment();
+$runtimeNamespace = RuntimeNamespace::fromDatabaseConfiguration(
+    require __DIR__ . '/database.php',
+    (string) env('APP_ENV', 'production'),
+);
 
 // +----------------------------------------------------------------------
 // | 缓存设置
@@ -16,7 +20,7 @@ return [
     'stores'  => [
         'file' => [
             // 驱动方式
-            'type'       => 'File',
+            'type'       => FileCache::class,
             // 缓存保存目录
             'path'       => '',
             // 缓存前缀

@@ -15,8 +15,9 @@ trap 'rm -rf -- "$fixture"' EXIT HUP INT TERM
 app_uid=$(id -u www-data)
 app_gid=$(id -g www-data)
 mkdir -p "$fixture/server/docker/secrets" "$fixture/server/private/installation" \
-    "$fixture/server/private/resources" "$fixture/server/private/storage" \
+    "$fixture/server/private/resources/pending" "$fixture/server/private/storage" \
     "$fixture/server/runtime/upgrade" "$fixture/server/public/storage"
+for dir in cache log session temp storage generator file; do mkdir -p "$fixture/server/runtime/$dir"; done
 chmod 0700 "$fixture/server/docker/secrets"
 printf 'synthetic-token\n' > "$fixture/server/docker/secrets/install-token"
 chmod 0600 "$fixture/server/docker/secrets/"*
@@ -31,7 +32,7 @@ PEANUT_PERMISSION_TEST=1 PEANUT_SERVER_ROOT="$fixture/server" sh "$helper"
 [ "$(stat -c %u "$fixture/server/docker/secrets/install-root-permissions")" = 0 ]
 
 PEANUT_TEST_ROOT="$fixture/server" setpriv --reuid="$app_uid" --regid="$app_gid" --clear-groups \
-    php "$source_root/server/tests/Productization/InstallRuntimeConfigurationUidTest.php"
+    "${PEANUT_TEST_PHP:-php}" "$source_root/server/tests/Support/InstallRuntimeConfigurationUid.php"
 PEANUT_TEST_ROOT="$fixture/server" setpriv --reuid="$app_uid" --regid="$app_gid" --clear-groups sh -ec '
   cd "$PEANUT_TEST_ROOT"
   (umask 077; printf "ok\n" > private/storage/new-file)

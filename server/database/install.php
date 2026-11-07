@@ -6,14 +6,27 @@ use app\common\value\installation\ApplicationReleaseVersions;
 use app\common\value\installation\ApplicationSourceIdentity;
 use app\common\value\installation\ServerReleaseIdentity;
 use app\common\value\scaffold\EditionProfile;
-use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
 use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
 use think\App;
 use think\Container;
 
+require_once __DIR__ . '/InitialInstallationSource.php';
+
 $installerArguments = $_SERVER['argv'] ?? [];
 $installerIsDirect = realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__;
+function emitUnavailableInstallStatus(): void
+{
+    echo json_encode(['state' => 'blocked', 'code' => 'INSTALL_STATUS_UNAVAILABLE'], JSON_THROW_ON_ERROR), PHP_EOL;
+}
 if ($installerIsDirect && in_array('--preflight', $installerArguments, true)) {
+    $autoload = dirname(__DIR__) . '/vendor/autoload.php';
+    if (is_file($autoload)) {
+        require_once $autoload;
+        // The preflight intentionally stops before App::initialize(), which normally loads native helpers.
+        require_once dirname(__DIR__) . '/vendor/topthink/framework/src/helper.php';
+        $application = new App(dirname(__DIR__));
+        $application->loadEnv((string) $application->env->get('env_name', ''));
+    }
     require_once dirname(__DIR__) . '/app/common/services/installation/InstallationPreflightHost.php';
     $preflight = (new \app\common\services\installation\InstallationPreflightHost(dirname(__DIR__)))->inspect();
     echo json_encode($preflight, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR), PHP_EOL;
@@ -23,8 +36,8 @@ if ($installerIsDirect && in_array('--preflight', $installerArguments, true)) {
 /**
  * Peanut Admin fresh-database installer.
  *
- * Run from the repository root or server directory after selecting a
- * registered database through process environment variables:
+ * Run from the repository root or server directory after configuring the
+ * database connection in server/.env or a native PHP_ENV_NAME sibling:
  *
  *     php server/database/install.php
  */
@@ -36,36 +49,34 @@ if ($installerIsDirect && !is_file(dirname(__DIR__) . '/vendor/autoload.php')) {
         . "  scripts/project-composer prepare\n"
         . "  scripts/project-composer install --working-dir=server --no-scripts\n"
         . "然后按公开安装文档配置环境，再运行此安装入口。\n");
+    if (in_array('--status', $installerArguments, true)) {
+        emitUnavailableInstallStatus();
+        exit(1);
+    }
     exit(2);
 }
 
-require_once __DIR__ . '/environment-guard.php';
-
-function loadConfig(string $serverDir): array
-{
-    $hostLeaseProof = getenv('P0E_HOST_LEASE_PROOF');
-    $config = guardedDatabaseConfig(
-        $hostLeaseProof === false || trim($hostLeaseProof) === '' ? null : $hostLeaseProof,
-    );
-    return [
-        'DB_HOST' => $config['host'],
-        'DB_PORT' => $config['port'],
-        'DB_NAME' => $config['database'],
-        'DB_USER' => $config['user'],
-        'DB_PASS' => $config['password'],
-    ];
+try {
+    require_once __DIR__ . '/environment-guard.php';
+} catch (Throwable $exception) {
+    if (!$installerIsDirect || !in_array('--status', $installerArguments, true)) {
+        throw $exception;
+    }
+    fwrite(STDERR, '安装失败：INSTALL_EXECUTION_FAILED' . PHP_EOL);
+    emitUnavailableInstallStatus();
+    exit(1);
 }
 
 function initialAdminPassword(string $serverDir): string
 {
-    $environment = getenv('ADMIN_INITIAL_PASSWORD');
+    $environment = env('ADMIN_INITIAL_PASSWORD', false);
     validateInitialAdminPassword($environment === false ? '' : $environment);
     return $environment === false ? '' : $environment;
 }
 
 function initialAdminEmail(string $serverDir): string
 {
-    $environment = getenv('ADMIN_INITIAL_EMAIL');
+    $environment = env('ADMIN_INITIAL_EMAIL', false);
     $email = $environment === false ? '' : $environment;
     if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
         throw new RuntimeException('ADMIN_INITIAL_EMAIL 必须是有效邮箱');
@@ -75,7 +86,7 @@ function initialAdminEmail(string $serverDir): string
 
 function validateInitialAdminPassword(string $password): void
 {
-    if (getenv('PEANUT_DEMO_MODE') === 'enabled') {
+    if (env('PEANUT_DEMO_MODE', false) === 'enabled') {
         if ($password !== 'peanut1234') {
             throw new RuntimeException('演示模式的初始管理员密码必须统一为 peanut1234');
         }
@@ -87,13 +98,13 @@ function validateInitialAdminPassword(string $password): void
 /** @return array{email:string,password:string}|null */
 function initialPlatformCredentials(string $serverDir, string $adminEmail): ?array
 {
-    $environmentMode = getenv('DEPLOYMENT_MODE');
+    $environmentMode = env('DEPLOYMENT_MODE', false);
     $mode = $environmentMode === false ? '' : $environmentMode;
     if ($mode !== 'multi-tenant') {
         return null;
     }
 
-    $environmentEmail = getenv('PLATFORM_INITIAL_EMAIL');
+    $environmentEmail = env('PLATFORM_INITIAL_EMAIL', false);
     $email = $environmentEmail === false ? '' : $environmentEmail;
     if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
         throw new RuntimeException('PLATFORM_INITIAL_EMAIL 必须是有效邮箱');
@@ -103,9 +114,9 @@ function initialPlatformCredentials(string $serverDir, string $adminEmail): ?arr
         throw new RuntimeException('PLATFORM_INITIAL_EMAIL 必须与 ADMIN_INITIAL_EMAIL 不同');
     }
 
-    $environmentPassword = getenv('PLATFORM_INITIAL_PASSWORD');
+    $environmentPassword = env('PLATFORM_INITIAL_PASSWORD', false);
     $password = $environmentPassword === false ? '' : $environmentPassword;
-    if (getenv('PEANUT_DEMO_MODE') === 'enabled') {
+    if (env('PEANUT_DEMO_MODE', false) === 'enabled') {
         if ((string) $password !== 'peanut1234') {
             throw new RuntimeException('演示模式的 Platform 初始密码必须统一为 peanut1234');
         }
@@ -135,7 +146,7 @@ function normalizeInstallationCredentials(array $input): array
     $adminPassword = (string) ($input['admin_password'] ?? '');
     validateInitialAdminPassword($adminPassword);
 
-    $mode = getenv('DEPLOYMENT_MODE');
+    $mode = env('DEPLOYMENT_MODE', false);
     if ($mode !== 'standalone' && $mode !== 'multi-tenant') {
         throw new RuntimeException('DEPLOYMENT_MODE 必须是 standalone 或 multi-tenant');
     }
@@ -159,7 +170,7 @@ function normalizeInstallationCredentials(array $input): array
         throw new RuntimeException('PLATFORM_INITIAL_EMAIL 必须与 ADMIN_INITIAL_EMAIL 不同');
     }
     $platformPassword = (string) ($input['platform_password'] ?? '');
-    if (getenv('PEANUT_DEMO_MODE') === 'enabled') {
+    if (env('PEANUT_DEMO_MODE', false) === 'enabled') {
         if ($platformPassword !== 'peanut1234') {
             throw new RuntimeException('演示模式的 Platform 初始密码必须统一为 peanut1234');
         }
@@ -174,14 +185,44 @@ function normalizeInstallationCredentials(array $input): array
     ];
 }
 
+/** @return array<string,string> */
+function installationProcessInput(): array
+{
+    $path = getenv('PEANUT_INSTALLATION_ENV_FILE');
+    if ($path === false || trim($path) === '') {
+        return [];
+    }
+    $path = trim($path);
+    if (!str_starts_with($path, '/') || !is_file($path) || is_link($path)) {
+        throw new RuntimeException('INSTALLATION_ENVIRONMENT_FILE_INVALID');
+    }
+    $stat = lstat($path);
+    if (!is_array($stat) || ($stat['nlink'] ?? 0) !== 1 || (($stat['mode'] ?? 0) & 0777) !== 0600) {
+        throw new RuntimeException('INSTALLATION_ENVIRONMENT_PERMISSIONS_INVALID');
+    }
+    $values = parse_ini_file($path, false, INI_SCANNER_RAW);
+    if (!is_array($values) || $values === []) {
+        throw new RuntimeException('INSTALLATION_ENVIRONMENT_PARSE_FAILED');
+    }
+    $allowed = ['ADMIN_INITIAL_EMAIL', 'ADMIN_INITIAL_PASSWORD', 'PLATFORM_INITIAL_EMAIL',
+        'PLATFORM_INITIAL_PASSWORD', 'PEANUT_DEMO_TENANT_ID'];
+    foreach ($values as $key => $value) {
+        if (!in_array($key, $allowed, true) || !is_string($value)) {
+            throw new RuntimeException('INSTALLATION_ENVIRONMENT_INPUT_INVALID');
+        }
+    }
+    return $values;
+}
+
 /** @return array{admin_email:string,admin_password:string,platform_email:string,platform_password:string} */
 function installationCredentialsFromEnvironment(): array
 {
+    $input = installationProcessInput();
     return [
-        'admin_email' => (string) (getenv('ADMIN_INITIAL_EMAIL') ?: ''),
-        'admin_password' => (string) (getenv('ADMIN_INITIAL_PASSWORD') ?: ''),
-        'platform_email' => (string) (getenv('PLATFORM_INITIAL_EMAIL') ?: ''),
-        'platform_password' => (string) (getenv('PLATFORM_INITIAL_PASSWORD') ?: ''),
+        'admin_email' => (string) ($input['ADMIN_INITIAL_EMAIL'] ?? env('ADMIN_INITIAL_EMAIL', '')),
+        'admin_password' => (string) ($input['ADMIN_INITIAL_PASSWORD'] ?? env('ADMIN_INITIAL_PASSWORD', '')),
+        'platform_email' => (string) ($input['PLATFORM_INITIAL_EMAIL'] ?? env('PLATFORM_INITIAL_EMAIL', '')),
+        'platform_password' => (string) ($input['PLATFORM_INITIAL_PASSWORD'] ?? env('PLATFORM_INITIAL_PASSWORD', '')),
     ];
 }
 
@@ -189,7 +230,7 @@ function installationCredentialsFromEnvironment(): array
 function automaticInstallationInput(): array
 {
     $input = installationCredentialsFromEnvironment();
-    $configuredModules = getenv('PEANUT_INSTALLATION_OFFICIAL_MODULES');
+    $configuredModules = env('PEANUT_INSTALLATION_OFFICIAL_MODULES', false);
     if ($configuredModules !== false && trim($configuredModules) !== '') {
         $input['official_modules'] = array_values(array_filter(array_map(
             'trim',
@@ -232,6 +273,9 @@ function loadCoreRuntime(string $serverDir): void
         throw new RuntimeException('缺少 Composer autoload，无法创建 Core Schema');
     }
     require_once $autoload;
+    if (!class_exists(\think\migration\Migrator::class)) {
+        throw new RuntimeException('缺少官方迁移依赖，请先按 server/composer.lock 执行 Composer install --no-scripts');
+    }
 }
 
 /**
@@ -245,7 +289,7 @@ function loadCoreRuntime(string $serverDir): void
  */
 function installationTenantBootstrapContract(string $serverDir): array
 {
-    $mode = getenv('DEPLOYMENT_MODE');
+    $mode = env('DEPLOYMENT_MODE', false);
     if ($mode !== 'standalone' && $mode !== 'multi-tenant') {
         throw new RuntimeException('DEPLOYMENT_MODE 必须是 standalone 或 multi-tenant');
     }
@@ -255,6 +299,9 @@ function installationTenantBootstrapContract(string $serverDir): array
     $manifestPath = $projectRoot . '/.peanut/application-manifest.json';
     if (file_exists($serverIdentity) || is_link($serverIdentity)) {
         $identity = ServerReleaseIdentity::resolve($serverDir);
+        $contract = $identity->tenantBootstrapContract($mode);
+    } elseif (ApplicationSourceIdentity::hasRuntime($serverDir)) {
+        $identity = ApplicationSourceIdentity::load($serverDir);
         $contract = $identity->tenantBootstrapContract($mode);
     } elseif (file_exists($manifestPath) || is_link($manifestPath)) {
         $identity = ApplicationSourceIdentity::load($serverDir);
@@ -286,86 +333,17 @@ function installationTenantBootstrapContract(string $serverDir): array
 
 function installationSourceDevelopmentMode(string $serverDir): bool
 {
-    $root = dirname($serverDir);
-    return getenv('PEANUT_INSTALLATION_SOURCE_MODE') === 'development'
-        && file_exists($root . '/.git')
-        && !is_link($root . '/.git')
-        && (
-            is_file($root . '/.peanut/application-manifest.json')
-            || (
-                is_file($root . '/scaffold/application-template-inventory.json')
-                && is_file($root . '/scaffold/edition-profiles.json')
-            )
-        )
-        && is_file($root . '/release-versions.json');
+    return InitialInstallationSource::sourceDevelopmentMode($serverDir);
 }
 
 function ensureThinkPhpApplication(string $serverDir): App
 {
     $container = Container::getInstance();
     if ($container instanceof App) {
-        return $container;
+        return $container->initialized() ? $container : $container->initialize();
     }
 
     return (new App($serverDir))->initialize();
-}
-
-function expectedTables(array $files): array
-{
-    $tables = array_fill_keys(KernelSchema::tableNames(), true);
-    foreach ($files as $file) {
-        $sql = file_get_contents($file);
-        if ($sql === false) {
-            throw new RuntimeException('无法读取 SQL 文件：' . basename($file));
-        }
-        preg_match_all('/CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+`([^`]+)`/i', $sql, $matches);
-        foreach ($matches[1] as $table) {
-            $tables[$table] = true;
-        }
-    }
-    $names = array_keys($tables);
-    sort($names, SORT_STRING);
-    return $names;
-}
-
-function executeSqlFiles(PDO $pdo, array $files): void
-{
-    foreach ($files as $file) {
-        executeSqlFile($pdo, $file);
-    }
-}
-
-function executeSqlFile(PDO $pdo, string $file): void
-{
-    $sql = file_get_contents($file);
-    if ($sql === false) {
-        throw new RuntimeException('无法读取 SQL 文件：' . basename($file));
-    }
-    try {
-        // SQL documents use the text protocol and drain every result, as Module migrations do.
-        $emulatedPrepares = (bool) $pdo->getAttribute(PDO::ATTR_EMULATE_PREPARES);
-        $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
-        try {
-            $statement = $pdo->query($sql);
-            try {
-                do {
-                    if ($statement->columnCount() > 0) {
-                        $statement->fetchAll(PDO::FETCH_ASSOC);
-                    }
-                } while ($statement->nextRowset());
-            } finally {
-                $statement->closeCursor();
-            }
-        } finally {
-            $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, $emulatedPrepares);
-        }
-    } catch (Throwable $exception) {
-        throw new RuntimeException(
-            '执行 SQL 文件失败：' . basename($file) . '；' . $exception->getMessage(),
-            0,
-            $exception,
-        );
-    }
 }
 
 /**
@@ -381,12 +359,6 @@ function initializeCoreIdentity(
     \PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy $demoAccounts,
     array $tenantBootstrap,
 ): array {
-    foreach (KernelSchema::tableNames() as $table) {
-        $pdo->exec(KernelSchema::createSql($table));
-    }
-    ensureTenantChallengeClientKey($pdo);
-    $pdo->exec(KernelSchema::addTenantMemberDepartmentForeignKeySql());
-
     $service = Container::getInstance()->make(BootstrapService::class);
     $separatePlatformOperator = $platformCredentials !== null;
     $demoBootstrapPassword = $demoAccounts->enabled()
@@ -455,28 +427,6 @@ SQL);
     }
 }
 
-/**
- * The alpha.5 Core package persists the client binding but its exported
- * fresh schema predates that column. Keep a fresh install compatible with the
- * repository contract until the package's canonical KernelSchema is released.
- */
-function ensureTenantChallengeClientKey(PDO $pdo): void
-{
-    $column = $pdo->query(
-        "SHOW COLUMNS FROM `pa_login_challenge` LIKE 'client_key'",
-    )->fetch(PDO::FETCH_ASSOC);
-    if ($column !== false) {
-        return;
-    }
-
-    $pdo->exec(<<<'SQL'
-ALTER TABLE `pa_login_challenge`
-  ADD COLUMN `client_key` VARCHAR(64) NOT NULL AFTER `purpose`,
-  ADD CONSTRAINT `chk_login_challenge_client`
-    CHECK (REGEXP_LIKE(`client_key`, '^[a-z][a-z0-9-]{0,63}$', 'c'))
-SQL);
-}
-
 /** @return array{tenant_count:int,owner_count:int,operator_count:int} */
 function coreIdentityCounts(PDO $pdo, string $tenantCode): array
 {
@@ -528,16 +478,11 @@ function seedBrandDefaults(PDO $pdo, array $website): void
 /** @return list<string> */
 function applicationMigrationFiles(string $databaseDir): array
 {
-    $directory = $databaseDir . '/migrations';
-    if (!is_dir($directory)) {
-        return [];
-    }
-    $files = [];
-    foreach (glob($directory . '/*.sql') ?: [] as $file) {
-        if (!is_file($file) || is_link($file) || preg_match('/^[0-9]{8}-[a-z0-9][a-z0-9_-]*\.sql$/D', basename($file)) !== 1) {
+    $files = glob($databaseDir . '/migrations/*.php') ?: [];
+    foreach ($files as $file) {
+        if (!is_file($file) || is_link($file) || !\Phinx\Util\Util::isValidMigrationFileName(basename($file))) {
             throw new RuntimeException('迁移文件名无效：' . basename($file));
         }
-        $files[] = $file;
     }
     sort($files, SORT_STRING);
     return $files;
@@ -554,6 +499,9 @@ function applicationReleaseVersions(string $serverDir): array
     $serverIdentity = $serverDir . '/.peanut/release-identity.json';
     if (file_exists($serverIdentity) || is_link($serverIdentity)) {
         return ServerReleaseIdentity::resolve($serverDir)->versions();
+    }
+    if (ApplicationSourceIdentity::hasRuntime($serverDir)) {
+        return ApplicationSourceIdentity::load($serverDir)->versions();
     }
     $projectRoot = dirname($serverDir);
     $applicationManifest = $projectRoot . '/.peanut/application-manifest.json';
@@ -574,113 +522,21 @@ function applicationReleaseVersions(string $serverDir): array
 }
 
 /**
- * Resolve the SQL target from this scaffold and its optional deployment-verified demo overlay.
- *
- * @param array{source_product_version:string,release_sequence_version:string,scaffold_template:string} $versions
- */
-function applicationMigrationTargetVersion(string $serverDir, array $versions): string
-{
-    $base = $versions['scaffold_template'];
-    $path = dirname($serverDir) . '/DEMO_PATCH_METADATA.json';
-    if (!file_exists($path)) {
-        return $base;
-    }
-    if (!is_file($path) || is_link($path)) {
-        throw new RuntimeException('MIGRATION_TARGET_CONTRACT_INVALID');
-    }
-    try {
-        $overlay = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-    } catch (JsonException $exception) {
-        throw new RuntimeException('MIGRATION_TARGET_CONTRACT_INVALID', 0, $exception);
-    }
-    if (!is_array($overlay)
-        || ($overlay['schema_version'] ?? null) !== 1
-        || ($overlay['kind'] ?? null) !== 'peanut-admin-demo-site-overlay'
-        || ($overlay['base_tag'] ?? null) !== 'v' . $versions['source_product_version']
-        || !is_array($overlay['files'] ?? null)
-        || !is_string($overlay['migration_target_version'] ?? null)
-        || preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/D', $overlay['migration_target_version']) !== 1
-        || version_compare($overlay['migration_target_version'], $base, '<')
-    ) {
-        throw new RuntimeException('MIGRATION_TARGET_CONTRACT_INVALID');
-    }
-    return $overlay['migration_target_version'];
-}
-
-/**
- * Refuse a caller-provided SQL target that differs from the adopted scaffold/overlay identity.
- *
- * @param array{source_product_version:string,release_sequence_version:string,scaffold_template:string} $versions
- */
-function validatedMigrationTargetVersion(string $serverDir, string $targetVersion, array $versions): string
-{
-    if (!hash_equals(applicationMigrationTargetVersion($serverDir, $versions), $targetVersion)) {
-        throw new RuntimeException('MIGRATION_TARGET_CONTRACT_MISMATCH');
-    }
-    return $targetVersion;
-}
-
-/**
- * Resolve immutable Peanut markers separately from the three hash-pinned application migrations.
- *
- * @return array{release_version:string,peanut_release:bool}
- */
-function migrationReleaseIdentity(string $sql, string $applicationVersion): array
-{
-    return \app\common\services\upgrade\ApplicationMigrationRunner::releaseIdentity(
-        $sql,
-        $applicationVersion,
-    );
-}
-
-/**
- * Select and apply eligible immutable migrations while preserving their checksum ledger.
- *
- * @return array{status:string,target_version:string,applied:list<string>,pending:list<string>}
- */
-function migrateDatabase(string $serverDir, string $targetVersion, bool $dryRun = false): array
-{
-    // 版本格式由已固定的 ApplicationReleaseVersions 校验，CLI 目标必须逐字匹配。
-    // 开发候选与正式版本共用同一权威来源；不得用旧 RELEASE_METADATA 代替候选迁移目标。
-    $versions = applicationReleaseVersions($serverDir);
-    $targetVersion = validatedMigrationTargetVersion($serverDir, $targetVersion, $versions);
-    $config = loadConfig($serverDir);
-    return (new \app\common\services\upgrade\ApplicationMigrationRunner([
-        'host' => $config['DB_HOST'],
-        'port' => $config['DB_PORT'],
-        'database' => $config['DB_NAME'],
-        'user' => $config['DB_USER'],
-        'password' => $config['DB_PASS'],
-    ]))->run(
-        applicationMigrationFiles(__DIR__),
-        $targetVersion,
-        $versions['release_sequence_version'],
-        $dryRun,
-    );
-}
-
-/**
  * @return array{state:string,code:string,health:array<string,int>|null}
  */
 function installationDatabaseState(string $serverDir): array
 {
     loadCoreRuntime($serverDir);
-    $config = loadConfig($serverDir);
-    $pdo = new PDO(
-        sprintf(
-            'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
-            $config['DB_HOST'],
-            $config['DB_PORT'],
-            $config['DB_NAME'],
-        ),
-        $config['DB_USER'],
-        $config['DB_PASS'],
-        [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-        ],
-    );
+    ensureThinkPhpApplication($serverDir);
+    $connection = \think\facade\Db::connect();
+    $connection->query('SELECT 1', [], true);
+    $pdo = $connection->getPdo();
+    if (!$pdo instanceof PDO || $pdo->inTransaction()) {
+        throw new RuntimeException('INSTALL_NATIVE_MASTER_REQUIRED');
+    }
+    if ($pdo->query('SELECT DATABASE()')->fetchColumn() !== $connection->getConfig('database')) {
+        throw new RuntimeException('INSTALL_NATIVE_DATABASE_IDENTITY_CHANGED');
+    }
     $tableCount = (int) $pdo->query(
         'SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()',
     )->fetchColumn();
@@ -712,48 +568,70 @@ function installationStateBlocksFreshDatabase(string $serverDir): bool
     return false;
 }
 
+/** @return array{cause_code?:string,module_key?:string,exit_code?:int} */
+function installationFailureDiagnostic(string $serverDir, string $stage, Throwable $exception, ?string $currentModule = null): array
+{
+    $diagnostic = [];
+    try {
+        do {
+            // Typed public identifiers are safe; messages, process output and paths are not.
+            if (($exception instanceof \app\platform\exception\plugin\PluginLifecycleException
+                    || $exception instanceof \app\platform\exception\plugin\PluginPackageException)
+                && preg_match('/^(?:MODULE|PLUGIN)_[A-Z0-9_]{1,100}$/D', $exception->errorCode) === 1) {
+                $diagnostic['cause_code'] = $exception->errorCode;
+                if ($exception instanceof \app\platform\exception\plugin\PluginPackageException
+                    && is_int($exception->details['exit_code'] ?? null)) {
+                    $diagnostic['exit_code'] = $exception->details['exit_code'];
+                }
+                break;
+            }
+            $exception = $exception->getPrevious();
+        } while ($exception !== null);
+        if ($diagnostic === []) {
+            return $diagnostic;
+        }
+        // Independently bind the Host's current iteration to its protected selection.
+        $progressPath = rtrim($serverDir, DIRECTORY_SEPARATOR) . '/private/installation/executing.json';
+        $stat = @lstat($progressPath);
+        if (is_string($currentModule) && preg_match('/^[a-z][a-z0-9_-]*\.[a-z][a-z0-9_.-]*$/D', $currentModule) === 1
+            && realpath($progressPath) === $progressPath && is_file($progressPath) && !is_link($progressPath)
+            && is_array($stat) && $stat['nlink'] === 1 && ($stat['mode'] & 0777) === 0600
+            && in_array($stat['uid'], [0, fileowner($serverDir)], true) && $stat['size'] <= 65536) {
+            $progress = json_decode((string) file_get_contents($progressPath), true, 32);
+            if (is_array($progress) && ($progress['schema_version'] ?? null) === 1
+                && ($progress['state'] ?? null) === 'executing'
+                && is_array($progress['official_modules'] ?? null)
+                && array_is_list($progress['official_modules'])
+                && in_array($currentModule, $progress['official_modules'], true)) {
+                $diagnostic['module_key'] = $currentModule;
+            }
+        }
+    } catch (Throwable) {
+        // Optional context must never replace the original failure or typed cause.
+    }
+    return $diagnostic;
+}
+
 /** Record only diagnostic identifiers; exception messages and debug data can contain credentials. */
-function logInstallationFailure(string $serverDir, string $stage, string $errorCode, Throwable $exception): void
+function logInstallationFailure(string $serverDir, string $stage, string $errorCode, Throwable $exception, ?string $currentModule = null): void
 {
     try {
-        $projectRoot = rtrim(str_replace('\\', '/', dirname($serverDir)), '/') . '/';
         $chain = [];
         do {
-            $file = str_replace('\\', '/', $exception->getFile());
-            $class = get_class($exception);
-            $entry = [
-                'class' => str_contains($class, "\0") ? 'anonymous-class' : $class,
-                'path' => str_starts_with($file, $projectRoot) ? substr($file, strlen($projectRoot)) : null,
-                'line' => $exception->getLine(),
-            ];
-            $sqlState = null;
-            $driverCode = null;
+            $entry = ['class' => $exception::class];
             if ($exception instanceof PDOException) {
-                $sqlState = $exception->errorInfo[0] ?? $exception->getCode();
-                $driverCode = $exception->errorInfo[1] ?? null;
-            } elseif ($exception instanceof \think\db\exception\PDOException) {
-                $pdoError = $exception->getData()['PDO Error Info'] ?? [];
-                $sqlState = $pdoError['SQLSTATE'] ?? null;
-                $driverCode = $pdoError['Driver Error Code'] ?? null;
-            }
-            if (is_string($sqlState) && preg_match('/^[A-Z0-9]{5}$/D', $sqlState) === 1) {
-                $entry['sqlstate'] = $sqlState;
-            }
-            if (is_int($driverCode) || (is_string($driverCode) && preg_match('/^[0-9]+$/D', $driverCode) === 1)) {
-                $entry['driver_code'] = (int) $driverCode;
+                $entry['sqlstate'] = $exception->errorInfo[0] ?? $exception->getCode();
+                $entry['driver_code'] = $exception->errorInfo[1] ?? null;
             }
             $chain[] = $entry;
             $exception = $exception->getPrevious();
         } while ($exception !== null);
-
         \think\facade\Log::write(json_encode([
-            'event' => 'installation_failure',
-            'stage' => $stage,
-            'error_code' => $errorCode,
-            'exception_chain' => $chain,
-        ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), 'error');
+            'event' => 'installation_failure', 'stage' => $stage, 'error_code' => $errorCode,
+            'module_key' => $currentModule, 'exception_chain' => $chain,
+        ], JSON_THROW_ON_ERROR), 'error');
     } catch (Throwable) {
-        // A logging failure must never replace the installation failure.
+        // Diagnostics must not replace the original installation failure.
     }
 }
 
@@ -761,7 +639,7 @@ function logInstallationFailure(string $serverDir, string $stage, string $errorC
  * @param array<string,mixed> $input
  * @return array<string,mixed>
  */
-function installFreshDatabase(string $serverDir, array $input): array
+function installFreshDatabase(string $serverDir, array $input, ?array $moduleKeys = null): array
 {
     if (installationStateBlocksFreshDatabase($serverDir)) {
         throw new RuntimeException('INSTALL_STATE_PRESENT: 安装身份状态已存在，拒绝再次初始化数据库');
@@ -771,28 +649,18 @@ function installFreshDatabase(string $serverDir, array $input): array
     ensureThinkPhpApplication($serverDir);
     $tenantBootstrap = installationTenantBootstrapContract($serverDir);
     $credentials = normalizeInstallationCredentials($input);
-    $config = loadConfig($serverDir);
-    $database = $config['DB_NAME'];
+    $connection = \think\facade\Db::connect();
+    $database = $connection->getConfig('database');
     if (!preg_match('/^[A-Za-z0-9_]+$/D', $database)) {
         throw new RuntimeException('DB_NAME 只能包含字母、数字和下划线');
     }
 
-    $pdo = new PDO(
-        sprintf(
-            'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
-            $config['DB_HOST'],
-            $config['DB_PORT'],
-            $database,
-        ),
-        $config['DB_USER'],
-        $config['DB_PASS'],
-        [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-            PDO::MYSQL_ATTR_MULTI_STATEMENTS => true,
-        ],
-    );
+    if ($connection->getConfig('prefix') !== 'pa_' || (int) $connection->getConfig('deploy') !== 0
+        || $connection->getConfig('break_reconnect') !== false) { throw new RuntimeException('INSTALL_NATIVE_DATABASE_CONFIG_CONFLICT'); }
+    $connection->query('SELECT 1', [], true);
+    $pdo = $connection->getPdo();
+    if (!$pdo instanceof PDO || $pdo->inTransaction()) { throw new RuntimeException('INSTALL_NATIVE_MASTER_REQUIRED'); }
+    if ($pdo->query('SELECT DATABASE()')->fetchColumn() !== $database) { throw new RuntimeException('INSTALL_NATIVE_DATABASE_IDENTITY_CHANGED'); }
 
     $lockName = 'peanut_install_' . substr(hash('sha256', $database), 0, 48);
     $lockStatement = $pdo->prepare('SELECT GET_LOCK(?, 10)');
@@ -808,8 +676,37 @@ function installFreshDatabase(string $serverDir, array $input): array
         if (installationStateBlocksFreshDatabase($serverDir)) {
             throw new RuntimeException('INSTALL_STATE_PRESENT: 安装身份状态已存在，拒绝再次初始化数据库');
         }
-        $files = sqlFiles($databaseDir);
-        $expected = expectedTables($files);
+        $initial = InitialInstallationSource::project($serverDir, $moduleKeys ?? InitialInstallationSource::MODULES);
+        $initialRoot = $serverDir . '/runtime/temp/installation-database';
+        foreach (['schema', 'migrations'] as $directory) {
+            if (!is_dir($initialRoot . '/' . $directory) && !mkdir($initialRoot . '/' . $directory, 0775, true)) {
+                throw new RuntimeException('INSTALL_INITIAL_DIRECTORY_FAILED');
+            }
+        }
+        foreach (glob($initialRoot . '/migrations/*.php') ?: [] as $file) {
+            if (!unlink($file)) {
+                throw new RuntimeException('INSTALL_INITIAL_MIGRATION_CLEANUP_FAILED');
+            }
+        }
+        foreach ($initial as $path => $content) {
+            if (file_put_contents($initialRoot . '/' . $path, $content) !== strlen($content)) {
+                throw new RuntimeException('INSTALL_INITIAL_WRITE_FAILED');
+            }
+        }
+        $sources = [];
+        foreach (glob($initialRoot . '/migrations/*.php') ?: [] as $file) {
+            $sources[] = ['file' => $file];
+        }
+        foreach (glob($databaseDir . '/migrations/*.php') ?: [] as $file) {
+            $target = $initialRoot . '/migrations/' . basename($file);
+            if (!copy($file, $target)) {
+                throw new RuntimeException('INSTALL_INITIAL_MIGRATION_COPY_FAILED');
+            }
+            $sources[] = ['file' => $target];
+        }
+        $selectedKeys = $moduleKeys ?? InitialInstallationSource::MODULES;
+        $expected = InitialInstallationSource::tables($serverDir, $selectedKeys);
+        $expected[] = (string) $connection->getConfig('prefix') . \think\facade\Config::get('database.migration_table', 'migrations');
         $tableCount = (int) $pdo->query(
             'SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()',
         )->fetchColumn();
@@ -821,28 +718,38 @@ function installFreshDatabase(string $serverDir, array $input): array
         $adminPassword = $credentials['admin_password'];
         $platformCredentials = $credentials['platform_credentials'];
         $demoAccounts = new \PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy(
-            getenv('PEANUT_DEMO_MODE') === 'enabled',
+            env('PEANUT_DEMO_MODE', false) === 'enabled',
             array_values(array_filter([
                 $adminEmail,
                 $platformCredentials['email'] ?? '',
             ])),
         );
-        $coreIdentity = initializeCoreIdentity(
-            $pdo,
-            $adminEmail,
-            $adminPassword,
-            $platformCredentials,
-            $demoAccounts,
-            $tenantBootstrap,
+        $application = ensureThinkPhpApplication($serverDir);
+        $selectedManifests = array_filter(
+            $application->make(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry::class)->modules,
+            static fn(\PeanutAdmin\Kernel\Module\ManifestDocument $manifest): bool => in_array($manifest->data['key'], $selectedKeys, true),
         );
+        $sources = array_merge($sources, \app\common\module\ModuleMigrationRun::sources($selectedManifests, $serverDir));
+        // Only source discovery changes. The existing native runner owns execution
+        // and the original migration versions in the normal migrations ledger.
+        $migration = new \app\common\module\ModuleMigrationRun($sources);
+        $migration->setApp($application);
+        $migration->run(new \think\console\Input([]), new \think\console\Output('buffer'));
+        $coreIdentity = initializeCoreIdentity($pdo, $adminEmail, $adminPassword, $platformCredentials, $demoAccounts, $tenantBootstrap);
         if ($demoAccounts->enabled()) {
-            replaceInstalledDemoCredentialHashes($pdo, [
-                $adminEmail,
-                $platformCredentials['email'] ?? '',
-            ], $demoAccounts->credentialHash());
+            replaceInstalledDemoCredentialHashes($pdo, [$adminEmail, $platformCredentials['email'] ?? ''], $demoAccounts->credentialHash());
         }
-        executeSqlFiles($pdo, $files);
+        $application->console->call('seed:run', ['--seed=InitialSeeder']);
         seedBrandDefaults($pdo, brandWebsiteDefaults($serverDir));
+        require_once $databaseDir . '/WorkbenchDemoData.php';
+        WorkbenchDemoData::seed($application, (int) $coreIdentity['tenant_id']);
+        if (\think\facade\Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()) {
+            throw new RuntimeException('INSTALL_NATIVE_MASTER_CHANGED');
+        }
+        $lock = $pdo->prepare('SELECT IS_USED_LOCK(?) = CONNECTION_ID()');
+        $lock->execute([$lockName]);
+        if ((int) $lock->fetchColumn() !== 1) { throw new RuntimeException('INSTALL_DATABASE_LOCK_LOST'); }
+        $lock->closeCursor();
 
         $actual = array_map('strval', $pdo->query(
             'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME',
@@ -860,7 +767,7 @@ function installFreshDatabase(string $serverDir, array $input): array
 
         return [
             'database' => $database,
-            'baseline' => 'init.sql',
+            'migration' => 'native',
             'tables' => count($actual),
             'expected_tables' => count($expected),
             'active_menus' => $activeMenus,
@@ -908,14 +815,27 @@ if ($installerIsDirect) {
             echo json_encode($status, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR), PHP_EOL;
             exit(0);
         }
-        $result = $host->executeAutomatic(automaticInstallationInput());
+        $result = $application->make(\app\common\execution\ExecutionContextStore::class)->run(
+            new \app\common\execution\InstallationExecutionContext(
+                'installation.console.execute',
+                'install-' . bin2hex(random_bytes(16)),
+            ),
+            static fn() => $host->executeAutomatic(automaticInstallationInput()),
+        );
         echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR), PHP_EOL;
         exit(0);
     } catch (\app\common\exception\installation\InstallationExecutionException $exception) {
         fwrite(STDERR, '安装失败：' . $exception->errorCode . PHP_EOL);
+        if (in_array('--status', $_SERVER['argv'] ?? [], true)) {
+            emitUnavailableInstallStatus();
+        }
         exit(1);
     } catch (Throwable $exception) {
-        fwrite(STDERR, '安装失败：INSTALL_EXECUTION_FAILED' . PHP_EOL);
+        $code = 'INSTALL_EXECUTION_FAILED';
+        fwrite(STDERR, '安装失败：' . $code . PHP_EOL);
+        if (in_array('--status', $_SERVER['argv'] ?? [], true)) {
+            emitUnavailableInstallStatus();
+        }
         exit(1);
     }
 }

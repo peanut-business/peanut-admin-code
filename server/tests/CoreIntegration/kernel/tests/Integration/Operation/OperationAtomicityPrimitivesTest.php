@@ -192,7 +192,7 @@ SQL);
             'atomic-web',
             new DateTimeImmutable($now, new DateTimeZone('UTC')),
             1,
-        );
+        1);
 
         return [TenantContext::fromValidatedSession($session, 'req_atomic_fixture'), $tenantId, $memberId];
     }

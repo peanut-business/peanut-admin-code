@@ -66,7 +66,7 @@ Controller解析/校验HTTP输入并映射输出；外部回调绑定/签名/模
 
 沿用现有绑定、验签和模块机制，不因历史类型名差异另造身份域。原始正文/签名确认先于业务写，不能凭任意 `tenant_id` 获信任；保留渠道确认响应、防重复，并在 `finally` 恢复上下文。命名迁移不能改变公开安全类型或权限语义。
 
-生成顺序：API/SDK → 模块制品摘要与 `plugins.lock` → 模板清单 → 编译验证。摘要不符时修正源并重新生成，不关闭完整性检查。
+生成顺序：API/SDK → 模块制品摘要与 `modules.lock` → 同一API生成入口刷新目录的最终锁摘要 → 模板清单 → 编译验证。`api-catalog.json` 绑定 `modules.lock`；锁变化后必须刷新目录，再执行安装或 reconcile。摘要不符时修正源并重新生成，不关闭完整性检查。
 
 ## 9. 租户设置导入导出的模块边界
 
@@ -88,17 +88,15 @@ ImportExport 的 `ExternalBindingConfigurationAdapter` 构造注入 Integration 
 
 回归入口为 `IntegrationTenantBoundaryTest.php` 与 `ExternalBindingTransferBoundaryTest.php`，位于 `server/tests/Unit/`。真实数据库锁竞争、HTTP动作授权和渠道外部行为需要各自的集成验证。
 
-## 11. 租户模块配置的导入导出
+## 11. 模块业务设置
 
-ImportExport 复用 Identity 已公开的 `TenantModuleConfigurationService`，读取走 `transferSnapshot/transferCurrent`，写入仍走既有 `update`。不直接读tenant_module，不为同一用例再造Repository门面。公开读取返回配置、有效状态和修订号，不返回ORM。
+业务配置由所属模块声明 backend.setting_definitions，复用 Settings 的 JSON Schema 校验、允许覆盖作用域、默认值、秘密处理和原生事务。租户覆盖使用 pa_setting_tenant_value，不将配置和许可证权益混存，也不新增逐租户模块配置表。需要整份对象约束时可声明一个 object setting，不机械拆字段丢失跨字段校验。
 
-快照按租户与模块键读取，仅导出已启用且处于有效窗口内的配置；同一次读取使用一个应用UTC时间，起始边界包含、到期边界不包含，损坏日期按不可用处理。current与导出使用一致的有效性判断，不以主机或数据库会话时区替代UTC。配置JSON损坏明确拒绝；缺少模块不能通过导入自动开通，supportsCreate保持false。
-
-写入保留原生JSON Schema校验、ModuleGuard、预期修订号、模块与租户授权修订更新、同事务审计。审计失败或最外层事务失败时，配置、修订与审计必须一起回滚。所有原始配置经过ImportExport的现有秘密引用codec后才能公开。`server/tests/Unit/TenantModuleTransferBoundaryTest.php` 使用真实校验器、运行时仓库和审计执行这些回归，不代替MySQL并发或HTTP权限验收。
+当前没有旧模块整份配置导入导出的生产消费者；不为退出旧开通表保留配置传输兼容层。网站/应用设置的 TenantSettingsTransferService 与定义型租户值是不同合同，不能声称前者已经覆盖通用租户设置导出。真实导出需求应在 Settings 所属边界处理，配置导入不能开通模块或授予权限。
 
 ## 12. CLI 工作器的模块接口与依赖注入
 
-部署 CLI 消费 Ops 已登记的 `BackupTaskExecution`、`RestoreTaskExecution`、`ModuleTaskExecution` 或 `UpgradeTaskExecution`，由原 ModuleProvider 映射到既有执行器。命令构造注入所需接口及 `ExecutionContextStore/CurrentExecutionContext`，不得在执行方法中全局 `app()` 查找内部执行类；为兼容框架的可空构造参数不代表依赖可省略，执行时缺依赖必须明确失败，不能自动换另一执行来源。
+部署 CLI 消费 Ops 已登记的 `BackupTaskExecution`、`RestoreTaskExecution`、`ModuleTaskExecution` 或 `UpgradeTaskExecution`，由原 ModuleProvider 映射到既有执行器。命令构造注入所需接口及 `ExecutionContextStore/CurrentExecutionContext`，不得在执行方法中全局 `app()` 查找内部执行类；为兼容框架的可空构造参数不代表依赖可省略，执行时缺依赖必须明确失败，不能自动换另一执行来源。ThinkPHP 的列表描述器无参构造命令元数据；有必需业务依赖的命令使用原生公开静态 `__make(App $app)` 显式装配，不能依靠可空参数自动注入未绑定类型，也不能假定 Console 的 `invokeClass()` 会采用命令类的容器绑定。
 
 接口仅表达现有固定任务动作、任务编号、修订号和必要结果材料，不接受任意 SQL、命令或部署路径。接口公开不是部署授权；原执行器仍检查任务状态、操作人员、修订 fencing、允许错误码、输入摘要和证据。CLI 的标准输入大小限制、错误脱敏与上下文恢复保持，不能为了迁移类型而放宽。完整备份、恢复、模块操作或升级仍需独立的资源与执行授权，本规范测试不运行这些操作。
 

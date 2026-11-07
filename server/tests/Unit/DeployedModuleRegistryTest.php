@@ -4,13 +4,19 @@ declare(strict_types=1);
 
 namespace tests\Unit;
 
-use app\platform\composition\plugin\ModuleDefinitionRegistryFactory;
+use app\platform\composition\module\ModuleDefinitionRegistryFactory;
 use PeanutAdmin\Kernel\Migration\ModuleSchema;
 use PHPUnit\Framework\TestCase;
 
 /** 编译本候选的真实模块定义和源码边界；不连接数据库，不替代包摘要检查。 */
 final class DeployedModuleRegistryTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        $app = new \think\App(dirname(__DIR__, 3) . '/.local/tmp/deployed-module-registry');
+        $app->config->set(['mode' => 'multi-tenant'], 'deployment');
+    }
+
     public function testAllShippedModulesCompileAgainstTheirPublicContracts(): void
     {
         $server = dirname(__DIR__, 2);
@@ -33,7 +39,7 @@ final class DeployedModuleRegistryTest extends TestCase
     {
         $server = dirname(__DIR__, 2);
         $identity = json_decode(
-            (string) file_get_contents($server . '/app/modules/official/identity/module.json'),
+            (string) file_get_contents($server . '/app/modules/peanut/identity/module.json'),
             true,
             512,
             JSON_THROW_ON_ERROR,
@@ -50,6 +56,6 @@ final class DeployedModuleRegistryTest extends TestCase
             'kernel_version' => '1.0.0',
             'registered_client_keys' => ['admin-web', 'platform-web', 'pc-web', 'uniapp'],
         ]);
-        self::assertContains('official.identity', $registry->moduleKeys());
+        self::assertContains($identity['key'], $registry->moduleKeys());
     }
 }

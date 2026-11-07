@@ -36,39 +36,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/article/lists": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listArticles"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/article/detail": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["articleDetail"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.file.upload.file": {
+    "/adminapi/peanut.file.upload.file": {
         parameters: {
             query?: never;
             header?: never;
@@ -101,7 +69,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.list": {
+    "/adminapi/peanut.file.list": {
         parameters: {
             query?: never;
             header?: never;
@@ -111,22 +79,6 @@ export interface paths {
         get: operations["listFiles"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/sms/sendCode": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["sendVerificationCode"];
         delete?: never;
         options?: never;
         head?: never;
@@ -144,57 +96,6 @@ export interface paths {
         get: operations["getFirstRunReadinessChecklist"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.import-export.configuration.export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Exports the authenticated Tenant's logical configuration as a schema-validated package. Tenant IDs and secret material are never included; configured secrets are represented by references that must be rebound at the destination. */
-        get: operations["exportTenantConfiguration"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.import-export.configuration.dry-run": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Validates a configuration package, checks its checksum and Tenant scope, reports conflicts and missing secret bindings, and performs no configuration write. */
-        post: operations["previewTenantConfigurationImport"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.import-export.configuration.apply": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Applies a validated Tenant configuration package atomically after conflict and secret-rebinding checks, then records a Tenant audit event. The request cannot select a Tenant or carry callback keys, passwords, tokens or keys. */
-        post: operations["applyTenantConfigurationImport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -393,22 +294,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/index/index": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getApplicationHome"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/index/config": {
         parameters: {
             query?: never;
@@ -433,38 +318,6 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getApplicationPolicy"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/login/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["logoutMemberSession"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/article/cate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listPublicArticleCategories"];
         put?: never;
         post?: never;
         delete?: never;
@@ -545,102 +398,6 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getPcPublicConfig"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/pc/index": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getPcHome"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/pc/infoCenter": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getPcInformationCenter"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/pc/articleDetail": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getPcArticleDetail"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/article/addCollect": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["addArticleCollection"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/article/cancelCollect": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["cancelArticleCollection"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/article/collect": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listArticleCollections"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1178,6 +935,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/adminapi/role/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminRolePermissions"];
+        put: operations["replaceAdminRolePermissions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/role/permissions/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminRolePermissionCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/role/data-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminRoleDataPolicy"];
+        put: operations["replaceAdminRoleDataPolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/role/data-policy/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminRoleDataPolicyCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/adminapi/dept/lists": {
         parameters: {
             query?: never;
@@ -1218,6 +1039,23 @@ export interface paths {
             cookie?: never;
         };
         get: operations["listDepartmentLeaderOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dept/leader-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Requires department update permission and an active department in the current tenant. Returns active tenant members whose accounts are active, ordered by member id; search is a literal display-name substring. Only the four declared query keys are accepted; page offset must fit PHP_INT_MAX. */
+        get: operations["listDepartmentLeaderCandidates"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1706,22 +1544,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/decoration/mobile/article": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listDecorationArticleOptions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/adminapi/decoration/tabbar/detail": {
         parameters: {
             query?: never;
@@ -1994,38 +1816,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/setting/transaction/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getTransactionConfig"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/setting/transaction/save": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["saveTransactionConfig"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/adminapi/system/info": {
         parameters: {
             query?: never;
@@ -2066,6 +1856,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getAdminWorkbench"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/core.tenant.license": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getCurrentTenantLicense"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2602,38 +2408,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/platformapi/tenants/modules/enable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["enablePlatformTenantModule"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/platformapi/tenants/modules/disable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["disablePlatformTenantModule"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/platformapi/instance-tools/modules": {
         parameters: {
             query?: never;
@@ -2660,6 +2434,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["installInstanceModule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/instance-tools/modules/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["updateInstanceModule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/instance-tools/modules/tasks/{task_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getInstanceModuleTask"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2723,6 +2529,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description preview=true 返回确认计划；preview=false 必须提供 Idempotency-Key，提交 Ops 模块卸载任务并返回任务状态。 */
         post: operations["uninstallInstanceModule"];
         delete?: never;
         options?: never;
@@ -2762,6 +2569,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platformapi/v1/ops/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPlatformOpsLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platformapi/v1/ops/diagnostics": {
         parameters: {
             query?: never;
@@ -2770,6 +2593,185 @@ export interface paths {
             cookie?: never;
         };
         get: operations["downloadPlatformDiagnostics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listTenantPlans"];
+        put: operations["updateTenantPlan"];
+        post: operations["createTenantPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/tenants/license": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getTenantLicense"];
+        put: operations["updateTenantLicense"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/permission/bundles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPermissionBundles"];
+        put: operations["updatePermissionBundle"];
+        post: operations["createPermissionBundle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/permission/menus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMenuPermissionBindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/permission/menus/binding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["replaceMenuPermissionBinding"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/permission/apis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listRegisteredApis"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/permission/apis/bindings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPermissionApiBindings"];
+        put: operations["replacePermissionApiBindings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/permission/bundles/apis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getTenantPermissionBundleApis"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/installapi/page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description PHP owner checks the original completion lock before serving HTML; no private state is mounted into Nginx. */
+        get: operations["getInstallPage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/installapi/environment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 配置前只读环境检查；不连接数据库、不写配置或安装身份。 */
+        get: operations["getInstallEnvironment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/installapi/database-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 只读连接、空库、身份和精确有效权限检查；未知权限不视为通过。执行安装前服务器重复检查。 */
+        get: operations["checkInstallDatabase"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2846,6 +2848,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/installapi/entry-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 只读取物理安装完成锁和部署模式，供正常前端入口判断；不运行安装预检。 */
+        get: operations["getInstallationEntryStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/installapi/execute": {
         parameters: {
             query?: never;
@@ -2863,15 +2882,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.category.list": {
+    "/platformapi/infrastructure/storage": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** 查询资讯分类 */
-        get: operations["listArticleCategories"];
+        /** @description Requires platform.storage.legacy.read by default. Legacy aggregate snapshot retained for explicitly configured API bindings; source-default platform.ops.read roles receive the three separate read capabilities instead. Credential ciphertext and keys are never returned. */
+        get: operations["getStorageConfiguration"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2880,15 +2899,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.category.all": {
+    "/platformapi/infrastructure/storage/account": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** 查询全部启用资讯分类 */
-        get: operations["listEnabledArticleCategories"];
+        get?: never;
+        put?: never;
+        /** @description Requires platform.ops.maintenance.manage. Validated configuration mutation and platform audit run in the existing transaction. Unknown body keys reject; no provider connection or data migration is requested. */
+        post: operations["createStorageAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/infrastructure/storage/account/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Requires platform.ops.maintenance.manage. Validated configuration mutation and platform audit run in the existing transaction. Unknown body keys reject; no provider connection or data migration is requested. */
+        post: operations["updateStorageAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/infrastructure/storage/space": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Requires platform.ops.maintenance.manage. Validated configuration mutation and platform audit run in the existing transaction. Unknown body keys reject; no provider connection or data migration is requested. */
+        post: operations["createStorageSpace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/infrastructure/storage/space/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Requires platform.ops.maintenance.manage. Validated configuration mutation and platform audit run in the existing transaction. Unknown body keys reject; no provider connection or data migration is requested. */
+        post: operations["updateStorageSpace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/infrastructure/storage/route": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Requires platform.ops.maintenance.manage. Validated configuration mutation and platform audit run in the existing transaction. Unknown body keys reject; no provider connection or data migration is requested. */
+        post: operations["setStorageRoute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/infrastructure/storage/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Requires platform.storage.account.read. Returns only this configuration list; provider credentials are never returned. */
+        get: operations["getStorageAccounts"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2897,15 +3001,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.category.detail": {
+    "/platformapi/infrastructure/storage/spaces": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** 查询资讯分类详情 */
-        get: operations["getArticleCategory"];
+        /** @description Requires platform.storage.space.read. Returns only this configuration list; provider credentials are never returned. */
+        get: operations["getStorageSpaces"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2914,83 +3018,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.category.add": {
+    "/platformapi/infrastructure/storage/routes": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
-        /** 创建资讯分类 */
-        post: operations["createArticleCategory"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.article.category.edit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 更新资讯分类 */
-        post: operations["updateArticleCategory"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.article.category.delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 软删除资讯分类 */
-        post: operations["deleteArticleCategory"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.article.category.update-status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 更新资讯分类启用状态 */
-        post: operations["updateArticleCategoryStatus"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.article.category.recycle.list": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询已删除资讯分类 */
-        get: operations["listRecycledArticleCategories"];
+        /** @description Requires platform.storage.route.read. Returns only this configuration list; provider credentials are never returned. */
+        get: operations["getStorageRoutes"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2999,15 +3035,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.category.recycle.detail": {
+    "/adminapi/api/v1/files/visibility/preview": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** 查询已删除资讯分类详情 */
-        get: operations["getRecycledArticleCategory"];
+        get?: never;
+        put?: never;
+        /** @description Read-only whole-batch preflight. Requires manage and visibility.change on every source and derivative. Unqualified external origins reject before intent. */
+        post: operations["previewFileVisibility"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/files/visibility/batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["recentFileVisibilityBatches"];
+        put?: never;
+        /** @description Accept all objects atomically, then persist each nontransactional storage step. Duplicate requests return the original batch. Unknown HTTP outcomes require querying that batch. */
+        post: operations["submitFileVisibility"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/files/visibility/batches/{batchKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getFileVisibilityBatch"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3016,7 +3085,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.category.restore": {
+    "/adminapi/api/v1/files/visibility/batches/{batchKey}/resume": {
         parameters: {
             query?: never;
             header?: never;
@@ -3025,40 +3094,22 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** 恢复已删除资讯分类 */
-        post: operations["restoreArticleCategories"];
+        /** @description Explicit recovery of the same durable batch, under current permissions. Inspect original locations before retry; never reopen public access or replace the accepted plan. */
+        post: operations["resumeFileVisibilityBatch"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.category.force-delete": {
+    "/adminapi/peanut.file.snapshot.pending": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
-        /** 永久删除资讯分类 */
-        post: operations["forceDeleteArticleCategories"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.article.list": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询资讯 */
-        get: operations["listAdminArticles"];
+        get: operations["pendingDocumentFileSnapshots"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3067,24 +3118,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.detail": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询资讯详情 */
-        get: operations["getAdminArticle"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.article.add": {
+    "/adminapi/peanut.file.snapshot.recover": {
         parameters: {
             query?: never;
             header?: never;
@@ -3093,15 +3127,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** 创建资讯 */
-        post: operations["createArticle"];
+        post: operations["recoverDocumentFileSnapshot"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.edit": {
+    "/adminapi/api/v1/files/resolve": {
         parameters: {
             query?: never;
             header?: never;
@@ -3110,110 +3143,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** 更新资讯 */
-        post: operations["updateArticle"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.article.delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 软删除资讯 */
-        post: operations["deleteArticle"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.article.update-status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 更新资讯展示状态 */
-        post: operations["updateArticleStatus"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.article.recycle.list": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询已删除资讯 */
-        get: operations["listRecycledArticles"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.article.recycle.detail": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询已删除资讯详情 */
-        get: operations["getRecycledArticle"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.article.restore": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 恢复已删除资讯 */
-        post: operations["restoreArticles"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.article.force-delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 永久删除资讯 */
-        post: operations["forceDeleteArticles"];
+        post: operations["resolveFileAccess"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3236,7 +3166,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.upload.image": {
+    "/adminapi/peanut.file.upload.image": {
         parameters: {
             query?: never;
             header?: never;
@@ -3252,7 +3182,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.upload.video": {
+    "/adminapi/peanut.file.upload.video": {
         parameters: {
             query?: never;
             header?: never;
@@ -3284,7 +3214,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.move": {
+    "/adminapi/peanut.file.move": {
         parameters: {
             query?: never;
             header?: never;
@@ -3300,7 +3230,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.rename": {
+    "/adminapi/peanut.file.rename": {
         parameters: {
             query?: never;
             header?: never;
@@ -3316,7 +3246,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.delete": {
+    "/adminapi/peanut.file.delete": {
         parameters: {
             query?: never;
             header?: never;
@@ -3332,7 +3262,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.category.list": {
+    "/adminapi/peanut.file.category.list": {
         parameters: {
             query?: never;
             header?: never;
@@ -3348,7 +3278,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.category.add": {
+    "/adminapi/peanut.file.category.add": {
         parameters: {
             query?: never;
             header?: never;
@@ -3364,7 +3294,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.category.edit": {
+    "/adminapi/peanut.file.category.edit": {
         parameters: {
             query?: never;
             header?: never;
@@ -3380,7 +3310,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.file.category.delete": {
+    "/adminapi/peanut.file.category.delete": {
         parameters: {
             query?: never;
             header?: never;
@@ -3390,134 +3320,6 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["deleteFileCategory"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.import-export.operation-log.export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["submitOperationLogExport"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.import-export.operation.status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getLegacyImportExportOperation"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.import-export.result.download": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["downloadLegacyImportExportResult"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/api/v1/import-export/operations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listImportExportOperations"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/api/v1/import-export/imports": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["submitImportOperation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/api/v1/import-export/exports": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["submitExportOperation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/api/v1/import-export/operations/{operationKey}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["cancelImportExportOperation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/api/v1/files/{fileKey}/content": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["downloadImportExportResult"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3678,1267 +3480,6 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["revokeIntegrationSession"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.member.list": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询会员列表或导出结果 */
-        get: operations["listAdminMembers"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.member.detail": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询会员详情 */
-        get: operations["getAdminMember"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.member.add": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 创建会员 */
-        post: operations["createAdminMember"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.member.edit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 更新会员字段 */
-        post: operations["updateAdminMemberField"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.member.update-status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 更新会员状态 */
-        post: operations["updateAdminMemberStatus"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.member.balance.adjust": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 调整会员余额 */
-        post: operations["adjustAdminMemberBalance"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.member.tag.add": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 创建会员标签 */
-        post: operations["createMemberTag"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.member.tag.list": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询会员标签 */
-        get: operations["listMemberTags"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.member.tag.edit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 更新会员标签 */
-        post: operations["updateMemberTag"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.member.tag.delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 删除会员标签 */
-        post: operations["deleteMemberTag"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.member.account-log.list": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询会员余额流水 */
-        get: operations["listAdminMemberBalanceLogs"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.member.account-log.change-types": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询会员余额变动类型 */
-        get: operations["getMemberBalanceChangeTypes"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/login/register": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 注册会员账号 */
-        post: operations["registerMember"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/login/account": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 会员账号密码登录 */
-        post: operations["loginMemberWithAccount"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/login/mobile": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 会员手机验证码登录 */
-        post: operations["loginMemberWithMobileCode"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/login/resetPassword": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 通过手机验证码重置会员密码 */
-        post: operations["resetMemberPassword"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/user/center": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询会员中心 */
-        get: operations["getMemberCenter"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/user/info": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询会员资料 */
-        get: operations["getMemberProfile"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/user/setInfo": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 更新会员本人资料字段 */
-        post: operations["updateMemberProfileField"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/user/changePassword": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 修改会员密码 */
-        post: operations["changeMemberPassword"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/user/bindMobile": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 绑定或变更会员手机 */
-        post: operations["bindMemberMobile"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/account_log/lists": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询当前会员余额流水 */
-        get: operations["listCurrentMemberBalanceLogs"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.notification.channel.detail": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getNotificationChannelConfiguration"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.notification.channel.save": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["saveNotificationChannelConfiguration"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.notification.scene.list": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listNotificationScenes"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.notification.scene.detail": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getNotificationScene"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.notification.scene.save": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["saveNotificationScene"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.notification.log.list": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listNotificationLogs"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.notification.log.detail": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getNotificationLog"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/api/v1/notifications": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listInboxNotifications"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/api/v1/notifications/{messageKey}/read": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["markInboxNotificationRead"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/api/v1/notifications/bulk": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["bulkUpdateInboxNotifications"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.oauth.web-page.config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询 H5 网页渠道配置 */
-        get: operations["getOAuthWebPageConfig"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.oauth.web-page.save": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 保存 H5 网页渠道配置 */
-        post: operations["replaceOAuthWebPageConfig"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.oauth.mini-program.config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询微信小程序配置 */
-        get: operations["getOAuthMiniProgramConfig"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.oauth.mini-program.save": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 保存微信小程序配置 */
-        post: operations["replaceOAuthMiniProgramConfig"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.oauth.official-account.config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询微信公众号配置 */
-        get: operations["getOAuthOfficialAccountConfig"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.oauth.official-account.save": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 保存微信公众号配置 */
-        post: operations["replaceOAuthOfficialAccountConfig"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.oauth.official-account.menu.detail": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询微信公众号菜单 */
-        get: operations["getOAuthOfficialAccountMenu"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.oauth.official-account.menu.save": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 保存微信公众号菜单 */
-        post: operations["saveOAuthOfficialAccountMenu"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.oauth.official-account.menu.publish": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 保存并发布微信公众号菜单 */
-        post: operations["publishOAuthOfficialAccountMenu"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.oauth.official-account.reply.list": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询微信公众号自动回复 */
-        get: operations["listOAuthOfficialAccountReplies"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.oauth.official-account.reply.detail": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询微信公众号自动回复详情 */
-        get: operations["getOAuthOfficialAccountReply"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.oauth.official-account.reply.add": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 创建微信公众号自动回复 */
-        post: operations["createOAuthOfficialAccountReply"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.oauth.official-account.reply.edit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 更新微信公众号自动回复 */
-        post: operations["updateOAuthOfficialAccountReply"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.oauth.official-account.reply.delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 删除微信公众号自动回复 */
-        post: operations["deleteOAuthOfficialAccountReply"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.oauth.official-account.reply.update-status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 更新微信公众号自动回复状态 */
-        post: operations["updateOAuthOfficialAccountReplyStatus"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.oauth.open-platform.config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询微信开放平台配置 */
-        get: operations["getOAuthOpenPlatformConfig"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.oauth.open-platform.save": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 保存微信开放平台配置 */
-        post: operations["replaceOAuthOpenPlatformConfig"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/oauth/wechat/begin": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 发起微信浏览器授权 */
-        post: operations["beginWechatOAuth"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/oauth/wechat/callback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 处理微信浏览器授权回调 */
-        post: operations["completeWechatOAuthCallback"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/oauth/wechat/mini-program": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 微信小程序登录 */
-        post: operations["loginWithWechatMiniProgram"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/oauth/wechat/complete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 补全微信登录资料 */
-        post: operations["completeWechatOAuthProfile"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/oauth/wechat/redirect/pc": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 重定向微信授权结果到 PC 客户端 */
-        get: operations["redirectWechatOAuthToPc"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/oauth/wechat/redirect/official-account": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 重定向微信授权结果到公众号 H5 客户端 */
-        get: operations["redirectWechatOAuthToOfficialAccount"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/oauth/wechat/bind": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 绑定当前会员的微信身份 */
-        post: operations["bindWechatIdentity"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/wechat/official-account/callback/{binding}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 验证微信公众号回调地址 */
-        get: operations["verifyWechatOfficialAccountCallback"];
-        put?: never;
-        /** 接收微信公众号明文消息 */
-        post: operations["receiveWechatOfficialAccountMessage"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.payment.settings.detail": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询支付渠道配置 */
-        get: operations["getPaymentSettings"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.payment.settings.save": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 保存支付渠道配置 */
-        post: operations["savePaymentSettings"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.payment.recharge-settings.detail": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询充值配置 */
-        get: operations["getPaymentRechargeSettings"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.payment.recharge-settings.save": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 保存充值配置 */
-        post: operations["savePaymentRechargeSettings"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.payment.recharge.list": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询充值订单 */
-        get: operations["listPaymentRecharges"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.payment.recharge.refund": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 发起充值退款
-         * @description 渠道明确成功时退款记录进入成功；渠道明确失败时接口返回错误。若 gateway 报告 ERROR_RESULT_UNKNOWN，现实现保留 refund_status=0（退款中）并等待 refund:reconcile 收敛，但本接口仍返回成功消息；该消息不表示退款资金已到达终态。
-         */
-        post: operations["refundPaymentRecharge"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.payment.refund.retry": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 重试失败退款
-         * @description 重试会先把失败记录恢复为 refund_status=0（退款中）。若 gateway 报告 ERROR_RESULT_UNKNOWN，记录继续保持退款中并等待 refund:reconcile 收敛，但本接口仍返回成功消息；该消息不表示退款资金已到达终态。
-         */
-        post: operations["retryPaymentRefund"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.payment.refund.stat": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询退款统计 */
-        get: operations["getPaymentRefundStatistics"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.payment.refund.list": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询退款记录 */
-        get: operations["listPaymentRefunds"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/official.payment.refund.log": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询退款操作日志 */
-        get: operations["listPaymentRefundLogs"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/payment/notify/wechat/{binding}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 接收微信支付回调
-         * @description 先用原始请求体和 Wechatpay-* 签名头完成绑定解析、验签和解密；仅 success 事件入账。已验签的 failed/pending（含未知渠道状态）不入账，但同样返回渠道确认。
-         */
-        post: operations["receiveWechatPaymentCallback"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/payment/notify/alipay/{binding}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * 接收支付宝支付回调
-         * @description 按 application/x-www-form-urlencoded 表单原值进行 RSA2 验签和绑定解析；仅 success 事件入账。已验签的 failed/pending（含未知渠道状态）不入账，但同样返回 success 文本。
-         */
-        post: operations["receiveAlipayPaymentCallback"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/recharge/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询会员充值配置 */
-        get: operations["getMemberRechargeConfig"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/recharge/create": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 创建会员充值订单 */
-        post: operations["createMemberRecharge"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/recharge/prepay": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** 创建充值预支付参数 */
-        post: operations["prepayMemberRecharge"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/recharge/detail": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询本人充值订单 */
-        get: operations["getMemberRecharge"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/recharge/lists": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** 查询本人充值订单列表 */
-        get: operations["listMemberRecharges"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5298,7 +3839,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.task.expression": {
+    "/adminapi/peanut.task.expression": {
         parameters: {
             query?: never;
             header?: never;
@@ -5314,7 +3855,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.task.list": {
+    "/adminapi/peanut.task.list": {
         parameters: {
             query?: never;
             header?: never;
@@ -5330,7 +3871,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.task.detail": {
+    "/adminapi/peanut.task.detail": {
         parameters: {
             query?: never;
             header?: never;
@@ -5346,7 +3887,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.task.add": {
+    "/adminapi/peanut.task.add": {
         parameters: {
             query?: never;
             header?: never;
@@ -5362,7 +3903,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.task.edit": {
+    "/adminapi/peanut.task.edit": {
         parameters: {
             query?: never;
             header?: never;
@@ -5378,7 +3919,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.task.delete": {
+    "/adminapi/peanut.task.delete": {
         parameters: {
             query?: never;
             header?: never;
@@ -5394,7 +3935,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.task.operate": {
+    "/adminapi/peanut.task.operate": {
         parameters: {
             query?: never;
             header?: never;
@@ -5666,110 +4207,6 @@ export interface components {
         ApplicationDynamicObject: {
             [key: string]: components["schemas"]["ApplicationDynamicValue"];
         };
-        ApplicationArticleCategory: {
-            id: number;
-            name: string;
-        };
-        ApplicationArticleListItem: {
-            id: number;
-            cid: number;
-            title: string;
-            desc: string | null;
-            image: string;
-            create_time: number | string;
-            click: number;
-            collect: boolean;
-        };
-        ApplicationArticleListPage: {
-            lists: components["schemas"]["ApplicationArticleListItem"][];
-            count: number;
-            pageNo: number;
-            pageSize: number;
-        };
-        ApplicationArticleDetail: {
-            id: number;
-            desc: string | null;
-            abstract: string | null;
-            /** @enum {integer} */
-            is_show: 1;
-            create_time: number | string;
-            update_time: number | string;
-            delete_time: ((number | string) | 0) | null;
-            title: string;
-            author: string | null;
-            content: string;
-            sort: number;
-            image: string;
-            tenant_id: number;
-            cid: number;
-            click: number;
-            collect: boolean;
-        };
-        ApplicationArticleNavigationItem: {
-            id: number;
-            cid: number;
-            title: string;
-            desc: string | null;
-            abstract: string | null;
-            image: string;
-            author: string | null;
-            create_time: number | string;
-            click: number;
-        };
-        ApplicationPcArticleDetail: {
-            id: number;
-            desc: string | null;
-            abstract: string | null;
-            /** @enum {integer} */
-            is_show: 1;
-            create_time: number | string;
-            update_time: number | string;
-            delete_time: ((number | string) | 0) | null;
-            title: string;
-            author: string | null;
-            content: string;
-            sort: number;
-            image: string;
-            tenant_id: number;
-            cid: number;
-            click: number;
-            collect: boolean;
-            last: components["schemas"]["ApplicationArticleNavigationItem"] | unknown[];
-            next: components["schemas"]["ApplicationArticleNavigationItem"] | unknown[];
-            new: components["schemas"]["ApplicationArticleNavigationItem"][];
-            cate_name: string;
-        };
-        ApplicationHomeArticle: {
-            id: number;
-            title: string;
-            desc: string | null;
-            abstract: string | null;
-            image: string;
-            author: string | null;
-            create_time: number | string;
-            click: number;
-        };
-        ApplicationArticleCollectionRequest: {
-            id: number;
-        };
-        ApplicationArticleCollectionItem: {
-            id: number;
-            article_id: number;
-            title: string;
-            image: string;
-            desc: string | null;
-            /** @enum {integer} */
-            is_show: 1;
-            create_time: number | string;
-            collect_time: string;
-            click: number;
-        };
-        ApplicationArticleCollectionPage: {
-            lists: components["schemas"]["ApplicationArticleCollectionItem"][];
-            count: number;
-            pageNo: number;
-            pageSize: number;
-        };
         ApplicationDecorationComponent: {
             title: string;
             name: string;
@@ -5877,37 +4314,6 @@ export interface components {
             title: string;
             content: string;
         };
-        ApplicationHomeData: {
-            article: components["schemas"]["ApplicationHomeArticle"][];
-            decorate: components["schemas"]["ApplicationDecorationPage"];
-        };
-        ApplicationPcHomeData: {
-            all: components["schemas"]["ApplicationArticleNavigationItem"][];
-            new: components["schemas"]["ApplicationArticleNavigationItem"][];
-            hot: components["schemas"]["ApplicationArticleNavigationItem"][];
-            decorate: components["schemas"]["ApplicationDecorationPage"];
-        };
-        ApplicationInformationArticle: {
-            id: number;
-            cid: number;
-            title: string;
-            desc: string | null;
-            abstract: string | null;
-            image: string;
-            author: string | null;
-            /** @enum {integer} */
-            is_show: 1;
-            sort: number;
-            create_time: number | string;
-            update_time: number | string;
-            delete_time: ((number | string) | 0) | null;
-            click: number;
-        };
-        ApplicationInformationCategory: {
-            id: number;
-            name: string;
-            article: components["schemas"]["ApplicationInformationArticle"][];
-        };
         ApplicationHotSearchData: {
             /** @enum {integer} */
             status: 0 | 1;
@@ -5915,18 +4321,6 @@ export interface components {
                 name: string;
                 sort: number;
             }[];
-        };
-        ApplicationArticleListResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["ApplicationArticleListPage"];
-        };
-        ApplicationArticleDetailResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["ApplicationArticleDetail"];
         };
         AdminLoginRequest: {
             /** Format: email */
@@ -6019,6 +4413,11 @@ export interface components {
             roles: components["schemas"]["StringList"];
             menu: components["schemas"]["AdminMenuNode"][];
             permissions: components["schemas"]["StringList"];
+            action_bindings: {
+                page_path: string;
+                action_key: string;
+                permission_key: string;
+            }[];
             tenantName: string;
             website: components["schemas"]["WebsiteConfig"];
             canSwitchTenant: boolean;
@@ -6031,6 +4430,7 @@ export interface components {
             name: string;
             nickname: string;
             avatar: string;
+            avatar_uri: string;
             root: number;
             /** @enum {integer} */
             disable: 0 | 1;
@@ -6066,7 +4466,6 @@ export interface components {
             username?: string;
             name: string;
             nickname?: string;
-            avatar?: string;
             /** @description Effective UTF-8 byte bounds from getPasswordPolicy. */
             password?: string;
             password_confirm?: string;
@@ -6136,7 +4535,7 @@ export interface components {
             sort: number;
             create_time: string;
             num: number;
-            menu_keys: components["schemas"]["StringList"];
+            permission_keys: components["schemas"]["StringList"];
             status: string;
             revision: number;
         };
@@ -6144,7 +4543,7 @@ export interface components {
             id?: number;
             name: string;
             desc?: string;
-            menu_keys?: components["schemas"]["StringList"];
+            sort?: number;
         };
         Department: {
             id: number;
@@ -6199,8 +4598,6 @@ export interface components {
             remark?: string;
             /** @enum {integer} */
             status: 0 | 1;
-            /** @enum {integer} */
-            is_disable?: 0 | 1;
         };
         WebsiteConfig: {
             name: string;
@@ -6247,6 +4644,10 @@ export interface components {
         };
         MemberProfileConfig: {
             default_avatar: string;
+            default_avatar_url: string;
+        };
+        MemberProfileWriteRequest: {
+            default_avatar: string;
         };
         LoginConfig: {
             login_way: (1 | 2)[];
@@ -6271,9 +4672,14 @@ export interface components {
             /** @enum {integer} */
             type: 1 | 2 | 3 | 4 | 5;
             name: string;
-            data: components["schemas"]["ApplicationDynamicValue"][];
-            meta: {
+            data: components["schemas"]["ApplicationDynamicValue"][] | {
                 [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            meta: components["schemas"]["ApplicationDynamicValue"][] | {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            resource_urls: {
+                [key: string]: string;
             };
         } & {
             [key: string]: components["schemas"]["ApplicationDynamicValue"];
@@ -6282,12 +4688,17 @@ export interface components {
             id: number;
             /** @enum {integer} */
             type: 1 | 2 | 3 | 4 | 5;
-            data: components["schemas"]["ApplicationDynamicValue"][];
-            meta?: {
+            data: components["schemas"]["ApplicationDynamicValue"][] | {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            meta?: components["schemas"]["ApplicationDynamicValue"][] | {
                 [key: string]: components["schemas"]["ApplicationDynamicValue"];
             };
         };
         DecorationTabbar: {
+            resource_urls: {
+                [key: string]: string;
+            };
             style: {
                 [key: string]: components["schemas"]["ApplicationDynamicValue"];
             };
@@ -6303,6 +4714,22 @@ export interface components {
             } & {
                 [key: string]: components["schemas"]["ApplicationDynamicValue"];
             })[];
+        };
+        DecorationTabbarSaveRequest: {
+            style: {
+                default_color: string;
+                selected_color: string;
+            };
+            list: {
+                name: string;
+                selected: string;
+                unselected: string;
+                link: {
+                    [key: string]: components["schemas"]["ApplicationDynamicValue"];
+                };
+                /** @enum {integer} */
+                is_show: 0 | 1;
+            }[];
         };
         ArticleOption: {
             id: number;
@@ -6414,14 +4841,6 @@ export interface components {
                 sort: number;
             }[];
         };
-        TransactionConfig: {
-            /** @enum {integer} */
-            cancel_unpaid_orders: 0 | 1;
-            cancel_unpaid_orders_times: number;
-            /** @enum {integer} */
-            verification_orders: 0 | 1;
-            verification_orders_times: number;
-        };
         SystemInfo: {
             server: {
                 param: string;
@@ -6495,6 +4914,127 @@ export interface components {
             status: "accepted";
             tenant_status: string;
         };
+        AdminRolePermissions: {
+            role_id: components["schemas"]["NumericStringId"];
+            key: string;
+            revision: components["schemas"]["NumericStringId"];
+            permission_keys: string[];
+        };
+        AdminRolePermissionsReplaceRequest: {
+            role_id: number | string;
+            expected_revision: number | string;
+            permission_keys: string[];
+        };
+        AdminRolePermissionCatalogPage: {
+            items: {
+                key: string;
+                name: string;
+                module_key: string;
+            }[];
+            total: number;
+            page_no: number;
+            page_size: number;
+        };
+        AdminDataPolicyTargetSetWrite: {
+            name: string;
+            target_resource_key: string;
+            targets: {
+                target_id: string;
+            }[];
+        } | null;
+        AdminDataPolicyConditionWrite: {
+            condition_key: string;
+            target_set?: components["schemas"]["AdminDataPolicyTargetSetWrite"];
+            config?: (Record<string, never> | null) | (string[] | null);
+        };
+        AdminDataPolicyGroupWrite: {
+            name: string;
+            conditions: components["schemas"]["AdminDataPolicyConditionWrite"][];
+        };
+        AdminDataPolicyWrite: {
+            /** @enum {string} */
+            status: "active" | "disabled";
+            reason?: string | null;
+            /** Format: date-time */
+            valid_from?: string | null;
+            /** Format: date-time */
+            valid_until?: string | null;
+            groups: components["schemas"]["AdminDataPolicyGroupWrite"][];
+        };
+        AdminDataPolicyReplaceRequest: {
+            role_id: number | string;
+            resource_key: string;
+            operation: string;
+            expected_revision?: (number | null) | (string | null);
+            policy: components["schemas"]["AdminDataPolicyWrite"];
+        };
+        AdminDataPolicyTargetSet: {
+            id: components["schemas"]["NumericStringId"];
+            name: string;
+            target_mode: string;
+            target_resource_key: string;
+            status: string;
+            revision: components["schemas"]["NumericStringId"];
+            targets: {
+                target_id: string;
+            }[];
+        } | null;
+        AdminDataPolicyCondition: {
+            id: components["schemas"]["NumericStringId"];
+            condition_key: string;
+            status: string;
+            revision: components["schemas"]["NumericStringId"];
+            target_set: components["schemas"]["AdminDataPolicyTargetSet"];
+            config: (Record<string, never> | null) | (string[] | null);
+        };
+        AdminDataPolicyGroup: {
+            id: components["schemas"]["NumericStringId"];
+            name: string;
+            match_mode: string;
+            sort_order: number;
+            status: string;
+            revision: components["schemas"]["NumericStringId"];
+            conditions: components["schemas"]["AdminDataPolicyCondition"][];
+        };
+        AdminDataPolicy: {
+            id: components["schemas"]["NumericStringId"];
+            tenant_id: components["schemas"]["NumericStringId"];
+            role_id: components["schemas"]["NumericStringId"];
+            resource_key: string;
+            operation: string;
+            /** @enum {string} */
+            status: "active" | "disabled";
+            valid_from: string | null;
+            valid_until: string | null;
+            revision: components["schemas"]["NumericStringId"];
+            reason: string | null;
+            created_at: string;
+            updated_at: string;
+            groups: components["schemas"]["AdminDataPolicyGroup"][];
+        };
+        AdminDataPolicyOperation: {
+            resource_key: string;
+            module_key: string;
+            operation: string;
+            access_mode: string;
+            target_cardinality: string;
+        };
+        AdminDataPolicyCatalogPage: {
+            items: components["schemas"]["AdminDataPolicyOperation"][];
+            total: number;
+            page_no: number;
+            page_size: number;
+        };
+        AdminDataPolicyOperationConditions: {
+            resource_key: string;
+            operation: string;
+            target_cardinality: string;
+            conditions: {
+                condition_key: string;
+                target_mode: string;
+                selector_resource_key: string | null;
+            }[];
+        };
         PlatformAuthentication: {
             /** @enum {string} */
             state: "authenticated";
@@ -6520,6 +5060,12 @@ export interface components {
             account_id: string;
             platform_operator_id: string;
             permissions: string[];
+            /** @description Current instance API access for UI presentation; every request is authorized again on the server. */
+            api_access: {
+                /** @enum {string} */
+                method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
+                path: string;
+            }[];
             navigation: string[];
         };
         PlatformTenant: {
@@ -6553,7 +5099,7 @@ export interface components {
             permission_catalog: "platform.*";
             /** @enum {boolean} */
             tenant_business_access: false;
-            operations: ("platform.tenant.create" | "platform.tenant.lifecycle" | "platform.tenant.provision-owner" | "platform.tenant.module.manage")[];
+            operations: ("platform.tenant.create" | "platform.tenant.lifecycle" | "platform.tenant.provision-owner" | "platform.tenant.license.manage")[];
         };
         PlatformOperator: {
             id: number | string;
@@ -6642,25 +5188,6 @@ export interface components {
         } & {
             [key: string]: components["schemas"]["ApplicationDynamicValue"];
         };
-        PlatformTenantModuleRecord: {
-            id: string;
-            tenant_id: string;
-            module_key: string;
-            status: string;
-            source: string;
-            config_revision: string;
-            authorization_revision: string;
-            effective_at: string | null;
-            expires_at: string | null;
-            enabled_at: string | null;
-            disabled_at: string | null;
-            disabled_reason: string | null;
-            created_at: string;
-            updated_at: string;
-            config: {
-                [key: string]: components["schemas"]["ApplicationDynamicValue"];
-            };
-        };
         PlatformTenantOwner: {
             member_id: number;
             tenant_id: number;
@@ -6748,6 +5275,11 @@ export interface components {
             tenant_enabled_count: number;
             blockers: string[];
             dependents: string[];
+            tenant: {
+                enableable: boolean;
+                required: boolean;
+                requires: string[];
+            };
         };
         PlatformModuleLifecycleResult: {
             operation: string;
@@ -6868,8 +5400,8 @@ export interface components {
                 }[];
             };
             version: {
-                commit: string;
-                tree: string;
+                commit: string | null;
+                tree: string | null;
                 release_key: string | null;
                 /** Format: date-time */
                 built_at: string;
@@ -6884,14 +5416,32 @@ export interface components {
             upgrade: {
                 state: string;
                 code: string;
-                source_commit: string;
-                target_commit: string;
-                repository_clean: boolean;
+                source_commit: string | null;
+                target_commit: string | null;
+                repository_clean: boolean | null;
                 backup_verified: boolean;
                 source_evidence_matches: boolean;
             };
         } & {
             [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        /** @description 最近 24 小时的平台审计脱敏摘要；最多读取 100 个聚合组后按最低级别过滤，不提供完整搜索或游标分页。 */
+        PlatformOpsLogPage: {
+            items: {
+                event_key: string;
+                /** @enum {string} */
+                severity: "info" | "warning" | "error" | "critical";
+                /** @enum {string} */
+                component_key: "platform.audit";
+                /** @description 受控消息目录中的通用说明，不含原始日志消息、身份或载荷。 */
+                message: string;
+                /** Format: date-time */
+                occurred_at: string;
+                request_id: string | null;
+                occurrences: number;
+            }[];
+            /** @description 下一页游标；null 表示有界摘要已读完。 */
+            next_cursor: string | null;
         };
         PlatformOpsSnapshot: {
             provider?: {
@@ -6908,12 +5458,103 @@ export interface components {
             /** @enum {string} */
             restore_contract_status?: "missing" | "current" | "unsupported_schema";
             new_paired_backup_required?: boolean;
+            source_identity_known?: boolean;
+            page?: number;
+            page_size?: number;
+            total?: number;
             tasks?: components["schemas"]["PlatformOpsTask"][];
             items?: components["schemas"]["ApplicationDynamicValue"][];
             status?: string;
             ready?: boolean;
         } & {
             [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        TenantPlan: {
+            id: number;
+            code: string;
+            name: string;
+            /** @enum {string} */
+            status: "active" | "inactive";
+            revision: number;
+            module_keys: string[];
+            permission_keys: string[];
+        };
+        TenantLicense: {
+            id: number;
+            tenant_id: number;
+            plan_id: number;
+            plan_code: string;
+            plan_name: string;
+            /** @enum {string} */
+            status: "active" | "suspended";
+            /** Format: date-time */
+            effective_at: string;
+            /** Format: date-time */
+            expires_at: string | null;
+            revision: number;
+            effective: boolean;
+            /** @enum {string} */
+            state: "active" | "suspended" | "upcoming" | "expired";
+        };
+        TenantLicenseData: {
+            tenant_id: number;
+            license: components["schemas"]["TenantLicense"] | null;
+        };
+        TenantPlanCreate: {
+            code: string;
+            name: string;
+            module_keys: string[];
+            permission_keys: string[];
+            change_reason: string;
+        };
+        TenantPlanUpdate: {
+            id: number;
+            expected_revision: number;
+            /** @enum {string} */
+            status: "active" | "inactive";
+            name: string;
+            module_keys: string[];
+            permission_keys: string[];
+            change_reason: string;
+        };
+        TenantLicenseWrite: {
+            tenant_id: number;
+            plan_id: number;
+            /** @enum {string} */
+            status: "active" | "suspended";
+            /** Format: date-time */
+            effective_at: string;
+            /** Format: date-time */
+            expires_at: string | null;
+            expected_revision: number;
+            change_reason: string;
+        };
+        PermissionBundle: {
+            key: string;
+            name: string;
+            module_key: string;
+            /** @enum {string} */
+            source: "system" | "module" | "custom";
+            /** @enum {string} */
+            audience: "tenant" | "platform";
+            /** @enum {string} */
+            status: "active" | "retired";
+            revision: string;
+            configured: boolean;
+            api_ids: string[];
+        };
+        RegisteredPermissionApi: {
+            id: string;
+            method: string;
+            path: string;
+            /** @enum {string} */
+            audience: "tenant" | "platform" | "member" | "installation";
+            module_key: string;
+            access_mode: string;
+            /** @enum {string} */
+            status: "active" | "retired";
+            default_permission_keys: string[];
+            prerequisite_permission_keys: string[];
         };
         InstallationApplicationIdentity: {
             slug: string;
@@ -6929,15 +5570,27 @@ export interface components {
             code: string;
             configured: boolean;
             application: components["schemas"]["InstallationApplicationIdentity"];
-            deployment_targets?: string[];
+            app_environments?: ("development" | "production")[];
         };
-        /** @description 数据库业务账号和应用密钥由安装配置器生成；多租户部署必须提供 Platform/Tenant Admin Host。 */
+        /** @description bundled 生成内置数据库账号；existing 使用普通主机、端口、库名和已有账号。仅发布私有配置，不连接、建库或授权；实际权限由后续 PDO 检查。多租户必须提供 Platform Host。 */
         InstallationConfigureRequest: {
             /** @enum {string} */
-            deployment_target: "local-production-preview" | "production" | "production-candidate";
+            app_env: "development" | "production";
+            /**
+             * @default bundled
+             * @enum {string}
+             */
+            database_source: "bundled" | "existing";
             database_name?: string;
+            /** @description 已有数据库主机。 */
+            database_host?: string;
+            /** @default 3306 */
+            database_port: number;
+            /** @description 已有普通数据库账号，不修改账号或权限。 */
+            database_user?: string;
+            /** Format: password */
+            database_password?: string;
             platform_hosts?: string;
-            tenant_admin_hosts?: string;
         };
         InstallationConfigureResult: {
             /** @enum {string} */
@@ -6946,8 +5599,7 @@ export interface components {
             code: "INSTALL_CONFIGURATION_PENDING" | "INSTALL_CONFIGURATION_COMPLETED";
             restart_required: boolean;
             application: components["schemas"]["InstallationApplicationIdentity"];
-            deployment_target: string;
-            database_resource_id: string;
+            app_env: string;
             database_name: string;
         };
         InstallationStatus: {
@@ -6991,6 +5643,25 @@ export interface components {
             health: {
                 [key: string]: components["schemas"]["ApplicationDynamicValue"];
             } | null;
+            /** @enum {string} */
+            category?: "prerequisite" | "partial" | "installed_fault" | "unknown" | "installed";
+            stage?: string;
+            reason?: string;
+            remedy?: string;
+            writes?: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            safe_retry?: boolean;
+            completion_lock?: string;
+            permissions_verified?: boolean;
+            permissions_missing_or_unconfirmed?: string[];
+            database_check?: string;
+            permission_remedy?: string | null;
+        };
+        InstallationEntryStatus: {
+            installed: boolean;
+            /** @enum {string} */
+            deployment_mode: "standalone" | "multi-tenant";
         };
         /** @description multi-tenant 部署还要求 platform_email/platform_password；standalone 部署禁止提供这两个字段。 */
         InstallationExecuteRequest: {
@@ -7032,218 +5703,245 @@ export interface components {
                 [key: string]: components["schemas"]["ApplicationDynamicValue"];
             };
         };
-        /** @description 服务端接受正整数或仅含十进制数字的字符串。 */
-        ArticlePositiveIntegerInput: number | string;
-        /**
-         * @example {
-         *       "id": 12
-         *     }
-         */
-        ArticleIdentifierRequest: {
-            id: components["schemas"]["ArticlePositiveIntegerInput"];
-        };
-        /**
-         * @example {
-         *       "ids": [
-         *         12,
-         *         13
-         *       ]
-         *     }
-         */
-        ArticleBatchIdentifierRequest: {
-            id?: components["schemas"]["ArticlePositiveIntegerInput"];
-            ids?: components["schemas"]["ArticlePositiveIntegerInput"][];
-        } & (unknown | unknown);
-        /**
-         * @example {
-         *       "id": 12,
-         *       "is_show": 1
-         *     }
-         */
-        ArticleStatusRequest: {
-            id: components["schemas"]["ArticlePositiveIntegerInput"];
-            /** @enum {integer} */
-            is_show: 0 | 1;
-        };
-        /**
-         * @example {
-         *       "name": "产品动态",
-         *       "is_show": 1,
-         *       "sort": 10
-         *     }
-         */
-        ArticleCategoryCreateRequest: {
+        StorageAccountSnapshot: {
+            /** @description ThinkORM bigint projection. */
+            id: string;
+            /** @description Trimmed ASCII key. */
+            account_key: string;
+            /** @enum {string} */
+            driver: "local" | "qiniu" | "aliyun" | "qcloud";
+            /** @description Trimmed before validation. */
             name: string;
-            /** @enum {integer} */
-            is_show: 0 | 1;
-            sort?: number;
+            credential_key_version: string | null;
+            credential_rotated_at: string | null;
+            /** @enum {string|null} */
+            credential_masked: "********" | null;
+            /** @enum {string} */
+            status: "active" | "disabled";
+            created_at: string;
+            updated_at: string;
         };
-        ArticleCategoryUpdateRequest: {
-            id: components["schemas"]["ArticlePositiveIntegerInput"];
+        StorageSpaceSnapshot: {
+            /** @description ThinkORM bigint projection. */
+            id: string;
+            /** @description Trimmed ASCII key. */
+            space_key: string;
+            /** @description ThinkORM bigint projection. */
+            account_id: string;
+            /** @description Trimmed before validation. */
             name: string;
-            /** @enum {integer} */
-            is_show: 0 | 1;
-            sort?: number;
+            /** @enum {string} */
+            access_type: "public" | "private";
+            bucket: string | null;
+            region: string | null;
+            /** @description Blank normalizes to null; otherwise an absolute http(s) URL, with trailing slashes removed. */
+            endpoint: string | null;
+            /** @description Blank normalizes to null; otherwise an absolute http(s) URL, with trailing slashes removed. */
+            access_domain: string | null;
+            /** @enum {string|null} */
+            local_path: "public/storage" | "private/storage" | null;
+            /** @enum {string} */
+            status: "active" | "read_only" | "disabled";
+            /** @description Trimmed ASCII key. */
+            account_key: string;
+            /** @enum {string} */
+            driver: "local" | "qiniu" | "aliyun" | "qcloud";
+            created_at: string;
+            updated_at: string;
         };
-        /**
-         * @example {
-         *       "title": "多租户产品动态",
-         *       "cid": 3,
-         *       "abstract": "资讯摘要",
-         *       "content": "<p>正文</p>",
-         *       "is_show": 1,
-         *       "sort": 10
-         *     }
-         */
-        ArticleCreateRequest: {
-            title: string;
-            cid: components["schemas"]["ArticlePositiveIntegerInput"];
-            desc?: string;
-            abstract?: string;
-            image?: string;
-            author?: string;
-            content?: string;
-            click_virtual?: number;
-            /** @enum {integer} */
-            is_show: 0 | 1;
-            sort?: number;
+        StorageRouteSnapshot: {
+            /** @enum {string} */
+            route_key: "default.public" | "default.private" | "material.image" | "material.image-variant" | "material.video" | "material.file" | "member.avatar" | "article.asset" | "decoration.asset" | "website.asset" | "export.xlsx" | "export.csv" | "attachment.sensitive" | "document.resource" | "document.snapshot" | "document.snapshot-sensitive";
+            /** @enum {string} */
+            access_type: "public" | "private";
+            /** @description ThinkORM bigint projection. */
+            space_id: string;
+            updated_at: string;
+            /** @description Trimmed ASCII key. */
+            space_key: string;
+            /** @description Trimmed before validation. */
+            space_name: string;
+            /** @enum {string} */
+            driver: "local" | "qiniu" | "aliyun" | "qcloud";
         };
-        ArticleUpdateRequest: {
-            id: components["schemas"]["ArticlePositiveIntegerInput"];
-            title: string;
-            cid: components["schemas"]["ArticlePositiveIntegerInput"];
-            desc?: string;
-            abstract?: string;
-            image?: string;
-            author?: string;
-            content?: string;
-            click_virtual?: number;
-            /** @enum {integer} */
-            is_show: 0 | 1;
-            sort?: number;
+        StorageSnapshot: {
+            accounts: components["schemas"]["StorageAccountSnapshot"][];
+            spaces: components["schemas"]["StorageSpaceSnapshot"][];
+            routes: components["schemas"]["StorageRouteSnapshot"][];
+            purposes: ("material.image" | "material.video" | "material.file" | "export.xlsx" | "export.csv")[];
         };
-        ArticleCategoryRecord: {
-            id: number;
+        StorageAccountCreate: {
+            /** @description Trimmed ASCII key. */
+            account_key: string;
+            /** @enum {string} */
+            driver: "local";
+            /** @description Trimmed before validation. */
             name: string;
-            sort: number;
-            /** @enum {integer} */
-            is_show: 0 | 1;
-            create_time: components["schemas"]["ArticleTimestamp"];
-            update_time: components["schemas"]["ArticleTimestamp"];
-            delete_time: components["schemas"]["ArticleTimestamp"];
-            article_count?: number;
-        };
-        ArticleRecord: {
-            id: number;
-            cid: number;
-            title: string;
-            desc: string;
-            abstract: string;
-            image: string;
-            author: string;
-            content: string;
-            click_virtual: number;
-            click_actual: number;
-            click: number;
-            /** @enum {integer} */
-            is_show: 0 | 1;
-            sort: number;
-            cate_name: string;
-            create_time: components["schemas"]["ArticleTimestamp"];
-            update_time: components["schemas"]["ArticleTimestamp"];
-            delete_time: components["schemas"]["ArticleTimestamp"];
-        };
-        /** @description 空字符串或服务端格式化的本地日期时间。 */
-        ArticleTimestamp: string;
-        ArticlePage: {
-            lists: components["schemas"]["ArticleRecord"][];
-            count: number;
-            pageNo: number;
-            pageSize: number;
-        };
-        ArticleCategoryPage: {
-            lists: components["schemas"]["ArticleCategoryRecord"][];
-            count: number;
-            pageNo: number;
-            pageSize: number;
-        };
-        ArticleBatchFailure: {
-            id: number;
-            code: string;
-            message: string;
-        };
-        ArticleBatchMutationResult: {
-            requested: number[];
-            restored?: number[];
-            deleted?: number[];
-            already_active: number[];
-            failed: components["schemas"]["ArticleBatchFailure"][];
-        };
-        ArticleMutationResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: unknown[];
-        };
-        ArticlePageResponse: {
-            /** @enum {integer} */
-            code: 20000;
+            credentials?: (null) | string[] | Record<string, never>;
+            /** @description Non-empty credential references are no longer supported. */
+            credential_ref?: string | null;
+        } | {
+            /** @description Trimmed ASCII key. */
+            account_key: string;
             /** @enum {string} */
-            msg: "success";
-            data: components["schemas"]["ArticlePage"] | components["schemas"]["ExportPageInfo"] | components["schemas"]["ExportFile"];
-        };
-        ArticleCategoryPageResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            /** @enum {string} */
-            msg: "success";
-            data: components["schemas"]["ArticleCategoryPage"] | components["schemas"]["ExportPageInfo"] | components["schemas"]["ExportFile"];
-        };
-        ArticleDetailResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            /** @enum {string} */
-            msg: "success";
-            data: components["schemas"]["ArticleRecord"] | unknown[];
-        };
-        ArticleCategoryDetailResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            /** @enum {string} */
-            msg: "success";
-            data: components["schemas"]["ArticleCategoryRecord"] | unknown[];
-        };
-        ArticleCategoryCollectionResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            /** @enum {string} */
-            msg: "success";
-            data: components["schemas"]["ArticleCategoryRecord"][];
-        };
-        ArticleBatchMutationResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            /** @enum {string} */
-            msg: "success";
-            data: components["schemas"]["ArticleBatchMutationResult"];
-        };
-        /**
-         * @example {
-         *       "code": 40900,
-         *       "msg": "仅回收站资讯可永久删除",
-         *       "data": {
-         *         "error_code": "ARTICLE_FORCE_DELETE_REQUIRES_TRASHED"
-         *       }
-         *     }
-         */
-        ArticleErrorEnvelope: {
-            code: number;
-            msg: string;
-            data: {
-                error_code: string;
-            } & {
-                [key: string]: unknown;
+            driver: "qiniu" | "aliyun" | "qcloud";
+            /** @description Trimmed before validation. */
+            name: string;
+            credentials: {
+                /** @description Non-empty after trimming. */
+                access_key: string;
+                /** @description Non-empty after trimming. */
+                secret_key: string;
             };
+            /** @description Non-empty credential references are no longer supported. */
+            credential_ref?: string | null;
+        };
+        StorageAccountUpdate: {
+            id: number;
+            /** @description Trimmed before validation. */
+            name: string;
+            /**
+             * @default active
+             * @enum {string}
+             */
+            status: "active" | "disabled";
+            /** @description For cloud accounts a non-empty value rotates both keys; omitted/null/empty leaves credentials unchanged. Local accounts reject non-empty credentials. */
+            credentials?: (null) | string[] | Record<string, never> | {
+                /** @description Non-empty after trimming. */
+                access_key: string;
+                /** @description Non-empty after trimming. */
+                secret_key: string;
+            };
+            /** @description Non-empty credential references are no longer supported. */
+            credential_ref?: string | null;
+        };
+        /** @description The existing account selects the driver. local: local_path must equal public/storage or private/storage for access_type, bucket must be blank; persisted local region/endpoint must be null. Cloud: bucket required and local_path blank; qcloud also needs region, aliyun an http(s) endpoint, qiniu or any public cloud space an access_domain. Blank optional strings normalize to null. Account and location are immutable after creation. */
+        StorageSpaceCreate: {
+            account_id: number;
+            /** @description Trimmed ASCII key. */
+            space_key: string;
+            /** @description Trimmed before validation. */
+            name: string;
+            /** @enum {string} */
+            access_type: "public" | "private";
+            bucket?: string | null;
+            region?: string | null;
+            /** @description Blank normalizes to null; otherwise an absolute http(s) URL, with trailing slashes removed. */
+            endpoint?: string | null;
+            /** @description Blank normalizes to null; otherwise an absolute http(s) URL, with trailing slashes removed. */
+            access_domain?: string | null;
+            /** @enum {string|null} */
+            local_path?: "public/storage" | "private/storage" | null;
+        };
+        /** @description Revalidates the existing immutable account/location. qiniu or a public cloud space must retain a non-blank access_domain; omitted access_domain clears it and can therefore reject. */
+        StorageSpaceUpdate: {
+            id: number;
+            /** @description Trimmed before validation. */
+            name: string;
+            /** @description Blank normalizes to null; otherwise an absolute http(s) URL, with trailing slashes removed. */
+            access_domain?: string | null;
+            /**
+             * @default active
+             * @enum {string}
+             */
+            status: "active" | "read_only" | "disabled";
+        };
+        /** @description Target space must be active and have matching access_type. default.public/private must match their suffix; registered material/member/article/decoration/website purposes are public and export/attachment/document purposes are private. Upserts only this route. */
+        StorageRouteWrite: {
+            /** @enum {string} */
+            route_key: "default.public" | "default.private" | "material.image" | "material.image-variant" | "material.video" | "material.file" | "member.avatar" | "article.asset" | "decoration.asset" | "website.asset" | "export.xlsx" | "export.csv" | "attachment.sensitive" | "document.resource" | "document.snapshot" | "document.snapshot-sensitive";
+            /** @enum {string} */
+            access_type: "public" | "private";
+            space_id: number;
+        };
+        FileVisibilityConfirmation: {
+            /** @enum {integer} */
+            version: 1;
+            batch_key: string;
+            actor: {
+                tenant_id: string;
+                account_id: string;
+                member_id: string;
+                client_key: string;
+                session_digest: string;
+                authorization_revision: string;
+            };
+            expires_at: number;
+            /** @enum {string} */
+            target: "private";
+            manifest: {
+                roots: string[];
+                files: {
+                    [key: string]: {
+                        source: {
+                            file_key: string;
+                            tenant_id: string;
+                            purpose: string;
+                            access_type: string;
+                            storage_space_id: string;
+                            object_key: string;
+                            original_name: string;
+                            media_type: string;
+                            size_bytes: string;
+                            sha256: string;
+                            revision: string;
+                            driver: string;
+                            local_path: string;
+                            space_key: string;
+                        };
+                        target: {
+                            storage_space_id: string;
+                            space_key: string;
+                            object_key: string;
+                            access_type: string;
+                            driver: string;
+                            local_path: string;
+                        };
+                    };
+                };
+                derivatives_sha256: string;
+                references_sha256: string;
+                registered_reference_count: number;
+                known_cdn: string[];
+                /** @enum {boolean} */
+                external_usage_complete: false;
+                warning: string;
+            };
+        };
+        FileVisibilityBatchSummary: {
+            batch_key: string;
+            /** @enum {string} */
+            status: "pending" | "running" | "completed" | "attention";
+            revision: number;
+            created_at: string;
+            updated_at: string;
+        };
+        FileVisibilityBatch: {
+            batch_key: string;
+            /** @enum {string} */
+            status: "pending" | "running" | "completed" | "attention";
+            revision: number;
+            created_at: string;
+            updated_at: string;
+        } & {
+            /** @enum {boolean} */
+            external_usage_complete: false;
+            /** @enum {boolean} */
+            downloaded_copies_recoverable: false;
+            items: {
+                file_key: string;
+                /** @enum {string} */
+                status: "restricting" | "verifying" | "ready_private" | "restricted_attention";
+                /** @enum {string} */
+                step: "copy" | "switch" | "close_source" | "verify" | "completed";
+                attempts: number;
+                error_code: string | null;
+                receipts: {
+                    [key: string]: {
+                        [key: string]: unknown;
+                    };
+                };
+            }[];
         };
         FileImageVariant: {
             variant_key: string;
@@ -7328,6 +6026,15 @@ export interface components {
             tenant_id: number;
             file_key: string;
             url: string;
+            preview_state?: string;
+            can_download_original?: boolean;
+            verified_mime_type?: string | null;
+            source_sha256?: string | null;
+            capabilities?: {
+                [key: string]: unknown;
+            } | null;
+            preview_unavailable_reason?: string | null;
+            authorization_revision?: string | null;
         };
         FileListPage: {
             lists: components["schemas"]["FileListRecord"][];
@@ -7340,6 +6047,35 @@ export interface components {
             code: 20000;
             msg: string;
             data: components["schemas"]["FileListPage"];
+        };
+        FileAccessResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                file_key: string;
+                delivery_file_key?: string;
+                source_file_key?: string;
+                source_sha256?: string;
+                media_type?: string;
+                original_name?: string;
+                revision?: number;
+                can_manage?: boolean;
+                can_download_original?: boolean;
+                state?: string;
+                /** @enum {string} */
+                purpose?: "preview" | "download_original";
+                /** @enum {string} */
+                bytes?: "original" | "derivative";
+                /** @description The actual selected derivative variant; null for original bytes. */
+                variant_key?: string | null;
+                authorization_revision?: string;
+                expires_at?: number;
+                url?: string | null;
+                capabilities?: {
+                    [key: string]: unknown;
+                };
+            };
         };
         FileUploadResult: {
             id: number;
@@ -7389,71 +6125,6 @@ export interface components {
             code: 20000;
             msg: string;
             data: components["schemas"]["FileCategoryRecord"][];
-        };
-        ImportExportOperation: {
-            operation_key: string;
-            provider_key: string;
-            /** @enum {string} */
-            direction: "import" | "export";
-            /** @enum {string} */
-            format: "csv";
-            /** @enum {string} */
-            status: "queued" | "running" | "cancel_requested" | "succeeded" | "failed" | "cancelled" | "expired";
-            input_file_key: string | null;
-            result_file_key: string | null;
-            error_file_key: string | null;
-            task_job_key: string | null;
-            schema_revision: string;
-            mapping: {
-                [key: string]: string;
-            };
-            processed_rows: number;
-            accepted_rows: number;
-            rejected_rows: number;
-            total_rows: number;
-            revision: number;
-            last_error_code: string | null;
-            /** Format: date-time */
-            retention_until: string;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** Format: date-time */
-            completed_at: string | null;
-        };
-        ImportOperationRequest: {
-            provider_key: string;
-            file_key: string;
-            mapping: {
-                [key: string]: string;
-            };
-        };
-        ExportOperationRequest: {
-            provider_key: string;
-        };
-        ImportExportMeta: {
-            request_id: string;
-        };
-        ImportExportOperationResponse: {
-            data: components["schemas"]["ImportExportOperation"];
-            meta: components["schemas"]["ImportExportMeta"];
-        };
-        ImportExportLegacyOperationResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["ImportExportOperation"];
-        };
-        ImportExportOperationListResponse: {
-            data: {
-                items: components["schemas"]["ImportExportOperation"][];
-            };
-            meta: components["schemas"]["ImportExportMeta"] & {
-                page: number;
-                page_size: number;
-                total: number;
-            };
         };
         IntegrationRequestMeta: {
             request_id: string;
@@ -7615,1390 +6286,17 @@ export interface components {
                 total: number;
             };
         };
-        MemberPositiveIntegerInput: number | string;
-        /**
-         * @example {
-         *       "id": 17
-         *     }
-         */
-        MemberIdentifierRequest: {
-            id: components["schemas"]["MemberPositiveIntegerInput"];
-        };
-        /**
-         * @example {
-         *       "account": "member001",
-         *       "password": "secret-value"
-         *     }
-         */
-        MemberRegistrationRequest: {
-            account: string;
-            /** Format: password */
-            password: string;
-        };
-        MemberAccountLoginRequest: {
-            account: string;
-            /** Format: password */
-            password: string;
-            terminal?: number;
-        };
-        /**
-         * @example {
-         *       "mobile": "13800000000",
-         *       "code": "123456"
-         *     }
-         */
-        MemberMobileCodeRequest: {
-            mobile: string;
-            code: string;
-        };
-        MemberPasswordResetRequest: {
-            mobile: string;
-            code: string;
-            /** Format: password */
-            password: string;
-        };
-        MemberPasswordChangeRequest: {
-            /** Format: password */
-            old_password: string;
-            /** Format: password */
-            password: string;
-        };
-        /**
-         * @example {
-         *       "field": "birthday",
-         *       "value": "1990-01-01"
-         *     }
-         */
-        MemberSelfFieldRequest: {
-            /** @enum {string} */
-            field: "nickname" | "avatar" | "sex" | "birthday" | "email";
-            value: (string | (0 | 1 | 2)) | null;
-        };
-        MemberAdminCreateRequest: {
-            nickname: string;
-            mobile?: string;
-            /** Format: email */
-            email?: string;
-            /** @enum {integer} */
-            sex?: 0 | 1 | 2;
-            /** @enum {integer} */
-            status?: 0 | 1;
-        };
-        MemberAdminFieldUpdateRequest: {
-            id: components["schemas"]["MemberPositiveIntegerInput"];
-            /** @enum {string} */
-            field: "account" | "sex" | "mobile" | "real_name";
-            value: string | (0 | 1 | 2);
-        };
-        MemberAdminStatusRequest: {
-            id: components["schemas"]["MemberPositiveIntegerInput"];
-            /** @enum {integer} */
-            status: 0 | 1;
-        };
-        MemberBalanceAdjustmentRequest: {
-            user_id: components["schemas"]["MemberPositiveIntegerInput"];
-            /** @enum {integer} */
-            action: 1 | 2;
-            num: number | string;
-            remark?: string;
-        };
-        MemberTagCreateRequest: {
-            name: string;
-        };
-        MemberTagUpdateRequest: {
-            id: components["schemas"]["MemberPositiveIntegerInput"];
-            name: string;
-        };
-        MemberAdminListTag: {
-            id: number;
-            name: string;
-            remark: string;
-            create_time: number;
-            update_time: number;
-            delete_time: number | null;
-            tenant_id: number;
-        };
-        MemberAdminListItem: {
-            id: number;
-            sn: string;
-            account: string;
-            account_unique: string | null;
-            nickname: string;
-            avatar: string;
-            real_name: string;
-            mobile: string;
-            channel: string;
-            channel_value: number;
-            email: string;
-            /** @enum {string} */
-            sex: "未知" | "男" | "女";
-            /** @enum {integer} */
-            sex_value: 0 | 1 | 2;
-            /** Format: date */
-            birthday: string | null;
-            /** @enum {integer} */
-            status: 0 | 1;
-            login_time: string;
-            login_ip: string;
-            /** @enum {integer} */
-            is_new_user: 0 | 1;
-            user_money: number;
-            balance: number;
-            total_recharge_amount: number;
-            points: number;
-            create_time: string;
-            update_time: string;
-            delete_time: number | null;
-            mobile_unique: string | null;
-            tenant_id: number;
-            /** @enum {integer} */
-            is_disable: 0 | 1;
-            tags: components["schemas"]["MemberAdminListTag"][];
-            tag_ids: number[];
-        };
-        MemberAdminListPage: {
-            lists: components["schemas"]["MemberAdminListItem"][];
-            count: number;
-            pageNo: number;
-            pageSize: number;
-        };
-        MemberExportPageInfo: {
-            count: number;
-            page_size: number;
-            sum_page: number;
-            max_page: number;
-            /** @enum {integer} */
-            all_max_size: 25000;
-            /** @enum {integer} */
-            page_start: 1;
-            page_end: number;
-            file_name: string;
-        };
-        MemberExportFile: {
-            url: string;
-            file_name: string;
-        };
-        MemberAdminListResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["MemberAdminListPage"];
-        } | {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["MemberExportPageInfo"];
-        } | {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["MemberExportFile"];
-        };
-        MemberTagListResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["MemberAdminListTag"][];
-        };
-        MemberLoginData: {
-            token: string;
-            id: number;
-            sn: string;
-            nickname: string;
-            avatar: string;
-            mobile: string;
-        };
-        MemberAdminDetail: {
-            id: number;
-            sn: string;
-            account: string;
-            nickname: string;
-            avatar: string;
-            real_name: string;
-            /** @enum {integer} */
-            sex: 0 | 1 | 2;
-            mobile: string;
-            create_time: string;
-            login_time: string;
-            channel: string;
-            user_money: number;
-            balance: number;
-        };
-        MemberCenterData: {
-            id: number;
-            sn: string;
-            nickname: string;
-            avatar: string;
-            mobile: string;
-            balance: number;
-            points: number;
-            create_time: number | string;
-            collect_num: number;
-        };
-        MemberProfileData: {
-            id: number;
-            sn: string;
-            account: string;
-            nickname: string;
-            avatar: string;
-            /** @enum {integer} */
-            sex: 0 | 1 | 2;
-            birthday: string | null;
-            mobile: string;
-            email: string;
-            balance: number;
-            points: number;
-            create_time: number | string;
-            has_password: boolean;
-        };
-        MemberAdminBalanceLog: {
-            nickname: string;
-            account: string;
-            sn: string;
-            avatar: string;
-            mobile: string;
-            /** @enum {integer} */
-            action: 1 | 2;
-            change_amount: string;
-            left_amount: number | string;
-            /** @enum {integer} */
-            change_type: 100 | 101 | 200 | 201;
-            change_type_desc: string;
-            source_sn: string;
-            create_time: string;
-        };
-        MemberAdminBalanceLogPage: {
-            lists: components["schemas"]["MemberAdminBalanceLog"][];
-            count: number;
-            pageNo: number;
-            pageSize: number;
-        };
-        MemberSelfBalanceLog: {
-            id: number;
-            sn: string;
-            member_id: number;
-            /** @enum {integer} */
-            change_object: 1;
-            /** @enum {integer} */
-            change_type: 100 | 101 | 200 | 201;
-            /** @enum {integer} */
-            action: 1 | 2;
-            left_amount: string | number;
-            source_type: number;
-            extra: string | null;
-            admin_id: number;
-            create_time: number | string;
-            update_time: (number | string) | null;
-            delete_time: (number | string) | null;
-            change_amount: string | number;
-            source_sn: string | null;
-            remark: string | null;
-            tenant_id: number;
-        };
-        MemberSelfBalanceLogPage: {
-            lists: components["schemas"]["MemberSelfBalanceLog"][];
-            count: number;
-            pageNo: number;
-            pageSize: number;
-        };
-        MemberMutationResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: unknown[];
-        };
-        MemberLoginResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["MemberLoginData"];
-        };
-        MemberAdminDetailResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["MemberAdminDetail"] | unknown[];
-        };
-        MemberCenterResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["MemberCenterData"] | unknown[];
-        };
-        MemberProfileResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["MemberProfileData"] | unknown[];
-        };
-        MemberAdminBalanceLogPageResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["MemberAdminBalanceLogPage"];
-        };
-        MemberSelfBalanceLogPageResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["MemberSelfBalanceLogPage"];
-        };
-        MemberChangeTypesResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            /**
-             * @description 键为稳定的 change_type 数字代码，值为中文说明。
-             * @example {
-             *       "100": "平台减少余额",
-             *       "200": "平台增加余额"
-             *     }
-             */
-            data: {
-                [key: string]: string;
-            };
-        };
-        NotificationChannelAliyunConfiguration: {
-            access_key_id: string;
-            /** @description 空字符串或已配置密钥的脱敏哨兵 ******。 */
-            access_key_secret: string;
-            sign_name: string;
-            /** @enum {integer} */
-            status: 0 | 1;
-        };
-        NotificationChannelTencentConfiguration: {
-            secret_id: string;
-            /** @description 空字符串或已配置密钥的脱敏哨兵 ******。 */
-            secret_key: string;
-            sdk_app_id: string;
-            sign_name: string;
-            region: string;
-            /** @enum {integer} */
-            status: 0 | 1;
-        };
-        NotificationChannelDetail: {
-            /** @enum {string} */
-            sms_default: "" | "aliyun" | "tencent";
-            sms_aliyun: components["schemas"]["NotificationChannelAliyunConfiguration"];
-            sms_tencent: components["schemas"]["NotificationChannelTencentConfiguration"];
-            status: {
-                sms: boolean;
-            };
-        };
-        NotificationChannelSaveRequest: {
-            /** @enum {string} */
-            section: "sms_default";
-            /** @enum {string} */
-            value: "aliyun" | "tencent";
-        } | {
-            /** @enum {string} */
-            section: "sms_aliyun";
-            access_key_id?: string;
-            /** @description ****** 表示保留现有密钥。 */
-            access_key_secret?: string;
-            sign_name?: string;
-            /** @enum {integer} */
-            status?: 0 | 1;
-        } | {
-            /** @enum {string} */
-            section: "sms_tencent";
-            secret_id?: string;
-            /** @description ****** 表示保留现有密钥。 */
-            secret_key?: string;
-            sdk_app_id?: string;
-            sign_name?: string;
-            region?: string;
-            /** @enum {integer} */
-            status?: 0 | 1;
-        };
-        /** @description NoticeScene 未声明 JSON cast；按实际 ORM/驱动边界可能是 JSON 字符串、已解码字符串数组或 null。 */
-        NotificationSceneVariables: (string | string[]) | null;
-        NotificationSceneListItem: {
-            id: number;
-            code: string;
-            name: string;
-            description: string;
-            recipient: string;
-            variables: components["schemas"]["NotificationSceneVariables"];
-            sms_template_id: string;
-            sms_content: string;
-            /** @enum {integer} */
-            sms_status: 0 | 1;
-            update_time: number;
-        };
-        NotificationSceneDetail: {
-            id: number;
-            code: string;
-            name: string;
-            description: string;
-            recipient: string;
-            variables: components["schemas"]["NotificationSceneVariables"];
-            sms_template_id: string;
-            sms_content: string;
-            /** @enum {integer} */
-            sms_status: 0 | 1;
-            create_time: number;
-            update_time: number;
-            tenant_id: number;
-        };
-        /** @description 服务只读取已列出的四个字段；当前旧控制器会忽略其他字段。 */
-        NotificationSceneSaveRequest: {
-            id: number;
-            sms_template_id?: string;
-            sms_content?: string;
-            /** @enum {integer} */
-            sms_status: 0 | 1;
-        };
-        NotificationLogRecord: {
-            id: number;
-            template_id: number;
-            scene_id: number;
-            /** @enum {integer} */
-            channel: 1 | 2 | 3;
-            provider: string;
-            receiver: string;
-            title: string;
-            content: string | null;
-            /** @enum {integer} */
-            is_verified: 0 | 1;
-            check_count: number;
-            verified_time: number;
-            /** @enum {integer} */
-            status: 0 | 1 | 2 | 3;
-            error: string;
-            send_time: number;
-            create_time: number;
-            template_name: string | null;
-            template_code: string | null;
-            scene_name: string | null;
-            scene_code: string | null;
-        };
-        NotificationLogPage: {
-            lists: components["schemas"]["NotificationLogRecord"][];
-            count: number;
-            pageNo: number;
-            pageSize: number;
-        };
-        NotificationMutationResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: unknown[];
-        };
-        NotificationChannelDetailResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["NotificationChannelDetail"];
-        };
-        NotificationSceneListResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: {
-                list: components["schemas"]["NotificationSceneListItem"][];
-                total: number;
-            };
-        };
-        NotificationSceneDetailResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["NotificationSceneDetail"];
-        };
-        NotificationLogListResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["NotificationLogPage"];
-        };
-        NotificationLogDetailResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["NotificationLogRecord"] | unknown[];
-        };
-        NotificationAttachment: {
-            file_key: string;
-            original_name: string;
-            media_type: string;
-            size_bytes: number;
-            sha256: string;
-        };
-        NotificationMessage: {
-            message_key: string;
-            template_key: string;
-            template_revision: number;
-            subject: string;
-            body: string;
-            /** @enum {string} */
-            status: "unread" | "read" | "archived";
-            revision: number;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            read_at: string | null;
-            /** Format: date-time */
-            archived_at: string | null;
-            attachments: components["schemas"]["NotificationAttachment"][];
-        };
-        NotificationMeta: {
-            request_id: string;
-        };
-        NotificationResponse: {
-            data: components["schemas"]["NotificationMessage"];
-            meta: components["schemas"]["NotificationMeta"];
-        };
-        NotificationListResponse: {
-            data: {
-                items: components["schemas"]["NotificationMessage"][];
-            };
-            meta: components["schemas"]["NotificationMeta"] & {
-                page: number;
-                page_size: number;
-                total: number;
-            };
-        };
-        NotificationBulkResponse: {
-            data: {
-                changed: number;
-            };
-            meta: components["schemas"]["NotificationMeta"];
-        };
-        OAuthPositiveIntegerInput: number | string;
-        OAuthEmptyData: string[];
-        /** @description 当前旧校验入口保留未知字段，但业务只消费 id，其他字段会被忽略。 */
-        OAuthIdentifierRequest: {
-            id: components["schemas"]["OAuthPositiveIntegerInput"];
-        };
-        /** @description page_status=1 时 page_url 必填且必须为 http/https 绝对地址。未列出的字段会被当前服务忽略。 */
-        OAuthWebPageConfigRequest: {
-            /** @enum {integer} */
-            status: 0 | 1;
-            /** @enum {integer} */
-            page_status: 0 | 1;
-            /** Format: uri */
-            page_url?: string;
-        };
-        OAuthWebPageConfig: {
-            /** @enum {integer} */
-            status: 0 | 1;
-            /** @enum {integer} */
-            page_status: 0 | 1;
-            page_url: string;
-            url: string;
-        };
-        /** @description app_secret 可传 ****** 保留已有秘密；未列出的字段会被当前服务忽略。 */
-        OAuthMiniProgramConfigRequest: {
-            name?: string;
-            original_id?: string;
-            qr_code?: string;
-            app_id: string;
-            /** Format: password */
-            app_secret: string;
-        };
-        OAuthMiniProgramConfig: {
-            name: string;
-            original_id: string;
-            qr_code: string;
-            app_id: string;
-            /** @description 已配置时固定返回 ******，否则返回空字符串。 */
-            readonly app_secret: string;
-            app_secret_configured: boolean;
-            request_domain: string;
-            socket_domain: string;
-            upload_file_domain: string;
-            download_file_domain: string;
-            udp_domain: string;
-            business_domain: string;
-        };
-        /** @description app_secret 与 token 可传 ****** 保留已有秘密；token 传空字符串表示清除。未列出的字段会被当前服务忽略。 */
-        OAuthOfficialAccountConfigRequest: {
-            name?: string;
-            original_id?: string;
-            qr_code?: string;
-            app_id: string;
-            /** Format: password */
-            app_secret: string;
-            /**
-             * Format: password
-             * @description ****** 表示保留已存 Token，空字符串表示清除。
-             */
-            token?: string;
-        };
-        OAuthOfficialAccountConfig: {
-            name: string;
-            original_id: string;
-            qr_code: string;
-            app_id: string;
-            /**
-             * @description 已配置时固定返回 ******，否则返回空字符串。
-             * @enum {string}
-             */
-            readonly app_secret: "" | "******";
-            app_secret_configured: boolean;
-            url: string;
-            /**
-             * @description 已配置时固定返回 ******，否则返回空字符串。
-             * @enum {string}
-             */
-            readonly token: "" | "******";
-            token_configured: boolean;
-            business_domain: string;
-            js_secure_domain: string;
-            web_auth_domain: string;
-            /** @enum {string} */
-            callback_mode: "plaintext";
-        };
-        /** @description app_secret 可传 ****** 保留已有秘密；未列出的字段会被当前服务忽略。 */
-        OAuthOpenPlatformConfigRequest: {
-            app_id: string;
-            /** Format: password */
-            app_secret: string;
-        };
-        OAuthOpenPlatformConfig: {
-            app_id: string;
-            /** @description 已配置时固定返回 ******，否则返回空字符串。 */
-            readonly app_secret: string;
-            app_secret_configured: boolean;
-        };
-        /** @description 顶层未知字段会被业务忽略；menu 节点内的扩展 JSON 字段会完整持久化并由详情接口返回。 */
-        OAuthMenuRequest: {
-            menu: components["schemas"]["OAuthMenuNode"][];
-        };
-        OAuthMenuNode: components["schemas"]["OAuthMenuParentNode"] | components["schemas"]["OAuthMenuTopClickNode"] | components["schemas"]["OAuthMenuTopViewNode"] | components["schemas"]["OAuthMenuTopMiniProgramNode"];
-        /** @description 保存和详情会保留额外 JSON 字段；发布到微信 Provider 时只消费 name 和 sub_button。 */
-        OAuthMenuParentNode: {
-            name: string;
-            sub_button: (components["schemas"]["OAuthMenuClickNode"] | components["schemas"]["OAuthMenuViewNode"] | components["schemas"]["OAuthMenuMiniProgramNode"])[];
-        } & {
-            [key: string]: components["schemas"]["OAuthMenuExtensionValue"];
-        };
-        /** @description 保存和详情会保留额外 JSON 字段；发布到微信 Provider 时只消费 name、type 和 key。 */
-        OAuthMenuTopClickNode: {
-            name: string;
-            /** @enum {string} */
-            type: "click";
-            key: string;
-        } & {
-            [key: string]: components["schemas"]["OAuthMenuExtensionValue"];
-        };
-        /** @description 保存和详情会保留额外 JSON 字段；发布到微信 Provider 时只消费 name、type 和 url。 */
-        OAuthMenuTopViewNode: {
-            name: string;
-            /** @enum {string} */
-            type: "view";
-            /** Format: uri */
-            url: string;
-        } & {
-            [key: string]: components["schemas"]["OAuthMenuExtensionValue"];
-        };
-        /** @description 保存和详情会保留额外 JSON 字段；发布到微信 Provider 时只消费列出的微信标准字段。 */
-        OAuthMenuTopMiniProgramNode: {
-            name: string;
-            /** @enum {string} */
-            type: "miniprogram";
-            /** Format: uri */
-            url: string;
-            appid: string;
-            pagepath: string;
-        } & {
-            [key: string]: components["schemas"]["OAuthMenuExtensionValue"];
-        };
-        /** @description 保存和详情会保留额外 JSON 字段；发布到微信 Provider 时只消费 name、type 和 key。 */
-        OAuthMenuClickNode: {
-            name: string;
-            /** @enum {string} */
-            type: "click";
-            key: string;
-        } & {
-            [key: string]: components["schemas"]["OAuthMenuExtensionValue"];
-        };
-        /** @description 保存和详情会保留额外 JSON 字段；发布到微信 Provider 时只消费 name、type 和 url。 */
-        OAuthMenuViewNode: {
-            name: string;
-            /** @enum {string} */
-            type: "view";
-            /** Format: uri */
-            url: string;
-        } & {
-            [key: string]: components["schemas"]["OAuthMenuExtensionValue"];
-        };
-        /** @description 保存和详情会保留额外 JSON 字段；发布到微信 Provider 时只消费列出的微信标准字段。 */
-        OAuthMenuMiniProgramNode: {
-            name: string;
-            /** @enum {string} */
-            type: "miniprogram";
-            /** Format: uri */
-            url: string;
-            appid: string;
-            pagepath: string;
-        } & {
-            [key: string]: components["schemas"]["OAuthMenuExtensionValue"];
-        };
-        /** @description reply_type=2 时 keyword、matching_type 和非负 sort 必填；未列出的字段会被当前服务忽略。 */
-        OAuthReplyCreateRequest: {
-            /** @enum {integer} */
-            reply_type: 1 | 2 | 3;
-            name: string;
-            keyword?: string;
-            /** @enum {integer} */
-            matching_type?: 1 | 2;
-            /** @enum {integer} */
-            content_type: 1;
-            content: string;
-            /** @enum {integer} */
-            status: 0 | 1;
-            sort?: number;
-        };
-        /** @description reply_type=2 时 keyword、matching_type 和非负 sort 必填；未列出的字段会被当前服务忽略。 */
-        OAuthReplyUpdateRequest: {
-            id: components["schemas"]["OAuthPositiveIntegerInput"];
-            /** @enum {integer} */
-            reply_type: 1 | 2 | 3;
-            name: string;
-            keyword?: string;
-            /** @enum {integer} */
-            matching_type?: 1 | 2;
-            /** @enum {integer} */
-            content_type: 1;
-            content: string;
-            /** @enum {integer} */
-            status: 0 | 1;
-            sort?: number;
-        };
-        /** @description 当前旧校验入口保留未知字段，但业务只消费 id 和 status，其他字段会被忽略。 */
-        OAuthReplyStatusRequest: {
-            id: components["schemas"]["OAuthPositiveIntegerInput"];
-            /** @enum {integer} */
-            status: 0 | 1;
-        };
-        OAuthReplyRecord: {
-            id: number;
-            name: string;
-            keyword: string;
-            /** @enum {integer} */
-            reply_type: 1 | 2 | 3;
-            /** @enum {integer} */
-            matching_type: 1 | 2;
-            /** @enum {integer} */
-            content_type: 1;
-            content: string;
-            /** @enum {integer} */
-            status: 0 | 1;
-            sort: number;
-            create_time: number;
-            update_time: number;
-            delete_time?: number;
-            tenant_id?: number;
-            singleton_active_key?: number | null;
-        };
-        /** @description 当前旧校验入口保留未知字段，但业务只消费列出的字段，其他字段会被忽略。 */
-        OAuthBeginRequest: {
-            /** @enum {string} */
-            scene: "oa" | "open_pc";
-            return_path: string;
-            client_id?: string;
-        };
-        /** @description 当前旧校验入口保留未知字段，但业务只消费列出的字段，其他字段会被忽略。 */
-        OAuthCallbackRequest: {
-            /** @enum {string} */
-            scene: "oa" | "open_pc";
-            code: string;
-            state: string;
-        };
-        /** @description 当前旧校验入口保留未知字段，但业务只消费 code 和 client_id，其他字段会被忽略。 */
-        OAuthMiniProgramLoginRequest: {
-            code: string;
-            client_id?: string;
-        };
-        /** @description need_profile/need_mobile 由票据决定；相应字段仅在服务要求时必须有效。当前旧校验入口保留未知字段，但补全业务不会消费其他字段。 */
-        OAuthCompletionRequest: {
-            /** Format: password */
-            ticket: string;
-            nickname?: string;
-            avatar?: string;
-            mobile?: string;
-            /** Format: password */
-            verification_code?: string;
-        };
-        /** @description 当前旧校验入口保留未知字段，但业务只消费 scene 和 code，其他字段会被忽略。 */
-        OAuthBindRequest: {
-            /** @enum {string} */
-            scene: "mnp" | "oa";
-            /** Format: password */
-            code: string;
-        };
-        OAuthAuthorizationData: {
-            /** Format: uri */
-            authorization_url: string;
-            expires_in: number;
-        };
-        OAuthMemberSummary: {
-            id: number;
-            sn: string;
-            nickname: string;
-            avatar: string;
-            mobile: string;
-        };
-        OAuthLoginCompletedData: {
-            /** @enum {boolean} */
-            completed: true;
-            member: components["schemas"]["OAuthMemberSummary"];
-            /** @description 本次完整登录签发的会员访问令牌。 */
-            readonly token: string;
-            return_path?: string;
-        };
-        OAuthLoginPendingData: {
-            /** @enum {boolean} */
-            completed: false;
-            member: components["schemas"]["OAuthMemberSummary"];
-            /** @description 短期、单次使用的资料补全票据。 */
-            readonly completion_ticket: string;
-            expires_in: number;
-            need_profile: boolean;
-            need_mobile: boolean;
-            return_path?: string;
-        };
-        /** @description 微信公众号明文 XML 消息或文本回复 XML。 */
-        OAuthOfficialAccountMessageXml: string;
-        /** @description 菜单扩展字段中可原样持久化并由详情接口返回的 JSON 值。 */
-        OAuthMenuExtensionValue: (string | null) | number | boolean | components["schemas"]["OAuthMenuExtensionValue"][] | {
-            [key: string]: components["schemas"]["OAuthMenuExtensionValue"];
-        };
-        OAuthMutationResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["OAuthEmptyData"];
-        };
-        OAuthWebPageConfigResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["OAuthWebPageConfig"];
-        };
-        OAuthMiniProgramConfigResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["OAuthMiniProgramConfig"];
-        };
-        OAuthOfficialAccountConfigResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["OAuthOfficialAccountConfig"];
-        };
-        OAuthOpenPlatformConfigResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["OAuthOpenPlatformConfig"];
-        };
-        OAuthMenuResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: {
-                menu: components["schemas"]["OAuthMenuNode"][];
-            };
-        };
-        OAuthReplyDetailResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["OAuthReplyRecord"];
-        };
-        OAuthReplyPageResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: {
-                lists: components["schemas"]["OAuthReplyRecord"][];
-                count: number;
-                pageNo: number;
-                pageSize: number;
-            };
-        };
-        OAuthAuthorizationResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["OAuthAuthorizationData"];
-        };
-        OAuthLoginResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["OAuthLoginCompletedData"] | components["schemas"]["OAuthLoginPendingData"];
-        };
-        PaymentMutationResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: string[];
-        };
-        PaymentSettingsData: {
-            /** @enum {integer} */
-            wx_pay_status: 0 | 1;
-            wx_pay_appid: string;
-            wx_pay_mch_id: string;
-            /**
-             * @description 只返回空串或固定掩码，不返回已存密钥。
-             * @enum {string}
-             */
-            wx_pay_secret: "" | "******";
-            wx_pay_secret_configured: boolean;
-            wx_pay_cert_path: string;
-            wx_pay_cert_key_path: string;
-            wx_pay_platform_cert_path: string;
-            /** @enum {integer} */
-            ali_pay_status: 0 | 1;
-            ali_pay_app_id: string;
-            /**
-             * @description 只返回空串或固定掩码，不返回已存私钥。
-             * @enum {string}
-             */
-            ali_pay_private_key: "" | "******";
-            ali_pay_private_key_configured: boolean;
-            ali_pay_public_key: string;
-            ali_pay_seller_id: string;
-        };
-        /** @description 当前服务只读取列出的支付字段；legacy 校验器未拒绝的其他字段会被忽略且不会持久化。 */
-        PaymentSettingsSaveRequest: {
-            wx_pay_status: (0 | 1) | ("0" | "1");
-            wx_pay_appid?: string;
-            wx_pay_mch_id?: string;
-            /** @description ****** 表示保留原密钥；其他值覆盖。 */
-            wx_pay_secret?: string;
-            wx_pay_cert_path?: string;
-            wx_pay_cert_key_path?: string;
-            wx_pay_platform_cert_path?: string;
-            ali_pay_status: (0 | 1) | ("0" | "1");
-            ali_pay_app_id?: string;
-            /** @description ****** 表示保留原私钥；其他值覆盖。 */
-            ali_pay_private_key?: string;
-            ali_pay_public_key?: string;
-            ali_pay_seller_id?: string;
-        } & {
-            [key: string]: components["schemas"]["PaymentIgnoredInput"];
-        };
-        PaymentSettingsResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["PaymentSettingsData"];
-        };
-        PaymentRechargeScene: {
-            /** @enum {integer} */
-            terminal: 1 | 2 | 3 | 4 | 5 | 6;
-            /** @enum {integer} */
-            pay_way: 2 | 3;
-            /** @enum {integer} */
-            status: 0 | 1;
-            /** @enum {integer} */
-            is_default: 0 | 1;
-        };
-        PaymentRechargeSceneInput: {
-            terminal: (1 | 2 | 3 | 4 | 5 | 6) | ("1" | "2" | "3" | "4" | "5" | "6");
-            pay_way: (2 | 3) | ("2" | "3");
-            status: (0 | 1) | ("0" | "1");
-            is_default: (0 | 1) | ("0" | "1");
-        };
-        PaymentRechargeSettingsData: {
-            /** @enum {integer} */
-            status: 0 | 1;
-            min_amount: string;
-            max_amount: string;
-            scenes: components["schemas"]["PaymentRechargeScene"][];
-        };
-        PaymentRechargeSettingsSaveRequest: {
-            status: (0 | 1) | ("0" | "1");
-            min_amount: number | string;
-            max_amount: number | string;
-            /** @description 必须一次提交 PaymentScene 当前登记的 11 个终端/渠道组合，组合不可重复；启用充值时每个终端恰有一个已启用默认渠道。 */
-            scenes: components["schemas"]["PaymentRechargeSceneInput"][];
-        };
-        PaymentRechargeSettingsResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["PaymentRechargeSettingsData"];
-        };
-        PaymentRechargeOrder: {
-            id: number;
-            sn: string;
-            /** @enum {integer} */
-            pay_way: 1 | 2 | 3;
-            pay_way_text: string;
-            /** @enum {integer} */
-            pay_status: 0 | 1;
-            /** @enum {string} */
-            pay_status_text: "未支付" | "已支付";
-            order_amount: string;
-            /** @enum {integer} */
-            order_terminal: 1 | 2 | 3 | 4 | 5 | 6;
-            terminal_text: string;
-            transaction_id: string;
-            pay_time: string;
-            create_time: string;
-        };
-        PaymentAdminRechargeOrder: {
-            id: number;
-            sn: string;
-            order_amount: string | number;
-            /** @enum {integer} */
-            pay_way: 1 | 2 | 3;
-            pay_time: string;
-            /** @enum {integer} */
-            pay_status: 0 | 1;
-            create_time: string;
-            /**
-             * @description 充值订单级标记：0 未发起退款，1 已发起退款；1 不表示渠道退款已经成功。
-             * @enum {integer}
-             */
-            refund_status: 0 | 1;
-            avatar: string;
-            nickname: string;
-            account: string;
-            refunded_amount: string;
-            refundable_amount: string;
-            pay_way_text: string;
-            pay_status_text: string;
-        };
-        PaymentPageData: {
-            lists: components["schemas"]["PaymentAdminRechargeOrder"][];
-            count: number;
-            pageNo: number;
-            pageSize: number;
-            extend?: string[];
-        };
-        PaymentExportInfo: {
-            count: number;
-            page_size: number;
-            sum_page: number;
-            max_page: number;
-            /** @enum {integer} */
-            all_max_size: 25000;
-            page_start: number;
-            page_end: number;
-            file_name: string;
-        };
-        PaymentExportFile: {
-            url: string;
-            file_name: string;
-        };
-        PaymentAdminRechargeListResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["PaymentPageData"] | components["schemas"]["PaymentExportInfo"] | components["schemas"]["PaymentExportFile"];
-        };
-        /** @description 当前服务只消费 recharge_id/refund_amount；legacy 校验器未拒绝的其他字段会被忽略。 */
-        PaymentRechargeRefundRequest: {
-            recharge_id: number | string;
-            refund_amount?: number | string;
-        } & {
-            [key: string]: components["schemas"]["PaymentIgnoredInput"];
-        };
-        /** @description 当前控制器只消费 record_id；legacy 校验器未拒绝的其他字段会被忽略。 */
-        PaymentRefundRetryRequest: {
-            record_id: number | string;
-        } & {
-            [key: string]: components["schemas"]["PaymentIgnoredInput"];
-        };
-        PaymentRefundStatistics: {
-            total: number;
-            ing: number;
-            success: number;
-            error: number;
-        };
-        PaymentRefundStatisticsResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["PaymentRefundStatistics"];
-        };
-        PaymentRefundRecord: {
-            id: number;
-            /** @enum {string} */
-            order_type: "order" | "recharge";
-            order_amount: string | number;
-            refund_amount: string | number;
-            transaction_id: string | null;
-            /** @enum {integer} */
-            refund_way: 1 | 2;
-            /** @enum {integer} */
-            refund_type: 1;
-            /**
-             * @description 0 退款中、1 退款成功、2 退款失败。gateway 结果未知时保持 0，由 refund:reconcile 后续收敛，不推定终态。
-             * @enum {integer}
-             */
-            refund_status: 0 | 1 | 2;
-            create_time: string;
-            update_time: (number | string) | null;
-            sn: string;
-            order_sn: string;
-            tenant_id?: number;
-            user_id: number;
-            order_id: number;
-            nickname: string;
-            avatar: string;
-            refund_type_text: string;
-            refund_status_text: string;
-            refund_way_text: string;
-        };
-        PaymentRefundSummary: {
-            total: number;
-            ing: number;
-            success: number;
-            error: number;
-        };
-        PaymentRefundPageData: {
-            lists: components["schemas"]["PaymentRefundRecord"][];
-            count: number;
-            pageNo: number;
-            pageSize: number;
-            extend: components["schemas"]["PaymentRefundSummary"];
-        };
-        PaymentRefundListResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["PaymentRefundPageData"];
-        };
-        PaymentRefundLog: {
-            id: number;
-            sn: string | null;
-            record_id: number;
-            handle_id: number;
-            order_amount: string | number;
-            refund_amount: string | number;
-            /**
-             * @description 0 退款中、1 退款成功、2 退款失败。本次 gateway 结果未知时日志保持 0，等待 refund:reconcile 收敛。
-             * @enum {integer}
-             */
-            refund_status: 0 | 1 | 2;
-            create_time: string;
-            update_time: (number | string) | null;
-            tenant_id?: number;
-            user_id: number;
-            handler: string;
-            refund_status_text: string;
-        };
-        PaymentRefundLogResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["PaymentRefundLog"][];
-        };
-        /** @description 完整原始 JSON 会参与微信签名校验；解析器读取列出的标准字段，并保留对渠道新增签名字段的接收能力。 */
-        PaymentWechatCallbackRequest: {
-            id?: string;
-            create_time?: string;
-            event_type?: string;
-            resource_type?: string;
-            summary?: string;
-            resource: {
-                /** @enum {string} */
-                algorithm: "AEAD_AES_256_GCM";
-                ciphertext: string;
-                nonce: string;
-                associated_data?: string;
-            } & {
-                [key: string]: components["schemas"]["PaymentIgnoredInput"];
-            };
-        } & {
-            [key: string]: components["schemas"]["PaymentIgnoredInput"];
-        };
-        PaymentWechatCallbackAcknowledgement: {
-            /** @enum {string} */
-            code: "SUCCESS";
-            /** @enum {string} */
-            message: "成功";
-        };
-        /** @description 支付宝异步通知表单；列出的字段由当前解析器消费，其他渠道扩展字段仍作为字符串参与 RSA2 验签。 */
-        PaymentAlipayCallbackRequest: {
-            sign: string;
-            /** @enum {string} */
-            sign_type: "RSA2";
-            app_id: string;
-            seller_id: string;
-            out_trade_no: string;
-            trade_no: string;
-            total_amount: string;
-            trade_status: string;
-            notify_time?: string;
-            notify_type?: string;
-            notify_id?: string;
-            buyer_id?: string;
-            buyer_logon_id?: string;
-            receipt_amount?: string;
-            invoice_amount?: string;
-            buyer_pay_amount?: string;
-            point_amount?: string;
-            gmt_create?: string;
-            gmt_payment?: string;
-            subject?: string;
-            body?: string;
-            charset?: string;
-            version?: string;
-        } & {
-            [key: string]: string;
-        };
-        PaymentMemberRechargeConfigData: {
-            /** @enum {integer} */
-            status: 0 | 1;
-            min_amount: string;
-            balance: string;
-            /** @enum {integer} */
-            terminal: 1 | 2 | 3 | 4 | 5 | 6;
-            channels: components["schemas"]["PaymentMemberRechargeChannel"][];
-        };
-        PaymentMemberRechargeChannel: {
-            /** @enum {integer} */
-            pay_way: 2 | 3;
-            name: string;
-            /** @enum {integer} */
-            is_default: 0 | 1;
-        };
-        PaymentMemberRechargeConfigResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["PaymentMemberRechargeConfigData"];
-        };
-        /** @description 当前服务只消费 amount/terminal；legacy 校验器未拒绝的其他字段会被忽略。 */
-        PaymentMemberRechargeCreateRequest: {
-            amount: number | string;
-            terminal: (1 | 2 | 3 | 4 | 5 | 6) | ("1" | "2" | "3" | "4" | "5" | "6");
-        } & {
-            [key: string]: components["schemas"]["PaymentIgnoredInput"];
-        };
-        /** @description 当前控制器只消费 order_id/pay_way；legacy 校验器未拒绝的其他字段会被忽略。 */
-        PaymentMemberRechargePrepayRequest: {
-            order_id: number | string;
-            pay_way: (2 | 3) | ("2" | "3");
-        } & {
-            [key: string]: components["schemas"]["PaymentIgnoredInput"];
-        };
-        PaymentRechargeOrderResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["PaymentRechargeOrder"];
-        };
-        PaymentWechatJsapiPayload: {
-            appId: string;
-            timeStamp: string;
-            nonceStr: string;
-            package: string;
-            /** @enum {string} */
-            signType: "RSA";
-            paySign: string;
-        };
-        PaymentWechatAppPayload: {
-            appid: string;
-            partnerid: string;
-            prepayid: string;
-            /** @enum {string} */
-            package: "Sign=WXPay";
-            noncestr: string;
-            timestamp: string;
-            sign: string;
-        };
-        PaymentWechatNativePayload: {
-            code_url: string;
-        };
-        PaymentWechatH5Payload: {
-            h5_url: string;
-        };
-        PaymentAlipayAppPayload: {
-            /** @description 支付宝 SDK 所需完整签名订单字符串。 */
-            order_string: string;
-        };
-        PaymentAlipayRedirectPayload: {
-            /**
-             * Format: uri
-             * @description WAP/PAGE 场景由客户端跳转的支付宝网关 URL。
-             */
-            gateway_url: string;
-        };
-        PaymentPrepayPayment: {
-            /** @enum {string} */
-            channel: "wechat";
-            /** @enum {string} */
-            scene: "JSAPI";
-            payload: components["schemas"]["PaymentWechatJsapiPayload"];
-        } | {
-            /** @enum {string} */
-            channel: "wechat";
-            /** @enum {string} */
-            scene: "MWEB";
-            payload: components["schemas"]["PaymentWechatH5Payload"];
-        } | {
-            /** @enum {string} */
-            channel: "wechat";
-            /** @enum {string} */
-            scene: "NATIVE";
-            payload: components["schemas"]["PaymentWechatNativePayload"];
-        } | {
-            /** @enum {string} */
-            channel: "wechat";
-            /** @enum {string} */
-            scene: "APP";
-            payload: components["schemas"]["PaymentWechatAppPayload"];
-        } | {
-            /** @enum {string} */
-            channel: "alipay";
-            /** @enum {string} */
-            scene: "WAP" | "PAGE";
-            payload: components["schemas"]["PaymentAlipayRedirectPayload"];
-        } | {
-            /** @enum {string} */
-            channel: "alipay";
-            /** @enum {string} */
-            scene: "APP";
-            payload: components["schemas"]["PaymentAlipayAppPayload"];
-        };
-        PaymentRechargePrepayData: {
-            order: components["schemas"]["PaymentRechargeOrder"];
-            payment: components["schemas"]["PaymentPrepayPayment"];
-        };
-        PaymentRechargePrepayResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["PaymentRechargePrepayData"];
-        };
-        PaymentMemberRechargePageData: {
-            lists: components["schemas"]["PaymentRechargeOrder"][];
-            count: number;
-            pageNo: number;
-            pageSize: number;
-        };
-        PaymentMemberRechargeListResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: components["schemas"]["PaymentMemberRechargePageData"];
-        };
-        /** @description 运行时可接收但 Payment 业务不会读取或持久化的扩展输入值。 */
-        PaymentIgnoredInput: (string | number | boolean | components["schemas"]["PaymentIgnoredInput"][] | {
-            [key: string]: components["schemas"]["PaymentIgnoredInput"];
-        }) | null;
-        /** @description 旧控制器保留原始请求；未列字段会被忽略。 */
+        /** @description 仅接受列出的标识字段；未声明字段会被拒绝。 */
         ReferenceCodeLegacyIdentifierRequest: {
             id: number;
         };
-        /** @description 旧控制器保留原始请求；未列字段会被忽略。 */
+        /** @description 仅接受列出的标识与状态字段；未声明字段会被拒绝。 */
         ReferenceCodeLegacyStatusRequest: {
             id: number;
             /** @enum {integer} */
             is_disable: 0 | 1;
         };
-        /** @description 服务只写入列出的字段；旧控制器会忽略其他字段。 */
+        /** @description 仅接受列出的创建字段；租户归属等未声明字段会被拒绝。 */
         ReferenceCodeLegacyTypeCreateRequest: {
             name: string;
             type: string;
@@ -9006,7 +6304,7 @@ export interface components {
             is_disable?: 0 | 1;
             remark?: string;
         };
-        /** @description 服务只写入列出的字段；旧控制器会忽略其他字段。 */
+        /** @description 仅接受列出的标识与更新字段；未声明字段会被拒绝。 */
         ReferenceCodeLegacyTypeUpdateRequest: {
             id: number;
             name: string;
@@ -9015,7 +6313,7 @@ export interface components {
             is_disable?: 0 | 1;
             remark?: string;
         };
-        /** @description 服务只写入列出的字段；旧控制器会忽略其他字段。 */
+        /** @description 仅接受列出的创建字段；租户归属等未声明字段会被拒绝。 */
         ReferenceCodeLegacyEntryCreateRequest: {
             type_id: number;
             name: string;
@@ -9025,7 +6323,7 @@ export interface components {
             is_disable?: 0 | 1;
             remark?: string;
         };
-        /** @description 服务只写入列出的字段；旧控制器会忽略其他字段。 */
+        /** @description 仅接受列出的标识与更新字段；重新指定父类型等未声明字段会被拒绝。 */
         ReferenceCodeLegacyEntryUpdateRequest: {
             id: number;
             name: string;
@@ -9237,7 +6535,7 @@ export interface components {
             secret: boolean;
             configured: boolean;
             /** @enum {string|null} */
-            source_scope: "deployment" | "tenant" | "default" | null;
+            source_scope: "deployment" | "tenant" | "config" | "default" | null;
             value?: components["schemas"]["SettingValue"];
             /** Format: date-time */
             effective_at: string | null;
@@ -9406,17 +6704,6 @@ export interface components {
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
-        /** @description 统一 API 错误；X-Request-Id 响应头用于追踪。 */
-        ArticleErrorResponse: {
-            headers: {
-                /** @description 请求追踪 ID */
-                "X-Request-Id"?: string;
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ArticleErrorEnvelope"];
-            };
-        };
         /** @description Updated tenant setting with the resulting strong ETag. */
         SettingRecordResponse: {
             headers: {
@@ -9498,58 +6785,6 @@ export interface operations {
             };
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
-        };
-    };
-    listArticles: {
-        parameters: {
-            query?: {
-                page_no?: components["parameters"]["PageNo"];
-                page_size?: components["parameters"]["PageSize"];
-                cid?: number;
-                keyword?: string;
-                sort?: "default" | "new" | "hot";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 公开文章分页 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApplicationArticleListResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    articleDetail: {
-        parameters: {
-            query: {
-                id: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 公开文章详情 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApplicationArticleDetailResponse"];
-                };
-            };
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
         };
     };
     uploadFile: {
@@ -9640,36 +6875,6 @@ export interface operations {
             422: components["responses"]["ErrorResponse"];
         };
     };
-    sendVerificationCode: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    scene: string;
-                    mobile?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description 验证码发送请求已受理 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotificationMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-        };
-    };
     getFirstRunReadinessChecklist: {
         parameters: {
             query?: never;
@@ -9697,86 +6902,12 @@ export interface operations {
             403: components["responses"]["ErrorResponse"];
         };
     };
-    exportTenantConfiguration: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Configuration package */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConfigurationTransferPackageResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    previewTenantConfigurationImport: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConfigurationTransferRequest"];
-            };
-        };
-        responses: {
-            /** @description Configuration import plan */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConfigurationTransferPlanResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    applyTenantConfigurationImport: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConfigurationTransferRequest"];
-            };
-        };
-        responses: {
-            /** @description Applied configuration import plan */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConfigurationTransferPlanResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-        };
-    };
     listPlatformBackups: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -9797,6 +6928,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
@@ -9892,7 +7024,10 @@ export interface operations {
     };
     getPlatformOpsProviders: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -9913,6 +7048,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
@@ -10207,32 +7343,6 @@ export interface operations {
             422: components["responses"]["ErrorResponse"];
         };
     };
-    getApplicationHome: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["ApplicationHomeData"];
-                    };
-                };
-            };
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
     getApplicationPublicConfig: {
         parameters: {
             query?: never;
@@ -10281,58 +7391,6 @@ export interface operations {
                         code: 20000;
                         msg: string;
                         data: components["schemas"]["ApplicationPolicy"];
-                    };
-                };
-            };
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    logoutMemberSession: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["ApplicationDynamicValue"][];
-                    };
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-        };
-    };
-    listPublicArticleCategories: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["ApplicationArticleCategory"][];
                     };
                 };
             };
@@ -10469,183 +7527,6 @@ export interface operations {
                     };
                 };
             };
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    getPcHome: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["ApplicationPcHomeData"];
-                    };
-                };
-            };
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    getPcInformationCenter: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["ApplicationInformationCategory"][];
-                    };
-                };
-            };
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    getPcArticleDetail: {
-        parameters: {
-            query?: {
-                id?: number;
-                source?: "default" | "all" | "new" | "hot";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["ApplicationPcArticleDetail"] | unknown[];
-                    };
-                };
-            };
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    addArticleCollection: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ApplicationArticleCollectionRequest"];
-            };
-        };
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["ApplicationDynamicValue"][];
-                    };
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-        };
-    };
-    cancelArticleCollection: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ApplicationArticleCollectionRequest"];
-            };
-        };
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["ApplicationDynamicValue"][];
-                    };
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    listArticleCollections: {
-        parameters: {
-            query?: {
-                page_no?: components["parameters"]["PageNo"];
-                page_size?: components["parameters"]["PageSize"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["ApplicationArticleCollectionPage"];
-                    };
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
         };
     };
@@ -11648,66 +8529,219 @@ export interface operations {
             422: components["responses"]["ErrorResponse"];
         };
     };
-    listDepartments: {
+    getAdminRolePermissions: {
+        parameters: {
+            query: {
+                role_id: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminRolePermissions"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    replaceAdminRolePermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminRolePermissionsReplaceRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminRolePermissions"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            412: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            428: components["responses"]["ErrorResponse"];
+        };
+    };
+    getAdminRolePermissionCatalog: {
         parameters: {
             query?: {
+                page_no?: number;
+                page_size?: number;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminRolePermissionCatalogPage"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getAdminRoleDataPolicy: {
+        parameters: {
+            query: {
+                role_id: number | string;
+                resource_key: string;
+                operation: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminDataPolicy"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    replaceAdminRoleDataPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminDataPolicyReplaceRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminDataPolicy"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            412: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            428: components["responses"]["ErrorResponse"];
+        };
+    };
+    getAdminRoleDataPolicyCatalog: {
+        parameters: {
+            query?: {
+                resource_key?: string;
+                operation?: string;
+                page_no?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminDataPolicyCatalogPage"] | components["schemas"]["AdminDataPolicyOperationConditions"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listDepartments: {
+        parameters: {
+            query: {
+                mode: "children" | "search" | "resolve";
+                pageNo: number;
+                pageSize: number;
+                parent_id?: number;
                 name?: string;
                 status?: 0 | 1;
+                ids?: string;
             };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["Department"][];
-                    };
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    listActiveDepartments: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["Department"][];
-                    };
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    listDepartmentLeaderOptions: {
-        parameters: {
-            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -11725,14 +8759,280 @@ export interface operations {
                         code: 20000;
                         msg: string;
                         data: {
-                            id: number;
-                            name: string;
-                        }[];
+                            lists: {
+                                id: number;
+                                pid: number;
+                                name: string;
+                                sort: number;
+                                /** @enum {integer} */
+                                status: -1 | 0 | 1;
+                                status_desc: string;
+                                /** @enum {string} */
+                                realStatus: "active" | "disabled" | "archived";
+                                structuralOnly: boolean;
+                                selectable: boolean;
+                                hasChildren: boolean;
+                                code?: string;
+                                leader?: string;
+                                mobile?: string;
+                                revision?: number;
+                                /** Format: date-time */
+                                create_time?: string;
+                                /** Format: date-time */
+                                update_time?: string;
+                            }[];
+                            ancestors: {
+                                id: number;
+                                pid: number;
+                                name: string;
+                                sort: number;
+                                /** @enum {integer} */
+                                status: -1 | 0 | 1;
+                                status_desc: string;
+                                /** @enum {string} */
+                                realStatus: "active" | "disabled" | "archived";
+                                structuralOnly: boolean;
+                                selectable: boolean;
+                                hasChildren: boolean;
+                                code?: string;
+                                leader?: string;
+                                mobile?: string;
+                                revision?: number;
+                                /** Format: date-time */
+                                create_time?: string;
+                                /** Format: date-time */
+                                update_time?: string;
+                            }[];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                            hasMore: boolean;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    listActiveDepartments: {
+        parameters: {
+            query: {
+                mode: "children" | "search" | "resolve";
+                pageNo: number;
+                pageSize: number;
+                parent_id?: number;
+                name?: string;
+                status?: 0 | 1;
+                ids?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: {
+                                id: number;
+                                pid: number;
+                                name: string;
+                                sort: number;
+                                /** @enum {integer} */
+                                status: -1 | 0 | 1;
+                                status_desc: string;
+                                /** @enum {string} */
+                                realStatus: "active" | "disabled" | "archived";
+                                structuralOnly: boolean;
+                                selectable: boolean;
+                                hasChildren: boolean;
+                                code?: string;
+                                leader?: string;
+                                mobile?: string;
+                                revision?: number;
+                                /** Format: date-time */
+                                create_time?: string;
+                                /** Format: date-time */
+                                update_time?: string;
+                            }[];
+                            ancestors: {
+                                id: number;
+                                pid: number;
+                                name: string;
+                                sort: number;
+                                /** @enum {integer} */
+                                status: -1 | 0 | 1;
+                                status_desc: string;
+                                /** @enum {string} */
+                                realStatus: "active" | "disabled" | "archived";
+                                structuralOnly: boolean;
+                                selectable: boolean;
+                                hasChildren: boolean;
+                                code?: string;
+                                leader?: string;
+                                mobile?: string;
+                                revision?: number;
+                                /** Format: date-time */
+                                create_time?: string;
+                                /** Format: date-time */
+                                update_time?: string;
+                            }[];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                            hasMore: boolean;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    listDepartmentLeaderOptions: {
+        parameters: {
+            query: {
+                mode: "search" | "resolve";
+                pageNo: number;
+                pageSize: number;
+                parent_id?: number;
+                name?: string;
+                status?: 0 | 1;
+                ids?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: {
+                                id: number;
+                                pid: number;
+                                name: string;
+                                sort: number;
+                                /** @enum {integer} */
+                                status: -1 | 0 | 1;
+                                status_desc: string;
+                                /** @enum {string} */
+                                realStatus: "active" | "disabled" | "archived";
+                                structuralOnly: boolean;
+                                selectable: boolean;
+                                hasChildren: boolean;
+                                code?: string;
+                                leader?: string;
+                                mobile?: string;
+                                revision?: number;
+                                /** Format: date-time */
+                                create_time?: string;
+                                /** Format: date-time */
+                                update_time?: string;
+                            }[];
+                            ancestors: {
+                                id: number;
+                                pid: number;
+                                name: string;
+                                sort: number;
+                                /** @enum {integer} */
+                                status: -1 | 0 | 1;
+                                status_desc: string;
+                                /** @enum {string} */
+                                realStatus: "active" | "disabled" | "archived";
+                                structuralOnly: boolean;
+                                selectable: boolean;
+                                hasChildren: boolean;
+                                code?: string;
+                                leader?: string;
+                                mobile?: string;
+                                revision?: number;
+                                /** Format: date-time */
+                                create_time?: string;
+                                /** Format: date-time */
+                                update_time?: string;
+                            }[];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                            hasMore: boolean;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    listDepartmentLeaderCandidates: {
+        parameters: {
+            query: {
+                department_id: string;
+                page_no?: string;
+                page_size?: number;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            items: {
+                                id: number;
+                                name: string;
+                            }[];
+                            total: number;
+                            page_no: number;
+                            page_size: number;
+                        };
                     };
                 };
             };
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     getDepartment: {
@@ -12191,13 +9491,12 @@ export interface operations {
                         /** @enum {integer} */
                         code: 20000;
                         msg: string;
-                        data: components["schemas"]["ApplicationDynamicValue"][];
+                        data: components["schemas"]["WebsiteConfig"];
                     };
                 };
             };
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
         };
     };
     getAgreementConfig: {
@@ -12354,7 +9653,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MemberProfileConfig"];
+                "application/json": components["schemas"]["MemberProfileWriteRequest"];
             };
         };
         responses: {
@@ -12677,35 +9976,6 @@ export interface operations {
             422: components["responses"]["ErrorResponse"];
         };
     };
-    listDecorationArticleOptions: {
-        parameters: {
-            query?: {
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["ArticleOption"][];
-                    };
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
     getDecorationTabbar: {
         parameters: {
             query?: never;
@@ -12742,7 +10012,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DecorationTabbar"];
+                "application/json": components["schemas"]["DecorationTabbarSaveRequest"];
             };
         };
         responses: {
@@ -13252,65 +10522,6 @@ export interface operations {
             422: components["responses"]["ErrorResponse"];
         };
     };
-    getTransactionConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["TransactionConfig"];
-                    };
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    saveTransactionConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TransactionConfig"];
-            };
-        };
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["ApplicationDynamicValue"][];
-                    };
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
     getSystemInformation: {
         parameters: {
             query?: never;
@@ -13386,6 +10597,33 @@ export interface operations {
                         code: 20000;
                         msg: string;
                         data: components["schemas"]["Workbench"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getCurrentTenantLicense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["TenantLicenseData"];
                     };
                 };
             };
@@ -14564,85 +11802,6 @@ export interface operations {
             422: components["responses"]["ErrorResponse"];
         };
     };
-    enablePlatformTenantModule: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    tenant_id: number;
-                    module_key: string;
-                    change_reason: string;
-                    config?: {
-                        [key: string]: components["schemas"]["ApplicationDynamicValue"];
-                    };
-                    /** Format: date-time */
-                    effective_at?: string;
-                    /** Format: date-time */
-                    expires_at?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["PlatformTenantModuleRecord"];
-                    };
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    disablePlatformTenantModule: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    tenant_id: number;
-                    module_key: string;
-                    change_reason: string;
-                };
-            };
-        };
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["PlatformTenantModuleRecord"];
-                    };
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
     listInstanceModules: {
         parameters: {
             query?: {
@@ -14709,6 +11868,75 @@ export interface operations {
                         code: 20000;
                         msg: string;
                         data: components["schemas"]["PlatformModuleLifecycleResult"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateInstanceModule: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    package: string;
+                    expected_sha256: string;
+                    signature_key_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOpsTask"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getInstanceModuleTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOpsTask"];
                     };
                 };
             };
@@ -14829,7 +12057,9 @@ export interface operations {
     uninstallInstanceModule: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -14933,6 +12163,40 @@ export interface operations {
             422: components["responses"]["ErrorResponse"];
         };
     };
+    listPlatformOpsLogs: {
+        parameters: {
+            query?: {
+                source?: "platform.audit";
+                severity?: "info" | "warning" | "error" | "critical";
+                page_size?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOpsLogPage"];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
     downloadPlatformDiagnostics: {
         parameters: {
             query?: {
@@ -14961,6 +12225,614 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listTenantPlans: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: components["schemas"]["TenantPlan"][];
+                            count: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateTenantPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantPlanUpdate"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["TenantPlan"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createTenantPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantPlanCreate"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["TenantPlan"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getTenantLicense: {
+        parameters: {
+            query: {
+                tenant_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["TenantLicenseData"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateTenantLicense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantLicenseWrite"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["TenantLicenseData"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPermissionBundles: {
+        parameters: {
+            query?: {
+                audience?: "tenant" | "platform";
+                page_no?: number;
+                page_size?: number;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            items: components["schemas"]["PermissionBundle"][];
+                            total: number;
+                            page_no: number;
+                            page_size: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updatePermissionBundle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    permission_key: string;
+                    name: string;
+                    /** @enum {string} */
+                    status: "active" | "retired";
+                    expected_revision: number | string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PermissionBundle"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            412: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            428: components["responses"]["ErrorResponse"];
+        };
+    };
+    createPermissionBundle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    key: string;
+                    name: string;
+                    /** @enum {string} */
+                    audience: "tenant" | "platform";
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PermissionBundle"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listMenuPermissionBindings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            items: {
+                                menu_key: string;
+                                parent_key: string | null;
+                                /** @enum {string} */
+                                type: "C" | "A";
+                                name: string;
+                                page_path: string;
+                                action_key: string;
+                                permission_key: string;
+                                default_permission_key: string | null;
+                                revision: string;
+                            }[];
+                            total: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    replaceMenuPermissionBinding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    menu_key: string;
+                    permission_key: string | null;
+                    action_key: string | null;
+                    expected_revision: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            menu_key: string;
+                            parent_key: string | null;
+                            /** @enum {string} */
+                            type: "C" | "A";
+                            name: string;
+                            page_path: string;
+                            action_key: string;
+                            permission_key: string;
+                            default_permission_key: string | null;
+                            revision: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            412: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            428: components["responses"]["ErrorResponse"];
+        };
+    };
+    listRegisteredApis: {
+        parameters: {
+            query?: {
+                audience?: "tenant" | "platform";
+                page_no?: number;
+                page_size?: number;
+                search?: string;
+                status?: "active" | "retired";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            items: components["schemas"]["RegisteredPermissionApi"][];
+                            total: number;
+                            page_no: number;
+                            page_size: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPermissionApiBindings: {
+        parameters: {
+            query: {
+                permission_key: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PermissionBundle"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    replacePermissionApiBindings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    permission_key: string;
+                    expected_revision: number | string;
+                    api_ids: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PermissionBundle"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            412: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            428: components["responses"]["ErrorResponse"];
+        };
+    };
+    getTenantPermissionBundleApis: {
+        parameters: {
+            query: {
+                permission_key: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PermissionBundle"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getInstallPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Uninstalled instance installer document. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description Physical completion lock exists; the HTML response body is empty. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+        };
+    };
+    getInstallEnvironment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            [key: string]: components["schemas"]["ApplicationDynamicValue"];
+                        };
+                    };
+                };
+            };
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    checkInstallDatabase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["InstallationStatus"];
+                    };
+                };
+            };
+            503: components["responses"]["ErrorResponse"];
         };
     };
     getPasswordPolicy: {
@@ -15078,6 +12950,31 @@ export interface operations {
             503: components["responses"]["ErrorResponse"];
         };
     };
+    getInstallationEntryStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["InstallationEntryStatus"];
+                    };
+                };
+            };
+        };
+    };
     executeGuidedInstallation: {
         parameters: {
             query?: never;
@@ -15111,48 +13008,7 @@ export interface operations {
             503: components["responses"]["ErrorResponse"];
         };
     };
-    listArticleCategories: {
-        parameters: {
-            query?: {
-                page_no?: components["parameters"]["PageNo"];
-                page_size?: components["parameters"]["PageSize"];
-                page_start?: components["schemas"]["ArticlePositiveIntegerInput"];
-                page_end?: components["schemas"]["ArticlePositiveIntegerInput"];
-                file_name?: string;
-                page_type?: 0 | 1;
-                order_by?: "asc" | "desc";
-                field?: "create_time" | "id";
-                name?: string;
-                is_show?: 0 | 1;
-                /** @example 2026-09-01 00:00:00 */
-                start_time?: string;
-                /** @example 2026-09-30 23:59:59 */
-                end_time?: string;
-                start?: number;
-                end?: number;
-                export?: 1 | 2;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询资讯分类成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArticleCategoryPageResponse"];
-                };
-            };
-            400: components["responses"]["ArticleErrorResponse"];
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
-        };
-    };
-    listEnabledArticleCategories: {
+    getStorageConfiguration: {
         parameters: {
             query?: never;
             header?: never;
@@ -15161,229 +13017,295 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 查询全部启用资讯分类成功 */
+            /** @description 成功 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ArticleCategoryCollectionResponse"];
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["StorageSnapshot"];
+                    };
                 };
             };
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
         };
     };
-    getArticleCategory: {
+    createStorageAccount: {
         parameters: {
-            query: {
-                /**
-                 * @description 资讯分类 ID
-                 * @example 12
-                 */
-                id: components["schemas"]["ArticlePositiveIntegerInput"];
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageAccountCreate"];
             };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            id: number;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateStorageAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageAccountUpdate"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: string[];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    createStorageSpace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageSpaceCreate"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            id: number;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateStorageSpace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageSpaceUpdate"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: string[];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    setStorageRoute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageRouteWrite"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: string[];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    getStorageAccounts: {
+        parameters: {
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description 查询资讯分类详情成功 */
+            /** @description 成功 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ArticleCategoryDetailResponse"];
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            accounts: components["schemas"]["StorageAccountSnapshot"][];
+                        };
+                    };
                 };
             };
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
         };
     };
-    createArticleCategory: {
+    getStorageSpaces: {
         parameters: {
             query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ArticleCategoryCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description 创建资讯分类成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArticleMutationResponse"];
-                };
-            };
-            400: components["responses"]["ArticleErrorResponse"];
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
-        };
-    };
-    updateArticleCategory: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ArticleCategoryUpdateRequest"];
-            };
-        };
-        responses: {
-            /** @description 更新资讯分类成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArticleMutationResponse"];
-                };
-            };
-            400: components["responses"]["ArticleErrorResponse"];
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
-            404: components["responses"]["ArticleErrorResponse"];
-        };
-    };
-    deleteArticleCategory: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ArticleIdentifierRequest"];
-            };
-        };
-        responses: {
-            /** @description 软删除资讯分类成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArticleMutationResponse"];
-                };
-            };
-            400: components["responses"]["ArticleErrorResponse"];
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
-            404: components["responses"]["ArticleErrorResponse"];
-            409: components["responses"]["ArticleErrorResponse"];
-        };
-    };
-    updateArticleCategoryStatus: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ArticleStatusRequest"];
-            };
-        };
-        responses: {
-            /** @description 更新资讯分类启用状态成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArticleMutationResponse"];
-                };
-            };
-            400: components["responses"]["ArticleErrorResponse"];
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
-            404: components["responses"]["ArticleErrorResponse"];
-        };
-    };
-    listRecycledArticleCategories: {
-        parameters: {
-            query?: {
-                page_no?: components["parameters"]["PageNo"];
-                page_size?: components["parameters"]["PageSize"];
-                page_start?: components["schemas"]["ArticlePositiveIntegerInput"];
-                page_end?: components["schemas"]["ArticlePositiveIntegerInput"];
-                file_name?: string;
-                page_type?: 0 | 1;
-                order_by?: "asc" | "desc";
-                field?: "create_time" | "id";
-                name?: string;
-                is_show?: 0 | 1;
-                /** @example 2026-09-01 00:00:00 */
-                start_time?: string;
-                /** @example 2026-09-30 23:59:59 */
-                end_time?: string;
-                start?: number;
-                end?: number;
-                export?: 1 | 2;
-            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description 查询已删除资讯分类成功 */
+            /** @description 成功 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ArticleCategoryPageResponse"];
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            spaces: components["schemas"]["StorageSpaceSnapshot"][];
+                        };
+                    };
                 };
             };
-            400: components["responses"]["ArticleErrorResponse"];
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
         };
     };
-    getRecycledArticleCategory: {
+    getStorageRoutes: {
         parameters: {
-            query: {
-                /**
-                 * @description 已删除资讯分类 ID
-                 * @example 12
-                 */
-                id: components["schemas"]["ArticlePositiveIntegerInput"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description 查询已删除资讯分类详情成功 */
+            /** @description 成功 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ArticleCategoryDetailResponse"];
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            routes: components["schemas"]["StorageRouteSnapshot"][];
+                        };
+                    };
                 };
             };
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
         };
     };
-    restoreArticleCategories: {
+    previewFileVisibility: {
         parameters: {
             query?: never;
             header?: never;
@@ -15392,122 +13314,212 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ArticleBatchIdentifierRequest"];
+                "application/json": {
+                    file_keys: string[];
+                };
             };
         };
         responses: {
-            /** @description 恢复已删除资讯分类成功 */
+            /** @description Current durable visibility state; never a claim that downloaded third-party copies were recalled. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ArticleBatchMutationResponse"];
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            confirmation: components["schemas"]["FileVisibilityConfirmation"];
+                            signature: string;
+                            /** @enum {boolean} */
+                            execution_started: false;
+                        };
+                    };
                 };
             };
-            400: components["responses"]["ArticleErrorResponse"];
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
         };
     };
-    forceDeleteArticleCategories: {
+    recentFileVisibilityBatches: {
         parameters: {
             query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ArticleBatchIdentifierRequest"];
-            };
-        };
-        responses: {
-            /** @description 永久删除资讯分类成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArticleBatchMutationResponse"];
-                };
-            };
-            400: components["responses"]["ArticleErrorResponse"];
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
-        };
-    };
-    listAdminArticles: {
-        parameters: {
-            query?: {
-                page_no?: components["parameters"]["PageNo"];
-                page_size?: components["parameters"]["PageSize"];
-                page_start?: components["schemas"]["ArticlePositiveIntegerInput"];
-                page_end?: components["schemas"]["ArticlePositiveIntegerInput"];
-                file_name?: string;
-                page_type?: 0 | 1;
-                order_by?: "asc" | "desc";
-                field?: "create_time" | "id";
-                title?: string;
-                is_show?: 0 | 1;
-                /** @example 2026-09-01 00:00:00 */
-                start_time?: string;
-                /** @example 2026-09-30 23:59:59 */
-                end_time?: string;
-                start?: number;
-                end?: number;
-                cid?: components["schemas"]["ArticlePositiveIntegerInput"];
-                export?: 1 | 2;
-            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description 查询资讯成功 */
+            /** @description Current durable visibility state; never a claim that downloaded third-party copies were recalled. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ArticlePageResponse"];
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            items: components["schemas"]["FileVisibilityBatchSummary"][];
+                        };
+                    };
                 };
             };
-            400: components["responses"]["ArticleErrorResponse"];
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
         };
     };
-    getAdminArticle: {
+    submitFileVisibility: {
         parameters: {
-            query: {
-                /**
-                 * @description 资讯 ID
-                 * @example 12
-                 */
-                id: components["schemas"]["ArticlePositiveIntegerInput"];
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
             };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    confirmation: components["schemas"]["FileVisibilityConfirmation"];
+                    signature: string;
+                    /** @enum {boolean} */
+                    impact_confirmed: true;
+                };
+            };
+        };
+        responses: {
+            /** @description Current durable visibility state; never a claim that downloaded third-party copies were recalled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["FileVisibilityBatch"];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    getFileVisibilityBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current durable visibility state; never a claim that downloaded third-party copies were recalled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["FileVisibilityBatch"];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    resumeFileVisibilityBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Current durable visibility state; never a claim that downloaded third-party copies were recalled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["FileVisibilityBatch"];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    pendingDocumentFileSnapshots: {
+        parameters: {
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description 查询资讯详情成功 */
+            /** @description Old unclaimed captures only; no storage address or credentials. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ArticleDetailResponse"];
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            file_key: string;
+                            /** @enum {string} */
+                            status: "captured" | "cleanup_pending" | "interrupted_capture";
+                            created_at: string;
+                        }[];
+                    };
                 };
             };
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
         };
     };
-    createArticle: {
+    recoverDocumentFileSnapshot: {
         parameters: {
             query?: never;
             header?: never;
@@ -15516,26 +13528,38 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ArticleCreateRequest"];
+                "application/json": {
+                    file_key: string;
+                };
             };
         };
         responses: {
-            /** @description 创建资讯成功 */
+            /** @description Real provider deletion result. Unknown outcome remains cleanup_pending; claimed versions always reject. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ArticleMutationResponse"];
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            file_key: string;
+                            cleanup_pending: boolean;
+                            provider_delete_acknowledged: boolean;
+                            provider_outcome?: string;
+                        };
+                    };
                 };
             };
-            400: components["responses"]["ArticleErrorResponse"];
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
-            409: components["responses"]["ArticleErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
-    updateArticle: {
+    resolveFileAccess: {
         parameters: {
             query?: never;
             header?: never;
@@ -15544,204 +13568,31 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ArticleUpdateRequest"];
+                "application/json": {
+                    file_key: string;
+                    /** @enum {string} */
+                    operation: "preview" | "download_original" | "manage";
+                    document_id?: number;
+                    variant_key?: string;
+                    viewer_adapter_id?: string;
+                };
             };
         };
         responses: {
-            /** @description 更新资讯成功 */
+            /** @description Current live File access, or explicit unavailable preview. No original bytes without download authorization. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ArticleMutationResponse"];
+                    "application/json": components["schemas"]["FileAccessResponse"];
                 };
             };
-            400: components["responses"]["ArticleErrorResponse"];
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
-            404: components["responses"]["ArticleErrorResponse"];
-            409: components["responses"]["ArticleErrorResponse"];
-        };
-    };
-    deleteArticle: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ArticleIdentifierRequest"];
-            };
-        };
-        responses: {
-            /** @description 软删除资讯成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArticleMutationResponse"];
-                };
-            };
-            400: components["responses"]["ArticleErrorResponse"];
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
-            404: components["responses"]["ArticleErrorResponse"];
-        };
-    };
-    updateArticleStatus: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ArticleStatusRequest"];
-            };
-        };
-        responses: {
-            /** @description 更新资讯展示状态成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArticleMutationResponse"];
-                };
-            };
-            400: components["responses"]["ArticleErrorResponse"];
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
-            404: components["responses"]["ArticleErrorResponse"];
-        };
-    };
-    listRecycledArticles: {
-        parameters: {
-            query?: {
-                page_no?: components["parameters"]["PageNo"];
-                page_size?: components["parameters"]["PageSize"];
-                page_start?: components["schemas"]["ArticlePositiveIntegerInput"];
-                page_end?: components["schemas"]["ArticlePositiveIntegerInput"];
-                file_name?: string;
-                page_type?: 0 | 1;
-                order_by?: "asc" | "desc";
-                field?: "create_time" | "id";
-                title?: string;
-                is_show?: 0 | 1;
-                /** @example 2026-09-01 00:00:00 */
-                start_time?: string;
-                /** @example 2026-09-30 23:59:59 */
-                end_time?: string;
-                start?: number;
-                end?: number;
-                cid?: components["schemas"]["ArticlePositiveIntegerInput"];
-                export?: 1 | 2;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询已删除资讯成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArticlePageResponse"];
-                };
-            };
-            400: components["responses"]["ArticleErrorResponse"];
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
-        };
-    };
-    getRecycledArticle: {
-        parameters: {
-            query: {
-                /**
-                 * @description 已删除资讯 ID
-                 * @example 12
-                 */
-                id: components["schemas"]["ArticlePositiveIntegerInput"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询已删除资讯详情成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArticleDetailResponse"];
-                };
-            };
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
-        };
-    };
-    restoreArticles: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ArticleBatchIdentifierRequest"];
-            };
-        };
-        responses: {
-            /** @description 恢复已删除资讯成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArticleBatchMutationResponse"];
-                };
-            };
-            400: components["responses"]["ArticleErrorResponse"];
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
-        };
-    };
-    forceDeleteArticles: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ArticleBatchIdentifierRequest"];
-            };
-        };
-        responses: {
-            /** @description 永久删除资讯成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ArticleBatchMutationResponse"];
-                };
-            };
-            400: components["responses"]["ArticleErrorResponse"];
-            401: components["responses"]["ArticleErrorResponse"];
-            403: components["responses"]["ArticleErrorResponse"];
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
         };
     };
     listFileAssets: {
@@ -16051,235 +13902,6 @@ export interface operations {
             400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
-        };
-    };
-    submitOperationLogExport: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Operation-log export accepted. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImportExportLegacyOperationResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    getLegacyImportExportOperation: {
-        parameters: {
-            query: {
-                operation_key: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful import/export response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImportExportLegacyOperationResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    downloadLegacyImportExportResult: {
-        parameters: {
-            query: {
-                file_key: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Redirect to the tenant-scoped result URL returned by the file gateway. */
-            302: {
-                headers: {
-                    Location: string;
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    listImportExportOperations: {
-        parameters: {
-            query?: {
-                status?: "queued" | "running" | "cancel_requested" | "succeeded" | "failed" | "cancelled" | "expired";
-                page?: number;
-                page_size?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful import/export response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImportExportOperationListResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    submitImportOperation: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ImportOperationRequest"];
-            };
-        };
-        responses: {
-            /** @description Import operation accepted. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImportExportOperationResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    submitExportOperation: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ExportOperationRequest"];
-            };
-        };
-        responses: {
-            /** @description Export operation accepted. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImportExportOperationResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    cancelImportExportOperation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                operationKey: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    revision: number;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful import/export response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImportExportOperationResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    downloadImportExportResult: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                fileKey: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Redirect to the short-lived tenant-scoped download URL. */
-            302: {
-                headers: {
-                    Location: string;
-                    "Cache-Control": "no-store";
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
         };
     };
     listIntegrationMachines: {
@@ -16630,2131 +14252,6 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    listAdminMembers: {
-        parameters: {
-            query?: {
-                page_no?: components["parameters"]["PageNo"];
-                page_size?: components["parameters"]["PageSize"];
-                page?: number;
-                limit?: number;
-                keyword?: string;
-                channel?: number;
-                create_time_start?: string;
-                create_time_end?: string;
-                status?: 0 | 1;
-                export?: 1 | 2;
-                page_type?: 0 | 1;
-                page_start?: number;
-                page_end?: number;
-                file_name?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询会员列表或导出结果成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberAdminListResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    getAdminMember: {
-        parameters: {
-            query: {
-                /** @example 17 */
-                id: components["schemas"]["MemberPositiveIntegerInput"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询会员详情成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberAdminDetailResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-        };
-    };
-    createAdminMember: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MemberAdminCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description 创建会员成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    updateAdminMemberField: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MemberAdminFieldUpdateRequest"];
-            };
-        };
-        responses: {
-            /** @description 更新会员字段成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-        };
-    };
-    updateAdminMemberStatus: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MemberAdminStatusRequest"];
-            };
-        };
-        responses: {
-            /** @description 更新会员状态成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-        };
-    };
-    adjustAdminMemberBalance: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MemberBalanceAdjustmentRequest"];
-            };
-        };
-        responses: {
-            /** @description 调整会员余额成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-        };
-    };
-    createMemberTag: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MemberTagCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description 创建会员标签成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-        };
-    };
-    listMemberTags: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询会员标签成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberTagListResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    updateMemberTag: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MemberTagUpdateRequest"];
-            };
-        };
-        responses: {
-            /** @description 更新会员标签成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-        };
-    };
-    deleteMemberTag: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MemberIdentifierRequest"];
-            };
-        };
-        responses: {
-            /** @description 删除会员标签成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-        };
-    };
-    listAdminMemberBalanceLogs: {
-        parameters: {
-            query?: {
-                page_no?: components["parameters"]["PageNo"];
-                page_size?: components["parameters"]["PageSize"];
-                page_type?: 0 | 1;
-                type?: "um";
-                change_type?: 100 | 101 | 200 | 201;
-                user_info?: string;
-                start_time?: string;
-                end_time?: string;
-                export?: 1 | 2;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询会员余额流水成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberAdminBalanceLogPageResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    getMemberBalanceChangeTypes: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询会员余额变动类型成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberChangeTypesResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    registerMember: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MemberRegistrationRequest"];
-            };
-        };
-        responses: {
-            /** @description 注册会员账号成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    loginMemberWithAccount: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MemberAccountLoginRequest"];
-            };
-        };
-        responses: {
-            /** @description 会员账号密码登录成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberLoginResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    loginMemberWithMobileCode: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MemberMobileCodeRequest"];
-            };
-        };
-        responses: {
-            /** @description 会员手机验证码登录成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberLoginResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            429: components["responses"]["ErrorResponse"];
-        };
-    };
-    resetMemberPassword: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MemberPasswordResetRequest"];
-            };
-        };
-        responses: {
-            /** @description 通过手机验证码重置会员密码成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            429: components["responses"]["ErrorResponse"];
-        };
-    };
-    getMemberCenter: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询会员中心成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberCenterResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-        };
-    };
-    getMemberProfile: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询会员资料成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberProfileResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-        };
-    };
-    updateMemberProfileField: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MemberSelfFieldRequest"];
-            };
-        };
-        responses: {
-            /** @description 更新会员本人资料字段成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-        };
-    };
-    changeMemberPassword: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MemberPasswordChangeRequest"];
-            };
-        };
-        responses: {
-            /** @description 修改会员密码成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    bindMemberMobile: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MemberMobileCodeRequest"];
-            };
-        };
-        responses: {
-            /** @description 绑定或变更会员手机成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-        };
-    };
-    listCurrentMemberBalanceLogs: {
-        parameters: {
-            query?: {
-                page_no?: components["parameters"]["PageNo"];
-                page_size?: components["parameters"]["PageSize"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询当前会员余额流水成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberSelfBalanceLogPageResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    getNotificationChannelConfiguration: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful notification-inbox response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotificationChannelDetailResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    saveNotificationChannelConfiguration: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NotificationChannelSaveRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful notification-inbox response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotificationMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    listNotificationScenes: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful notification-inbox response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotificationSceneListResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    getNotificationScene: {
-        parameters: {
-            query: {
-                id: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful notification-inbox response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotificationSceneDetailResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-        };
-    };
-    saveNotificationScene: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NotificationSceneSaveRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful notification-inbox response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotificationMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-        };
-    };
-    listNotificationLogs: {
-        parameters: {
-            query?: {
-                receiver?: string;
-                channel?: 1 | 2 | 3;
-                status?: 0 | 1 | 2 | 3;
-                scene_id?: number;
-                start_time?: number;
-                end_time?: number;
-                page_no?: number;
-                page_size?: number;
-                page?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful notification-inbox response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotificationLogListResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    getNotificationLog: {
-        parameters: {
-            query?: {
-                id?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful notification-inbox response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotificationLogDetailResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    listInboxNotifications: {
-        parameters: {
-            query?: {
-                status?: "all" | "unread" | "read" | "archived";
-                page?: number;
-                page_size?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful notification-inbox response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotificationListResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    markInboxNotificationRead: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": string;
-            };
-            path: {
-                messageKey: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
-        responses: {
-            /** @description Successful notification-inbox response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotificationResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    bulkUpdateInboxNotifications: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    message_keys: string[];
-                    /** @enum {string} */
-                    action: "read" | "archive";
-                };
-            };
-        };
-        responses: {
-            /** @description Successful notification-inbox response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NotificationBulkResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    getOAuthWebPageConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询 H5 网页渠道配置成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthWebPageConfigResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    replaceOAuthWebPageConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OAuthWebPageConfigRequest"];
-            };
-        };
-        responses: {
-            /** @description 保存 H5 网页渠道配置成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    getOAuthMiniProgramConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询微信小程序配置成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthMiniProgramConfigResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    replaceOAuthMiniProgramConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OAuthMiniProgramConfigRequest"];
-            };
-        };
-        responses: {
-            /** @description 保存微信小程序配置成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    getOAuthOfficialAccountConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询微信公众号配置成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthOfficialAccountConfigResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    replaceOAuthOfficialAccountConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OAuthOfficialAccountConfigRequest"];
-            };
-        };
-        responses: {
-            /** @description 保存微信公众号配置成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    getOAuthOfficialAccountMenu: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询微信公众号菜单成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthMenuResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    saveOAuthOfficialAccountMenu: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OAuthMenuRequest"];
-            };
-        };
-        responses: {
-            /** @description 保存微信公众号菜单成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    publishOAuthOfficialAccountMenu: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OAuthMenuRequest"];
-            };
-        };
-        responses: {
-            /** @description 保存并发布微信公众号菜单成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            500: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    listOAuthOfficialAccountReplies: {
-        parameters: {
-            query?: {
-                page_no?: components["parameters"]["PageNo"];
-                page_size?: number;
-                /** @deprecated */
-                page?: number;
-                /** @deprecated */
-                limit?: number;
-                reply_type?: 1 | 2 | 3;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询微信公众号自动回复成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthReplyPageResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    getOAuthOfficialAccountReply: {
-        parameters: {
-            query: {
-                id: components["schemas"]["OAuthPositiveIntegerInput"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询微信公众号自动回复详情成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthReplyDetailResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    createOAuthOfficialAccountReply: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OAuthReplyCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description 创建微信公众号自动回复成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    updateOAuthOfficialAccountReply: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OAuthReplyUpdateRequest"];
-            };
-        };
-        responses: {
-            /** @description 更新微信公众号自动回复成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    deleteOAuthOfficialAccountReply: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OAuthIdentifierRequest"];
-            };
-        };
-        responses: {
-            /** @description 删除微信公众号自动回复成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    updateOAuthOfficialAccountReplyStatus: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OAuthReplyStatusRequest"];
-            };
-        };
-        responses: {
-            /** @description 更新微信公众号自动回复状态成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    getOAuthOpenPlatformConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询微信开放平台配置成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthOpenPlatformConfigResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    replaceOAuthOpenPlatformConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OAuthOpenPlatformConfigRequest"];
-            };
-        };
-        responses: {
-            /** @description 保存微信开放平台配置成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    beginWechatOAuth: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OAuthBeginRequest"];
-            };
-        };
-        responses: {
-            /** @description 发起微信浏览器授权成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthAuthorizationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            500: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    completeWechatOAuthCallback: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OAuthCallbackRequest"];
-            };
-        };
-        responses: {
-            /** @description 处理微信浏览器授权回调成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthLoginResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            500: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    loginWithWechatMiniProgram: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OAuthMiniProgramLoginRequest"];
-            };
-        };
-        responses: {
-            /** @description 微信小程序登录成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthLoginResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            500: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    completeWechatOAuthProfile: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OAuthCompletionRequest"];
-            };
-        };
-        responses: {
-            /** @description 补全微信登录资料成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthLoginResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            500: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    redirectWechatOAuthToPc: {
-        parameters: {
-            query?: {
-                code?: string;
-                state?: string;
-                error?: string;
-                error_description?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 重定向到对应 PC/H5 OAuth 回调页。仅转发 code、state、error 和 error_description。 */
-            302: {
-                headers: {
-                    Location: string;
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    redirectWechatOAuthToOfficialAccount: {
-        parameters: {
-            query?: {
-                code?: string;
-                state?: string;
-                error?: string;
-                error_description?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 重定向到对应 PC/H5 OAuth 回调页。仅转发 code、state、error 和 error_description。 */
-            302: {
-                headers: {
-                    Location: string;
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    bindWechatIdentity: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OAuthBindRequest"];
-            };
-        };
-        responses: {
-            /** @description 绑定当前会员的微信身份成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    verifyWechatOfficialAccountCallback: {
-        parameters: {
-            query: {
-                signature: string;
-                timestamp: string;
-                nonce: string;
-                echostr: string;
-            };
-            header?: never;
-            path: {
-                binding: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 原样返回微信提供的 echostr。 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/plain": string;
-                };
-            };
-            /** @description 回调绑定、签名、模块状态或消息校验失败。 */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/plain": "callback rejected";
-                };
-            };
-        };
-    };
-    receiveWechatOfficialAccountMessage: {
-        parameters: {
-            query: {
-                signature: string;
-                timestamp: string;
-                nonce: string;
-                /** @description 当前实现拒绝值 aes，仅支持明文模式。 */
-                encrypt_type?: string;
-            };
-            header?: never;
-            path: {
-                binding: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/xml": components["schemas"]["OAuthOfficialAccountMessageXml"];
-            };
-        };
-        responses: {
-            /** @description 无回复时返回 success；有文本回复时返回公众号 XML。 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/plain": "success";
-                    "application/xml": components["schemas"]["OAuthOfficialAccountMessageXml"];
-                };
-            };
-            /** @description 回调绑定、签名、模块状态或消息校验失败。 */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/plain": "callback rejected";
-                };
-            };
-        };
-    };
-    getPaymentSettings: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询支付渠道配置成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaymentSettingsResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    savePaymentSettings: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PaymentSettingsSaveRequest"];
-            };
-        };
-        responses: {
-            /** @description 保存支付渠道配置成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaymentMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    getPaymentRechargeSettings: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询充值配置成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaymentRechargeSettingsResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    savePaymentRechargeSettings: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PaymentRechargeSettingsSaveRequest"];
-            };
-        };
-        responses: {
-            /** @description 保存充值配置成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaymentMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    listPaymentRecharges: {
-        parameters: {
-            query?: {
-                page_no?: number;
-                page_size?: number;
-                sn?: string;
-                user_info?: string;
-                pay_way?: 1 | 2 | 3;
-                pay_status?: 0 | 1;
-                start_time?: string;
-                end_time?: string;
-                page_type?: 0 | 1;
-                page_start?: number;
-                page_end?: number;
-                export?: 1 | 2;
-                file_name?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询充值订单成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaymentAdminRechargeListResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    refundPaymentRecharge: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description 退款幂等键；服务按租户和请求摘要登记。 */
-                "Idempotency-Key": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PaymentRechargeRefundRequest"];
-            };
-        };
-        responses: {
-            /** @description 发起充值退款成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaymentMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            500: components["responses"]["ErrorResponse"];
-        };
-    };
-    retryPaymentRefund: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PaymentRefundRetryRequest"];
-            };
-        };
-        responses: {
-            /** @description 重试失败退款成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaymentMutationResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            500: components["responses"]["ErrorResponse"];
-        };
-    };
-    getPaymentRefundStatistics: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询退款统计成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaymentRefundStatisticsResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    listPaymentRefunds: {
-        parameters: {
-            query?: {
-                page_no?: number;
-                page_size?: number;
-                sn?: string;
-                order_sn?: string;
-                user_info?: string;
-                refund_type?: 1;
-                refund_status?: 0 | 1 | 2;
-                start_time?: string;
-                end_time?: string;
-                page_type?: 0 | 1;
-                export?: 1 | 2;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询退款记录成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaymentRefundListResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    listPaymentRefundLogs: {
-        parameters: {
-            query: {
-                record_id: number | string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询退款操作日志成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaymentRefundLogResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    receiveWechatPaymentCallback: {
-        parameters: {
-            query?: never;
-            header: {
-                "Wechatpay-Timestamp": string;
-                "Wechatpay-Nonce": string;
-                "Wechatpay-Serial": string;
-                "Wechatpay-Signature": string;
-                "Wechatpay-Signature-Type"?: "WECHATPAY2-SHA256-RSA2048";
-            };
-            path: {
-                binding: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PaymentWechatCallbackRequest"];
-            };
-        };
-        responses: {
-            /** @description 微信渠道确认 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaymentWechatCallbackAcknowledgement"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            500: components["responses"]["ErrorResponse"];
-        };
-    };
-    receiveAlipayPaymentCallback: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                binding: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": components["schemas"]["PaymentAlipayCallbackRequest"];
-            };
-        };
-        responses: {
-            /** @description 支付宝渠道确认文本 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/plain": "success";
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            500: components["responses"]["ErrorResponse"];
-        };
-    };
-    getMemberRechargeConfig: {
-        parameters: {
-            query: {
-                terminal: 1 | 2 | 3 | 4 | 5 | 6;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询会员充值配置成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaymentMemberRechargeConfigResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    createMemberRecharge: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PaymentMemberRechargeCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description 创建会员充值订单成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaymentRechargeOrderResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    prepayMemberRecharge: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PaymentMemberRechargePrepayRequest"];
-            };
-        };
-        responses: {
-            /** @description 创建充值预支付参数成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaymentRechargePrepayResponse"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            500: components["responses"]["ErrorResponse"];
-        };
-    };
-    getMemberRecharge: {
-        parameters: {
-            query: {
-                order_id: number | string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询本人充值订单成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaymentRechargeOrderResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    listMemberRecharges: {
-        parameters: {
-            query?: {
-                page_no?: number;
-                page_size?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 查询本人充值订单列表成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaymentMemberRechargeListResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };

@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use app\api\services\IndexApplicationService;
-use app\api\services\PcApplicationService;
 use app\common\contract\authorization\AdminAuthorizationQuery;
 use app\common\dto\authorization\AdminPrincipal;
 use app\common\dto\authorization\PermissionDecision;
@@ -11,15 +9,6 @@ use app\common\execution\AdminExecutionContext;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\services\CrontabCommandService;
-use app\common\services\decoration\DecorationReadService;
-use PeanutAdmin\Modules\Article\Contract\PublicArticleQueries;
-use PeanutAdmin\Modules\ImportExport\Contract\Dto\AsyncExportOperation;
-use PeanutAdmin\Modules\ImportExport\Contract\ImportExportCommands;
-use PeanutAdmin\Modules\ImportExport\Contract\ImportExportQueries;
-use PeanutAdmin\Modules\ImportExport\Engine\Application\ImportExportException;
-use PeanutAdmin\Modules\ImportExport\Engine\Application\ImportExportService;
-use PeanutAdmin\Modules\ImportExport\Infrastructure\File\AppFileMediaGateway;
-use PeanutAdmin\Modules\ImportExport\Service\ImportExportAdminApplicationService;
 use PeanutAdmin\Modules\Integration\Application\IntegrationAdminApplicationService;
 use PeanutAdmin\Modules\Integration\Application\MachineIdentity;
 use PeanutAdmin\Modules\Integration\Application\MachineIdentityService;
@@ -30,109 +19,16 @@ use PeanutAdmin\Modules\Integration\Application\WebhookDeliveryLogService;
 use PeanutAdmin\Modules\Integration\Application\WebhookService;
 use PeanutAdmin\Modules\Integration\Contract\IntegrationSecurityRepository;
 use PeanutAdmin\Modules\Integration\Contract\MachineScopeGrantResolver;
-use PeanutAdmin\Modules\Notification\Contract\NotificationCommands;
-use PeanutAdmin\Modules\Notification\Contract\NotificationQueries;
-use PeanutAdmin\Modules\Notification\Delivery\Application\NotificationInboxService;
-use PeanutAdmin\Modules\Notification\Delivery\Application\NotificationMessage;
-use PeanutAdmin\Modules\Notification\Delivery\Persistence\NotificationRepository;
-use PeanutAdmin\Modules\Notification\Service\NotificationAdminApplicationService;
 use PeanutAdmin\Modules\Task\Contract\TaskJobRuntime;
 use PeanutAdmin\Modules\Task\Service\CrontabApplicationService;
 use PeanutAdmin\Modules\Task\Service\TaskAdminApplicationService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
-use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
-use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use PHPUnit\Framework\TestCase;
 
 /** 管理 Controller 对应真实用例编排回归；数据库、文件及外部渠道边界使用受控替身。 */
 final class ControllerUseCasesAuthorizationTest extends TestCase
 {
-    public function testImportExportUseCaseBuildsFixedContextAndReturnsLowLevelResult(): void
-    {
-        $tenant = $this->tenant();
-        $actor = $this->actor();
-        $authorization = $this->allowingAuthorization(
-            $tenant,
-            $actor,
-            'official.import-export.operations.create',
-        );
-        $expected = $this->exportOperation();
-        $commands = $this->createMock(ImportExportCommands::class);
-        $commands->expects(self::once())->method('submitExport')->willReturnCallback(
-            function (AuthorizedOperationContext $context, string $provider, string $idempotency) use ($tenant, $expected): AsyncExportOperation {
-                self::assertSame($tenant, $context->tenantContext);
-                self::assertSame(ImportExportService::RESOURCE_KEY, $context->resourceKey);
-                self::assertSame('create', $context->operation);
-                self::assertSame([], $context->targets);
-                self::assertSame('operation.logs', $provider);
-                self::assertSame('idem-12345678', $idempotency);
-                self::assertNotSame('', $context->authorizationBasisDigest);
-                return $expected;
-            },
-        );
-        $service = new ImportExportAdminApplicationService(
-            $authorization,
-            $commands,
-            $this->createStub(ImportExportQueries::class),
-            $this->uninitialized(AppFileMediaGateway::class),
-        );
-
-        self::assertSame($expected, $service->submitExport(
-            $tenant,
-            $actor,
-            'operation.logs',
-            'idem-12345678',
-        ));
-    }
-
-    public function testImportExportRejectsCrossTenantActorBeforeLowLevelCall(): void
-    {
-        $tenant = $this->tenant();
-        $foreignActor = $this->actor(12);
-        $authorization = $this->createMock(AdminAuthorizationQuery::class);
-        $authorization->expects(self::once())->method('decide')
-            ->with($tenant, $foreignActor, 'official.import-export.operations.create')
-            ->willReturn(PermissionDecision::deny('official.import-export.operations.create', 'INVALID_TENANT_ADMIN_CONTEXT'));
-        $commands = $this->createMock(ImportExportCommands::class);
-        $commands->expects(self::never())->method('submitExport');
-        $service = new ImportExportAdminApplicationService(
-            $authorization,
-            $commands,
-            $this->createStub(ImportExportQueries::class),
-            $this->uninitialized(AppFileMediaGateway::class),
-        );
-
-        try {
-            $service->submitExport($tenant, $foreignActor, 'operation.logs', 'idem-12345678');
-            self::fail('跨租户人员不得获得导出操作上下文');
-        } catch (ImportExportException $exception) {
-            self::assertSame('IMPORT_EXPORT_PERMISSION_DENIED', $exception->problemCode);
-        }
-    }
-
-    public function testImportExportPropagatesOriginalBusinessException(): void
-    {
-        $tenant = $this->tenant();
-        $actor = $this->actor();
-        $expected = ImportExportException::providerUnavailable();
-        $commands = $this->createMock(ImportExportCommands::class);
-        $commands->expects(self::once())->method('submitExport')->willThrowException($expected);
-        $service = new ImportExportAdminApplicationService(
-            $this->allowingAuthorization($tenant, $actor, 'official.import-export.operations.create'),
-            $commands,
-            $this->createStub(ImportExportQueries::class),
-            $this->uninitialized(AppFileMediaGateway::class),
-        );
-
-        try {
-            $service->submitExport($tenant, $actor, 'missing.provider', 'idem-12345678');
-            self::fail('底层业务异常必须原样传播到 HTTP 映射边界');
-        } catch (ImportExportException $exception) {
-            self::assertSame($expected, $exception);
-        }
-    }
-
     public function testIntegrationAdminUseCaseAuthorizesThenUsesTenantRepositoryBoundary(): void
     {
         $tenant = $this->tenant();
@@ -158,7 +54,7 @@ final class ControllerUseCasesAuthorizationTest extends TestCase
             new MachineScopeGrantPolicy(new MachineScopeCatalog(['data.export.read']), $scopeResolver),
         );
         $service = new IntegrationAdminApplicationService(
-            $this->allowingAuthorization($tenant, $actor, 'official.integration.machine.read'),
+            $this->allowingAuthorization($tenant, $actor, 'peanut.integration.machine.read'),
             $machines,
             $this->uninitialized(WebhookService::class),
             $this->uninitialized(WebhookDeliveryLogService::class),
@@ -174,8 +70,9 @@ final class ControllerUseCasesAuthorizationTest extends TestCase
         $actor = $this->actor();
         $store = new ExecutionContextStore();
         $service = new TaskAdminApplicationService(
-            $this->allowingAuthorization($tenant, $actor, 'official.task.expression'),
-            new CrontabApplicationService(new CrontabCommandService([], [])),
+            $this->allowingAuthorization($tenant, $actor, 'peanut.task.expression'),
+            new CrontabApplicationService(new CrontabCommandService([], []),
+                $this->uninitialized(\app\common\infrastructure\module\ModuleExecutionBoundary::class)),
             $this->createStub(TaskJobRuntime::class),
             new CurrentExecutionContext($store),
         );
@@ -188,57 +85,29 @@ final class ControllerUseCasesAuthorizationTest extends TestCase
         self::assertSame(1, $dates[0]['time']);
     }
 
-    public function testNotificationInboxUseCaseBuildsRecipientScopedContext(): void
+    public function testIntegrationRejectsCrossTenantActorBeforeRepositoryCall(): void
     {
         $tenant = $this->tenant();
-        $actor = $this->actor();
-        $store = new ExecutionContextStore();
-        $message = new NotificationMessage(
-            'notice_' . str_repeat('b', 32),
-            'template.test',
-            1,
-            'Subject',
-            'Body',
-            'unread',
-            1,
-            '2026-09-21T00:00:00.000Z',
-            null,
-            null,
-            [],
+        $actor = $this->actor(12);
+        $authorization = $this->createMock(AdminAuthorizationQuery::class);
+        $authorization->expects(self::once())->method('decide')
+            ->with($tenant, $actor, 'peanut.integration.machine.read')
+            ->willReturn(PermissionDecision::deny('peanut.integration.machine.read', 'INVALID_TENANT_ADMIN_CONTEXT'));
+        $repository = $this->createMock(IntegrationSecurityRepository::class);
+        $repository->expects(self::never())->method('machines');
+        $machines = new MachineIdentityService(
+            $repository,
+            new MachineScopeGrantPolicy(new MachineScopeCatalog(['data.export.read']), $this->createStub(MachineScopeGrantResolver::class)),
         );
-        $repository = $this->createMock(NotificationRepository::class);
-        $repository->expects(self::once())->method('inbox')
-            ->with(11, 31, 'unread', 1, 20)
-            ->willReturn(['items' => [$message], 'page' => 1, 'page_size' => 20, 'total' => 1]);
-        $service = new NotificationAdminApplicationService(
-            $this->allowingAuthorization($tenant, $actor, 'official.notification.inbox.read'),
-            $this->createStub(NotificationQueries::class),
-            $this->createStub(NotificationCommands::class),
-            new NotificationInboxService($repository),
-            new CurrentExecutionContext($store),
+        $service = new IntegrationAdminApplicationService(
+            $authorization,
+            $machines,
+            $this->uninitialized(WebhookService::class),
+            $this->uninitialized(WebhookDeliveryLogService::class),
+            $this->uninitialized(SessionSecurityService::class),
         );
-
-        $result = $store->run(
-            new AdminExecutionContext($tenant, 'test.notification.inbox', $actor->toArray()),
-            fn(): array => $service->messages($tenant, $actor, 'unread', 1, 20),
-        );
-        self::assertSame([$message], $result['items']);
-        self::assertSame(1, $result['total']);
-    }
-
-    public function testPcUseCaseRejectsMismatchedPublicOperationBeforeArticleQuery(): void
-    {
-        $articles = $this->createMock(PublicArticleQueries::class);
-        $articles->expects(self::never())->method('infoCenter');
-        $service = new PcApplicationService(
-            $articles,
-            $this->uninitialized(DecorationReadService::class),
-            $this->uninitialized(IndexApplicationService::class),
-        );
-
-        $this->expectException(DomainException::class);
-        $this->expectExceptionMessage('EXECUTION_PUBLIC_TENANT_CONTEXT_REQUIRED');
-        $service->infoCenter(new TenantSystemContext(11, 'public', 'article.other', 'request-pc'));
+        $this->expectException(\PeanutAdmin\IntegrationSecurity\Application\IntegrationSecurityException::class);
+        $service->machines($tenant, $actor);
     }
 
     private function allowingAuthorization(
@@ -264,6 +133,7 @@ final class ControllerUseCasesAuthorizationTest extends TestCase
             'admin-web',
             new \DateTimeImmutable('2026-09-21T00:00:00Z'),
             7,
+            1,
         ), 'request-controller-use-case');
     }
 
@@ -286,17 +156,6 @@ final class ControllerUseCasesAuthorizationTest extends TestCase
             primaryDepartmentId: null,
             lastLoginAt: null,
         );
-    }
-
-    private function exportOperation(): AsyncExportOperation
-    {
-        return AsyncExportOperation::fromPublicArray([
-            'operation_key' => 'iox_' . str_repeat('c', 32),
-            'provider_key' => 'operation.logs',
-            'direction' => 'export',
-            'status' => 'queued',
-            'revision' => 1,
-        ]);
     }
 
     /** @template T of object @param class-string<T> $class @return T */

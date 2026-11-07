@@ -13,16 +13,15 @@ use app\adminapi\services\AdminLoginAttemptService;
 use app\adminapi\services\OperationLogService;
 use app\adminapi\infrastructure\generator\GeneratorImportPersistence;
 use app\api\services\IndexApplicationService;
-use app\api\services\LoginApplicationService as MemberLoginApplicationService;
-use app\api\services\UserTokenService;
-use PeanutAdmin\Modules\Article\Contract\PublicArticleQueries;
 use app\common\composition\ModuleComposition;
+use app\common\composition\ModuleConsoleCommands;
 use app\common\contract\AdminPermissionPolicy;
 use app\common\contract\authorization\AdminAuthorizationQuery;
 use app\common\contract\idempotency\IdempotentCommandExecutor;
 use app\common\contract\module\ModuleQualificationQuery;
 use app\common\services\audit\AuditContractHost;
 use app\common\execution\CurrentExecutionContext;
+use app\common\http\RequestTrace;
 use app\common\execution\ExecutionContextStore;
 use app\common\model\TenantOwnedModel;
 use app\common\infrastructure\http\GuzzleOutboundHttpTransport;
@@ -62,21 +61,15 @@ use PeanutAdmin\Modules\File\Service\Storage\StorageService;
 use app\common\tenancy\DataScopePolicy;
 use app\common\tenancy\DefaultTenantEntryBindingLookup;
 use app\common\tenancy\MultiTenantDataScopePolicy;
-use app\common\validate\InputValidator;
 use PeanutAdmin\Modules\Identity\Invitation\OwnerInvitationDeliveryPort;
 use PeanutAdmin\Modules\Identity\Invitation\OwnerInvitationRuntimePolicy;
 use PeanutAdmin\Modules\Identity\Invitation\UnavailableOwnerInvitationDeliveryPort;
-use app\platform\identity\CorePlatformOperatorIdentityPort;
-use app\platform\identity\PlatformOperatorIdentityPort;
 use app\platform\services\ApplicationTenantBootstrapService;
 use app\platform\services\CoreTenantOwnerAdminProvisioner;
 use app\platform\services\PlatformOperatorSessionService;
 use app\platform\services\TenantGovernanceService;
 use PeanutAdmin\Modules\Identity\Contract\TenantOwnerAdminProvisioner;
 use app\platform\infrastructure\module\DeployedTenantModuleRegistry;
-use app\platform\validation\module\OpisTenantModuleConfigValidator;
-use app\platform\services\module\PlatformTenantModuleService;
-use app\platform\infrastructure\module\VerifiedTenantModuleRepository;
 use PeanutAdmin\Modules\Ops\Service\PlatformOpsApplicationService;
 use PeanutAdmin\Modules\Ops\Infrastructure\ApplicationRuntimeStatusProvider;
 use PeanutAdmin\Modules\Ops\Service\DeploymentModuleRequestService;
@@ -93,12 +86,12 @@ use PeanutAdmin\Modules\Ops\Infrastructure\Authorization\PlatformOpsPermissionCh
 use PeanutAdmin\Modules\Ops\Service\PlatformUpgradeExecutionService;
 use PeanutAdmin\Modules\Ops\Service\PlatformUpgradeReadinessService;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
-use app\platform\services\plugin\PlatformModuleRuntimeService;
-use app\platform\composition\plugin\ModuleDefinitionRegistryFactory;
-use app\platform\infrastructure\plugin\PluginLockResolver;
-use app\platform\infrastructure\plugin\ModuleCatalogApplier;
-use app\platform\services\plugin\PluginCatalogSyncService;
-use app\platform\services\plugin\PluginRuntimeGovernanceService;
+use app\platform\services\module\PlatformModuleRuntimeService;
+use app\platform\composition\module\ModuleDefinitionRegistryFactory;
+use app\platform\infrastructure\module\ModuleLockResolver;
+use app\platform\infrastructure\module\ModuleCatalogApplier;
+use app\platform\services\module\ModuleCatalogSyncService;
+use app\platform\services\module\ModuleRuntimeGovernanceService;
 use app\platform\infrastructure\provider\NotificationQualificationContributor;
 use app\platform\infrastructure\provider\OauthQualificationContributor;
 use app\platform\infrastructure\provider\PaymentQualificationContributor;
@@ -121,7 +114,6 @@ use PeanutAdmin\Modules\Identity\Authorization\ThinkPhpTenantAuthorizationReposi
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
 use PeanutAdmin\Modules\Identity\Identity\SelfService\AccountSelfService;
-use PeanutAdmin\Kernel\Idempotency\IdempotencyService;
 use PeanutAdmin\Modules\Identity\Http\TenantAuthEndpoint;
 use PeanutAdmin\Modules\Identity\Membership\Application\MemberAdminService;
 use PeanutAdmin\Modules\Identity\Organization\Application\DepartmentAdminService;
@@ -129,15 +121,12 @@ use PeanutAdmin\Kernel\Host\ApplicationHostPolicy;
 use PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
-use PeanutAdmin\Modules\Identity\Module\TenantModuleConfigurationService;
-use PeanutAdmin\Kernel\Module\TenantModuleManager;
 use PeanutAdmin\Modules\Identity\Menu\ThinkPhpMenuCatalogRepository;
 use PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService;
 use PeanutAdmin\Modules\Identity\Platform\Application\TenantOwnerAdminService;
 use PeanutAdmin\Modules\Identity\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationRepository;
-use PeanutAdmin\Modules\Identity\Tenancy\DefaultTenantContextResolver;
 use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
 use PeanutAdmin\Modules\Ops\Domain\Application\PlatformPermissionChecker;
 use PeanutAdmin\Modules\Ops\Domain\Logs\RuntimeLogProviderRegistry;
@@ -152,13 +141,13 @@ use PeanutAdmin\Modules\Ops\Domain\Task\BackupRestoreProviderRegistry;
 use PeanutAdmin\Modules\Ops\Domain\Task\OpsTaskDispatcher;
 use PeanutAdmin\Modules\Ops\Domain\Task\OpsTaskService;
 use PeanutAdmin\Modules\Settings\Service\SettingCatalogService;
-use app\common\persistence\TenantPersistenceConfiguration;
 
 /** 应用组合根，集中注册 Host 基础设施、业务服务与官方 Module Runtime。 */
 class AppService extends Service
 {
     public function register(): void
     {
+        $this->registerHttpSqlTiming();
         $this->registerExecutionContext();
         $this->registerAuthentication();
         $this->registerAuthorization();
@@ -168,6 +157,50 @@ class AppService extends Service
         $this->registerModules();
     }
 
+    /** The sampling selector is FPM process configuration, never a request or .env setting. */
+    private function httpSqlTimingRequestId(): ?string
+    {
+        $selected = getenv('PEANUT_HTTP_SQL_TIMING_REQUEST_ID', true);
+        if (!is_string($selected) || preg_match('/^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/D', $selected) !== 1) {
+            return null;
+        }
+        $header = $_SERVER['HTTP_X_REQUEST_ID'] ?? null;
+        return is_string($header) && hash_equals($selected, trim($header)) ? $selected : null;
+    }
+
+    private function registerHttpSqlTiming(): void
+    {
+        if (PHP_SAPI !== 'fpm-fcgi' || $this->app->runningInConsole()) {
+            return;
+        }
+        $requestId = $this->httpSqlTimingRequestId();
+        if ($requestId === null) {
+            return;
+        }
+        $database = $this->app->db;
+        // Do not overwrite another listener or retune a connection already created by earlier application code.
+        if ($database->getListen() !== [] || $database->getInstance() !== []) {
+            return;
+        }
+        $configuration = $this->app->config->get('database', []);
+        $connection = $configuration['default'] ?? null;
+        if (!is_string($connection) || !is_array($configuration['connections'][$connection] ?? null)
+            || !RequestTrace::beginSqlTiming($requestId)) {
+            return;
+        }
+        $database->listen(static function (mixed $sql, mixed $seconds): void {
+            RequestTrace::addSqlTime($sql, $seconds);
+        });
+        $configuration['connections'][$connection]['trigger_sql'] = true;
+        $this->app->config->set($configuration, 'database');
+        $this->app->event->listen(\think\event\HttpEnd::class, function (): void {
+            $timing = RequestTrace::finishSqlTiming($this->app->request);
+            if ($timing !== null && $this->httpSqlTimingRequestId() === $timing['request_id']) {
+                $this->app->log->info('http_sql_timing ' . json_encode($timing, JSON_THROW_ON_ERROR));
+            }
+        });
+    }
+
     private function registerExecutionContext(): void
     {
         $contexts = new ExecutionContextStore();
@@ -175,7 +208,10 @@ class AppService extends Service
         $this->app->instance(ExecutionContextStore::class, $contexts);
         $this->app->instance(CurrentExecutionContext::class, $current);
         $configuredOverrides = Config::get('peanut.overrides', []);
-        CoreServiceOverrides::configure(is_array($configuredOverrides) ? $configuredOverrides : []);
+        if (!is_array($configuredOverrides)) {
+            throw new \RuntimeException('Peanut 核心服务覆盖配置必须是数组');
+        }
+        CoreServiceOverrides::configure($configuredOverrides);
         foreach (CoreServiceOverrides::registry()->bindings() as $contract => $implementation) {
             if (!$this->app->bound($contract)) {
                 $this->app->bind($contract, $implementation);
@@ -190,16 +226,8 @@ class AppService extends Service
             $this->app->make(\PeanutAdmin\Modules\ReferenceCodes\Service\ReferenceCodeCatalogService::class),
             $this->app->make(\PeanutAdmin\Modules\Identity\Authorization\CatalogLifecycleService::class),
         ));
-        $this->app->bind(IdempotencyService::class, fn(): IdempotencyService => new IdempotencyService(
-            $this->app->make(TenantPersistenceConfiguration::class)->mode,
-            $this->app->make(TenantPersistenceConfiguration::class)->instanceTenantId,
-        ));
         $this->app->bind(IdempotentCommandExecutor::class, ThinkPhpIdempotentCommandExecutor::class);
         $this->app->bind(OutboundHttpTransport::class, fn(): OutboundHttpTransport => new GuzzleOutboundHttpTransport(
-            $this->app->make(CurrentExecutionContext::class),
-        ));
-        $this->app->bind(InputValidator::class, fn(): InputValidator => new InputValidator(
-            $this->app,
             $this->app->make(CurrentExecutionContext::class),
         ));
         $this->app->bind(
@@ -211,11 +239,8 @@ class AppService extends Service
             fn(): InstallationExecutionHost => new InstallationExecutionHost(
                 dirname(__DIR__),
                 $this->app->make(ModuleCatalogApplier::class),
-                $this->app->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
-                fn(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry $registry): \PeanutAdmin\Kernel\Module\ModuleRuntimeRepository => $this->installationModuleRuntime($registry),
-                $this->app->make(AuditContractHost::class),
                 $this->app->make(\PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries::class),
-                $this->app->make(ModuleComposition::class),
+                $this->app->make(\PeanutAdmin\Modules\Identity\Platform\Application\PlanLicenseAdminService::class),
                 $this->app->make(CompiledModuleRegistry::class),
             ),
         );
@@ -226,12 +251,6 @@ class AppService extends Service
         $this->app->bind(OperationLogService::class, fn(): OperationLogService => new OperationLogService(
             $this->app->make(AuditContractHost::class),
         ));
-    }
-
-    /** Composition-only construction; keep the original installation availability locks and late registry. */
-    private function installationModuleRuntime(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry $registry): \PeanutAdmin\Kernel\Module\ModuleRuntimeRepository
-    {
-        return new \PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository($registry, true);
     }
 
     private function registerAuthentication(): void
@@ -265,11 +284,6 @@ class AppService extends Service
             (int) Config::get('admin_auth.password_error_times', 5),
             (int) Config::get('admin_auth.lock_minutes', 30),
         ));
-        $this->app->bind(UserTokenService::class, fn(): UserTokenService => new UserTokenService(
-            (string) Config::get('jwt.secret', ''),
-            (int) Config::get('jwt.expire', 0),
-            $this->app->make(\PeanutAdmin\Modules\Member\Contract\MemberSessions::class),
-        ));
     }
 
     /** Wires current native Admin authorization services to their exact constructor contracts. */
@@ -287,9 +301,9 @@ class AppService extends Service
         $this->app->bind(AdminAuthorizationService::class, fn(): AdminAuthorizationService => new AdminAuthorizationService(
             $this->app->make(CoreTenantModuleAdminBridge::class),
             $this->app->make(AdminPermissionPolicy::class),
-            $this->app->make(\PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory::class),
             $this->app->make(AdminDirectoryQuery::class),
             $this->app->make(TenantAuthorizationQuery::class),
+            $this->app->make(\app\common\services\authorization\EndpointPermissionGrant::class),
         ));
         $this->app->bind(AdminAuthorizationQuery::class, fn(): AdminAuthorizationQuery => $this->app->make(AdminAuthorizationService::class));
         $this->app->bind(CoreTenantModuleAdminBridge::class, fn(): CoreTenantModuleAdminBridge => new CoreTenantModuleAdminBridge(
@@ -298,12 +312,14 @@ class AppService extends Service
             $this->app->make(\PeanutAdmin\Kernel\Menu\MenuCatalogRepository::class),
             $this->app->make(TenantAuthorizationQuery::class),
             $this->app->make(\PeanutAdmin\Modules\Identity\Menu\MenuAdministrationService::class),
+            $this->app->make(\PeanutAdmin\Modules\Identity\Module\TenantEntitlementService::class),
         ));
         $this->app->bind(RoleAdministrationRuntime::class, fn(): RoleAdministrationRuntime => new RoleAdministrationRuntime(
-            new RoleAdminService($this->app->make(AuditService::class)),
-            $this->app->make(AdminAuthorizationService::class),
+            new RoleAdminService(
+                $this->app->make(AuditService::class),
+                $this->app->make(\PeanutAdmin\Modules\Identity\Module\TenantEntitlementService::class),
+            ),
             $this->app->make(TenantAuthorizationQuery::class),
-            $this->app->make(\PeanutAdmin\Modules\Identity\Menu\MenuAdministrationService::class),
         ));
         $this->app->bind(AdminDirectoryQuery::class, fn(): AdminDirectoryQuery => new AdminDirectoryQuery(
             $this->app->make(CurrentExecutionContext::class),
@@ -336,11 +352,14 @@ class AppService extends Service
         ));
         $this->app->bind(StorageService::class, fn(): StorageService => new StorageService(
             $this->app->make(StorageDriverFactory::class),
-            $this->app->make(DataScopePolicy::class),
-            $this->app->make(DefaultTenantContextResolver::class),
             (string) Config::get('jwt.secret', ''),
             (string) $this->app->request->domain(),
             $this->app->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
+            $this->app->make(\PeanutAdmin\Modules\File\Service\FileAuthorizationService::class),
+            $this->app->make(CurrentExecutionContext::class),
+            $this->app->make(AuditContractHost::class),
+            $this->app->make(\PeanutAdmin\Modules\ContentTools\Service\ContentCapabilitiesService::class),
+            $this->app->make(\PeanutAdmin\Modules\File\Service\FileDocumentReferenceRegistry::class),
         ));
         $this->app->bind(FileService::class, fn(): FileService => new FileService(
             $this->app->make(StorageService::class),
@@ -379,8 +398,7 @@ class AppService extends Service
         });
         $this->app->bind(ApplicationHostPolicy::class, fn(): ApplicationHostPolicy => new ApplicationHostPolicy(
             (string) Config::get('deployment.mode', ''),
-            self::hostList((string) Config::get('deployment.platform_hosts', '')),
-            self::hostList((string) Config::get('deployment.tenant_admin_hosts', '')),
+            ApplicationHostPolicy::hostList((string) Config::get('deployment.platform_hosts', '')),
             $this->app->make(TenantEntryBindingResolver::class),
         ));
         $this->app->bind(DataScopePolicy::class, function (): DataScopePolicy {
@@ -402,28 +420,12 @@ class AppService extends Service
             $this->app->make(TokenIssuer::class),
             $this->platformIdentifierHmacKey(),
         ));
-        $this->app->bind(PlatformOperatorIdentityPort::class, CorePlatformOperatorIdentityPort::class);
         $this->app->bind(TenantOwnerAdminProvisioner::class, CoreTenantOwnerAdminProvisioner::class);
         $this->app->bind(DeployedTenantModuleRegistry::class, fn(): DeployedTenantModuleRegistry =>
             $this->app->make(ThinkPhpModuleGovernanceProvider::class)->registry());
         $this->app->bind(ModuleRuntimeRepository::class, ThinkPhpModuleRuntimeRepository::class);
-        $this->app->bind(TenantModuleConfigurationService::class, fn(): TenantModuleConfigurationService => new TenantModuleConfigurationService(
-            $this->app->make(DeployedTenantModuleRegistry::class)->compiled(),
-            $this->app->make(OpisTenantModuleConfigValidator::class),
-            $this->app->make(ModuleRuntimeRepository::class),
-            $this->app->make(AuditService::class),
-        ));
-        $this->app->bind(TenantModuleManager::class, fn(): TenantModuleManager => new TenantModuleManager(
-            $this->app->make(DeployedTenantModuleRegistry::class)->compiled(),
-            new VerifiedTenantModuleRepository(
-                new ThinkPhpModuleRuntimeRepository($this->app->make(CompiledModuleRegistry::class), true),
-                $this->app->make(DeployedTenantModuleRegistry::class),
-            ),
-            $this->app->make(OpisTenantModuleConfigValidator::class),
-            $this->app->make(ModuleComposition::class)->tenantHooks($this->app->make(DeployedTenantModuleRegistry::class)->compiled()),
-        ));
-        $this->app->bind(PluginCatalogSyncService::class, fn(): PluginCatalogSyncService =>
-            new PluginCatalogSyncService(
+        $this->app->bind(ModuleCatalogSyncService::class, fn(): ModuleCatalogSyncService =>
+            new ModuleCatalogSyncService(
                 dirname(__DIR__),
                 $this->moduleConfiguration(),
                 $this->app->make(ModuleCatalogApplier::class),
@@ -433,10 +435,13 @@ class AppService extends Service
                 dirname(__DIR__),
                 $this->moduleConfiguration(),
                 $this->trustedModuleKeys(),
-                $this->app->make(PluginRuntimeGovernanceService::class),
-                $this->app->make(PluginCatalogSyncService::class),
+                $this->app->make(ModuleRuntimeGovernanceService::class),
+                $this->app->make(ModuleCatalogSyncService::class),
                 $this->app->make(ModuleCatalogApplier::class),
                 $this->app->make(\PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries::class),
+                $this->app->make(DeploymentModuleRequestService::class),
+                $this->app->make(PlatformModuleOperationExecutionService::class),
+                $this->app->make(CompiledModuleRegistry::class),
             ));
         $this->app->bind(PlatformPermissionChecker::class, PlatformOpsPermissionChecker::class);
         $this->app->bind(OpsTaskDispatcher::class, ThinkPhpOpsTaskDispatcher::class);
@@ -456,12 +461,13 @@ class AppService extends Service
                 $this->moduleConfiguration(),
                 $this->app->make(ModuleCatalogApplier::class),
                 $this->app->make(CompiledModuleRegistry::class),
+                ModuleLockResolver::forRuntime(dirname(__DIR__), (string) $this->moduleConfiguration()['module_lock']),
             ));
         $this->app->bind(ModuleQualificationQuery::class, fn(): ModuleQualificationQuery => $this->app
             ->make(ThinkPhpModuleGovernanceProvider::class)
             ->qualification());
-        $this->app->bind(PluginRuntimeGovernanceService::class, fn(): PluginRuntimeGovernanceService =>
-            new PluginRuntimeGovernanceService(
+        $this->app->bind(ModuleRuntimeGovernanceService::class, fn(): ModuleRuntimeGovernanceService =>
+            new ModuleRuntimeGovernanceService(
                 dirname(__DIR__),
                 $this->moduleConfiguration(),
                 $this->app->make(ModuleCatalogApplier::class),
@@ -472,7 +478,7 @@ class AppService extends Service
                 dirname(__DIR__, 2),
                 $this->moduleConfiguration(),
                 $this->trustedModuleKeys(),
-                $this->app->make(PluginRuntimeGovernanceService::class),
+                $this->app->make(ModuleRuntimeGovernanceService::class),
                 $this->app->make(ModuleCatalogApplier::class),
             ));
         $this->app->bind(PlatformUpgradeReadinessService::class, fn(): PlatformUpgradeReadinessService =>
@@ -490,36 +496,32 @@ class AppService extends Service
                 $this->app->make(ThinkPhpModuleGovernanceProvider::class),
             ));
         $this->app->bind(RuntimeStatusProvider::class, ApplicationRuntimeStatusProvider::class);
-        $this->app->bind(OpsStatusService::class, fn(): OpsStatusService => new OpsStatusService(
-            $this->app->make(PlatformPermissionChecker::class),
-            $this->app->make(RuntimeStatusProvider::class),
-        ));
-        $this->app->bind(PlatformProviderQualificationService::class, fn(): PlatformProviderQualificationService =>
-            new PlatformProviderQualificationService(
-                $this->app->make(PlatformPermissionChecker::class),
-                [
-                    new PaymentQualificationContributor(
-                        $this->platformIdentifierHmacKey(),
-                        $this->app->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
-                        $this->app->make(\PeanutAdmin\Modules\Integration\Contract\ExternalBindingQualificationQueries::class),
-                    ),
-                    new NotificationQualificationContributor(
-                        $this->platformIdentifierHmacKey(),
-                        $this->app->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
-                        $this->app->make(\PeanutAdmin\Modules\Integration\Contract\ExternalBindingQualificationQueries::class),
-                    ),
-                    new OauthQualificationContributor(
-                        $this->platformIdentifierHmacKey(),
-                        $this->app->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
-                        $this->app->make(\PeanutAdmin\Modules\Integration\Contract\ExternalBindingQualificationQueries::class),
-                    ),
-                    new StorageQualificationContributor(
-                        $this->platformIdentifierHmacKey(),
-                        $this->app->make(\PeanutAdmin\Modules\File\Contract\StorageQualificationQueries::class),
-                    ),
-                ],
+        $this->app->bind(PlatformProviderQualificationService::class, function (): PlatformProviderQualificationService {
+            $contributors = [new StorageQualificationContributor(
                 $this->platformIdentifierHmacKey(),
-            ));
+                $this->app->make(\PeanutAdmin\Modules\File\Contract\StorageQualificationQueries::class),
+            )];
+            $providerContributors = [
+                'peanut.payment' => PaymentQualificationContributor::class,
+                'peanut.notification' => NotificationQualificationContributor::class,
+                'peanut.oauth' => OauthQualificationContributor::class,
+            ];
+            foreach ($this->app->make(CompiledModuleRegistry::class)->modules as $manifest) {
+                $contributor = $providerContributors[$manifest->data['key']] ?? null;
+                if ($contributor !== null) {
+                    $contributors[] = new $contributor(
+                        $this->platformIdentifierHmacKey(),
+                        $this->app->make(AdminDirectoryQuery::class),
+                        $this->app->make(\PeanutAdmin\Modules\Integration\Contract\ExternalBindingQualificationQueries::class),
+                    );
+                }
+            }
+            return new PlatformProviderQualificationService(
+                $this->app->make(PlatformPermissionChecker::class),
+                $contributors,
+                $this->platformIdentifierHmacKey(),
+            );
+        });
         $this->app->bind(PlatformDiagnosticBundleService::class, function (): PlatformDiagnosticBundleService {
             $permissions = $this->app->make(PlatformPermissionChecker::class);
             return new PlatformDiagnosticBundleService(
@@ -575,9 +577,10 @@ class AppService extends Service
                 $this->app->make(BackupRestoreProviderRegistry::class),
                 $this->app->make(ApplicationRuntimeStatusProvider::class),
                 $this->app->make(PlatformOperatorIdentityQuery::class),
+                $this->app->make(PlatformPermissionChecker::class),
             ));
         $this->app->bind(CrontabCommandService::class, fn(): CrontabCommandService => new CrontabCommandService(
-            (array) Config::get('console.commands', []),
+            (array) Config::get('console.commands', []) + $this->app->make(ModuleConsoleCommands::class)->contributions(),
             (array) Config::get('console.module_commands', []),
         ));
     }
@@ -590,6 +593,7 @@ class AppService extends Service
                 new \app\platform\services\developer\DeveloperCenterCatalogService(
                     dirname(__DIR__),
                     $this->app->make(CompiledModuleRegistry::class),
+                    $this->app,
                 ),
         );
         $this->app->bind(WorkbenchApplicationService::class, fn(): WorkbenchApplicationService => new WorkbenchApplicationService(
@@ -599,6 +603,7 @@ class AppService extends Service
             (string) Config::get('project.version', ''),
             (string) Config::get('project.based', ''),
             (array) Config::get('project.default_image', []),
+            $this->app->make(\PeanutAdmin\Modules\Settings\Contract\TenantSettingsQuery::class),
         ));
         $this->app->bind(ConfigApplicationService::class, fn(): ConfigApplicationService => new ConfigApplicationService(
             $this->app->make(\PeanutAdmin\Modules\Settings\Contract\TenantApplicationSettings::class),
@@ -615,7 +620,6 @@ class AppService extends Service
         $this->app->bind(IndexApplicationService::class, fn(): IndexApplicationService => new IndexApplicationService(
             $this->app->make(TenantIdentityQuery::class),
             $this->app->make(\PeanutAdmin\Modules\Settings\Contract\TenantApplicationSettings::class),
-            $this->app->make(PublicArticleQueries::class),
             $this->app->make(\app\common\services\RichTextResourceService::class),
             $this->app->make(\app\common\services\decoration\DecorationReadService::class),
             $this->app->make(\PeanutAdmin\Modules\Settings\Service\WebsiteConfigService::class),
@@ -624,19 +628,10 @@ class AppService extends Service
                 'enabled' => $this->app->make(DemoAccountPolicy::class)->enabled(),
                 'tenant_a_host' => (string) Config::get('peanut.demo.tenant_a_host', ''),
                 'tenant_b_host' => (string) Config::get('peanut.demo.tenant_b_host', ''),
-                'shared_hosts' => self::hostList((string) Config::get('deployment.tenant_admin_hosts', '')),
                 'tenant_a_email' => (string) Config::get('peanut.demo.tenant_a_email', ''),
                 'tenant_b_email' => (string) Config::get('peanut.demo.tenant_b_email', ''),
                 'password' => (string) Config::get('peanut.demo.shared_password', ''),
             ],
-        ));
-        $this->app->bind(MemberLoginApplicationService::class, fn(): MemberLoginApplicationService => new MemberLoginApplicationService(
-            $this->app->make(\PeanutAdmin\Modules\Member\Contract\MemberIdentityCommands::class),
-            $this->app->make(\PeanutAdmin\Modules\Notification\Contract\VerificationCodeCommands::class),
-            $this->app->make(\PeanutAdmin\Modules\Settings\Contract\TenantApplicationSettings::class),
-            $this->app->make(FileService::class),
-            $this->app->make(UserTokenService::class),
-            (string) Config::get('project.default_image.user_avatar', ''),
         ));
     }
 
@@ -672,7 +667,7 @@ class AppService extends Service
             && PHP_SAPI === 'cli'
             && Config::get('peanut.environment', '') === 'development'
             && $this->app->isDebug()
-            && in_array((new \think\console\Input())->getFirstArgument(), ['plugin:make', 'plugin:lock'], true)) {
+            && in_array((new \think\console\Input())->getFirstArgument(), ['module:make', 'module:lock'], true)) {
             return;
         }
         $config = Config::get('modules', []);
@@ -680,18 +675,34 @@ class AppService extends Service
             throw new \RuntimeException('MODULE_REGISTRY_UNAVAILABLE');
         }
         $serverRoot = dirname(__DIR__);
-        $lockPath = trim((string) ($config['plugin_lock'] ?? ''));
+        $lockPath = trim((string) ($config['module_lock'] ?? ''));
         if ($lockPath === '') {
             throw new \RuntimeException('PLUGIN_LOCK_INVALID');
         }
         $releasePath = $serverRoot . '/.peanut/release-identity.json';
-        $registry = !$this->app->runningInConsole() && (file_exists($releasePath) || is_link($releasePath))
-            ? $this->app->make(\app\common\infrastructure\installation\VerifiedServerDeployment::class)->registry()
-            : (new ModuleDefinitionRegistryFactory($serverRoot))->fromPluginLock(
-                new PluginLockResolver($serverRoot, $lockPath),
-                $config,
-                false,
-            );
+        if (\app\common\value\installation\ApplicationSourceIdentity::hasRuntime($serverRoot)
+            && Config::get('peanut.environment', '') !== 'development') {
+            throw new \RuntimeException('APPLICATION_DEVELOPMENT_RUNTIME_ENVIRONMENT_INVALID');
+        }
+        $developmentReadonly = \app\common\value\installation\ApplicationSourceIdentity::hasRuntime($serverRoot)
+            && \app\common\infrastructure\installation\ReadonlyHttpMount::active($serverRoot);
+        $factory = new ModuleDefinitionRegistryFactory($serverRoot);
+        if (!$this->app->runningInConsole()) {
+            $registry = file_exists($releasePath) || is_link($releasePath)
+                || \app\common\infrastructure\installation\ReadonlyHttpMount::active($serverRoot)
+                ? $this->app->make(\app\common\infrastructure\installation\VerifiedServerDeployment::class)->registry()
+                : $factory->fromCompiled($config);
+        } else {
+            $resolver = ModuleLockResolver::forRuntime($serverRoot, $lockPath);
+            $registry = $factory->fromModuleLock($resolver, $config, false);
+            if (PHP_SAPI === 'cli' && in_array((new \think\console\Input())->getFirstArgument(), ['run', 'module:compile'], true)
+                && !file_exists($releasePath) && !is_link($releasePath) && !$developmentReadonly) {
+                $factory->publishCompiled($registry, $config, $resolver->all());
+            }
+        }
+        foreach ($registry->modules as $manifest) {
+            \app\common\module\PackageCheck::assertEdition($manifest->root, (string) Config::get('deployment.mode', ''));
+        }
         $this->app->instance(CompiledModuleRegistry::class, $registry);
         $this->app->make(ModuleComposition::class)->register($registry);
     }
@@ -730,9 +741,4 @@ class AppService extends Service
         return $key;
     }
 
-    /** @return list<string> */
-    private static function hostList(string $hosts): array
-    {
-        return array_values(array_filter(array_map('trim', explode(',', $hosts))));
-    }
 }

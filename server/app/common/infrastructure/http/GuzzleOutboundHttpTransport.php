@@ -44,9 +44,10 @@ final readonly class GuzzleOutboundHttpTransport implements OutboundHttpTranspor
                         'headers' => $request->headers,
                         'http_errors' => false,
                         'multipart' => $request->multipart !== [] ? $request->multipart : null,
+                        'proxy' => $request->directConnection ? '' : null,
                         'sink' => $request->sink,
                         'timeout' => $request->timeoutSeconds,
-                        'verify' => true,
+                        'verify' => $request->caBundleFile ?? true,
                     ], static fn(mixed $value): bool => $value !== null),
                 );
                 $status = $response->getStatusCode();

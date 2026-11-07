@@ -432,7 +432,7 @@ test('route collection preserves source order and native deployment filtering wi
         'virtual:peanut-instance-tool-routes': [
           route('tool', { instanceTool: true }),
         ],
-        './plugin-contributions': { pluginRoutes: [route('plugin')] },
+        './module-contributions': { moduleRoutes: [route('module')] },
       },
       {
         __meta: {
@@ -458,8 +458,8 @@ test('route collection preserves source order and native deployment filtering wi
     assert.deepEqual(
       json(result.appRoutes.map((r) => r.name)),
       instanceAllowed
-        ? ['one', 'two', 'tool', 'plugin']
-        : ['one', 'two', 'platform', 'plugin']
+        ? ['one', 'two', 'tool', 'module']
+        : ['one', 'two', 'platform', 'module']
     );
     assert.equal(result.appExternalRoutes[0].name, 'outside');
   }

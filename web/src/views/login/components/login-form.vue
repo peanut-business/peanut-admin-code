@@ -12,7 +12,10 @@
     >
       <el-form-item
         prop="username"
-        :rules="[{ required: true, message: $t('login.form.userName.errMsg') }]"
+        :rules="[
+          { required: true, message: $t('login.form.userName.errMsg') },
+          { type: 'email', message: $t('login.form.userName.formatErrMsg') },
+        ]"
       >
         <el-input
           v-model="userInfo.username"
@@ -147,7 +150,7 @@
 <style lang="less" scoped>
   .login-form {
     &-wrapper {
-      width: 320px;
+      width: 100%;
     }
 
     &-title {
@@ -164,9 +167,9 @@
     }
 
     &-error-msg {
-      height: 32px;
+      min-height: 28px;
       color: var(--el-color-danger);
-      line-height: 32px;
+      line-height: 28px;
     }
 
     &-actions {
@@ -177,7 +180,11 @@
 
     &-button {
       width: 100%;
+      min-height: 40px;
       margin-left: 0;
     }
+  }
+  .login-form :deep(.el-input__wrapper) {
+    min-height: 40px;
   }
 </style>

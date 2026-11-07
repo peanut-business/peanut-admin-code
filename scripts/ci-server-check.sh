@@ -18,7 +18,16 @@ fi
   echo "ERROR: backend environment is missing or unsafe: $BACKEND_ENV" >&2
   exit 2
 }
-export PEANUT_SERVER_ENV_FILE="$BACKEND_ENV"
+backend_directory=$(CDPATH= cd -- "$(dirname -- "$BACKEND_ENV")" && pwd -P)
+[[ "$backend_directory" == "$ROOT/server" ]] || { echo 'backend environment must be inside server/' >&2; exit 2; }
+backend_name=$(basename -- "$BACKEND_ENV")
+case "$backend_name" in
+  .env) native_env_name= ;;
+  .env.example) echo 'backend environment must not be the example file' >&2; exit 2 ;;
+  .env.*) native_env_name=${backend_name#.env.} ;;
+  *) echo 'backend environment must be .env or .env.<name>' >&2; exit 2 ;;
+esac
+export PHP_ENV_NAME="$native_env_name"
 
 case "$mode" in
   --daily|--broad|--integration|--mysql) ;;
@@ -104,19 +113,14 @@ select_test() {
   printf '%s\n' "$path" >>"$selected_file"
 }
 
-registered_mysql_test() {
-  case "$1" in
-    server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest.php|\
-    server/tests/Modules/Official/Notification/mysql-harness.php|\
-    server/tests/Multitenancy/MemberSessionTenantIsolationTest.php)
-      return 0
-      ;;
-  esac
-  return 1
-}
+source "$ROOT/scripts/tests/run-registered-mysql-tests"
 
 direct_test_target() {
   case "$1" in
+    server/tests/Productization/OptionalModuleCompositionTest.php|\
+    server/tests/Productization/NativeNotificationCompositionTest.php)
+      return 1
+      ;;
     server/tests/fixtures/*|server/tests/Support/*|server/tests/*/Support/*)
       return 1
       ;;
@@ -141,7 +145,7 @@ if [[ "$mode" == '--integration' ]]; then
     echo 'ERROR: PEANUT_MYSQL_RESOURCE_MODE is invalid' >&2
     exit 2
   }
-  run_command registered-mysql-integration 3 \
+  run_command registered-mysql-integration 1 \
     "$ROOT/scripts/tests/run-registered-mysql-tests" "$mysql_resource_mode" --env-file "$BACKEND_ENV"
   write_summary passed
   exit 0
@@ -215,7 +219,7 @@ done < <(find server/tests/Unit -maxdepth 1 -type f -name '*.php' -print | LC_AL
 behavior_selected=0
 while IFS= read -r path; do
   [[ -n "$path" ]] || continue
-  if direct_test_target "$path" && ! registered_mysql_test "$path" && [[ -f "$path" ]]; then
+  if direct_test_target "$path" && ! registered_mysql_test "$path" && ! application_mysql_test "$path" && [[ -f "$path" ]]; then
     select_test "$path"
     behavior_selected=1
   fi
@@ -231,14 +235,14 @@ while IFS= read -r path; do
       select_test server/tests/Multitenancy/NativeAdminIdentityRuntimeContractTest.php
       behavior_selected=1
       ;;
-    server/app/modules/*|plugins/*|plugins.lock)
+    server/app/modules/*|plugins/*|modules.lock)
       select_test server/tests/Productization/ModuleCoreDependencyTest.php
-      select_test server/tests/Productization/PluginArtifactContractTest.php
-      select_test server/tests/Productization/PluginModuleContractTest.php
+      select_test server/tests/Productization/ModuleArtifactContractTest.php
+      select_test server/tests/Productization/ModuleModuleContractTest.php
       select_test server/tests/Multitenancy/OfficialCapabilityTenantQualificationTest.php
       behavior_selected=1
       ;;
-    server/app/platform/infrastructure/plugin/PluginPackageSourcePromoter.php)
+    server/app/platform/infrastructure/module/ModulePackageSourcePromoter.php)
       select_test server/tests/Productization/ModuleSourcePathIsolationTest.php
       select_test server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php
       behavior_selected=1
@@ -249,16 +253,6 @@ while IFS= read -r path; do
       ;;
     scripts/run-php-test|scripts/ci-server-check.sh|scripts/check-test-integrity|.github/workflows/ci.yml)
       select_test server/tests/Unit/PhpTestRunnerTest.php
-      behavior_selected=1
-      ;;
-    scripts/package-release-files.py|scripts/tests/release-public-assets-test.py)
-      select_test server/tests/Productization/ReleasePublicAssetsBoundaryTest.php
-      behavior_selected=1
-      ;;
-    scripts/product-upgrade-host)
-      select_test server/tests/Productization/ProductUpgradeHostBackupBindingTest.php
-      select_test server/tests/Productization/ProductUpgradeHostResumeFailureTest.php
-      select_test server/tests/Productization/ProductUpgradeHostRecoveryVerifyTest.php
       behavior_selected=1
       ;;
     scripts/create-app|scripts/build-application-template-inventory|scaffold/*)
@@ -281,14 +275,11 @@ if [[ "$mode" == '--broad' || "$behavior_selected" -eq 0 ]]; then
     server/tests/Productization/ModuleSourcePathIsolationTest.php \
     server/tests/Productization/FreshSchemaBaselineTest.php \
     server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php \
-    server/tests/Productization/OAuthChannelHostTest.php \
     server/tests/Multitenancy/NativeAdminIdentityRuntimeContractTest.php \
     server/tests/Multitenancy/OfficialCapabilityTenantQualificationTest.php \
-    server/tests/Productization/MemberFinanceHostTest.php \
-    server/tests/Productization/PluginArtifactContractTest.php \
-    server/tests/Productization/PluginModuleContractTest.php \
-    server/tests/Productization/OfficialArticleModuleContractTest.php \
-    server/tests/Productization/PluginLifecycleMigrationContractTest.php; do
+    server/tests/Productization/ModuleArtifactContractTest.php \
+    server/tests/Productization/ModuleModuleContractTest.php \
+    server/tests/Productization/ModuleLifecycleMigrationContractTest.php; do
     select_test "$test_file"
   done
 fi
@@ -299,10 +290,34 @@ LC_ALL=C sort -u "$selected_file" -o "$selected_file"
   exit 1
 }
 
-while IFS= read -r test_file; do
+selected_test_count=$(wc -l <"$selected_file")
+printf '[ci-selection] selected_test_targets=%d\n' "$selected_test_count"
+# Keep the selection on its own descriptor. Interactive child launchers may consume stdin.
+while IFS= read -r test_file <&3; do
   [[ -n "$test_file" ]] || continue
-  run_command "test:${test_file}" 1 \
-    php "$ROOT/scripts/run-php-test" "--env-file=$BACKEND_ENV" "$test_file"
-done <"$selected_file"
+  case "$test_file" in
+    server/tests/Productization/DatabaseResourceRegistryTest.php)
+      run_command "test:${test_file}:schema-contract" 1 \
+        php "$ROOT/scripts/run-php-test" "--env-file=$BACKEND_ENV" "$test_file" -- --schema-contract
+      ;;
+    server/tests/Productization/P0eRuntimeQualificationTest.php)
+      run_command p0e-template-stage-contract 1 python3 scripts/tests/p0e_template_stage_test.py
+      ;;
+    *)
+      runner=(php)
+      if [[ "$test_file" == server/tests/Productization/CreateApplicationPublicIdentityTest.php && -n "${PEANUT_TEST_PRODUCER_STATE:-}" ]]; then
+        # This contract creates sealed Edition archives with five exact tool versions.
+        runner=("$ROOT/scripts/ci-producer" exec "$PEANUT_TEST_PRODUCER_STATE" -- env "PHP_ENV_NAME=$native_env_name" php)
+      fi
+      run_command "test:${test_file}" 1 \
+        "${runner[@]}" "$ROOT/scripts/run-php-test" "--env-file=$BACKEND_ENV" "$test_file"
+      ;;
+  esac
+done 3<"$selected_file" </dev/null
 
+if (( test_targets != selected_test_count )); then
+  printf 'ERROR: executed %d of %d selected test targets\n' "$test_targets" "$selected_test_count" >&2
+  write_summary failed
+  exit 1
+fi
 write_summary passed

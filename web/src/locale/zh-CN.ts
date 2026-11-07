@@ -1,5 +1,5 @@
 import localeLogin from '@/views/login/locale/zh-CN';
-import localeInstallation from '@/views/installation/locale/zh-CN';
+import localeInstallation from '@/views/install/locale/zh-CN';
 
 import localeWorkplace from '@/views/dashboard/workplace/locale/zh-CN';
 import localeUserSetting from '@/views/user/setting/locale/zh-CN';
@@ -10,28 +10,16 @@ import localeSystemAdmin from '@/views/system/admin/locale/zh-CN';
 import localeSystemDept from '@/views/system/dept/locale/zh-CN';
 import localeSystemJobs from '@/views/system/jobs/locale/zh-CN';
 import localeSystemDict from '@/views/system/dict/locale/zh-CN';
-import localeSystemFile from '@/modules/official-file/views/locale/zh-CN';
-import localeSystemCrontab from '@/modules/official-task/views/locale/zh-CN';
+import localeSystemFile from '@/modules/peanut-file/views/locale/zh-CN';
+import localeSystemCrontab from '@/modules/peanut-task/views/locale/zh-CN';
 import localeSystemMaintenance from '@/views/system/maintenance/locale/zh-CN';
 import localeSystemLog from '@/views/system/log/locale/zh-CN';
 import localeSystemConfig from '@/views/system/config/locale/zh-CN';
-import localeMemberList from '@/modules/official-member/views/list/locale/zh-CN';
-import localeMemberTag from '@/modules/official-member/views/tag/locale/zh-CN';
-import localeNoticeChannel from '@/modules/official-notification/views/channel/locale/zh-CN';
-import localeNoticeTemplate from '@/modules/official-notification/views/template/locale/zh-CN';
-import localeNoticeLog from '@/modules/official-notification/views/log/locale/zh-CN';
-import localeFinanceAccountLog from '@/modules/official-member/views/account-log/locale/zh-CN';
-import localeFinanceRecharge from '@/modules/official-payment/views/recharge/locale/zh-CN';
-import localeFinanceRefund from '@/modules/official-payment/views/refund/locale/zh-CN';
 import localeAppHotSearch from '@/views/app-setting/hot-search/locale/zh-CN';
-import localeAppPay from '@/modules/official-payment/views/settings/locale/zh-CN';
-import localeAppChannel from '@/modules/official-oauth/views/channel/locale/zh-CN';
-import localeAppTransaction from '@/views/app-setting/transaction/locale/zh-CN';
 import localeAppReadiness from '@/views/app-setting/readiness/locale/zh-CN';
-import localeArticleCate from '@/modules/official-article/views/cate/locale/zh-CN';
-import localeArticleList from '@/modules/official-article/views/list/locale/zh-CN';
-import localeConfigurationTransfer from '@/modules/official-import-export/views/locale/zh-CN';
-import localeRichText from '@/modules/official-rich-text/views/locale/zh-CN';
+import localeOfficialSettings from '@/modules/peanut-settings/locale/zh-CN';
+import localeReferenceCodes from '@/modules/peanut-reference-codes/locale/zh-CN';
+import localeIntegrationSecurity from '@/modules/peanut-integration/runtime/locale/zh-CN';
 import localeSettings from './zh-CN/settings';
 
 export default {
@@ -54,6 +42,8 @@ export default {
   'navbar.tenantSelect': '请选择租户',
   'navbar.cancel': '取消',
   'navbar.confirm': '确认',
+  'tenantSession.networkError': '网络连接失败，请检查网络后重试',
+  'tenantSession.requestTimeout': '请求超时，请稍后重试',
   ...localeSettings,
   ...localeLogin,
   ...localeInstallation,
@@ -70,21 +60,9 @@ export default {
   ...localeSystemMaintenance,
   ...localeSystemLog,
   ...localeSystemConfig,
-  ...localeMemberList,
-  ...localeMemberTag,
-  ...localeNoticeChannel,
-  ...localeNoticeTemplate,
-  ...localeNoticeLog,
-  ...localeFinanceAccountLog,
-  ...localeFinanceRecharge,
-  ...localeFinanceRefund,
   ...localeAppHotSearch,
-  ...localeAppPay,
-  ...localeAppChannel,
-  ...localeAppTransaction,
   ...localeAppReadiness,
-  ...localeArticleCate,
-  ...localeArticleList,
-  ...localeConfigurationTransfer,
-  ...localeRichText,
+  ...localeOfficialSettings,
+  ...localeReferenceCodes,
+  ...localeIntegrationSecurity,
 };

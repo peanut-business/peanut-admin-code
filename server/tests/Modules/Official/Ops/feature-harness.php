@@ -434,57 +434,18 @@ $maintenance = new MaintenanceService($all, new MaintenanceReasonRegistry(['upgr
 $window = $maintenance->schedule($platform, 'upgrade', '2026-07-24T03:00:00.000Z', '2026-07-24T04:00:00.000Z', 0, 'maintenance-request-0001');
 $windowReplay = $maintenance->schedule($platform, 'upgrade', '2026-07-24T03:00:00.000Z', '2026-07-24T04:00:00.000Z', 0, 'maintenance-request-0001');
 same($window->maintenanceKey, $windowReplay->maintenanceKey, 'maintenance exact replay');
-truth($window !== $maintenanceStore->window && $windowReplay !== $maintenanceStore->window, 'maintenance schedule and replay are reconstructed');
+truth($window === $maintenanceStore->window && $windowReplay === $window, 'maintenance returns the typed store result');
 $currentWindow = $maintenance->current($platform);
-truth($currentWindow !== $window && $currentWindow?->maintenanceKey === $window->maintenanceKey, 'maintenance current is reconstructed');
-$serializedWindow = serialize($window);
-$forgedWindow = unserialize(str_replace('T04:00:00.000Z', 'T02:00:00.000Z', $serializedWindow), ['allowed_classes' => [MaintenanceWindow::class]]);
-truth($forgedWindow instanceof MaintenanceWindow, 'forged maintenance fixture');
-$maintenanceStore->window = $forgedWindow;
-expectCode('OPS_INTERNAL_ERROR', fn() => $maintenance->current($platform), 'invalid stored maintenance fails closed');
-$maintenanceStore->window = $window;
+truth($currentWindow === $window, 'maintenance current returns the typed store result');
 expectCode('OPS_IDEMPOTENCY_CONFLICT', fn() => $maintenance->schedule($platform, 'upgrade', '2026-07-24T03:00:00.000Z', '2026-07-24T05:00:00.000Z', 0, 'maintenance-request-0001'), 'maintenance idempotency conflict');
 expectCode('OPS_REVISION_CONFLICT', fn() => $maintenance->close($platform, $window->maintenanceKey, 2, 'maintenance-close-0001'), 'maintenance stale revision');
 $closed = $maintenance->close($platform, $window->maintenanceKey, 1, 'maintenance-close-0002');
 same('closed', $closed->state, 'maintenance close');
-truth($closed !== $maintenanceStore->window, 'maintenance close is reconstructed');
+truth($closed === $maintenanceStore->window, 'maintenance close returns the typed store result');
 same(2, count($maintenanceStore->audits), 'maintenance audits commit with writes');
 expectCode('OPS_MAINTENANCE_INVALID', fn() => $maintenance->schedule($platform, 'upgrade', '2026-07-24T00:00:00.000Z', '2026-07-26T00:00:00.000Z', 2, 'maintenance-request-0002'), 'maintenance duration');
 expectInvalidArgument(fn() => new MaintenanceWindow('maintenance_' . str_repeat('3', 32), 'scheduled', 'upgrade', '2026-07-24T03:00:00.000Z', '2026-07-24T03:00:00.000Z', 1), 'maintenance requires positive duration');
 expectInvalidArgument(fn() => new MaintenanceWindow('maintenance_' . str_repeat('4', 32), 'scheduled', 'upgrade', '2026-07-24T03:00:00.000Z', '2026-07-25T03:00:00.001Z', 1), 'maintenance rejects 24 hours plus one millisecond');
-
-$invalidScheduleStore = new MaintenanceStore();
-$invalidScheduleStore->returnOverride = $forgedWindow;
-expectCode('OPS_INTERNAL_ERROR', fn() => (new MaintenanceService($all, new MaintenanceReasonRegistry(['upgrade']), $invalidScheduleStore))->schedule(
-    $platform,
-    'upgrade',
-    '2026-07-24T05:00:00.000Z',
-    '2026-07-24T06:00:00.000Z',
-    0,
-    'invalid-schedule-return-0001',
-), 'invalid schedule store return fails closed');
-$invalidReplayStore = new MaintenanceStore();
-$invalidReplayService = new MaintenanceService($all, new MaintenanceReasonRegistry(['upgrade']), $invalidReplayStore);
-$invalidReplayService->schedule($platform, 'upgrade', '2026-07-24T05:00:00.000Z', '2026-07-24T06:00:00.000Z', 0, 'invalid-replay-return-0001');
-$invalidReplayStore->returnOverride = $forgedWindow;
-expectCode('OPS_INTERNAL_ERROR', fn() => $invalidReplayService->schedule(
-    $platform,
-    'upgrade',
-    '2026-07-24T05:00:00.000Z',
-    '2026-07-24T06:00:00.000Z',
-    0,
-    'invalid-replay-return-0001',
-), 'invalid idempotent replay store return fails closed');
-$invalidCloseStore = new MaintenanceStore();
-$invalidCloseService = new MaintenanceService($all, new MaintenanceReasonRegistry(['upgrade']), $invalidCloseStore);
-$closeCandidate = $invalidCloseService->schedule($platform, 'upgrade', '2026-07-24T05:00:00.000Z', '2026-07-24T06:00:00.000Z', 0, 'invalid-close-setup-0001');
-$invalidCloseStore->returnOverride = $forgedWindow;
-expectCode('OPS_INTERNAL_ERROR', fn() => $invalidCloseService->close(
-    $platform,
-    $closeCandidate->maintenanceKey,
-    $closeCandidate->revision,
-    'invalid-close-return-0001',
-), 'invalid close store return fails closed');
 
 try {
     new SafeLogMessageCatalog(['runtime.request.failed' => 'password=secret']);

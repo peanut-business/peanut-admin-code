@@ -10,10 +10,14 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 
 require dirname(__DIR__, 4) . '/vendor/autoload.php';
-require dirname(__DIR__, 3) . '/Support/IsolatedBackendEnvironment.php';
+require_once dirname(__DIR__, 3) . '/Support/CiBootstrap.php';
+require_once dirname(__DIR__, 3) . '/Support/RegisteredMysqlTestResource.php';
+require_once dirname(__DIR__, 3) . '/Support/ThinkPhpTestConnection.php';
+require_once dirname(__DIR__, 3) . '/Support/IdentityMysqlFixture.php';
 
 function expectDictTenant(bool $condition, string $message): void
 {
+    $GLOBALS['dictTenantChecks'] = ($GLOBALS['dictTenantChecks'] ?? 0) + 1;
     if (!$condition) {
         throw new RuntimeException($message);
     }
@@ -40,103 +44,23 @@ function dictTenantContext(int $tenantId, int $memberId, string $requestId): Ten
         'admin-web',
         new DateTimeImmutable('2031-01-01T00:00:00Z'),
         1,
+        1,
     ), $requestId);
-}
-
-function dictTenantDatabase(PDO $admin, string $database): string
-{
-    $admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-    return $database;
-}
-
-function dictTenantEnv(string $name): string
-{
-    $value = getenv($name);
-    if ($value === false || $value === '') {
-        throw new RuntimeException("missing required environment variable: {$name}");
-    }
-    return $value;
-}
-
-function dictTenantPdo(string $host, int $port, string $password, string $database): PDO
-{
-    return new PDO(
-        "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
-        dictTenantEnv('DB_USER'),
-        $password,
-        [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_EMULATE_PREPARES => false,
-            PDO::MYSQL_ATTR_MULTI_STATEMENTS => true,
-        ],
-    );
 }
 
 function createDictTenantSchema(PDO $pdo): void
 {
-    $pdo->exec(<<<'SQL'
-CREATE TABLE pa_tenant (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  status VARCHAR(32) NOT NULL,
-  PRIMARY KEY (id)
-) ENGINE=InnoDB;
-CREATE TABLE pa_dict_type (
-  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  name VARCHAR(100) NOT NULL DEFAULT '', type VARCHAR(100) NOT NULL DEFAULT '',
-  is_disable TINYINT NOT NULL DEFAULT 0, remark VARCHAR(255) NOT NULL DEFAULT '',
-  create_time INT UNSIGNED NOT NULL DEFAULT 0, update_time INT UNSIGNED NOT NULL DEFAULT 0,
-  delete_time INT UNSIGNED NULL DEFAULT NULL, tenant_id BIGINT UNSIGNED NOT NULL,
-  active_type VARCHAR(100) GENERATED ALWAYS AS (CASE WHEN delete_time IS NULL THEN type ELSE NULL END) STORED,
-  PRIMARY KEY (id), KEY idx_type (type),
-  UNIQUE KEY uk_dict_type_tenant_id (tenant_id, id),
-  UNIQUE KEY uk_dict_type_tenant_active_type (tenant_id, active_type),
-  KEY idx_dict_type_tenant_status_name (tenant_id, is_disable, name, id),
-  CONSTRAINT fk_dict_type_tenant FOREIGN KEY (tenant_id) REFERENCES pa_tenant (id) ON DELETE RESTRICT
-) ENGINE=InnoDB;
-CREATE TABLE pa_dict_data (
-  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  name VARCHAR(100) NOT NULL DEFAULT '', value VARCHAR(255) NOT NULL DEFAULT '',
-  type_id INT UNSIGNED NOT NULL DEFAULT 0, type_value VARCHAR(100) NOT NULL DEFAULT '',
-  sort SMALLINT NOT NULL DEFAULT 0, is_disable TINYINT NOT NULL DEFAULT 0,
-  remark VARCHAR(255) NOT NULL DEFAULT '', create_time INT UNSIGNED NOT NULL DEFAULT 0,
-  update_time INT UNSIGNED NOT NULL DEFAULT 0, delete_time INT UNSIGNED NULL DEFAULT NULL,
-  tenant_id BIGINT UNSIGNED NOT NULL,
-  PRIMARY KEY (id), KEY idx_type_id (type_id),
-  UNIQUE KEY uk_dict_data_tenant_id (tenant_id, id),
-  KEY idx_dict_data_tenant_type_status_sort (tenant_id, type_id, is_disable, sort, id),
-  CONSTRAINT fk_dict_data_tenant FOREIGN KEY (tenant_id) REFERENCES pa_tenant (id) ON DELETE RESTRICT,
-  CONSTRAINT fk_dict_data_tenant_type FOREIGN KEY (tenant_id, type_id) REFERENCES pa_dict_type (tenant_id, id) ON DELETE RESTRICT
-) ENGINE=InnoDB;
-CREATE TABLE pa_system_dict_type (
-  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  code VARCHAR(100) NOT NULL,
-  name VARCHAR(100) NOT NULL DEFAULT '',
-  is_disable TINYINT NOT NULL DEFAULT 0,
-  remark VARCHAR(255) NOT NULL DEFAULT '',
-  create_time INT UNSIGNED NOT NULL DEFAULT 0,
-  update_time INT UNSIGNED NOT NULL DEFAULT 0,
-  PRIMARY KEY (id), UNIQUE KEY uk_system_dict_type_code (code)
-) ENGINE=InnoDB;
-CREATE TABLE pa_system_dict_data (
-  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  type_code VARCHAR(100) NOT NULL,
-  name VARCHAR(100) NOT NULL DEFAULT '',
-  value VARCHAR(255) NOT NULL DEFAULT '',
-  sort SMALLINT NOT NULL DEFAULT 0,
-  is_disable TINYINT NOT NULL DEFAULT 0,
-  remark VARCHAR(255) NOT NULL DEFAULT '',
-  create_time INT UNSIGNED NOT NULL DEFAULT 0,
-  update_time INT UNSIGNED NOT NULL DEFAULT 0,
-  PRIMARY KEY (id), UNIQUE KEY uk_system_dict_data_type_value (type_code, value),
-  CONSTRAINT fk_system_dict_data_type FOREIGN KEY (type_code) REFERENCES pa_system_dict_type (code)
-) ENGINE=InnoDB;
-SQL);
+    IdentityMysqlFixture::install($pdo, [
+        dirname(__DIR__, 4) . '/app/modules/peanut/reference_codes/database/migrations',
+    ]);
 }
 
 function seedDictTenantSchema(PDO $pdo): void
 {
     $pdo->exec(<<<'SQL'
-INSERT INTO pa_tenant (id, status) VALUES (101, 'active'), (202, 'active');
+INSERT INTO pa_tenant(id,code,name,display_name,status,activated_at,created_at,updated_at) VALUES
+ (101,'alpha','Alpha','Alpha','active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3)),
+ (202,'beta','Beta','Beta','active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3));
 INSERT INTO pa_dict_type (id, tenant_id, name, type) VALUES
   (11, 101, 'Alpha', 'shared_key'),
   (12, 202, 'Beta', 'shared_key');
@@ -146,21 +70,10 @@ INSERT INTO pa_dict_data (id, tenant_id, name, value, type_id, type_value, sort)
 SQL);
 }
 
-$host = dictTenantEnv('DB_HOST');
-$port = (int) dictTenantEnv('DB_PORT');
-$user = dictTenantEnv('DB_USER');
-$password = dictTenantEnv('DB_PASS');
-$database = dictTenantEnv('DB_NAME');
-$admin = new PDO(
-    "mysql:host={$host};port={$port};charset=utf8mb4",
-    $user,
-    $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
-);
-$database = dictTenantDatabase($admin, $database);
+$database = RegisteredMysqlTestResource::configuredDatabaseName();
+[$pdo, $databaseCreated] = RegisteredMysqlTestResource::openEmptyDatabase($database);
 
 try {
-    $pdo = dictTenantPdo($host, $port, $password, $database);
     createDictTenantSchema($pdo);
     seedDictTenantSchema($pdo);
     try {
@@ -170,9 +83,11 @@ try {
         expectDictTenant($exception->getCode() === '23000', 'dictionary uniqueness failed with an unexpected shape');
     }
 
-    IsolatedBackendEnvironment::activateDatabase($host, $port, $database, $user, $password, 'multi-tenant');
-    $app = new think\App();
+    $app = think\Container::getInstance();
+    $app->env->set(['DEPLOYMENT_MODE' => 'multi-tenant', 'APP_ENV' => 'development', 'APP_DEBUG' => true]);
     $app->initialize();
+    $app->cache->clear();
+    ThinkPhpTestConnection::fromPdo($pdo);
 
     $alpha = dictTenantContext(101, 501, 'mt02-dict-alpha');
     $beta = dictTenantContext(202, 502, 'mt02-dict-beta');
@@ -187,28 +102,28 @@ try {
         app(ExecutionContextStore::class)->run(
             new \app\common\execution\AdminExecutionContext($alpha, 'test.dict.type.list.alpha'),
             fn() => app(DictTypeApplicationService::class)->lists($alpha, []),
-        )->total() === 1,
+        )->total === 1,
         'Alpha type list crossed Tenant boundary',
     );
     expectDictTenant(
         app(ExecutionContextStore::class)->run(
             new \app\common\execution\AdminExecutionContext($beta, 'test.dict.type.list.beta'),
             fn() => app(DictTypeApplicationService::class)->lists($beta, []),
-        )->total() === 1,
+        )->total === 1,
         'Beta type list crossed Tenant boundary',
     );
     expectDictTenant(
         app(ExecutionContextStore::class)->run(
             new \app\common\execution\AdminExecutionContext($alpha, 'test.dict.data.list.alpha'),
             fn() => app(DictDataApplicationService::class)->lists($alpha, []),
-        )->total() === 1,
+        )->total === 1,
         'Alpha data list crossed Tenant boundary',
     );
     expectDictTenant(
         app(ExecutionContextStore::class)->run(
             new \app\common\execution\AdminExecutionContext($beta, 'test.dict.data.list.beta'),
             fn() => app(DictDataApplicationService::class)->lists($beta, []),
-        )->total() === 1,
+        )->total === 1,
         'Beta data list crossed Tenant boundary',
     );
     expectDictTenant(
@@ -386,7 +301,7 @@ try {
         'cross-Tenant denial changed Beta data',
     );
 } finally {
-    $admin->exec("DROP DATABASE IF EXISTS `{$database}`");
+    RegisteredMysqlTestResource::cleanup($pdo, $database, $databaseCreated);
 }
 
-echo "MT02-DICT-TENANT-ISOLATION-001 passed\n";
+echo 'MT02-DICT-TENANT-ISOLATION-001 passed checks=' . $GLOBALS['dictTenantChecks'] . PHP_EOL;

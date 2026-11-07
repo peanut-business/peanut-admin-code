@@ -12,10 +12,10 @@ use DomainException;
 use PDO;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
+use PeanutAdmin\Modules\Integration\ModuleProvider;
 use PeanutAdmin\Modules\Integration\Contract\ExternalChannelBindingStore;
 use PeanutAdmin\Modules\Integration\Contract\ExternalIntegrationBootstrapCommands;
 use PeanutAdmin\Modules\Integration\Infrastructure\ThinkPhpExternalTenantBindingRepository;
-use PeanutAdmin\Modules\Integration\ModuleProvider;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
@@ -54,7 +54,7 @@ final class IntegrationBootstrapAuthorizationTest extends TestCase
         \ThinkPhpTestConnection::fromPdo($this->database);
         $this->database->exec(<<<'SQL'
             CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY, code TEXT, status TEXT);
-            CREATE TABLE pa_external_channel_binding (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER, provider TEXT, callback_key TEXT, identity_hash TEXT, identity_hint TEXT, config_json TEXT, status INTEGER, create_time INTEGER, update_time INTEGER, UNIQUE(tenant_id, provider));
+            CREATE TABLE pa_external_channel_binding (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER, provider TEXT, callback_key TEXT, identity_hash TEXT, identity_hint TEXT, config_json TEXT, status INTEGER, create_time INTEGER, update_time INTEGER, retired_at INTEGER, current_key INTEGER GENERATED ALWAYS AS (CASE WHEN retired_at IS NULL THEN 1 END) STORED, UNIQUE(tenant_id,provider,current_key));
             INSERT INTO pa_tenant VALUES (1, 'alpha', 'active'), (2, 'beta', 'provisioning');
             SQL);
         $this->contexts = new ExecutionContextStore();
@@ -184,14 +184,15 @@ final class IntegrationBootstrapAuthorizationTest extends TestCase
         self::assertSame($before, $this->rows());
     }
 
-    public function testModuleProviderBuildsTheGuardedCommandWithItsRealDependencies(): void
+    public function testNativeContainerBuildsTheGuardedCommandWithItsRealDependencies(): void
     {
         $this->application->instance(ExternalChannelBindingStore::class, $this->bindings);
         $this->application->instance(CurrentExecutionContext::class, $this->current);
         $this->application->instance(AdminDirectoryQuery::class, $this->directory);
-        $factory = (new ModuleProvider())->bindings()[ExternalIntegrationBootstrapCommands::class];
-        self::assertIsCallable($factory);
-        $command = $factory($this->application);
+        $binding = (new ModuleProvider())->bindings()[ExternalChannelBindingStore::class];
+        self::assertSame(ThinkPhpExternalTenantBindingRepository::class, $binding);
+        $command = $this->application->make(ExternalIntegrationBootstrapCommands::class);
+        self::assertInstanceOf(ExternalIntegrationBootstrapCommands::class, $command);
         $this->contexts->run($this->system(), fn() => $command->ensureUnconfiguredBinding(1, 'alpha', 'payment.wechat'));
         self::assertCount(1, $this->rows());
     }
@@ -205,10 +206,21 @@ final class IntegrationBootstrapAuthorizationTest extends TestCase
         $method = new ReflectionMethod($host, 'seedExternalBindings');
         $outer = $this->system(operation: 'notification.provision-tenant-defaults');
         $this->contexts->run($outer, function () use ($method, $host, $outer): void {
-            $method->invoke($host, 1, 'alpha');
+            $method->invoke($host, 1, 'alpha', ['peanut.payment', 'peanut.oauth']);
             self::assertSame($outer, $this->contexts->current());
         });
         self::assertCount(6, $this->rows());
+        self::assertTrue($this->contexts->isEmpty());
+    }
+
+    public function testHostDoesNotSeedBindingsForUnselectedOptionalModules(): void
+    {
+        $host = (new ReflectionClass(ApplicationTenantBootstrapService::class))->newInstanceWithoutConstructor();
+        (new ReflectionProperty($host, 'executionContexts'))->setValue($host, $this->contexts);
+        (new ReflectionProperty($host, 'externalBindings'))->setValue($host, $this->commands);
+        $method = new ReflectionMethod($host, 'seedExternalBindings');
+        $this->contexts->run($this->system(), fn() => $method->invoke($host, 1, 'alpha', []));
+        self::assertSame([], $this->rows());
         self::assertTrue($this->contexts->isEmpty());
     }
 }

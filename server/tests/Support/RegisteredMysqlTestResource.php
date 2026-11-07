@@ -110,7 +110,16 @@ final class RegisteredMysqlTestResource
                 $name = (string) ($row[0] ?? '');
                 $type = strtoupper((string) ($row[1] ?? ''));
                 self::assertFixtureObjectName($name);
-                $pdo->exec(($type === 'VIEW' ? 'DROP VIEW `' : 'DROP TABLE `') . $name . '`');
+                $started = hrtime(true);
+                try {
+                    $pdo->exec(($type === 'VIEW' ? 'DROP VIEW `' : 'DROP TABLE `') . $name . '`');
+                } catch (PDOException $exception) {
+                    throw new RuntimeException(sprintf(
+                        'REGISTERED_MYSQL_CLEANUP_DROP_FAILED object=%s elapsed_ms=%.3f',
+                        $name,
+                        (hrtime(true) - $started) / 1_000_000,
+                    ), 0, $exception);
+                }
             }
         } finally {
             $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
@@ -225,7 +234,7 @@ final class RegisteredMysqlTestResource
             $allowedDatabases = [];
             foreach ($resource['allowed_scenarios'] ?? [] as $scenario) {
                 if (!in_array($scenario, [
-                    'standalone_fresh', 'multi_tenant_fresh', 'plugin_lifecycle',
+                    'standalone_fresh', 'multi_tenant_fresh', 'module_lifecycle',
                     'consumer_module_cycle', 'standalone_browser', 'multi_tenant_browser',
                 ], true)) {
                     throw new RuntimeException('REGISTERED_MYSQL_RESOURCE_MISMATCH');
@@ -256,7 +265,14 @@ final class RegisteredMysqlTestResource
             $scope = str_replace('<run_id>', $runId, $resource['namespace']);
         }
         $gate = $p0e ? 'p0e-runtime-qualification' : ($resource['lease_gate'] ?? null);
-        if ((!$p0e && ($resource['application_runtime'] ?? null) !== true)
+        // Match the native environment guard's isolated development-test contract.
+        // Registration and the same actual owner must agree before any connection.
+        $developmentTest = $environment['PEANUT_DATABASE_ENVIRONMENT'] === 'development-test'
+            && ($resource['application_runtime'] ?? null) === false
+            && ($resource['lifecycle'] ?? null) === 'ephemeral'
+            && ($resource['owner'] ?? null) === $environment['PEANUT_DATABASE_LEASE_OWNER']
+            && ($lease['metadata']['parent_lease'] ?? null) === '';
+        if ((!$p0e && !$developmentTest && ($resource['application_runtime'] ?? null) !== true)
             || ($resource['service_type'] ?? null) !== 'mysql'
             || ($resource['fallback'] ?? null) !== 'none'
             || !is_string($version) || preg_match('/^8\.4(?:\.[0-9]+)?$/D', $version) !== 1
@@ -289,16 +305,20 @@ final class RegisteredMysqlTestResource
             || self::canonicalPath((string) ($metadata['worktree'] ?? '')) !== self::canonicalPath($root)) {
             throw new RuntimeException('REGISTERED_MYSQL_LEASE_MISMATCH');
         }
-        foreach ([
+        $schemaEndpoint = self::schemaLeaseEndpoint($resource, $endpoint, $p0e);
+        $requiredResources = [
             ['resource-id', $environment['PEANUT_DATABASE_RESOURCE_ID']],
             ['endpoint', $environment['PEANUT_DATABASE_ENDPOINT_ID']],
-            ['port', (string) (int) $environment['DB_PORT']],
             ['mysql-db', $environment['DB_NAME']],
             ['database', $environment['DB_NAME']],
             [$scopeType, $environment['PEANUT_DATABASE_RESOURCE_SCOPE']],
             ['gate', $gate],
             ['worktree', self::canonicalPath($root)],
-        ] as [$type, $value]) {
+        ];
+        $requiredResources[] = $schemaEndpoint === null
+            ? ['port', (string) (int) $environment['DB_PORT']]
+            : ['mysql-schema', $schemaEndpoint . '/' . $environment['DB_NAME']];
+        foreach ($requiredResources as [$type, $value]) {
             if (!self::hasResource($lease['resources'], $type, $value)) {
                 throw new RuntimeException('REGISTERED_MYSQL_LEASE_MISMATCH');
             }
@@ -312,6 +332,23 @@ final class RegisteredMysqlTestResource
             'lease_id' => $environment['PEANUT_DATABASE_LEASE_ID'],
             'lease_owner' => $environment['PEANUT_DATABASE_LEASE_OWNER'],
         ];
+    }
+
+    /** Explicit schema policy never changes endpoint, schema ownership or qualification policy. */
+    private static function schemaLeaseEndpoint(array $resource, array $endpoint, bool $p0e): ?string
+    {
+        $policy = $resource['lease_policy'] ?? null;
+        if ($policy === null || ($policy['mode'] ?? null) === 'exclusive') { return null; }
+        if ($p0e || !is_array($policy) || ($policy['mode'] ?? null) !== 'schema'
+            || !is_int($policy['max_executors'] ?? null)
+            || $policy['max_executors'] < 1 || $policy['max_executors'] > 8
+            || ($policy['physical_endpoint'] ?? null) !== $endpoint['host'] . ':' . (int) $endpoint['port']
+            || !is_string($policy['physical_resource_id'] ?? null) || $policy['physical_resource_id'] === ''
+            || !is_array($policy['server_resources'] ?? null) || $policy['server_resources'] === []
+            || preg_match('/qualification|performance|recovery/', (string) ($resource['lease_gate'] ?? '')) === 1) {
+            throw new RuntimeException('REGISTERED_MYSQL_SCHEMA_POLICY_INVALID');
+        }
+        return $policy['physical_endpoint'];
     }
 
     public static function assertEmptyTableCount(int $tableCount): void
@@ -374,6 +411,14 @@ final class RegisteredMysqlTestResource
         if ($registrySha256 !== null
             && !self::hasResource($lease['resources'], 'registry-sha256', $registrySha256)) {
             throw new RuntimeException('REGISTERED_MYSQL_LEASE_MISMATCH');
+        }
+        if ($registrySha256 !== null
+            && !self::hasResource($lease['resources'], 'registry-tool-sha256', (string) hash_file('sha256', $registryTool))) {
+            // The native selector bytes are part of the explicit source contract.
+            // Historical P0-E leases retain their separately sealed tool proof.
+            if ($environment['PEANUT_DATABASE_RESOURCE_ID'] !== 'peanut-admin-p0e-mysql84-gate') {
+                throw new RuntimeException('REGISTERED_MYSQL_LEASE_MISMATCH');
+            }
         }
         self::assertRegistryToolResolution($root, $registryTool, $registryPath, $environment);
         return $authorization;
@@ -464,23 +509,25 @@ final class RegisteredMysqlTestResource
         // P0-E explicitly binds the private maintainer registry digest to its
         // candidate lease and uses this candidate's unchanged native selector.
         $p0eRegistry = getenv('PEANUT_DATABASE_RESOURCE_ID') === 'peanut-admin-p0e-mysql84-gate';
-        if ($p0eRegistry && $toolPath !== realpath($canonicalTool)) {
+        $maintainerRegistry = $toolPath === realpath($canonicalTool)
+            && $registryPath !== realpath($canonicalRegistry);
+        if ($p0eRegistry && !$maintainerRegistry) {
             throw new RuntimeException('REGISTERED_MYSQL_REGISTRY_SOURCE_INVALID');
         }
         if ($registryPath === false || $toolPath === false || $expectedRegistry === false
-            || (!$p0eRegistry && $registryPath !== $expectedRegistry)
+            || (!$maintainerRegistry && $registryPath !== $expectedRegistry)
             || !is_file($registryPath) || is_link($registryPath)
             || !is_file($toolPath) || is_link($toolPath) || !is_executable($toolPath)
             || !hash_equals((string) hash_file('sha256', $canonicalTool), (string) hash_file('sha256', $toolPath))
             || !hash_equals($configuredSha256, (string) hash_file('sha256', $registryPath))) {
             throw new RuntimeException('REGISTERED_MYSQL_REGISTRY_SOURCE_INVALID');
         }
-        if ($p0eRegistry) {
+        if ($maintainerRegistry) {
             if (is_link($configuredRegistry) || is_link($configuredTool)) {
                 throw new RuntimeException('REGISTERED_MYSQL_REGISTRY_SOURCE_INVALID');
             }
             [$status, $stdout, $stderr] = self::run([
-                $toolPath, 'p0e-maintainer-source', '--sha256', $configuredSha256,
+                $toolPath, $p0eRegistry ? 'p0e-maintainer-source' : 'maintainer-source', '--sha256', $configuredSha256,
             ], $root, [
                 'PATH' => (string) getenv('PATH'),
                 'PEANUT_RESOURCE_REGISTRY' => $registryPath,
@@ -619,7 +666,7 @@ final class RegisteredMysqlTestResource
 
     private static function required(string $key): string
     {
-        $value = getenv($key);
+        $value = str_starts_with($key, 'DB_') ? env($key) : getenv($key);
         if (!is_string($value) || trim($value) === '') {
             throw new RuntimeException('REGISTERED_MYSQL_ENVIRONMENT_REQUIRED:' . $key);
         }

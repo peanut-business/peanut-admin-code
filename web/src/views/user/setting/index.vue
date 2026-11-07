@@ -148,7 +148,7 @@
     passwordWithinPolicy,
     type PasswordPolicy,
   } from '@/api/password-policy';
-  import { uploadFile, type FileRecord } from '@/modules/official-file/api';
+  import { uploadFile, type FileRecord } from '@/modules/peanut-file/api';
   import {
     getAdminSelf,
     editAdminSelf,
@@ -252,7 +252,7 @@
       const { data } = await getAdminSelf();
       username.value = data.username;
       basicForm.nickname = data.nickname;
-      basicForm.avatar = data.avatar;
+      basicForm.avatar = data.avatar_uri;
       basicForm.avatarUrl = data.avatar;
     } finally {
       setLoading(false);
@@ -261,7 +261,11 @@
   fetchData();
 
   const onAvatarSuccess = (file: FileRecord) => {
-    basicForm.avatar = file.uri;
+    if (!file.file_key) {
+      ElMessage.error('上传响应缺少稳定文件引用');
+      return;
+    }
+    basicForm.avatar = file.file_key;
     basicForm.avatarUrl = file.url;
     ElMessage.success(t('userSetting.avatar.uploadSuccess'));
   };
@@ -276,11 +280,17 @@
         avatar: basicForm.avatar,
       };
       await editAdminSelf(payload);
+      const { data } = await getAdminSelf();
+      basicForm.nickname = data.nickname;
+      basicForm.avatar = data.avatar_uri;
+      basicForm.avatarUrl = data.avatar;
       userStore.setInfo({
-        name: basicForm.nickname,
-        avatar: basicForm.avatarUrl,
+        name: data.nickname,
+        avatar: data.avatar,
       });
       ElMessage.success(t('userSetting.saveSuccess'));
+    } catch {
+      // The shared interceptor displays the server's business error.
     } finally {
       basicLoading.value = false;
     }

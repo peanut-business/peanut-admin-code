@@ -52,7 +52,7 @@ final class PublicTenantModuleMiddleware
             );
         } catch (\DomainException|\InvalidArgumentException|\PDOException) {
             throw ApiProblem::fromEnvelope(
-                $moduleKey === 'official.article' ? '默认租户不可用' : '租户入口不可用',
+                $moduleKey === 'peanut.article' ? '默认租户不可用' : '租户入口不可用',
                 null,
                 50300,
             );
@@ -66,7 +66,7 @@ final class PublicTenantModuleMiddleware
                     try {
                         $this->modules->assertHttp($moduleKey, $operation);
                     } catch (ModuleException $exception) {
-                        if ($moduleKey === 'official.article') {
+                        if ($moduleKey === 'peanut.article') {
                             throw ApiProblem::fromEnvelope(
                                 '文章模块当前不可用',
                                 ['error_code' => $exception->errorCode],

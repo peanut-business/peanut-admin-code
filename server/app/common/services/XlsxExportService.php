@@ -25,6 +25,8 @@ class XlsxExportService
     ): array {
         $tenantId = $this->trustedTenantId();
         $memberId = $this->executionContext->tenantAdmin()->memberId;
+        // Export authorization never implicitly grants File's independent download right.
+        $this->storage->requireOriginalDownloadPermission($tenantId);
         [$path,$filename] = self::createArtifact($name, $headings, $rows);
         try {
             return $this->storage->storePath(

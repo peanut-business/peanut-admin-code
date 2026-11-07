@@ -60,7 +60,7 @@ try {
     foreach ([
         PeanutAdmin\Kernel\Auth\TenantContext::class,
         app\common\services\installation\InstallationExecutionHost::class,
-        app\common\services\upgrade\ApplicationMigrationRunner::class,
+        think\migration\command\migrate\Run::class,
     ] as $class) {
         $file = (new ReflectionClass($class))->getFileName();
         $actual = is_string($file) ? realpath($file) : false;

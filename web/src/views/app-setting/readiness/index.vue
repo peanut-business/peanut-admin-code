@@ -10,7 +10,7 @@
       :closable="false"
     />
 
-    <el-card class="general-card" v-loading="loading">
+    <el-card v-loading="loading" class="general-card">
       <template #header>
         <div class="card-header">
           <div>
@@ -20,6 +20,7 @@
             }}</div>
           </div>
           <el-tag
+            v-if="!error"
             :type="checklist.production_ready ? 'success' : 'danger'"
             size="large"
           >
@@ -34,7 +35,8 @@
         </div>
       </template>
 
-      <el-table :data="checklist.items" row-key="key" border>
+      <el-alert v-if="error" type="error" :closable="false" :title="error" />
+      <el-table v-else :data="checklist.items" row-key="key" border>
         <el-table-column :label="$t('readiness.columns.item')" min-width="170">
           <template #default="{ row }">
             <div v-if="row.key" class="item-title">
@@ -103,8 +105,9 @@
 </template>
 
 <script lang="ts" setup>
-  import { reactive } from 'vue';
+  import { reactive, ref } from 'vue';
   import { useRouter } from 'vue-router';
+  import { useI18n } from 'vue-i18n';
   import { ArrowRight } from '@element-plus/icons-vue';
   import useLoading from '@/hooks/loading';
   import {
@@ -114,7 +117,9 @@
   } from '@/api/readiness';
 
   const router = useRouter();
+  const { t } = useI18n();
   const { loading, setLoading } = useLoading(true);
+  const error = ref('');
   const checklist = reactive<ReadinessChecklist>({
     production_ready: false,
     summary: {
@@ -137,9 +142,12 @@
 
   const fetchChecklist = async () => {
     setLoading(true);
+    error.value = '';
     try {
       const { data } = await getReadinessChecklist();
       Object.assign(checklist, data);
+    } catch {
+      error.value = t('readiness.error.load');
     } finally {
       setLoading(false);
     }

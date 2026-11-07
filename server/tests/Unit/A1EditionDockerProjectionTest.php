@@ -66,18 +66,19 @@ final class A1EditionDockerProjectionTest extends TestCase
     public function testRealDockerfileProjectsEachEditionWithTheCurrentEnvironmentSelector(): void
     {
         $docker = $this->read('deploy/docker/production.Dockerfile');
-        self::assertStringContainsString('PEANUT_CLIENT_ENV_FILE=', $docker);
+        self::assertStringContainsString('pnpm exec vite build --mode standalone', $docker);
+        self::assertStringContainsString('pnpm exec vite build --mode multi-tenant', $docker);
         self::assertStringNotContainsString('&& VITE_DEPLOYMENT_MODE=', $docker);
 
         $standalone = $this->projectDocker($docker, 'standalone');
-        self::assertStringContainsString('PEANUT_CLIENT_ENV_FILE=/build/web/.env.standalone', $standalone);
-        self::assertStringNotContainsString('PEANUT_CLIENT_ENV_FILE=/build/web/.env.multi-tenant', $standalone);
+        self::assertStringContainsString('pnpm exec vite build --mode standalone --outDir dist/standalone', $standalone);
+        self::assertStringNotContainsString('pnpm exec vite build --mode multi-tenant', $standalone);
         self::assertStringNotContainsString('AS platform-builder', $standalone);
         self::assertStringNotContainsString('COPY --from=platform-builder', $standalone);
 
         $saas = $this->projectDocker($docker, 'multi-tenant');
-        self::assertStringNotContainsString('PEANUT_CLIENT_ENV_FILE=/build/web/.env.standalone pnpm exec vite build', $saas);
-        self::assertStringContainsString('PEANUT_CLIENT_ENV_FILE=/build/web/.env.multi-tenant', $saas);
+        self::assertStringNotContainsString('pnpm exec vite build --mode standalone', $saas);
+        self::assertStringContainsString('pnpm exec vite build --mode multi-tenant --outDir dist/multi-tenant', $saas);
         self::assertStringContainsString('AS platform-builder', $saas);
         self::assertStringContainsString('COPY --from=platform-builder', $saas);
     }

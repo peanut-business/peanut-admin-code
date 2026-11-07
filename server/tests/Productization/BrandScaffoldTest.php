@@ -54,12 +54,10 @@ foreach (['admin_avatar', 'user_avatar', 'menu', 'project_docs', 'technical_supp
     );
 }
 
-$migration = file_get_contents(
-    dirname(__DIR__, 2) . '/database/init.sql',
-);
+$seed = file_get_contents(dirname(__DIR__, 2) . '/database/schema/baseline-data.sql');
 brandExpect(
-    is_string($migration) && str_contains($migration, "'{$defaultImages['user_avatar']}'"),
-    'legacy user avatar migration must match the manifest',
+    is_string($seed) && str_contains($seed, "'{$defaultImages['user_avatar']}'"),
+    'initial user avatar default must match the manifest',
 );
 
 $root = dirname(__DIR__, 3);
@@ -70,7 +68,8 @@ $transform = Closure::bind(
     $creator,
     ApplicationCreator::class,
 );
-$documentation = (string) file_get_contents($root . '/docs/public/release-channels.md');
+$documentation = "Peanut Admin\n[Releases](https://github.com/peanut-business/peanut-admin-code/releases)\n"
+    . '[Sources](https://github.com/peanut-business/peanut-admin-code/tree/main)';
 $renderedDocumentation = $transform($documentation, 'docs/public/release-channels.md', 'text');
 preg_match_all('#https://github\.com/peanut-business/peanut-admin-code[^\s)]+#', $documentation, $sourceLinks);
 preg_match_all('#https://github\.com/peanut-business/peanut-admin-code[^\s)]+#', $renderedDocumentation, $renderedLinks);

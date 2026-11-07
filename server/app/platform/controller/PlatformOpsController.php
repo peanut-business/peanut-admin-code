@@ -30,12 +30,40 @@ final class PlatformOpsController extends BasePlatformController
 
     public function providers(): Json
     {
-        return $this->run(fn(): array => $this->operations->providers($this->context()));
+        [$page, $pageSize] = $this->pagination();
+        return $this->run(fn(): array => $this->operations->providers($this->context(), $page, $pageSize));
     }
 
     public function maintenance(): Json
     {
         return $this->run(fn(): ?array => $this->operations->maintenance($this->context()));
+    }
+
+    public function logs(): Json
+    {
+        $params = $this->request->get();
+        $source = $params['source'] ?? 'platform.audit';
+        $severity = $params['severity'] ?? 'info';
+        $pageSize = $params['page_size'] ?? '20';
+        if (array_diff(array_keys($params), ['source', 'severity', 'page_size', 'cursor']) !== []
+            || $source !== 'platform.audit'
+            || !is_string($severity)
+            || !in_array($severity, ['info', 'warning', 'error', 'critical'], true)
+            || (!is_int($pageSize) && !is_string($pageSize))
+            || preg_match('/^[1-9][0-9]{0,2}$/D', (string) $pageSize) !== 1
+            || (int) $pageSize > 100
+            || (isset($params['cursor']) && (!is_string($params['cursor'])
+                || ($params['cursor'] !== '' && preg_match('/^cursor_[a-f0-9]{64}_[0-9]{8}$/D', $params['cursor']) !== 1)))
+        ) {
+            throw OpsConsoleException::invalid();
+        }
+        return $this->run(fn(): array => $this->operations->logs(
+            $this->context(),
+            $source,
+            $severity,
+            (int) $pageSize,
+            ($params['cursor'] ?? '') === '' ? null : $params['cursor'],
+        ));
     }
 
     public function scheduleMaintenance(): Json
@@ -174,12 +202,34 @@ final class PlatformOpsController extends BasePlatformController
 
     public function backups(): Json
     {
-        return $this->run(fn(): array => $this->operations->backups($this->context()));
+        [$page, $pageSize] = $this->pagination();
+        return $this->run(fn(): array => $this->operations->backups($this->context(), $page, $pageSize));
     }
 
     public function task(string $task_key): Json
     {
         return $this->run(fn(): array => $this->operations->task($this->context(), $task_key));
+    }
+
+    /** @return array{int,int} */
+    private function pagination(): array
+    {
+        $params = $this->request->get();
+        if (array_diff(array_keys($params), ['page', 'page_size']) !== []) {
+            throw OpsConsoleException::invalid();
+        }
+        $values = [];
+        foreach (['page' => 1, 'page_size' => 20] as $key => $default) {
+            $value = $params[$key] ?? $default;
+            if ((!is_string($value) && !is_int($value)) || preg_match('/^[1-9][0-9]{0,5}$/D', (string) $value) !== 1) {
+                throw OpsConsoleException::invalid();
+            }
+            $values[] = (int) $value;
+        }
+        if ($values[1] > 100) {
+            throw OpsConsoleException::invalid();
+        }
+        return $values;
     }
 
     private function run(callable $operation): Json

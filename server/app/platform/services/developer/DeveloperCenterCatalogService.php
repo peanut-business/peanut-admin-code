@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace app\platform\services\developer;
 
-use app\platform\infrastructure\plugin\DevelopmentModuleDiscovery;
-use app\platform\services\plugin\PluginPackageArchiveService;
-use app\platform\value\plugin\ModuleFrontendLayout;
+use app\platform\infrastructure\module\DevelopmentModuleDiscovery;
+use app\platform\services\module\ModulePackageArchiveService;
+use app\platform\value\module\ModuleFrontendLayout;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ModuleProvider;
+use think\App;
 use Throwable;
 
 /**
@@ -21,6 +22,7 @@ final readonly class DeveloperCenterCatalogService
     public function __construct(
         private string $serverRoot,
         private CompiledModuleRegistry $registry,
+        private App $app,
     ) {}
 
     /** @return array<string,mixed> */
@@ -53,6 +55,7 @@ final readonly class DeveloperCenterCatalogService
             $root = $declaration['root'];
             $moduleRoutes = $this->moduleRoutes($routes, $key);
             $generatedApi = $this->moduleRoutes($documentedOperations, $key);
+            $provider = $this->provider($data);
             $modules[] = [
                 'key' => $key,
                 'name' => (string) ($data['name'] ?? $key),
@@ -89,13 +92,13 @@ final readonly class DeveloperCenterCatalogService
                 'routes' => $moduleRoutes,
                 'generated_api' => $generatedApi,
                 'permissions' => $this->permissions($data),
-                'public_services' => $this->publicServices($data),
-                'provider' => $this->provider($data),
+                'public_services' => $this->publicServices($data, $provider),
+                'provider' => $provider,
                 'middleware' => $this->middleware($moduleRoutes),
                 'lifecycle' => $this->lifecycle($data),
                 'events' => array_values((array) ($data['contracts']['events'] ?? [])),
                 'tasks' => $this->tasks($key, $data, $commands),
-                'migrations' => $this->migrations($root, $data),
+                'migrations' => $this->migrations(),
                 'documentation' => $this->documentation($root),
                 'package_preview' => $this->packagePreview($key),
             ];
@@ -110,7 +113,7 @@ final readonly class DeveloperCenterCatalogService
                 'registration' => 'Current ThinkPHP App CompiledModuleRegistry',
                 'routes' => 'server/generated/api-catalog.json (generated from peanut_route_endpoint_inventory)',
                 'generated_api' => 'server/generated/api-catalog.json',
-                'package_preview' => 'PluginPackageArchiveService::previewModule',
+                'package_preview' => 'ModulePackageArchiveService::previewModule',
             ],
             'status' => [
                 'declaration' => $this->state('declared', 'MODULE_DECLARATIONS_READ', count($declarations) . ' declarations read.'),
@@ -173,6 +176,13 @@ final readonly class DeveloperCenterCatalogService
     /** @return array{0:array{status:string,code:string,reason:string},1:array<string,string>} */
     private function discovery(string $projectRoot): array
     {
+        if (\app\common\infrastructure\installation\ReadonlyHttpMount::active($this->serverRoot)) {
+            return [$this->state(
+                'not_checked',
+                'MODULE_DEVELOPMENT_DISCOVERY_NOT_AVAILABLE',
+                'The production HTTP mount contains only server source; strict development discovery requires the full application source tree.',
+            ), []];
+        }
         try {
             $roots = (new DevelopmentModuleDiscovery($projectRoot))->moduleRoots();
             return [$this->state('discovered', 'MODULE_DISCOVERY_READY', count($roots) . ' Modules passed strict discovery.'), $roots];
@@ -208,7 +218,7 @@ final readonly class DeveloperCenterCatalogService
         }
         try {
             $document = json_decode((string) file_get_contents($path), true, 128, JSON_THROW_ON_ERROR);
-            $freshness = $this->apiCatalogFreshness($document['inputs'] ?? null);
+            $freshness = \app\common\services\authorization\GeneratedApiCatalog::freshness($this->serverRoot, $document['inputs'] ?? null);
             if ($freshness !== null) {
                 return [
                     'status' => $this->state('stale', 'API_CATALOG_STALE', $freshness),
@@ -225,52 +235,6 @@ final readonly class DeveloperCenterCatalogService
         } catch (Throwable $exception) {
             return ['status' => $this->failureState('API_CATALOG_INVALID', $exception), 'endpoints' => []];
         }
-    }
-
-    private function apiCatalogFreshness(mixed $inputs): ?string
-    {
-        if (!is_array($inputs) || !array_is_list($inputs) || $inputs === []) {
-            return 'The generated catalog does not register its source hashes. Regenerate it before using its routes.';
-        }
-        $projectRoot = dirname($this->serverRoot);
-        $previous = null;
-        foreach ($inputs as $input) {
-            if (!is_array($input) || array_keys($input) !== ['path', 'sha256']) {
-                return 'The generated catalog input registry is invalid. Regenerate it.';
-            }
-            $relative = $input['path'] ?? null;
-            $expected = $input['sha256'] ?? null;
-            if (!is_string($relative)
-                || ($relative !== 'release-versions.json' && !str_starts_with($relative, 'server/'))
-                || str_starts_with($relative, '/') || str_contains($relative, '\\')
-                || array_intersect(explode('/', $relative), ['', '.', '..']) !== []
-                || preg_match('/[\x00-\x1f]/', $relative) === 1
-                || !is_string($expected) || preg_match('/^[0-9a-f]{64}$/D', $expected) !== 1
-                || ($previous !== null && strcmp($previous, $relative) >= 0)) {
-                return 'The generated catalog input registry is invalid or not canonically sorted. Regenerate it.';
-            }
-            $sourceRelative = $relative;
-            if ($relative === 'release-versions.json'
-                && (file_exists($this->serverRoot . '/.peanut/release-identity.json')
-                    || is_link($this->serverRoot . '/.peanut/release-identity.json'))) {
-                // Server releases carry the exact APP version-source bytes inside their canonical inventory.
-                $sourceRelative = 'server/.peanut/release-versions.json';
-            }
-            $cursor = $projectRoot;
-            foreach (explode('/', $sourceRelative) as $part) {
-                $cursor .= '/' . $part;
-                if (is_link($cursor)) {
-                    return 'A registered API source is linked: ' . $relative . '. Regenerate the catalog.';
-                }
-            }
-            $source = $projectRoot . '/' . $sourceRelative;
-            $actual = is_file($source) && !is_link($source) ? hash_file('sha256', $source) : false;
-            if (!is_string($actual) || !hash_equals($expected, $actual)) {
-                return 'A registered API source changed or disappeared: ' . $relative . '. Regenerate the catalog.';
-            }
-            $previous = $relative;
-        }
-        return null;
     }
 
     /** @return array<string,string> */
@@ -339,18 +303,10 @@ final readonly class DeveloperCenterCatalogService
         return array_map(static fn(mixed $item): mixed => is_array($item) ? $item : ['key' => $item], $items);
     }
 
-    /** @param array<string,mixed> $data */
-    private function publicServices(array $data): array
+    /** @param array<string,mixed> $data @param array<string,mixed> $provider */
+    private function publicServices(array $data, array $provider): array
     {
-        $provider = $data['backend']['provider'] ?? null;
-        $bindings = [];
-        if (is_string($provider) && $this->autoloadable($provider) && is_a($provider, ModuleProvider::class, true)) {
-            try {
-                $bindings = (new $provider())->bindings();
-            } catch (Throwable) {
-                $bindings = [];
-            }
-        }
+        $bindings = array_column($provider['bindings'], 'contract');
         $services = [];
         foreach ((array) ($data['contracts']['exports'] ?? []) as $class) {
             if (!is_string($class)) {
@@ -359,7 +315,7 @@ final readonly class DeveloperCenterCatalogService
             $services[] = [
                 'class' => $class,
                 'autoloadable' => $this->autoloadable($class),
-                'provider_binding_declared' => array_key_exists($class, $bindings),
+                'provider_binding_declared' => in_array($class, $bindings, true),
                 'runtime_effective' => 'not_checked',
             ];
         }
@@ -372,9 +328,10 @@ final readonly class DeveloperCenterCatalogService
         $class = $data['backend']['provider'] ?? null;
         $autoloadable = is_string($class) && $this->autoloadable($class);
         $bindings = [];
-        if ($autoloadable && is_a($class, ModuleProvider::class, true)) {
+        // Inspect the exact Provider composed by this App; do not construct unselected Modules.
+        if ($autoloadable && is_a($class, ModuleProvider::class, true) && $this->app->exists($class)) {
             try {
-                foreach ((new $class())->bindings() as $contract => $target) {
+                foreach ($this->app->make($class)->bindings() as $contract => $target) {
                     $bindings[] = [
                         'contract' => $contract,
                         'target' => $target instanceof \Closure ? 'Closure' : $target,
@@ -443,17 +400,12 @@ final readonly class DeveloperCenterCatalogService
         return ['commands' => $ownedCommands, 'public_contracts' => $contracts];
     }
 
-    /** @param array<string,mixed> $data */
-    private function migrations(string $root, array $data): array
+    private function migrations(): array
     {
-        $relative = $data['backend']['migrations'] ?? null;
-        if (!is_string($relative)) {
-            return ['declared_path' => null, 'files' => []];
-        }
-        $files = glob($root . '/' . trim($relative, '/') . '/*.sql') ?: [];
+        $files = glob($this->serverRoot . '/database/migrations/*.php') ?: [];
         sort($files, SORT_STRING);
         return [
-            'declared_path' => $relative,
+            'declared_path' => 'server/database/migrations',
             'files' => array_map(fn(string $path): array => [
                 'path' => $this->relative($path),
                 'sha256' => hash_file('sha256', $path),
@@ -479,7 +431,7 @@ final readonly class DeveloperCenterCatalogService
     private function packagePreview(string $moduleKey): array
     {
         try {
-            return ['status' => 'ready'] + (new PluginPackageArchiveService($this->serverRoot))->previewModule($moduleKey);
+            return ['status' => 'ready'] + (new ModulePackageArchiveService($this->serverRoot))->previewModule($moduleKey);
         } catch (Throwable $exception) {
             return ['status' => 'blocked'] + $this->exception($exception, 'MODULE_PACKAGE_PREVIEW_BLOCKED');
         }

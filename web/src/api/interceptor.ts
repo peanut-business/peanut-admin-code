@@ -2,9 +2,13 @@ import axios from 'axios';
 import type { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useUserStore } from '@/store';
-import { getSessionSnapshot, getToken, setToken } from '@/utils/auth';
+import { getSessionSnapshot, getToken } from '@/utils/auth';
+import i18n from '@/locale';
 import { isTenantAccessToken } from '@peanut-admin/vue';
-import { refreshTenantSession } from '@/api/tenant-session';
+import {
+  refreshTenantAccessToken,
+  type TenantSessionSnapshot,
+} from '@/api/tenant-session-refresh';
 
 export interface HttpResponse<T = unknown> {
   status: number;
@@ -17,20 +21,14 @@ if (import.meta.env.VITE_API_BASE_URL) {
   axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL;
 }
 
-type TenantSessionSnapshot = { generation: number; token: string | null };
 type SessionRequestConfig = AxiosRequestConfig & {
   tenantRefreshRetried?: boolean;
   tenantSession?: TenantSessionSnapshot;
 };
 
-const tenantRefreshRequests = new Map<string, Promise<string>>();
-
+/** Captures the issuing session so old responses cannot affect a later login. */
 axios.interceptors.request.use(
   (config: AxiosRequestConfig) => {
-    // let each request carry token
-    // this example using the JWT token
-    // Authorization is a custom headers key
-    // please modify it according to the actual situation
     const requestConfig = config as SessionRequestConfig;
     const snapshot = requestConfig.tenantSession ?? getSessionSnapshot();
     if (snapshot.generation !== getSessionSnapshot().generation) {
@@ -47,81 +45,55 @@ axios.interceptors.request.use(
     return config;
   },
   (error) => {
-    // do something
     return Promise.reject(error);
   }
 );
-// add response interceptors
+
+/** Handles each response only while its captured session is still current. */
 const handleResponse = async (response: AxiosResponse<HttpResponse>) => {
   const res = response.data;
   const retryConfig = response.config as SessionRequestConfig;
   const snapshot = retryConfig.tenantSession ?? getSessionSnapshot();
   retryConfig.tenantSession = snapshot;
   const currentSession = getSessionSnapshot();
-  if (
-    snapshot.generation !== currentSession.generation ||
-    snapshot.token !== currentSession.token
-  ) {
+  if (snapshot.generation !== currentSession.generation) {
     return Promise.reject(
       new Error(res.msg || 'The request session has changed.')
     );
   }
-  // 20000 is the normal success envelope; LikeAdmin uses code=2 for a
-  // successfully generated export file.
+  const canRefresh =
+    res.code === 40100 &&
+    isTenantAccessToken(snapshot.token) &&
+    !retryConfig.tenantRefreshRetried &&
+    retryConfig.url !== '/adminapi/tenant/session/refresh' &&
+    retryConfig.url !== '/adminapi/tenant/session/logout';
+  if (snapshot.token !== currentSession.token && !canRefresh) {
+    return Promise.reject(
+      new Error(res.msg || 'The request session has changed.')
+    );
+  }
+  // The legacy export endpoint uses code 2 to signal a generated file response.
   if (![20000, 2].includes(res.code)) {
-    const accessToken = getToken();
-    if (
-      res.code === 40100 &&
-      isTenantAccessToken(accessToken) &&
-      !retryConfig.tenantRefreshRetried &&
-      retryConfig.url !== '/adminapi/tenant/session/refresh' &&
-      retryConfig.url !== '/adminapi/tenant/session/logout'
-    ) {
+    if (canRefresh) {
       retryConfig.tenantRefreshRetried = true;
       try {
-        let refreshedToken = accessToken;
-        const requestToken = snapshot.token;
-        if (requestToken !== null && requestToken === accessToken) {
-          const refreshKey = JSON.stringify([
-            snapshot.generation,
-            requestToken,
-          ]);
-          let refreshRequest = tenantRefreshRequests.get(refreshKey);
-          if (!refreshRequest) {
-            refreshRequest = refreshTenantSession(
-              requestToken,
-              snapshot.generation
-            )
-              .then((authentication) => authentication.access_token)
-              .finally(() => tenantRefreshRequests.delete(refreshKey));
-            tenantRefreshRequests.set(refreshKey, refreshRequest);
-          }
-          const candidate = await refreshRequest;
-          if (snapshot.generation !== getSessionSnapshot().generation) {
-            throw new Error('The request session has changed.');
-          }
-          const currentToken = getToken();
-          if (currentToken === requestToken) {
-            setToken(candidate);
-            refreshedToken = candidate;
-          } else if (currentToken) {
-            refreshedToken = currentToken;
-          } else {
-            throw new Error('The request session has changed.');
-          }
-        }
-        if (snapshot.generation !== getSessionSnapshot().generation) {
-          throw new Error('The request session has changed.');
-        }
+        const refreshedToken = await refreshTenantAccessToken(
+          snapshot,
+          retryConfig.signal
+        );
         snapshot.token = refreshedToken;
         retryConfig.headers = retryConfig.headers || {};
         retryConfig.headers.Authorization = `Bearer ${refreshedToken}`;
         return axios.request(retryConfig);
-      } catch {
+      } catch (error) {
+        if (retryConfig.signal?.aborted) return Promise.reject(error);
         // Continue to the existing re-login flow below.
       }
     }
-    if (snapshot.generation !== getSessionSnapshot().generation) {
+    if (
+      snapshot.generation !== getSessionSnapshot().generation ||
+      snapshot.token !== getToken()
+    ) {
       return Promise.reject(
         new Error(res.msg || 'The request session has changed.')
       );
@@ -130,7 +102,6 @@ const handleResponse = async (response: AxiosResponse<HttpResponse>) => {
       message: res.msg || 'Error',
       duration: 5 * 1000,
     });
-    // 50008: Illegal token; 50012: Other clients logged in; 50014: Token expired;
     if (
       [40100].includes(res.code) &&
       response.config.url !== '/adminapi/user/info'
@@ -151,9 +122,12 @@ const handleResponse = async (response: AxiosResponse<HttpResponse>) => {
           )
             return;
           const userStore = useUserStore();
-          const cleared = await userStore.logout(snapshot);
+          try {
+            await userStore.logout(snapshot);
+          } catch {
+            // Local logout cleanup may finish before tenant-state disposal reports an error.
+          }
           if (
-            cleared &&
             getSessionSnapshot().generation === snapshot.generation + 2 &&
             getToken() === null
           )
@@ -174,8 +148,16 @@ axios.interceptors.response.use(handleResponse, (error) => {
   if (response?.data && typeof response.data.code === 'number') {
     return handleResponse(response);
   }
+  let message = error.msg || 'Request Error';
+  if (axios.isAxiosError(error) && !error.response) {
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+      message = i18n.global.t('tenantSession.requestTimeout');
+    } else if (error.code === 'ERR_NETWORK' || error.request) {
+      message = i18n.global.t('tenantSession.networkError');
+    }
+  }
   ElMessage.error({
-    message: error.msg || 'Request Error',
+    message,
     duration: 5 * 1000,
   });
   return Promise.reject(error);

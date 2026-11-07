@@ -38,6 +38,7 @@ final class DataPermissionAdapterTest extends TestCase
             'web',
             new DateTimeImmutable('2026-07-16T10:00:00Z'),
             1,
+            1,
         ), 'request');
         $targets = [new RequestedTargetSet('example.project', ['A'])];
 

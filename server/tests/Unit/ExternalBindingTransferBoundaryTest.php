@@ -11,7 +11,6 @@ use PDO;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
-use PeanutAdmin\Modules\ImportExport\Infrastructure\configuration\ExternalBindingConfigurationAdapter;
 use PeanutAdmin\Modules\Integration\Contract\ExternalBindingTransfer;
 use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionException;
 use PeanutAdmin\Modules\Integration\ModuleProvider;
@@ -19,7 +18,6 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use PHPUnit\Framework\TestCase;
-use ReflectionClass;
 use RuntimeException;
 use think\App;
 use think\facade\Db;
@@ -31,7 +29,7 @@ final class ExternalBindingTransferBoundaryTest extends TestCase
 {
     private PDO $database;
     private App $app;
-    private ExternalBindingConfigurationAdapter $adapter;
+    private ExternalBindingTransfer $transfer;
 
     protected function setUp(): void
     {
@@ -47,12 +45,12 @@ final class ExternalBindingTransferBoundaryTest extends TestCase
         \ThinkPhpTestConnection::fromPdo($this->database);
         $this->database->exec(<<<'SQL'
             CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY, code TEXT, status TEXT);
-            CREATE TABLE pa_external_channel_binding (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER, provider TEXT, callback_key TEXT, identity_hash TEXT, identity_hint TEXT, config_json TEXT, status INTEGER, create_time INTEGER, update_time INTEGER, UNIQUE(tenant_id, provider));
+            CREATE TABLE pa_external_channel_binding (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER, provider TEXT, callback_key TEXT, identity_hash TEXT, identity_hint TEXT, config_json TEXT, status INTEGER, create_time INTEGER, update_time INTEGER, retired_at INTEGER, current_key INTEGER GENERATED ALWAYS AS (CASE WHEN retired_at IS NULL THEN 1 END) STORED, UNIQUE(tenant_id,provider,current_key));
             INSERT INTO pa_tenant VALUES (1, 'alpha', 'active'), (2, 'beta', 'active');
             SQL);
         $this->app->instance(AdminDirectoryQuery::class, new AdminDirectoryQuery(new CurrentExecutionContext(new ExecutionContextStore())));
         $this->app->bind((new ModuleProvider())->bindings());
-        $this->adapter = $this->app->make(ExternalBindingConfigurationAdapter::class);
+        $this->transfer = $this->app->make(ExternalBindingTransfer::class);
     }
 
     private function actor(int $tenantId = 1): TenantContext
@@ -66,6 +64,7 @@ final class ExternalBindingTransferBoundaryTest extends TestCase
             'admin-web',
             new DateTimeImmutable('2099-01-01T00:00:00Z'),
             3,
+            3,
         ), 'synthetic-binding-transfer');
     }
 
@@ -76,7 +75,7 @@ final class ExternalBindingTransferBoundaryTest extends TestCase
 
     private function apply(array $value, ?int $revision = null, int $tenantId = 1): void
     {
-        Db::transaction(fn() => $this->adapter->apply($this->actor($tenantId), 'payment.wechat', $value, [], $revision));
+        Db::transaction(fn() => $this->transfer->apply($this->actor($tenantId), 'payment.wechat', $value, $revision));
     }
 
     private function rows(): array
@@ -84,32 +83,12 @@ final class ExternalBindingTransferBoundaryTest extends TestCase
         return $this->database->query('SELECT * FROM pa_external_channel_binding ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function testAdapterUsesTheExportedIntegrationCapabilityAndNoPersistence(): void
+    public function testOwnerPublishesAndBindsTheBusinessTransferContract(): void
     {
-        $constructor = (new ReflectionClass($this->adapter))->getConstructor();
-        self::assertNotNull($constructor);
-        self::assertSame(ExternalBindingTransfer::class, $constructor->getParameters()[0]->getType()?->getName());
-        $source = (string) file_get_contents((new ReflectionClass($this->adapter))->getFileName());
-        self::assertStringNotContainsString('Db::', $source);
-        self::assertStringNotContainsString('external_channel_binding', $source);
         $root = dirname(__DIR__, 3);
-        $manifest = json_decode((string) file_get_contents($root . '/server/app/modules/official/integration/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode((string) file_get_contents($root . '/server/app/modules/peanut/integration/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(ExternalBindingTransfer::class, $manifest['contracts']['exports']);
         self::assertInstanceOf(ExternalBindingTransfer::class, $this->app->make(ExternalBindingTransfer::class));
-    }
-
-    public function testExportKeepsTenantScopeAndOnlySecretReferences(): void
-    {
-        $this->apply($this->value('alpha'));
-        $this->apply($this->value('beta'), tenantId: 2);
-        $entries = $this->adapter->export($this->actor());
-        self::assertCount(1, $entries);
-        self::assertSame('alpha', $entries[0]['value']['config']['app_id']);
-        self::assertArrayHasKey('$secret', $entries[0]['value']['config']['api_secret']);
-        $encoded = json_encode($entries, JSON_THROW_ON_ERROR);
-        self::assertStringNotContainsString('synthetic-test-secret', $encoded);
-        self::assertStringNotContainsString('callback_key', $encoded);
-        self::assertStringNotContainsString($this->rows()[0]['callback_key'], $encoded);
     }
 
     public function testUpdateKeepsCallbackCreationTimeAndOtherTenantUnchanged(): void
@@ -117,21 +96,31 @@ final class ExternalBindingTransferBoundaryTest extends TestCase
         $this->apply($this->value('alpha'));
         $this->apply($this->value('beta'), tenantId: 2);
         $before = $this->rows();
-        $revision = $this->adapter->current($this->actor(), 'payment.wechat')['revision'];
-        $this->apply($this->value('changed'), $revision);
+        $revision = $this->transfer->current($this->actor(), 'payment.wechat')['revision'];
+        $rotated = $this->value('alpha');
+        $rotated['config']['api_secret'] = 'rotated-test-secret';
+        $this->apply($rotated, $revision);
         $after = $this->rows();
         self::assertSame($before[0]['callback_key'], $after[0]['callback_key']);
         self::assertSame($before[0]['create_time'], $after[0]['create_time']);
         self::assertSame($before[1], $after[1]);
-        self::assertSame('changed', json_decode($after[0]['config_json'], true)['app_id']);
+        self::assertSame($rotated['config'], json_decode($after[0]['config_json'], true));
+        $current = $this->transfer->current($this->actor(), 'payment.wechat')['revision'];
+        try {
+            $this->apply($this->value('another-merchant'), $current);
+            self::fail('A transfer replaced a payment merchant outside payment settings.');
+        } catch (RuntimeException $exception) {
+            self::assertStringContainsString('更换商户', $exception->getMessage());
+        }
+        self::assertSame($after, $this->rows());
     }
 
     public function testSameSecondMutationInvalidatesTheOriginalRevision(): void
     {
         $this->apply($this->value());
-        $revision = $this->adapter->current($this->actor(), 'payment.wechat')['revision'];
+        $revision = $this->transfer->current($this->actor(), 'payment.wechat')['revision'];
         $this->database->exec("UPDATE pa_external_channel_binding SET identity_hint = 'other' WHERE tenant_id = 1");
-        self::assertNotSame($revision, $this->adapter->current($this->actor(), 'payment.wechat')['revision']);
+        self::assertNotSame($revision, $this->transfer->current($this->actor(), 'payment.wechat')['revision']);
         $this->expectExceptionMessage('TRANSFER_CONFLICT');
         $this->apply($this->value('replacement'), $revision);
     }
@@ -139,7 +128,7 @@ final class ExternalBindingTransferBoundaryTest extends TestCase
     public function testExpectedExistingStateCannotRecreateAMissingTarget(): void
     {
         $this->apply($this->value());
-        $revision = $this->adapter->current($this->actor(), 'payment.wechat')['revision'];
+        $revision = $this->transfer->current($this->actor(), 'payment.wechat')['revision'];
         $this->database->exec('DELETE FROM pa_external_channel_binding WHERE tenant_id = 1');
         $this->expectExceptionMessage('TRANSFER_CONFLICT');
         $this->apply($this->value(), $revision);
@@ -156,10 +145,12 @@ final class ExternalBindingTransferBoundaryTest extends TestCase
     {
         $this->apply($this->value());
         $before = $this->rows();
-        $revision = $this->adapter->current($this->actor(), 'payment.wechat')['revision'];
+        $revision = $this->transfer->current($this->actor(), 'payment.wechat')['revision'];
         try {
             Db::transaction(function () use ($revision): void {
-                $this->adapter->apply($this->actor(), 'payment.wechat', $this->value('other'), [], $revision);
+                $updated = $this->value();
+                $updated['config']['api_secret'] = 'rolled-back-secret';
+                $this->transfer->apply($this->actor(), 'payment.wechat', $updated, $revision);
                 throw new RuntimeException('synthetic outer failure');
             });
         } catch (RuntimeException $exception) {
@@ -202,6 +193,6 @@ final class ExternalBindingTransferBoundaryTest extends TestCase
         $this->apply($this->value());
         $this->database->exec("UPDATE pa_external_channel_binding SET config_json = '{broken' WHERE tenant_id = 1");
         $this->expectExceptionMessage('TRANSFER_EXTERNAL_BINDING_INVALID');
-        $this->adapter->export($this->actor());
+        $this->transfer->snapshot($this->actor());
     }
 }

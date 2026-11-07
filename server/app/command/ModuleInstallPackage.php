@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace app\command;
 
-use app\platform\exception\plugin\PluginLifecycleException;
-use app\platform\exception\plugin\PluginPackageException;
+use app\platform\exception\module\ModuleLifecycleException;
+use app\platform\exception\module\ModulePackageException;
 use app\common\execution\ModuleContextualCommand;
 use think\console\Input;
 use think\console\input\Argument;
@@ -33,14 +33,15 @@ final class ModuleInstallPackage extends ModuleContextualCommand
             );
             $output->writeln((string) json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
             return 0;
-        } catch (PluginPackageException|PluginLifecycleException $exception) {
+        } catch (ModulePackageException|ModuleLifecycleException $exception) {
             $output->writeln((string) json_encode(
-                ['error' => $exception->errorCode],
+                ['error' => $exception->errorCode, 'reason' => $exception->getMessage()]
+                    + ($exception instanceof ModulePackageException ? ['details' => $exception->details] : []),
                 JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
             ));
-            return 1;
-        } catch (\Throwable) {
-            $output->writeln('{"error":"MODULE_PACKAGE_INSTALL_FAILED"}');
+            return $exception->getCode() > 0 && $exception->getCode() < 256 ? $exception->getCode() : 1;
+        } catch (\Throwable $exception) {
+            $output->writeln((string) json_encode(['error' => 'MODULE_PACKAGE_INSTALL_FAILED', 'reason' => $exception->getMessage()], JSON_THROW_ON_ERROR));
             return 1;
         }
     }

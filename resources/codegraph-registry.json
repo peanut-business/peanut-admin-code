@@ -10,13 +10,7 @@
     "not_global_policy": "本登记只约束 Peanut Admin；其他项目必须由自己的事实源决定是否需要知识图谱"
   },
   "policy": {
-    "project_applicability": "required_for_code_analysis",
-    "required_for": [
-      "跨文件调用关系和影响范围分析",
-      "服务层盘点、Module 边界和数据归属分析",
-      "架构决策、重构前依赖核对和测试影响分析",
-      "任何需要把代码事实写入架构或服务登记的任务"
-    ],
+    "project_applicability": "use_existing_index_for_code_analysis",
     "optional_for": [
       "纯文档、链接和元数据修改",
       "单文件且调用关系不变的机械格式修复",
@@ -26,17 +20,23 @@
     "index_directory": ".codegraph/",
     "index_versioning": "ignored_regenerable_cache",
     "sharing": "forbidden_to_copy_or_symlink_between_worktrees",
-    "before_code_analysis": "scripts/project-codegraph ensure",
+    "before_code_analysis": "存在 .codegraph/ 时先 codegraph explore 具体问题；无索引默认跳过",
     "read_only_discovery": "scripts/project-codegraph status",
     "worktree_inventory": "scripts/project-codegraph worktrees",
-    "missing_index_semantics": "当前 worktree 缺索引不等于项目没有索引；必须先报告其他已登记 worktree 的状态，再初始化当前 worktree",
+    "missing_index_semantics": "当前 worktree 无索引时默认跳过；是否创建由用户决定，不自动初始化",
     "stale_index_semantics": "索引存在但有 Pending Changes 时，先执行 sync；不能用旧快照替代当前源码事实",
-    "tool_missing_semantics": "codegraph 不可用时报告工具缺失并停止依赖图谱的分析，不静默宣称项目没有图谱"
+    "tool_missing_semantics": "已有索引但工具不可用时报告限制，不自动安装或创建索引",
+    "use_when_indexed": [
+      "跨文件调用关系和影响范围分析",
+      "服务层盘点、Module 边界和数据归属分析",
+      "架构决策、重构前依赖核对和测试影响分析",
+      "任何需要把代码事实写入架构或服务登记的任务"
+    ]
   },
   "bootstrap": {
     "command": "scripts/project-codegraph ensure",
     "behavior": {
-      "missing_current_index": "运行 codegraph init 仅初始化当前 worktree",
+      "missing_current_index": "默认跳过；仅用户明确要求建立索引时使用原生 codegraph init",
       "existing_current_index": "运行 codegraph sync 仅同步当前 worktree",
       "other_worktrees": "只发现和报告，不自动写入、不复制索引"
     },
@@ -67,7 +67,7 @@
   },
   "operational_rules": [
     "CodeGraph 是代码库/worktree 本地索引，不是跨对话或跨项目的全局图谱",
-    "新建 Peanut Admin worktree 后必须先执行 ensure，再做需要图谱的代码分析",
+    "当前 worktree 已有索引且需要调用、影响或架构分析时，先使用 codegraph explore；无索引默认跳过",
     "不能因为当前目录没有 .codegraph 就写成整个项目没有知识图谱",
     "不能把 canonical checkout 的索引当作当前 worktree 的精确事实",
     "不要求没有架构或调用关系需求的项目建立 CodeGraph"

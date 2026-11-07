@@ -1,0 +1,110 @@
+[
+  {
+    "key": "fixture.workflow-business.read",
+    "type": "action",
+    "name": "Workflow sample read",
+    "risk_level": "normal"
+  },
+  {
+    "key": "fixture.workflow-business.create",
+    "type": "action",
+    "name": "Workflow sample create",
+    "risk_level": "normal"
+  },
+  {
+    "key": "fixture.workflow-business.update",
+    "type": "action",
+    "name": "Workflow sample update",
+    "risk_level": "normal"
+  },
+  {
+    "key": "fixture.workflow-business.confirm",
+    "type": "action",
+    "name": "Workflow sample confirm",
+    "risk_level": "normal"
+  },
+  {
+    "key": "fixture.workflow-business.start",
+    "type": "action",
+    "name": "Workflow sample start",
+    "risk_level": "normal"
+  },
+  {
+    "key": "fixture.workflow-business.approve",
+    "type": "action",
+    "name": "Workflow sample approve",
+    "risk_level": "normal"
+  },
+  {
+    "key": "fixture.workflow-business.reject",
+    "type": "action",
+    "name": "Workflow sample reject",
+    "risk_level": "normal"
+  },
+  {
+    "key": "fixture.workflow-business.complete",
+    "type": "action",
+    "name": "Workflow sample complete",
+    "risk_level": "normal"
+  },
+  {
+    "key": "fixture.workflow-business.receive",
+    "type": "action",
+    "name": "Workflow sample receive",
+    "risk_level": "sensitive"
+  },
+  {
+    "key": "fixture.workflow-business.terminate",
+    "type": "action",
+    "name": "Workflow sample terminate",
+    "risk_level": "normal"
+  },
+  {
+    "key": "fixture.workflow-business.restart",
+    "type": "action",
+    "name": "Workflow sample restart",
+    "risk_level": "normal"
+  },
+  {
+    "key": "fixture.workflow-business.reassign",
+    "type": "action",
+    "name": "Workflow sample reassign",
+    "risk_level": "normal"
+  },
+  {
+    "key": "fixture.workflow-business.claim",
+    "type": "action",
+    "name": "Workflow sample claim",
+    "risk_level": "normal"
+  },
+  {
+    "key": "fixture.workflow-business.release",
+    "type": "action",
+    "name": "Workflow sample release",
+    "risk_level": "normal"
+  },
+  {
+    "key": "fixture.workflow-business.return",
+    "type": "action",
+    "name": "Workflow sample return",
+    "risk_level": "normal"
+  },
+  {
+    "key": "fixture.workflow-business.cancel",
+    "type": "action",
+    "name": "Workflow sample cancel",
+    "risk_level": "normal"
+  },
+  {
+    "key": "fixture.workflow-business.withdraw",
+    "type": "action",
+    "name": "Workflow sample withdraw",
+    "risk_level": "normal"
+  },
+  {
+    "key": "fixture.workflow-business.collaborate",
+    "type": "action",
+    "name": "Workflow sample collaboration",
+    "risk_level": "normal"
+  }
+]

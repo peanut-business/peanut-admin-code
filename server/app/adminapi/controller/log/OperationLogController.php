@@ -48,7 +48,7 @@ class OperationLogController extends BaseAdminController
 
     private function assertExportModule(): void
     {
-        $this->modules->assertHttp('official.import-export', 'http.admin.export');
+        $this->modules->assertHttp('peanut.import-export', 'http.admin.export');
     }
 
 }

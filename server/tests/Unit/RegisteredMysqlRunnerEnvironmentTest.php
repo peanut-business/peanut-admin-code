@@ -12,12 +12,62 @@ final class RegisteredMysqlRunnerEnvironmentTest extends TestCase
 {
     private const SECRET = 'runner-secret-must-not-be-printed-74d11';
 
-    public function testMatchingFileBootstrapsWithoutOverlapAndKeepsLeaseMetadata(): void
+    public function testSuiteRequiresPositiveEvidenceAndChecksEmptyStateAfterFailure(): void
+    {
+        $root = dirname(__DIR__, 3);
+        foreach (['passed' => 0, 'missing' => 1, 'skipped' => 1, 'dirty' => 9, 'failed-dirty' => 17,
+            'menu-passed' => 0, 'menu-zero' => 1, 'menu-prefixed' => 1, 'menu-trailing' => 1] as $case => $expected) {
+            $process = proc_open([
+                $this->bashBinary(), '-c', <<<'BASH'
+source "$1"
+mkdir -p "$ROOT/.local/tmp"
+RUNNER_TEMP=$(mktemp -d "$ROOT/.local/tmp/mysql-runner-evidence.XXXXXX")
+logs=()
+trap 'rm -f -- "${logs[@]}"; rmdir "$RUNNER_TEMP"' EXIT
+php_binary="$3"
+environment_file="$RUNNER_TEMP/synthetic.env"
+case_name="$2"
+run_php_with_backend_environment() {
+  [[ " $* " == *' --fail-on-skipped '* ]] || return 41
+  case "$case_name" in
+    passed|dirty) echo 'integration-security mysql harness: PASS (40 checks)' ;;
+    menu-passed) echo '{"status":"passed","assertions":224,"scenarios":[{"scenario":"multi_tenant_fresh"},{"scenario":"module_lifecycle"}]}' ;;
+    menu-zero) echo '{"status":"passed","assertions":0,"scenarios":[{}]}' ;;
+    menu-prefixed) echo 'diagnostic: {"status":"passed","assertions":224,"scenarios":[{}]}' ;;
+    menu-trailing) echo '{"status":"passed","assertions":224,"scenarios":[{}]} trailing' ;;
+    missing) echo 'ThinkPHP handled an exception without a successful assertion marker' ;;
+    skipped) echo 'Tests: 1, Assertions: 0, Skipped: 1'; return 1 ;;
+    failed-dirty) echo 'actual child failure'; return 17 ;;
+  esac
+}
+preflight() {
+  echo POST_PREFLIGHT_EXECUTED
+  case "$case_name" in dirty|failed-dirty) return 9 ;; esac
+  return 0
+}
+target=server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest.php
+if [[ "$case_name" == menu-* ]]; then target=server/tests/Productization/MenuGroupingTest.php; fi
+if run_suite "$target"; then result=0; else result=$?; fi
+exit "$result"
+BASH,
+                'mysql-runner-evidence-fixture', $root . '/scripts/tests/run-registered-mysql-tests', $case, PHP_BINARY,
+            ], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $root);
+            self::assertIsResource($process);
+            fclose($pipes[0]);
+            $output = (string) stream_get_contents($pipes[1]) . (string) stream_get_contents($pipes[2]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            self::assertSame($expected, proc_close($process), $case . ': ' . $output);
+            self::assertSame(1, substr_count($output, 'POST_PREFLIGHT_EXECUTED'), $case . ': ' . $output);
+        }
+    }
+
+    public function testMatchingFileLoadsNativeEnvAndKeepsAuthorizationMetadata(): void
     {
         $result = $this->runHelper($this->environmentLines(), $this->ambient(), true);
 
         self::assertSame(0, $result['status'], $result['output']);
-        self::assertStringContainsString('PROBE:clean-overlap-and-lease-retained', $result['output']);
+        self::assertStringContainsString('PROBE:native-env-and-authorization-retained', $result['output']);
         $this->assertSecretIsNotPrinted($result['output']);
     }
 
@@ -173,7 +223,7 @@ source "$1"
 environment_file="$3"
 export PEANUT_SERVER_ENV_FILE="$environment_file"
 validate_environment_file "$2" "$environment_file"
-run_php_with_backend_environment "$2" -r "$5" "$ROOT/server/bootstrap/environment.php"
+run_php_with_backend_environment "$2" -r "$5" "$ROOT/server/tests/Support/CiBootstrap.php"
 BASH,
                 'registered-mysql-runner-test',
                 $root . '/scripts/tests/run-registered-mysql-tests',
@@ -181,16 +231,7 @@ BASH,
                 $path,
                 $probe ? 'probe' : 'validate',
                 <<<'PHP'
-$overlap = [
-    "DB_HOST", "DB_PORT", "DB_NAME",
-    "PEANUT_DATABASE_RESOURCE_ID", "PEANUT_DATABASE_ENDPOINT_ID",
-    "PEANUT_DATABASE_CONSUMER",
-];
-foreach ($overlap as $key) {
-    if (getenv($key) !== false) {
-        throw new RuntimeException("PROBE_OVERLAP_RETAINED:" . $key);
-    }
-}
+$ambient = getenv();
 $lease = [
     "PEANUT_DATABASE_ENVIRONMENT" => "continuous-integration",
     "PEANUT_DATABASE_RESOURCE_SCOPE" => "runner-test-scope",
@@ -213,16 +254,40 @@ $loaded = [
     "PEANUT_DATABASE_CONSUMER" => "host",
 ];
 foreach ($loaded as $key => $value) {
-    if (getenv($key) !== $value) {
+    if (env($key) !== $value) {
         throw new RuntimeException("PROBE_ENV_FILE_VALUE_MISSING:" . $key);
     }
+}
+if (env('DB_PASS') !== "runner-secret-must-not-be-printed-74d11"
+    || env('APP_DEBUG') !== false || getenv('DB_PASS') !== false) {
+    throw new RuntimeException("PROBE_NATIVE_ENV_REQUIRED");
+}
+if (getenv() !== $ambient) {
+    throw new RuntimeException("PROBE_PROCESS_ENVIRONMENT_CHANGED");
 }
 foreach ($lease as $key => $value) {
     if (getenv($key) !== $value) {
         throw new RuntimeException("PROBE_LEASE_METADATA_CHANGED:" . $key);
     }
 }
-fwrite(STDOUT, "PROBE:clean-overlap-and-lease-retained\n");
+require __DIR__ . '/server/tests/Support/IsolatedBackendEnvironment.php';
+require __DIR__ . '/server/tests/Support/RegisteredMysqlTestResource.php';
+$isolated = IsolatedBackendEnvironment::activate(['DB_NAME' => 'registered_mysql_isolated_test']);
+if (env('DB_NAME') !== 'registered_mysql_isolated_test'
+    || RegisteredMysqlTestResource::configuredDatabaseName() !== 'registered_mysql_isolated_test'
+    || getenv('DB_NAME') !== $loaded['DB_NAME']) {
+    throw new RuntimeException("PROBE_ISOLATED_NATIVE_ENV_REQUIRED");
+}
+$app = new \think\App(__DIR__ . '/server');
+$app->loadEnv((string) $app->env->get('ENV_NAME', ''));
+if ($app->env->get('DB_NAME') !== 'registered_mysql_isolated_test') {
+    throw new RuntimeException("PROBE_NATIVE_ENV_SELECTOR_REQUIRED");
+}
+IsolatedBackendEnvironment::cleanup();
+if (is_file($isolated)) {
+    throw new RuntimeException("PROBE_ISOLATED_ENV_CLEANUP_FAILED");
+}
+fwrite(STDOUT, "PROBE:native-env-and-authorization-retained\n");
 PHP,
                 $runnerMode,
             ];

@@ -1,6 +1,8 @@
 export default {
   'menu.appSetting.readiness': 'Production Readiness',
   'readiness.title': 'First-run configuration checklist',
+  'readiness.error.load':
+    'Unable to load the readiness checklist. Check access and try again.',
   'readiness.description':
     'Review production readiness, impact, ownership, and the next action after installation.',
   'readiness.boundary.title': 'Evidence boundary',

@@ -1,8 +1,21 @@
 # Changelog
 
-All notable Peanut Admin application changes are recorded here. The upstream
-application, PHP Core and all six Web Core packages share one release version.
-Downstream applications retain their own application versions.
+Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
+
+## [5.1.0] - Release candidate
+
+- Advance the Peanut Admin source and scaffold template identity to 5.1.0.
+- Retain the published PHP Core 5.0.3 and six Web Core 5.0.4 dependencies; no new Core release is required for this identity change.
+- Fix Ops purge completion checks to retain the uninstalled installation ledger; release the corrected Ops Module as 1.0.32.
+- Use applicable CI, exact-source native templates and CLI candidate creation for release acceptance. Full8 is an optional specialized suite; earlier incomplete attempts and failures are preserved, and this release does not claim a full8 pass.
+- Verify default public latest creation, ST/MT installation and startup, IAB login and basic business after publication; candidate creation does not claim those results.
+
+## [5.0.15] - Release candidate
+
+- Pin PHP Core 5.0.3 and the six Web Core 5.0.4 packages for both Editions. The scaffold includes eight base Modules.
+- Reject P0-E access outside the admitted database scenario and endpoint. Bind Module source recovery to the application’s own development configuration.
+- Retain completed qualification results and consumer evidence when releasing a lease fails, so that the same plan can resume without replaying completed work.
+- Use the collision-free Integration 1.0.29 migration identity when the application also selects Collaboration.
 
 ## [5.0.1] - 2026-10-07
 
@@ -78,6 +91,10 @@ Downstream applications retain their own application versions.
 
 ### Changed
 
+- Default downstream APP packaging to server-only, with a versioned workspace-level release output; keep explicit upstream template and frozen internal-candidate producers separate.
+- Ship one versioned Markdown manual set, remove the duplicate generated docs-site project, validate actual delivery links and bind generated API versions to source metadata.
+- Separate normal application guides from source-only migration and retained-installation recovery references. Historical releases and installed APP baselines remain unchanged.
+
 - Relicensed the current Peanut Admin source repository and its application
   components under Apache-2.0. Existing immutable tags and Releases keep the
   license files originally published with those artifacts.
@@ -129,7 +146,7 @@ Downstream applications retain their own application versions.
 - Adopted the qualified Peanut Admin Core Alpha.13 Composer and npm packages across all clients,
   including the single Core implementation of Local, Aliyun OSS, Tencent COS and Qiniu drivers.
 - Defined fail-closed Module source-package publication states and content rules; all official
-  Modules, including Rich Text, are discovered from `plugins.lock` for deterministic packaging.
+  Modules, including Rich Text, are discovered from `modules.lock` for deterministic packaging.
 - Converged the reviewed Gemini refactor as incremental application changes while preserving the
   ThinkPHP application boundary and isolating the rejected mechanical rewrite.
 

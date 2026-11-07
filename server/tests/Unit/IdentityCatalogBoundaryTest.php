@@ -19,7 +19,7 @@ final class IdentityCatalogBoundaryTest extends TestCase
     private PDO $database;
     private ModuleAuthorizationCatalogSynchronizer $authorization;
     private MenuCatalogSynchronizer $menus;
-    private \app\platform\infrastructure\plugin\ModuleCatalogApplier $host;
+    private \app\platform\infrastructure\module\ModuleCatalogApplier $host;
 
     protected function setUp(): void
     {
@@ -36,11 +36,15 @@ final class IdentityCatalogBoundaryTest extends TestCase
             CREATE TABLE pa_menu_definition (id INTEGER PRIMARY KEY, "key" TEXT, module_key TEXT, status TEXT, manifest_digest TEXT, private_extra TEXT);
             CREATE TABLE pa_setting_definition (id INTEGER PRIMARY KEY, module_key TEXT, setting_key TEXT, status TEXT, revision INTEGER, definition_digest TEXT);
             CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY, authorization_revision INTEGER, revision INTEGER, updated_at TEXT);
-            CREATE TABLE pa_tenant_module (id INTEGER PRIMARY KEY, tenant_id INTEGER, module_key TEXT, status TEXT, authorization_revision INTEGER, updated_at TEXT);
+            CREATE TABLE pa_tenant_license (id INTEGER PRIMARY KEY,tenant_id INTEGER,plan_id INTEGER);
+            CREATE TABLE pa_plan_module (plan_id INTEGER,module_key TEXT);
+            CREATE TABLE pa_api_endpoint (id TEXT,method TEXT,path TEXT,audience TEXT,module_key TEXT,access_mode TEXT,status TEXT,default_permission_keys TEXT,prerequisite_permission_keys TEXT);
+            CREATE TABLE pa_permission_api (permission_id INTEGER,api_id TEXT);
+            INSERT INTO pa_tenant_license VALUES (1,101,1),(2,202,1),(3,303,2);
+            INSERT INTO pa_plan_module VALUES (1,'fixture.alpha'),(1,'fixture.beta'),(2,'fixture.gamma');
             INSERT INTO pa_permission VALUES (2,'fixture.beta.read','fixture.beta','retired','2031-01-01 01:02:03.456000','private'),(1,'fixture.alpha.read','fixture.alpha','active',NULL,'private');
             INSERT INTO pa_menu_definition VALUES (2,'fixture.beta.menu','fixture.beta','retired','digest-b','private'),(1,'fixture.alpha.menu','fixture.alpha','active','digest-a','private');
             INSERT INTO pa_tenant VALUES (101,5,8,'old'),(202,10,12,'old'),(303,20,25,'old');
-            INSERT INTO pa_tenant_module VALUES (1,101,'fixture.alpha','enabled',2,'old'),(2,101,'fixture.beta','disabled',4,'old'),(3,202,'fixture.alpha','disabled',6,'old'),(4,303,'fixture.gamma','enabled',8,'old');
             SQL);
         $this->host = ThinkPhpTestConnection::moduleCatalogs($this->database);
         $this->authorization = (new ReflectionProperty($this->host, 'authorization'))->getValue($this->host);
@@ -49,7 +53,7 @@ final class IdentityCatalogBoundaryTest extends TestCase
 
     public function testExistingSynchronizersArePublicWithoutExportingPersistence(): void
     {
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(ModuleAuthorizationCatalogSynchronizer::class, $manifest['contracts']['exports']);
         self::assertContains(MenuCatalogSynchronizer::class, $manifest['contracts']['exports']);
         self::assertNotContains(\PeanutAdmin\Modules\Identity\Persistence\Model\Tenant::class, $manifest['contracts']['exports']);
@@ -57,7 +61,7 @@ final class IdentityCatalogBoundaryTest extends TestCase
 
     public function testHostDelegatesIdentityReadsAndInvalidationToItsOwner(): void
     {
-        $source = file_get_contents(dirname(__DIR__, 2) . '/app/platform/infrastructure/plugin/ModuleCatalogApplier.php');
+        $source = file_get_contents(dirname(__DIR__, 2) . '/app/platform/infrastructure/module/ModuleCatalogApplier.php');
         foreach (["Db::name('permission')", "Db::name('menu_definition')", "Db::name('tenant_module')", "Db::name('tenant')", "'menus' => 'pa_menu_definition'"] as $privateAccess) {
             self::assertStringNotContainsString($privateAccess, $source);
         }
@@ -76,7 +80,7 @@ final class IdentityCatalogBoundaryTest extends TestCase
         ];
         self::assertSame($permissions, $this->authorization->revisionRows());
         self::assertSame($menus, $this->menus->revisionRows());
-        $expected = ['pa_permission' => $permissions, 'pa_menu_definition' => $menus, 'pa_setting_definition' => [], 'pa_reference_code_set' => []];
+        $expected = ['pa_permission' => $permissions, 'api_permissions' => ['endpoints' => [], 'bindings' => []], 'pa_menu_definition' => $menus, 'pa_setting_definition' => [], 'pa_reference_code_set' => []];
         self::assertSame(hash('sha256', json_encode($expected, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)), $this->host->catalogRevision());
     }
 
@@ -91,23 +95,28 @@ final class IdentityCatalogBoundaryTest extends TestCase
         self::assertSame($before, $this->revisions());
     }
 
-    public function testSelectedModuleInvalidationBumpsEachTenantOnceWithoutTouchingOtherModules(): void
+    public function testCatalogInvalidationBumpsEveryTenantOnceWithoutChangingEntitlements(): void
     {
         $permissions = $this->database->query('SELECT * FROM pa_permission ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+        $licenses = $this->database->query('SELECT * FROM pa_tenant_license ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+        $plans = $this->database->query('SELECT * FROM pa_plan_module ORDER BY plan_id,module_key')->fetchAll(PDO::FETCH_ASSOC);
         $this->host->invalidateTenantAuthorization(['fixture.alpha', 'fixture.beta', 'fixture.alpha']);
-        self::assertSame([6,11,20], $this->database->query('SELECT authorization_revision FROM pa_tenant ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
-        self::assertSame([9,13,25], $this->database->query('SELECT revision FROM pa_tenant ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
-        self::assertSame([3,5,7,8], $this->database->query('SELECT authorization_revision FROM pa_tenant_module ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
-        self::assertSame('old', $this->database->query('SELECT updated_at FROM pa_tenant WHERE id=303')->fetchColumn());
+        self::assertSame([6,11,21], $this->database->query('SELECT authorization_revision FROM pa_tenant ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
+        self::assertSame([9,13,26], $this->database->query('SELECT revision FROM pa_tenant ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
+        self::assertSame($licenses, $this->database->query('SELECT * FROM pa_tenant_license ORDER BY id')->fetchAll(PDO::FETCH_ASSOC));
+        self::assertSame($plans, $this->database->query('SELECT * FROM pa_plan_module ORDER BY plan_id,module_key')->fetchAll(PDO::FETCH_ASSOC));
         self::assertSame($permissions, $this->database->query('SELECT * FROM pa_permission ORDER BY id')->fetchAll(PDO::FETCH_ASSOC));
     }
 
-    public function testEmptyOrUnmatchedSelectionDoesNotInvalidateAnything(): void
+    public function testEmptySelectionDoesNotInvalidateAndCatalogChangesReachTenantsWithoutPlanMatches(): void
     {
         $before = $this->revisions();
         $this->authorization->invalidateTenantAuthorization([]);
-        $this->authorization->invalidateTenantAuthorization(['fixture.missing']);
         self::assertSame($before, $this->revisions());
+        $this->authorization->invalidateTenantAuthorization(['fixture.missing']);
+        self::assertSame([6,11,21], $this->database->query('SELECT authorization_revision FROM pa_tenant ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
+        self::assertSame($before[1], $this->revisions()[1]);
+        self::assertSame($before[2], $this->revisions()[2]);
     }
 
     public function testOuterFailureRollsBackBothRevisionSets(): void
@@ -144,7 +153,8 @@ final class IdentityCatalogBoundaryTest extends TestCase
     {
         return [
             $this->database->query('SELECT * FROM pa_tenant ORDER BY id')->fetchAll(PDO::FETCH_ASSOC),
-            $this->database->query('SELECT * FROM pa_tenant_module ORDER BY id')->fetchAll(PDO::FETCH_ASSOC),
+            $this->database->query('SELECT * FROM pa_tenant_license ORDER BY id')->fetchAll(PDO::FETCH_ASSOC),
+            $this->database->query('SELECT * FROM pa_plan_module ORDER BY plan_id,module_key')->fetchAll(PDO::FETCH_ASSOC),
         ];
     }
 }

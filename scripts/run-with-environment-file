@@ -14,13 +14,7 @@ from pathlib import Path
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--env-file", required=True)
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument(
-        "--as-selector",
-        choices=("PEANUT_SERVER_ENV_FILE", "PEANUT_CLIENT_ENV_FILE"),
-        help="pass only the validated file path through the named loader selector",
-    )
-    mode.add_argument(
+    parser.add_argument(
         "--clean-only",
         action="store_true",
         help="validate the file but pass no project configuration to the child",
@@ -48,9 +42,7 @@ def main() -> int:
         for key in ("PATH", "HOME", "TMPDIR", "SSH_AUTH_SOCK", "SystemRoot", "COMSPEC", "PATHEXT")
         if (value := os.environ.get(key))
     }
-    if args.as_selector:
-        environment[args.as_selector] = str(path)
-    elif not args.clean_only:
+    if not args.clean_only:
         environment.update(values)
     os.execvpe(args.command[1], args.command[1:], environment)
     return 127

@@ -7,8 +7,12 @@ return [
     'password' => [],
     // 稳定 override key => 实现 AdminPermissionPolicy 的应用类。
     'overrides' => [],
+    // module_key => [setting_key => value]; DB deployment/tenant/target values take precedence.
+    // Use env() for deployment secrets; keep real credentials out of Module packages.
+    'settings' => [],
     'environment' => env('APP_ENV', 'production'),
     'demo' => [
+        'preset' => 'none',
         'enabled' => env('PEANUT_DEMO_MODE', 'disabled') === 'enabled',
         'admin_email' => env('PEANUT_DEMO_ADMIN_EMAIL', ''),
         'platform_email' => env('PEANUT_DEMO_PLATFORM_EMAIL', ''),
@@ -23,10 +27,6 @@ return [
         'active_key_id' => env('PEANUT_SETTINGS_ACTIVE_SECRET_KEY_ID', ''),
     ],
     'storage_credential_master_key' => env('PEANUT_STORAGE_CREDENTIAL_MASTER_KEY', ''),
-    'rich_text' => [
-        'collaboration_url' => env('RICH_TEXT_COLLABORATION_URL', ''),
-        'collaboration_secret' => env('RICH_TEXT_COLLABORATION_SECRET', ''),
-    ],
     'installation' => [
         'mode' => env('PEANUT_INSTALLATION_MODE', 'automatic'),
         'setup_token' => env('PEANUT_INSTALLATION_SETUP_TOKEN', ''),

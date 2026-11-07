@@ -38,33 +38,50 @@
           </el-space>
         </el-form-item>
       </el-form>
-      <el-row style="margin-bottom: 16px">
-        <el-col :span="12">
-          <el-space>
-            <el-button
-              v-permission="['dept/add']"
-              type="primary"
-              @click="handleAdd()"
-            >
-              <template #icon><Plus /></template>
-              {{ $t('systemDept.operation.create') }}
-            </el-button>
-            <el-button @click="toggleExpand">
-              {{ $t('systemDept.operation.expand') }}
-            </el-button>
-          </el-space>
-        </el-col>
-      </el-row>
+      <div class="department-actions">
+        <el-button
+          v-permission="['core.department.create']"
+          type="primary"
+          @click="handleAdd()"
+        >
+          <template #icon><Plus /></template>
+          {{ $t('systemDept.operation.create') }}
+        </el-button>
+        <span>按层展开，每次最多20项</span>
+      </div>
       <el-table
-        :key="isExpanded ? 'expanded' : 'collapsed'"
+        :key="tableRevision"
+        v-loading="loading"
         row-key="id"
-        :loading="loading"
-        :data="renderData"
+        :data="directory.tree.value"
+        scrollbar-tabindex="0"
+        aria-label="部门列表；可水平滚动查看全部列和操作"
         border
-        :default-expand-all="isExpanded"
-        :tree-props="{ children: 'children' }"
+        :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+        @expand-change="expandDepartment"
       >
-        <el-table-column prop="name" :label="$t('systemDept.columns.name')" />
+        <el-table-column
+          prop="name"
+          :label="$t('systemDept.columns.name')"
+          min-width="220"
+        >
+          <template #default="{ row }">
+            <span :title="row.name">{{ row.name }}</span>
+            <span v-if="row.structuralOnly">（路径）</span>
+            <el-button
+              v-if="!isSearch && row.hasChildren"
+              link
+              @click="loadChildren(row.id)"
+              >展开子部门</el-button
+            >
+            <el-button
+              v-if="!isSearch && directory.pages.value[row.id]?.hasMore"
+              link
+              @click="loadChildren(row.id, true)"
+              >加载下一页</el-button
+            >
+          </template>
+        </el-table-column>
         <el-table-column :label="$t('systemDept.columns.status')" width="110">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">{{
@@ -90,29 +107,28 @@
           width="220"
         >
           <template #default="{ row }">
-            <el-space>
+            <el-space v-if="!row.structuralOnly">
               <el-button
-                v-permission="['dept/add']"
+                v-permission="['core.department.create']"
                 link
                 size="small"
                 @click="handleAdd(row)"
                 >{{ $t('systemDept.operation.addChild') }}</el-button
               >
               <el-button
-                v-permission="['dept/edit']"
+                v-permission="['core.department.update']"
                 link
                 size="small"
                 @click="handleEdit(row)"
                 >{{ $t('systemDept.operation.edit') }}</el-button
               >
               <el-popconfirm
-                v-if="row.pid !== 0"
                 :title="$t('systemDept.delete.confirm')"
                 @confirm="handleDelete(row)"
               >
                 <template #reference>
                   <el-button
-                    v-permission="['dept/delete']"
+                    v-permission="['core.department.archive']"
                     link
                     type="danger"
                     size="small"
@@ -124,6 +140,19 @@
           </template>
         </el-table-column>
       </el-table>
+      <div v-if="loading">部门目录正在加载…</div>
+      <div v-else>
+        匹配 {{ directory.pages.value[0]?.count ?? 0 }} 项；祖先路径不计数
+      </div>
+      <el-button
+        v-if="directory.pages.value[0]?.hasMore"
+        :loading="directory.busy.value[0]"
+        @click="directory.read(0, true)"
+        >加载下一页</el-button
+      >
+      <el-button v-if="directory.error.value" @click="fetchData">{{
+        directory.error.value
+      }}</el-button>
     </el-card>
 
     <el-dialog
@@ -137,12 +166,11 @@
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
         <el-form-item prop="pid" :label="$t('systemDept.field.pid')">
-          <el-tree-select
+          <DepartmentPicker
             v-model="form.pid"
-            :data="parentTree"
-            :props="{ value: 'id', label: 'name', children: 'children' }"
-            :placeholder="$t('systemDept.field.pid.placeholder')"
-            :disabled="isRootDepartmentEdit"
+            :key="pickerRevision"
+            :root-label="$t('systemDept.field.pid.root')"
+            :disabled="isRootDepartmentEdit || (isEdit && !canMoveDepartment)"
           />
         </el-form-item>
         <el-form-item prop="name" :label="$t('systemDept.field.name')">
@@ -152,6 +180,53 @@
             :placeholder="$t('systemDept.field.name.placeholder')"
           />
         </el-form-item>
+        <el-form-item label="部门标识">
+          <el-input
+            v-model="form.code"
+            :disabled="isEdit"
+            maxlength="128"
+            placeholder="留空时自动生成；工作流按此标识查找部门"
+          />
+        </el-form-item>
+        <el-form-item v-if="isEdit" label="绑定负责人（本租户有效成员）">
+          <el-select
+            :model-value="form.leader_member_id"
+            clearable
+            filterable
+            remote
+            :remote-method="searchLeaders"
+            :loading="leaderLoading"
+            @update:model-value="form.leader_member_id = $event || null"
+          >
+            <el-option
+              v-if="
+                form.leader_member_id &&
+                !leaderCandidates.some(
+                  (item) => item.id === form.leader_member_id
+                )
+              "
+              :value="form.leader_member_id"
+              :label="`已绑定成员 #${form.leader_member_id}`"
+            />
+            <el-option
+              v-for="candidate in leaderCandidates"
+              :key="candidate.id"
+              :value="candidate.id"
+              :label="candidate.name"
+            />
+          </el-select>
+          <el-button
+            v-if="leaderHasMore"
+            link
+            :loading="leaderLoading"
+            @click="loadLeaders(true)"
+            >加载更多成员</el-button
+          >
+          <div
+            >绑定用于工作流分配；清空后不再提供部门负责人。联系人文字不会自动绑定账号。</div
+          >
+        </el-form-item>
+        <div v-else>先保存部门并为其分配成员，再编辑绑定负责人。</div>
         <el-form-item prop="leader" :label="$t('systemDept.field.leader')">
           <el-input
             v-model="form.leader"
@@ -193,6 +268,7 @@
 
 <script lang="ts" setup>
   import { computed, ref, reactive } from 'vue';
+  import { useRoute } from 'vue-router';
   import { useI18n } from 'vue-i18n';
   import { ElMessage } from 'element-plus';
   import type { FormInstance } from 'element-plus';
@@ -200,27 +276,34 @@
   import useLoading from '@/hooks/loading';
   import {
     getDeptList,
-    getDeptAll,
     getDeptDetail,
     addDept,
     editDept,
     deleteDept,
-    type DeptRecord,
+    getDepartmentLeaderCandidates,
+    type DepartmentLeaderCandidate,
     type DeptForm,
+    type DirectoryDepartment,
   } from '@/api/system/dept';
+  import { hasPermission } from '@/hooks/permission';
   import {
-    buildParentDepartmentOptions,
+    DepartmentPicker,
+    useDepartmentDirectory,
     initialParentDepartmentId,
     ROOT_DEPARTMENT_ID,
   } from './parent-options';
 
+  const route = useRoute();
   const { t } = useI18n();
   const { loading, setLoading } = useLoading(true);
-  const renderData = ref<DeptRecord[]>([]);
-  const deptOptions = ref<DeptRecord[]>([]);
-  const expandedKeys = ref<number[]>([]);
-  const isExpanded = ref(true);
-  const queryParams = reactive<{ name: string; status: number | '' }>({
+  const directory = useDepartmentDirectory(getDeptList);
+  const tableRevision = ref(0);
+  const pickerRevision = ref(0);
+  const { isSearch } = directory;
+  const queryParams = reactive<{
+    name: string;
+    status: number | '' | null | undefined;
+  }>({
     name: '',
     status: '',
   });
@@ -228,14 +311,11 @@
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data } = await getDeptList({
-        name: queryParams.name || undefined,
-        status: queryParams.status === '' ? undefined : queryParams.status,
+      tableRevision.value += 1;
+      await directory.reset({
+        name: queryParams.name,
+        status: queryParams.status,
       });
-      renderData.value = data;
-      if (isExpanded.value) {
-        expandedKeys.value = collectIds(data);
-      }
     } finally {
       setLoading(false);
     }
@@ -247,47 +327,78 @@
     fetchData();
   };
 
-  const collectIds = (nodes: DeptRecord[]): number[] =>
-    nodes.flatMap((node) => [node.id, ...collectIds(node.children || [])]);
-
-  const toggleExpand = () => {
-    isExpanded.value = !isExpanded.value;
-    expandedKeys.value = isExpanded.value ? collectIds(renderData.value) : [];
+  const loadChildren = (id: number, next = false) => directory.read(id, next);
+  const expandDepartment = (row: DirectoryDepartment, expanded: boolean) => {
+    if (expanded && !isSearch.value && !directory.pages.value[row.id])
+      loadChildren(row.id);
   };
 
   const formatTime = (value?: number | string): string => {
     if (!value) return '-';
-    if (typeof value === 'string') return value;
-    return new Date(value * 1000).toLocaleString('zh-CN', { hour12: false });
+    const date = new Date(typeof value === 'number' ? value * 1000 : value);
+    return Number.isNaN(date.getTime())
+      ? '-'
+      : date.toLocaleString('zh-CN', { hour12: false });
   };
 
   fetchData();
-
-  // ---- 上级部门选择树：顶级选项 + 正常部门 ----
-  const parentTree = computed(() =>
-    buildParentDepartmentOptions(
-      deptOptions.value,
-      t('systemDept.field.pid.root')
-    )
-  );
-
-  const loadDeptOptions = async () => {
-    const { data } = await getDeptAll();
-    deptOptions.value = data;
-  };
 
   // ---- 弹窗 & 表单 ----
   const modalVisible = ref(false);
   const isEdit = ref(false);
   const isRootDepartmentEdit = ref(false);
+  const canMoveDepartment = computed(() =>
+    hasPermission('core.department.move', route.path)
+  );
+  const originalParentDepartmentId = ref<number | undefined>();
   const submitLoading = ref(false);
   const formRef = ref<FormInstance>();
+  const leaderCandidates = ref<DepartmentLeaderCandidate[]>([]);
+  const leaderLoading = ref(false);
+  const leaderSearch = ref('');
+  const leaderPage = ref(0);
+  const leaderHasMore = ref(false);
+  let leaderRequest = 0;
+
+  const loadLeaders = async (next = false) => {
+    if (!form.id) return;
+    leaderRequest += 1;
+    const request = leaderRequest;
+    const departmentId = form.id;
+    const page = next ? leaderPage.value + 1 : 1;
+    leaderLoading.value = true;
+    try {
+      const { data } = await getDepartmentLeaderCandidates({
+        department_id: departmentId,
+        page_no: page,
+        page_size: 20,
+        search: leaderSearch.value,
+      });
+      if (request !== leaderRequest || form.id !== departmentId) return;
+      leaderCandidates.value = next
+        ? [...leaderCandidates.value, ...data.items]
+        : data.items;
+      leaderPage.value = page;
+      leaderHasMore.value = page * data.page_size < data.total;
+    } finally {
+      if (request === leaderRequest) leaderLoading.value = false;
+    }
+  };
+  const searchLeaders = (search: string) => {
+    leaderSearch.value = search;
+    leaderHasMore.value = false;
+    loadLeaders().catch(() => {
+      /* Shared interceptor displays the request error. */
+    });
+  };
 
   const defaultForm = (): DeptForm => ({
     id: undefined,
     pid: ROOT_DEPARTMENT_ID,
     name: '',
+    code: '',
     leader: '',
+    leader_member_id: null,
     mobile: '',
     sort: 0,
     status: 1,
@@ -313,26 +424,33 @@
   };
 
   const resetForm = (patch: Partial<DeptForm> = {}) => {
+    leaderRequest += 1;
+    leaderCandidates.value = [];
+    leaderSearch.value = '';
+    leaderPage.value = 0;
+    leaderHasMore.value = false;
+    leaderLoading.value = false;
     Object.assign(form, defaultForm(), patch);
   };
 
-  const handleAdd = async (parent?: DeptRecord) => {
+  const handleAdd = async (parent?: DirectoryDepartment) => {
     isEdit.value = false;
     isRootDepartmentEdit.value = false;
-    await loadDeptOptions();
+    originalParentDepartmentId.value = undefined;
+    pickerRevision.value += 1;
     resetForm({ pid: initialParentDepartmentId(parent?.id) });
     modalVisible.value = true;
   };
 
-  const handleEdit = async (record: DeptRecord) => {
+  const handleEdit = async (record: DirectoryDepartment) => {
     isEdit.value = true;
     isRootDepartmentEdit.value = record.pid === ROOT_DEPARTMENT_ID;
-    const [{ data }] = await Promise.all([
-      getDeptDetail(record.id),
-      loadDeptOptions(),
-    ]);
+    const { data } = await getDeptDetail(record.id);
+    pickerRevision.value += 1;
     resetForm({ ...data, children: undefined });
+    originalParentDepartmentId.value = data.pid;
     modalVisible.value = true;
+    if (data.status === 1) await loadLeaders();
   };
 
   const handleSubmit = async () => {
@@ -341,19 +459,25 @@
     submitLoading.value = true;
     try {
       if (isEdit.value) {
+        if (!canMoveDepartment.value) {
+          form.pid = originalParentDepartmentId.value ?? form.pid;
+        }
         await editDept(form);
       } else {
-        await addDept(form);
+        const { code, ...input } = form;
+        await addDept(code?.trim() ? { ...input, code: code.trim() } : input);
       }
       ElMessage.success(t('systemDept.tip.success'));
       modalVisible.value = false;
       await fetchData();
+    } catch {
+      // The shared Axios interceptor already shows the server error; keep the form open and its values intact.
     } finally {
       submitLoading.value = false;
     }
   };
 
-  const handleDelete = async (record: DeptRecord) => {
+  const handleDelete = async (record: DirectoryDepartment) => {
     await deleteDept(record.id);
     ElMessage.success(t('systemDept.tip.success'));
     await fetchData();
@@ -362,12 +486,23 @@
 
 <script lang="ts">
   export default {
-    name: 'SystemDept',
+    name: 'tenant.departments.list',
   };
 </script>
 
 <style scoped lang="less">
   .container {
     padding: 0 20px 20px 20px;
+  }
+  .department-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-bottom: 16px;
+  }
+  :deep(.el-table .el-scrollbar__wrap:focus-visible) {
+    outline: 2px solid var(--el-color-primary);
+    outline-offset: -2px;
   }
 </style>

@@ -3,8 +3,8 @@
 
 declare(strict_types=1);
 
-use app\platform\validation\plugin\ModulePackagePreflight;
-use app\platform\services\plugin\PluginPackageArchiveService;
+use app\common\module\PackageCheck;
+use app\platform\services\module\ModulePackageArchiveService;
 
 $root = dirname(__DIR__);
 require $root . '/server/vendor/autoload.php';
@@ -146,25 +146,23 @@ if (trim(packagingEvidenceRun(['git', '-C', $root, 'status', '--porcelain', '--u
     packagingEvidenceFail('source worktree must be clean before generating packaging evidence');
 }
 
-$pluginLock = json_decode((string) file_get_contents($root . '/plugins.lock'), true, 64, JSON_THROW_ON_ERROR);
-if (!is_array($pluginLock['plugins'] ?? null) || !array_is_list($pluginLock['plugins'])) {
-    packagingEvidenceFail('Bundled Plugin lock is invalid');
+$moduleLock = json_decode((string) file_get_contents($root . '/modules.lock'), true, 64, JSON_THROW_ON_ERROR);
+if (!is_array($moduleLock['modules'] ?? null) || !array_is_list($moduleLock['modules'])) {
+    packagingEvidenceFail('Bundled Module lock is invalid');
 }
 $moduleKeys = [];
-foreach ($pluginLock['plugins'] as $plugin) {
-    if (!is_array($plugin)) {
-        packagingEvidenceFail('Bundled Plugin lock entry is invalid');
+foreach ($moduleLock['modules'] as $module) {
+    if (!is_array($module)) {
+        packagingEvidenceFail('Bundled Module lock entry is invalid');
     }
-    foreach ($plugin['modules'] ?? [] as $module) {
-        $key = is_array($module) ? ($module['key'] ?? null) : null;
-        if (!is_string($key) || !str_starts_with($key, 'official.')) {
-            continue;
-        }
-        if (isset($moduleKeys[$key])) {
-            packagingEvidenceFail('Bundled official Module is duplicated: ' . $key);
-        }
-        $moduleKeys[$key] = true;
+    $key = $module['key'] ?? null;
+    if (!is_string($key) || !str_starts_with($key, 'peanut.')) {
+        continue;
     }
+    if (isset($moduleKeys[$key])) {
+        packagingEvidenceFail('Bundled official Module is duplicated: ' . $key);
+    }
+    $moduleKeys[$key] = true;
 }
 $moduleKeys = array_keys($moduleKeys);
 sort($moduleKeys, SORT_STRING);
@@ -176,8 +174,8 @@ $packageDirectory = $outputDirectory . '/packages';
 if (!is_dir($packageDirectory) && !mkdir($packageDirectory, 0775, true) && !is_dir($packageDirectory)) {
     packagingEvidenceFail('Module package output directory is unavailable: ' . $packageDirectory);
 }
-$archiveService = new PluginPackageArchiveService($root . '/server');
-$preflight = new ModulePackagePreflight($root);
+$archiveService = new ModulePackageArchiveService($root . '/server');
+$preflight = new PackageCheck($root);
 $results = [];
 foreach ($moduleKeys as $moduleKey) {
     $archivePath = $packageDirectory . '/' . str_replace('.', '-', $moduleKey) . '.tar';
@@ -195,9 +193,10 @@ foreach ($moduleKeys as $moduleKey) {
 
 // The repository uses a Git worktree whose .git entry is a file. Husky's
 // prepare hook is a local Git-hook install, not a production build input; CI
-// already disables it for the same frozen dependency install.
+// already disables it for the same frozen dependency install. Keep independent
+// files for the source-checked API generator even if pnpm selects a new store.
 packagingEvidenceRun(
-    ['pnpm', '--dir', 'web', 'install', '--frozen-lockfile'],
+    ['pnpm', '--dir', 'web', 'install', '--frozen-lockfile', '--package-import-method=copy'],
     $root,
     ['HUSKY' => '0', 'CI' => '1'],
 );
@@ -210,7 +209,7 @@ $evidence = [
     'results' => $results,
     'production_build' => [
         'command' => 'pnpm --dir web build',
-        'install_command' => 'pnpm --dir web install --frozen-lockfile',
+        'install_command' => 'pnpm --dir web install --frozen-lockfile --package-import-method=copy',
         'install_environment' => ['HUSKY' => '0', 'CI' => '1'],
         'candidate' => $candidate,
         'source_tree' => $sourceTree,

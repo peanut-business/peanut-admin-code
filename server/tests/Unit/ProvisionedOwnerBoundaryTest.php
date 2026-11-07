@@ -10,9 +10,8 @@ use app\platform\services\ApplicationTenantBootstrapService;
 use app\platform\services\CoreTenantOwnerAdminProvisioner;
 use PDO;
 use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
-use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationCommands;
+use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Modules\Integration\Contract\ExternalIntegrationBootstrapCommands;
-use PeanutAdmin\Modules\Notification\Contract\NotificationBootstrapCommands;
 use PeanutAdmin\Modules\Settings\Contract\TenantSettingsCommands;
 use PeanutAdmin\Modules\Settings\Contract\TenantSettingsQuery;
 use PeanutAdmin\Modules\Task\Contract\TaskBootstrapCommands;
@@ -59,18 +58,16 @@ final class ProvisionedOwnerBoundaryTest extends TestCase
             SQL);
         $contexts = new ExecutionContextStore();
         $this->directory = new AdminDirectoryQuery(new CurrentExecutionContext($contexts));
-        $notifications = $this->createStub(NotificationBootstrapCommands::class);
         $tasks = $this->createStub(TaskBootstrapCommands::class);
         // Without the application-owned schema, the existing native bootstrap deliberately returns before seeding.
         $bootstrap = new ApplicationTenantBootstrapService(
-            $notifications,
             $tasks,
             $contexts,
             $this->createStub(TenantSettingsQuery::class),
             $this->createStub(TenantSettingsCommands::class),
             (new ReflectionClass(ExternalIntegrationBootstrapCommands::class))->newInstanceWithoutConstructor(),
-            (new ReflectionClass(TenantAuthorizationCommands::class))->newInstanceWithoutConstructor(),
             $app->make(DbManager::class),
+            new CompiledModuleRegistry([], [], [], [], 'provisioned-owner-boundary'),
         );
         $this->host = new CoreTenantOwnerAdminProvisioner($bootstrap, $this->directory);
     }

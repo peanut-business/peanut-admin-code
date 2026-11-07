@@ -1,5 +1,6 @@
 import type { RouteRecordRaw } from 'vue-router';
 import appClientMenus from '@/router/app-menus';
+import { validRouteMeta } from '@/router/route-meta';
 import type { ServerMenuRecord } from './types';
 
 function normalizePath(path: string): string {
@@ -59,18 +60,16 @@ export default function mapServerMenu(
 
       if (staticRoute.children?.length && children.length === 0) return null;
 
-      return {
+      const route = {
         ...staticRoute,
         path: normalizePath(menu.paths || staticRoute.path),
         meta: {
           ...staticRoute.meta,
-          icon: menu.icon || staticRoute.meta?.icon,
-          tenantModuleKey:
-            menu.module_key && menu.module_key !== 'core'
-              ? menu.module_key
-              : staticRoute.meta?.tenantModuleKey,
           requiredPermissions:
-            menu.required_permission || staticRoute.meta?.requiredPermissions,
+            menu.required_permission ||
+            menu.perms ||
+            staticRoute.meta?.requiredPermissions,
+          icon: menu.icon || staticRoute.meta?.icon,
           title: menu.name || staticRoute.meta?.title,
           hideInMenu:
             Number(menu.is_show ?? 1) === 0 ||
@@ -78,6 +77,7 @@ export default function mapServerMenu(
         },
         children,
       } as RouteRecordRaw;
+      return validRouteMeta(route) ? route : null;
     })
     .filter((route): route is RouteRecordRaw => route !== null);
 }

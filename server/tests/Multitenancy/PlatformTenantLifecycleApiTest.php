@@ -4,19 +4,15 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
 
-require dirname(__DIR__, 2) . '/bootstrap/environment.php';
+require_once __DIR__ . '/../Support/CiBootstrap.php';
 
 use app\platform\context\PlatformOperatorContext;
-use app\platform\identity\PlatformOperatorIdentity;
-use app\platform\identity\PlatformOperatorIdentityPort;
-use PeanutAdmin\Modules\Notification\Service\NotificationBootstrapService;
 use PeanutAdmin\Modules\Task\Service\TaskBootstrapService;
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Modules\Settings\Service\TenantSettingService;
 use PeanutAdmin\Modules\Settings\Infrastructure\ThinkPhpTenantSettingsProvider;
 use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
-use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationCommands;
 use PeanutAdmin\Modules\Integration\Contract\ExternalIntegrationBootstrapCommands;
 use PeanutAdmin\Modules\Integration\Infrastructure\ThinkPhpExternalTenantBindingRepository;
 use app\common\tenancy\MultiTenantDataScopePolicy;
@@ -30,10 +26,7 @@ use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
 use PeanutAdmin\Kernel\Identity\PasswordPolicy;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
-use PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository;
-use PeanutAdmin\Kernel\Module\TenantModuleConfigValidator;
-use PeanutAdmin\Kernel\Module\TenantModuleManager;
-use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
+use PeanutAdmin\Modules\Identity\Module\TenantEntitlementService;
 use PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService;
 use PeanutAdmin\Modules\Identity\Platform\Application\TenantOwnerAdminService;
 use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
@@ -44,45 +37,45 @@ require_once defined('PHPUNIT_COMPOSER_INSTALL')
     : dirname(__DIR__, 2) . '/vendor/autoload.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
 require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
+require_once __DIR__ . '/../Support/IdentityMysqlFixture.php';
+require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 
 function lifecycleExpect(bool $condition, string $message): void
 {
+    $GLOBALS['lifecycleExpectAssertions'] = ($GLOBALS['lifecycleExpectAssertions'] ?? 0) + 1;
     if (!$condition) {
         throw new RuntimeException($message);
     }
 }
 
-function lifecycleRejects(Closure $operation): void
+function lifecycleRejects(Closure $operation, ?string $expectedCode = null): void
 {
     try {
         $operation();
-    } catch (Throwable) {
+    } catch (Throwable $exception) {
+        if ($expectedCode !== null) {
+            lifecycleExpect($exception instanceof \PeanutAdmin\Kernel\Authorization\Application\AdminAccessException
+                && $exception->errorCode === $expectedCode, 'unexpected lifecycle authorization rejection');
+        }
         return;
     }
     throw new RuntimeException('expected lifecycle rejection');
 }
 
-final readonly class LifecycleIdentity implements PlatformOperatorIdentityPort
+/** Context handoff only; production Identity verifies the operator row within its transaction. */
+function lifecycleContext(int $operatorId, int $accountId, string $requestId): PlatformOperatorContext
 {
-    public function __construct(private PlatformOperatorIdentity $identity) {}
-
-    public function requireActive(string $credential, string $requestId): PlatformOperatorContext
-    {
-        if (!hash_equals('pm01-lifecycle-token', $credential)) {
-            throw new DomainException('PLATFORM_OPERATOR_AUTHENTICATION_FAILED');
-        }
-        return PlatformOperatorContext::fromValidatedPlatformSession(PlatformContext::fromValidatedSession(
-            new ValidatedPlatformSession(
-                $this->identity->operatorId,
-                'pm01-lifecycle-session',
-                $this->identity->operatorId,
-                $this->identity->accountId,
-                'platform-web',
-                new DateTimeImmutable('+1 hour'),
-            ),
-            $requestId,
-        ));
-    }
+    return PlatformOperatorContext::fromValidatedPlatformSession(PlatformContext::fromValidatedSession(
+        new ValidatedPlatformSession(
+            $operatorId,
+            'lifecycle-platform-session',
+            $operatorId,
+            $accountId,
+            'platform-web',
+            new DateTimeImmutable('+1 hour'),
+        ),
+        $requestId,
+    ));
 }
 
 function lifecycleApplicationBootstrap(): ApplicationTenantBootstrapService
@@ -98,55 +91,37 @@ function lifecycleApplicationBootstrap(): ApplicationTenantBootstrapService
     });
     $directory = new AdminDirectoryQuery($current);
     $settings = new TenantSettingService(new ThinkPhpTenantSettingsProvider($policy));
+    $registry = new CompiledModuleRegistry([], [], [], [], 'lifecycle-required');
+    \think\Container::getInstance()->instance(TenantEntitlementService::class, new TenantEntitlementService($registry));
     return new ApplicationTenantBootstrapService(
-        new NotificationBootstrapService(),
         new TaskBootstrapService(),
         $contexts,
         $settings,
         $settings,
         new ExternalIntegrationBootstrapCommands(new ThinkPhpExternalTenantBindingRepository($directory), $current, $directory),
-        new TenantAuthorizationCommands($current, new AuditService()),
         \think\Container::getInstance()->make(\think\DbManager::class),
+        $registry,
     );
 }
 
-$host = IsolatedBackendEnvironment::required('DB_HOST');
-$port = (int) IsolatedBackendEnvironment::required('DB_PORT');
-$user = IsolatedBackendEnvironment::required('DB_USER');
-$password = IsolatedBackendEnvironment::required('DB_PASS');
-$admin = new PDO(
-    "mysql:host={$host};port={$port};charset=utf8mb4",
-    $user,
-    $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false],
-);
-$database = IsolatedBackendEnvironment::required('DB_NAME');
-$admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
+$database = RegisteredMysqlTestResource::configuredDatabaseName();
+[$pdo, $createdDatabase] = RegisteredMysqlTestResource::openEmptyDatabase($database);
 
 try {
-    $pdo = new PDO(
-        "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
-        $user,
-        $password,
-        [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-        ],
-    );
-    foreach (KernelSchema::tableNames() as $table) {
-        $pdo->exec(KernelSchema::createSql($table));
-    }
-    $pdo->exec(KernelSchema::addTenantMemberDepartmentForeignKeySql());
+    $serverRoot = dirname(__DIR__, 2);
+    IdentityMysqlFixture::install($pdo, [
+        $serverRoot . '/app/modules/peanut/file/database/migrations',
+        $serverRoot . '/app/modules/peanut/settings/database/migrations',
+        $serverRoot . '/app/modules/peanut/task/database/migrations',
+        $serverRoot . '/app/modules/peanut/integration/database/migrations',
+        $serverRoot . '/database/installation',
+    ]);
     $pdo->exec(<<<'SQL'
 INSERT INTO pa_tenant
   (code,name,display_name,status,activated_at,created_at,updated_at)
 VALUES
   ('default','Default','Default','active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))
 SQL);
-    $applicationSchema = (string) file_get_contents(dirname(__DIR__, 2) . '/database/init.sql');
-    lifecycleExpect($applicationSchema !== '', 'canonical application schema is missing');
-    $pdo->exec($applicationSchema);
     ThinkPhpTestConnection::fromPdo($pdo);
     $bootstrap = new BootstrapService(new AuditService(), new PasswordHasher(), new PasswordPolicy());
     $platform = $bootstrap->bootstrapPlatformOwner(
@@ -155,45 +130,31 @@ SQL);
         'Lifecycle Operator',
         'pm01-lifecycle-bootstrap',
     );
-    $registry = new CompiledModuleRegistry([], [], [], [], 'pm01-lifecycle');
-    $modules = new TenantModuleManager(
-        $registry,
-        new ThinkPhpModuleRuntimeRepository($registry),
-        new class implements TenantModuleConfigValidator {
-            public function assertValid(\PeanutAdmin\Kernel\Module\ManifestDocument $manifest, array $config): void
-            {
-                throw new DomainException('module mutation is outside the lifecycle slice');
-            }
-        },
-    );
-    $administration = new PlatformTenantAdminService($modules, new AuditService());
+    $administration = new PlatformTenantAdminService(new AuditService());
     $owners = new TenantOwnerAdminService(new AuditService(), new PasswordHasher(), new PasswordPolicy());
     $service = new TenantGovernanceService(
-        new LifecycleIdentity(new PlatformOperatorIdentity($platform->operatorId, $platform->accountId)),
         $administration,
         $owners,
         new CoreTenantOwnerAdminProvisioner(lifecycleApplicationBootstrap(), new \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery(new CurrentExecutionContext(new ExecutionContextStore()))),
     );
 
     lifecycleRejects(static fn() => $service->provision(
-        'forged-token',
+        lifecycleContext($platform->operatorId + 1000000, $platform->accountId, 'pm01-forged'),
         'forged',
         'Forged',
         'forged@example.test',
         'ForgedPassword2026',
         'Forged Owner',
-        'pm01-forged',
-    ));
-    lifecycleExpect((int) $pdo->query('SELECT COUNT(*) FROM pa_tenant')->fetchColumn() === 1, 'forged platform token wrote a Tenant');
+    ), 'PLATFORM_OPERATOR_INACTIVE');
+    lifecycleExpect((int) $pdo->query('SELECT COUNT(*) FROM pa_tenant')->fetchColumn() === 1, 'unbound platform operator wrote a Tenant');
 
     $candidate = $service->provision(
-        'pm01-lifecycle-token',
+        lifecycleContext($platform->operatorId, $platform->accountId, 'pm01-http-provision'),
         'alpha-http',
         'Alpha HTTP',
         'alpha-owner@example.test',
         'AlphaOwnerPassword2026',
         'Alpha Owner',
-        'pm01-http-provision',
     );
     $tenantId = (int) $candidate['tenant_id'];
     lifecycleExpect($candidate['status'] === 'pending', 'provision did not return owner candidate state');
@@ -220,18 +181,22 @@ SQL);
         'owner membership does not point to the native Tenant role',
     );
     lifecycleExpect(
-        (int) $pdo->query("SELECT COUNT(*) FROM pa_notice_scene WHERE tenant_id={$tenantId}")->fetchColumn() === 4,
-        'provision did not run application-owned Tenant bootstrap',
+        (int) $pdo->query("SELECT COUNT(*) FROM pa_decorate_page WHERE tenant_id={$tenantId}")->fetchColumn() === 5,
+        'provision did not create the required application-owned Tenant page shells',
+    );
+    // Notification's four-scene bootstrap is verified by its module-owned NoticeTenantIsolationTest.
+    lifecycleExpect(
+        (int) $pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='pa_notice_scene'")->fetchColumn() === 0,
+        'required-only Tenant bootstrap installed the optional Notification schema',
     );
 
     $secondCandidate = $service->provision(
-        'pm01-lifecycle-token',
+        lifecycleContext($platform->operatorId, $platform->accountId, 'pm01-http-second-tenant'),
         'beta-http',
         'Beta HTTP',
         'alpha-owner@example.test',
         null,
         'Alpha Owner',
-        'pm01-http-second-tenant',
     );
     $secondTenantId = (int) $secondCandidate['tenant_id'];
     lifecycleExpect(
@@ -268,42 +233,38 @@ SQL);
         }
     };
     $failingService = new TenantGovernanceService(
-        new LifecycleIdentity(new PlatformOperatorIdentity($platform->operatorId, $platform->accountId)),
         $administration,
         $owners,
         $failingOwnerAdmins,
     );
     lifecycleRejects(static fn() => $failingService->provision(
-        'pm01-lifecycle-token',
+        lifecycleContext($platform->operatorId, $platform->accountId, 'pm01-http-rollback'),
         'rollback-http',
         'Rollback HTTP',
         'rollback-owner@example.test',
         'RollbackOwnerPassword2026',
         'Rollback Owner',
-        'pm01-http-rollback',
     ));
     lifecycleExpect((int) $pdo->query('SELECT COUNT(*) FROM pa_tenant')->fetchColumn() === $tenantCount, 'owner provisioning failure left a partial Tenant');
     lifecycleExpect((int) $pdo->query('SELECT COUNT(*) FROM pa_tenant_member')->fetchColumn() === $memberCount, 'owner provisioning failure left a partial TenantMember');
 
     lifecycleRejects(static fn() => $service->transition(
-        'pm01-lifecycle-token',
+        lifecycleContext($platform->operatorId, $platform->accountId, 'pm01-http-wrong-revision'),
         $tenantId,
         99,
         TenantStatus::Active,
         'wrong revision',
-        'pm01-http-wrong-revision',
     ));
     lifecycleExpect(
         $pdo->query("SELECT status FROM pa_tenant WHERE id={$tenantId}")->fetchColumn() === 'provisioning',
         'revision mismatch changed Tenant state',
     );
     $active = $service->transition(
-        'pm01-lifecycle-token',
+        lifecycleContext($platform->operatorId, $platform->accountId, 'pm01-http-activate'),
         $tenantId,
         1,
         TenantStatus::Active,
         'owner ready',
-        'pm01-http-activate',
     );
     lifecycleExpect($active['status'] === 'active' && (int) $active['revision'] === 2, 'Tenant activation result is incorrect');
     lifecycleExpect(
@@ -312,12 +273,11 @@ SQL);
     );
 
     $closed = $service->transition(
-        'pm01-lifecycle-token',
+        lifecycleContext($platform->operatorId, $platform->accountId, 'pm01-http-close'),
         $tenantId,
         (int) $active['revision'],
         TenantStatus::Closed,
         'customer instance retired',
-        'pm01-http-close',
     );
     lifecycleExpect($closed['status'] === 'closed' && (int) $closed['revision'] === 3, 'Tenant closure result is incorrect');
     lifecycleExpect(
@@ -329,12 +289,11 @@ SQL);
         'Tenant closure platform audit is missing',
     );
     lifecycleRejects(static fn() => $service->transition(
-        'pm01-lifecycle-token',
+        lifecycleContext($platform->operatorId, $platform->accountId, 'pm01-http-closed-reactivation'),
         $tenantId,
         (int) $closed['revision'],
         TenantStatus::Active,
         'closed tenants are terminal',
-        'pm01-http-closed-reactivation',
     ));
     lifecycleExpect(
         $pdo->query("SELECT status FROM pa_tenant WHERE id={$tenantId}")->fetchColumn() === 'closed',
@@ -357,7 +316,7 @@ SQL);
         'specific invitation actions must precede the prefix-sensitive invitation collection route',
     );
 
-    echo "PM01-PLATFORM-TENANT-LIFECYCLE-HTTP-001 passed\n";
+    echo "PM01-PLATFORM-TENANT-LIFECYCLE-HTTP-001 passed; assertions={$GLOBALS['lifecycleExpectAssertions']}\n";
 } finally {
-    $admin->exec("DROP DATABASE IF EXISTS `{$database}`");
+    RegisteredMysqlTestResource::cleanup($pdo, $database, $createdDatabase);
 }

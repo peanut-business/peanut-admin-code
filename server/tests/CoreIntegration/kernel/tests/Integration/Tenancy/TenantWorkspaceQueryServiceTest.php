@@ -51,16 +51,7 @@ final class TenantWorkspaceQueryServiceTest extends DatabaseTestCase
             'created_at' => self::NOW,
             'updated_at' => self::NOW,
         ]);
-        $this->insert('pa_tenant_module', [
-            'tenant_id' => $tenantId,
-            'module_key' => 'example.target',
-            'status' => 'enabled',
-            'source' => 'manual',
-            'config_json' => '{"mode":"fixture"}',
-            'enabled_at' => self::NOW,
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
+        $this->licenseTenantModules($tenantId, ['example.target'], 'active');
         $eventId = $this->insert('pa_tenant_audit_event', [
             'tenant_id' => $tenantId,
             'event_type' => 'tenant.fixture.created',
@@ -91,12 +82,13 @@ final class TenantWorkspaceQueryServiceTest extends DatabaseTestCase
             'request_id' => 'req_workspace_fixture',
             'occurred_at' => self::NOW,
         ]);
-        $service = new TenantWorkspaceQueryService();
+        $service = new TenantWorkspaceQueryService($this->fixtureEntitlements(['example.target']));
 
         self::assertSame((string) $tenantId, $service->tenant($tenantId)['id']);
         self::assertContains('core.member.read', array_column($service->permissions($tenantId), 'key'));
         self::assertContains('example.target.read', array_column($service->permissions($tenantId), 'key'));
-        self::assertSame(['mode' => 'fixture'], $service->modules($tenantId)[0]['config']);
+        self::assertSame('license', $service->modules($tenantId)[0]['source']);
+        self::assertSame('enabled', $service->modules($tenantId)[0]['status']);
         $audit = $service->auditEvents($tenantId, new PageRequest(), new GovernanceAuditFilter(
             'tenant.fixture.created',
             'fixture.create',

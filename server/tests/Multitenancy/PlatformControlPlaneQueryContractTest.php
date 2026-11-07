@@ -12,7 +12,7 @@ function platformQueryExpect(bool $condition, string $message): void
 }
 
 $serverRoot = dirname(__DIR__, 2);
-$queryPath = $serverRoot . '/app/modules/official/identity/src/Contract/PlatformDirectoryQueries.php';
+$queryPath = $serverRoot . '/app/modules/peanut/identity/src/Contract/PlatformDirectoryQueries.php';
 $querySource = (string) file_get_contents($queryPath);
 $hostQuerySource = (string) file_get_contents($serverRoot . '/app/platform/query/PlatformControlPlaneQueryService.php');
 platformQueryExpect(!str_contains($hostQuerySource, 'Db::'), 'Platform query adapter bypasses the Identity owner');
@@ -22,7 +22,7 @@ $controllerSource = (string) file_get_contents(
 $routesSource = peanut_route_registry_source($serverRoot);
 
 // Parse current ThinkPHP calls rather than assuming the retired raw-SQL representation still exists.
-require_once dirname($serverRoot) . '/tools/quality/vendor/autoload.php';
+require_once $serverRoot . '/vendor/autoload.php';
 $traverser = new \PhpParser\NodeTraverser();
 $traverser->addVisitor(new \PhpParser\NodeVisitor\NameResolver());
 $nodes = $traverser->traverse((new \PhpParser\ParserFactory())->createForHostVersion()->parse($querySource));

@@ -48,7 +48,9 @@ final class TenantSessionController extends BaseController
 
     private function response(TenantAuthResponse $result)
     {
-        $response = json($result->body ?? ['code' => 20000, 'msg' => 'success', 'data' => null], $result->status);
+        $response = $result->status === 204
+            ? response('', 204)
+            : json($result->body ?? ['code' => 20000, 'msg' => 'success', 'data' => null], $result->status);
         $response->header($result->headers);
         return SessionRefreshCookie::apply($response, $result->cookies);
     }

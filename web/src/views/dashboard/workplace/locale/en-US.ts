@@ -1,5 +1,13 @@
 export default {
+  'workplace.demoData.date': 'Demo date',
+  'workplace.demoData.visitor': 'Demo visits',
+  'workplace.demoData.sale': 'Demo sales',
   'menu.dashboard.workplace': 'Workplace',
+  'workplace.refresh': 'Refresh workplace',
+  'workplace.statistics.unavailable':
+    'Business statistics are not connected yet',
+  'workplace.demoData.notice':
+    'Demo data only. Business statistics are not connected; values and trends do not represent actual operations.',
   'workplace.version.title': 'Application version',
   'workplace.version.platform': 'Platform',
   'workplace.version.current': 'Current version',
@@ -19,9 +27,17 @@ export default {
   'workplace.unit.person': 'users',
   'workplace.unit.visit': 'visits',
   'workplace.shortcuts.title': 'Shortcuts',
+  'workplace.shortcut.admin': 'Administrators',
+  'workplace.shortcut.file': 'Media Library',
+  'workplace.shortcut.website': 'Website Information',
   'workplace.visitor.title': 'Visitor trend',
   'workplace.sale.title': 'Sales trend',
   'workplace.support.title': 'Support',
+  'workplace.support.docs.title': 'Project Documentation',
+  'workplace.support.docs.desc':
+    'Read Peanut Admin usage and development documentation',
+  'workplace.support.technical.title': 'Technical Support',
+  'workplace.support.technical.desc': 'Get Peanut Admin technical support',
   'workplace.empty.shortcuts': 'No shortcuts available',
   'workplace.empty.visitor': 'No visitor trend data available',
   'workplace.empty.sale': 'No sales trend data available',

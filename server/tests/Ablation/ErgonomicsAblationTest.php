@@ -6,7 +6,7 @@ namespace tests\Ablation;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-use PeanutAdmin\Modules\Article\Controller\ArticleController;
+use PeanutAdmin\Modules\ReferenceCodes\Controller\DictTypeController;
 use ReflectionClass;
 
 /**
@@ -24,15 +24,16 @@ final class ErgonomicsAblationTest
 
     public static function run(): void
     {
-        $reflection = new ReflectionClass(ArticleController::class);
-        self::expect($reflection->getParentClass()?->getName() === 'app\\adminapi\\controller\\BaseAdminController', 'ArticleController parent contract changed');
-        self::expect(in_array('app\\common\\traits\\CrudTrait', $reflection->getTraitNames(), true), 'ArticleController no longer composes CrudTrait');
+        // ReferenceCodes is selected by this host and exercises the shared CRUD implementation.
+        $reflection = new ReflectionClass(DictTypeController::class);
+        self::expect($reflection->getParentClass()?->getName() === 'app\\adminapi\\controller\\BaseAdminController', 'DictTypeController parent contract changed');
+        self::expect(in_array('app\\common\\traits\\CrudTrait', $reflection->getTraitNames(), true), 'DictTypeController no longer composes CrudTrait');
 
         foreach (['performLists', 'performDetail', 'performAdd', 'performEdit', 'performDelete', 'performStatusUpdate'] as $methodName) {
             self::expect($reflection->hasMethod($methodName), "missing CRUD hook: {$methodName}");
             $method = $reflection->getMethod($methodName);
             $parameters = $method->getParameters();
-            self::expect($parameters !== [] && $parameters[0]->getName() === '_context', "CRUD hook {$methodName} lost its execution-context parameter");
+            self::expect($parameters !== [] && $parameters[0]->getName() === 'context', "CRUD hook {$methodName} lost its execution-context parameter");
         }
         self::expect(!$reflection->hasMethod('missingCrudHook'), 'negative control found an impossible CRUD hook');
 

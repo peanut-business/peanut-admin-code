@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace app\command;
 
 use app\common\execution\ContextualCommand;
-use app\platform\services\plugin\PluginPackageAdoptionService;
-use app\platform\exception\plugin\PluginPackageException;
-use app\platform\exception\plugin\PluginLifecycleException;
+use app\platform\services\module\ModulePackageAdoptionService;
+use app\platform\exception\module\ModulePackageException;
+use app\platform\exception\module\ModuleLifecycleException;
 use think\console\Input;
 use think\console\Output;
 use think\console\input\Argument;
@@ -19,10 +19,10 @@ final class ModuleAdoptPackage extends ContextualCommand
 {
     protected function configure()
     {
-        $this->setName('module:adopt-package')->setDescription('Adopt a signed private package into development source')
+        $this->setName('module:adopt-package')->setDescription('Adopt a reviewed digest-pinned private package into development source')
             ->addArgument('package', Argument::OPTIONAL, 'Tar package path')
             ->addOption('sha256', null, Option::VALUE_REQUIRED, 'Required archive SHA-256')
-            ->addOption('signature-key-id', null, Option::VALUE_REQUIRED, 'Required trusted signature key id')
+            ->addOption('signature-key-id', null, Option::VALUE_REQUIRED, 'Optional trusted signature key id when explicitly selected')
             ->addOption('recover', null, Option::VALUE_NONE, 'Resume the pending source/lock transaction only');
     }
 
@@ -37,7 +37,7 @@ final class ModuleAdoptPackage extends ContextualCommand
                     $trusted[$key] = $bytes;
                 }
             }
-            $service = new PluginPackageAdoptionService(
+            $service = new ModulePackageAdoptionService(
                 dirname(__DIR__, 2),
                 $trusted,
                 (string) Config::get('peanut.environment', ''),
@@ -49,7 +49,7 @@ final class ModuleAdoptPackage extends ContextualCommand
             );
             $output->writeln(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
             return 0;
-        } catch (PluginPackageException|PluginLifecycleException $exception) {
+        } catch (ModulePackageException|ModuleLifecycleException $exception) {
             $output->writeln(json_encode(['error' => $exception->errorCode], JSON_THROW_ON_ERROR));
             return 1;
         } catch (\Throwable) {

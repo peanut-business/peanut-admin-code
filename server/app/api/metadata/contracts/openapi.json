@@ -97,109 +97,7 @@
         }
       }
     },
-    "/api/article/lists": {
-      "get": {
-        "tags": [
-          "Article"
-        ],
-        "operationId": "listArticles",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/PageNo"
-          },
-          {
-            "$ref": "#/components/parameters/PageSize"
-          },
-          {
-            "in": "query",
-            "name": "cid",
-            "schema": {
-              "type": "integer",
-              "minimum": 0
-            }
-          },
-          {
-            "in": "query",
-            "name": "keyword",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "sort",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "default",
-                "new",
-                "hot"
-              ],
-              "default": "default"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "公开文章分页",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApplicationArticleListResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/ErrorResponse"
-          },
-          "403": {
-            "$ref": "#/components/responses/ErrorResponse"
-          }
-        }
-      }
-    },
-    "/api/article/detail": {
-      "get": {
-        "tags": [
-          "Article"
-        ],
-        "operationId": "articleDetail",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "公开文章详情",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApplicationArticleDetailResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "$ref": "#/components/responses/ErrorResponse"
-          },
-          "404": {
-            "$ref": "#/components/responses/ErrorResponse"
-          }
-        },
-        "x-peanut-errors": [
-          "ARTICLE_NOT_FOUND"
-        ]
-      }
-    },
-    "/adminapi/official.file.upload.file": {
+    "/adminapi/peanut.file.upload.file": {
       "post": {
         "tags": [
           "File"
@@ -329,7 +227,7 @@
         }
       }
     },
-    "/adminapi/official.file.list": {
+    "/adminapi/peanut.file.list": {
       "get": {
         "tags": [
           "File"
@@ -412,59 +310,6 @@
         }
       }
     },
-        "/api/sms/sendCode": {
-      "post": {
-        "tags": [
-          "Notice"
-        ],
-        "operationId": "sendVerificationCode",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "scene"
-                ],
-                "properties": {
-                  "scene": {
-                    "type": "string"
-                  },
-                  "mobile": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "验证码发送请求已受理",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotificationMutationResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/ErrorResponse"
-          },
-          "403": {
-            "$ref": "#/components/responses/ErrorResponse"
-          },
-          "409": {
-            "$ref": "#/components/responses/ErrorResponse"
-          }
-        },
-        "x-peanut-errors": [
-          "VERIFICATION_CODE_SEND_REJECTED"
-        ]
-      }
-    },
     "/adminapi/readiness/checklist": {
       "get": {
         "tags": [
@@ -499,7 +344,8 @@
         }
       }
     },
-    "/adminapi/official.import-export.configuration.export": {
+    "/adminapi/peanut.import-export.configuration.export": {
+      "x-peanut-required-modules": ["peanut.import-export"],
       "get": {
         "tags": [
           "ImportExport"
@@ -533,7 +379,8 @@
         }
       }
     },
-    "/adminapi/official.import-export.configuration.dry-run": {
+    "/adminapi/peanut.import-export.configuration.dry-run": {
+      "x-peanut-required-modules": ["peanut.import-export"],
       "post": {
         "tags": [
           "ImportExport"
@@ -583,7 +430,8 @@
         ]
       }
     },
-    "/adminapi/official.import-export.configuration.apply": {
+    "/adminapi/peanut.import-export.configuration.apply": {
+      "x-peanut-required-modules": ["peanut.import-export"],
       "post": {
         "tags": [
           "ImportExport"

@@ -22,19 +22,32 @@ module.exports = {
   extends: [
     // Airbnb JavaScript Style Guide https://github.com/airbnb/javascript
     'airbnb-base',
-    'plugin:@typescript-eslint/recommended',
-    'plugin:import/recommended',
-    'plugin:import/typescript',
-    'plugin:vue/vue3-recommended',
-    'plugin:prettier/recommended',
+    'module:@typescript-eslint/recommended',
+    'module:import/recommended',
+    'module:import/typescript',
+    'module:vue/vue3-recommended',
+    'module:prettier/recommended',
   ],
   settings: {
+    'import/core-modules': ['virtual:peanut-module-contributions'],
     'import/resolver': {
       typescript: {
         project: path.resolve(__dirname, './tsconfig.json'),
       },
     },
   },
+  overrides: [
+    {
+      files: ['src/modules/peanut-rich-text/tests/**/*.ts'],
+      settings: {
+        'import/resolver': {
+          typescript: {
+            project: path.resolve(__dirname, './tsconfig.optional-tests.json'),
+          },
+        },
+      },
+    },
+  ],
   rules: {
     'prettier/prettier': 1,
     // Vue: Recommended rules to be closed or modify
@@ -42,7 +55,11 @@ module.exports = {
     'vue/singleline-html-element-content-newline': 0,
     'vue/max-attributes-per-line': 0,
     // Vue: Add extra rules
-    'vue/custom-event-name-casing': [2, 'camelCase'],
+    'vue/custom-event-name-casing': [
+      2,
+      'camelCase',
+      { ignores: ['capabilities-changed', 'dirty-change', 'save-request'] },
+    ],
     'vue/no-v-text': 1,
     'vue/padding-line-between-blocks': 1,
     'vue/require-direct-export': 1,

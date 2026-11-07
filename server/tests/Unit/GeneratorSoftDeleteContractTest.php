@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace tests\Unit;
 
 use app\adminapi\services\generator\GeneratorRenderService;
+use Tests\Support\GeneratorFixtureApplication;
 use app\adminapi\services\generator\GeneratorService;
 use app\adminapi\validate\generator\GeneratorValidate;
 use PHPUnit\Framework\TestCase;
@@ -13,9 +14,22 @@ use RuntimeException;
 
 final class GeneratorSoftDeleteContractTest extends TestCase
 {
+    private GeneratorFixtureApplication $fixtureApplication;
+
+    protected function setUp(): void
+    {
+        require_once dirname(__DIR__) . '/Support/GeneratorFixtureApplication.php';
+        $this->fixtureApplication = new GeneratorFixtureApplication();
+    }
+
+    protected function tearDown(): void
+    {
+        unset($this->fixtureApplication);
+    }
+
     public function testExplicitCustomSoftDeleteCapabilityGeneratesOneCompleteContract(): void
     {
-        $files = GeneratorRenderService::render(self::definition());
+        $files = GeneratorRenderService::render(self::definition(), $this->fixtureApplication->root);
         $byPath = array_column($files, null, 'path');
         $backend = 'server/app/modules/fixture/delivery_record';
         $frontend = 'web/src/modules/fixture-delivery-record';

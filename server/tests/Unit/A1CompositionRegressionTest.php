@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace tests\Unit\A1Composition;
 
-use app\common\execution\AdminExecutionContext;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
@@ -13,8 +12,6 @@ use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 use PeanutAdmin\Modules\Integration\Contract\IntegrationSecurityRepository;
 use PeanutAdmin\Modules\Integration\Webhook\WebhookDelivery;
 use PeanutAdmin\Modules\Integration\Webhook\WebhookDispatcher;
-use PeanutAdmin\Modules\Payment\Controller\RechargeController;
-use PeanutAdmin\Modules\Payment\Service\RechargeAdministrationService;
 use PeanutAdmin\Modules\Task\Contract\TaskJobService;
 use PeanutAdmin\Modules\Task\Contract\TrustedJobPublisher;
 use PeanutAdmin\Modules\Task\Infrastructure\Runtime\ThinkPhpTaskJobRuntime;
@@ -26,13 +23,8 @@ use PeanutAdmin\IntegrationSecurity\Webhook\WebhookDestinationPolicy;
 use PeanutAdmin\IntegrationSecurity\Webhook\WebhookRequest;
 use PeanutAdmin\IntegrationSecurity\Webhook\WebhookResponse;
 use PeanutAdmin\IntegrationSecurity\Webhook\WebhookTransport;
-use PeanutAdmin\Kernel\Auth\TenantContext;
-use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
 use PHPUnit\Framework\TestCase;
-use think\App;
-use think\Container;
-use think\Request;
 
 /** 验证迁移后的真实类装配与 HTTP 响应合同；存储和渠道为替身，不连接 DB 或网络。 */
 final class A1CompositionRegressionTest extends TestCase
@@ -41,17 +33,21 @@ final class A1CompositionRegressionTest extends TestCase
     {
         $contexts = new ExecutionContextStore();
         $current = new CurrentExecutionContext($contexts);
+        $modules = $this->createStub(ModuleRuntimeRepository::class);
         $runtime = new ThinkPhpTaskJobRuntime(
             new TaskJobStore(),
             str_repeat('fixture-', 8),
             $contexts,
             $current,
             new AdminDirectoryQuery($current),
-            new ModuleExecutionBoundary($current, $this->createStub(ModuleRuntimeRepository::class), new AdminDirectoryQuery($current)),
+            new ModuleExecutionBoundary($current, $modules, new AdminDirectoryQuery($current)),
+            new \PeanutAdmin\Kernel\Module\ModuleGuard($modules),
             new CrontabCommandService([], []),
             static fn(): int => 0,
             [],
             1,
+            $this->createStub(\PeanutAdmin\DataPermission\Catalog\ResourceOperationCatalog::class),
+            new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService(new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], 'fixture')),
         );
         self::assertInstanceOf(TrustedJobPublisher::class, $runtime->publisher());
         self::assertInstanceOf(TaskJobService::class, $runtime->jobs());
@@ -95,40 +91,5 @@ final class A1CompositionRegressionTest extends TestCase
         self::assertTrue($dispatcher->runOne(101, $now));
     }
 
-    public function testRechargeExportUsesTheCurrentSuccessEnvelope(): void
-    {
-        require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
-        $previous = Container::getInstance();
-        $app = new App(sys_get_temp_dir() . '/peanut-a1-export-fixture-' . bin2hex(random_bytes(8)));
-        $request = (new Request())->withGet(['export' => 2]);
-        $app->instance(Request::class, $request);
-        $contexts = new ExecutionContextStore();
-        $current = new CurrentExecutionContext($contexts);
-        $app->instance(CurrentExecutionContext::class, $current);
-        $tenant = TenantContext::fromValidatedSession(new ValidatedTenantSession(
-            301,
-            'fixture-session',
-            101,
-            201,
-            301,
-            'admin-web',
-            new DateTimeImmutable('2031-01-01T00:00:00Z'),
-            1,
-        ), 'fixture-export');
-        $result = ['url' => '/fixture/download', 'file_name' => 'fixture.xlsx'];
-        $service = $this->createMock(RechargeAdministrationService::class);
-        $service->expects(self::once())->method('lists')->with($tenant, ['export' => 2])->willReturn($result);
-        $app->instance(RechargeAdministrationService::class, $service);
-        try {
-            $response = $contexts->run(
-                new AdminExecutionContext($tenant, 'fixture.export', ['id' => 301]),
-                static fn() => (new RechargeController($app))->lists(),
-            );
-            self::assertSame(200, $response->getCode());
-            self::assertSame(['code' => 20000, 'msg' => '', 'data' => $result], $response->getData());
-            self::assertTrue($contexts->isEmpty());
-        } finally {
-            Container::setInstance($previous);
-        }
-    }
+
 }

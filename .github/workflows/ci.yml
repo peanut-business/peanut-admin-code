@@ -104,12 +104,28 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.3.24'
           tools: composer:2.10.2
           coverage: none
       - name: Install the tool's locked dependencies
         working-directory: server
         run: composer install --no-interaction --no-progress --prefer-dist --no-scripts
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.2'
+          cache: npm
+          cache-dependency-path: uniapp/package-lock.json
+      - name: Install locked UniApp generator dependencies
+        working-directory: uniapp
+        run: npm ci --ignore-scripts
+      - name: Set up pnpm for the installed API generator
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9.15.6'
+          run_install: false
+      - name: Install locked Web API generator dependencies
+        run: pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy
       - name: Verify source inventory after locked dependencies
         run: php scripts/build-application-template-inventory --check
       - name: Verify create-app contract
@@ -121,6 +137,8 @@ jobs:
     if: needs.changes.outputs.validation == 'required' && needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      PEANUT_TEST_COMPOSER: composer
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -130,7 +148,7 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.3.24'
           tools: composer:2.10.2
           coverage: none
 
@@ -175,19 +193,24 @@ jobs:
 
       - name: Validate Composer manifest
         working-directory: server
-        run: composer validate --strict
+        # Fixed release inputs deliberately pin exact Core and Module versions.
+        run: |
+          ../scripts/project-composer prepare
+          ../scripts/project-composer validate --strict --no-check-all
 
       - name: Install Composer dependencies
         working-directory: server
         env:
           PEANUT_SERVER_ENV_FILE: ${{ github.workspace }}/server/.env.ci-${{ github.run_id }}
-        run: composer install --no-interaction --no-progress --prefer-dist
+        run: ../scripts/project-composer install --no-interaction --no-progress --prefer-dist
 
-      - name: Install locked API generator dependencies
+      - name: Install locked UniApp generator dependencies
+        working-directory: uniapp
+        run: npm ci --ignore-scripts
+
+      - name: Install locked Web API generator dependencies
         working-directory: web
-        env:
-          HUSKY: '0'
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts --package-import-method=copy
 
       - name: Run daily server gates
         if: github.event_name != 'workflow_dispatch'
@@ -202,9 +225,33 @@ jobs:
           fi
           ./scripts/ci-server-check.sh "$mode" --env-file "$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
 
+      - name: Check installation permissions with the Linux application UID
+        shell: bash
+        run: |
+          uid_root=$(mktemp -d /tmp/peanut-uid-XXXXXX)
+          trap 'rm -rf -- "$uid_root"' EXIT
+          chmod 0755 "$uid_root"
+          mkdir -p "$uid_root/source"
+          files=(server/tests/Productization/InstallRuntimePermissionsLinuxTest.sh
+            server/tests/Support/InstallRuntimeConfigurationUid.php server/docker/scripts/prepare-install-permissions.sh
+            server/app/common/exception/installation/InstallationExecutionException.php
+            server/app/common/services/installation/InstallationConfigurationHost.php
+            server/app/common/value/installation/ApplicationSourceIdentity.php)
+          tar -cf - "${files[@]}" | tar -xf - -C "$uid_root/source"
+          sudo env PEANUT_TEST_PHP="$(command -v php)" sh "$uid_root/source/${files[0]}" "$uid_root"
+
+      - name: Prepare the fixed Edition test producer
+        if: github.event_name == 'workflow_dispatch'
+        run: scripts/ci-producer prepare "$RUNNER_TEMP/ci-producer"
+
       - name: Run broad server gates
         if: github.event_name == 'workflow_dispatch'
-        run: ./scripts/ci-server-check.sh --broad --env-file "$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
+        env:
+          PEANUT_TEST_PRODUCER_STATE: ${{ runner.temp }}/ci-producer
+          TMPDIR: ${{ github.workspace }}/.local/tmp/server-gate-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          mkdir -p -m 0700 "$TMPDIR"
+          ./scripts/ci-server-check.sh --broad --env-file "$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
 
       - name: Remove isolated backend environment
         if: always()
@@ -238,7 +285,7 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.3.24'
           tools: composer:2.10.2
           coverage: none
       - name: Cache Composer downloads
@@ -351,7 +398,7 @@ jobs:
           try {
             for (const test of [
               'permission-policy.test.ts',
-              'plugin-contribution.test.ts',
+              'module-contribution.test.ts',
               'department-parent-options.test.ts',
             ]) {
               await server.ssrLoadModule(`/tests/Productization/${test}`)
@@ -450,7 +497,7 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.3.24'
           coverage: none
       - name: Check public consumer documentation
         run: ./scripts/check-public-docs

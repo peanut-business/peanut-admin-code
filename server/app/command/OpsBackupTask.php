@@ -41,6 +41,12 @@ final class OpsBackupTask extends ContextualCommand
             $service = $this->service
                 ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED');
             $action = trim((string) $input->getArgument('action'));
+            if ($action === 'claim') {
+                require_once dirname(__DIR__, 2) . '/database/environment-guard.php';
+                if (!\registeredMysqlConnectionMatches(\guardedDatabaseConfig())) {
+                    throw new \RuntimeException('OPS_BACKUP_APPLICATION_CONNECTION_MISMATCH');
+                }
+            }
             $result = match ($action) {
                 'claim' => $service->claim(),
                 'heartbeat' => $service->heartbeat(

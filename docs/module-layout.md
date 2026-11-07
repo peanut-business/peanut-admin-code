@@ -14,7 +14,7 @@
 | --- | --- | --- | --- | --- |
 | `dcs.product` | `server/app/modules/dcs/product` | `Dcs\Modules\Product` | `web/src/modules/dcs-product` | `server/tests/Modules/Dcs/Product` |
 | `acme.customer-record` | `server/app/modules/acme/customer_record` | `Acme\Modules\CustomerRecord` | `web/src/modules/acme-customer-record` | `server/tests/Modules/Acme/CustomerRecord` |
-| `official.sample` | `server/app/modules/official/sample` | `PeanutAdmin\Modules\Sample` | `web/src/modules/official-sample` | `server/tests/Modules/Official/Sample` |
+| `peanut.sample` | `server/app/modules/peanut/sample` | `PeanutAdmin\Modules\Sample` | `web/src/modules/peanut-sample` | `server/tests/Modules/Peanut/Sample` |
 
 ## 作者入口
 
@@ -22,7 +22,7 @@
 
 骨架默认只建立 Provider、清单声明的路由、资源和迁移说明，`contracts.exports` 初始为空。只有存在真正业务操作时才创建并导出对应合同，不预设空 Commands。显式前端只生成 contribution.ts 和 package.json，不生成空 api.ts 或 views 占位。`Controller`、`Validation`、`Service`、`Infrastructure`、`Model` 在确有类型时创建；CRUD 生成器为选定实体写入它实际需要的目录。前端贡献类型来自 `@peanut-admin/vue`，不是已经退出当前依赖组合的 `@peanut-admin/admin/core`。
 
-修改模块源码后，仍按既有顺序更新适用 API/SDK、模块制品摘要、`plugins.lock` 和应用模板清单；不能只改生成物或关闭摘要检查。发布快照、历史迁移身份和已部署实例不由这份说明自动迁移。
+修改模块源码后，仍按既有顺序更新适用 API/SDK、模块制品摘要、`modules.lock` 和应用模板清单；不能只改生成物或关闭摘要检查。发布快照、历史迁移身份和已部署实例不由这份说明自动迁移。
 
 ## 回归入口
 

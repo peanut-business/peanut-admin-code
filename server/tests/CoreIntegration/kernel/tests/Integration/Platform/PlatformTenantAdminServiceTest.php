@@ -9,12 +9,6 @@ use DateTimeZone;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Context\PlatformContext;
-use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
-use PeanutAdmin\Kernel\Module\ManifestDocument;
-use PeanutAdmin\Kernel\Module\ModuleException;
-use PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository;
-use PeanutAdmin\Kernel\Module\TenantModuleConfigValidator;
-use PeanutAdmin\Kernel\Module\TenantModuleManager;
 use PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService;
 use PeanutAdmin\Modules\Identity\Tenancy\TenantStatus;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
@@ -41,21 +35,7 @@ final class PlatformTenantAdminServiceTest extends DatabaseTestCase
             'created_at' => self::NOW,
             'updated_at' => self::NOW,
         ]);
-        $this->service = new PlatformTenantAdminService(
-            new TenantModuleManager(
-                $this->registry(),
-                new ThinkPhpModuleRuntimeRepository(),
-                new class implements TenantModuleConfigValidator {
-                    public function assertValid(ManifestDocument $manifest, array $config): void
-                    {
-                        if (($config['valid'] ?? false) !== true) {
-                            throw new ModuleException('MODULE_CONFIG_INVALID', 'Invalid integration config.');
-                        }
-                    }
-                },
-            ),
-            new AuditService(),
-        );
+        $this->service = new PlatformTenantAdminService(new AuditService());
     }
 
     public function testCreatesUpdatesAndTransitionsTenantWithOwnerAndRevisionGuards(): void
@@ -133,97 +113,6 @@ final class PlatformTenantAdminServiceTest extends DatabaseTestCase
         )->fetchColumn());
     }
 
-    public function testTenantModuleGovernanceUsesManagerPeriodsAndDualAudit(): void
-    {
-        $tenant = $this->activeTenant();
-        $this->installModule('example.target');
-        $this->installModule('example.work-item');
-        $effectiveAt = new DateTimeImmutable('2020-07-17T04:00:00Z');
-        $expiresAt = new DateTimeImmutable('2030-08-17T04:00:00Z');
-
-        $target = $this->service->enableModule(
-            $this->context('req_module_target_enable'),
-            (int) $tenant['id'],
-            'example.target',
-            ['valid' => true],
-            'manual',
-            $effectiveAt,
-            $expiresAt,
-            'Enable target support',
-        );
-        self::assertSame('enabled', $target['status']);
-        self::assertSame('manual', $target['source']);
-        self::assertSame('2020-07-17 04:00:00.000', $target['effective_at']);
-        self::assertSame('2030-08-17 04:00:00.000', $target['expires_at']);
-        self::assertSame(['valid' => true], $target['config']);
-
-        $this->service->enableModule(
-            $this->context('req_module_work_enable'),
-            (int) $tenant['id'],
-            'example.work-item',
-            ['valid' => true],
-            'manual',
-            null,
-            null,
-            'Enable work items',
-        );
-        $this->expectAdminError('MODULE_DEPENDENT_ACTIVE', fn(): array => $this->service->disableModule(
-            $this->context('req_module_target_blocked'),
-            (int) $tenant['id'],
-            'example.target',
-            'Disable dependency too early',
-        ));
-
-        $this->service->disableModule(
-            $this->context('req_module_work_disable'),
-            (int) $tenant['id'],
-            'example.work-item',
-            'Disable work items',
-        );
-        $target = $this->service->disableModule(
-            $this->context('req_module_target_disable'),
-            (int) $tenant['id'],
-            'example.target',
-            'Disable target support',
-        );
-
-        self::assertSame('disabled', $target['status']);
-        self::assertSame(6, (int) $this->query('SELECT COUNT(*) FROM pa_platform_audit_event')->fetchColumn());
-        self::assertSame(5, (int) $this->query('SELECT COUNT(*) FROM pa_tenant_audit_event')->fetchColumn());
-        self::assertSame(0, (int) $this->query(<<<'SQL'
-SELECT COUNT(*) FROM pa_platform_audit_event
-WHERE JSON_EXTRACT(before_json, '$.config') IS NOT NULL
-   OR JSON_EXTRACT(after_json, '$.config') IS NOT NULL
-SQL)->fetchColumn());
-        self::assertSame(0, (int) $this->query(<<<'SQL'
-SELECT COUNT(*) FROM pa_tenant_audit_event
-WHERE JSON_EXTRACT(before_json, '$.config') IS NOT NULL
-   OR JSON_EXTRACT(after_json, '$.config') IS NOT NULL
-SQL)->fetchColumn());
-    }
-
-    /** @return array<string, mixed> */
-    private function activeTenant(): array
-    {
-        $tenant = $this->service->createTenant(
-            $this->context('req_module_tenant_create'),
-            'module-tenant',
-            'Module Tenant',
-            'Module Tenant',
-            'zh-CN',
-            'Asia/Shanghai',
-        );
-        $this->activateOwner((int) $tenant['id']);
-
-        return $this->service->transitionTenant(
-            $this->context('req_module_tenant_activate'),
-            (int) $tenant['id'],
-            1,
-            TenantStatus::Active,
-            'Activate module tenant',
-        );
-    }
-
     private function activateOwner(int $tenantId): void
     {
         $accountId = $this->account('Tenant Owner');
@@ -265,41 +154,6 @@ SQL)->fetchColumn());
             'platform-web',
             $requestId,
             new DateTimeImmutable(self::NOW, new DateTimeZone('UTC')),
-        );
-    }
-
-    private function installModule(string $moduleKey): void
-    {
-        $this->insert('pa_module_installation', [
-            'module_key' => $moduleKey,
-            'installed_version' => '1.0.0',
-            'manifest_schema_version' => 1,
-            'manifest_digest' => hash('sha256', $moduleKey),
-            'status' => 'active',
-            'installed_at' => self::NOW,
-            'activated_at' => self::NOW,
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-    }
-
-    private function registry(): CompiledModuleRegistry
-    {
-        $target = ManifestDocument::fromArray('/tmp/example-target', [
-            'key' => 'example.target',
-            'tenant' => ['requires' => []],
-        ]);
-        $workItem = ManifestDocument::fromArray('/tmp/example-work-item', [
-            'key' => 'example.work-item',
-            'tenant' => ['requires' => ['example.target']],
-        ]);
-
-        return new CompiledModuleRegistry(
-            [$target, $workItem],
-            [],
-            [],
-            [],
-            hash('sha256', $target->digest . '|' . $workItem->digest),
         );
     }
 

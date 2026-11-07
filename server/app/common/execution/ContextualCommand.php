@@ -8,7 +8,12 @@ use think\console\Command;
 use think\console\Input;
 use think\console\Output;
 
-/** Establishes one immutable execution context around every top-level CLI command. */
+/**
+ * Establishes one immutable execution context around every top-level CLI command.
+ * ThinkPHP's list descriptor constructs command metadata without the container:
+ * subclasses must allow zero-argument construction, while execution still
+ * requires the injected context and business dependencies.
+ */
 abstract class ContextualCommand extends Command
 {
     private bool $establishedInstanceContext = false;
@@ -30,6 +35,9 @@ abstract class ContextualCommand extends Command
         }
 
         try {
+            if (!$this->establishesInstanceContext()) {
+                return $this->handle($input, $output);
+            }
             return $this->contexts->run(
                 new InstanceExecutionContext(
                     'console.' . $this->getName(),
@@ -61,6 +69,12 @@ abstract class ContextualCommand extends Command
     final protected function establishedInstanceContext(): bool
     {
         return $this->establishedInstanceContext;
+    }
+
+    /** Tenant Task entrypoints establish an authorized root for each job instead. */
+    protected function establishesInstanceContext(): bool
+    {
+        return true;
     }
 
     abstract protected function handle(Input $input, Output $output): int;

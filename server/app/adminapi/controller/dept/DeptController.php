@@ -54,11 +54,16 @@ class DeptController extends BaseAdminController
 
     public function all()
     {
-        return $this->data($this->departments->all($this->resolveCrudContext()));
+        return $this->data($this->departments->all($this->resolveCrudContext(), $this->request->get()));
     }
 
     public function leaderDept()
     {
-        return $this->data($this->departments->leaderDept($this->resolveCrudContext()));
+        return $this->data($this->departments->leaderDept($this->resolveCrudContext(), $this->request->get()));
+    }
+
+    public function leaderCandidates()
+    {
+        return $this->data($this->departments->leaderCandidates($this->resolveCrudContext(), $this->request->get()));
     }
 }

@@ -3,12 +3,13 @@ import NProgress from 'nprogress'; // progress bar
 
 import usePermission from '@/hooks/permission';
 import { useUserStore, useAppStore } from '@/store';
-import { routesForTenantModules } from '@peanut-admin/vue';
-import { permissionEvaluator } from '@/core/runtime';
 import { appRoutes } from '../routes';
-import { pluginRoutes } from '../routes/plugin-contributions';
 import { WHITE_LIST, NOT_FOUND, DEFAULT_ROUTE_NAME } from '../constants';
 
+/**
+ * Loads server menus and gates tenant-module routes before navigation.
+ * Protected API operations still require server-side authorization.
+ */
 export default function setupPermissionGuard(router: Router) {
   router.beforeEach(async (to, from, next) => {
     const appStore = useAppStore();
@@ -22,21 +23,7 @@ export default function setupPermissionGuard(router: Router) {
       await appStore.fetchServerMenuConfig();
     }
     if (to.meta.tenantModuleKey) {
-      const enabledModules = appStore.enabledTenantModules;
-      const accessible = routesForTenantModules(
-        [{ moduleKey: to.meta.tenantModuleKey, routes: pluginRoutes }],
-        enabledModules,
-        userStore.permissions,
-        permissionEvaluator
-      ).some(
-        (route) =>
-          route.path === to.path ||
-          route.children?.some(
-            (child) =>
-              `${route.path}/${child.path}`.replace(/\/{2,}/g, '/') === to.path
-          )
-      );
-      if (!accessible) {
+      if (!appStore.enabledTenantModules.includes(to.meta.tenantModuleKey)) {
         next(NOT_FOUND);
         NProgress.done();
         return;

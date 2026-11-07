@@ -1,0 +1,308 @@
+name: Scaffold templates and release
+
+on:
+  workflow_dispatch:
+    inputs:
+      pack_only:
+        description: Build templates only; no CLI candidate creation or publication
+        type: boolean
+        default: false
+      workflow:
+        description: Explicit Workflow projection for both Edition templates
+        type: choice
+        options:
+          - none
+          - runtime
+          - full
+        default: runtime
+      expected_source_commit:
+        description: Exact dispatch HEAD required for pack-only identity
+        type: string
+        default: ''
+      publish:
+        description: Publish the exact candidate templates after CI and protected dev-to-main integration
+        type: boolean
+        default: false
+      candidate_cli_commit:
+        description: Exact independent peanut-cli source commit for the no-DB candidate contract
+        type: string
+        default: 6849d197d22a0839b7fe4a92bb5579ce337d8631
+      build_run_id:
+        description: Successful same-repository candidate run with both Edition templates and native CLI creation
+        type: string
+      source_commit:
+        description: Exact candidate source; main must retain its tree through normal dev-to-main integration
+        type: string
+      build_transport_sha256:
+        description: Independently recorded SHA-256 of the candidate run's scaffold-template-qualification.tgz
+        type: string
+      ci_run_id:
+        description: Successful same-repository CI run for the exact candidate source
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scaffold-template-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  templates:
+    if: ${{ !inputs.publish }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require the selected pack-only source
+        if: inputs.pack_only
+        env:
+          EXPECTED_SOURCE: ${{ inputs.expected_source_commit }}
+          PUBLISH: ${{ inputs.publish }}
+          INGRESS_ASSET: ${{ inputs.qualification_ingress_asset_id }}
+        run: |
+          [[ "$PUBLISH" == false && -z "$INGRESS_ASSET" ]]
+          [[ "$EXPECTED_SOURCE" =~ ^[a-f0-9]{40}$ && "$EXPECTED_SOURCE" == "$GITHUB_SHA" ]]
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE"
+      - name: Read the committed producer tool requirements
+        id: requirements
+        shell: bash
+        run: |
+          python3 scripts/project-env requirements > "$RUNNER_TEMP/producer-tools.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          tools = json.loads((Path(os.environ['RUNNER_TEMP']) / 'producer-tools.json').read_text())
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              for name in ('php', 'node', 'pnpm', 'python3', 'composer'):
+                  out.write(name + '=' + tools[name]['version'] + '\n')
+          PY
+      - name: Require a fixed independent CLI source
+        if: ${{ !inputs.pack_only }}
+        env:
+          CLI_COMMIT: ${{ inputs.candidate_cli_commit }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$CLI_COMMIT" =~ ^[a-f0-9]{40}$ ]]
+      - uses: actions/checkout@v4
+        if: ${{ !inputs.pack_only }}
+        with:
+          repository: peanut-business/peanut-cli
+          ref: ${{ inputs.candidate_cli_commit }}
+          path: .local/qualification-cli
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prepare the fixed official producer tool image
+        run: |
+          scripts/ci-producer prepare "$RUNNER_TEMP/ci-producer"
+          cp "$RUNNER_TEMP/ci-producer/identity.json" "$RUNNER_TEMP/producer-tools-actual.json"
+      - name: Prepare the committed producer dependencies
+        run: |
+          scripts/ci-producer exec "$RUNNER_TEMP/ci-producer" -- bash -Eeuo pipefail <<'PRODUCER'
+          composer --working-dir=server install --no-dev --no-plugins --no-scripts --no-interaction --no-progress --prefer-dist
+          pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy
+          npm --prefix uniapp ci --ignore-scripts
+          PRODUCER
+      - name: Build both Editions with the local native contract
+        shell: bash
+        env:
+          WORKFLOW: ${{ inputs.workflow }}
+        run: |
+          scripts/ci-producer exec "$RUNNER_TEMP/ci-producer" -- bash -Eeuo pipefail -s -- "$WORKFLOW" <<'PRODUCER'
+          set -Eeuo pipefail
+          workflow="$1"
+          test ! -e .peanut/application-manifest.json
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          version="$(node -p "JSON.parse(require('node:fs').readFileSync('release-versions.json','utf8')).scaffold_template")"
+          for edition in standalone multi-tenant; do
+            php scripts/build-scaffold-release --version="$version" --source-commit="$GITHUB_SHA" \
+              --edition="$edition" --workflow="$workflow" --output="$RUNNER_TEMP/scaffold-templates/$edition"
+          done
+          PRODUCER
+      - name: Qualify the native candidate through the local entry
+        if: ${{ !inputs.pack_only }}
+        shell: bash
+        env:
+          CLI_COMMIT: ${{ inputs.candidate_cli_commit }}
+        run: |
+          scripts/ci-producer exec "$RUNNER_TEMP/ci-producer" -- bash -Eeuo pipefail <<'PRODUCER'
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, subprocess
+          code = pathlib.Path.cwd()
+          cli = code / ".local/qualification-cli"
+          git = lambda root, *args: subprocess.check_output(["git", "-C", str(root), *args], text=True).strip()
+          assert git(cli, "rev-parse", "HEAD") == os.environ["CLI_COMMIT"]
+          value = {"protocol": "peanut.p0e-candidate-inputs.v1",
+                   "source": {"commit": os.environ["GITHUB_SHA"], "tree": git(code, "rev-parse", "HEAD^{tree}")},
+                   "cli": {"root": str(cli), "commit": os.environ["CLI_COMMIT"], "tree": git(cli, "rev-parse", "HEAD^{tree}")},
+                   "template_build_root": os.environ["RUNNER_TEMP"] + "/scaffold-templates"}
+          path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "candidate-inputs.json"
+          assert not path.exists()
+          path.write_text(json.dumps(value, indent=2) + "\n")
+          PY
+          python3 scripts/p0e-runtime-qualification candidate --candidate="$GITHUB_SHA" \
+            --run-id="ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --candidate-input="$RUNNER_TEMP/candidate-inputs.json" \
+            --candidate-input-sha256="$(sha256sum "$RUNNER_TEMP/candidate-inputs.json" | cut -d ' ' -f1)" \
+            --output-dir="$RUNNER_TEMP/template-qualification"
+          PRODUCER
+      - name: Preserve actual producer inputs and stage outcome
+        id: preserve_candidate
+        if: ${{ always() }}
+        env:
+          PACK_ONLY: ${{ inputs.pack_only }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Preserve actual failure outputs too. No success status is manufactured.
+          inputs=()
+          for name in scaffold-templates producer-tools.json producer-tools-actual.json template-qualification candidate-inputs.json; do
+            if [[ -e "$RUNNER_TEMP/$name" || -L "$RUNNER_TEMP/$name" ]]; then
+              inputs+=("$name")
+            fi
+          done
+          if (( ${#inputs[@]} == 0 )); then
+            echo "No candidate output was produced." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          transport_name=scaffold-template-qualification
+          if [[ "$PACK_ONLY" == true ]]; then transport_name=scaffold-template-identity; fi
+          test ! -e "$RUNNER_TEMP/$transport_name.tgz"
+          # Tar retains hidden defaults, executable modes and any partial CLI target.
+          tar -czf "$RUNNER_TEMP/$transport_name.tgz" -C "$RUNNER_TEMP" -- "${inputs[@]}"
+          cd "$RUNNER_TEMP"
+          sha256sum "$transport_name.tgz" | tee "$transport_name.tgz.sha256"
+          echo "transport_path=$RUNNER_TEMP/$transport_name.tgz" >> "$GITHUB_OUTPUT"
+          echo "available=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.pack_only && 'scaffold-identity-packages' || 'scaffold-templates' }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/scaffold-templates/standalone/peanut-scaffold-standalone.tgz
+            ${{ runner.temp }}/scaffold-templates/standalone/peanut-scaffold-standalone.json
+            ${{ runner.temp }}/scaffold-templates/standalone/scaffold-build-inputs.json
+            ${{ runner.temp }}/scaffold-templates/multi-tenant/peanut-scaffold-multi-tenant.tgz
+            ${{ runner.temp }}/scaffold-templates/multi-tenant/peanut-scaffold-multi-tenant.json
+            ${{ runner.temp }}/scaffold-templates/multi-tenant/scaffold-build-inputs.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && steps.preserve_candidate.outputs.available == 'true' }}
+        with:
+          name: ${{ inputs.pack_only && 'scaffold-template-identity' || 'scaffold-template-qualification' }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ steps.preserve_candidate.outputs.transport_path }}
+            ${{ steps.preserve_candidate.outputs.transport_path }}.sha256
+          if-no-files-found: error
+          retention-days: 7
+      - name: Record the actual release scope
+        shell: bash
+        run: |
+          echo 'Release acceptance is limited to applicable CI, fixed native Edition production, artifact integrity and CLI creation. The separately authorized full8 suite is NOT_RUN by this workflow and is not a publication prerequisite.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Public latest consumption, ST/MT installation, startup, IAB login and basic business are checked against the published release; no pre-publication result claims they passed.' >> "$GITHUB_STEP_SUMMARY"
+
+
+  publish:
+    if: ${{ !inputs.pack_only && inputs.publish && github.ref == 'refs/heads/main' && github.repository == 'peanut-business/peanut-admin-code' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Authenticate the original candidate build and applicable CI
+        id: candidate
+        uses: actions/github-script@v7
+        env:
+          BUILD_RUN: ${{ inputs.build_run_id }}
+          CI_RUN: ${{ inputs.ci_run_id }}
+          SOURCE: ${{ inputs.source_commit }}
+          TRANSPORT_SHA256: ${{ inputs.build_transport_sha256 }}
+        with:
+          script: |
+            const source = process.env.SOURCE;
+            const buildId = process.env.BUILD_RUN;
+            const ciId = process.env.CI_RUN;
+            if (!/^[a-f0-9]{40}$/.test(source) || !/^[1-9][0-9]*$/.test(buildId)
+              || !/^[1-9][0-9]*$/.test(ciId) || !/^[a-f0-9]{64}$/.test(process.env.TRANSPORT_SHA256)) {
+              throw new Error('Exact source, successful run IDs and original transport SHA-256 are required');
+            }
+            const fetchRun = async (id, path) => {
+              const {data: run} = await github.rest.actions.getWorkflowRun({...context.repo, run_id: Number(id)});
+              if (run.head_sha !== source || run.head_repository?.full_name !== context.payload.repository.full_name
+                || run.status !== 'completed' || run.conclusion !== 'success' || run.event !== 'workflow_dispatch'
+                || run.path !== path) throw new Error('Run source, origin, workflow or actual result differs');
+              return run;
+            };
+            const build = await fetchRun(buildId, '.github/workflows/scaffold-release.yml');
+            await fetchRun(ciId, '.github/workflows/ci.yml');
+            const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts,
+              {...context.repo, run_id: Number(buildId), per_page: 100});
+            const expected = `scaffold-template-qualification-${source}-${buildId}-${build.run_attempt}`;
+            const found = artifacts.filter(a => a.name === expected && !a.expired);
+            if (found.length !== 1) throw new Error('One original successful native candidate artifact is required');
+            core.setOutput('artifact', found[0].name);
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.build_run_id }}
+          name: ${{ steps.candidate.outputs.artifact }}
+          path: ${{ runner.temp }}/candidate-transfer
+      - name: Read the committed verifier requirements
+        id: requirements
+        run: |
+          python3 scripts/project-env requirements > "$RUNNER_TEMP/producer-tools.json"
+          python3 - <<'PYTHON'
+          import json, os
+          from pathlib import Path
+          tools = json.loads((Path(os.environ['RUNNER_TEMP']) / 'producer-tools.json').read_text())
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              for name in ('node', 'pnpm', 'python3'):
+                  out.write(name + '=' + tools[name]['version'] + '\n')
+          PYTHON
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.requirements.outputs.node }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ steps.requirements.outputs.python3 }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ steps.requirements.outputs.pnpm }}
+          run_install: false
+      - name: Prepare the locked manifest parser
+        run: pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy
+      - name: Verify the original candidate and template bytes without rebuilding
+        env:
+          TRANSPORT_SHA256: ${{ inputs.build_transport_sha256 }}
+          SOURCE: ${{ inputs.source_commit }}
+        run: |
+          python3 scripts/verify-qualified-release-transport.py \
+            --archive="$RUNNER_TEMP/candidate-transfer/scaffold-template-qualification.tgz" \
+            --transport-sha256="$TRANSPORT_SHA256" --source-commit="$SOURCE" \
+            --output-root="$RUNNER_TEMP/candidate-release"
+      - name: Publish the verified native templates through the sole publisher
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PEANUT_RELEASE_CANDIDATE_RUN_ID: ${{ inputs.build_run_id }}
+          PEANUT_RELEASE_CI_RUN_ID: ${{ inputs.ci_run_id }}
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          version="$(node -p "JSON.parse(require('node:fs').readFileSync('release-versions.json','utf8')).scaffold_template")"
+          publisher=(scripts/publish-github-release "$version")
+          if [[ "${version%%+*}" == *-* ]]; then publisher+=(--prerelease); fi
+          "${publisher[@]}" \
+            --qualification "$RUNNER_TEMP/candidate-release/template-qualification/candidate-stage.json" \
+            --template-artifacts "$RUNNER_TEMP/candidate-release/scaffold-templates" \
+            --output "$RUNNER_TEMP/published-release"

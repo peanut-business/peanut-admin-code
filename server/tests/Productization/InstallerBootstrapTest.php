@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 use app\common\services\installation\InstallationPreflightHost;
 
-require dirname(__DIR__, 2) . '/app/common/services/installation/InstallationPreflightHost.php';
+require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
 
 function installerExpect(bool $condition, string $message): void
 {
@@ -40,7 +41,7 @@ if (!is_dir($temporaryRoot)) {
 installerExpect(!is_link($temporaryRoot), 'checkout-local temporary root must not be a symlink');
 $fixture = $temporaryRoot . '/peanut-install-preflight-' . bin2hex(random_bytes(6));
 $temporary = $fixture . '/server';
-foreach (['vendor', 'database', 'config', 'runtime/cache', 'runtime/log', 'runtime/session', 'runtime/temp',
+foreach (['vendor', 'database/schema', 'database/seeds', 'config', 'runtime/cache', 'runtime/log', 'runtime/session', 'runtime/temp',
     'runtime/storage', 'runtime/generator', 'runtime/file', 'private/installation',
     'private/resources/pending', 'public/storage', 'private/storage'] as $directory) {
     installerExpect(mkdir($temporary . '/' . $directory, 0775, true), 'unable to create preflight fixture directory');
@@ -49,14 +50,56 @@ foreach (['.git', '.peanut'] as $directory) {
     installerExpect(mkdir($fixture . '/' . $directory, 0775, true), 'unable to create source-mode fixture directory');
 }
 installerExpect(mkdir($temporary . '/resources/schemas', 0775, true), 'unable to create Plugin schema fixture directory');
-foreach (['vendor/autoload.php', 'database/init.sql', 'config/brand.json', 'resources/schemas/plugin.schema.json'] as $file) {
+foreach (['vendor/autoload.php', 'database/schema/baseline-schema.sql', 'database/schema/baseline-data.sql', 'database/seeds/InitialSeeder.php', 'config/brand.json', 'resources/schemas/module-artifact.schema.json'] as $file) {
     installerExpect(file_put_contents($temporary . '/' . $file, "fixture\n") !== false, 'unable to create preflight fixture file');
 }
-foreach (['RELEASE_METADATA.json', 'plugins.lock'] as $file) {
-    installerExpect(file_put_contents($fixture . '/' . $file, "fixture\n") !== false, 'unable to create release fixture file');
-}
-installerExpect(file_put_contents($fixture . '/release-versions.json', "{}\n") !== false, 'unable to create release versions fixture');
-installerExpect(file_put_contents($fixture . '/.peanut/application-manifest.json', "{}\n") !== false, 'unable to create application identity fixture');
+installerExpect(mkdir($temporary . '/vendor/composer', 0775, true), 'unable to create Composer fixture directory');
+installerExpect(mkdir($temporary . '/vendor/topthink/think-migration/src', 0775, true), 'unable to create migration fixture directory');
+installerExpect(file_put_contents($temporary . '/vendor/topthink/think-migration/src/Service.php', "<?php\n") !== false,
+    'unable to create migration Service fixture');
+installerExpect(file_put_contents($temporary . '/vendor/autoload.php', "<?php throw new RuntimeException('autoload invoked');\n") !== false,
+    'preflight autoload trap unavailable');
+$fixturePackage = static fn(string $name, string $version, string $ref): array => [
+    'name' => $name, 'version' => $version,
+    'source' => ['reference' => $ref], 'dist' => ['reference' => $ref],
+];
+$versions = json_decode(file_get_contents($checkoutRoot . '/release-versions.json'), true, 512, JSON_THROW_ON_ERROR);
+$versions['instance_version'] = $versions['generated_instance_default'];
+$core = $versions['core_php'];
+$corePackage = $fixturePackage($core['package'], $core['resolved_version'], $core['source_reference']);
+$corePackage['source'] += ['type' => 'git', 'url' => $core['source_url']];
+$runtimePackages = [
+    $corePackage,
+    $fixturePackage('topthink/think-migration', 'v3.1.1', str_repeat('b', 40)),
+];
+$developmentPackage = $fixturePackage('fixture/development', '1.0.0', str_repeat('c', 40));
+$composerManifest = ['require' => ['peanut-admin/core' => $core['constraint'], 'topthink/think-migration' => '3.1.1']];
+$writeComposerFixture = static function (array $runtime, array $development, array $installed) use ($temporary, $composerManifest): void {
+    foreach (['composer.json' => $composerManifest,
+              'composer.lock' => ['packages' => $runtime, 'packages-dev' => $development],
+              'vendor/composer/installed.json' => ['packages' => $installed]] as $name => $value) {
+        installerExpect(file_put_contents($temporary . '/' . $name, json_encode($value, JSON_THROW_ON_ERROR)) !== false,
+            'unable to write Composer fixture');
+    }
+};
+$writeComposerFixture($runtimePackages, [$developmentPackage], $runtimePackages);
+symlink($checkoutRoot . '/server/database/InitialInstallationSource.php', $temporary . '/database/InitialInstallationSource.php');
+copy($checkoutRoot . '/server/config/modules.php', $temporary . '/config/modules.php');
+file_put_contents($fixture . '/modules.lock', json_encode(['schema_version' => 1, 'modules' => []], JSON_THROW_ON_ERROR));
+file_put_contents($fixture . '/RELEASE_METADATA.json', "{}\n");
+file_put_contents($fixture . '/release-versions.json', json_encode($versions, JSON_THROW_ON_ERROR));
+$profilesPath = $checkoutRoot . '/scaffold/edition-profiles.json';
+$profiles = json_decode(file_get_contents($profilesPath), true, 512, JSON_THROW_ON_ERROR)['editions'];
+$profileHash = hash_file('sha256', $profilesPath);
+$writeEdition = static function (string $mode) use ($fixture, $profiles, $profileHash, $versions): void {
+    $manifest = ['schema_version' => 2, 'protocol' => 'peanut.application-scaffold.v2',
+        'application' => ['slug' => 'fixture-app', 'name' => 'Fixture', 'edition' => $mode, 'profile' => 'minimal',
+            'package_identity' => 'fixture/application', 'version' => $versions['instance_version']],
+        'edition' => ['name' => $mode, 'source_sha256' => $profileHash] + $profiles[$mode],
+        'generation_source' => ['edition_profile_sha256' => $profileHash], 'files' => []];
+    file_put_contents($fixture . '/.peanut/application-manifest.json', json_encode($manifest, JSON_THROW_ON_ERROR));
+};
+$writeEdition('standalone');
 $priorSourceMode = getenv('PEANUT_INSTALLATION_SOURCE_MODE');
 putenv('PEANUT_INSTALLATION_SOURCE_MODE=development');
 
@@ -66,8 +109,7 @@ $resourceIdentity = [
     'resource_id' => 'registered-production-database',
     'endpoint_id' => 'registered-container-endpoint',
     'consumer' => 'container',
-    'host' => 'must-not-appear.example',
-    'database' => 'must_not_appear',
+    'host' => 'fixture.example.test', 'port' => '3306', 'database' => 'fixture_app',
     'user' => 'must-not-appear-user',
     'password' => 'must-not-appear-secret',
 ];
@@ -80,15 +122,15 @@ try {
         '8.3.0',
     );
     $ready = $host->inspect();
-    installerExpect($ready['status'] === 'ready', 'valid preflight fixture must be ready');
+    installerExpect($ready['status'] === 'ready', 'valid preflight fixture must be ready: ' . implode(', ', array_column(array_filter($ready['checks'], static fn(array $check): bool => $check['status'] === 'failed'), 'reason')));
     installerExpect($ready['code'] === 'INSTALL_PREFLIGHT_READY', 'ready preflight code changed');
-    installerExpect(count($ready['checks']) === 15, 'preflight must cover eleven writable destinations plus runtime and resource prerequisites');
-    installerExpect($ready['resource'] === array_intersect_key(
+    installerExpect(count($ready['checks']) === 16, 'preflight must cover Composer dependencies and existing prerequisites');
+    installerExpect($ready['database'] === array_intersect_key(
         $resourceIdentity,
-        array_flip(['environment', 'deployment_target', 'resource_id', 'endpoint_id', 'consumer']),
-    ), 'preflight must expose only stable resource identity fields');
+        array_flip(['host', 'port', 'database']),
+    ), 'preflight must expose only the connection address and database name');
     $encoded = json_encode($ready, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-    foreach (['must-not-appear.example', 'must_not_appear', 'must-not-appear-user', 'must-not-appear-secret'] as $secret) {
+    foreach (['must-not-appear-user', 'must-not-appear-secret'] as $secret) {
         installerExpect(!str_contains($encoded, $secret), 'preflight leaked a resource detail');
     }
 
@@ -116,11 +158,57 @@ try {
         '8.3.0',
     ))->inspect();
     installerExpect($resourceFailure['status'] === 'blocked', 'invalid resource identity must block preflight');
-    installerExpect($resourceFailure['resource'] === null, 'invalid resource identity must not be exposed');
+    installerExpect($resourceFailure['database'] === null, 'invalid resource identity must not be exposed');
     installerExpect(
         !str_contains(json_encode($resourceFailure, JSON_THROW_ON_ERROR), 'must-not-appear-resource-error'),
         'resource validation exception leaked through preflight',
     );
+
+    // The same generated APP preflight is used for standalone and multi-tenant.
+    putenv('PEANUT_INSTALLATION_SOURCE_MODE');
+    $priorDeploymentMode = getenv('DEPLOYMENT_MODE');
+    try {
+        foreach (['standalone', 'multi-tenant'] as $mode) {
+            $writeEdition($mode);
+            putenv('DEPLOYMENT_MODE=' . $mode);
+            $valid = $host->inspect(false);
+            installerExpect($valid['status'] === 'ready', 'generated APP runtime packages must be ready');
+            $writeComposerFixture($runtimePackages, [$developmentPackage], [...$runtimePackages, $developmentPackage]);
+            installerExpect($host->inspect(false)['status'] === 'ready', 'matching dev packages may coexist');
+            $writeComposerFixture($runtimePackages, [$developmentPackage], $runtimePackages);
+        }
+        $blockedDependency = static function () use ($host): void {
+            $result = $host->inspect(false);
+            $check = array_values(array_filter($result['checks'],
+                static fn(array $item): bool => $item['id'] === 'composer-dependencies'))[0] ?? null;
+            installerExpect($result['status'] === 'blocked'
+                && ($check['code'] ?? null) === 'INSTALL_COMPOSER_DEPENDENCIES_INVALID',
+                'invalid Composer dependencies must fail closed');
+        };
+        $writeComposerFixture($runtimePackages, [$developmentPackage], [$runtimePackages[0]]);
+        $blockedDependency();
+        $wrongVersion = $runtimePackages;
+        $wrongVersion[0]['version'] = '5.0.1';
+        $writeComposerFixture($runtimePackages, [$developmentPackage], $wrongVersion);
+        $blockedDependency();
+        $wrongPinnedVersion = $runtimePackages;
+        $wrongPinnedVersion[0]['version'] = 'v0.0.0';
+        $writeComposerFixture($wrongPinnedVersion, [$developmentPackage], $wrongPinnedVersion);
+        $blockedDependency();
+        $wrongReference = $runtimePackages;
+        $wrongReference[0]['source']['reference'] = str_repeat('d', 40);
+        $wrongReference[0]['dist']['reference'] = str_repeat('d', 40);
+        $writeComposerFixture($runtimePackages, [$developmentPackage], $wrongReference);
+        $blockedDependency();
+        $writeComposerFixture($runtimePackages, [$developmentPackage], $runtimePackages);
+        file_put_contents($temporary . '/vendor/composer/installed.json', '{');
+        $blockedDependency();
+        $writeComposerFixture($runtimePackages, [$developmentPackage], $runtimePackages);
+        unlink($temporary . '/vendor/topthink/think-migration/src/Service.php');
+        $blockedDependency();
+    } finally {
+        $priorDeploymentMode === false ? putenv('DEPLOYMENT_MODE') : putenv('DEPLOYMENT_MODE=' . $priorDeploymentMode);
+    }
 
     $hostSource = (string) file_get_contents(
         dirname(__DIR__, 2) . '/app/common/services/installation/InstallationPreflightHost.php',
