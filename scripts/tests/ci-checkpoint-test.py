@@ -96,7 +96,7 @@ class CheckpointTest(unittest.TestCase):
                     # Only explicit publication on main may elevate repository permissions.
                     before_publish, publish = text.split('\n  publish:\n', 1)
                     self.assertNotIn('contents: write', before_publish)
-                    self.assertIn("    if: ${{ !inputs.pack_only && inputs.publish && inputs.qualification_ingress_asset_id == '' && github.ref == 'refs/heads/main' }}\n", publish)
+                    self.assertIn("    if: ${{ !inputs.pack_only && inputs.publish && github.ref == 'refs/heads/main' && github.repository == 'peanut-business/peanut-admin-code' }}\n", publish)
                     self.assertEqual(publish.count('contents: write'), 1)
                 else:
                     self.assertEqual(triggers.strip(), 'workflow_dispatch:')
