@@ -1095,7 +1095,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "06adb1a1d046dd5876a84ccdcf3fae88c892f1f8a7978c50de62985a391d3742"
+            "source_sha256": "70aa7f4e26614eb07cde7e70fd7606b95940198902c223a132a3011890ac18f6"
         },
         {
             "path": "pc/.env.example",
@@ -13089,7 +13089,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6984a9a866ddb5d0561c73eb7365d44c9553e6e719703ac2dbf64713bf3980a0"
+            "source_sha256": "bcf8cde964912d8733908d7170cbdbd222365f26814f0ddaced20b35b119c56e"
         },
         {
             "path": "server/app/modules/peanut/ops/database/migrations/20261101010007_initial_ops_schema.php",
@@ -13145,7 +13145,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a8c1537a08670f4509f97f3bdfb724234e06e61fda582035bc8154a85e39a485"
+            "source_sha256": "55ecd6fe8bb76096ed7fd5232c2ed2b3592cf9a2119c73761b15357d92f8fda3"
         },
         {
             "path": "server/app/modules/peanut/ops/src/Contract/BackupTaskExecution.php",
@@ -13761,7 +13761,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1334086d12c31e69549a92a8f5c1509fe4e35a56c54abfb9382a6855297828e7"
+            "source_sha256": "ab4792ae9c4574040a7533e4f6e5734934c561293a8fe6f74c65eb3469a9230e"
         },
         {
             "path": "server/app/modules/peanut/ops/src/Infrastructure/ThinkPhpOpsTaskDispatcher.php",
@@ -17295,7 +17295,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "29500f6dab7f8f539220e1e3bf04ce49a0ce5ba2ae9ea4e93891d03614871f8b"
+            "source_sha256": "75c0893c0ef18f584002f2603ee89f62b5540eb863aad2876870612eafdeeb6a"
         },
         {
             "path": "server/composer.lock",
@@ -17309,7 +17309,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e32122b6a2413e5a6efc16aeeaef8dd9254adf05f731897ee9b57df4f29f4ed2"
+            "source_sha256": "253c20a6496887ae5da828dc410ec0ee6d84bd6fa3bc828599cdcc45dd4853bf"
         },
         {
             "path": "server/config/admin_api_access.php",
@@ -19169,7 +19169,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "be176d8bd8fd0e7611b2e571d32523d12142fdb97c297c8796551d907702e5d9"
+            "source_sha256": "f29c717e1c65c3107f596a592dd492a93e801812263d2a3ecd106c93cf1cc738"
         },
         {
             "path": "server/generated/openapi.json",
