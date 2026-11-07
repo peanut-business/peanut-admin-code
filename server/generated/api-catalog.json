@@ -80,7 +80,7 @@
         },
         {
             "path": "server/config/admin_api_access.php",
-            "sha256": "845edf9ee948592ed86226799354292ab79238b7c772a80dfddfb479e9ded487"
+            "sha256": "266cf7387d0757fc77c22541c8af22cb14b4ee2fea60afff2f49534d745ad938"
         },
         {
             "path": "server/route/admin.php",

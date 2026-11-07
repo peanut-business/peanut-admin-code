@@ -17364,7 +17364,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "845edf9ee948592ed86226799354292ab79238b7c772a80dfddfb479e9ded487"
+            "source_sha256": "266cf7387d0757fc77c22541c8af22cb14b4ee2fea60afff2f49534d745ad938"
         },
         {
             "path": "server/config/admin_auth.php",
@@ -19210,7 +19210,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a85f14a1101ac8fc94213c9fadb6b473d1e8ae8cfc96b125b5fd3016107ea229"
+            "source_sha256": "22a04c934d62a2edb7d315c2ab2a8a07ed519d17c3dab5665d9365d079682ab5"
         },
         {
             "path": "server/generated/openapi.json",
