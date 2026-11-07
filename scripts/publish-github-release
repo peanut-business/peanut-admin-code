@@ -144,35 +144,40 @@ const live = git('ls-remote', '--heads', 'origin', 'refs/heads/main').split('\n'
 if (live.length !== 1 || !/^[0-9a-f]{40}\trefs\/heads\/main$/.test(live[0])) fail('live main missing or ambiguous')
 const main = live[0].split('\t')[0]
 if (git('rev-parse', 'origin/main^{commit}') !== main) fail('local origin/main is stale')
+if (git('rev-parse', 'HEAD') !== main) fail('execution checkout is not live main')
 if (expectedMain && main !== expectedMain) fail('live main changed before publication')
 const tagRefs = git('ls-remote', '--tags', 'origin', `refs/tags/${tag}`, `refs/tags/${tag}^{}`).split('\n').sort()
 if (JSON.stringify(tagRefs) !== JSON.stringify([`${tagObject}\trefs/tags/${tag}`, `${source}\trefs/tags/${tag}^{}`].sort())
   || git('rev-parse', `${tag}^{tag}`) !== tagObject || git('rev-parse', `${tag}^{commit}`) !== source) fail('live tag identity mismatch')
 const tree = git('rev-parse', `${source}^{tree}`)
 const proof = { schema_version: 1, repository, source_commit: source, source_tree: tree,
-  main_commit: main, tag, tag_object: tagObject, remote, observed_at: new Date().toISOString(), mode: 'exact-source' }
+  main_commit: main, execution_source: { commit: main, tree: git('rev-parse', `${main}^{tree}`) },
+  tag, tag_object: tagObject, remote, observed_at: new Date().toISOString(), mode: 'exact-source' }
 if (main !== source) {
-  const parents = git('show', '-s', '--format=%P', main).split(' ')
-  if (parents.length !== 2 || !parents.every(sha) || parents[1] !== source || parents[0] === source) fail('requires exact parents [B,S]')
-  const base = parents[0]
-  if (git('rev-parse', `${main}^{tree}`) !== tree) fail('merge tree differs from qualified source')
-  git('merge-base', '--is-ancestor', base, source)
   const utc = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)
     && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString() === value.replace(/Z$/, value.includes('.') ? 'Z' : '.000Z')
-  const associatedBytes = run('gh', ['api', `repos/${repository}/commits/${main}/pulls`])
+  const associatedBytes = run('gh', ['api', `repos/${repository}/commits/${source}/pulls`])
   const associated = JSON.parse(associatedBytes)
   if (!Array.isArray(associated)) fail('PR discovery is not an array')
-  const selected = associated.filter((pr) => pr?.merge_commit_sha === main && pr?.head?.sha === source)
+  const selected = associated.filter((pr) => sha(pr?.merge_commit_sha) && pr?.head?.sha === source)
   if (selected.length !== 1 || !Number.isSafeInteger(selected[0].number) || selected[0].number <= 0) fail('PR discovery missing or ambiguous')
   const number = selected[0].number
   const prBytes = run('gh', ['api', `repos/${repository}/pulls/${number}`])
   const pr = JSON.parse(prBytes)
+  const merge = selected[0].merge_commit_sha
+  const parents = git('show', '-s', '--format=%P', merge).split(' ')
+  if (parents.length !== 2 || !parents.every(sha) || parents[1] !== source || parents[0] === source) fail('requires exact parents [B,S]')
+  const base = parents[0]
+  if (git('rev-parse', `${merge}^{tree}`) !== tree) fail('merge tree differs from qualified source')
+  git('merge-base', '--is-ancestor', base, source)
+  git('merge-base', '--is-ancestor', merge, main)
   const url = `https://github.com/${repository}/pull/${number}`
   if (pr.number !== number || pr.html_url !== url || pr.merged !== true || pr.state !== 'closed'
-    || pr.merge_commit_sha !== main || pr.head?.sha !== source || pr.head?.ref !== 'dev' || pr.base?.ref !== 'main'
+    || pr.merge_commit_sha !== merge || pr.head?.sha !== source || pr.head?.ref !== 'dev' || pr.base?.ref !== 'main'
     || pr.head?.repo?.full_name !== repository || pr.base?.repo?.full_name !== repository
     || !utc(pr.merged_at)) fail('merged dev-to-main PR identity mismatch')
-  Object.assign(proof, { mode: 'merged-dev-main', base_commit: base, parents, main_tree: tree,
+  Object.assign(proof, { mode: 'merged-dev-main', base_commit: base, parents, source_merge_commit: merge,
+    source_merge_tree: tree, main_tree: proof.execution_source.tree,
     pr_number: number, pr_url: url, merged_at: pr.merged_at,
     associated_pr_response_sha256: digest(associatedBytes), pr_response_sha256: digest(prBytes) })
 }
@@ -236,6 +241,9 @@ const manifest = {
   source_archive: `peanut-admin-${VERSION}.tar.gz`, artifacts,
   embedded_metadata: { path: 'RELEASE_METADATA.json', sha256: digest(metadataText) },
   technical_qualification: candidateLock.qualification,
+  execution_source: { commit: cp.execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+    tree: cp.execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { encoding: 'utf8' }).trim(),
+    publisher_sha256: digest(fs.readFileSync(`${process.env.RELEASE_SCRIPT_DIR}/publish-github-release`)) },
   release_acceptance: { scope: 'applicable-ci-and-native-template-cli-candidate',
     candidate_build_run_id: process.env.PEANUT_RELEASE_CANDIDATE_RUN_ID ?? null,
     applicable_ci_run_id: process.env.PEANUT_RELEASE_CI_RUN_ID ?? null,
