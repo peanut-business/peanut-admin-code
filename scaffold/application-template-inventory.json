@@ -24161,7 +24161,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7e7ebd0dc5a64b12261e809661dbcced7a20f26be72d98294178234ea5121dc6"
+            "source_sha256": "f63045f1ba855fcc7ee73bcc3e2cf41c389010fbdd80191169d296575b0c8ce7"
         },
         {
             "path": "uniapp/src/pages/as_us/as_us.vue",
@@ -25826,7 +25826,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "51b07727f32cbe5e9ef5e02cf0549a9242f1bb23f79d1d290f1ee5a6fb7596ec"
+            "source_sha256": "d988646f1d1286ce242a03de310e7739d2c0bcbb77e2cb67b7e767cf2d532912"
         },
         {
             "path": "web/src/hooks/visible.ts",
@@ -27450,7 +27450,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6043f607af84b9411c8c77c7566464eb9d2eadbc884345bc96d00f9c03cf5ec5"
+            "source_sha256": "3892f437f5e6fd597797e0ac119416340bc5cba0ad806968cd9e1394ec0bcc8a"
         },
         {
             "path": "web/src/router/index.ts",
