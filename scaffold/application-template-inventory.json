@@ -1025,7 +1025,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "59fe165406c1d29c88979ad4d347d2331c455a89af48bc46f042db4debd8e0a3"
+            "source_sha256": "5c0ef9087a0b345ee1f47a8eddbd77a247840e061c97ef44df1b357686620d3e"
         },
         {
             "path": "docs/public/installation.md",
@@ -1053,7 +1053,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "700f341086ac3461df40d4b545e50e20697126b16f0889606349ae7828da0aca"
+            "source_sha256": "e7722112f6f193bd4018f2131c5c2ec92fd69725a0178395e97e730807d90888"
         },
         {
             "path": "docs/public/release-channels.md",
@@ -5846,7 +5846,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9102d070ee3f09f8302e7536e9b29f6e8fd5bb65f969337c21b0d803f93601d4"
+            "source_sha256": "b15800f1dd8c60b97bbb82e2f0d66fca555389b146f364fbe4bddb7b5da0d52c"
         },
         {
             "path": "server/app/command/ModuleReleaseComposition.php",

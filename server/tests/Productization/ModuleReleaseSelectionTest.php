@@ -42,9 +42,9 @@ $run = static function (array $keys, array $rows, ?array $expected) use ($pdo, $
     }
 };
 $run([], [], $empty);
-$run(['acme.new'], [], array_replace($empty, ['reconcile' => ['acme.new']]));
-$run(['acme.active', 'acme.new'], [['acme.active','active',null]], array_replace($empty, ['reconcile' => ['acme.active','acme.new']]));
-$run(['acme.disabled','acme.new'], [['acme.disabled','maintenance',null]], array_replace($empty, ['reconcile' => ['acme.new'], 'preserved_disabled' => ['acme.disabled']]));
+$run(['acme.new'], [], $empty);
+$run(['acme.active', 'acme.new'], [['acme.active','active',null]], array_replace($empty, ['reconcile' => ['acme.active']]));
+$run(['acme.disabled','acme.new'], [['acme.disabled','maintenance',null]], array_replace($empty, ['preserved_disabled' => ['acme.disabled']]));
 $run(['acme.retired'], [['acme.retired','uninstalled',null]], array_replace($empty, ['preserved_uninstalled' => ['acme.retired']]));
 $run([], [['acme.retired','uninstalled',null]], array_replace($empty, ['preserved_uninstalled' => ['acme.retired']]));
 $run([], [['acme.live','active',null]], null);

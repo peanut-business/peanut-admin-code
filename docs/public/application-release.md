@@ -80,6 +80,6 @@ Docker 模式沿用实例的 Compose 参数、overlay 和 vendor receipt。维�
 
 已安装 Docker 实例的 Composer 输入变化由同一 Git 更新入口在停写后处理：原 vendor 必须在旧 HEAD 上通过校验，采用新 HEAD 后调用原生 prepare-vendor 的 maintenance 模式。它将旧 vendor 保留在 runtime/vendor-previous-*，在实例实根按固定锁执行 no-scripts/no-plugins Composer install、既有 service discovery/vendor publish 和 receipt seal/check；失败恢复旧 vendor，保留 pending 并保持服务停止，不能把旧依赖与新程序重新开放。重新执行同一 pending 时按新锁校验或继续准备，不要求旧 vendor 匹配新锁。成功仍保留旧 vendor 供 owner 恢复。固定 PHP 镜像沿原实例配置，普通 start 仍禁止自动修复已安装实例的依赖。宿主模式沿原锁准备流程。
 
-模块采用使用 `reconcile --release-locked --prepared-release` 校验已准备的 PHP 依赖和必要客户端入口。新选入锁且没有安装记录的模块通过原生生命周期首次安装。已启用的模块采用锁定版本，已停用或已卸载的模块保留原状态。遇到过渡状态或依赖校验失败时，更新停止并保留 pending。
+模块采用使用 `reconcile --release-locked --prepared-release` 校验已准备的 PHP 依赖和必要客户端入口。普通 Git 更新只采用已有 active 安装的锁定版本；仅存在于锁中、没有安装记录的模块不会被补装，首装时未选择的模块继续保持未安装。新增模块须显式执行现有 `peanut module install <archive> --sha256=<trusted-64-hex>` 安装入口，并先安装其声明的必要依赖；锁文件本身不授予安装权限。已停用或已卸载的模块保留原状态。已有模块的新版本若依赖尚未安装或已停用的模块，更新按原依赖校验停止并保留 pending，由维护者明确选择安装依赖或调整目标版本，不自动扩张安装范围。只读 `--plan-only` 使用同一选择范围，不为未安装模块生成首次安装计划。
 
 失败保留 pending 与实际效果，先对账程序、PHP 依赖、静态文件、迁移和进程，不盲重发或自动恢复旧库。脚本成功不替代真实业务确认。本文不授予 main/tag、公开发布、生产、资金或破坏性数据操作权限。
