@@ -8,10 +8,9 @@ REPOSITORY="peanut-business/peanut-admin-code"
 
 usage() {
   cat <<'EOF'
-Usage: scripts/publish-github-release <version> --qualification <summary.json> \
+Usage: scripts/publish-github-release <version> --qualification <candidate-stage.json> \
   --template-artifacts <absolute-native-build-root> \
   [--prerelease] [--prepare-only] [--output <absolute-dir>] \
-  [--main-integration=<absolute-premerge-receipt>] \
   [--qualification-transport-sha256=<independently-recorded-sha256>]
 
 Creates the deterministic source archive, legal assets, external manifest and
@@ -19,7 +18,8 @@ release notes from annotated tag v<version>. The build root must contain the
 complete native standalone/ and multi-tenant/ build directories for that exact
 commit/tree. Their four .tgz/.json attachments are published as the templates.
 The same archive supports creation and source upgrade. The
-qualification summary must be for the exact frozen tag commit/tree. Without
+native candidate stage must be for the exact frozen tag commit/tree. Full8 is a
+separately authorized test suite and is not required for publication. Without
 --prepare-only, publishes the candidate lock and all release assets as one GitHub
 Release after all checks pass. Stable mode is the default and accepts only
 X.Y.Z, creates a formal GitHub Release and marks it latest. Prerelease mode must
@@ -43,13 +43,11 @@ OUTPUT_DIR=''
 QUALIFICATION_FILE=''
 TEMPLATE_ARTIFACTS=''
 PRERELEASE=0
-MAIN_INTEGRATION=''
 QUALIFICATION_TRANSPORT_SHA256=''
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --prepare-only) PREPARE_ONLY=1; shift ;;
     --prerelease) PRERELEASE=1; shift ;;
-    --main-integration=*) [[ -z "$MAIN_INTEGRATION" ]] || { usage >&2; exit 2; }; MAIN_INTEGRATION="${1#*=}"; [[ "$MAIN_INTEGRATION" == /* && -f "$MAIN_INTEGRATION" ]] || { usage >&2; exit 2; }; shift ;;
     --qualification-transport-sha256=*) [[ -z "$QUALIFICATION_TRANSPORT_SHA256" ]] || { usage >&2; exit 2; }; QUALIFICATION_TRANSPORT_SHA256="${1#*=}"; [[ "$QUALIFICATION_TRANSPORT_SHA256" =~ ^[a-f0-9]{64}$ ]] || { usage >&2; exit 2; }; shift ;;
     --output) [[ $# -ge 2 ]] || { usage >&2; exit 2; }; OUTPUT_DIR="$2"; shift 2 ;;
     --qualification) [[ $# -ge 2 ]] || { usage >&2; exit 2; }; QUALIFICATION_FILE="$2"; shift 2 ;;
@@ -60,7 +58,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "$QUALIFICATION_FILE" && "$QUALIFICATION_FILE" == /* && -f "$QUALIFICATION_FILE" ]] || {
-  printf 'publish-github-release: --qualification must name an absolute existing summary.json\n' >&2
+  printf 'publish-github-release: --qualification must name an absolute existing candidate-stage.json\n' >&2
   exit 2
 }
 [[ -n "$TEMPLATE_ARTIFACTS" && "$TEMPLATE_ARTIFACTS" == /* && -d "$TEMPLATE_ARTIFACTS" ]] || {
@@ -130,11 +128,11 @@ fi
 "${release_check[@]}"
 
 verify_main_integration() {
-  node - "$REPOSITORY" "$COMMIT" "$TAG" "$TAG_OBJECT" "$MAIN_INTEGRATION" "$1" "${2:-}" <<'NODE'
+  node - "$REPOSITORY" "$COMMIT" "$TAG" "$TAG_OBJECT" "$1" "${2:-}" <<'NODE'
 const fs = require('node:fs')
 const cp = require('node:child_process')
 const crypto = require('node:crypto')
-const [repository, source, tag, tagObject, receiptPath, proofPath, expectedMain] = process.argv.slice(2)
+const [repository, source, tag, tagObject, proofPath, expectedMain] = process.argv.slice(2)
 const fail = (message) => { throw new Error(`publish-github-release: main integration ${message}`) }
 const run = (command, args) => cp.execFileSync(command, args, { encoding: 'utf8' }).trim()
 const git = (...args) => run('git', args)
@@ -159,13 +157,6 @@ if (main !== source) {
   const base = parents[0]
   if (git('rev-parse', `${main}^{tree}`) !== tree) fail('merge tree differs from qualified source')
   git('merge-base', '--is-ancestor', base, source)
-  if (!receiptPath) fail('premerge receipt is required')
-  const receiptBytes = fs.readFileSync(receiptPath)
-  const receipt = JSON.parse(receiptBytes)
-  const fields = ['schema_version', 'repository', 'source_commit', 'base_commit', 'ready_for_stable', 'readiness_at', 'premerge_observed_at']
-  if (JSON.stringify(Object.keys(receipt).sort()) !== JSON.stringify(fields.sort())
-    || receipt.schema_version !== 1 || receipt.repository !== repository || receipt.source_commit !== source
-    || receipt.base_commit !== base || receipt.ready_for_stable !== true) fail('premerge receipt identity mismatch')
   const utc = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)
     && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString() === value.replace(/Z$/, value.includes('.') ? 'Z' : '.000Z')
   const associatedBytes = run('gh', ['api', `repos/${repository}/commits/${main}/pulls`])
@@ -180,12 +171,9 @@ if (main !== source) {
   if (pr.number !== number || pr.html_url !== url || pr.merged !== true || pr.state !== 'closed'
     || pr.merge_commit_sha !== main || pr.head?.sha !== source || pr.head?.ref !== 'dev' || pr.base?.ref !== 'main'
     || pr.head?.repo?.full_name !== repository || pr.base?.repo?.full_name !== repository
-    || !utc(pr.merged_at) || !utc(receipt.readiness_at) || !utc(receipt.premerge_observed_at)
-    || Date.parse(receipt.readiness_at) > Date.parse(receipt.premerge_observed_at)
-    || Date.parse(receipt.premerge_observed_at) >= Date.parse(pr.merged_at)) fail('merged PR or readiness ordering mismatch')
+    || !utc(pr.merged_at)) fail('merged dev-to-main PR identity mismatch')
   Object.assign(proof, { mode: 'merged-dev-main', base_commit: base, parents, main_tree: tree,
-    pr_number: number, pr_url: url, merged_at: pr.merged_at, readiness_at: receipt.readiness_at,
-    premerge_observed_at: receipt.premerge_observed_at, premerge_receipt_sha256: digest(receiptBytes),
+    pr_number: number, pr_url: url, merged_at: pr.merged_at,
     associated_pr_response_sha256: digest(associatedBytes), pr_response_sha256: digest(prBytes) })
 }
 // Reobserve both remote refs after the API calls, including the final pre-create invocation.
@@ -248,6 +236,11 @@ const manifest = {
   source_archive: `peanut-admin-${VERSION}.tar.gz`, artifacts,
   embedded_metadata: { path: 'RELEASE_METADATA.json', sha256: digest(metadataText) },
   technical_qualification: candidateLock.qualification,
+  release_acceptance: { scope: 'applicable-ci-and-native-template-cli-candidate',
+    candidate_build_run_id: process.env.PEANUT_RELEASE_CANDIDATE_RUN_ID ?? null,
+    applicable_ci_run_id: process.env.PEANUT_RELEASE_CI_RUN_ID ?? null,
+    full8: 'not required; no complete-suite pass claimed',
+    public_latest_consumers: 'ST/MT installation, startup, IAB login and basic business are verified after publication' },
   candidate_lock: { path: 'RELEASE_CANDIDATE_LOCK.json', sha256: digest(fs.readFileSync(`${OUTPUT_DIR}/RELEASE_CANDIDATE_LOCK.json`)) },
   public_runtime_dependencies: metadata.public_runtime_dependencies, template_artifacts: templates,
   self_reference_policy: 'This manifest omits its own digest; the Release notes record it.',

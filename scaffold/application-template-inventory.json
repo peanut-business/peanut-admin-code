@@ -282,7 +282,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "77f18d276605ed0f25b807cbd90d2bfa93a9ac4f883436a2f0b78dc1d202a759"
+            "source_sha256": "d56280865b464ddf53e1e72e2d72514c945defaaa5d6a6e2d7ec74f2e5e2d3c6"
         },
         {
             "path": "THIRD_PARTY_NOTICES.md",
@@ -296,7 +296,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c28c0e68734dc13afcb773079477977b393e01d01be4f525c8953dce6cbb9a51"
+            "source_sha256": "d643f48f57a3332f01bde8fed7a740dc17035aebec159cef02bb7179e5cd32ce"
         },
         {
             "path": "compose.yaml",

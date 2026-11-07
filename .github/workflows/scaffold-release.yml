@@ -1,10 +1,10 @@
-name: Scaffold templates and qualified release
+name: Scaffold templates and release
 
 on:
   workflow_dispatch:
     inputs:
       pack_only:
-        description: Build and compare templates only; no candidate creation or qualification
+        description: Build templates only; no CLI candidate creation or publication
         type: boolean
         default: false
       workflow:
@@ -20,29 +20,25 @@ on:
         type: string
         default: ''
       publish:
-        description: Publish only the already fully qualified exact main source and build bytes
+        description: Publish the exact candidate templates after CI and protected dev-to-main integration
         type: boolean
         default: false
       candidate_cli_commit:
         description: Exact independent peanut-cli source commit for the no-DB candidate contract
         type: string
         default: 6849d197d22a0839b7fe4a92bb5579ce337d8631
-      qualification_run_id:
-        description: Successful same-repository Actions run holding native full transport (template-only runs are ineligible)
+      build_run_id:
+        description: Successful same-repository candidate run with both Edition templates and native CLI creation
         type: string
-      qualification_source_commit:
-        description: Exact qualified source commit; main must retain its exact tree and normal integration proof
+      source_commit:
+        description: Exact candidate source; main must retain its tree through normal dev-to-main integration
         type: string
-      qualification_transport_sha256:
-        description: Independently recorded SHA-256 of scaffold-full-qualification.tgz
+      build_transport_sha256:
+        description: Independently recorded SHA-256 of the candidate run's scaffold-template-qualification.tgz
         type: string
-      main_integration_sha256:
-        description: SHA-256 of the native premerge main integration receipt in that transport
+      ci_run_id:
+        description: Successful same-repository CI run for the exact candidate source
         type: string
-      qualification_ingress_asset_id:
-        description: Import an existing same-repository GitHub Release asset ID containing the original full transport (no publication)
-        type: string
-        default: ''
 
 permissions:
   contents: read
@@ -53,7 +49,7 @@ concurrency:
 
 jobs:
   templates:
-    if: ${{ inputs.pack_only || (!inputs.publish && inputs.qualification_ingress_asset_id == '') }}
+    if: ${{ !inputs.publish }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -122,16 +118,10 @@ jobs:
           test ! -e .peanut/application-manifest.json
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           version="$(node -p "JSON.parse(require('node:fs').readFileSync('release-versions.json','utf8')).scaffold_template")"
-          for build in scaffold-templates scaffold-rebuild; do
-            for edition in standalone multi-tenant; do
-              php scripts/build-scaffold-release --version="$version" --source-commit="$GITHUB_SHA" \
-                --edition="$edition" --workflow="$workflow" --output="$RUNNER_TEMP/$build/$edition"
-            done
+          for edition in standalone multi-tenant; do
+            php scripts/build-scaffold-release --version="$version" --source-commit="$GITHUB_SHA" \
+              --edition="$edition" --workflow="$workflow" --output="$RUNNER_TEMP/scaffold-templates/$edition"
           done
-          node scripts/release-template-artifacts.mjs compare "$RUNNER_TEMP/scaffold-templates" "$version" \
-            "$GITHUB_SHA" "$(git rev-parse HEAD^{tree})" \
-            "$(sha256sum scaffold/application-template-inventory.json | cut -d ' ' -f1)" \
-            "$RUNNER_TEMP/scaffold-rebuild" > "$RUNNER_TEMP/rebuild-comparison.json"
           PRODUCER
       - name: Qualify the native candidate through the local entry
         if: ${{ !inputs.pack_only }}
@@ -171,7 +161,7 @@ jobs:
           set -Eeuo pipefail
           # Preserve actual failure outputs too. No success status is manufactured.
           inputs=()
-          for name in scaffold-templates scaffold-rebuild rebuild-comparison.json producer-tools.json producer-tools-actual.json template-qualification candidate-inputs.json; do
+          for name in scaffold-templates producer-tools.json producer-tools-actual.json template-qualification candidate-inputs.json; do
             if [[ -e "$RUNNER_TEMP/$name" || -L "$RUNNER_TEMP/$name" ]]; then
               inputs+=("$name")
             fi
@@ -211,121 +201,17 @@ jobs:
             ${{ steps.preserve_candidate.outputs.transport_path }}.sha256
           if-no-files-found: error
           retention-days: 7
-      - name: Report the remaining full qualification admission
+      - name: Record the actual release scope
         shell: bash
         run: |
-          echo 'Full eight-group qualification: NOT_RUN. Pack-only mode checks two standard template productions and exact inputs/bytes only; candidate creation is skipped in that mode.' >> "$GITHUB_STEP_SUMMARY"
-          echo 'The admitted lifecycle owner must seal its completed eight-group native result with scripts/p0e-runtime-qualification transport. Once an authorized existing same-repository Release asset holds those original bytes, select qualification_ingress_asset_id and the independent source/hashes to verify and preserve them through this workflow ingress. This template-only run cannot supply qualification_run_id for publication.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Release acceptance is limited to applicable CI, fixed native Edition production, artifact integrity and CLI creation. The separately authorized full8 suite is NOT_RUN by this workflow and is not a publication prerequisite.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Public latest consumption, ST/MT installation, startup, IAB login and basic business are checked against the published release; no pre-publication result claims they passed.' >> "$GITHUB_STEP_SUMMARY"
 
-  ingress:
-    if: ${{ !inputs.pack_only && !inputs.publish && inputs.qualification_ingress_asset_id != '' && github.repository == 'peanut-business/peanut-admin-code' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Authenticate the existing repository asset and fixed qualification inputs
-        uses: actions/github-script@v7
-        env:
-          ASSET_ID: ${{ inputs.qualification_ingress_asset_id }}
-          QUALIFICATION_SOURCE: ${{ inputs.qualification_source_commit }}
-          TRANSPORT_SHA256: ${{ inputs.qualification_transport_sha256 }}
-          INTEGRATION_SHA256: ${{ inputs.main_integration_sha256 }}
-        with:
-          script: |
-            const id = process.env.ASSET_ID;
-            if (!/^[1-9][0-9]*$/.test(id) || !Number.isSafeInteger(Number(id))
-              || !/^[a-f0-9]{40}$/.test(process.env.QUALIFICATION_SOURCE)
-              || process.env.QUALIFICATION_SOURCE !== context.sha
-              || !/^[a-f0-9]{64}$/.test(process.env.TRANSPORT_SHA256)
-              || !/^[a-f0-9]{64}$/.test(process.env.INTEGRATION_SHA256)) throw new Error('Exact independently recorded source and hashes required');
-            const {data: asset} = await github.rest.repos.getReleaseAsset({...context.repo, asset_id: Number(id)});
-            const url = `https://api.github.com/repos/peanut-business/peanut-admin-code/releases/assets/${id}`;
-            if (asset.id !== Number(id) || asset.url !== url || asset.name !== 'scaffold-full-qualification.tgz'
-              || asset.state !== 'uploaded' || !Number.isSafeInteger(asset.size) || asset.size <= 0
-              || asset.size > 512 * 1024 * 1024 || asset.digest !== `sha256:${process.env.TRANSPORT_SHA256}`) throw new Error('Existing repository asset identity or digest differs');
-      - name: Download original bytes only through the fixed repository API
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ASSET_ID: ${{ inputs.qualification_ingress_asset_id }}
-        run: |
-          set -Eeuo pipefail
-          [[ "$ASSET_ID" =~ ^[1-9][0-9]*$ ]]
-          mkdir "$RUNNER_TEMP/qualified-transfer"
-          gh api "repos/peanut-business/peanut-admin-code/releases/assets/$ASSET_ID" \
-            --header 'Accept: application/octet-stream' | python3 -c '
-          import sys
-          total = 0
-          while block := sys.stdin.buffer.read(1024 * 1024):
-              total += len(block)
-              if total > 512 * 1024 * 1024: raise ValueError("Transport exceeds admission limit")
-              sys.stdout.buffer.write(block)
-          ' > "$RUNNER_TEMP/qualified-transfer/scaffold-full-qualification.tgz"
-      - name: Read the committed verifier tool requirements
-        id: requirements
-        shell: bash
-        run: |
-          python3 scripts/project-env requirements > "$RUNNER_TEMP/producer-tools.json"
-          python3 - <<'PY'
-          import json, os
-          from pathlib import Path
-          tools = json.loads((Path(os.environ['RUNNER_TEMP']) / 'producer-tools.json').read_text())
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
-              for name in ('php', 'node', 'pnpm', 'python3', 'composer'):
-                  out.write(name + '=' + tools[name]['version'] + '\n')
-          PY
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ steps.requirements.outputs.php }}
-          extensions: json, mbstring, pdo_mysql, sodium, dom, fileinfo, curl, zip
-          tools: composer:${{ steps.requirements.outputs.composer }}
-          coverage: none
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ steps.requirements.outputs.pnpm }}
-          run_install: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ steps.requirements.outputs.node }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ steps.requirements.outputs.python3 }}
-      - name: Prepare only the committed native verifier dependencies
-        run: |
-          composer --working-dir=server install --no-dev --no-plugins --no-scripts --no-interaction --no-progress --prefer-dist
-          pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy
-          npm --prefix uniapp ci --ignore-scripts
-      - name: Verify original full qualification and its final template bytes
-        shell: bash
-        env:
-          TRANSPORT_SHA256: ${{ inputs.qualification_transport_sha256 }}
-          INTEGRATION_SHA256: ${{ inputs.main_integration_sha256 }}
-          QUALIFICATION_SOURCE: ${{ inputs.qualification_source_commit }}
-        run: |
-          set -Eeuo pipefail
-          python3 scripts/verify-qualified-release-transport.py --mode=ingress \
-            --archive="$RUNNER_TEMP/qualified-transfer/scaffold-full-qualification.tgz" \
-            --transport-sha256="$TRANSPORT_SHA256" --main-integration-sha256="$INTEGRATION_SHA256" \
-            --source-commit="$QUALIFICATION_SOURCE" --output-root="$RUNNER_TEMP/qualified-release"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: scaffold-full-qualification-${{ inputs.qualification_source_commit }}
-          path: ${{ runner.temp }}/qualified-transfer/scaffold-full-qualification.tgz
-          if-no-files-found: error
-          retention-days: 7
-      - name: Record admission scope
-        run: |
-          echo 'Original native full qualification transport verified and preserved. This run did not execute full8, create or upload a Release asset, publish, or deploy.' >> "$GITHUB_STEP_SUMMARY"
 
   publish:
-    if: ${{ !inputs.pack_only && inputs.publish && inputs.qualification_ingress_asset_id == '' && github.ref == 'refs/heads/main' }}
+    if: ${{ !inputs.pack_only && inputs.publish && github.ref == 'refs/heads/main' && github.repository == 'peanut-business/peanut-admin-code' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 30
     permissions:
       contents: write
       actions: read
@@ -334,51 +220,56 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Authenticate the existing qualified transport run
+      - name: Authenticate the original candidate build and applicable CI
+        id: candidate
         uses: actions/github-script@v7
         env:
-          QUALIFICATION_RUN_ID: ${{ inputs.qualification_run_id }}
-          QUALIFICATION_SOURCE: ${{ inputs.qualification_source_commit }}
-          TRANSPORT_SHA256: ${{ inputs.qualification_transport_sha256 }}
-          INTEGRATION_SHA256: ${{ inputs.main_integration_sha256 }}
+          BUILD_RUN: ${{ inputs.build_run_id }}
+          CI_RUN: ${{ inputs.ci_run_id }}
+          SOURCE: ${{ inputs.source_commit }}
+          TRANSPORT_SHA256: ${{ inputs.build_transport_sha256 }}
         with:
           script: |
-            const id = process.env.QUALIFICATION_RUN_ID;
-            const source = process.env.QUALIFICATION_SOURCE;
-            if (!/^[a-f0-9]{40}$/.test(source) || !/^[1-9][0-9]*$/.test(id) || !/^[a-f0-9]{64}$/.test(process.env.TRANSPORT_SHA256)
-              || !/^[a-f0-9]{64}$/.test(process.env.INTEGRATION_SHA256)) throw new Error('Exact qualified transfer inputs required');
-            const { data: run } = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: Number(id) });
-            if (run.head_sha !== source || run.head_repository?.full_name !== context.payload.repository.full_name
-              || run.status !== 'completed' || run.conclusion !== 'success'
-              || run.event !== 'workflow_dispatch' || run.path !== '.github/workflows/scaffold-release.yml') throw new Error('Qualification run workflow, source, origin or completion differs');
-            const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, { ...context.repo, run_id: Number(id), per_page: 100 });
-            const found = artifacts.filter(a => a.name === `scaffold-full-qualification-${source}` && !a.expired);
-            if (found.length !== 1) throw new Error('One complete full qualification transport is required');
+            const source = process.env.SOURCE;
+            const buildId = process.env.BUILD_RUN;
+            const ciId = process.env.CI_RUN;
+            if (!/^[a-f0-9]{40}$/.test(source) || !/^[1-9][0-9]*$/.test(buildId)
+              || !/^[1-9][0-9]*$/.test(ciId) || !/^[a-f0-9]{64}$/.test(process.env.TRANSPORT_SHA256)) {
+              throw new Error('Exact source, successful run IDs and original transport SHA-256 are required');
+            }
+            const fetchRun = async (id, path) => {
+              const {data: run} = await github.rest.actions.getWorkflowRun({...context.repo, run_id: Number(id)});
+              if (run.head_sha !== source || run.head_repository?.full_name !== context.payload.repository.full_name
+                || run.status !== 'completed' || run.conclusion !== 'success' || run.event !== 'workflow_dispatch'
+                || run.path !== path) throw new Error('Run source, origin, workflow or actual result differs');
+              return run;
+            };
+            const build = await fetchRun(buildId, '.github/workflows/scaffold-release.yml');
+            await fetchRun(ciId, '.github/workflows/ci.yml');
+            const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts,
+              {...context.repo, run_id: Number(buildId), per_page: 100});
+            const expected = `scaffold-template-qualification-${source}-${buildId}-${build.run_attempt}`;
+            const found = artifacts.filter(a => a.name === expected && !a.expired);
+            if (found.length !== 1) throw new Error('One original successful native candidate artifact is required');
+            core.setOutput('artifact', found[0].name);
       - uses: actions/download-artifact@v4
         with:
           github-token: ${{ github.token }}
-          run-id: ${{ inputs.qualification_run_id }}
-          name: scaffold-full-qualification-${{ inputs.qualification_source_commit }}
-          path: ${{ runner.temp }}/qualified-transfer
-      - name: Read the committed verifier tool requirements
+          run-id: ${{ inputs.build_run_id }}
+          name: ${{ steps.candidate.outputs.artifact }}
+          path: ${{ runner.temp }}/candidate-transfer
+      - name: Read the committed verifier requirements
         id: requirements
-        shell: bash
         run: |
           python3 scripts/project-env requirements > "$RUNNER_TEMP/producer-tools.json"
-          python3 - <<'PY'
+          python3 - <<'PYTHON'
           import json, os
           from pathlib import Path
           tools = json.loads((Path(os.environ['RUNNER_TEMP']) / 'producer-tools.json').read_text())
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
-              for name in ('php', 'node', 'pnpm', 'python3', 'composer'):
+              for name in ('node', 'pnpm', 'python3'):
                   out.write(name + '=' + tools[name]['version'] + '\n')
-          PY
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ steps.requirements.outputs.php }}
-          extensions: json, mbstring, pdo_mysql, sodium, dom, fileinfo, curl, zip
-          tools: composer:${{ steps.requirements.outputs.composer }}
-          coverage: none
+          PYTHON
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ steps.requirements.outputs.node }}
@@ -389,38 +280,29 @@ jobs:
         with:
           version: ${{ steps.requirements.outputs.pnpm }}
           run_install: false
-      - name: Prepare only the committed verifier dependencies
-        run: |
-          composer --working-dir=server install --no-dev --no-plugins --no-scripts --no-interaction --no-progress --prefer-dist
-          pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy
-          npm --prefix uniapp ci --ignore-scripts
-      - name: Verify and unpack the original complete qualified bytes
-        shell: bash
+      - name: Prepare the locked manifest parser
+        run: pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy
+      - name: Verify the original candidate and template bytes without rebuilding
         env:
-          TRANSPORT_SHA256: ${{ inputs.qualification_transport_sha256 }}
-          INTEGRATION_SHA256: ${{ inputs.main_integration_sha256 }}
-          QUALIFICATION_SOURCE: ${{ inputs.qualification_source_commit }}
+          TRANSPORT_SHA256: ${{ inputs.build_transport_sha256 }}
+          SOURCE: ${{ inputs.source_commit }}
         run: |
-          set -Eeuo pipefail
-          python3 scripts/verify-qualified-release-transport.py --mode=publish \
-            --archive="$RUNNER_TEMP/qualified-transfer/scaffold-full-qualification.tgz" \
-            --transport-sha256="$TRANSPORT_SHA256" --main-integration-sha256="$INTEGRATION_SHA256" \
-            --source-commit="$QUALIFICATION_SOURCE" --output-root="$RUNNER_TEMP/qualified-release"
-      - name: Publish the existing qualified native roots through the sole publisher
-        shell: bash
+          python3 scripts/verify-qualified-release-transport.py \
+            --archive="$RUNNER_TEMP/candidate-transfer/scaffold-template-qualification.tgz" \
+            --transport-sha256="$TRANSPORT_SHA256" --source-commit="$SOURCE" \
+            --output-root="$RUNNER_TEMP/candidate-release"
+      - name: Publish the verified native templates through the sole publisher
         env:
           GH_TOKEN: ${{ github.token }}
-          TRANSPORT_SHA256: ${{ inputs.qualification_transport_sha256 }}
+          PEANUT_RELEASE_CANDIDATE_RUN_ID: ${{ inputs.build_run_id }}
+          PEANUT_RELEASE_CI_RUN_ID: ${{ inputs.ci_run_id }}
         run: |
           set -Eeuo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           version="$(node -p "JSON.parse(require('node:fs').readFileSync('release-versions.json','utf8')).scaffold_template")"
           publisher=(scripts/publish-github-release "$version")
-          # The publisher validates the exact semver and keeps prereleases off latest.
           if [[ "${version%%+*}" == *-* ]]; then publisher+=(--prerelease); fi
           "${publisher[@]}" \
-            --qualification "$RUNNER_TEMP/qualified-release/qualification/summary.json" \
-            --template-artifacts "$RUNNER_TEMP/qualified-release/scaffold-templates" \
-            --main-integration="$RUNNER_TEMP/qualified-release/qualification/main-integration.json" \
-            --qualification-transport-sha256="$TRANSPORT_SHA256" \
+            --qualification "$RUNNER_TEMP/candidate-release/template-qualification/candidate-stage.json" \
+            --template-artifacts "$RUNNER_TEMP/candidate-release/scaffold-templates" \
             --output "$RUNNER_TEMP/published-release"

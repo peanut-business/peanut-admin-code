@@ -76,7 +76,7 @@ verify_main_integration() { printf '%s\\n' '["main"]' >> "$CALLS"; }
 
     def test_formal_workflow_forwards_exact_release_channel_to_publisher(self):
         source = (ROOT / '.github/workflows/scaffold-release.yml').read_text()
-        step = source.split('      - name: Publish the existing qualified native roots through the sole publisher\n', 1)[1]
+        step = source.split('      - name: Publish the verified native templates through the sole publisher\n', 1)[1]
         command = textwrap.dedent(step.split('        run: |\n', 1)[1])
         # Run only this final argument adapter with stub git/publisher. No Actions,
         # qualification, network, release creation or real product paths are invoked.
@@ -101,10 +101,8 @@ verify_main_integration() { printf '%s\\n' '["main"]' >> "$CALLS"; }
                     self.assertEqual(result.returncode, 0, result.stderr)
                     args = json.loads((case / 'args.json').read_text())
                     self.assertEqual(args, [version, *(['--prerelease'] if prerelease else []),
-                        '--qualification', str(case / 'runner/qualified-release/qualification/summary.json'),
-                        '--template-artifacts', str(case / 'runner/qualified-release/scaffold-templates'),
-                        '--main-integration=' + str(case / 'runner/qualified-release/qualification/main-integration.json'),
-                        '--qualification-transport-sha256=' + 'b' * 64,
+                        '--qualification', str(case / 'runner/candidate-release/template-qualification/candidate-stage.json'),
+                        '--template-artifacts', str(case / 'runner/candidate-release/scaffold-templates'),
                         '--output', str(case / 'runner/published-release')])
                     self.assertNotIn('--latest', args)
 
@@ -198,7 +196,7 @@ os.execv(os.environ['INTEGRATION_GIT'],[os.environ['INTEGRATION_GIT'],*a])
                     if main == merge:
                         self.assertEqual(proof['parents'], [base, source])
                         self.assertEqual(proof['pr_number'], 7)
-                        self.assertRegex(proof['premerge_receipt_sha256'], r'^[0-9a-f]{64}$')
+                        self.assertRegex(proof['pr_response_sha256'], r'^[0-9a-f]{64}$')
             negatives = {
                 'wrong-tree': {'main': commit(old_tree, base, source)},
                 'reverse-parents': {'main': commit(tree, source, base)},
@@ -208,11 +206,6 @@ os.execv(os.environ['INTEGRATION_GIT'],[os.environ['INTEGRATION_GIT'],*a])
                 'nonancestor-base': {'main': commit(tree, foreign, source)},
                 'stale-main': {'local': source}, 'fresh-main-drift': {'expected': source},
                 'drift-during-api': {'change': lambda s: s.update(drift=True)},
-                'missing-receipt': {'absent': True},
-                'wrong-receipt-base': {'receipt_change': lambda r: r.update(base_commit=foreign)},
-                'not-ready': {'receipt_change': lambda r: r.update(ready_for_stable=False)},
-                'readiness-order': {'receipt_change': lambda r: r.update(readiness_at='2026-10-05T01:01:01Z')},
-                'merge-order': {'receipt_change': lambda r: r.update(premerge_observed_at='2026-10-05T01:02:00Z')},
                 'wrong-origin': {'change': lambda s: s.update(origin='git@github.com:foreign/peanut-admin-code.git')},
                 'wrong-tag': {'change': lambda s: s.update(tag_source=foreign)},
                 'api-unavailable': {'change': lambda s: s.update(api_error=True)},

@@ -594,8 +594,8 @@
     },
     {
       "name": "peanut-business/peanut-ops",
-      "SPDXID": "SPDXRef-Package-composer-6db7f5e29a36eff7e2fd",
-      "versionInfo": "1.0.31",
+      "SPDXID": "SPDXRef-Package-composer-07e33e4bb9260ceadaf5",
+      "versionInfo": "1.0.32",
       "downloadLocation": "app/modules/peanut/ops",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
@@ -607,7 +607,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:composer/peanut-business/peanut-ops@1.0.31"
+          "referenceLocator": "pkg:composer/peanut-business/peanut-ops@1.0.32"
         }
       ]
     },
@@ -59880,7 +59880,7 @@
     {
       "spdxElementId": "SPDXRef-Package-Peanut-Admin",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-composer-6db7f5e29a36eff7e2fd",
+      "relatedSpdxElement": "SPDXRef-Package-composer-07e33e4bb9260ceadaf5",
       "comment": "composer; runtime"
     },
     {

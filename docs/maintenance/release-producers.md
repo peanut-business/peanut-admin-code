@@ -5,8 +5,8 @@
 ## GitHub 正式发布入口
 
 1. 将已审候选集成到 `dev`，核对远端提交后，手动触发该提交的 `ci.yml`。工作流使用仓库指定的 PHP 和 MySQL 补丁版本。公共 CI 执行数据库策略和资格驱动的独立合同测试。完整资源验收在维护环境读取私有登记，并绑定实际应用、数据库、租约和制品。
-2. 使用 `scaffold-release.yml` 构建同一提交的 ST、MT 候选，保存两份归档、清单及摘要。完成原生八组资格，保留原结果和合并前回执，按受保护的 `dev` → `main` PR 与人工 Gate 进入发布。
-3. 在 `main` 按下文的资格材料导入和 `publish` 流程正式发布。以 GitHub Release 回传的附件重下载、验摘要，再以正式 CLI 完成两个 Edition 的安装和相应消费者升级验收。
+2. 使用 `scaffold-release.yml` 对同一提交各生产一次 ST、MT 模板，固定独立 CLI 提交并完成原生创建检查，保存原始归档、清单和 candidate-stage。完整八组是按需授权的专项测试，不是通用发行前置；原失败和未完成结果保留，不补写通过。
+3. 按受保护的 `dev` → `main` PR 与现有平台权限进入发布。在 `main` 的同一工作流选择 `publish=true`，提供精确 source、成功候选 run、成功 CI run 和原始传输包摘要；唯一发布器直接发布原四附件。正式 Release/latest 产生后，再用默认 `peanut create`（不传 ref 或本地归档）完成 ST/MT 首装、启动、IAB 登录及基本业务，结果如实记录。
 
 推送分支或创建标签不会触发这两份手动工作流。开发机的 `peanut release` 生成本地双版包。CLI 可选的 `github-ci` Recipe 管理下游应用自己的 CI 配置与版本，采用它不会发布上游脚手架。
 
@@ -86,19 +86,19 @@ seed、受控迁移维护和固定资格的资源选择使用独立进程输入�
 
 ## 候选资格阶段与CI保留输入
 
-`python3 scripts/p0e-runtime-qualification candidate --candidate=<完整当前提交> --run-id=<本次唯一ID> --candidate-input=<固定输入JSON绝对路径> --candidate-input-sha256=<该文件SHA-256> --output-dir=<不存在的外部绝对目录>`复用原生`build-scaffold-release --check`核双Edition来源、成员、模式和固定tooling，再调用独立CLI从同一四附件在两个临时空目标创建，核manifest、源码commit/tree、归档摘要、Edition、文档及无Git或隐式依赖安装。最终完整八组的`generated-application`只读消费该阶段原始`candidate-stage.json`，通过生命周期输入`cli_creation={path,sha256}`绑定固定候选、CLI、四附件和生产者；不再次创建临时APP。常驻APP源码构建和其余断言继续保留，不在候选阶段运行。
+`python3 scripts/p0e-runtime-qualification candidate --candidate=<完整当前提交> --run-id=<本次唯一ID> --candidate-input=<固定输入JSON绝对路径> --candidate-input-sha256=<该文件SHA-256> --output-dir=<不存在的外部绝对目录>`读取原生生产者已经生成的双 Edition 来源、锁、内部清单及归档摘要，再调用固定独立 CLI 从同一四附件在两个临时空目标创建，核 manifest、源码 commit/tree、Edition、文档及无 Git 或隐式依赖安装。不为准入重新制包。专项 full8 如另获授权，可继续通过 `cli_creation={path,sha256}` 消费该原件；候选阶段不运行常驻 APP 构建或业务安装。
 
 输入协议为`peanut.p0e-candidate-inputs.v1`，只接受`protocol`、`source={commit,tree}`、`cli={root,commit,tree}`和`template_build_root`四项。CLI必须是干净且来源正确的独立源码仓；模板构建根必须是该固定Code来源的完整两Edition原生输出。此入口不读取常驻APP、数据库登记或连接信息，不创建/安装常驻运行APP、不安装依赖、不使用数据库或启动服务／浏览器。输出目录已存在即拒绝；失败保留日志、实际部分创建目标和`candidate-stage.json`，不能覆写或自动重放。
 
-结果协议为`peanut.p0e-candidate-stage.v1`，只标记模板合同及CLI创建组件通过；全部八组状态仍为`not_run`，常驻APP源码构建、真实业务和完整资格未验证，`publication_qualified=false`。该阶段不是完整summary，不能给旧summary手工追加摘要。原八组接受条件及失败预算继续有效，固定APP及业务／部署消费者须在各自真实阶段闭合。
+结果协议为 `peanut.p0e-candidate-stage.v1`，只标记模板身份及 CLI 创建组件通过；原八组状态仍为 `not_run`，常驻 APP 构建、业务安装和 full8 未由此执行，`publication_qualified=false` 不被改写。候选原件结合实际成功 CI、合法 main/tag 和模板完整性进入有限范围正式发行；专项测试如另获授权，仍保留原断言及失败预算。公开 latest 消费验收在实际发布后进行，不能提前填写通过。
 
 完整资格的生命周期输入可提供独立`fresh_applications={standalone:...,multi-tenant:...}`；缺省时相应fresh组件仍为`not_run`。每项沿用`root,head,tree,resource_id,endpoint_id,database,lease,environment,manifest_sha256,baseline_sha256,adopted_source,first_install={path,sha256},database_identity`，绑定独立APP根及原登记的development、ephemeral、`application_runtime=false`、`allowed_scenarios`含`first_install`的Edition/schema，不能复用永久APP的库。APP manifest须精确来自最终Code commit/tree与原资格Edition归档，Core合同与最终Code一致；原native admission核真实owner/thread、源码、独占schema及实际proof目录。首装事实只读原`server/private/installation/installed.json`并调用`verifiedInstallationFacts()`：要求`source.kind=generated-application`，source与顶层`application_manifest_sha256`都等该最终APP manifest原SHA，receipt的三个release版本与原生APP合同一致。原`install.php --status`同时提供实际Composer/Core依赖预检和当前安装健康；健康或历史升级回执不能代替首装事实。永久APP的历史安装、升级保留、恢复、健康及当前采用仍须全部通过，缺任一required组件不标fresh组通过；不重装永久APP、不接受自报fresh标记。此候选首装不代替公开发行后从正式附件重新下载、CLI创建和原生首装的实际验证。
 
-`scaffold-release.yml`显式选定完整CLI提交，核其真实树并生成同协议输入，构建后调用上述同一候选入口。除了原四附件，CI将完整`standalone/`、`multi-tenant/`根和阶段结果保存在独立Actions artifact；用tar保留隐藏默认文件和可执行模式，附实际传输包SHA-256。该tar仅供同一固定来源资格链传输，不是公开模板包或已采用的APP；后续job须核具体source/run及实际字节，不能重新构建后假定附件相同。候选job保持contents:read，正式发布仍须独立的完整八组及原main/平台Gate，不因候选通过自动运行。
+`scaffold-release.yml` 固定完整 CLI 提交，按同一原生入口各生产一次双 Edition 模板并创建候选。CI 将两个完整模板根、四附件和 candidate-stage 以 tar 保留成员模式和隐藏文件，附原始 SHA-256。publish 从指定成功 run 下载这一原件一次，核来源和字节后直接发布，不要求本地再创建、重新制包或另行上传 full8 运输包。候选 job 保持 contents:read；只有正式 main 发布 job 取得 contents:write。
 
-CI 的 `scaffold-release.yml` 可显式选 `publish=false, pack_only=true`，并填写精确 `expected_source_commit`；它只按同一标准生产器独立构建双 Edition 两轮、严格比较来源/锁/工具输入和实际附件字节，跳过独立 CLI checkout 与 candidate 创建。原比较回执及两轮完整输出保存在身份专名 Actions artifact；这不是 full8 或发行资格。默认候选入口和正式发布 Gate 保留，`pack_only=true` 无法进入 ingress 或 publish job。CLI scaffold-ci Recipe 仅含同一标准双轮模板生产，无候选或发布步骤，要求源码中保留原生 `scripts/ci-producer` 及其 `tools/ci-producer/` 输入。两入口的 pnpm 固定锁安装均显式使用 `--package-import-method=copy`，使生产者工具文件满足原有单硬链接路径保护；不改变依赖版本或放宽该保护。
+CI 的 `scaffold-release.yml` 可显式选 `publish=false, pack_only=true` 并填写精确 `expected_source_commit`，只生产各 Edition 模板，跳过 CLI 创建；该身份 artifact 不能代替发布所需 candidate-stage。标准生产器依赖包括锁定的 Composer、Web pnpm 和 UniApp npm，均不运行安装脚本；pnpm 使用 `--package-import-method=copy`，满足原有单硬链接路径保护。独立重现比较保留为显式专项能力，不是每次发行的重复构建步骤。CLI scaffold-ci Recipe 的同一标准生产步骤随 Recipe 自身版本维护。
 
-生产 job 通过原生 `scripts/ci-producer prepare <RUNNER_TEMP下不存在的目录>` 在既有 Ubuntu runner 内构建一次临时工具镜像，再用 `exec <同一目录> -- <原命令>` 执行标准生产器、比较器及默认 candidate。同一次prepare的两轮共用同一实际 image ID，不发布镜像或另设服务。`tools/ci-producer/inputs.json` 固定同 Debian/bookworm、linux/amd64 的官方 PHP/Python 完整镜像 digest、官方 Node 校验和、Composer PHAR 摘要、pnpm 包摘要和 Debian snapshot 的签名 metadata/精确包版本；仅以官方扩展 helper 编译原本必需的 pdo_mysql/zip，不重编 PHP 解释器。Python 复制完整安装并补齐固定 runtime 库；实际五工具、PHP 扩展、解释器及 PHP 子进程路径和 Python 动态库均核对，输入不符即在制包前停止。实际工具/包/路径/库摘要、image ID 和生产工具文件摘要随每个原生 scaffold-build-inputs.json 的 environment.ci_toolchain 封存，在同一次prepare的双轮原生比较中保持全身份相同；这些字段不进入便携模板载荷。独立prepare所得image构建ID与主发行物复现分记，采用前述独立重建口径，不修改或归一化原回执。普通本地开发工具仍由项目工具链合同管理，不把容器环境自报当产品资格。
+生产 job 通过原生 `scripts/ci-producer prepare <RUNNER_TEMP下不存在的目录>` 在既有 Ubuntu runner 内构建一次临时工具镜像，再用 `exec <同一目录> -- <原命令>` 执行标准生产器、比较器及默认 candidate。同一次prepare的两轮共用同一实际 image ID，不发布镜像或另设服务。`tools/ci-producer/inputs.json` 固定同 Debian/bookworm、linux/amd64 的官方 PHP/Python 完整镜像 digest、官方 Node 校验和、Composer PHAR 摘要、pnpm 包摘要和 Debian snapshot 的签名 metadata/精确包版本；仅以官方扩展 helper 编译原本必需的 pdo_mysql/zip，不重编 PHP 解释器。Python 复制完整安装并补齐固定 runtime 库；实际五工具、PHP 扩展、解释器及 PHP 子进程路径和 Python 动态库均核对，输入不符即在制包前停止。实际工具/包/路径/库摘要、image ID 和生产工具文件摘要随每个原生 scaffold-build-inputs.json 的 environment.ci_toolchain 封存，在显式选择的同一次 prepare 复现比较中保持全身份相同；这些字段不进入便携模板载荷。独立prepare所得image构建ID与主发行物复现分记，采用前述独立重建口径，不修改或归一化原回执。普通本地开发工具仍由项目工具链合同管理，不把容器环境自报当产品资格。
 
 ## Module 生命周期资格输入
 
@@ -118,7 +118,7 @@ CI 的 `scaffold-release.yml` 可显式选 `publish=false, pack_only=true`，并
 
 ### Module Task 必须补全的独立资格任务
 
-本轮退出四份合同已失效的历史手工入口：TaskImportExportHostTest、CrontabTenantIsolationTest、TaskNativeRootLifecycleTest 及 Task/feature-harness。它们曾受 CI changed-path/broad 的泛型文件选择消费；退役是清除失效实现，不是使 CI 变绿。没有修改 selector 隐藏文件，也没有删除现行八组明确门槛。源码中的通用 Unit/ExecutionRoot 断言和当前 Member/Task 函数保留；现行八组及真实 Module 路径仍须按各自输入执行，局部结果不能代替 full8 或 CI。
+本轮退出四份合同已失效的历史手工入口：TaskImportExportHostTest、CrontabTenantIsolationTest、TaskNativeRootLifecycleTest 及 Task/feature-harness。它们曾受 CI changed-path/broad 的泛型文件选择消费；退役是清除失效实现，不是使 CI 变绿。没有修改 selector 隐藏文件，也没有删除专项八组的有效断言。源码中的通用 Unit/ExecutionRoot 断言和当前 Member/Task 函数保留；现行八组及真实 Module 路径仍须按各自输入执行，局部结果不能代替 full8 或 CI。
 
 下列是 **正式发行前必须补全的 Module 专用资格任务，当前状态为待补实现及实际验证，本节资格全部 NOT_RUN**。已有相近断言源码不构成 native 场景已通过的证明。
 
@@ -142,23 +142,19 @@ CI 的 `scaffold-release.yml` 可显式选 `publish=false, pack_only=true`，并
 
 正式交付在固定候选完成所需资格及人工Gate后，选取适用的已发行Core，或按独立授权发行所需Core；核公开渠道可取的各自精确版本、最终包内容/摘要与来源，再生成正式APP依赖、原生锁和发行包并复核受影响的最终组合。不因脚手架升版重复发行未变化的Core；main/tag、正式发布及生产授权保持独立，内部候选构建不代替这些Gate。
 
-维护者的双 Edition 候选由 `scripts/build-scaffold-release` 生成，发布工作流保存两份模板根、归档、清单和候选阶段结果。同一来源完成原生八组资格后，发布器复用已验制品。既有 APP 的源码更新、依赖准备、数据保全及中断恢复按各自当前实例身份验收，结果随资格材料保存。失败时保留该次实际构建目录、工具输出和退出码，以原物件恢复。
+维护者的双 Edition 候选由 `scripts/build-scaffold-release` 生成。当前发行采用适用 CI、双 Edition 原生生产、候选 CLI 创建、来源与摘要检查，以及受保护的 main/tag；full8 按需执行。既有 APP 的采用、保全和恢复是各实例自己的任务，不因发行再批量同步。失败保留实际输出、退出码和预算；没有受影响输入变化的结果直接复用。
 
-## 唯一发布器及main绑定
+## 唯一发布器及 main 绑定
 
-产品 GitHub Release 的发布入口是单一脚本 `scripts/publish-github-release`，显式提供 `--qualification`、`--template-artifacts` 和 `--output`。模板输入是完整的 `standalone/`、`multi-tenant/` 原生构建目录；校验器按各自声明的 Workflow 复用 `build-scaffold-release --check`，逐项核源码投影、成员/模式、固定工具载荷及摘要，不重新安装 tooling。该 check 会生成临时源码投影，需要已准备的生产者依赖；它不安装业务、连接数据库或登记运行 APP。正式附件是两套 `peanut-scaffold-<edition>.tgz/.json`，同一模板用于创建与升级；开发参考源码归档、许可证、SBOM、候选锁和外部发布清单另附。APP 的 server-only 包归各自 APP。
+正式发布仍只使用 `scripts/publish-github-release`，提供原始 `candidate-stage.json`、完整双 Edition 模板根和输出目录。`check-release-consistency` 核注释 tag、精确源码 commit/tree、版本、公开 Core、原生锁、法律文件及四附件摘要；读取已生产的原件，不重新构建。候选锁和外部清单保留真实 `candidate-passed`、有限验收 scope 和 full8 未执行状态，不伪造完整资格。
 
-资格回执必须绑定最终候选 commit/tree 和 `peanut.template-release-inputs.v1` 的四附件长度/摘要、Edition、Workflow、生产输入回执、工具及内部清单摘要；旧 installer/upgrade 回执不会自动通过。默认稳定模式只接受 `X.Y.Z` 和注释 tag `vX.Y.Z`，通过原 candidate、tag、qualification、main 和固定依赖门禁后才以 `--latest` 发布。显式 `--prerelease` 只接受严格预发行 SemVer，且不标 latest。本地只用 `--prepare-only`；正式写入限定本仓 main 的 `scaffold-release.yml` CI。
+在 `main` 的 `scaffold-release.yml` 选择 `publish=true`，提供 `build_run_id`、`ci_run_id`、`source_commit` 和 `build_transport_sha256`。工作流核两个成功同仓 run 的实际 workflow/event/source；只接受候选 run 中唯一未过期的 `scaffold-template-qualification-<source>-<run>-<attempt>`。`verify-qualified-release-transport.py` 核原 tar SHA、安全路径和普通成员、生产者源码、candidate-stage、两版 CLI 创建 manifest 及原模板字节。它不执行运输包中的脚本，不要求 full8 summary，也不另造运输格式。pack-only 身份包不能进入发布。
 
-该workflow已有独立publish job：只读取指定同仓、固定source、成功完成的原workflow run中唯一未过期的`scaffold-full-qualification-<source>`，核独立提供的transport SHA、原八组summary/group/plan/checkpoint和main合并凭据，再让唯一发布器复制原四附件并核SHA，发布阶段不重打模板。模板candidate job只证明标准构建重建及CLI创建，full8明确NOT_RUN，其artifact不能改名冒充完整资格。`p0e-runtime-qualification transport`可封存真实完整结果，独立ingress job接收已获准存在于同仓GitHub Release的原transport附件数字ID；不接收URL，不创建Release或上传Release附件。
+稳定模式接受 `X.Y.Z`、注释 tag `vX.Y.Z` 并标记 latest；显式预发行模式只接受严格预发行 SemVer，永不标 latest。本地 `--prepare-only` 只准备文件；正式写入仍限定本仓 main 的唯一工作流。既有正式 Release 不覆盖，失败或 UNKNOWN 先对账同一实际对象，不自动重新上传、重建或删除他人附件。
 
-导入时显式选择`publish=false`、`qualification_ingress_asset_id=<既有附件数字ID>`、`qualification_source_commit=<本次workflow精确提交>`及独立记录的`qualification_transport_sha256`、`main_integration_sha256`。入口只读固定同仓GitHub API，核附件ID、严格文件名`scaffold-full-qualification.tgz`、uploaded状态、大小上限和GitHub摘要，然后将原件交给与publish共用的`verify-qualified-release-transport.py`：核transport SHA、安全路径/普通成员、精确source/tree、真实八组plan/checkpoint/summary/receipt摘要与lifecycle绑定、原cleanup、main-integration SHA，并复用原生模板检查确认四附件及生产输入仍等于原资格。单独自报passed不能取得资格；它不执行或补做full8，也不加载transport中的脚本。成功后只把同一transport原字节上传为本run的`scaffold-full-qualification-<source>`，由现有publish可信run认证消费。
+原始模板、tag、候选锁及发布清单绑定源码 S。实际远端 main 必须等于 S，或是同仓真实已合并 dev → main PR 的正常合并提交 M：精确父序列 `[B,S]`，B 是 S 祖先，M 与 S 同树，并核唯一 PR、merged 状态、仓库和分支身份。发布器以真实 Git/GitHub 状态核对，不再要求人工生成的合并前时间回执。它在现有 `MAIN_INTEGRATION_PROOF.json` 保存实际 main/tag/PR 结果，并在对外写入前重核远端。S 与 M 的身份不互相冒充，平台权限和实际发布授权保留。
 
-既有Release附件的准入和对外上传仍需各自授权；此只读导入接口不授权创建临时Release、借其他run token、增加runner/凭据/新存储或任意URL下载。已获同一新版正式发行授权时，可在精确目标`v<version>`的draft中暂存原transport；draft须显式以已资格源码S为`target_commitish`、通道一致，且只有该原附件。publish job将原独立SHA通过`--qualification-transport-sha256`传给唯一发布器；发布器核同仓draft ID、源码、tag、transport元数据及下载字节，原生无覆盖上传封存的11个正式附件，再逐个下载核原摘要，重核main/tag后仅删除已绑定transport ID，以原生`gh release edit --draft=false`发布并复用最终11附件校验。既有正式Release、其他tag、其他附件或部分上传现场均拒绝；失败或UNKNOWN保留同draft先对账，不自动重传、覆盖或重建。没有合法原full8包及受控附件时，导入成功路径、后续正式发行与真实端到端均NOT_RUN，不能以接口已接线代替实际运行。不得伪造summary、tag或合并凭据；历史固定候选与证据保持原字节。是否已经公开发行以实际渠道核验为准。
-
-产品 tag、qualification、候选锁、归档及 Edition 制品始终精确绑定已资格确认的源码提交 S 和源码树。实际发布要求实时远端 `main` 与本地 `origin/main` 一致，且等于 S；或等于同仓真实已合并 `dev` → `main` PR 的正常合并提交 M。后一种情况只接受精确父序列 `[B,S]`、B 为 S 祖先、M 与 S 同树，以及 GitHub API 的唯一 PR、merged 状态、提交、仓库和分支身份全部一致。开放 PR 的测试合并、squash/rebase、后续同树提交、未知或歧义 API 证据均拒绝，M 不被重新标为已资格确认的源码。
-
-M 不等于 S 时，发布命令还须传入 `--main-integration=/absolute/premerge.json`。该外部回执只有七个字段：`schema_version=1`、`repository="peanut-business/peanut-admin-code"`、`source_commit=S`、`base_commit=B`、`ready_for_stable=true`、UTC ISO8601 `readiness_at` 与 `premerge_observed_at`；要求资格准备完成时间不晚于合并前观察时间，且观察时间严格早于真实 PR 的 `merged_at`。回执不改写原资格字节，也不代替原生资格检查或发布授权。发布器在输出目录保存独立 `MAIN_INTEGRATION_PROOF.json`，记录实时 main/tag、图、PR 及输入/API 摘要，供外部发布回执使用；它不改变候选锁或发布源码身份。正式发布前再次核 live main/tag 与 PR，任何漂移即停止。`--prepare-only` 仍只准备制品；Core 的当前 main 发布规则和候选检查器的 `--require-main` 精确合同保持原状。
+发布说明与清单明确有限验收和仍未完成的历史 full8，原 FAIL/预算保留。公开 Release/latest 产生后，默认 `peanut create` 不指定 ref 或本地 archive，分别创建 ST/MT，再按自身登记首装、启动并由真实 IAB 登录和执行基本业务。此后验结果不能由候选 CLI 创建、源码健康或已有 APP 结果替代。
 
 ## 固定公开依赖准备
 

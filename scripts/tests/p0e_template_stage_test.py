@@ -108,8 +108,9 @@ class TemplateStageTest(unittest.TestCase):
                         "application": {"edition": edition}, "edition": {"name": edition}}
             (target / ".peanut/application-manifest.json").write_text(json.dumps(identity))
             return subprocess.CompletedProcess(arguments, 0, json.dumps({"status": "created", "target": str(target)}), "")
-        result = self.result if arguments[2] == "check" else self.inputs
-        return subprocess.CompletedProcess(arguments, self.rc if arguments[2] == "check" else 0,
+        native_read = (self.output / "candidate-stage.json").exists()
+        result = self.result if native_read else self.inputs
+        return subprocess.CompletedProcess(arguments, self.rc if native_read else 0,
                                            json.dumps(result), "synthetic checker only\n")
 
     def receipt(self):
@@ -119,9 +120,10 @@ class TemplateStageTest(unittest.TestCase):
         result = stage.qualify_candidate(self.args)
         self.assertEqual(result["status"], "candidate-passed")
         self.assertFalse(result["publication_qualified"])
-        checks = [call for call in self.calls if call[2] == "check"]
-        self.assertEqual(checks, [["node", str(self.source / "scripts/release-template-artifacts.mjs"), "check", str(self.templates),
-                                  "5.0.2", self.candidate, self.tree, self.inputs["source"]["inventory_sha256"], str(self.source)]])
+        reads = [call for call in self.calls if call[2] == "read"]
+        self.assertEqual(reads, [["node", str(self.source / "scripts/release-template-artifacts.mjs"), "read", str(self.templates),
+                                  "5.0.2", self.candidate, self.tree, self.inputs["source"]["inventory_sha256"]]] * 3)
+        self.assertFalse(any(call[2] in ("check", "compare") for call in self.calls))
         self.assertEqual(len([call for call in self.calls if call[2] == "create"]), 2)
         receipt = self.receipt()
         self.assertEqual(receipt["template_artifacts"], self.inputs)
@@ -150,7 +152,7 @@ class TemplateStageTest(unittest.TestCase):
         self.assertEqual(self.receipt()["status"], "failed-preserved")
         self.assertNotIn("template_artifacts", self.receipt())
         with self.assertRaises(stage.GateError): stage.qualify_candidate(self.args)
-        self.assertEqual(len([call for call in self.calls if call[2] == "check"]), 1)
+        self.assertEqual(len([call for call in self.calls if call[2] == "read"]), 2)
         self.assertFalse(any(call[2] == "create" for call in self.calls))
 
     def test_foreign_checker_identity_has_no_success(self):
@@ -649,7 +651,7 @@ class TemplateStageTest(unittest.TestCase):
         self.assertIn('repository: peanut-business/peanut-cli', workflow)
         self.assertIn('if: ${{ always() }}', workflow)
         self.assertIn("always() && steps.preserve_candidate.outputs.available == 'true'", workflow)
-        self.assertIn('for name in scaffold-templates scaffold-rebuild rebuild-comparison.json producer-tools.json producer-tools-actual.json template-qualification candidate-inputs.json', workflow)
+        self.assertIn('for name in scaffold-templates producer-tools.json producer-tools-actual.json template-qualification candidate-inputs.json', workflow)
         self.assertNotIn('continue-on-error:', workflow)
 
 

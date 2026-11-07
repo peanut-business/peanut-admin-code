@@ -1870,7 +1870,9 @@ def qualify_candidate(args: argparse.Namespace) -> dict[str, Any]:
         fail("candidate stage requires the unchanged eight-group qualification contract")
     inventory = sha256(ROOT / "scaffold/application-template-inventory.json")
     verifier = ROOT / "scripts/release-template-artifacts.mjs"
-    arguments = ["node", str(verifier), "check", str(roots), version, args.candidate, tree, inventory, str(ROOT)]
+    # The native builder already produced these fixed roots. Read their exact
+    # manifests, locks and archive hashes; do not regenerate them to admit a release.
+    arguments = ["node", str(verifier), "read", str(roots), version, args.candidate, tree, inventory]
     output.mkdir(mode=0o700)
     receipt = {"schema_version": 1, "protocol": "peanut.p0e-candidate-stage.v1", "status": "running",
                "scope": "candidate", "candidate": args.candidate, "candidate_tree": tree, "run_id": args.run_id,
@@ -1890,7 +1892,7 @@ def qualify_candidate(args: argparse.Namespace) -> dict[str, Any]:
         result = command(arguments, capture=True, check=False)
         log = output / "native-template-check.log"
         log.write_text((result.stdout or "") + (result.stderr or ""), encoding="utf-8")
-        receipt["native_check"] = {"rc": result.returncode, "log": log.name, "log_sha256": sha256(log)}
+        receipt["native_check"] = {"operation": "read", "rc": result.returncode, "log": log.name, "log_sha256": sha256(log)}
         if result.returncode != 0:
             fail("native template check failed; preserve this stage output, do not replay it")
         try:

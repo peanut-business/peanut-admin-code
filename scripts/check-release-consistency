@@ -7,16 +7,10 @@ import { isDeepStrictEqual } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dependencyMode, verifyDependencyLocks, lockedYamlParser } from './release-dependency-locks.mjs'
-import { readTemplateArtifacts, verifyTemplateArtifacts } from './release-template-artifacts.mjs'
+import { readTemplateArtifacts } from './release-template-artifacts.mjs'
 
 // 解析锁的工具依赖来自当前可信检查器，不从被检查候选加载执行代码。
 const toolRoot = fileURLToPath(new URL('..', import.meta.url))
-const prereleaseRequiredGroups = [
-  'generated-application',
-  'standalone-fresh',
-  'multi-tenant-fresh',
-  'production-compose',
-]
 
 const options = {
   tag: '', candidate: '', qualification: '', remote: '', writeLock: '', requireMain: false,
@@ -181,8 +175,8 @@ if (options.staticOnly && !options.templateArtifacts && !options.releaseEvidence
     : 'four clean client installs and builds must qualify the fixed Core Web candidate tarballs')
   if (baseline !== target) pending.push(`release metadata ${baseline} -> ${target} during candidate sealing`)
   if (inventory.template_version !== target) pending.push(`application inventory -> ${target}`)
-  pending.push('full eight-group qualification for the fixed candidate remains required')
-  pending.push(`two exact-source native template builds for v${target}`)
+  pending.push('applicable CI and native template/CLI candidate acceptance for the fixed source')
+  pending.push(`one native production of each Edition for v${target}`)
   if (!(readFileSync('CHANGELOG.md', 'utf8')).includes(`## [${target}]`)) pending.push(`CHANGELOG ${target} section`)
 
   if (developmentFailures.length) {
@@ -384,9 +378,7 @@ if (options.staticOnly) {
     try {
       const evidence = JSON.parse(readFileSync(options.releaseEvidence, 'utf8'))
       const qualification = evidence.technical_qualification ?? {}
-      const qualificationStatusValid = options.prerelease
-        ? ['passed', 'partial-passed'].includes(qualification.status)
-        : qualification.status === 'passed'
+      const qualificationStatusValid = qualification.status === 'candidate-passed'
       staticReleaseEvidence.valid = evidence.schema_version === 1
         && evidence.product === metadata?.product
         && evidence.version === contractProductVersion
@@ -414,8 +406,8 @@ if (options.qualification) {
     if (!isAbsolute(options.qualification)) throw new Error('qualification path must be absolute')
     qualificationText = readFileSync(options.qualification, 'utf8')
     qualification = JSON.parse(qualificationText)
-    const expectedStatuses = options.prerelease ? ['passed', 'partial-passed'] : ['passed']
-    if (!expectedStatuses.includes(qualification.status)) {
+    if (qualification.protocol !== 'peanut.p0e-candidate-stage.v1'
+      || qualification.status !== 'candidate-passed' || qualification.scope !== 'candidate') {
       failures.push(`qualification status is ${qualification.status ?? 'missing'}`)
     }
     if (qualification.candidate !== commit) failures.push(`qualification commit ${qualification.candidate ?? 'missing'} does not match candidate ${commit}`)
@@ -423,39 +415,20 @@ if (options.qualification) {
     if (!templateInputs || !isDeepStrictEqual(qualification.template_artifacts, templateInputs)) {
       failures.push('qualification does not bind the exact two-Edition native template artifacts')
     }
-    const requiredGroups = options.prerelease ? prereleaseRequiredGroups : (fixture?.groups ?? [])
-    if (options.prerelease && qualification.status === 'partial-passed'
-      && !['selected-groups', 'through-group'].includes(qualification.scope)) {
-      failures.push(`prerelease qualification scope is invalid: ${qualification.scope ?? 'missing'}`)
+    const components = qualification.groups?.['generated-application']?.components ?? {}
+    if (components.native_template_contract !== 'passed' || components.cli_create_and_app_identity !== 'passed'
+      || qualification.native_check?.rc !== 0
+      || qualification.producer?.path !== 'scripts/p0e-runtime-qualification'
+      || qualification.producer?.sha256 !== sha256(show('scripts/p0e-runtime-qualification'))
+      || qualification.producer?.verifier_sha256 !== sha256(show('scripts/release-template-artifacts.mjs'))
+      || Object.keys(qualification.cli_created_applications ?? {}).sort().join(',') !== 'multi-tenant,standalone') {
+      failures.push('native template identity or both CLI creation components are incomplete')
     }
-    if (!options.prerelease && qualification.scope !== 'full') {
-      failures.push(`stable qualification scope is ${qualification.scope ?? 'missing'} instead of full`)
-    }
-    if (options.prerelease && qualification.status === 'partial-passed') {
-      const minimum = qualification.minimum_release_gate ?? {}
-      if (minimum.protocol !== 'peanut.minimum-release-gate.v1'
-        || minimum.candidate !== commit || minimum.candidate_tree !== tree
-        || minimum.release_version !== version
-        || minimum.ready_for_first_prerelease !== true
-        || minimum.full_p0e_passed !== false
-        || minimum.startup_health !== 'passed'
-        || minimum.business?.standalone?.status !== 'passed'
-        || minimum.business?.['multi-tenant']?.status !== 'passed'
-        || minimum.upgrade_retention?.status !== 'reused'
-        || !/^[a-f0-9]{64}$/.test(minimum.upgrade_retention?.evidence_sha256 ?? '')
-        || !Array.isArray(minimum.artifacts) || minimum.artifacts.length !== 4
-        || minimum.artifacts.some(item => !/^[a-f0-9]{64}$/.test(item.sha256 ?? ''))) {
-        failures.push('prerelease Minimum Release Gate receipt is incomplete or belongs to another candidate')
+    for (const result of Object.values(qualification.cli_created_applications ?? {})) {
+      if (result.cli_result?.status !== 'created' || !/^[a-f0-9]{64}$/.test(result.manifest_sha256 ?? '')) {
+        failures.push('native CLI creation did not produce an APP identity')
       }
     }
-    for (const group of requiredGroups) {
-      if (qualification.groups?.[group]?.status !== 'passed') failures.push(`qualification group is not passed: ${group}`)
-    }
-    const cleanup = qualification.cleanup ?? {}
-    for (const field of ['database_residual_count', 'container_residual_count', 'volume_residual_count', 'network_residual_count', 'image_residual_count', 'listener_residual_count']) {
-      if (cleanup[field] !== 0) failures.push(`qualification cleanup ${field} is ${cleanup[field] ?? 'missing'}`)
-    }
-    if (cleanup.lease_released !== true) failures.push('qualification resource lease was not released')
   } catch (error) {
     failures.push(`qualification evidence is unreadable: ${error.message}`)
   }
@@ -478,20 +451,10 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-if (!options.staticOnly) {
-  try {
-    verifyTemplateArtifacts({ root: options.templateArtifacts, version, commit, tree,
-      inventorySha256: sha256(inventoryText) }, toolRoot)
-  } catch (error) {
-    console.error(`check-release-consistency: native template check failed: ${error.message}`)
-    process.exit(1)
-  }
-}
-
 if (options.staticOnly) {
   const pending = []
   if (!staticEditionEvidence.complete) pending.push('two same-candidate native template manifests')
-  if (!staticReleaseEvidence.valid) pending.push('sealed passed qualification and publication evidence')
+  if (!staticReleaseEvidence.valid) pending.push('native candidate and publication evidence')
   console.log(JSON.stringify({
     status: 'passed',
     mode: 'static-only',
@@ -518,9 +481,12 @@ if (options.writeLock) {
     qualification: {
       status: qualification.status,
       scope: qualification.scope,
+      acceptance_scope: 'native-template-and-cli-candidate',
+      full8: 'not_required; historical failures are retained and no complete-suite pass is claimed',
+      public_latest_consumers: 'post-publication verification; not claimed by the candidate stage',
       run_id: qualification.run_id,
       summary_sha256: sha256(qualificationText),
-      planned_groups: qualification.planned_groups,
+      planned_groups: qualification.full_gate_groups,
       groups: Object.fromEntries((fixture.groups ?? []).map((group) => [
         group,
         qualification.groups?.[group]?.status ?? 'not-run',

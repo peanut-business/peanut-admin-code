@@ -122,7 +122,7 @@ These 54 packages are installed with `composer install --no-dev` in the producti
 | `peanut-business/peanut-file` | `1.0.42` | `Apache-2.0` | app/modules/peanut/file |
 | `peanut-business/peanut-identity` | `4.0.0-rc.56` | `Apache-2.0` | app/modules/peanut/identity |
 | `peanut-business/peanut-integration` | `1.0.29` | `Apache-2.0` | app/modules/peanut/integration |
-| `peanut-business/peanut-ops` | `1.0.31` | `Apache-2.0` | app/modules/peanut/ops |
+| `peanut-business/peanut-ops` | `1.0.32` | `Apache-2.0` | app/modules/peanut/ops |
 | `peanut-business/peanut-reference-codes` | `1.0.25` | `Apache-2.0` | app/modules/peanut/reference_codes |
 | `peanut-business/peanut-settings` | `1.0.26` | `Apache-2.0` | app/modules/peanut/settings |
 | `peanut-business/peanut-task` | `1.0.29` | `Apache-2.0` | app/modules/peanut/task |

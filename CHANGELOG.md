@@ -4,8 +4,11 @@ Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have indep
 
 ## [5.1.0] - Release candidate
 
-- Advance the Peanut Admin source and scaffold template identity to 5.1.0, with technical qualification pending.
+- Advance the Peanut Admin source and scaffold template identity to 5.1.0.
 - Retain the published PHP Core 5.0.3 and six Web Core 5.0.4 dependencies; no new Core release is required for this identity change.
+- Fix Ops purge completion checks to retain the uninstalled installation ledger; release the corrected Ops Module as 1.0.32.
+- Use applicable CI, exact-source native templates and CLI candidate creation for release acceptance. Full8 is an optional specialized suite; earlier incomplete attempts and failures are preserved, and this release does not claim a full8 pass.
+- Verify default public latest creation, ST/MT installation and startup, IAB login and basic business after publication; candidate creation does not claim those results.
 
 ## [5.0.15] - Release candidate
 
