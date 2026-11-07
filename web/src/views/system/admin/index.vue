@@ -1,9 +1,24 @@
 <template>
-  <div class="container">
+  <PageContent class="admin-directory-page">
     <Breadcrumb :items="['menu.system', 'menu.system.admin']" />
+    <PageHeader>
+      <h1 class="admin-directory-title">{{ $t('menu.system.admin') }}</h1>
+      <template #actions>
+        <el-button
+          v-permission="['core.member.create']"
+          :disabled="!canAssignRoles || !canReadRoles"
+          type="primary"
+          @click="handleAdd"
+        >
+          <template #icon><Plus /></template>
+          {{ $t('systemAdmin.operation.create') }}
+        </el-button>
+      </template>
+    </PageHeader>
 
-    <el-card class="general-card search-card">
-      <el-form :model="queryParams" inline>
+    <el-card class="general-card admin-directory-search">
+      <PageToolbar :label="$t('menu.system.admin')">
+        <el-form class="admin-directory-filters" :model="queryParams" inline>
         <el-form-item prop="account" :label="$t('systemAdmin.search.account')">
           <el-input
             v-model="queryParams.account"
@@ -50,26 +65,13 @@
             </el-button>
           </el-space>
         </el-form-item>
-      </el-form>
+        </el-form>
+      </PageToolbar>
     </el-card>
 
-    <el-card class="general-card list-card">
-      <template #header>{{ $t('menu.system.admin') }}</template>
-      <el-row style="margin-bottom: 16px">
-        <el-col :span="12">
-          <el-button
-            v-permission="['core.member.create']"
-            :disabled="!canAssignRoles || !canReadRoles"
-            type="primary"
-            @click="handleAdd"
-          >
-            <template #icon><Plus /></template>
-            {{ $t('systemAdmin.operation.create') }}
-          </el-button>
-        </el-col>
-      </el-row>
-
-      <el-table row-key="id" :loading="loading" :data="renderData" border>
+    <el-card class="general-card admin-directory-list">
+      <div class="admin-directory-table-scroll">
+        <el-table row-key="id" :loading="loading" :data="renderData" border>
         <el-table-column
           prop="id"
           :label="$t('systemAdmin.columns.id')"
@@ -178,14 +180,15 @@
             ></template
           ></el-table-column
         >
-      </el-table>
+        </el-table>
+      </div>
       <el-pagination
         v-model:current-page="pagination.current"
         v-model:page-size="pagination.pageSize"
         :total="pagination.total"
         :page-sizes="[10, 15, 30, 50]"
         layout="total, sizes, prev, pager, next"
-        style="margin-top: 16px; justify-content: flex-end"
+        class="admin-directory-pagination"
         @current-change="onPageChange"
         @size-change="onPageSizeChange"
       />
@@ -403,7 +406,7 @@
         ></template
       >
     </el-dialog>
-  </div>
+  </PageContent>
 </template>
 
 <script lang="ts" setup>
@@ -412,6 +415,7 @@
   import { useI18n } from 'vue-i18n';
   import { ElMessage } from 'element-plus';
   import type { FormInstance } from 'element-plus';
+  import { PageContent, PageHeader, PageToolbar } from '@peanut-admin/ui-vue';
   import { Download, Plus, Refresh, Search } from '@element-plus/icons-vue';
   import useLoading from '@/hooks/loading';
   import { hasPermission } from '@/hooks/permission';
@@ -840,17 +844,97 @@
 </script>
 
 <style scoped lang="less">
-  .container {
-    padding: 0 20px 20px;
+  .admin-directory-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+    width: 100%;
+
+    :deep(.pa-page-header) {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px 20px;
+    }
+
+    :deep(.pa-page-header__actions) {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
   }
 
-  .search-card {
-    margin-bottom: 16px;
+  .admin-directory-title {
+    margin: 0;
+    color: var(--el-text-color-primary);
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .admin-directory-search,
+  .admin-directory-list {
+    min-width: 0;
+  }
+
+  .admin-directory-search :deep(.el-card__body) {
+    padding-bottom: 4px;
+  }
+
+  .admin-directory-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0 12px;
+
+    :deep(.el-form-item) {
+      max-width: 100%;
+      margin-right: 0;
+    }
+
+    :deep(.el-form-item__content) {
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+  }
+
+  .admin-directory-table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+
+    :deep(.el-table) {
+      min-width: 1250px;
+    }
+  }
+
+  .admin-directory-pagination {
+    display: flex;
+    justify-content: flex-end;
+    max-width: 100%;
+    margin-top: 16px;
+    overflow-x: auto;
   }
 
   .form-tip {
     margin-top: 8px;
     color: var(--color-text-3);
     font-size: 12px;
+  }
+
+  @media (max-width: 768px) {
+    .admin-directory-title {
+      font-size: 18px;
+    }
+
+    .admin-directory-search :deep(.el-card__body),
+    .admin-directory-list :deep(.el-card__body) {
+      padding: 14px;
+    }
+
+    .admin-directory-pagination {
+      justify-content: flex-start;
+    }
   }
 </style>
