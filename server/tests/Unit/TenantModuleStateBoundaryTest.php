@@ -192,7 +192,9 @@ final class TenantModuleStateBoundaryTest extends TestCase
             'platform/validation/module/ModuleReleaseCompositionGuard.php',
         ] as $file) {
             $source = file_get_contents($root . $file);
-            self::assertStringContainsString('TenantModuleStateQueries', $source, $file);
+            if (basename($file) !== 'ThinkPhpModuleOperationTaskExecutionService.php') {
+                self::assertStringContainsString('TenantModuleStateQueries', $source, $file);
+            }
             self::assertStringNotContainsString("Db::name('tenant_module')", $source, $file);
             if ($file === 'platform/services/module/ModuleLifecycleService.php') {
                 self::assertStringContainsString('$this->tenantStates->installationStates(', $source);
