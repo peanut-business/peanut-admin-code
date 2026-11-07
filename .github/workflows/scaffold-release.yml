@@ -31,7 +31,7 @@ on:
         description: Successful same-repository candidate run with both Edition templates and native CLI creation
         type: string
       source_commit:
-        description: Exact candidate source; main must retain its tree through normal dev-to-main integration
+        description: Exact candidate source with its same-tree dev-to-main merge retained in current main
         type: string
       build_transport_sha256:
         description: Independently recorded SHA-256 of the candidate run's scaffold-template-qualification.tgz

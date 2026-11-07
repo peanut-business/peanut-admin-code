@@ -166,9 +166,10 @@ os.execv(os.environ['INTEGRATION_GIT'],[os.environ['INTEGRATION_GIT'],*a])
             env.update(PATH=str(bins) + os.pathsep + env['PATH'], INTEGRATION_STUB=str(state_file), INTEGRATION_GIT=real_git)
             publisher = (ROOT / 'scripts/publish-github-release').read_text()
             function = publisher[publisher.index('verify_main_integration() {'):publisher.index('\nif [[ "$PREPARE_ONLY" != 1 ]]; then', publisher.index('verify_main_integration() {'))]
-            def check(main=merge, change=None, receipt_change=None, local=None, expected='', absent=False):
+            def check(main=merge, change=None, receipt_change=None, local=None, expected='', absent=False,
+                      source_merge=None, checkout=None):
                 state = {'main': main, 'source': source, 'tag_object': tag_object, 'pr': json.loads(json.dumps(pr)),
-                         'associated': [{'number': 7, 'merge_commit_sha': main, 'head': {'sha': source}}]}
+                         'associated': [{'number': 7, 'merge_commit_sha': source_merge or main, 'head': {'sha': source}}]}
                 if change:
                     change(state)
                 state_file.write_text(json.dumps(state))
@@ -178,6 +179,7 @@ os.execv(os.environ['INTEGRATION_GIT'],[os.environ['INTEGRATION_GIT'],*a])
                 receipt_path = case / 'premerge.json'
                 receipt_path.write_text(json.dumps(data))
                 git('update-ref', 'refs/remotes/origin/main', local or main)
+                git('update-ref', 'HEAD', checkout or main)
                 proof = case / 'proof.json'
                 proof.unlink(missing_ok=True)
                 command = function + '\nverify_main_integration "$PROOF" "$EXPECTED"\n'
@@ -200,12 +202,21 @@ os.execv(os.environ['INTEGRATION_GIT'],[os.environ['INTEGRATION_GIT'],*a])
             result, proof = check(change=lambda state: state.update(origin=f'https://github.com/{repository}'))
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(proof['remote'], f'https://github.com/{repository}')
+            tool_blob = git('hash-object', '-w', '--stdin', input='publisher-only fix\n')
+            tool_tree = git('mktree', input=f'100644 blob {blob}\tproduct.txt\n100644 blob {tool_blob}\tpublisher.txt\n')
+            for execution in [commit(tree, merge), commit(tool_tree, merge)]:
+                result, proof = check(main=execution, source_merge=merge)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(proof['source_merge_commit'], merge)
+                self.assertEqual(proof['source_tree'], tree)
+                self.assertEqual(proof['execution_source'], {'commit': execution, 'tree': git('rev-parse', execution + '^{tree}')})
             negatives = {
                 'wrong-tree': {'main': commit(old_tree, base, source)},
                 'reverse-parents': {'main': commit(tree, source, base)},
                 'squash-rebase': {'main': commit(tree, base)},
                 'extra-parent': {'main': commit(tree, base, source, foreign)},
-                'later-same-tree': {'main': commit(tree, merge)},
+                'unrelated-main': {'main': commit(tool_tree, base), 'source_merge': merge},
+                'wrong-execution-checkout': {'checkout': source},
                 'nonancestor-base': {'main': commit(tree, foreign, source)},
                 'stale-main': {'local': source}, 'fresh-main-drift': {'expected': source},
                 'drift-during-api': {'change': lambda s: s.update(drift=True)},

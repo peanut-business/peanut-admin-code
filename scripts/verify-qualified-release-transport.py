@@ -31,6 +31,10 @@ def git(*args):
     return subprocess.check_output(["git", "-C", str(ROOT), *args], text=True).strip()
 
 
+def source_bytes(source, path):
+    return subprocess.check_output(["git", "-C", str(ROOT), "show", source + ":" + path])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--archive", required=True)
@@ -41,11 +45,7 @@ def main():
     source = args.source_commit
     require(re.fullmatch("[a-f0-9]{40}", source), "Exact candidate source required")
     require(re.fullmatch("[a-f0-9]{64}", args.transport_sha256), "Independent transport SHA-256 required")
-    head, tree = git("rev-parse", "HEAD"), git("rev-parse", "HEAD^{tree}")
-    require(git("rev-parse", source + "^{tree}") == tree, "Checkout differs from the candidate source tree")
-    if head != source:
-        parents = git("show", "-s", "--format=%P", "HEAD").split()
-        require(len(parents) == 2 and parents[1] == source, "Main must normally integrate the candidate source")
+    tree = git("rev-parse", source + "^{tree}")
     archive, output = pathlib.Path(args.archive), pathlib.Path(args.output_root)
     require(archive.is_absolute() and archive.resolve() == archive and archive.is_file()
             and not archive.is_symlink() and archive.stat().st_nlink == 1
@@ -85,16 +85,16 @@ def main():
             and sha(stage / native["log"]) == native.get("log_sha256"), "Original native artifact check differs")
     producer = receipt.get("producer", {})
     require(producer.get("path") == "scripts/p0e-runtime-qualification"
-            and producer.get("sha256") == sha(ROOT / producer["path"])
-            and producer.get("verifier_sha256") == sha(ROOT / "scripts/release-template-artifacts.mjs"),
+            and producer.get("sha256") == hashlib.sha256(source_bytes(source, producer["path"])).hexdigest()
+            and producer.get("verifier_sha256") == hashlib.sha256(source_bytes(source, "scripts/release-template-artifacts.mjs")).hexdigest(),
             "Candidate producer differs from the exact source")
     components = receipt.get("groups", {}).get("generated-application", {}).get("components", {})
     require(components.get("native_template_contract") == "passed"
             and components.get("cli_create_and_app_identity") == "passed", "Native candidate components are incomplete")
-    version = read(ROOT / "release-versions.json")["scaffold_template"]
+    version = json.loads(source_bytes(source, "release-versions.json"))["scaffold_template"]
     checked = json.loads(subprocess.check_output(["node", str(ROOT / "scripts/release-template-artifacts.mjs"), "read",
         str(output / "scaffold-templates"), version, source, tree,
-        sha(ROOT / "scaffold/application-template-inventory.json")], cwd=ROOT, text=True))
+        hashlib.sha256(source_bytes(source, "scaffold/application-template-inventory.json")).hexdigest()], cwd=ROOT, text=True))
     require(checked == receipt.get("template_artifacts"), "Native template bytes or production inputs differ")
     created = receipt.get("cli_created_applications", {})
     require(set(created) == {"standalone", "multi-tenant"}, "Both native CLI creation results are required")
@@ -116,6 +116,7 @@ def main():
                 "Candidate creation imported Git or dependencies")
     require(sha(archive) == args.transport_sha256, "Candidate transport changed during validation")
     print(json.dumps({"status": "transport-verified", "candidate": source, "candidate_tree": tree,
+        "execution_source": {"commit": git("rev-parse", "HEAD"), "tree": git("rev-parse", "HEAD^{tree}")},
         "transport_sha256": args.transport_sha256, "acceptance_scope": "native-template-and-cli-candidate",
         "full8": "not_required; no complete-suite pass claimed", "publication_authorized": False}))
 
