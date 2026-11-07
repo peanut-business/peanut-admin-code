@@ -139,7 +139,7 @@ const git = (...args) => run('git', args)
 const sha = (value) => typeof value === 'string' && /^[0-9a-f]{40}$/.test(value)
 const digest = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex')
 const remote = git('remote', 'get-url', 'origin')
-if (![ `git@github.com:${repository}.git`, `https://github.com/${repository}.git` ].includes(remote)) fail('origin repository mismatch')
+if (![ `git@github.com:${repository}.git`, `https://github.com/${repository}.git`, `https://github.com/${repository}` ].includes(remote)) fail('origin repository mismatch')
 const live = git('ls-remote', '--heads', 'origin', 'refs/heads/main').split('\n')
 if (live.length !== 1 || !/^[0-9a-f]{40}\trefs\/heads\/main$/.test(live[0])) fail('live main missing or ambiguous')
 const main = live[0].split('\t')[0]

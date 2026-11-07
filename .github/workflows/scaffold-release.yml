@@ -176,7 +176,7 @@ jobs:
           # Tar retains hidden defaults, executable modes and any partial CLI target.
           tar -czf "$RUNNER_TEMP/$transport_name.tgz" -C "$RUNNER_TEMP" -- "${inputs[@]}"
           cd "$RUNNER_TEMP"
-          sha256sum "$transport_name.tgz" > "$transport_name.tgz.sha256"
+          sha256sum "$transport_name.tgz" | tee "$transport_name.tgz.sha256"
           echo "transport_path=$RUNNER_TEMP/$transport_name.tgz" >> "$GITHUB_OUTPUT"
           echo "available=true" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4

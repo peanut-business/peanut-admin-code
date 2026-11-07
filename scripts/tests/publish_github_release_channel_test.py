@@ -197,6 +197,9 @@ os.execv(os.environ['INTEGRATION_GIT'],[os.environ['INTEGRATION_GIT'],*a])
                         self.assertEqual(proof['parents'], [base, source])
                         self.assertEqual(proof['pr_number'], 7)
                         self.assertRegex(proof['pr_response_sha256'], r'^[0-9a-f]{64}$')
+            result, proof = check(change=lambda state: state.update(origin=f'https://github.com/{repository}'))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(proof['remote'], f'https://github.com/{repository}')
             negatives = {
                 'wrong-tree': {'main': commit(old_tree, base, source)},
                 'reverse-parents': {'main': commit(tree, source, base)},
