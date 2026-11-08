@@ -1,6 +1,6 @@
 # Peanut Admin Third-Party Notices
 
-Generated for Peanut Admin 5.1.0 on 2026-11-07.
+Generated for Peanut Admin 5.1.1 on 2026-11-08.
 
 Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-party components remain governed by their own licenses.
 
@@ -19,7 +19,7 @@ Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-pa
 | LikeAdmin 1.9.4 | MIT | Used as the documented behavioral parity reference. This notice does not claim the application is a clean-room implementation. Source: https://github.com/likeadmin-likeshop/likeadmin_php |
 | ThinkPHP 8 | Apache-2.0 | Backend framework. Its upstream notice is also retained at `server/LICENSE.txt`. Source: https://github.com/top-think/framework |
 | `peanut-admin/core` | Apache-2.0 | Composer core package locked at v5.0.3 (f2b0435f577c5119f1dfc58d34c274ccb149c477). Source: https://github.com/peanut-business/peanut-admin-core-php |
-| Peanut Admin Core Web | Apache-2.0 | npm core packages locked as @peanut-admin/client@5.0.4, @peanut-admin/vue@5.0.4, @peanut-admin/ui-vue@5.0.4, @peanut-admin/nuxt@5.0.4, @peanut-admin/uniapp@5.0.4, @peanut-admin/testing@5.0.4. Source: https://github.com/peanut-business/peanut-admin-core-web |
+| Peanut Admin Core Web | Apache-2.0 | npm core packages locked as @peanut-admin/client@5.0.5, @peanut-admin/vue@5.0.5, @peanut-admin/ui-vue@5.0.5, @peanut-admin/nuxt@5.0.5, @peanut-admin/uniapp@5.0.5, @peanut-admin/testing@5.0.5. Source: https://github.com/peanut-business/peanut-admin-core-web |
 
 ## License handling
 
@@ -120,7 +120,7 @@ These 54 packages are installed with `composer install --no-dev` in the producti
 | `peanut-admin/core` | `v5.0.3` | `Apache-2.0` | https://github.com/peanut-business/peanut-admin-core-php.git |
 | `peanut-business/peanut-content-tools` | `1.0.2` | `Apache-2.0` | app/modules/peanut/content_tools |
 | `peanut-business/peanut-file` | `1.0.42` | `Apache-2.0` | app/modules/peanut/file |
-| `peanut-business/peanut-identity` | `4.0.0-rc.56` | `Apache-2.0` | app/modules/peanut/identity |
+| `peanut-business/peanut-identity` | `4.0.0-rc.58` | `Apache-2.0` | app/modules/peanut/identity |
 | `peanut-business/peanut-integration` | `1.0.29` | `Apache-2.0` | app/modules/peanut/integration |
 | `peanut-business/peanut-ops` | `1.0.32` | `Apache-2.0` | app/modules/peanut/ops |
 | `peanut-business/peanut-reference-codes` | `1.0.25` | `Apache-2.0` | app/modules/peanut/reference_codes |

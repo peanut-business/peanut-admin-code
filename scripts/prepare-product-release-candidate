@@ -912,8 +912,20 @@ def check_inputs(product_version: str) -> None:
     composer = read_json(ROOT / "server/composer.json")
     if "peanut-admin/core" not in composer.get("require", {}):
         fail("server/composer.json is missing peanut-admin/core")
-    if any(item.get("type") in ("path", "artifact", "package") for item in composer.get("repositories", []) if isinstance(item, dict)):
-        fail("server/composer.json has a local or synthetic package repository")
+    module_repositories = {
+        path.parent.relative_to(ROOT / "server").as_posix()
+        for path in (ROOT / "server/app/modules").glob("*/*/composer.json")
+    }
+    for repository in composer.get("repositories", []):
+        if not isinstance(repository, dict):
+            continue
+        repository_type = repository.get("type")
+        url = repository.get("url")
+        options = repository.get("options")
+        module_path = (isinstance(url, str) and url in module_repositories
+                       and isinstance(options, dict) and options.get("symlink") is False)
+        if repository_type in ("artifact", "package") or (repository_type == "path" and not module_path):
+            fail("server/composer.json has a local or synthetic package repository")
     for client, names in CLIENT_CORE_PACKAGES.items():
         manifest = read_json(ROOT / client / "package.json")
         dependencies = manifest.get("dependencies", {})
