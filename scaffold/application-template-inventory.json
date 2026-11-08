@@ -1109,7 +1109,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "850a5ae67113f8ce3fcb32fd36fd0309c53dfa8d7d60103279328851e37d7de1"
+            "source_sha256": "43b94ffab383a4a97fdde67b3d5437493b49df4267ea0fae3c42560d3a6cc8b5"
         },
         {
             "path": "pc/.env.example",
@@ -17378,7 +17378,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "266cf7387d0757fc77c22541c8af22cb14b4ee2fea60afff2f49534d745ad938"
+            "source_sha256": "845edf9ee948592ed86226799354292ab79238b7c772a80dfddfb479e9ded487"
         },
         {
             "path": "server/config/admin_auth.php",

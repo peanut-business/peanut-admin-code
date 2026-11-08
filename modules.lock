@@ -182,7 +182,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "b0f3d464775777e273e668b5f278d18195c8b62c3c70004ed3eddfcf0982e986"
+                "sha256": "b04de0161f43e919371c3dfe6715d66873867adf58b428b2c2748cf7034ed560"
             },
             "trust": {
                 "channel": "bundled",
@@ -431,7 +431,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "36ab0e10b8e4984f1bca5488a0aaea5e410eb82397b3ffe66da3765b48d2004c"
+                "sha256": "00a78138083654a7e6af764ba1586a393fdf808905d9956035d8858ae08d7a5c"
             },
             "trust": {
                 "channel": "bundled",
@@ -519,7 +519,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "677904461249a25007e4e55c526a7482d6e229919e7f4a0e978e147c1b877c06"
+                "sha256": "6da1870a241c1027b26f925168c5e2679773821cef92aa8e356db6a67efa2eac"
             },
             "trust": {
                 "channel": "bundled",
@@ -611,7 +611,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "476cd03f0ab2f6ef10fa6c8cfdf73d9d15a210e8d2d970558ddc0d76f8d3452e"
+                "sha256": "1062070e5123b69ae56fab32db101aed13efe879a52983b98d5cf8a72bce1ba4"
             },
             "trust": {
                 "channel": "bundled",
