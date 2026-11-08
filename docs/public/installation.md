@@ -78,6 +78,21 @@ HTTP worker 的执行时限须覆盖首次迁移和所选模块安装；本地�
 
 结构使用官方 `migrate:run`，动态管理员和默认租户初始化后由官方 `seed:run --seed=InitialSeeder` 完成数据与权限目录。不要在网页安装成功后再执行 seed。初始迁移不支持回滚；种子发生部分失败后明确拒绝重复执行。原生版本表默认 pa_migrations；旧数据库基线和自研账本不再参与安装。
 
+## 已有租户缺失公共页面的定向维护
+
+实例维护者在已配置应用的 `server/` 运行原生命令，显式选择已有活动租户。先核对应用身份、数据库配置及租户 ID，再预览并应用：
+
+```sh
+php think tenant:decoration-pages --tenant-id=123 --dry-run
+php think tenant:decoration-pages --tenant-id=123
+```
+
+默认检查已声明的 type 1–5（移动首页、个人中心、客服、PC 首页、系统风格）；可用 `--types=4,5` 缩小范围。JSON 返回 `tenant_id`、`dry_run`、`requested_types`、`missing_types` 和 `inserted`。`--dry-run` 只读；不带该选项时，在原生 ORM 事务中仅插入缺失页面，保留已有页面的全部配置，重复运行新增为零。默认值与新租户开通共用同一实现。
+
+该入口仅供实例 CLI 维护，不注册为租户定时任务；嵌套租户/HTTP 执行上下文被拒绝。不调用首装、迁移或完整 tenant bootstrap，不补 tabbar、任务、通知、租户设置或外部绑定。缺表或数据库错误原样失败；不提供读取配置 fallback。对同一租户装修页面的并发维护/编辑应串行安排，真实数据库及 PC/H5 验收由目标应用执行。
+
+源码修复可由下游在自己的功能 worktree 通过 Git 精确采用上游提交中的 PHP 实现和命令注册，按需合并本节说明；保留与官方模板基线的源码差异，不手改 APP manifest 或 scaffold baseline，也不重放整包 apply。上游 inventory 由生成入口同步，不复制覆盖下游基线；该开发补丁不代表新官方模板发行。
+
 ## 5. 初始数据与可选示例
 
 创建 APP 只复制固定源码中的结构、种子和可选示例入口，不读取或导出脚手架开发数据库。两种 Edition 使用同一套真实租户身份和原生迁移目录，Standalone 不要求输入独立的平台账号；Multi-Tenant 使用独立的平台和默认租户管理员输入。

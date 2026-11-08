@@ -1,9 +1,24 @@
 <template>
-  <div class="container">
-    <Breadcrumb :items="['menu.system', 'menu.system.admin']" />
+  <PageContent class="pa-page-stack">
+    <PageHeader>
+      <h1>{{ $t('menu.system.admin') }}</h1>
+      <p class="pa-page-header__description">{{ $t('systemAdmin.page.description') }}</p>
+      <template #actions>
+        <el-button
+          v-permission="['core.member.create']"
+          :disabled="!canAssignRoles || !canReadRoles"
+          type="primary"
+          @click="handleAdd"
+        >
+          <template #icon><Plus /></template>
+          {{ $t('systemAdmin.operation.create') }}
+        </el-button>
+      </template>
+    </PageHeader>
 
-    <el-card class="general-card search-card">
-      <el-form :model="queryParams" inline>
+    <el-card class="general-card">
+      <PageToolbar :label="$t('systemAdmin.region.filters')">
+        <el-form class="pa-page-filters" :model="queryParams" label-position="left" label-width="80px" @submit.prevent="search">
         <el-form-item prop="account" :label="$t('systemAdmin.search.account')">
           <el-input
             v-model="queryParams.account"
@@ -26,7 +41,6 @@
             :disabled="!canReadRoles"
             clearable
             :placeholder="$t('systemAdmin.search.role.all')"
-            style="width: 180px"
             ><el-option
               v-for="option in roleOptions"
               :key="option.value"
@@ -34,7 +48,7 @@
               :value="option.value"
           /></el-select>
         </el-form-item>
-        <el-form-item>
+        <el-form-item class="pa-page-filters__actions" label-width="0">
           <el-space>
             <el-button type="primary" @click="search">
               <template #icon><Search /></template>
@@ -44,36 +58,36 @@
               <template #icon><Refresh /></template>
               {{ $t('systemAdmin.operation.reset') }}
             </el-button>
-            <el-button @click="openExport">
-              <template #icon><Download /></template>
-              {{ $t('systemAdmin.operation.export') }}
-            </el-button>
           </el-space>
         </el-form-item>
-      </el-form>
+        </el-form>
+      </PageToolbar>
     </el-card>
 
-    <el-card class="general-card list-card">
-      <template #header>{{ $t('menu.system.admin') }}</template>
-      <el-row style="margin-bottom: 16px">
-        <el-col :span="12">
-          <el-button
-            v-permission="['core.member.create']"
-            :disabled="!canAssignRoles || !canReadRoles"
-            type="primary"
-            @click="handleAdd"
-          >
-            <template #icon><Plus /></template>
-            {{ $t('systemAdmin.operation.create') }}
-          </el-button>
-        </el-col>
-      </el-row>
-
-      <el-table row-key="id" :loading="loading" :data="renderData" border>
+    <el-card class="general-card">
+      <div class="pa-page-results-toolbar pa-page-results-toolbar--standalone">
+        <div class="pa-page-results-title">
+          <h2>{{ $t('systemAdmin.region.results') }}</h2>
+          <span aria-live="polite">{{ $t('systemAdmin.pagination.total', { total: pagination.total }) }}</span>
+        </div>
+        <el-button @click="openExport">
+          <template #icon><Download /></template>
+          {{ $t('systemAdmin.operation.export') }}
+        </el-button>
+      </div>
+        <el-table class="pa-page-table" row-key="id" v-loading="loading" :data="renderData" max-height="max(320px, calc(100dvh - 440px))">
         <el-table-column
           prop="id"
           :label="$t('systemAdmin.columns.id')"
-          width="70"
+          width="64"
+          :fixed="desktopTable ? 'left' : false"
+        />
+        <el-table-column
+          prop="account"
+          :label="$t('systemAdmin.columns.account')"
+          width="240"
+          :fixed="desktopTable ? 'left' : false"
+          show-overflow-tooltip
         />
         <el-table-column :label="$t('systemAdmin.columns.avatar')" width="80"
           ><template #default="{ row }"
@@ -82,11 +96,6 @@
             }}</el-avatar></template
           ></el-table-column
         >
-        <el-table-column
-          prop="account"
-          :label="$t('systemAdmin.columns.account')"
-          width="130"
-        />
         <el-table-column
           prop="name"
           :label="$t('systemAdmin.columns.name')"
@@ -151,7 +160,7 @@
         >
         <el-table-column
           :label="$t('systemAdmin.columns.operations')"
-          width="150"
+          :width="desktopTable ? 150 : 104"
           fixed="right"
           ><template #default="{ row }"
             ><el-space
@@ -178,30 +187,37 @@
             ></template
           ></el-table-column
         >
-      </el-table>
+        </el-table>
+      <nav class="pa-page-pagination" :aria-label="$t('systemAdmin.region.pagination')">
       <el-pagination
         v-model:current-page="pagination.current"
         v-model:page-size="pagination.pageSize"
         :total="pagination.total"
         :page-sizes="[10, 15, 30, 50]"
-        layout="total, sizes, prev, pager, next"
-        style="margin-top: 16px; justify-content: flex-end"
+        :layout="desktopTable ? 'total, sizes, prev, pager, next' : 'total, prev, pager, next'"
+        :pager-count="5"
         @current-change="onPageChange"
         @size-change="onPageSizeChange"
       />
+      </nav>
     </el-card>
 
     <el-dialog
       v-model="modalVisible"
+      class="pa-page-form-dialog"
+      top="6vh"
       :title="
         isEdit
           ? $t('systemAdmin.modal.editTitle')
           : $t('systemAdmin.modal.addTitle')
       "
       :close-on-click-modal="false"
-      width="620px"
+      width="min(620px, calc(100vw - 24px))"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
+        <fieldset class="pa-page-form-section">
+          <legend>{{ $t('systemAdmin.section.identity') }}</legend>
+          <div class="pa-page-form-grid">
         <el-form-item prop="account" :label="$t('systemAdmin.field.account')">
           <el-input
             v-model="form.account"
@@ -211,8 +227,6 @@
           />
         </el-form-item>
 
-        <p class="form-tip">头像由账号本人在个人设置维护。</p>
-
         <el-form-item prop="name" :label="$t('systemAdmin.field.name')">
           <el-input
             v-model="form.name"
@@ -221,6 +235,12 @@
           />
         </el-form-item>
 
+          </div>
+          <p class="pa-page-form-help">{{ $t('systemAdmin.field.avatar.ownerTip') }}</p>
+        </fieldset>
+        <fieldset class="pa-page-form-section">
+          <legend>{{ $t('systemAdmin.section.organization') }}</legend>
+          <div class="pa-page-form-grid">
         <el-form-item prop="dept_id" :label="$t('systemAdmin.field.dept')">
           <DepartmentPicker
             v-model="form.dept_id"
@@ -246,6 +266,7 @@
 
         <el-form-item
           v-if="form.root !== 1"
+          class="pa-page-form-wide"
           prop="role_id"
           :label="$t('systemAdmin.field.roles')"
         >
@@ -263,6 +284,11 @@
           /></el-select>
         </el-form-item>
 
+          </div>
+        </fieldset>
+        <fieldset class="pa-page-form-section">
+          <legend>{{ $t('systemAdmin.section.security') }}</legend>
+          <div class="pa-page-form-grid">
         <el-form-item prop="password" :label="$t('systemAdmin.field.password')">
           <el-input
             type="password"
@@ -318,6 +344,8 @@
             </div>
           </div>
         </el-form-item>
+          </div>
+        </fieldset>
       </el-form>
       <template #footer
         ><el-button @click="modalVisible = false">取消</el-button
@@ -334,7 +362,7 @@
       v-model="exportVisible"
       :title="$t('systemAdmin.export.title')"
       :close-on-click-modal="false"
-      width="540px"
+      width="min(540px, calc(100vw - 24px))"
     >
       <div v-loading="exportInfoLoading" style="width: 100%">
         <el-form ref="exportFormRef" :model="exportForm" label-position="top">
@@ -403,7 +431,7 @@
         ></template
       >
     </el-dialog>
-  </div>
+  </PageContent>
 </template>
 
 <script lang="ts" setup>
@@ -412,10 +440,11 @@
   import { useI18n } from 'vue-i18n';
   import { ElMessage } from 'element-plus';
   import type { FormInstance } from 'element-plus';
+  import { PageContent, PageHeader, PageToolbar } from '@peanut-admin/ui-vue';
   import { Download, Plus, Refresh, Search } from '@element-plus/icons-vue';
   import useLoading from '@/hooks/loading';
   import { hasPermission } from '@/hooks/permission';
-  import { useUserStore } from '@/store';
+  import { useAppStore, useUserStore } from '@/store';
   import {
     getPasswordPolicy,
     passwordWithinPolicy,
@@ -441,6 +470,8 @@
 
   const { t } = useI18n();
   const userStore = useUserStore();
+  const appStore = useAppStore();
+  const desktopTable = computed(() => appStore.device === 'desktop');
   const route = useRoute();
   const canAssignRoles = computed(() =>
     hasPermission('core.member.role.assign', route.path)
@@ -498,6 +529,8 @@
       renderData.value = data.lists;
       pagination.current = data.pageNo;
       pagination.total = data.count;
+    } catch {
+      // The shared interceptor shows the error; retain the current rows and pagination.
     } finally {
       setLoading(false);
     }
@@ -825,6 +858,9 @@
       ElMessage.success(t('systemAdmin.export.success'));
       exportVisible.value = false;
       return true;
+    } catch {
+      // The shared interceptor shows the server's business error; keep the dialog open.
+      return false;
     } finally {
       exportLoading.value = false;
     }
@@ -840,17 +876,10 @@
 </script>
 
 <style scoped lang="less">
-  .container {
-    padding: 0 20px 20px;
-  }
-
-  .search-card {
-    margin-bottom: 16px;
-  }
-
   .form-tip {
     margin-top: 8px;
     color: var(--color-text-3);
     font-size: 12px;
   }
+
 </style>

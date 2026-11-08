@@ -386,15 +386,19 @@ def verify_npm_provenance_signature(canonical_bundle: str, version: str) -> None
     try:
         npm_root = subprocess.check_output([npm_command(), "root", "--global"], cwd=ROOT, text=True, timeout=30).strip()
         program = r"""
-const fs = require('node:fs');
 const path = require('node:path');
 const sigstore = require(path.join(process.argv[1], 'npm/node_modules/sigstore'));
-const bundle = JSON.parse(fs.readFileSync(0, 'utf8'));
-sigstore.verify(bundle, {
-  certificateIdentityURI: `https://github.com/peanut-business/peanut-admin-core-web/.github/workflows/release.yml@refs/tags/v${process.argv[2]}`,
-  certificateIssuer: 'https://token.actions.githubusercontent.com',
-  tufForceCache: true,
-}).catch(error => { console.error(error.message); process.exitCode = 1; });
+(async () => {
+  process.stdin.setEncoding('utf8');
+  let input = '';
+  for await (const chunk of process.stdin) input += chunk;
+  const bundle = JSON.parse(input);
+  await sigstore.verify(bundle, {
+    certificateIdentityURI: `https://github.com/peanut-business/peanut-admin-core-web/.github/workflows/release.yml@refs/tags/v${process.argv[2]}`,
+    certificateIssuer: 'https://token.actions.githubusercontent.com',
+    tufForceCache: true,
+  });
+})().catch(error => { console.error(error.message); process.exitCode = 1; });
 """
         result = subprocess.run([node, "-e", program, npm_root, version], input=canonical_bundle,
                                 cwd=ROOT, text=True, capture_output=True, timeout=90)
@@ -908,8 +912,20 @@ def check_inputs(product_version: str) -> None:
     composer = read_json(ROOT / "server/composer.json")
     if "peanut-admin/core" not in composer.get("require", {}):
         fail("server/composer.json is missing peanut-admin/core")
-    if any(item.get("type") in ("path", "artifact", "package") for item in composer.get("repositories", []) if isinstance(item, dict)):
-        fail("server/composer.json has a local or synthetic package repository")
+    module_repositories = {
+        path.parent.relative_to(ROOT / "server").as_posix()
+        for path in (ROOT / "server/app/modules").glob("*/*/composer.json")
+    }
+    for repository in composer.get("repositories", []):
+        if not isinstance(repository, dict):
+            continue
+        repository_type = repository.get("type")
+        url = repository.get("url")
+        options = repository.get("options")
+        module_path = (isinstance(url, str) and url in module_repositories
+                       and isinstance(options, dict) and options.get("symlink") is False)
+        if repository_type in ("artifact", "package") or (repository_type == "path" and not module_path):
+            fail("server/composer.json has a local or synthetic package repository")
     for client, names in CLIENT_CORE_PACKAGES.items():
         manifest = read_json(ROOT / client / "package.json")
         dependencies = manifest.get("dependencies", {})

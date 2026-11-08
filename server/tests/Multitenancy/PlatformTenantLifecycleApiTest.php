@@ -101,6 +101,7 @@ function lifecycleApplicationBootstrap(): ApplicationTenantBootstrapService
         new ExternalIntegrationBootstrapCommands(new ThinkPhpExternalTenantBindingRepository($directory), $current, $directory),
         \think\Container::getInstance()->make(\think\DbManager::class),
         $registry,
+        new \app\common\services\decoration\DecorationPageDefaultsService(\think\Container::getInstance()->make(\think\DbManager::class)),
     );
 }
 

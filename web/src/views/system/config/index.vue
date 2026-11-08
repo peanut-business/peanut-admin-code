@@ -1,6 +1,8 @@
 <template>
-  <div class="container">
-    <Breadcrumb :items="['menu.appSetting', 'menu.appSetting.website']" />
+  <PageContent class="container">
+    <PageHeader>
+      <h1>{{ $t('menu.appSetting.website') }}</h1>
+    </PageHeader>
     <el-card class="general-card">
       <template #header>{{ $t('menu.appSetting.website') }}</template>
       <div v-loading="loading" style="width: 100%">
@@ -24,6 +26,25 @@
               :placeholder="$t('systemConfig.field.placeholder')"
             />
           </el-form-item>
+          <el-divider content-position="left">
+            {{ $t('systemConfig.footer.title') }}
+          </el-divider>
+          <el-form-item :label="$t('systemConfig.footer.groupTitle')">
+            <el-input v-model="form.sidebar_footer_title" :maxlength="60" />
+          </el-form-item>
+          <p class="footer-note">
+            {{ $t('systemConfig.footer.permissionNote') }}
+          </p>
+          <el-form-item
+            v-for="field in footerFlags"
+            :key="field"
+            :label="$t(`systemConfig.footer.${field}`)"
+          >
+            <el-switch
+              v-model="form[field]"
+              :aria-label="$t(`systemConfig.footer.${field}`)"
+            />
+          </el-form-item>
           <el-form-item>
             <el-button
               v-permission="['peanut.settings.manage']"
@@ -37,7 +58,7 @@
         </el-form>
       </div>
     </el-card>
-  </div>
+  </PageContent>
 </template>
 
 <script lang="ts" setup>
@@ -45,6 +66,7 @@
   import { useI18n } from 'vue-i18n';
   import { ElMessage } from 'element-plus';
   import type { FormInstance } from 'element-plus';
+  import { PageContent, PageHeader } from '@peanut-admin/ui-vue';
   import useLoading from '@/hooks/loading';
   import { useBrandStore } from '@/store';
   import {
@@ -79,6 +101,13 @@
     { key: 'official_url' },
     { key: 'github_url' },
   ];
+
+  const footerFlags = [
+    'sidebar_footer_enabled',
+    'sidebar_footer_settings',
+    'sidebar_footer_license',
+    'sidebar_footer_about',
+  ] as const;
 
   const rules = {
     name: [{ required: true, message: t('systemConfig.field.name.required') }],
@@ -121,5 +150,11 @@
 <style scoped lang="less">
   .container {
     padding: 0 20px 20px 20px;
+  }
+
+  .footer-note {
+    margin: 0 0 16px;
+    color: var(--el-text-color-secondary);
+    font-size: 13px;
   }
 </style>

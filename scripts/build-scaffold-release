@@ -100,11 +100,40 @@ function releaseRun(array $command, ?string $cwd = null, array $environment = []
     if (!is_resource($process)) {
         throw new RuntimeException('SCAFFOLD_RELEASE_PROCESS_FAILED');
     }
-    $stdout = stream_get_contents($pipes[1]);
-    $stderr = stream_get_contents($pipes[2]);
+    stream_set_blocking($pipes[1], false);
+    stream_set_blocking($pipes[2], false);
+    $stdout = '';
+    $stderr = '';
+    $readFailed = false;
+    $open = [$pipes[1], $pipes[2]];
+    while ($open !== []) {
+        $read = $open;
+        $write = null;
+        $except = null;
+        if (stream_select($read, $write, $except, null) === false) {
+            $readFailed = true;
+            break;
+        }
+        foreach ($read as $pipe) {
+            $chunk = fread($pipe, 8192);
+            if ($chunk === false) {
+                $readFailed = true;
+                break 2;
+            }
+            if ($pipe === $pipes[1]) {
+                $stdout .= $chunk;
+            } else {
+                $stderr .= $chunk;
+            }
+            if (feof($pipe)) {
+                $open = array_values(array_filter($open, static fn($openPipe): bool => $openPipe !== $pipe));
+            }
+        }
+    }
     fclose($pipes[1]);
     fclose($pipes[2]);
-    if (proc_close($process) !== 0 || !is_string($stdout)) {
+    $exitCode = proc_close($process);
+    if ($readFailed || $exitCode !== 0 || !is_string($stdout)) {
         throw new RuntimeException('SCAFFOLD_RELEASE_COMMAND_FAILED: ' . trim((string) $stderr));
     }
     return $stdout;

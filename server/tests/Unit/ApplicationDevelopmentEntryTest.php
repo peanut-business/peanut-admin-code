@@ -127,6 +127,8 @@ final class ApplicationDevelopmentEntryTest extends TestCase
             self::assertStringContainsString($publicPath, $content);
             self::assertFileExists($this->root . '/' . $publicPath);
         }
+        self::assertStringContainsString('管理内容区与页面布局', $content);
+        self::assertStringContainsString('### 管理内容区与页面布局', (string) file_get_contents($this->root . '/docs/development/standard.md'));
         $creator = new ApplicationCreator($this->root, $this->root . '/scaffold/application-template-inventory.json');
         $rendered = (new ReflectionMethod(ApplicationCreator::class, 'transform'))->invoke(
             $creator,

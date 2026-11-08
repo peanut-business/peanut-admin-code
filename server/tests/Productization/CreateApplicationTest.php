@@ -442,6 +442,8 @@ try {
         $generatedAgents = (string) file_get_contents($applicationRoot . '/AGENTS.md');
         createApplicationExpect($generatedAgents !== '' && !str_contains($generatedAgents, '{{'), 'public development entry must be generated and fully rendered');
         createApplicationExpect(!str_contains($generatedAgents, 'peanut-admin-project') && !str_contains($generatedAgents, '/Users/'), 'maintainer-only instructions must not enter the application entry');
+        createApplicationExpect(str_contains($generatedAgents, '管理内容区与页面布局'), 'generated AGENTS must direct UI work to the shipped layout standard');
+        createApplicationExpect(str_contains((string) file_get_contents($applicationRoot . '/docs/development/standard.md'), '### 管理内容区与页面布局'), 'generated application must ship the common page layout contract');
         foreach (['docs/development/standard.md', 'docs/README.md', 'tools/quality/README.md'] as $publicDocument) {
             createApplicationExpect(str_contains($generatedAgents, $publicDocument) && is_file($applicationRoot . '/' . $publicDocument), 'generated entry must resolve a shipped public document: ' . $publicDocument);
         }

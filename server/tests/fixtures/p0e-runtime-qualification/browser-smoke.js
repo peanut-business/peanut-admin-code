@@ -10,11 +10,12 @@ const tenantBetaUrl = (process.env.P0E_BROWSER_TENANT_BETA_URL || '').replace(/\
 const platformUrl = required('P0E_BROWSER_PLATFORM_URL').replace(/\/$/u, '');
 const docsUrl = (process.env.P0E_BROWSER_DOCS_URL || '').replace(/\/$/u, '');
 const outputDir = required('P0E_BROWSER_OUTPUT_DIR');
+const iab = typeof iabDriver === 'undefined' ? null : iabDriver;
 if (!['standalone', 'multi-tenant'].includes(mode)) throw new Error(`invalid mode: ${mode}`);
 if (!['baseline', 'release'].includes(profile)) throw new Error(`invalid profile: ${profile}`);
 if (profile === 'baseline' && docsUrl === '') throw new Error('missing browser environment: P0E_BROWSER_DOCS_URL');
 // run-code exposes page, not Node host globals. Resolve URLs in the browser realm.
-const browserUrl = async (targetPage, value, base) => targetPage.evaluate(({ value, base }) => {
+const browserUrl = async (targetPage, value, base) => iab ? new URL(value, base) : targetPage.evaluate(({ value, base }) => {
   const url = base === undefined ? new URL(value) : new URL(value, base);
   return { href: url.href, origin: url.origin, protocol: url.protocol, hostname: url.hostname, port: url.port,
     username: url.username, password: url.password, pathname: url.pathname };
@@ -25,6 +26,12 @@ const screenshotPath = (label) => profile === 'baseline'
   : `${outputDir}/${mode}-${profile}-${label}.png`;
 
 const assertPage = async (targetPage, url, label, minimumText = 20) => {
+  if (iab) {
+    const result = await iab.render(label, url);
+    if (!Number.isInteger(result.status) || result.status >= 400 || result.text_length < minimumText
+      || (label === 'docs' && !result.readme_link)) throw new Error(`${label} did not render the required browser content`);
+    return { url: result.url, status: result.status, text_length: result.text_length };
+  }
   const response = await targetPage.goto(url, { waitUntil: 'networkidle' });
   if (!response || response.status() >= 400) throw new Error(`${label} returned ${response?.status()}`);
   const text = (await targetPage.locator('body').innerText()).trim();
@@ -38,15 +45,15 @@ const checkPublicDocuments = async (targetPage) => {
   if (contract.delivery !== 'versioned-markdown-and-openapi'
     || !contract.browser_documents || Object.keys(contract.browser_documents).length !== 5) throw new Error('invalid released documentation contract');
   const index = await assertPage(targetPage, `${docsUrl}/`, 'docs');
-  await targetPage.getByRole('link', { name: 'README.md', exact: true }).waitFor({ state: 'visible' });
+  if (!iab) await targetPage.getByRole('link', { name: 'README.md', exact: true }).waitFor({ state: 'visible' });
   const documents = [];
   for (const [path, expected] of Object.entries(contract.browser_documents)) {
     if (!/^(?:README\.md|public\/(?:installation|api-and-sdk|release-channels)\.md|development\/standard\.md)$/u.test(path)
       || !/^[0-9a-f]{64}$/u.test(expected)) throw new Error('invalid public document identity');
-    const response = await targetPage.request.get(`${docsUrl}/${path}`, { maxRedirects: 0 });
+    const response = await api(targetPage).get(`${docsUrl}/${path}`, { maxRedirects: 0 });
     if (response.status() !== 200 || response.url() !== `${docsUrl}/${path}`) throw new Error(`public document unavailable: ${path}`);
     const text = await response.text();
-    const actual = await targetPage.evaluate(async (value) => Array.from(new Uint8Array(
+    const actual = iab ? iab.sha256(text) : await targetPage.evaluate(async (value) => Array.from(new Uint8Array(
       await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)),
     )).map((byte) => byte.toString(16).padStart(2, '0')).join(''), text);
     if (actual !== expected || !text.startsWith('# ')) throw new Error(`released document bytes differ: ${path}`);
@@ -58,6 +65,11 @@ const checkPublicDocuments = async (targetPage) => {
 };
 
 const loginTenant = async (targetPage, url, email, password, label, menu = null) => {
+  if (iab) {
+    const observed = await iab.login(label, url);
+    if (!observed.token?.startsWith('pa_tat_')) throw new Error(`${label} did not receive a Tenant access token`);
+    return observed;
+  }
   await targetPage.goto(`${url}/admin/login`, { waitUntil: 'networkidle' });
   const form = targetPage.locator('.login-form');
   await form.locator('input').nth(0).fill(email);
@@ -102,6 +114,7 @@ const assertSuccess = (value, label) => {
   if (!envelopeSuccess(value)) throw new Error(`${label} failed with HTTP ${value.status} / code ${value.json?.code ?? 'none'}`);
   return value.json?.data ?? value.json;
 };
+const api = (targetPage) => iab?.request ?? targetPage.request;
 const request = async (session, baseUrl, method, path, options = {}) => {
   const url = await browserUrl(session.page, path, `${baseUrl}/`);
   const headers = { Accept: 'application/json', Authorization: `Bearer ${session.token}`, ...(options.headers || {}) };
@@ -111,7 +124,7 @@ const request = async (session, baseUrl, method, path, options = {}) => {
   );
   if (options.data !== undefined) requestOptions.data = options.data;
   if (options.multipart !== undefined) requestOptions.multipart = options.multipart;
-  return responseValue(await session.page.request.fetch(url.href, requestOptions));
+  return responseValue(await api(session.page).fetch(url.href, requestOptions));
 };
 const listItems = (data, label) => {
   const items = data?.lists ?? data?.items;
@@ -208,7 +221,7 @@ const checkCategoryAndFile = async (alpha, beta, betaUrl, marker, results) => {
   results.lifecycle = { owner_module: 'peanut.file', category_id: categoryId, updated: true,
     cross_tenant_hidden: beta !== null, foreign_write_unchanged: beta !== null, cleaned: true };
 
-  const png = await alpha.page.screenshot({ type: 'png' });
+  const png = iab ? alpha.png : await alpha.page.screenshot({ type: 'png' });
   const fileName = `${marker}.png`;
   const upload = assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/peanut.file.upload.image', {
     multipart: { cid: '0', file: { name: fileName, mimeType: 'image/png', buffer: png } },
@@ -229,7 +242,7 @@ const checkCategoryAndFile = async (alpha, beta, betaUrl, marker, results) => {
       throw new Error('baseline file delivery left the lease-bound HTTP endpoint');
     }
   }
-  const delivered = await alpha.page.request.get(deliveryUrl.href, { failOnStatusCode: false });
+  const delivered = await api(alpha.page).get(deliveryUrl.href, { failOnStatusCode: false });
   const downloaded = await delivered.body();
   const deliveredBytes = downloaded.length;
   if (delivered.status() < 200 || delivered.status() >= 300 || deliveredBytes === 0) {
@@ -254,14 +267,14 @@ const checkCategoryAndFile = async (alpha, beta, betaUrl, marker, results) => {
     data: { confirmation: visibility.confirmation, signature: visibility.signature, impact_confirmed: true },
   }), 'make only the uploaded fixture private');
   if (restrictedFile.status !== 'completed') throw new Error('fixture visibility conversion did not complete');
-  const afterPrivate = await alpha.page.request.get(deliveryUrl.href, { failOnStatusCode: false });
+  const afterPrivate = await api(alpha.page).get(deliveryUrl.href, { failOnStatusCode: false });
   if (afterPrivate.status() >= 200 && afterPrivate.status() < 300) throw new Error('old public delivery URL survived private conversion');
   const privateAccess = assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/api/v1/files/resolve', {
     data: { file_key: upload.file_key, operation: 'download_original' },
   }), 'resolve owner private download');
   const privateUrl = await browserUrl(alpha.page, privateAccess.url, `${tenantAdminUrl}/`);
   if (privateUrl.origin !== (await browserUrl(alpha.page, tenantAdminUrl)).origin) throw new Error('private fixture delivery left its registered origin');
-  const privateDelivered = await alpha.page.request.get(privateUrl.href, { failOnStatusCode: false });
+  const privateDelivered = await api(alpha.page).get(privateUrl.href, { failOnStatusCode: false });
   if (privateDelivered.status() !== 200 || !(await privateDelivered.body()).equals(png)) throw new Error('owner private download did not preserve exact bytes');
   if (beta) {
     const deniedPrivate = await request(beta, betaUrl, 'POST', '/adminapi/api/v1/files/resolve', {
@@ -270,9 +283,9 @@ const checkCategoryAndFile = async (alpha, beta, betaUrl, marker, results) => {
     if (envelopeSuccess(deniedPrivate) || ![403, 404].includes(deniedPrivate.status)) throw new Error('foreign Tenant resolved a private owner file');
   }
   assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/peanut.file.delete', { data: { ids: [upload.id] } }), 'delete uploaded file');
-  const afterDeliveryDelete = await alpha.page.request.get(deliveryUrl.href, { failOnStatusCode: false });
+  const afterDeliveryDelete = await api(alpha.page).get(deliveryUrl.href, { failOnStatusCode: false });
   if (afterDeliveryDelete.status() >= 200 && afterDeliveryDelete.status() < 300) throw new Error('deleted file remained available from its delivery URL');
-  const afterPrivateDelete = await alpha.page.request.get(privateUrl.href, { failOnStatusCode: false });
+  const afterPrivateDelete = await api(alpha.page).get(privateUrl.href, { failOnStatusCode: false });
   if (afterPrivateDelete.status() >= 200 && afterPrivateDelete.status() < 300) throw new Error('deleted file retained its private delivery grant');
   const afterFileDelete = listItems(assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/peanut.file.list', {
     query: { type: 10, name: marker, page_no: 1, page_size: 20 },
@@ -297,11 +310,12 @@ if (profile === 'baseline') {
   const alpha = await loginTenant(page, tenantAdminUrl, adminEmail, adminPassword, 'admin');
   /* Retain the authenticated browser session; all business mutations below use
      the real application routes in the native lease-owned qualification DB. */
-  results.admin = { url: page.url(), title: await page.title() };
-  const browser = page.context().browser();
-  if (!browser) throw new Error('baseline business qualification requires a browser');
+  results.admin = iab ? { url: alpha.url, title: alpha.title } : { url: page.url(), title: await page.title() };
+  const browser = iab ? null : page.context().browser();
+  if (!iab && !browser) throw new Error('baseline business qualification requires a browser');
   const businessContexts = [];
   const isolatedPage = async () => {
+    if (iab) return null; // The IAB driver uses serial UI sessions, never simulated BrowserContexts.
     const context = await browser.newContext();
     businessContexts.push(context);
     return context.newPage();
@@ -311,12 +325,15 @@ if (profile === 'baseline') {
   try {
     if (mode === 'multi-tenant') {
       const platformPage = await isolatedPage();
-      await platformPage.goto(`${platformUrl}/platform/`, { waitUntil: 'networkidle' });
-      await platformPage.locator('input').nth(0).fill(platformEmail);
-      await platformPage.locator('input').nth(1).fill(platformPassword);
-      await platformPage.getByRole('button', { name: /登录实例平台/i }).click();
-      await platformPage.getByText('概览', { exact: true }).first().waitFor({ state: 'visible', timeout: 20000 });
-      platform = { page: platformPage, token: await platformPage.evaluate(() => localStorage.getItem('peanut-platform-token')) };
+      if (iab) platform = await iab.login('platform', platformUrl);
+      else {
+        await platformPage.goto(`${platformUrl}/platform/`, { waitUntil: 'networkidle' });
+        await platformPage.locator('input').nth(0).fill(platformEmail);
+        await platformPage.locator('input').nth(1).fill(platformPassword);
+        await platformPage.getByRole('button', { name: /登录实例平台/i }).click();
+        await platformPage.getByText('概览', { exact: true }).first().waitFor({ state: 'visible', timeout: 20000 });
+        platform = { page: platformPage, token: await platformPage.evaluate(() => localStorage.getItem('peanut-platform-token')) };
+      }
       if (!platform.token) throw new Error('platform login produced no token');
       const betaEmail = required('P0E_TENANT_BETA_EMAIL');
       const betaPassword = required('P0E_TENANT_BETA_PASSWORD');
@@ -361,8 +378,8 @@ if (profile === 'baseline') {
       const platformOverreach = await request(alpha, platformUrl, 'GET', '/platformapi/session/info');
       if (envelopeSuccess(platformOverreach) || ![401, 403].includes(platformOverreach.status)) throw new Error('Tenant token accepted by Platform');
       results.tenant_boundary = { independent_logins: true, cross_host_rejected: true, tenant_on_platform_rejected: true };
-      await platformPage.screenshot({ path: screenshotPath('platform'), fullPage: true });
-      results.platform = { url: platformPage.url() };
+      if (!iab) await platformPage.screenshot({ path: screenshotPath('platform'), fullPage: true });
+      results.platform = { url: iab ? platform.url : platformPage.url() };
     }
 
     const permissionCatalog = listItems(assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/role/permissions/catalog', {
@@ -412,8 +429,75 @@ if (profile === 'baseline') {
     if (restrictedAdministrator.name !== restrictedName || restrictedAdministrator.root !== 0
       || restrictedAdministrator.disable !== 0 || restrictedAdministrator.role_id.length !== 1
       || restrictedAdministrator.role_id[0] !== role.id) throw new Error('restricted administrator identity or grants changed');
+    const checkWebsite = async () => {
+      results.navigation = [];
+      for (const [route, api] of [['/system/role', '/adminapi/role/lists'], ['/system/file', '/adminapi/peanut.file.category.list'], ['/app-setting/website', '/adminapi/config/website']]) {
+        const apiUrl = (await browserUrl(page, api, `${tenantAdminUrl}/`)).href;
+        if (iab) {
+          const observed = await iab.navigate(`${tenantAdminUrl}/admin${route}`, apiUrl);
+          assertSuccess(observed.response, `navigate ${route}`);
+          if ((await browserUrl(page, observed.url)).pathname !== `/admin${route}`) throw new Error(`navigation left ${route}`);
+          results.navigation.push(route);
+          continue;
+        }
+        // Retain responses during bounded navigation; the response wait starts after
+        // page bootstrap and still validates the actual page's exact GET endpoint.
+        const matches = (response) => (response.url() === apiUrl
+          || response.url().startsWith(`${apiUrl}?`)) && response.request().method() === 'GET';
+        let loaded = null;
+        const retain = (response) => { if (matches(response)) loaded = response; };
+        page.on('response', retain);
+        try {
+          await page.goto(`${tenantAdminUrl}/admin${route}`, { waitUntil: 'networkidle' });
+          assertSuccess(await responseValue(loaded || await page.waitForResponse(matches)), `navigate ${route}`);
+          if ((await browserUrl(page, page.url())).pathname !== `/admin${route}`) throw new Error(`navigation left ${route}`);
+          results.navigation.push(route);
+        } finally {
+          page.off('response', retain);
+        }
+      }
+      const before = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/config/website'), 'read original website');
+      const betaBefore = beta ? assertSuccess(await request(beta, tenantBetaUrl, 'GET', '/adminapi/config/website'), 'read Beta website') : null;
+      try {
+        // The actual browser form owns the save; API read-back proves persistence.
+        if (iab) assertSuccess(await iab.saveWebsite(marker, `${tenantAdminUrl}/adminapi/config/website/save`), 'save website through browser form');
+        else {
+          await page.locator('.el-form-item').filter({ hasText: '网站名称' }).locator('input').fill(marker);
+          const saveUrl = (await browserUrl(page, '/adminapi/config/website/save', `${tenantAdminUrl}/`)).href;
+          const saved = page.waitForResponse((response) => (response.url() === saveUrl
+            || response.url().startsWith(`${saveUrl}?`)) && response.request().method() === 'POST');
+          await page.getByRole('button', { name: '保存', exact: true }).click();
+          assertSuccess(await responseValue(await saved), 'save website through browser form');
+        }
+        const after = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/config/website'), 'read saved website');
+        if (after.name !== marker) throw new Error('website browser save was not retained');
+        if (beta) {
+          const betaAfter = assertSuccess(await request(beta, tenantBetaUrl, 'GET', '/adminapi/config/website'), 'read isolated Beta website');
+          if (JSON.stringify(betaAfter) !== JSON.stringify(betaBefore)) throw new Error('Alpha website mutation changed Beta settings');
+        }
+        const publicConfig = assertSuccess(await responseValue(await api(page).get(`${tenantAdminUrl}/api/index/config`)), 'public website config');
+        if (publicConfig?.website?.name !== marker) throw new Error('public website config did not retain the saved brand');
+        results.pc = await assertPage(page, `${tenantAdminUrl}/pc/`, 'pc');
+        results.h5 = await assertPage(page, `${tenantAdminUrl}/mobile/`, 'h5');
+      } finally {
+        assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/config/website/save', { data: before }), 'restore website settings');
+        const restored = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/config/website'), 'verify restored website');
+        if (JSON.stringify(restored) !== JSON.stringify(before)) throw new Error('original website settings were not preserved');
+      }
+      results.website = { browser_saved: true, read_back: true, public_read: true, original_restored: true, beta_unchanged: beta !== null };
+    };
+    if (iab) await checkWebsite();
     const restricted = await loginTenant(await isolatedPage(), tenantAdminUrl, restrictedEmail, restrictedPassword, 'restricted');
     if (restricted.token === alpha.token) throw new Error('restricted login shared the owner token');
+    if (iab) {
+      const actors = [[alpha, tenantAdminUrl, adminEmail], [restricted, tenantAdminUrl, restrictedEmail]];
+      if (beta) actors.push([beta, tenantBetaUrl, required('P0E_TENANT_BETA_EMAIL')]);
+      for (const [actor, origin, expectedAccount] of actors) {
+        const info = assertSuccess(await request(actor, origin, 'GET', '/adminapi/login/info'), 'read independent browser login identity');
+        if (info?.username !== expectedAccount) throw new Error('serial IAB login does not match its independent account');
+      }
+      results.browser_session = { driver: 'codex-iab', ui: 'serial', independent_server_identities: true };
+    }
     const restrictedRoutes = assertSuccess(await request(restricted, tenantAdminUrl, 'GET', '/adminapi/menu/route'), 'restricted navigation');
     for (const forbidden of ['/system/role', '/app-setting/website', '/system/file']) {
       if (JSON.stringify(restrictedRoutes).includes(forbidden)) throw new Error('restricted menu exposed privileged navigation');
@@ -429,57 +513,13 @@ if (profile === 'baseline') {
       results.permissions.denied.push(path);
     }
     const deniedUpload = await request(restricted, tenantAdminUrl, 'POST', '/adminapi/peanut.file.upload.image', {
-      multipart: { cid: '0', file: { name: `${marker}.png`, mimeType: 'image/png', buffer: await restricted.page.screenshot({ type: 'png' }) } },
+      multipart: { cid: '0', file: { name: `${marker}.png`, mimeType: 'image/png', buffer: iab ? restricted.png : await restricted.page.screenshot({ type: 'png' }) } },
     });
     if (envelopeSuccess(deniedUpload) || !(deniedUpload.status === 403 || deniedUpload.json?.code === 40300)) throw new Error('restricted file upload was not denied');
     results.permissions.denied.push('/adminapi/peanut.file.upload.image');
     results.permissions.revocation = await checkRoleRevocation(alpha, restricted, tenantAdminUrl, role.id, marker);
 
-    results.navigation = [];
-    for (const [route, api] of [['/system/role', '/adminapi/role/lists'], ['/system/file', '/adminapi/peanut.file.category.list'], ['/app-setting/website', '/adminapi/config/website']]) {
-      const apiUrl = (await browserUrl(page, api, `${tenantAdminUrl}/`)).href;
-      // Retain responses during bounded navigation; the response wait starts after
-      // page bootstrap and still validates the actual page's exact GET endpoint.
-      const matches = (response) => (response.url() === apiUrl
-        || response.url().startsWith(`${apiUrl}?`)) && response.request().method() === 'GET';
-      let loaded = null;
-      const retain = (response) => { if (matches(response)) loaded = response; };
-      page.on('response', retain);
-      try {
-        await page.goto(`${tenantAdminUrl}/admin${route}`, { waitUntil: 'networkidle' });
-        assertSuccess(await responseValue(loaded || await page.waitForResponse(matches)), `navigate ${route}`);
-        if ((await browserUrl(page, page.url())).pathname !== `/admin${route}`) throw new Error(`navigation left ${route}`);
-        results.navigation.push(route);
-      } finally {
-        page.off('response', retain);
-      }
-    }
-    const before = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/config/website'), 'read original website');
-    const betaBefore = beta ? assertSuccess(await request(beta, tenantBetaUrl, 'GET', '/adminapi/config/website'), 'read Beta website') : null;
-    try {
-      // The actual browser form owns the save; API read-back proves persistence.
-      await page.locator('.el-form-item').filter({ hasText: '网站名称' }).locator('input').fill(marker);
-      const saveUrl = (await browserUrl(page, '/adminapi/config/website/save', `${tenantAdminUrl}/`)).href;
-      const saved = page.waitForResponse((response) => (response.url() === saveUrl
-        || response.url().startsWith(`${saveUrl}?`)) && response.request().method() === 'POST');
-      await page.getByRole('button', { name: '保存', exact: true }).click();
-      assertSuccess(await responseValue(await saved), 'save website through browser form');
-      const after = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/config/website'), 'read saved website');
-      if (after.name !== marker) throw new Error('website browser save was not retained');
-      if (beta) {
-        const betaAfter = assertSuccess(await request(beta, tenantBetaUrl, 'GET', '/adminapi/config/website'), 'read isolated Beta website');
-        if (JSON.stringify(betaAfter) !== JSON.stringify(betaBefore)) throw new Error('Alpha website mutation changed Beta settings');
-      }
-      const publicConfig = assertSuccess(await responseValue(await page.request.get(`${tenantAdminUrl}/api/index/config`)), 'public website config');
-      if (publicConfig?.website?.name !== marker) throw new Error('public website config did not retain the saved brand');
-      results.pc = await assertPage(page, `${tenantAdminUrl}/pc/`, 'pc');
-      results.h5 = await assertPage(page, `${tenantAdminUrl}/mobile/`, 'h5');
-    } finally {
-      assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/config/website/save', { data: before }), 'restore website settings');
-      const restored = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/config/website'), 'verify restored website');
-      if (JSON.stringify(restored) !== JSON.stringify(before)) throw new Error('original website settings were not preserved');
-    }
-    results.website = { browser_saved: true, read_back: true, public_read: true, original_restored: true, beta_unchanged: beta !== null };
+    if (!iab) await checkWebsite();
     await checkCategoryAndFile(alpha, beta, tenantBetaUrl, marker, results);
     results.docs = await checkPublicDocuments(page);
     return { schema_version: 1, mode, profile, status: 'passed', results };
