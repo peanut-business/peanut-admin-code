@@ -911,15 +911,6 @@
   }
 
   @media (max-width: 768px) {
-    .admin-directory-title {
-      font-size: 18px;
-    }
-
-    .admin-directory-search :deep(.el-card__body),
-    .admin-directory-list :deep(.el-card__body) {
-      padding: 14px;
-    }
-
     .admin-directory-pagination {
       justify-content: flex-start;
     }
