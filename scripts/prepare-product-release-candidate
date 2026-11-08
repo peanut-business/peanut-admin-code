@@ -386,15 +386,19 @@ def verify_npm_provenance_signature(canonical_bundle: str, version: str) -> None
     try:
         npm_root = subprocess.check_output([npm_command(), "root", "--global"], cwd=ROOT, text=True, timeout=30).strip()
         program = r"""
-const fs = require('node:fs');
 const path = require('node:path');
 const sigstore = require(path.join(process.argv[1], 'npm/node_modules/sigstore'));
-const bundle = JSON.parse(fs.readFileSync(0, 'utf8'));
-sigstore.verify(bundle, {
-  certificateIdentityURI: `https://github.com/peanut-business/peanut-admin-core-web/.github/workflows/release.yml@refs/tags/v${process.argv[2]}`,
-  certificateIssuer: 'https://token.actions.githubusercontent.com',
-  tufForceCache: true,
-}).catch(error => { console.error(error.message); process.exitCode = 1; });
+(async () => {
+  process.stdin.setEncoding('utf8');
+  let input = '';
+  for await (const chunk of process.stdin) input += chunk;
+  const bundle = JSON.parse(input);
+  await sigstore.verify(bundle, {
+    certificateIdentityURI: `https://github.com/peanut-business/peanut-admin-core-web/.github/workflows/release.yml@refs/tags/v${process.argv[2]}`,
+    certificateIssuer: 'https://token.actions.githubusercontent.com',
+    tufForceCache: true,
+  });
+})().catch(error => { console.error(error.message); process.exitCode = 1; });
 """
         result = subprocess.run([node, "-e", program, npm_root, version], input=canonical_bundle,
                                 cwd=ROOT, text=True, capture_output=True, timeout=90)
