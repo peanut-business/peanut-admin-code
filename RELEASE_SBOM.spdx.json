@@ -613,8 +613,8 @@
     },
     {
       "name": "peanut-business/peanut-reference-codes",
-      "SPDXID": "SPDXRef-Package-composer-2af7e6ae7986b7044c55",
-      "versionInfo": "1.0.25",
+      "SPDXID": "SPDXRef-Package-composer-0e9d614796f6db0f4caa",
+      "versionInfo": "1.0.26",
       "downloadLocation": "app/modules/peanut/reference_codes",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
@@ -626,7 +626,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:composer/peanut-business/peanut-reference-codes@1.0.25"
+          "referenceLocator": "pkg:composer/peanut-business/peanut-reference-codes@1.0.26"
         }
       ]
     },
@@ -59886,7 +59886,7 @@
     {
       "spdxElementId": "SPDXRef-Package-Peanut-Admin",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-composer-2af7e6ae7986b7044c55",
+      "relatedSpdxElement": "SPDXRef-Package-composer-0e9d614796f6db0f4caa",
       "comment": "composer; runtime"
     },
     {

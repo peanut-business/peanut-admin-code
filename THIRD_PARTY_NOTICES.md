@@ -123,7 +123,7 @@ These 54 packages are installed with `composer install --no-dev` in the producti
 | `peanut-business/peanut-identity` | `4.0.0-rc.59` | `Apache-2.0` | app/modules/peanut/identity |
 | `peanut-business/peanut-integration` | `1.0.29` | `Apache-2.0` | app/modules/peanut/integration |
 | `peanut-business/peanut-ops` | `1.0.33` | `Apache-2.0` | app/modules/peanut/ops |
-| `peanut-business/peanut-reference-codes` | `1.0.25` | `Apache-2.0` | app/modules/peanut/reference_codes |
+| `peanut-business/peanut-reference-codes` | `1.0.26` | `Apache-2.0` | app/modules/peanut/reference_codes |
 | `peanut-business/peanut-settings` | `1.0.27` | `Apache-2.0` | app/modules/peanut/settings |
 | `peanut-business/peanut-task` | `1.0.32` | `Apache-2.0` | app/modules/peanut/task |
 | `psr/container` | `2.0.2` | `MIT` | https://github.com/php-fig/container.git |

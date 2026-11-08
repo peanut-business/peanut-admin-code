@@ -282,7 +282,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "79936d2b3e086e7abe4dc45af0642fdfa0d067d317e642f2c0dd2972a3549003"
+            "source_sha256": "01d72a6dd427ac298ad465f93fd1dc71fdd7f308e742c780cda61d9be90333dd"
         },
         {
             "path": "THIRD_PARTY_NOTICES.md",
@@ -296,7 +296,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7e8c2410d44a21eabb96c8d2e9d577047d0d9cc97844c142b6edff69078cec29"
+            "source_sha256": "5187d898cafb64aad6b111307c954c7f7e00cac49a7a3cf34311cc75fce7070c"
         },
         {
             "path": "compose.yaml",
@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d4727061f1a012690dcd3f5fbe5fcde08fd5c0566dc48bd766e148b1f3c0836d"
+            "source_sha256": "066c6b76f368e5f8c80c4793aa2b2ef08fa9db16590636e433f38176cc314779"
         },
         {
             "path": "docs/maintenance/README.md",
@@ -1109,7 +1109,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "612791044f152f5a208cad864f901e171e6ac3db8cfbb8a176e97975e56fb7b8"
+            "source_sha256": "b147fae86a8a41355d968c436a66ff0a3a5075ec54b0dc3d684b89244b1e7ebe"
         },
         {
             "path": "pc/.env.example",
@@ -14040,7 +14040,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "03862a95fb659f5554e6a243f865053310b55f001a721b9c03a1f51aa6a4c0d2"
+            "source_sha256": "cb0c6e5758b127da9428dfdf6560a70cf0fde184b0b57e7503a9c9c8b1902ac9"
         },
         {
             "path": "server/app/modules/peanut/reference_codes/database/migrations/20261101010005_initial_reference_codes_schema.php",
@@ -14068,7 +14068,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "32db464b4a02d4fa8933d74edd07db66d2af7cdb95fda9920789bd28667270bb"
+            "source_sha256": "2b2c92ccf43541256d28aef8116dab81b73b6745c317b6b01594e3187bd094f5"
         },
         {
             "path": "server/app/modules/peanut/reference_codes/resources/menus.json",
@@ -17406,7 +17406,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ce4e701dbeb2f573a0a496ed5cde9d7bea3fffb41e71d51624a2c447dd5d399c"
+            "source_sha256": "7eabebc8bc2f0a3806a0593fc8fa62c10714312e6edff27876fffc08d75f93e8"
         },
         {
             "path": "server/composer.lock",
@@ -17420,7 +17420,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "841bd217280ec01b960ac3f7a99e09a2a0127f69b9b03484ed8f04e8bb54846b"
+            "source_sha256": "443477fc07797df86fca53b812f146a60e1a0a1426b38168955296aa9fea4402"
         },
         {
             "path": "server/config/admin_api_access.php",
@@ -19280,7 +19280,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eea18bb1085174c7aad69e9d65a5671da846d6d06651e3dcad131c3cbc707035"
+            "source_sha256": "b926c4a5ecf528dca51df6362e31dd31f505f358dd0b4a42f6450915fcfbce89"
         },
         {
             "path": "server/generated/openapi.json",
@@ -26876,7 +26876,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2b4fa89c445b12c0a7090e0b891996a7df590e1ebdcd2ee0983ce9b8199da4f3"
+            "source_sha256": "d20a150a9b3aa3fd19eecd452cde41a0ef9241f229fec3a038eec5195d3caade"
         },
         {
             "path": "web/src/modules/peanut-reference-codes/runtime/LICENSE",
