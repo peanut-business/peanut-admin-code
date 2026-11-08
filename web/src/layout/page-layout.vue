@@ -1,25 +1,68 @@
 <template>
   <router-view v-slot="{ Component, route }">
-    <transition name="fade" mode="out-in" appear>
+    <keep-alive
+      :include="cacheNamesFor(route.fullPath, route.meta.ignoreCache === true)"
+    >
       <component
-        :is="Component"
-        v-if="route.meta.ignoreCache"
+        :is="tabWrapper(route.fullPath)"
+        :component="Component"
+        v-if="!route.meta.ignoreCache"
         :key="route.fullPath"
       />
-      <keep-alive v-else :include="cacheList">
-        <component :is="Component" :key="route.fullPath" />
-      </keep-alive>
-    </transition>
+    </keep-alive>
+    <component
+      :is="Component"
+      v-if="route.meta.ignoreCache"
+      :key="route.fullPath"
+    />
   </router-view>
 </template>
 
 <script lang="ts" setup>
-  import { computed } from 'vue';
+  import {
+    cloneVNode,
+    defineComponent,
+    type Component,
+    type PropType,
+    type VNode,
+  } from 'vue';
   import { useTabBarStore } from '@/store';
 
   const tabBarStore = useTabBarStore();
+  const wrappersByPath = new Map<string, Component>();
 
-  const cacheList = computed(() => tabBarStore.getCacheList);
+  const wrapperName = (fullPath: string) => `PageTab_${encodeURIComponent(fullPath)}`;
+
+  const cacheNamesFor = (fullPath: string, ignoreCache: boolean) => {
+    const cachedPaths = new Set(tabBarStore.getCacheList);
+    if (!ignoreCache) cachedPaths.add(fullPath);
+
+    wrappersByPath.forEach((_wrapper, path) => {
+      if (!cachedPaths.has(path)) wrappersByPath.delete(path);
+    });
+
+    return [...cachedPaths].map(wrapperName);
+  };
+
+  const tabWrapper = (fullPath: string): Component => {
+    const existing = wrappersByPath.get(fullPath);
+    if (existing) return existing;
+
+    const wrapper = defineComponent({
+      name: wrapperName(fullPath),
+      props: {
+        component: {
+          type: Object as PropType<VNode>,
+          required: true,
+        },
+      },
+      setup(props) {
+        return () => cloneVNode(props.component);
+      },
+    });
+    wrappersByPath.set(fullPath, wrapper);
+    return wrapper;
+  };
 </script>
 
 <style scoped lang="less"></style>

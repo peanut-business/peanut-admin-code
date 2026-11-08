@@ -36,7 +36,7 @@ export interface ShellUserOptions {
   presets: readonly ('admin' | 'workspace')[];
   layouts: readonly ShellLayout[];
   navigationModes: readonly ShellNavigationMode[];
-  densities: readonly ('comfortable' | 'compact')[];
+  densities: readonly ('comfortable' | 'compact' | 'spacious')[];
   modes: readonly ('light' | 'dark')[];
 }
 
@@ -44,6 +44,6 @@ export const defaultShellUserOptions: ShellUserOptions = {
   presets: ['admin', 'workspace'],
   layouts: ['admin', 'workspace'],
   navigationModes: ['tree', 'grouped', 'top'],
-  densities: ['comfortable', 'compact'],
+  densities: ['comfortable', 'compact', 'spacious'],
   modes: ['light', 'dark'],
 };

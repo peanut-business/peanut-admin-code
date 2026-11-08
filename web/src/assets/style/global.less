@@ -98,7 +98,7 @@ body {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px 24px;
-  margin-bottom: 24px;
+  margin-bottom: var(--pa-shell-spacing);
 }
 
 .pa-page-header__title {
@@ -124,7 +124,57 @@ body {
   min-width: 0;
 }
 
+// A single filter/results surface; density comes from the owning Shell.
+.pa-page-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr)) auto;
+  align-items: end;
+  gap: var(--pa-shell-gap) var(--pa-shell-spacing);
+  width: 100%;
+
+  .el-form-item {
+    min-width: 0;
+    margin: 0;
+  }
+  .el-form-item__label {
+    height: auto;
+    margin-bottom: 8px;
+    color: var(--el-text-color-regular);
+    line-height: 20px;
+  }
+  .el-form-item__content,
+  .el-select {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+.pa-page-results-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pa-shell-gap);
+  margin-top: var(--pa-shell-spacing);
+  padding-block: var(--pa-shell-gap);
+  border-top: 1px solid var(--el-border-color-lighter);
+  color: var(--el-text-color-secondary);
+}
+
+:where(.pa-page-content) .general-card > .el-card__body {
+  padding: var(--pa-shell-spacing);
+}
+
+@media (max-width: 1200px) {
+  .pa-page-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 768px) {
+  .pa-page-filters {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
   .pa-page-header {
     gap: 12px;
     margin-bottom: 16px;
@@ -140,6 +190,9 @@ body {
     & > .el-card__body {
       padding: 14px;
     }
+  }
+  :where(.pa-page-content) .general-card > .el-card__body {
+    padding: 16px;
   }
 }
 

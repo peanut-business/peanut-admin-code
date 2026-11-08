@@ -15,9 +15,9 @@
       </template>
     </PageHeader>
 
-    <el-card class="general-card admin-directory-search">
+    <el-card class="general-card admin-directory-list">
       <PageToolbar :label="$t('menu.system.admin')">
-        <el-form class="admin-directory-filters" :model="queryParams" inline>
+        <el-form class="pa-page-filters" :model="queryParams" label-position="top">
         <el-form-item prop="account" :label="$t('systemAdmin.search.account')">
           <el-input
             v-model="queryParams.account"
@@ -40,7 +40,6 @@
             :disabled="!canReadRoles"
             clearable
             :placeholder="$t('systemAdmin.search.role.all')"
-            style="width: 180px"
             ><el-option
               v-for="option in roleOptions"
               :key="option.value"
@@ -48,7 +47,7 @@
               :value="option.value"
           /></el-select>
         </el-form-item>
-        <el-form-item>
+        <el-form-item class="pa-page-filters__actions">
           <el-space>
             <el-button type="primary" @click="search">
               <template #icon><Search /></template>
@@ -58,17 +57,17 @@
               <template #icon><Refresh /></template>
               {{ $t('systemAdmin.operation.reset') }}
             </el-button>
-            <el-button @click="openExport">
-              <template #icon><Download /></template>
-              {{ $t('systemAdmin.operation.export') }}
-            </el-button>
           </el-space>
         </el-form-item>
         </el-form>
       </PageToolbar>
-    </el-card>
-
-    <el-card class="general-card admin-directory-list">
+      <div class="pa-page-results-toolbar">
+        <span>{{ $t('systemAdmin.pagination.total', { total: pagination.total }) }}</span>
+        <el-button @click="openExport">
+          <template #icon><Download /></template>
+          {{ $t('systemAdmin.operation.export') }}
+        </el-button>
+      </div>
       <div class="admin-directory-table-scroll">
         <el-table row-key="id" :loading="loading" :data="renderData">
         <el-table-column
@@ -852,7 +851,7 @@
   .admin-directory-page {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: var(--pa-shell-spacing);
     min-width: 0;
     width: 100%;
 
@@ -861,30 +860,8 @@
     }
   }
 
-  .admin-directory-search,
   .admin-directory-list {
     min-width: 0;
-  }
-
-  .admin-directory-search :deep(.el-card__body) {
-    padding-bottom: 4px;
-  }
-
-  .admin-directory-filters {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 0 12px;
-
-    :deep(.el-form-item) {
-      max-width: 100%;
-      margin-right: 0;
-    }
-
-    :deep(.el-form-item__content) {
-      min-width: 0;
-      flex-wrap: wrap;
-    }
   }
 
   .admin-directory-table-scroll {

@@ -6,6 +6,8 @@
 
 参考蚂蚁集团 Ant Design 的[价值观](https://ant.design/docs/spec/values)、[布局](https://ant.design/docs/spec/layout)、[色彩](https://ant.design/docs/spec/colors)、[字体](https://ant.design/docs/spec/font)（查阅：2026-11-08；参考项目 MIT 许可）。借鉴空间节奏、语义色和排版原则；下述参数属于 Peanut 项目约定，不是 Ant 原文。
 
+管理框架配置另参考 [Vue Vben Admin 的 preferences](https://github.com/vbenjs/vue-vben-admin/blob/main/packages/%40core/preferences/src/config.ts)（2026-11-08 查阅，MIT）：布局、导航、主题和标签缓存分别配置。采用其职责分离思路，不复制整套配置、组件、状态管理或依赖；Peanut 的实际入口仍是下文现有 Shell、Page 和 Element Plus 合同。
+
 **继续使用 Vue、Element Plus 和现有 PageContent / PageHeader / PageToolbar。** 不引入 Ant 组件、CSS reset、第二套主题或 Schema 页面引擎。Element Plus 拥有控件交互、尺寸及状态；Web Core 拥有无业务组件和 Shell 主题合同；Code 拥有应用视觉装配与官方业务样板；模块拥有业务内容及局部样式。
 
 应用默认样式位于 `web/src/assets/style/global.less`。只针对明确的 Page 类和已有 `.general-card` 装配样式，不能全局覆盖 `.el-*`；不增加 `!important` 压过应用定制。先核实际 CSS 加载顺序与选择器优先级，新增默认样式不能抢占模块自有布局。
@@ -26,7 +28,8 @@
 
 ## 空间与排版
 
-- 采用 4 / 8px 的间距节奏。桌面分区24px、面板内边距24px、字段/操作组8–16px；390px下分区12–16px、面板14–16px。不叠加 Shell 与整页 padding。
+- 采用 4px 基础间距。桌面分区和面板内边距沿 Shell spacing（紧凑12px、舒适20px、宽松28px），字段/操作组沿 Shell gap（8/12/16px）；390px下分区12–16px、面板14–16px。不叠加 Shell 与整页 padding。
+- 密度分为紧凑、舒适、宽松，由 Web Core 的同一 Shell theme 计算控件高度与空间变量，页面消费变量，不自建密度开关。应用可限制允许选项；用户选择不改应用自有主题或权限。
 - 页面标题24px/32px、600字重，窄屏20px/28px；分组标题16–18px；正文沿用系统字体14px/22px，说明12–13px。通常保留三个文本层级，数字按列对齐。
 - 单一 h1，标题左对齐，主操作在右侧且可换行。普通卡片圆角8px、轻边框、无常驻投影；浮层保留 Element Plus 默认投影。
 - “大气”来自层次、对齐和内容节奏；不靠巨型按钮、装饰图标或虚构数据填满面板。密集页可用既有 compact 密度，画布/编辑器保留实际任务空间。
@@ -42,6 +45,14 @@
 | 复杂工作区 | 标题/工具 → 画布/编辑区 → 属性/检查 | 保留独立分栏与滚动；窄屏工具换行、侧栏按真实能力切换；不强套列表卡片 |
 
 PageHeader 标题插槽包含 h1；PageToolbar 使用准确的本地化 label。Shell 已提供面包屑，业务页不重复创建。优先用 Element Plus 表格、表单、描述、空态、弹窗及已有领域组件。
+
+面包屑优先使用当前可见菜单的层级与名称；菜单是授权后的导航来源，路由元数据是无菜单页面的回退。多页签是工作区导航，位于内容面包屑上方。列表筛选与结果优先放在同一面板，筛选标签顶对齐，查询/重置属于筛选，导出属于结果操作；通用排版集中在 `global.less` 的 `pa-page-filters` / `pa-page-results-toolbar`，不复制到各模块。分组平铺菜单保留清楚的组标题、条目层次和选中状态，不把多级条目挤成连续文字。
+
+导航外观只在公共 menu/tab-bar 组件维护：分组标题为12px次级文字、不显示入口图标；根级直达入口与组内入口按层级对齐，宽松模式统一44px行高、组间16px，活动项使用主色浅底。尊重应用菜单数据及顺序，不靠改菜单或权限实现视觉排序。多页签采用轻量下划线活动态，避免再包一层白色卡片或用状态标签争夺内容标题的视觉权重。
+
+租户套餐摘要仅在工作台展示，不在 Shell 或普通内容页重复挂载。展示位置和授权执行相互独立，移除摘要不改变许可证、模块权益与接口鉴权。
+
+标签页以完整路由（包括 query/hash）区分工作项，菜单激活跟随实际路由而非点击事件。切换保留已缓存页面的本地状态；关闭标签清除对应工作项的缓存，不连带清除其他参数标签。浏览器刷新、退出及业务编辑器的未保存恢复另按各自合同处理，不能把 KeepAlive 宣称为持久草稿。
 
 ## 状态与真实验收
 

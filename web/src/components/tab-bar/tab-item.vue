@@ -118,7 +118,7 @@
     tabBarStore.deleteTag(idx, tag);
     if (props.itemData.fullPath === route.fullPath) {
       const latest = tagList.value[idx - 1]; // 获取队列的前一个tab
-      router.push({ name: latest.name });
+      router.push(latest.fullPath);
     }
   };
 
@@ -136,7 +136,7 @@
 
       tabBarStore.freshTabList(copyTagList);
       if (currentRouteIdx < index) {
-        router.push({ name: itemData.name });
+        router.push(itemData.fullPath);
       }
     } else if (value === Eaction.right) {
       const currentRouteIdx = findCurrentRouteIndex();
@@ -144,14 +144,14 @@
 
       tabBarStore.freshTabList(copyTagList);
       if (currentRouteIdx > index) {
-        router.push({ name: itemData.name });
+        router.push(itemData.fullPath);
       }
     } else if (value === Eaction.others) {
       const filterList = tagList.value.filter((el, idx) => {
         return idx === 0 || idx === props.index;
       });
       tabBarStore.freshTabList(filterList);
-      router.push({ name: itemData.name });
+      router.push(itemData.fullPath);
     } else if (value === Eaction.reload) {
       tabBarStore.deleteCache(itemData);
       await router.push({
@@ -160,7 +160,7 @@
           path: route.fullPath,
         },
       });
-      tabBarStore.addCache(itemData.name);
+      tabBarStore.addCache(itemData.fullPath);
     } else {
       tabBarStore.resetTabList();
       router.push({ name: DEFAULT_ROUTE_NAME });
@@ -169,12 +169,20 @@
 </script>
 
 <style scoped lang="less">
+  .el-tag {
+    padding-inline: 12px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    background: transparent;
+  }
   .tag-link {
     color: var(--el-text-color-regular);
     text-decoration: none;
   }
   .link-activated {
     color: var(--el-color-primary);
+    border-bottom-color: var(--el-color-primary);
     .tag-link {
       color: var(--el-color-primary);
     }

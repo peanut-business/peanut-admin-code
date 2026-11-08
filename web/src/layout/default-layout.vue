@@ -72,6 +72,7 @@
   import TabBar from '@/components/tab-bar/index.vue';
   import usePermission from '@/hooks/permission';
   import useResponsive from '@/hooks/responsive';
+  import useMenuTree, { findMenuRoutePath } from '@/components/menu/use-menu-tree';
   import PageLayout from './page-layout.vue';
   import ShellContributions from './shell-contributions.vue';
 
@@ -81,6 +82,7 @@
   const route = useRoute();
   const permission = usePermission();
   const { t } = useI18n();
+  const { menuTree } = useMenuTree();
   useResponsive(true);
   const appearance = computed(() => appStore.shellAppearance);
   const navigationMode = computed(() => appearance.value.navigationMode);
@@ -89,22 +91,21 @@
   );
   const theme = computed(() => ({
     ...appearance.value.theme,
-    colors: { primary: appStore.themeColor, ...appearance.value.theme.colors },
     tokens: {
       '--pa-shell-sidebar-width': `${appStore.menuWidth}px`,
       ...appearance.value.theme.tokens,
     },
   }));
   const breadcrumbs = computed(() =>
-    route.matched
-      .filter((item) => item.meta.locale || item.meta.title)
+    (findMenuRoutePath(menuTree.value, route) ?? route.matched)
+      .filter((item) => item.meta?.locale || item.meta?.title)
       .map((item) => {
-        const locale = String(item.meta.locale || '');
+        const locale = String(item.meta?.locale || '');
         return {
           path: item.path,
-          label: locale
-            ? t(locale)
-            : String(item.meta.title || item.name || ''),
+          label: item.meta?.title
+            ? String(item.meta.title)
+            : t(locale),
         };
       })
   );
@@ -116,6 +117,12 @@
     }
   );
   const drawerVisible = ref(false);
+  watch(
+    () => route.fullPath,
+    () => {
+      drawerVisible.value = false;
+    }
+  );
   provide('toggleDrawerMenu', () => {
     drawerVisible.value = !drawerVisible.value;
   });
@@ -156,7 +163,10 @@
       }
     }
     .tenant-breadcrumb {
-      margin-bottom: var(--pa-shell-spacing);
+      min-height: 20px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      line-height: 20px;
     }
     .tenant-page-tools:empty {
       display: none;

@@ -1,6 +1,7 @@
 export default {
   'settings.title': '页面配置',
-  'settings.themeColor': '主题色',
+  'settings.themeColor': '品牌主色',
+  'settings.themeColor.fixed': '品牌主色由应用固定设置',
   'settings.content': '内容区域',
   'settings.search': '搜索',
   'settings.search.empty': '没有匹配的菜单项',
@@ -30,6 +31,7 @@ export default {
   'settings.navigation.top': '顶部',
   'settings.density.comfortable': '舒适',
   'settings.density.compact': '紧凑',
+  'settings.density.spacious': '宽松',
   'settings.theme.light': '亮色',
   'settings.theme.dark': '暗色',
   'settings.tabBar': '多页签',
@@ -37,10 +39,10 @@ export default {
   'settings.otherSettings': '其他设置',
   'settings.colorWeak': '色弱模式',
   'settings.alertContent':
-    '配置之后仅是临时生效，要想真正作用于项目，点击下方的 "复制配置" 按钮，将配置替换到 settings.json 中即可。',
+    '主题模式、品牌主色、布局、导航、密度和多页签保存在当前浏览器；其他页面配置仅在本次会话生效。复制配置可将当前值作为 web/src/config/settings.json 的应用默认值。',
   'settings.copySettings': '复制配置',
   'settings.copySettings.message':
-    '复制成功，请粘贴到 src/settings.json 文件中',
+    '复制成功，请按需粘贴到 web/src/config/settings.json 作为应用默认值。',
   'settings.close': '关闭',
   'settings.color.tooltip':
     '根据主题颜色生成的 10 个梯度色（将配置复制到项目中，主题色才能对亮色 / 暗黑模式同时生效）',

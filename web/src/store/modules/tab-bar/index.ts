@@ -7,7 +7,6 @@ import {
 } from '@peanut-admin/ui-vue';
 import {
   DEFAULT_ROUTE,
-  DEFAULT_ROUTE_NAME,
   REDIRECT_ROUTE_NAME,
 } from '@/router/constants';
 import { isString } from '@/utils/is';
@@ -16,7 +15,7 @@ const BAN_LIST = [REDIRECT_ROUTE_NAME];
 
 const useAppStore = defineStore('tabBar', {
   state: (): TabBarState => ({
-    cacheTabList: new Set([DEFAULT_ROUTE_NAME]),
+    cacheTabList: new Set([DEFAULT_ROUTE.fullPath]),
     tagList: [DEFAULT_ROUTE],
   }),
 
@@ -32,20 +31,21 @@ const useAppStore = defineStore('tabBar', {
   actions: {
     updateTabList(route: RouteLocationNormalized) {
       if (BAN_LIST.includes(route.name as string)) return;
+      if (this.tagList.some((tag) => tag.fullPath === route.fullPath)) return;
       this.tagList.push(tabFromRoute(route));
       if (!route.meta.ignoreCache) {
-        this.cacheTabList.add(route.name as string);
+        this.cacheTabList.add(route.fullPath);
       }
     },
     deleteTag(idx: number, tag: TagProps) {
       this.tagList.splice(idx, 1);
-      this.cacheTabList.delete(tag.name);
+      if (!tag.ignoreCache) this.cacheTabList.delete(tag.fullPath);
     },
-    addCache(name: string) {
-      if (isString(name) && name !== '') this.cacheTabList.add(name);
+    addCache(fullPath: string) {
+      if (isString(fullPath) && fullPath !== '') this.cacheTabList.add(fullPath);
     },
     deleteCache(tag: TagProps) {
-      this.cacheTabList.delete(tag.name);
+      this.cacheTabList.delete(tag.fullPath);
     },
     freshTabList(tags: TagProps[]) {
       this.tagList = tags;
@@ -53,13 +53,13 @@ const useAppStore = defineStore('tabBar', {
       // 要先判断ignoreCache
       this.tagList
         .filter((el) => !el.ignoreCache)
-        .map((el) => el.name)
+        .map((el) => el.fullPath)
         .forEach((x) => this.cacheTabList.add(x));
     },
     resetTabList() {
       this.tagList = [DEFAULT_ROUTE];
       this.cacheTabList.clear();
-      this.cacheTabList.add(DEFAULT_ROUTE_NAME);
+      this.cacheTabList.add(DEFAULT_ROUTE.fullPath);
     },
   },
 });

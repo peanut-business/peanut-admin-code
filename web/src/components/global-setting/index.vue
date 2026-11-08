@@ -99,6 +99,16 @@
           />
         </el-select>
       </el-form-item>
+      <el-form-item :label="$t('settings.themeColor')">
+        <el-color-picker
+          v-if="!applicationPrimaryFixed"
+          :model-value="effectiveThemeColor"
+          @change="setThemeColor"
+        />
+        <span v-else class="fixed-theme-color">
+          {{ $t('settings.themeColor.fixed') }}
+        </span>
+      </el-form-item>
     </el-form>
     <Block :options="contentOpts" :title="$t('settings.content')" />
     <Block :options="othersOpts" :title="$t('settings.otherSettings')" />
@@ -124,8 +134,9 @@
   import { Setting } from '@element-plus/icons-vue';
   import { useI18n } from 'vue-i18n';
   import { useClipboard } from '@vueuse/core';
+  import { createShellTheme, SHELL_THEME_TOKENS } from '@peanut-admin/ui-vue/theme';
   import { useAppStore } from '@/store';
-  import { shellUserOptions } from '@/core/runtime';
+  import { shellPresentation, shellUserOptions } from '@/core/runtime';
   import Block from './block.vue';
 
   const emit = defineEmits(['cancel']);
@@ -134,6 +145,14 @@
   const { t } = useI18n();
   const { copy } = useClipboard();
   const appearance = computed(() => appStore.shellAppearance);
+  const applicationPrimaryFixed = computed(
+    () =>
+      shellPresentation.theme.colors?.primary !== undefined ||
+      shellPresentation.theme.tokens?.[SHELL_THEME_TOKENS.focusColor] !== undefined
+  );
+  const effectiveThemeColor = computed(
+    () => createShellTheme(appearance.value.theme)['--el-color-primary']
+  );
   const contentOpts = computed(() => [
     { name: 'settings.navbar', key: 'navbar', defaultVal: appStore.navbar },
     {
@@ -178,9 +197,23 @@
     },
   });
   const copySettings = async () => {
-    const text = JSON.stringify(appStore.$state, null, 2);
+    const text = JSON.stringify(
+      {
+        ...appStore.$state,
+        themeColor: effectiveThemeColor.value,
+        serverMenu: undefined,
+        serverMenuLoaded: undefined,
+        enabledTenantModules: undefined,
+        themeColorOverride: undefined,
+      },
+      null,
+      2
+    );
     await copy(text);
     ElMessage.success(t('settings.copySettings.message'));
+  };
+  const setThemeColor = (color: string | null) => {
+    if (color !== null) appStore.setThemeColor(color);
   };
   const setVisible = () => {
     appStore.updateSettings({ globalSettings: true });

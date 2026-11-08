@@ -1,5 +1,6 @@
 export default {
-  'menu.system.admin': 'Administrator Management',
+  'systemAdmin.pagination.total': '{total} administrators',
+  'menu.system.admin': 'Members',
 
   'systemAdmin.operation.create': 'New Administrator',
   'systemAdmin.operation.search': 'Search',

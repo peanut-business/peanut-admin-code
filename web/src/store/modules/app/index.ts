@@ -9,6 +9,42 @@ import { shellPresets, type ShellPresentation } from '@/layout/shell-presets';
 import type { AppSettings, AppState, ServerMenuRecord } from './types';
 import mapServerMenu from './server-menu';
 
+const presentationStorageKeys = {
+  preset: 'peanut-shell-preset',
+  layout: 'peanut-shell-layout',
+  navigationMode: 'peanut-shell-navigation-mode',
+  density: 'peanut-shell-density',
+  tabBar: 'peanut-tab-bar',
+  themeColor: 'peanut-theme-color',
+} as const;
+
+function readAllowedPreference<Value extends string>(
+  key: string,
+  choices: readonly Value[]
+): Value | undefined {
+  const value = localStorage.getItem(key);
+  return choices.find((choice) => choice === value);
+}
+
+function writeAllowedPreference<Value extends string>(
+  key: string,
+  choices: readonly Value[],
+  value: Value | undefined
+) {
+  if (value === undefined) {
+    localStorage.removeItem(key);
+  } else if (choices.includes(value)) {
+    localStorage.setItem(key, value);
+  }
+}
+
+function readStoredBoolean(key: string, fallback: boolean): boolean {
+  const value = localStorage.getItem(key);
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return fallback;
+}
+
 /** Filters user preferences and preset defaults through the application's choices. */
 function allowedAppearanceValue<Value extends string>(
   choices: readonly Value[],
@@ -26,10 +62,25 @@ function allowedAppearanceValue<Value extends string>(
 const useAppStore = defineStore('app', {
   state: (): AppState => ({
     ...defaultSettings,
-    shellPreset: undefined,
-    shellLayout: undefined,
-    shellNavigationMode: undefined,
-    shellDensity: undefined,
+    shellPreset: readAllowedPreference(
+      presentationStorageKeys.preset,
+      shellUserOptions.presets
+    ),
+    shellLayout: readAllowedPreference(
+      presentationStorageKeys.layout,
+      shellUserOptions.layouts
+    ),
+    shellNavigationMode: readAllowedPreference(
+      presentationStorageKeys.navigationMode,
+      shellUserOptions.navigationModes
+    ),
+    shellDensity: readAllowedPreference(
+      presentationStorageKeys.density,
+      shellUserOptions.densities
+    ),
+    tabBar: readStoredBoolean(presentationStorageKeys.tabBar, defaultSettings.tabBar),
+    themeColorOverride:
+      localStorage.getItem(presentationStorageKeys.themeColor) ?? undefined,
     theme:
       localStorage.getItem('element-theme') ??
       shellPresentation.theme.mode ??
@@ -69,6 +120,10 @@ const useAppStore = defineStore('app', {
           ...shellPresentation.theme,
           colors: {
             ...selected.theme.colors,
+            primary:
+              state.themeColorOverride ??
+              selected.theme.colors?.primary ??
+              state.themeColor,
             ...shellPresentation.theme.colors,
           },
           mode: allowedAppearanceValue(
@@ -122,6 +177,49 @@ const useAppStore = defineStore('app', {
     // Update presentation settings; runtime menus use setServerMenu/clearServerMenu.
     updateSettings(partial: Partial<AppSettings>) {
       this.$patch(partial);
+      if ('shellPreset' in partial) {
+        writeAllowedPreference(
+          presentationStorageKeys.preset,
+          shellUserOptions.presets,
+          partial.shellPreset
+        );
+      }
+      if ('shellLayout' in partial) {
+        writeAllowedPreference(
+          presentationStorageKeys.layout,
+          shellUserOptions.layouts,
+          partial.shellLayout
+        );
+      }
+      if ('shellNavigationMode' in partial) {
+        writeAllowedPreference(
+          presentationStorageKeys.navigationMode,
+          shellUserOptions.navigationModes,
+          partial.shellNavigationMode
+        );
+      }
+      if ('shellDensity' in partial) {
+        writeAllowedPreference(
+          presentationStorageKeys.density,
+          shellUserOptions.densities,
+          partial.shellDensity
+        );
+      }
+      if ('tabBar' in partial) {
+        if (partial.tabBar === undefined) {
+          localStorage.removeItem(presentationStorageKeys.tabBar);
+        } else {
+          localStorage.setItem(
+            presentationStorageKeys.tabBar,
+            String(partial.tabBar)
+          );
+        }
+      }
+    },
+
+    setThemeColor(color: string) {
+      localStorage.setItem(presentationStorageKeys.themeColor, color);
+      this.themeColorOverride = color;
     },
 
     // Change theme color

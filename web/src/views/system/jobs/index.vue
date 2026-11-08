@@ -1,8 +1,7 @@
 <template>
-  <div class="container">
-    <Breadcrumb :items="['menu.system', 'menu.system.jobs']" />
+  <PageContent>
+    <PageHeader><h1>{{ $t('menu.system.jobs') }}</h1></PageHeader>
     <el-card class="general-card">
-      <template #header>{{ $t('menu.system.jobs') }}</template>
       <el-row>
         <el-col :span="18">
           <el-form :model="formModel" label-position="left">
@@ -279,10 +278,11 @@
         ></template
       >
     </el-dialog>
-  </div>
+  </PageContent>
 </template>
 
 <script lang="ts" setup>
+  import { PageContent, PageHeader } from '@peanut-admin/ui-vue';
   import { computed, ref, reactive } from 'vue';
   import { useI18n } from 'vue-i18n';
   import { ElMessage } from 'element-plus';
@@ -516,7 +516,4 @@
 </script>
 
 <style scoped lang="less">
-  .container {
-    padding: 0 20px 20px 20px;
-  }
 </style>

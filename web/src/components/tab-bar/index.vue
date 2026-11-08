@@ -1,96 +1,102 @@
 <template>
   <div class="tab-bar-container">
-    <el-affix ref="affixRef" :offset="offsetTop">
-      <div class="tab-bar-box">
-        <div class="tab-bar-scroll">
-          <div class="tags-wrap">
-            <tab-item
-              v-for="(tag, index) in tagList"
-              :key="tag.fullPath"
-              :index="index"
-              :item-data="tag"
-            />
-          </div>
+    <div class="tab-bar-box">
+      <div ref="tabScrollRef" class="tab-bar-scroll">
+        <div class="tags-wrap">
+          <tab-item
+            v-for="(tag, index) in tagList"
+            :key="tag.fullPath"
+            :index="index"
+            :item-data="tag"
+          />
         </div>
-        <div class="tag-bar-operation"></div>
       </div>
-    </el-affix>
+    </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-  import { ref, computed, watch, onUnmounted } from 'vue';
-  import type { RouteLocationNormalized } from 'vue-router';
-  import {
-    listenerRouteChange,
-    removeRouteListener,
-  } from '@/utils/route-listener';
-  import { useAppStore, useTabBarStore } from '@/store';
+  import { ref, computed, watch, nextTick } from 'vue';
+  import { useRoute } from 'vue-router';
+  import { useTabBarStore } from '@/store';
   import tabItem from './tab-item.vue';
 
-  const appStore = useAppStore();
   const tabBarStore = useTabBarStore();
+  const route = useRoute();
 
-  const affixRef = ref();
+  const tabScrollRef = ref<HTMLElement>();
   const tagList = computed(() => {
     return tabBarStore.getTabList;
   });
-  const offsetTop = computed(() => {
-    return appStore.navbar ? 60 : 0;
-  });
+
+  const scrollActiveTabIntoView = async () => {
+    await nextTick();
+    const container = tabScrollRef.value;
+    const activeTab = container?.querySelector<HTMLElement>('.link-activated');
+    if (!container || !activeTab) return;
+
+    const containerBounds = container.getBoundingClientRect();
+    const tabBounds = activeTab.getBoundingClientRect();
+    if (tabBounds.left < containerBounds.left) {
+      container.scrollLeft += tabBounds.left - containerBounds.left;
+    } else if (tabBounds.right > containerBounds.right) {
+      container.scrollLeft += tabBounds.right - containerBounds.right;
+    }
+  };
 
   watch(
-    () => appStore.navbar,
-    () => {
-      affixRef.value?.updateRoot?.();
-    }
+    () => route.fullPath,
+    async () => {
+      if (!route.meta.noAffix) tabBarStore.updateTabList(route);
+      await scrollActiveTabIntoView();
+    },
+    { immediate: true, flush: 'post' }
   );
-  listenerRouteChange((route: RouteLocationNormalized) => {
-    if (
-      !route.meta.noAffix &&
-      !tagList.value.some((tag) => tag.fullPath === route.fullPath)
-    ) {
-      tabBarStore.updateTabList(route);
-    }
-  }, true);
-
-  onUnmounted(() => {
-    removeRouteListener();
-  });
 </script>
 
 <style scoped lang="less">
   .tab-bar-container {
     position: relative;
-    background-color: var(--el-bg-color);
+    margin-bottom: 16px;
     .tab-bar-box {
       display: flex;
-      padding: 0 0 0 20px;
-      background-color: var(--el-bg-color);
-      border-bottom: 1px solid var(--el-border-color);
+      height: 40px;
+      padding-inline: 0;
+      border-bottom: 1px solid var(--el-border-color-lighter);
       .tab-bar-scroll {
-        height: 32px;
+        min-width: 0;
+        height: 100%;
         flex: 1;
-        overflow: hidden;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+
+        &::-webkit-scrollbar {
+          height: 0;
+        }
+
         .tags-wrap {
-          padding: 4px 0;
-          height: 48px;
+          display: flex;
+          width: max-content;
+          min-width: 100%;
+          height: 100%;
+          align-items: center;
+          gap: 4px;
           white-space: nowrap;
-          overflow-x: auto;
+
+          :deep(.el-dropdown) {
+            flex: 0 0 auto;
+          }
 
           :deep(.el-tag) {
             display: inline-flex;
             align-items: center;
-            margin-right: 6px;
+            height: 40px;
+            flex: 0 0 auto;
             cursor: pointer;
           }
         }
       }
-    }
-
-    .tag-bar-operation {
-      width: 100px;
-      height: 32px;
     }
   }
 </style>

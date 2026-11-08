@@ -1,5 +1,6 @@
 export default {
-  'menu.system.admin': '管理员管理',
+  'systemAdmin.pagination.total': '共 {total} 位管理员',
+  'menu.system.admin': '成员管理',
 
   'systemAdmin.operation.create': '新增管理员',
   'systemAdmin.operation.search': '查询',

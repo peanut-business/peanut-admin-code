@@ -47,6 +47,7 @@ export interface AppSettings {
 }
 
 export interface AppState extends AppSettings {
+  themeColorOverride?: string;
   serverMenuLoaded: boolean;
   serverMenu: RouteRecordRaw[];
   enabledTenantModules: string[];

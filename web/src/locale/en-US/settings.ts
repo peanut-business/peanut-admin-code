@@ -1,6 +1,7 @@
 export default {
   'settings.title': 'Settings',
-  'settings.themeColor': 'Theme Color',
+  'settings.themeColor': 'Brand primary color',
+  'settings.themeColor.fixed': 'Brand primary color is fixed by the application',
   'settings.content': 'Content Setting',
   'settings.search': 'Search',
   'settings.search.empty': 'No matching menu items',
@@ -30,6 +31,7 @@ export default {
   'settings.navigation.top': 'Top',
   'settings.density.comfortable': 'Comfortable',
   'settings.density.compact': 'Compact',
+  'settings.density.spacious': 'Spacious',
   'settings.theme.light': 'Light',
   'settings.theme.dark': 'Dark',
   'settings.tabBar': 'Tab Bar',
@@ -37,10 +39,10 @@ export default {
   'settings.otherSettings': 'Other Settings',
   'settings.colorWeak': 'Color Weak',
   'settings.alertContent':
-    'After the configuration is only temporarily effective, if you want to really affect the project, click the "Copy Settings" button below and replace the configuration in settings.json.',
+    'Theme mode, brand color, layout, navigation, density and tabs are saved in this browser. Other page settings last for this session. Copy the configuration to set these values as application defaults in web/src/config/settings.json.',
   'settings.copySettings': 'Copy Settings',
   'settings.copySettings.message':
-    'Copy succeeded, please paste to file src/settings.json.',
+    'Copied. Paste into web/src/config/settings.json when you want these values as application defaults.',
   'settings.close': 'Close',
   'settings.color.tooltip':
     '10 gradient colors generated according to the theme color',
