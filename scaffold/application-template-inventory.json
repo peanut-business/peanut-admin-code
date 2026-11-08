@@ -1067,7 +1067,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dc84973fb0d3b23fc47afde258094a05a721dcc66211b875fb008b79bd0ae076"
+            "source_sha256": "fac645f533328c727528b53a80a30d97759b462a580ba6ea22bec6f603821795"
         },
         {
             "path": "docs/public/release-channels.md",
@@ -5873,7 +5873,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b15800f1dd8c60b97bbb82e2f0d66fca555389b146f364fbe4bddb7b5da0d52c"
+            "source_sha256": "5e4c4cac297bcdacb14ef7576d779be4ed3e4cdf5ba4bb542aa7967b67943658"
         },
         {
             "path": "server/app/command/ModuleReleaseComposition.php",
@@ -6378,7 +6378,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fd5453f0cccdb485fdfe47faeafce36960790e79569a73868a021e43e4d97402"
+            "source_sha256": "11663dd352922cf7150a4eea3bada1abdca980ec01ae961f3e6ac8ca211d6a64"
         },
         {
             "path": "server/app/common/contract/module/ModuleQualification.php",
@@ -17084,7 +17084,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8fe9be71b4b0d79b9a58e1bf433d7bb624f392965a454d673ff9dcca33ee9dc6"
+            "source_sha256": "bd8fdf26e1b45b0c0b05718e8b554e6d76e352614ebd50e9b38ccdcab7052a2c"
         },
         {
             "path": "server/app/platform/services/module/ModulePackageAdoptionService.php",
