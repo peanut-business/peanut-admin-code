@@ -170,7 +170,8 @@
 
 <style scoped lang="less">
   .el-tag {
-    padding-inline: 12px;
+    padding-inline: 16px;
+    font-size: 13px;
     border: 0;
     border-bottom: 2px solid transparent;
     border-radius: 0;
@@ -183,8 +184,10 @@
   .link-activated {
     color: var(--el-color-primary);
     border-bottom-color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
     .tag-link {
       color: var(--el-color-primary);
+      font-weight: 500;
     }
     :deep(.el-tag__close) {
       color: var(--el-color-primary);

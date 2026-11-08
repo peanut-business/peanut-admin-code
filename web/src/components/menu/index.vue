@@ -13,7 +13,6 @@
   import { useRoute, useRouter, RouteRecordRaw } from 'vue-router';
   import type { RouteMeta } from 'vue-router';
   import {
-    ElButton,
     ElIcon,
     ElMenu,
     ElMenuItem,
@@ -95,16 +94,12 @@
       const route = useRoute();
       const { menuTree } = useMenuTree();
       const menuRef = ref<MenuInstance>();
-      const collapsed = computed({
-        get() {
-          if (appStore.device === 'desktop' && props.navigationMode !== 'top')
-            return appStore.menuCollapse;
-          return false;
-        },
-        set(value: boolean) {
-          appStore.updateSettings({ menuCollapse: value });
-        },
-      });
+      const collapsed = computed(
+        () =>
+          appStore.device === 'desktop' &&
+          props.navigationMode !== 'top' &&
+          appStore.menuCollapse
+      );
 
       const topMenu = computed(
         () => props.navigationMode === 'top' && appStore.device !== 'mobile'
@@ -112,10 +107,6 @@
       const openKeys = ref<string[]>([]);
       const selectedKey = ref<string[]>([]);
       const submenuKeys = new Set<string>();
-      const showCollapseButton = computed(
-        () => appStore.device !== 'mobile' && !topMenu.value
-      );
-
       const updateSelectedKey = (key?: string) => {
         selectedKey.value = key ? [key] : [];
         nextTick(() => {
@@ -171,13 +162,6 @@
         { immediate: true, flush: 'post' }
       );
 
-      const setCollapse = (val: boolean) => {
-        if (appStore.device === 'desktop') {
-          collapsed.value = val;
-          syncMenuState();
-        }
-      };
-
       const handleOpen = (key: string) => {
         if (!openKeys.value.includes(key)) {
           openKeys.value = [...openKeys.value, key];
@@ -189,7 +173,9 @@
       };
 
       const renderIcon = (iconName?: unknown) => {
-        if (!iconName) return null;
+        if (!iconName && !collapsed.value) return null;
+        if (!iconName)
+          return h(ElIcon, { class: 'menu-icon' }, { default: () => h(Grid) });
         const icon = iconMap[String(iconName)] || MenuIcon;
         return h(ElIcon, { class: 'menu-icon' }, { default: () => h(icon) });
       };
@@ -214,7 +200,7 @@
           return _route.map((element) => {
             const index = element.name as string;
             if (element.children?.length) {
-              if (props.navigationMode === 'grouped') {
+              if (props.navigationMode === 'grouped' && !collapsed.value) {
                 return h(
                   ElMenuItemGroup,
                   { key: index, class: { 'menu-section-nested': depth > 0 } },
@@ -269,33 +255,6 @@
             },
             { default: () => renderSubMenu() }
           ),
-          showCollapseButton.value
-            ? h(
-                ElButton,
-                {
-                  'class': 'collapse-button',
-                  'text': true,
-                  'title': t(
-                    collapsed.value
-                      ? 'settings.menu.expand'
-                      : 'settings.menu.collapse'
-                  ),
-                  'aria-label': t(
-                    collapsed.value
-                      ? 'settings.menu.expand'
-                      : 'settings.menu.collapse'
-                  ),
-                  'aria-expanded': !collapsed.value,
-                  'onClick': () => setCollapse(!collapsed.value),
-                },
-                {
-                  default: () =>
-                    h(ElIcon, null, {
-                      default: () => h(collapsed.value ? MenuIcon : Back),
-                    }),
-                }
-              )
-            : null,
         ]);
     },
   });
@@ -323,11 +282,15 @@
     }
   }
 
-  .collapse-button {
-    width: 100%;
-    min-height: 40px;
-    border-radius: 0;
-    color: var(--el-text-color-secondary);
+  :deep(.el-menu.el-menu--collapse) {
+    .el-menu-item {
+      margin-inline: 0;
+      padding-inline: 20px;
+      border-radius: 0;
+    }
+    .el-sub-menu__title {
+      padding-inline: 20px;
+    }
   }
 
   :deep(.el-menu--horizontal) {

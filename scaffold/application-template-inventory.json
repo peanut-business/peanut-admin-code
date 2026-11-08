@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8ba892c486d87a58948895c071477d5548dc750a70b4bbf8e0534ce1bdb6dc69"
+            "source_sha256": "e77247d86d4af0b975591cb09455610f37eb49ceb470a80efdf75b5090e6025c"
         },
         {
             "path": "docs/maintenance/README.md",
@@ -11380,7 +11380,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3cfeda44e993eeb5699fd937ecbd62a5c371f0f490c9e4c56339a4417046fe11"
+            "source_sha256": "5a02e033844c492e3baeff98da53211d42905f5e3903782a54f62c3e1f6a8a50"
         },
         {
             "path": "server/app/modules/peanut/identity/src/Menu/MenuAdministrationService.php",
@@ -25503,7 +25503,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f5f63b9c6a625f2ea0bd7e7fe0cd11cf024d7ccb6c54ee05f7a4249dbdd01714"
+            "source_sha256": "1e4f22b04d98c72d0eef0eb3fcf8d33f55eee5e62d0b4014325c17d3a1ec2f0b"
         },
         {
             "path": "web/src/components/menu/use-menu-tree.ts",
@@ -25531,7 +25531,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5573808c302f5ea4651d788d58ae6f459c053c33eca14d67394d453d2070744e"
+            "source_sha256": "2a8148732c684e711e82375bcb365fdfb3cafd1e3dbdac52a9be648e474930cc"
         },
         {
             "path": "web/src/components/tab-bar/index.vue",
@@ -25545,7 +25545,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d1b9ec632d66e7f2f1a2b4c0078e909d88806a88ed6dd017535825580951991f"
+            "source_sha256": "74298559b62e3719729dec36fed2bdc5094a5318cfac31505bb32ea29f94549d"
         },
         {
             "path": "web/src/components/tab-bar/readme.md",
@@ -25573,7 +25573,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0db6add868deadf2e981a0a97462d039ae9466783f9c4fc5e1da26fad3bb92e7"
+            "source_sha256": "5b05f385c0e87b9b4e735e42edc05d28769d03d1c93a161b2da998226b6d5581"
         },
         {
             "path": "web/src/components/tenant-license/index.vue",
@@ -25868,7 +25868,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "625f0bfa2bae6e2a6e914ca48d48de41e833220c80fe90c4840f71c251dcb69b"
+            "source_sha256": "f8f08ef7b6d060cdb6b2f5183573392327390df6db3524c9cdaa5f95dce152c4"
         },
         {
             "path": "web/src/layout/page-layout.vue",

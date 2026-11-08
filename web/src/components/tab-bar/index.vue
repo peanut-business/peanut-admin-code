@@ -57,12 +57,12 @@
 <style scoped lang="less">
   .tab-bar-container {
     position: relative;
-    margin-bottom: 16px;
+    background: var(--el-bg-color);
+    border-bottom: 1px solid var(--el-border-color-lighter);
     .tab-bar-box {
       display: flex;
-      height: 40px;
-      padding-inline: 0;
-      border-bottom: 1px solid var(--el-border-color-lighter);
+      height: 44px;
+      padding-inline: 16px;
       .tab-bar-scroll {
         min-width: 0;
         height: 100%;
@@ -81,7 +81,7 @@
           min-width: 100%;
           height: 100%;
           align-items: center;
-          gap: 4px;
+          gap: 0;
           white-space: nowrap;
 
           :deep(.el-dropdown) {
@@ -91,7 +91,7 @@
           :deep(.el-tag) {
             display: inline-flex;
             align-items: center;
-            height: 40px;
+            height: 44px;
             flex: 0 0 auto;
             cursor: pointer;
           }

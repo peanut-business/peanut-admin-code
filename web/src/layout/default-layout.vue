@@ -12,6 +12,13 @@
         :navigation-mode="navigationMode"
         :brand="appearance.brand"
       >
+        <template #breadcrumb>
+          <el-breadcrumb v-if="appearance.breadcrumb" class="tenant-breadcrumb">
+            <el-breadcrumb-item v-for="item in breadcrumbs" :key="item.path">{{
+              item.label
+            }}</el-breadcrumb-item>
+          </el-breadcrumb>
+        </template>
         <template #header-context
           ><ShellContributions name="header-context"
         /></template>
@@ -44,19 +51,14 @@
         <ShellContributions name="sidebar-footer" />
       </el-drawer>
     </template>
-    <template #breadcrumb>
-      <el-breadcrumb v-if="appearance.breadcrumb" class="tenant-breadcrumb">
-        <el-breadcrumb-item v-for="item in breadcrumbs" :key="item.path">{{
-          item.label
-        }}</el-breadcrumb-item>
-      </el-breadcrumb>
-    </template>
     <template #tabs><TabBar v-if="appStore.tabBar" /></template>
-    <div class="tenant-page-tools"
-      ><ShellContributions name="page-tools"
-    /></div>
-    <main class="tenant-content"><PageLayout /></main>
-    <Footer v-if="appStore.footer" />
+    <div class="tenant-page-body">
+      <div class="tenant-page-tools"
+        ><ShellContributions name="page-tools"
+      /></div>
+      <main class="tenant-content"><PageLayout /></main>
+      <Footer v-if="appStore.footer" />
+    </div>
   </component>
 </template>
 
@@ -72,7 +74,9 @@
   import TabBar from '@/components/tab-bar/index.vue';
   import usePermission from '@/hooks/permission';
   import useResponsive from '@/hooks/responsive';
-  import useMenuTree, { findMenuRoutePath } from '@/components/menu/use-menu-tree';
+  import useMenuTree, {
+    findMenuRoutePath,
+  } from '@/components/menu/use-menu-tree';
   import PageLayout from './page-layout.vue';
   import ShellContributions from './shell-contributions.vue';
 
@@ -103,9 +107,7 @@
         const locale = String(item.meta?.locale || '');
         return {
           path: item.path,
-          label: item.meta?.title
-            ? String(item.meta.title)
-            : t(locale),
+          label: item.meta?.title ? String(item.meta.title) : t(locale),
         };
       })
   );
@@ -143,7 +145,7 @@
       flex: 1;
       min-width: 0;
       width: 100%;
-      padding: var(--pa-shell-spacing);
+      padding: 0;
     }
     .tenant-sidebar {
       width: var(--pa-shell-sidebar-width);
@@ -162,11 +164,22 @@
         min-height: 100%;
       }
     }
+    .tenant-page-body {
+      padding: var(--pa-shell-spacing);
+    }
     .tenant-breadcrumb {
-      min-height: 20px;
-      margin-bottom: 12px;
+      min-width: 0;
+      overflow: hidden;
       font-size: 13px;
       line-height: 20px;
+      white-space: nowrap;
+      .el-breadcrumb__inner {
+        color: var(--el-text-color-secondary);
+        font-weight: 400;
+      }
+      .el-breadcrumb__item:last-child .el-breadcrumb__inner {
+        color: var(--el-text-color-primary);
+      }
     }
     .tenant-page-tools:empty {
       display: none;
@@ -191,8 +204,13 @@
       outline-color: var(--pa-shell-focus-color);
     }
   }
+  @media (max-width: 991px) {
+    .tenant-shell .tenant-breadcrumb {
+      display: none;
+    }
+  }
   @media (max-width: 768px) {
-    .tenant-shell .pa-shell__main {
+    .tenant-shell .tenant-page-body {
       padding: max(12px, var(--pa-shell-gap));
     }
   }
