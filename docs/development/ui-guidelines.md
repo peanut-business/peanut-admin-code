@@ -38,7 +38,7 @@
 - 密度分为紧凑、舒适、宽松，由 Web Core 的同一 Shell theme 计算控件高度与空间变量，顶栏依次48／56／64px；页面消费变量，不自建密度开关。应用可限制允许选项；用户选择不改应用自有主题或权限。查询区独立保持紧凑28px控件，编辑表单继续沿所选密度。
 - Element Plus当前编译样式的默认button／select高度不随`--el-component-size`变化；Page页头操作、筛选及分组表单在global.less集中适配默认尺寸，保留显式small／large与link／text行为。依据[官方主题说明](https://element-plus.org/en-US/guide/theming)，只在已采用的Page区域覆盖所需BEM样式，不扩大到全局控件，不以新主题库或逐页补丁处理错位。
 - 页面标题24px/32px、600字重，窄屏20px/28px；分组标题16–18px；正文沿用系统字体14px/22px，说明13px/22px。标题与说明组成一个文本组，主操作与该组垂直居中；页面名称、创建和筛选文案使用同一业务称谓。通常保留三个文本层级，数字按列对齐。
-- 单一 h1，标题左对齐，主操作在右侧且可换行。普通卡片圆角8px、轻边框、无常驻投影；浮层保留 Element Plus 默认投影。
+- 单一 h1，标题左对齐，主操作在右侧且可换行。独立内容卡片圆角8px、轻边框和统一轻投影，卡片标题区沿主题extra-light填充；嵌套字段或分组不叠投影。浮层保留 Element Plus 默认投影。
 - “大气”来自层次、对齐和内容节奏；不靠巨型按钮、装饰图标或虚构数据填满面板。密集页可用既有 compact 密度，画布/编辑器保留实际任务空间。
 
 ## 五类页面模式
@@ -82,7 +82,7 @@ PageHeader 标题插槽包含 h1；PageToolbar 使用准确的本地化 label。
 
 根PageContent的第一个PageHeader沿用同一组件，以独立表面衔接标签区，桌面上下20px、窄屏16px，横向和Shell内容边距一致。Shell只定义一次`--pa-page-inset`，页头和内容共用；存在page-tools贡献时保留其位置，不让页头负边距覆盖贡献。该默认仅匹配Shell中的根PageContent，不改嵌套工作区或应用自有容器。页头用24px主标题与16px结果标题形成层级，不能只靠持续放大字号建立层次。
 
-顶栏、根页头和侧栏的轻阴影分别消费 Web Core `--pa-shell-header-shadow`、`--pa-shell-page-header-shadow`、`--pa-shell-sidebar-shadow`，由当前主题生成并允许应用 token 覆盖。分隔沿 Element Plus extra-light 边框；不在卡片、每层菜单和每个字段重复投影。层次由独立表面、留白和轻分隔共同表达。
+顶栏、根页头、侧栏、独立内容面板的轻阴影分别消费 Web Core `--pa-shell-header-shadow`、`--pa-shell-page-header-shadow`、`--pa-shell-sidebar-shadow`、`--pa-shell-panel-shadow`，由当前主题生成并允许应用 token 覆盖。根页头使用4%主色与当前表面色的极浅过渡，保留文字对比与应用品牌；不另设固定蓝／白。分隔沿 Element Plus extra-light 边框；不在嵌套卡片、每层菜单和每个字段重复投影。层次由背景、独立表面、轻投影和留白共同表达。
 
 页面配置复用既有Block分组组件：外观负责预设／主题／品牌色／密度；布局与导航负责布局／导航方式／既有菜单来源及宽度；区域显示负责顶栏／侧栏／页脚／标签；辅助功能保留已有色弱选项。统一使用应用允许选项与固定品牌优先级，不新增一套配置存储。抽屉桌面400px、窄屏不超过100vw，主体滚动、关闭和复制操作固定在底部；哪些选项持久化仍按原状态合同说明，不宣称所有选项都会跨会话保存。
 

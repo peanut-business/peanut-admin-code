@@ -71,6 +71,7 @@ body {
     height: auto;
     padding: 16px 24px;
     border-bottom: 1px solid var(--el-border-color-lighter);
+    background: var(--el-fill-color-extra-light);
     color: var(--el-text-color-primary);
     font-weight: 600;
     line-height: 24px;
@@ -83,7 +84,7 @@ body {
 
 // Match EP's two-class shadow selector, only for the application card opt-in.
 .general-card.el-card {
-  box-shadow: none;
+  box-shadow: var(--pa-shell-panel-shadow);
 }
 
 // Application defaults for the existing public page primitives. All colors
@@ -117,7 +118,11 @@ body {
   margin-inline: calc(-1 * var(--pa-page-inset));
   padding: 20px var(--pa-page-inset);
   border-bottom: 1px solid var(--el-border-color-extra-light);
-  background: var(--el-bg-color);
+  background: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--el-color-primary) 4%, var(--el-bg-color)),
+    var(--el-bg-color) 70%
+  );
   box-shadow: var(--pa-shell-page-header-shadow);
   position: relative;
 }

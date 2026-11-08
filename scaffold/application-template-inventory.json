@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "16ea22c2d61eeeaa6ab24f608ba9aa00a557377c7280b8fb90121885c98ccbe7"
+            "source_sha256": "f0209666ab0219b31abcec81b5c731cc77b7fe1b6285c725484958622d463926"
         },
         {
             "path": "docs/maintenance/README.md",
@@ -25377,7 +25377,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "35eeb4245aaf299cd43b820a47c380c53d38499082ea55b114ceac59ff5c8128"
+            "source_sha256": "fb39f161231a511b7b4133a92638e94bc762b7752abe80d2498ce243b3501de2"
         },
         {
             "path": "web/src/assets/world.json",
