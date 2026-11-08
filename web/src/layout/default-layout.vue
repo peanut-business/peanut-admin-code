@@ -65,7 +65,11 @@
         <div class="tenant-drawer__contributions">
           <ShellContributions name="sidebar-footer" />
         </div>
-        <Footer v-if="appStore.footer" sidebar @action="drawerVisible = false" />
+        <Footer
+          v-if="appStore.footer"
+          sidebar
+          @action="drawerVisible = false"
+        />
       </el-drawer>
     </template>
     <template #tabs><TabBar v-if="appStore.tabBar" /></template>
@@ -232,7 +236,6 @@
       display: none;
     }
     .tenant-content {
-      --pa-page-header-offset-top: 0px;
       min-width: 0;
       width: 100%;
       > * {
@@ -240,10 +243,7 @@
         max-width: 100%;
       }
     }
-    .tenant-page-tools:empty + .tenant-content {
-      --pa-page-header-offset-top: calc(-1 * var(--pa-page-inset));
-    }
-    &.pa-shell--layout-workspace .pa-shell__main {
+    &.pa-shell--layout-workspace .tenant-page-body {
       max-width: var(--pa-shell-content-max-width);
       margin-inline: auto;
     }

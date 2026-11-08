@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "066c6b76f368e5f8c80c4793aa2b2ef08fa9db16590636e433f38176cc314779"
+            "source_sha256": "3467495277cb27ae6abe7a3e59d80e46ef7f073e242cb21b8bb92ab9e733d5c7"
         },
         {
             "path": "docs/maintenance/README.md",
@@ -25433,7 +25433,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fb39f161231a511b7b4133a92638e94bc762b7752abe80d2498ce243b3501de2"
+            "source_sha256": "4726ec245d5ec7da90a78a66c8ec8ec983df9e501b3eec00f8623c1fa313cd57"
         },
         {
             "path": "web/src/assets/world.json",
@@ -25489,7 +25489,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1c9b07a353cdaf6f6b0b9583aa461cf965feb55aa742b84a33524bd0c4d6cb82"
+            "source_sha256": "66df9739690bdabd0f0a7c2f57ea745d16f0b4000ddcdae74be67a5b92a0adaf"
         },
         {
             "path": "web/src/components/global-setting/block.vue",
@@ -25559,7 +25559,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c4305bab8931ac185329825fecd526d6ac96352d072cae964071297d649605d9"
+            "source_sha256": "f5ae1cfd3823a4680be2b60b9341a8ccb40ee864d2addc6307882b94cfed62d7"
         },
         {
             "path": "web/src/components/menu/menu-icons.ts",
@@ -25601,7 +25601,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e5fd3823c63eebae92c3e945a4e315aab306ad5f575a7cf244847f73d83ebadc"
+            "source_sha256": "7c07bd84fe155007566b80b60f995c241e7af41ba798981562e8ca122b5e12d2"
         },
         {
             "path": "web/src/components/tab-bar/TabBarMenu.vue",
@@ -25952,7 +25952,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eb0c5d1a54f49c35ac5501dc98af5caa937e253d9d5148b120726604abbd9fd1"
+            "source_sha256": "7af2f85408704b5b087ef7aaee77a098c1d63970183283fca0766a780353041b"
         },
         {
             "path": "web/src/layout/page-layout.vue",

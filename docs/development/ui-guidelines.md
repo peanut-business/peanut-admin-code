@@ -94,8 +94,8 @@ PageHeader 标题插槽包含 h1；PageToolbar 使用准确的本地化 label。
 
 | 区域 | 内容与交互 | 现有承载及样式 |
 | --- | --- | --- |
-| 页面容器 | 继承Shell内容宽度；统一纵向节奏，页面不再叠padding | PageContent、`pa-page-stack` |
-| 页头 | 单h1、可选一句任务说明；创建等页面级主操作靠右，窄屏可另起一行 | PageHeader、`pa-page-header__description`、actions插槽 |
+| 页面容器 | 继承Shell内容宽度；workspace仅限制内容容器最大宽度，标签栏占主区域全宽；统一纵向节奏，页面不再叠padding | PageContent、`pa-page-stack` |
+| 页头 | 单h1、可选一句任务说明；创建等页面级主操作靠右，窄屏可另起一行；外边缘与内容面板对齐，保留Shell上方留白，不用负margin扩宽 | PageHeader、`pa-page-header__description`、actions插槽 |
 | 查询 | 只含查询条件与查询／重置；默认紧凑、标签与输入同行，Enter提交；普通3项不做无意义折叠 | 独立general-card、PageToolbar、el-form、`pa-page-filters` |
 | 结果工具栏 | 数据集名称h2、真实总数／选择数；导出和批量动作在右；批量动作仅在已有选择能力与权限时展示 | `pa-page-results-toolbar--standalone`、`pa-page-results-title` |
 | 数据主体 | 表格、树、列表或画布；包含自己的加载／空／失败状态 | el-table、`pa-page-table`；不套第二个横滚容器 |
@@ -138,7 +138,7 @@ PageHeader 标题插槽包含 h1；PageToolbar 使用准确的本地化 label。
 
 官方[Vben侧栏](https://github.com/vbenjs/vue-vben-admin/blob/main/packages/%40core/ui-kit/layout-ui/src/components/layout-sidebar.vue)将菜单、底部折叠和品牌分区，[Ant Design Pro布局](https://github.com/ant-design/ant-design-pro/blob/master/src/app.tsx)把账号放顶栏、版权放Footer。这些不是统一行业强制标准。Peanut已在Logo旁提供折叠，顶栏已有用户／租户入口，因此侧栏不重复头像、退出、套餐或组织切换。侧栏顶部用户区只适用于它确实承担独立工作空间切换的应用定制。
 
-默认底部是点击展开的低权重辅助菜单，复用 Footer 与 Element Plus Dropdown：页面设置打开现有设置面板；授权信息仅点击后打开现有只读许可证组件；关于应用始终排最后，显示应用自身品牌、真实客户端package版本与版权，开发构建明确DEV。普通页面不常驻套餐摘要，package版本不代表模板已经正式发布。折叠时图标带可访问名称，手机选择后关闭导航抽屉再呈现目标浮层。
+默认底部是点击展开的低权重辅助菜单，复用 Footer 与 Element Plus Dropdown：文字在左、水平三点在最右，折叠时图标居中；桌面浮层在侧栏右侧、窄屏向上展开，点击状态不因鼠标跨越浮层间距而关闭。页面设置打开现有设置面板；授权信息仅点击后打开现有只读许可证组件；关于应用始终排最后，显示应用自身品牌、真实客户端package版本与版权，开发构建明确DEV。普通页面不常驻套餐摘要，package版本不代表模板已经正式发布。折叠时图标带可访问名称，手机选择后关闭导航抽屉再呈现目标浮层。
 
 后台网站设置沿已有 tenant website JSON 配置 `sidebar_footer_enabled/title/settings/license/about`，不新增表或菜单权限。总开关、标题及三个入口开关通过既有Host绑定品牌配置下发，空标题采用本地化默认；未配置的应用沿生成品牌默认。后台保存仍需原设置管理权限，显示开关不授予访问权限，许可证仍由原租户接口授权。不得让普通成员为取得外观配置而读取受限网站管理接口。帮助／反馈由应用通过既有贡献槽接入真实入口；原footer开关只控制内置区，不能隐藏模块贡献。顶部导航模式保留原页面版权Footer。
 
