@@ -28038,7 +28038,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "21b482a919100c33e6dbc44a1715521ea25f1f0b23a7e33bc4cd52dfbfb732a5"
+            "source_sha256": "3abd91d8e865669df07b52320955e8d00d4bfe0edb66e85ad7f1a43c3a33487a"
         },
         {
             "path": "web/src/views/dashboard/workplace/locale/en-US.ts",
@@ -28290,7 +28290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d836ea266d9768da7917f8c82b858cfe2f2ab125da42e74c111f19cf3eae9818"
+            "source_sha256": "daccdb0310d1ee3ee7c5bdccf8e617cc74b1d39eb7f8381c7376dfb3e91af2c4"
         },
         {
             "path": "web/src/views/system/admin/locale/en-US.ts",

@@ -1,7 +1,7 @@
 <template>
   <PageContent class="admin-directory-page">
     <PageHeader>
-      <h1 class="admin-directory-title">{{ $t('menu.system.admin') }}</h1>
+      <h1>{{ $t('menu.system.admin') }}</h1>
       <template #actions>
         <el-button
           v-permission="['core.member.create']"
@@ -858,26 +858,7 @@
 
     :deep(.pa-page-header) {
       margin-bottom: 0;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px 20px;
     }
-
-    :deep(.pa-page-header__actions) {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-  }
-
-  .admin-directory-title {
-    margin: 0;
-    color: var(--el-text-color-primary);
-    font-size: 24px;
-    font-weight: 600;
-    line-height: 1.4;
   }
 
   .admin-directory-search,

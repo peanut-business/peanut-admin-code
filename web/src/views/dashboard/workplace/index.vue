@@ -1,7 +1,7 @@
 <template>
   <PageContent class="container">
     <PageHeader class="workplace-actions">
-      <h1 class="workplace-title">{{ $t('menu.dashboard.workplace') }}</h1>
+      <h1>{{ $t('menu.dashboard.workplace') }}</h1>
       <template #actions>
         <el-button :loading="loading" :disabled="loading" @click="fetchWorkbench">
           {{ $t('workplace.refresh') }}
@@ -395,18 +395,6 @@
 
   .workplace-actions {
     margin-bottom: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .workplace-title {
-    margin: 0;
-    color: var(--el-text-color-primary);
-    font-size: 24px;
-    font-weight: 600;
-    line-height: 30px;
   }
 
   .workplace-license {
@@ -521,9 +509,6 @@
   @media (max-width: 768px) {
     .container {
       gap: 12px;
-    }
-    .workplace-title {
-      font-size: 18px;
     }
     .workplace-grid,
     .metrics-grid,
