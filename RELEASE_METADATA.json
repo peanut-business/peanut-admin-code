@@ -75,7 +75,7 @@
     }
   },
   "lockfiles": {
-    "server/composer.lock": "8b58d54987a1deccb7df435362b81cf10c6bd0fc2f9d8883eb918b38f7008d18",
+    "server/composer.lock": "443477fc07797df86fca53b812f146a60e1a0a1426b38168955296aa9fea4402",
     "web/pnpm-lock.yaml": "41bf65ba917214771e1ee44c11c05ef27aebb46a745e2690996fbd32f77cd0ac",
     "platform/package-lock.json": "e45300253eb1427892129545653616143f12633fa934c7f42047dd1d9ff17f4a",
     "pc/package-lock.json": "1cc5ec5da3c167effa24f0319f9d84665f8a097c720cacfabfc40c94ad9b8448",
