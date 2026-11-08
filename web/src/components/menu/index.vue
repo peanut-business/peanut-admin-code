@@ -317,7 +317,8 @@
   }
 
   :deep(.el-menu:not(.el-menu--horizontal) .el-menu-item-group .el-menu-item) {
-    padding-inline: 24px 16px;
+    margin-inline: 24px 12px;
+    padding-inline: 20px 12px;
     font-weight: 400;
   }
 

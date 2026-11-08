@@ -1,19 +1,19 @@
 <template>
   <router-view v-slot="{ Component, route }">
     <keep-alive
-      :include="cacheNamesFor(route.fullPath, route.meta.ignoreCache === true)"
+      :include="cacheNamesFor(getTabKey(route), route.meta.ignoreCache === true)"
     >
       <component
-        :is="tabWrapper(route.fullPath)"
+        :is="tabWrapper(getTabKey(route))"
         :component="Component"
         v-if="!route.meta.ignoreCache"
-        :key="route.fullPath"
+        :key="getTabKey(route)"
       />
     </keep-alive>
     <component
       :is="Component"
       v-if="route.meta.ignoreCache"
-      :key="route.fullPath"
+      :key="getTabKey(route)"
     />
   </router-view>
 </template>
@@ -27,6 +27,7 @@
     type VNode,
   } from 'vue';
   import { useTabBarStore } from '@/store';
+  import { getTabKey } from '@peanut-admin/ui-vue/tabs';
 
   const tabBarStore = useTabBarStore();
   const wrappersByPath = new Map<string, Component>();

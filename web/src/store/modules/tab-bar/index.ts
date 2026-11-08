@@ -1,10 +1,11 @@
 import type { RouteLocationNormalized } from 'vue-router';
 import { defineStore } from 'pinia';
 import {
+  getTabKey,
   tabFromRoute,
   type ShellTab as TagProps,
   type ShellTabState as TabBarState,
-} from '@peanut-admin/ui-vue';
+} from '@peanut-admin/ui-vue/tabs';
 import {
   DEFAULT_ROUTE,
   REDIRECT_ROUTE_NAME,
@@ -31,21 +32,24 @@ const useAppStore = defineStore('tabBar', {
   actions: {
     updateTabList(route: RouteLocationNormalized) {
       if (BAN_LIST.includes(route.name as string)) return;
-      if (this.tagList.some((tag) => tag.fullPath === route.fullPath)) return;
-      this.tagList.push(tabFromRoute(route));
+      const tab = tabFromRoute(route);
+      const key = getTabKey(tab);
+      const index = this.tagList.findIndex((tag) => getTabKey(tag) === key);
+      if (index < 0) this.tagList.push(tab);
+      else this.tagList[index] = tab;
       if (!route.meta.ignoreCache) {
-        this.cacheTabList.add(route.fullPath);
+        this.cacheTabList.add(key);
       }
     },
     deleteTag(idx: number, tag: TagProps) {
       this.tagList.splice(idx, 1);
-      if (!tag.ignoreCache) this.cacheTabList.delete(tag.fullPath);
+      if (!tag.ignoreCache) this.cacheTabList.delete(getTabKey(tag));
     },
-    addCache(fullPath: string) {
-      if (isString(fullPath) && fullPath !== '') this.cacheTabList.add(fullPath);
+    addCache(key: string) {
+      if (isString(key) && key !== '') this.cacheTabList.add(key);
     },
     deleteCache(tag: TagProps) {
-      this.cacheTabList.delete(tag.fullPath);
+      this.cacheTabList.delete(getTabKey(tag));
     },
     freshTabList(tags: TagProps[]) {
       this.tagList = tags;
@@ -53,7 +57,7 @@ const useAppStore = defineStore('tabBar', {
       // 要先判断ignoreCache
       this.tagList
         .filter((el) => !el.ignoreCache)
-        .map((el) => el.fullPath)
+        .map(getTabKey)
         .forEach((x) => this.cacheTabList.add(x));
     },
     resetTabList() {

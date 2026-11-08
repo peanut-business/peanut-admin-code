@@ -35,20 +35,37 @@
           'is-collapsed': appStore.menuCollapse,
         }"
       >
-        <Menu :navigation-mode="navigationMode" />
-        <ShellContributions name="sidebar-footer" />
+        <div class="tenant-sidebar__menu">
+          <Menu :navigation-mode="navigationMode" />
+        </div>
+        <div class="tenant-sidebar__contributions">
+          <ShellContributions name="sidebar-footer" />
+        </div>
+        <Footer
+          v-if="appStore.footer"
+          sidebar
+          :compact="appStore.menuCollapse"
+        />
       </aside>
       <el-drawer
         v-if="appStore.hideMenu"
+        class="tenant-navigation-drawer"
         v-model="drawerVisible"
         direction="ltr"
         :size="`${appStore.menuWidth}px`"
         :with-header="false"
       >
-        <Menu
-          :navigation-mode="navigationMode === 'top' ? 'tree' : navigationMode"
-        />
-        <ShellContributions name="sidebar-footer" />
+        <div class="tenant-drawer__menu">
+          <Menu
+            :navigation-mode="
+              navigationMode === 'top' ? 'tree' : navigationMode
+            "
+          />
+        </div>
+        <div class="tenant-drawer__contributions">
+          <ShellContributions name="sidebar-footer" />
+        </div>
+        <Footer v-if="appStore.footer" sidebar />
       </el-drawer>
     </template>
     <template #tabs><TabBar v-if="appStore.tabBar" /></template>
@@ -163,6 +180,34 @@
         height: auto;
         min-height: 100%;
       }
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - var(--pa-shell-header-height));
+      min-height: 0;
+      overflow: hidden;
+      .tenant-sidebar__menu {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+      }
+      .tenant-sidebar__contributions {
+        flex: 0 0 auto;
+      }
+    }
+    .tenant-drawer__menu {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+    }
+    .tenant-drawer__contributions {
+      flex: 0 0 auto;
+    }
+    .tenant-navigation-drawer .el-drawer__body {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      padding: 0;
+      overflow: hidden;
     }
     .tenant-page-body {
       padding: var(--pa-shell-spacing);

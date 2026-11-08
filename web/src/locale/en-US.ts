@@ -42,6 +42,11 @@ export default {
   'navbar.tenantSelect': 'Select a Tenant',
   'navbar.cancel': 'Cancel',
   'navbar.confirm': 'Confirm',
+  'footer.about': 'About this application',
+  'footer.brand': 'Brand',
+  'footer.version': 'Client version',
+  'footer.development': 'Development environment',
+  'footer.copyright': 'Copyright',
   'tenantSession.networkError':
     'Network connection failed. Check your connection and try again.',
   'tenantSession.requestTimeout': 'The request timed out. Please try again.',

@@ -92,10 +92,19 @@ body {
   min-width: 0;
 }
 
+.pa-page-stack {
+  display: grid;
+  gap: var(--pa-shell-spacing);
+
+  > .pa-page-header {
+    margin-bottom: 0;
+  }
+}
+
 .pa-page-header {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px 24px;
   margin-bottom: var(--pa-shell-spacing);
@@ -104,9 +113,9 @@ body {
 .pa-page-header__title {
   min-width: 0;
   color: var(--el-text-color-primary);
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 600;
-  line-height: 32px;
+  line-height: 36px;
   overflow-wrap: anywhere;
 
   > h1 {
@@ -124,7 +133,15 @@ body {
   min-width: 0;
 }
 
-// A single filter/results surface; density comes from the owning Shell.
+.pa-page-header__description {
+  margin: 8px 0 0;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 22px;
+}
+
+// Filter controls share one grid; density comes from the owning Shell.
 .pa-page-filters {
   display: grid;
   grid-template-columns: repeat(3, minmax(160px, 1fr)) auto;
@@ -149,6 +166,18 @@ body {
   }
 }
 
+// EP's compiled default button/select heights do not consume component-size.
+// Adapt only Page regions; explicit sizes and link/text actions keep EP behavior.
+:where(.pa-page-header__actions, .pa-page-filters)
+  .el-button:not(.el-button--small):not(.el-button--large):not(.is-link):not(.is-text) {
+  height: var(--el-component-size);
+}
+
+:where(.pa-page-filters, .pa-page-form-grid)
+  .el-select:not(.el-select--small):not(.el-select--large) > .el-select__wrapper {
+  min-height: var(--el-component-size);
+}
+
 .pa-page-results-toolbar {
   display: flex;
   align-items: center;
@@ -158,6 +187,107 @@ body {
   padding-block: var(--pa-shell-gap);
   border-top: 1px solid var(--el-border-color-lighter);
   color: var(--el-text-color-secondary);
+}
+
+.pa-page-results-toolbar--standalone {
+  margin-top: 0;
+  padding-block: 0 var(--pa-shell-gap);
+  border-top: 0;
+  flex-wrap: wrap;
+}
+
+.pa-page-results-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  min-width: 0;
+
+  > h2 {
+    margin: 0;
+    color: var(--el-text-color-primary);
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 24px;
+  }
+}
+
+// Element Plus owns the only table scroll container and sticky columns.
+.pa-page-table.el-table {
+  width: 100%;
+  min-width: 0;
+
+  th.el-table__cell {
+    background: var(--el-fill-color-light);
+    color: var(--el-text-color-regular);
+    font-weight: 500;
+  }
+  th.el-table-fixed-column--left,
+  th.el-table-fixed-column--right {
+    background: var(--el-fill-color-light);
+  }
+  .el-table__cell {
+    padding-block: 12px;
+  }
+  .cell {
+    line-height: 22px;
+  }
+}
+
+.pa-page-pagination {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: var(--pa-shell-gap);
+  margin-top: var(--pa-shell-gap);
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.pa-page-form-section {
+  min-width: 0;
+  margin: 0 0 24px;
+  padding: 0;
+  border: 0;
+
+  > legend {
+    width: 100%;
+    margin-bottom: 16px;
+    padding: 0 0 10px;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+    color: var(--el-text-color-primary);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 24px;
+  }
+}
+
+.pa-page-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 20px;
+
+  .el-form-item {
+    min-width: 0;
+  }
+  .el-select {
+    width: 100%;
+  }
+  .pa-page-form-wide {
+    grid-column: 1 / -1;
+  }
+}
+
+.pa-page-form-dialog .el-dialog__body {
+  max-height: calc(88dvh - 140px);
+  overflow-y: auto;
+}
+
+.pa-page-form-help {
+  margin: 0 0 16px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  line-height: 20px;
 }
 
 :where(.pa-page-content) .general-card > .el-card__body {
@@ -171,6 +301,15 @@ body {
 }
 
 @media (max-width: 768px) {
+  .pa-page-stack {
+    gap: 16px;
+  }
+  .pa-page-pagination {
+    justify-content: flex-start;
+  }
+  .pa-page-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .pa-page-filters {
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;
