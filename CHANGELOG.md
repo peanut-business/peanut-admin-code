@@ -2,6 +2,14 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.2] - 2026-11-08
+
+- Unify responsive content regions, Page components, shell navigation, route tabs, density, configurable sidebar tools and theme palettes on Web Core 5.0.5; retain PHP Core 5.0.3 and Element Plus.
+- Ship public Agent UI guidelines and the integrated native module/scaffold update fixes. Preserve application-owned branding, themes, pages, AGENTS and authorization through the existing three-way upgrade contract.
+- Refresh canonical Module locks and API catalog inputs, remove authentication exceptions for absent routes, and align existing qualification assertions with the current contracts.
+- Qualify the fixed source through applicable CI and native Standalone/Multi-tenant templates with the official CLI. Public default creation, first installation, IAB login and basic business are verified after publication; full8 remains a separately requested suite with its earlier failures and unrun cases preserved.
+- Version 5.1.1 was not published: release consistency rejected its missing changelog section before creating a GitHub Release or uploading assets. Its immutable source tag is retained; 5.1.2 carries the complete release inputs.
+
 ## [5.1.0] - Release candidate
 
 - Advance the Peanut Admin source and scaffold template identity to 5.1.0.
