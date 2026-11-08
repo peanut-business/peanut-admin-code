@@ -40,13 +40,14 @@ function expect(bool $condition, string $message): void
     }
 }
 
-/** @return array<string, string> */
+/** @return array<string, bool|string> */
 function validPayload(): array
 {
-    $payload = array_fill_keys(WebsiteConfigService::fields(), '');
+    $payload = [...array_fill_keys(WebsiteConfigService::fields(), ''), ...BrandDefaults::sidebarFooter()];
     $payload['name'] = '  Peanut Admin  ';
     $payload['shop_name'] = ' Peanut Shop ';
     $payload['web_logo'] = ' /logo.png ';
+    $payload['sidebar_footer_license'] = false;
     return $payload;
 }
 
@@ -56,11 +57,12 @@ $store = new MemoryWebsiteConfigStore([
     'web_logo' => 'logo.png',
     'ignored' => 'must-not-leak',
 ]);
+$defaults = [...BrandDefaults::website(), ...BrandDefaults::sidebarFooter()];
 $service = new WebsiteConfigService(
     $store,
     static fn(string $value): string => $value === '' ? '' : 'read:' . $value,
     static fn(string $value): string => $value === '' ? '' : 'stored:' . $value,
-    BrandDefaults::website(),
+    $defaults,
 );
 
 $result = $service->get();
@@ -74,7 +76,9 @@ expect($store->attempts === 1, 'valid save must produce one atomic store call');
 expect($store->values['name'] === 'Peanut Admin', 'text fields must be trimmed');
 expect($store->values['shop_name'] === 'Peanut Shop', 'required fields must be preserved');
 expect($store->values['web_logo'] === 'stored:/logo.png', 'storage mapper must handle image fields');
-expect(array_keys($store->values) === WebsiteConfigService::fields(), 'save must write one complete field set');
+expect(array_diff(WebsiteConfigService::fields(), array_keys($store->values)) === [], 'save must write one complete field set');
+expect($store->values['ignored'] === 'must-not-leak', 'save must retain existing application-owned values');
+expect($store->values['sidebar_footer_license'] === false, 'explicit false must survive the save');
 
 $invalidPayloads = [];
 $unknownField = validPayload();
@@ -92,6 +96,9 @@ $invalidPayloads[] = $nonString;
 $unsafeUrl = validPayload();
 $unsafeUrl['official_url'] = 'javascript:alert(1)';
 $invalidPayloads[] = $unsafeUrl;
+$nonBoolean = validPayload();
+$nonBoolean['sidebar_footer_enabled'] = 'false';
+$invalidPayloads[] = $nonBoolean;
 
 foreach ($invalidPayloads as $payload) {
     $before = $store->values;
@@ -115,18 +122,18 @@ try {
 }
 expect($store->values === $before, 'failed atomic store must leave values unchanged');
 
-$defaultStore = new MemoryWebsiteConfigStore(BrandDefaults::website());
+$defaultStore = new MemoryWebsiteConfigStore($defaults);
 $declaredDefaults = new WebsiteConfigService(
     $defaultStore,
     static fn(string $value): string => throw new RuntimeException('declared defaults must not enter File reads'),
     static fn(string $value): string => throw new InvalidArgumentException('FILE_REFERENCE_INVALID'),
-    BrandDefaults::website(),
+    $defaults,
 );
 $editor = $declaredDefaults->getForEdit();
 expect($editor['web_logo'] === 'brand/logo.svg', 'editor keeps the exact declared default reference');
 expect($declaredDefaults->get()['web_logo'] === '/brand/logo.svg', 'public presentation resolves the declared default asset');
 $declaredDefaults->save($editor);
-expect($defaultStore->values === BrandDefaults::website(), 'default GET values round-trip without changing their references');
+expect($defaultStore->values === $defaults, 'default GET values round-trip without changing their references');
 foreach (['brand/favicon.svg', 'brand/unregistered.svg', 'https://assets.example/logo.svg'] as $invalid) {
     $payload = $editor;
     $payload['web_logo'] = $invalid;
