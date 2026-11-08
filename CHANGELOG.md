@@ -2,6 +2,12 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.4] - 2026-11-08
+
+- Converge the shared File and Task source fixes from the module development application and give changed bundled modules distinct versions for conflict-aware adoption. Retain the Ops uninstalled ledger and the existing UI configuration capabilities.
+- Convert fresh-install menu ordering to the same display-weight convention as the runtime menu bridge, placing the workbench first while retaining existing applications' configured weights.
+- Retain PHP Core 5.0.3 and Web Core 5.0.5.
+
 ## [5.1.3] - 2026-11-08
 
 - Fix the first Web build and type check in generated applications by invoking the existing shared brand-asset generator before TypeScript. Optional sidebar-footer defaults are normalized centrally while application-owned branding remains unchanged.

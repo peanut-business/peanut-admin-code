@@ -1,6 +1,6 @@
 # Peanut Admin Third-Party Notices
 
-Generated for Peanut Admin 5.1.3 on 2026-11-08.
+Generated for Peanut Admin 5.1.4 on 2026-11-08.
 
 Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-party components remain governed by their own licenses.
 
@@ -119,7 +119,7 @@ These 54 packages are installed with `composer install --no-dev` in the producti
 | `opis/uri` | `1.1.0` | `Apache-2.0` | https://github.com/opis/uri.git |
 | `peanut-admin/core` | `v5.0.3` | `Apache-2.0` | https://github.com/peanut-business/peanut-admin-core-php.git |
 | `peanut-business/peanut-content-tools` | `1.0.2` | `Apache-2.0` | app/modules/peanut/content_tools |
-| `peanut-business/peanut-file` | `1.0.45` | `Apache-2.0` | app/modules/peanut/file |
+| `peanut-business/peanut-file` | `1.0.44` | `Apache-2.0` | app/modules/peanut/file |
 | `peanut-business/peanut-identity` | `4.0.0-rc.59` | `Apache-2.0` | app/modules/peanut/identity |
 | `peanut-business/peanut-integration` | `1.0.29` | `Apache-2.0` | app/modules/peanut/integration |
 | `peanut-business/peanut-ops` | `1.0.33` | `Apache-2.0` | app/modules/peanut/ops |
