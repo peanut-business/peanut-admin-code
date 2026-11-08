@@ -28458,7 +28458,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9c07373893ce957838972257682311a2a34bab9939f4bcf335c6a06305078a8d"
+            "source_sha256": "55b1fafd2a3c221cd5649872c093466de228c90fdc7207c27f78d11f6f7b08a6"
         },
         {
             "path": "web/src/views/system/dept/locale/en-US.ts",
