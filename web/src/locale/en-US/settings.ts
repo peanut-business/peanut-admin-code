@@ -1,7 +1,18 @@
 export default {
   'settings.title': 'Settings',
+  'settings.appearance': 'Appearance',
+  'settings.appearance.description':
+    'Theme, brand color and density share one system. Application brand overrides take priority.',
+  'settings.navigationSection': 'Layout and navigation',
+  'settings.navigationSection.description':
+    'Choose how navigation is organized. Page content and access keep their own responsibilities.',
+  'settings.regions': 'Visible regions',
+  'settings.regions.description':
+    'Choose shell regions. Page patterns organize headings, filters and results.',
+  'settings.accessibility': 'Accessibility',
   'settings.themeColor': 'Brand primary color',
-  'settings.themeColor.fixed': 'Brand primary color is fixed by the application',
+  'settings.themeColor.fixed':
+    'Brand primary color is fixed by the application',
   'settings.content': 'Content Setting',
   'settings.search': 'Search',
   'settings.search.empty': 'No matching menu items',

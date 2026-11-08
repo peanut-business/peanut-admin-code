@@ -8,7 +8,7 @@
 
 管理框架配置另参考 [Vue Vben Admin 的 preferences](https://github.com/vbenjs/vue-vben-admin/blob/main/packages/%40core/preferences/src/config.ts)（2026-11-08 查阅，MIT）：布局、导航、主题和标签缓存分别配置。采用其职责分离思路，不复制整套配置、组件、状态管理或依赖；Peanut 的实际入口仍是下文现有 Shell、Page 和 Element Plus 合同。折叠图标栏与子菜单浮层沿用 [Element Plus Menu](https://element-plus.org/en-US/component/menu.html) 的 collapse / SubMenu 能力；不为收缩模式重建菜单数据或独立Popover导航。
 
-内容区域参考 MIT 许可的 ng-alain／Delon：[Page Header](https://github.com/ng-alain/delon/blob/master/packages/abc/page-header/index.zh-CN.md)、[查询表格示例](https://github.com/ng-alain/ng-alain/blob/master/src/app/routes/pro/list/table-list/table-list.component.html)、[ST表格](https://github.com/ng-alain/delon/blob/master/packages/abc/st/index.zh-CN.md)、[Schema表单](https://github.com/ng-alain/delon/blob/master/packages/form/docs/schema.zh-CN.md)（2026-11-08查阅）。借鉴区域组合及数据规则与呈现配置分离，不引入Angular、Delon、Ant组件或通用页面引擎。ng-alain允许Page Header包含面包屑；Peanut已由Shell顶栏提供，因此内容页不重复采用该部分。
+内容区域参考 MIT 许可的 ng-alain／Delon：[Page Header](https://github.com/ng-alain/delon/blob/master/packages/abc/page-header/index.zh-CN.md)、[页头组合源码](https://github.com/ng-alain/delon/blob/master/packages/abc/page-header/page-header.component.ts)、[页头表面和响应式样式](https://github.com/ng-alain/delon/blob/master/packages/abc/page-header/style/index.less)、[查询表格示例](https://github.com/ng-alain/ng-alain/blob/master/src/app/routes/pro/list/table-list/table-list.component.html)、[ST表格](https://github.com/ng-alain/delon/blob/master/packages/abc/st/index.zh-CN.md)、[Schema表单](https://github.com/ng-alain/delon/blob/master/packages/form/docs/schema.zh-CN.md)（2026-11-08查阅）。借鉴区域组合及数据规则与呈现配置分离，不引入Angular、Delon、Ant组件或通用页面引擎。ng-alain允许Page Header包含面包屑；Peanut已由Shell顶栏提供，因此内容页不重复采用该部分。
 
 **继续使用 Vue、Element Plus 和现有 PageContent / PageHeader / PageToolbar。** 不引入 Ant 组件、CSS reset、第二套主题或 Schema 页面引擎。Element Plus 拥有控件交互、尺寸及状态；Web Core 拥有无业务组件和 Shell 主题合同；Code 拥有应用视觉装配与官方业务样板；模块拥有业务内容及局部样式。
 
@@ -33,7 +33,7 @@
 - 采用 4px 基础间距。桌面分区和面板内边距沿 Shell spacing（紧凑12px、舒适20px、宽松28px），字段/操作组沿 Shell gap（8/12/16px）；390px下分区12–16px、面板14–16px。不叠加 Shell 与整页 padding。
 - 密度分为紧凑、舒适、宽松，由 Web Core 的同一 Shell theme 计算控件高度与空间变量，页面消费变量，不自建密度开关。应用可限制允许选项；用户选择不改应用自有主题或权限。
 - Element Plus当前编译样式的默认button／select高度不随`--el-component-size`变化；Page页头操作、筛选及分组表单在global.less集中适配默认尺寸，保留显式small／large与link／text行为。依据[官方主题说明](https://element-plus.org/en-US/guide/theming)，只在已采用的Page区域覆盖所需BEM样式，不扩大到全局控件，不以新主题库或逐页补丁处理错位。
-- 页面标题26px/36px、600字重，窄屏20px/28px；分组标题16–18px；正文沿用系统字体14px/22px，说明13px/22px。标题与说明组成一个文本组，主操作与该组垂直居中；页面名称、创建和筛选文案使用同一业务称谓。通常保留三个文本层级，数字按列对齐。
+- 页面标题24px/32px、600字重，窄屏20px/28px；分组标题16–18px；正文沿用系统字体14px/22px，说明13px/22px。标题与说明组成一个文本组，主操作与该组垂直居中；页面名称、创建和筛选文案使用同一业务称谓。通常保留三个文本层级，数字按列对齐。
 - 单一 h1，标题左对齐，主操作在右侧且可换行。普通卡片圆角8px、轻边框、无常驻投影；浮层保留 Element Plus 默认投影。
 - “大气”来自层次、对齐和内容节奏；不靠巨型按钮、装饰图标或虚构数据填满面板。密集页可用既有 compact 密度，画布/编辑器保留实际任务空间。
 
@@ -59,7 +59,26 @@ PageHeader 标题插槽包含 h1；PageToolbar 使用准确的本地化 label。
 
 标签身份参考MIT许可的[Vben tabbar](https://github.com/vbenjs/vue-vben-admin/blob/main/packages/stores/src/modules/tabbar.ts)与[Soybean tab shared](https://github.com/soybeanjs/soybean-admin/blob/main/src/store/modules/tab/shared.ts)（2026-11-08查阅）。两者都将工作项身份与实际导航URL分开；Vben支持`meta.fullPathKey: false`按路径复用，Soybean默认按路径、显式multiTab才按参数多开。Peanut采用Vben这项配置，内置工作台及成员／部门／角色／岗位列表设`fullPathKey: false`，query或hash变化更新原标签的完整URL，不再创建同名标签，也不加序号掩盖问题。自定义业务页不配置时继续按fullPath多开，避免升级时合并应用原有参数工作区；确需多开的业务应提供有意义的页面标题。
 
-公开`getTabKey`由Web Core提供，去重、活动态、KeepAlive、关闭与重新加载共用同一键，实际跳转始终使用完整URL。Code现有TabBar负责固定区和滚动，TabItem负责标签呈现，TabBarMenu共用右键／右侧菜单及关闭、刷新处理器，关闭图标通过其slot调用同一动作；页面不复制标签状态或菜单实现。不得删除业务参数来消除标签。菜单激活跟随实际路由而非点击事件。切换保留已缓存页面的本地状态；关闭标签清除对应工作项的缓存，不连带清除其他工作项。浏览器刷新、退出及业务编辑器的未保存恢复另按各自合同处理，不能把KeepAlive宣称为持久草稿。
+滚动及工具入口另核对[Vben固定源码的标签栏](https://github.com/vbenjs/vue-vben-admin/blob/53b47f8ce99ecea11aa04c9c876a2f18c479838f/packages/%40core/ui-kit/layout-ui/src/components/layout-tabbar.vue)和[Soybean固定源码的标签栏](https://github.com/soybeanjs/soybean-admin/blob/d2dfefd757e37d8d6077ea1cea6181fb628d6097/src/layouts/modules/global-tab/index.vue)。借鉴活动项定位、横向滚动和工具入口的职责，不引入其布局包、BetterScroll或整套状态体系。
+
+公开`getTabKey`由Web Core提供，去重、活动态、KeepAlive、关闭与重新加载共用同一键，实际跳转始终使用完整URL。Code现有TabBar负责固定区和滚动，TabItem负责标签呈现，TabBarMenu共用右键／右侧菜单及关闭、刷新处理器，关闭图标通过其slot调用同一动作；页面不复制标签状态或菜单实现。溢出时提供左右滚动按钮，边界禁用，同时保留原生横滚；右侧使用更多操作图标，其下拉仍列出已打开页面。标签图标取同一授权菜单条目，缺省时使用路由元数据；解析由菜单和标签共用的menu-icons维护，不复制映射。不要把图标或标题当作标签身份。不得删除业务参数来消除标签。菜单激活跟随实际路由而非点击事件。切换保留已缓存页面的本地状态；关闭标签清除对应工作项的缓存，不连带清除其他工作项。浏览器刷新、退出及业务编辑器的未保存恢复另按各自合同处理，不能把KeepAlive宣称为持久草稿。
+
+## 整体区域与设置职责
+
+| 区域 | 固定职责 | 禁止混入 |
+| --- | --- | --- |
+| 品牌区 | 应用Logo与名称；宽度和侧栏同步 | 页面标题、业务操作 |
+| 顶部工具区 | Logo后折叠控制、桌面面包屑、搜索与全局设置、用户入口 | 查询条件、页面创建／保存按钮 |
+| 侧栏主导航 | 授权后的真实菜单，分组弱化；子项相对根入口轻缩进 | 套餐、重复账户入口、页面说明 |
+| 侧栏辅助区 | 固定底部关于应用及已有贡献槽 | 第二套主导航或无实际目标的帮助链接 |
+| 标签区 | 已打开页面与工作项切换、溢出滚动、统一管理菜单 | 筛选值、重复页面标题说明 |
+| 页头区 | 独立主题表面、底部分隔；单h1、可选说明／状态、页面主操作 | 再放面包屑、查询控件或嵌套卡片 |
+| 内容区 | 下文九类职责按实际页面组合；统一内边距和面板节奏 | 再叠整页padding或额外导航壳 |
+| 浮层区 | Element Plus的弹窗／抽屉／下拉；继承应用主题，正文有界滚动 | 另一套颜色、遮挡操作区的整窗滚动 |
+
+根PageContent的第一个PageHeader沿用同一组件，以独立表面衔接标签区，桌面上下20px、窄屏16px，横向和Shell内容边距一致。Shell只定义一次`--pa-page-inset`，页头和内容共用；存在page-tools贡献时保留其位置，不让页头负边距覆盖贡献。该默认仅匹配Shell中的根PageContent，不改嵌套工作区或应用自有容器。页头用24px主标题与16px结果标题形成层级，不能只靠持续放大字号建立层次。
+
+页面配置复用既有Block分组组件：外观负责预设／主题／品牌色／密度；布局与导航负责布局／导航方式／既有菜单来源及宽度；区域显示负责顶栏／侧栏／页脚／标签；辅助功能保留已有色弱选项。统一使用应用允许选项与固定品牌优先级，不新增一套配置存储。抽屉桌面400px、窄屏不超过100vw，主体滚动、关闭和复制操作固定在底部；哪些选项持久化仍按原状态合同说明，不宣称所有选项都会跨会话保存。
 
 ## 内容区域合同
 
@@ -77,7 +96,7 @@ PageHeader 标题插槽包含 h1；PageToolbar 使用准确的本地化 label。
 | 反馈 | 加载、失败、无权限、空数据区分；通知靠近操作，原错误拦截继续工作 | Element Plus既有loading、empty、alert、message；保留有效数据 |
 | 编辑／详情 | 表单按业务分组；页级或弹窗底部只有一处提交操作；只读详情使用字段组而非伪表单 | el-form、el-descriptions、el-dialog；下述表单合同 |
 
-筛选与结果各自一张面板，靠区域标题和留白说明关系，不在每个区再嵌卡片。无筛选的列表直接开始结果面板；复杂工作区不强加查询、表格或分页。普通内容标题26px／窄屏20px，结果标题16px，任务说明13px次级色；不能把结果总数或提示提升为第二个页面标题。
+筛选与结果各自一张面板，靠区域标题和留白说明关系，不在每个区再嵌卡片。无筛选的列表直接开始结果面板；复杂工作区不强加查询、表格或分页。普通内容标题24px／窄屏20px，结果标题16px，任务说明13px次级色；不能把结果总数或提示提升为第二个页面标题。
 
 ### 查询与结果状态
 
@@ -107,7 +126,7 @@ PageHeader 标题插槽包含 h1；PageToolbar 使用准确的本地化 label。
 
 ## 侧栏区域与辅助入口
 
-品牌／折叠控制在现有顶栏，主导航独立滚动，底部辅助区域不随菜单长度被挤出；复用现有`sidebar-footer`贡献槽和Footer，不创建另一套导航。分组标题从侧栏24px开始，组内活动背景从24px开始、图标再内缩20px；根入口保持原层级，折叠后恢复64px图标栏，不把展开缩进带入浮层。
+品牌／折叠控制在现有顶栏，主导航独立滚动，底部辅助区域不随菜单长度被挤出；复用现有`sidebar-footer`贡献槽和Footer，不创建另一套导航。分组标题从侧栏24px开始，组内活动背景从16px开始、内部16px；组内文字相对根入口轻缩进8px，避免侧栏空白过宽。根入口保持原层级，折叠后恢复64px图标栏，不把展开缩进带入浮层。
 
 官方[Vben侧栏](https://github.com/vbenjs/vue-vben-admin/blob/main/packages/%40core/ui-kit/layout-ui/src/components/layout-sidebar.vue)将菜单、底部折叠和品牌分区，[Ant Design Pro布局](https://github.com/ant-design/ant-design-pro/blob/master/src/app.tsx)把账号放顶栏、版权放Footer。这些不是统一行业强制标准。Peanut已在Logo旁提供折叠，顶栏已有用户／租户入口，因此侧栏不重复头像、退出、套餐或组织切换。侧栏顶部用户区只适用于它确实承担独立工作空间切换的应用定制。
 

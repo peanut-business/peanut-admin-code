@@ -6,7 +6,6 @@
     nextTick,
     ref,
     watch,
-    type Component,
     type VNode,
   } from 'vue';
   import { useI18n } from 'vue-i18n';
@@ -20,67 +19,11 @@
     ElSubMenu,
     type MenuInstance,
   } from 'element-plus';
-  import {
-    Back,
-    Bell,
-    Briefcase,
-    Brush,
-    Clock,
-    Connection,
-    CreditCard,
-    DataAnalysis,
-    Document,
-    Folder,
-    Grid,
-    Key,
-    Lightning,
-    Menu as MenuIcon,
-    Monitor,
-    Notebook,
-    Postcard,
-    PriceTag,
-    Search,
-    Service,
-    Setting,
-    Share,
-    Tools,
-    User,
-  } from '@element-plus/icons-vue';
+  import { Grid } from '@element-plus/icons-vue';
   import { useAppStore } from '@/store';
   import { openWindow, regexUrl } from '@/utils';
+  import resolveMenuIcon from './menu-icons';
   import useMenuTree, { findMenuRoutePath } from './use-menu-tree';
-
-  const iconMap: Record<string, Component> = {
-    'icon-apps': Grid,
-    'icon-bar-chart': DataAnalysis,
-    'icon-brush': Brush,
-    'icon-code': Tools,
-    'icon-clock-circle': Clock,
-    'icon-customer-service': Service,
-    'icon-dashboard': Monitor,
-    'icon-desktop': Monitor,
-    'icon-file': Document,
-    'icon-fingerprint': Key,
-    'icon-folder': Folder,
-    'icon-history': Clock,
-    'icon-idcard': Postcard,
-    'icon-menu': MenuIcon,
-    'icon-mind-mapping': Connection,
-    'icon-notification': Bell,
-    'icon-palette': Brush,
-    'icon-payment': CreditCard,
-    'icon-search': Search,
-    'icon-settings': Setting,
-    'icon-share-alt': Share,
-    'icon-storage': Folder,
-    'icon-tag': PriceTag,
-    'icon-thunderbolt': Lightning,
-    'icon-tool': Tools,
-    'icon-undo': Back,
-    'icon-user': User,
-    'icon-user-group': Briefcase,
-    'icon-book': Notebook,
-  };
 
   export default defineComponent({
     props: {
@@ -176,7 +119,7 @@
         if (!iconName && !collapsed.value) return null;
         if (!iconName)
           return h(ElIcon, { class: 'menu-icon' }, { default: () => h(Grid) });
-        const icon = iconMap[String(iconName)] || MenuIcon;
+        const icon = resolveMenuIcon(iconName);
         return h(ElIcon, { class: 'menu-icon' }, { default: () => h(icon) });
       };
 
@@ -317,8 +260,8 @@
   }
 
   :deep(.el-menu:not(.el-menu--horizontal) .el-menu-item-group .el-menu-item) {
-    margin-inline: 24px 12px;
-    padding-inline: 20px 12px;
+    margin-inline: 16px 12px;
+    padding-inline: 16px 12px;
     font-weight: 400;
   }
 

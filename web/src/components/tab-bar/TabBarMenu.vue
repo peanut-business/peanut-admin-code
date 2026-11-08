@@ -11,7 +11,7 @@
         aria-label="标签页管理与切换"
         title="标签页管理与切换"
       >
-        <el-icon><Tickets /></el-icon>
+        <el-icon><MoreFilled /></el-icon>
       </el-button>
     </slot>
     <template #dropdown>
@@ -72,9 +72,9 @@
     DArrowLeft,
     DArrowRight,
     FolderDelete,
+    MoreFilled,
     Refresh,
     Switch,
-    Tickets,
   } from '@element-plus/icons-vue';
   import { getTabKey, type ShellTab } from '@peanut-admin/ui-vue/tabs';
   import { useTabBarStore } from '@/store';

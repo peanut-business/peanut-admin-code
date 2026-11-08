@@ -110,12 +110,22 @@ body {
   margin-bottom: var(--pa-shell-spacing);
 }
 
+// The root page header is a distinct surface, not another content card.
+// Keep contributed page tools outside its top offset.
+:where(.tenant-content > .pa-page-content) > .pa-page-header:first-child {
+  margin-top: var(--pa-page-header-offset-top);
+  margin-inline: calc(-1 * var(--pa-page-inset));
+  padding: 20px var(--pa-page-inset);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  background: var(--el-bg-color);
+}
+
 .pa-page-header__title {
   min-width: 0;
   color: var(--el-text-color-primary);
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 600;
-  line-height: 36px;
+  line-height: 32px;
   overflow-wrap: anywhere;
 
   > h1 {
@@ -168,12 +178,12 @@ body {
 
 // EP's compiled default button/select heights do not consume component-size.
 // Adapt only Page regions; explicit sizes and link/text actions keep EP behavior.
-:where(.pa-page-header__actions, .pa-page-filters)
+:where(.pa-page-header__actions, .pa-page-filters, .pa-shell-settings)
   .el-button:not(.el-button--small):not(.el-button--large):not(.is-link):not(.is-text) {
   height: var(--el-component-size);
 }
 
-:where(.pa-page-filters, .pa-page-form-grid)
+:where(.pa-page-filters, .pa-page-form-grid, .pa-shell-settings)
   .el-select:not(.el-select--small):not(.el-select--large) > .el-select__wrapper {
   min-height: var(--el-component-size);
 }
@@ -301,6 +311,9 @@ body {
 }
 
 @media (max-width: 768px) {
+  :where(.tenant-content > .pa-page-content) > .pa-page-header:first-child {
+    padding-block: 16px;
+  }
   .pa-page-stack {
     gap: 16px;
   }

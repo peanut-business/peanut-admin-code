@@ -1,5 +1,15 @@
 export default {
   'settings.title': '页面配置',
+  'settings.appearance': '外观',
+  'settings.appearance.description':
+    '统一主题、品牌色和界面密度。应用固定的品牌设置优先。',
+  'settings.navigationSection': '布局与导航',
+  'settings.navigationSection.description':
+    '选择导航组织方式；页面内容与业务权限保持各自职责。',
+  'settings.regions': '区域显示',
+  'settings.regions.description':
+    '控制整体界面区域。页头、查询和结果区域由统一页面模式组织。',
+  'settings.accessibility': '辅助功能',
   'settings.themeColor': '品牌主色',
   'settings.themeColor.fixed': '品牌主色由应用固定设置',
   'settings.content': '内容区域',
