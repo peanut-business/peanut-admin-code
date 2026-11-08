@@ -2,6 +2,12 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.3] - 2026-11-08
+
+- Fix the first Web build and type check in generated applications by invoking the existing shared brand-asset generator before TypeScript. Optional sidebar-footer defaults are normalized centrally while application-owned branding remains unchanged.
+- Clarify that the resource-registry checker is a Code maintainer tool; generated applications use their own resource declaration and native installation preflight.
+- Retain Web Core 5.0.5 and PHP Core 5.0.3. Version 5.1.2 remains immutable, but its generated-application build failed post-publication acceptance; use 5.1.3 for this correction.
+
 ## [5.1.2] - 2026-11-08
 
 - Unify responsive content regions, Page components, shell navigation, route tabs, density, configurable sidebar tools and theme palettes on Web Core 5.0.5; retain PHP Core 5.0.3 and Element Plus.

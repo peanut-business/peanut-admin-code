@@ -1,6 +1,6 @@
 # Peanut Admin Third-Party Notices
 
-Generated for Peanut Admin 5.1.2 on 2026-11-08.
+Generated for Peanut Admin 5.1.3 on 2026-11-08.
 
 Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-party components remain governed by their own licenses.
 
