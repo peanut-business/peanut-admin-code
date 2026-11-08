@@ -272,15 +272,6 @@
   }
 
   :deep(
-      .peanut-menu--grouped:not(.el-menu--horizontal):not(.el-menu--collapse)
-        .menu-entry-grouped
-    ) {
-    margin-inline: 16px 12px;
-    padding-inline: 16px 12px;
-    font-weight: 400;
-  }
-
-  :deep(
       .peanut-menu:not(.el-menu--horizontal):not(.el-menu--collapse)
         .el-menu-item
     ) {
@@ -291,6 +282,15 @@
       color: var(--el-text-color-secondary);
       font-size: 16px;
     }
+  }
+
+  :deep(
+      .peanut-menu--grouped:not(.el-menu--horizontal):not(.el-menu--collapse)
+        .menu-entry-grouped
+    ) {
+    margin-inline: 16px 12px;
+    padding-inline: 16px 12px;
+    font-weight: 400;
   }
 
   :deep(

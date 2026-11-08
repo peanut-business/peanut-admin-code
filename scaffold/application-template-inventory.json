@@ -780,7 +780,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5963416a3c2aa1c3cd94814bc8cbe46b832d06c229ef7c194c4954da6be0b2f6"
+            "source_sha256": "6658ad07d9bcc3ee38d424d4264f44d341764c61f8592f26bf5b4ce3b9518d8f"
         },
         {
             "path": "docs/development/controller-access-and-namespaces.md",
@@ -849,7 +849,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ca29d49f506453d2976f9e41cbb79c2fa2a023b28e7260b2157a59edd58ae241"
+            "source_sha256": "1f90603187435ce9085678932260a0b9a372854e06996dc5bbd5556f64f3bfd4"
         },
         {
             "path": "docs/development/p0e-tool-identity.md",
@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3467495277cb27ae6abe7a3e59d80e46ef7f073e242cb21b8bb92ab9e733d5c7"
+            "source_sha256": "a4288cf52492cbab3da6198ffb16e1f4373df8c90778c0b419e818e91f86a522"
         },
         {
             "path": "docs/maintenance/README.md",
@@ -25559,7 +25559,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f5ae1cfd3823a4680be2b60b9341a8ccb40ee864d2addc6307882b94cfed62d7"
+            "source_sha256": "9c7a72c4d167437a443436354c8ff33d1e8c4cf839d704ee038e2cd59b514a4e"
         },
         {
             "path": "web/src/components/menu/menu-icons.ts",
