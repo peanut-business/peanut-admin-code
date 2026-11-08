@@ -831,6 +831,9 @@
       ElMessage.success(t('systemAdmin.export.success'));
       exportVisible.value = false;
       return true;
+    } catch {
+      // The shared interceptor shows the server's business error; keep the dialog open.
+      return false;
     } finally {
       exportLoading.value = false;
     }

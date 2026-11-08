@@ -28290,7 +28290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b173cf279547db2315d2e00308cbaa7a47255099e5ebb921ff95ecd6898b3518"
+            "source_sha256": "d836ea266d9768da7917f8c82b858cfe2f2ab125da42e74c111f19cf3eae9818"
         },
         {
             "path": "web/src/views/system/admin/locale/en-US.ts",
