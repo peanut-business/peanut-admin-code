@@ -20,8 +20,8 @@ function brandExpect(bool $condition, string $message): void
 $website = WebsiteConfigService::defaults();
 $defaultImages = BrandDefaults::defaultImages();
 brandExpect(
-    array_keys($website) === WebsiteConfigService::fields(),
-    'bootstrap manifest and website Runtime fields must match exactly',
+    array_keys([...$website, ...BrandDefaults::sidebarFooter()]) === WebsiteConfigService::fields(),
+    'bootstrap brand and footer defaults must cover the website Runtime fields',
 );
 brandExpect($website['name'] === 'Peanut Admin', 'default product name must be complete');
 brandExpect($website['shop_name'] === 'Peanut Admin', 'default consumer name must be complete');
