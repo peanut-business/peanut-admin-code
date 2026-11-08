@@ -2,9 +2,9 @@
   "schema_version": 3,
   "protocol": "peanut.release-metadata.v3",
   "product": "Peanut Admin",
-  "source_product_version": "5.1.3",
+  "source_product_version": "5.1.4",
   "instance_version": null,
-  "expected_tag": "v5.1.3",
+  "expected_tag": "v5.1.4",
   "release_date": "2026-11-08",
   "repository": "https://github.com/peanut-business/peanut-admin-code",
   "license": {
@@ -75,20 +75,20 @@
     }
   },
   "lockfiles": {
-    "server/composer.lock": "917b6b35a2c88480c4b19adf44701c0849573eabbaf01f74a7b3a9de9f64914b",
+    "server/composer.lock": "443477fc07797df86fca53b812f146a60e1a0a1426b38168955296aa9fea4402",
     "web/pnpm-lock.yaml": "41bf65ba917214771e1ee44c11c05ef27aebb46a745e2690996fbd32f77cd0ac",
-    "platform/package-lock.json": "fb8120b482bbff5e5d54d74d23ba518bd3e3e13f02664f776a0e23a8c54d0ad7",
-    "pc/package-lock.json": "16b27a3897ec7c13f54708c4d98300c14bda9e326d3dad51bea3d667c50dbf2a",
-    "uniapp/package-lock.json": "e5a1ec9cbeaaf0f647c44282ad562bb2f0f60a22d39cd8b76c58c460f9b20b03"
+    "platform/package-lock.json": "e45300253eb1427892129545653616143f12633fa934c7f42047dd1d9ff17f4a",
+    "pc/package-lock.json": "1cc5ec5da3c167effa24f0319f9d84665f8a097c720cacfabfc40c94ad9b8448",
+    "uniapp/package-lock.json": "cca23b98b4398e8fcff888803fda4106844fcce579431788c6f6f7ad71e00ac8"
   },
   "legal_files": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "NOTICE": "c0680ac5f6eac2bf9106393ada2d3d54b845a50cf14d13bf8e46acb66026609f",
-    "THIRD_PARTY_NOTICES.md": "13f362648a8d7a211a2c2c0371e7fc9c7bdbb22b0012b6ff53c63128273da19d",
-    "RELEASE_SBOM.spdx.json": "f8648d8e3cb10310f38197f3f5963ab8888890fc4a63cc7ed8390dcd6de25f1a"
+    "THIRD_PARTY_NOTICES.md": "5187d898cafb64aad6b111307c954c7f7e00cac49a7a3cf34311cc75fce7070c",
+    "RELEASE_SBOM.spdx.json": "01d72a6dd427ac298ad465f93fd1dc71fdd7f308e742c780cda61d9be90333dd"
   },
   "technical_qualification": {
-    "phase": "5.1.3-stable-candidate",
+    "phase": "5.1.4-stable-candidate",
     "result": "pending",
     "final_candidate_commit": null,
     "final_candidate_tree": null,
@@ -98,10 +98,10 @@
     "cleanup_residual_count": null,
     "lease_released": false,
     "migrations": 10,
-    "scaffold_version": "5.1.3",
+    "scaffold_version": "5.1.4",
     "application_initial_version": "0.1.0",
     "evidence": "Product stable candidate identity is prepared from public Core registry locks; qualification remains pending.",
-    "release_delta": "Fix generated application Web build and type checking by invoking the existing shared brand-asset generator before TypeScript; normalize optional sidebar-footer defaults centrally without rewriting application-owned branding. Clarify the source-only resource checker in the public installation guide; retain published Web Core 5.0.5 and PHP Core 5.0.3."
+    "release_delta": "Adopts the published fixed PHP Core and Web Core package identities recorded in public_runtime_dependencies, separates source product identity from customer-owned instance identity, and prepares one-source deterministic Standalone and Multi-tenant scaffold inputs."
   },
   "self_reference_policy": "This file intentionally omits its own commit SHA and archive digest. RELEASE_MANIFEST.json is generated from the immutable tag and carries those values."
 }

@@ -4,6 +4,8 @@
 
 ## GitHub 正式发布入口
 
+先完成模块、客户端清单及其原生锁的最终变更，再运行现有 `scripts/prepare-product-release-candidate` 刷新 `RELEASE_METADATA.json` 的锁摘要，随后生成 API、legal 和 inventory。此后原生锁再次变化时，须先重新准备同一未封存版本的候选；legal 生成器只维护自己的字段，不负责刷新依赖锁摘要。普通 `--static-only` 无制品证据模式只检查开发结构，不代表这些发行摘要已经通过精确候选核验。
+
 1. 将已审候选集成到 `dev`，核对远端提交后，手动触发该提交的 `ci.yml`。工作流使用仓库指定的 PHP 和 MySQL 补丁版本。公共 CI 执行数据库策略和资格驱动的独立合同测试。完整资源验收在维护环境读取私有登记，并绑定实际应用、数据库、租约和制品。
 2. 使用 `scaffold-release.yml` 对同一提交各生产一次 ST、MT 模板，固定独立 CLI 提交并完成原生创建检查，保存原始归档、清单和 candidate-stage。完整八组是按需授权的专项测试，不是通用发行前置；原失败和未完成结果保留，不补写通过。
 3. 按受保护的 `dev` → `main` PR 与现有平台权限进入发布。在 `main` 的同一工作流选择 `publish=true`，提供精确 source、成功候选 run、成功 CI run 和原始传输包摘要；唯一发布器直接发布原四附件。正式 Release/latest 产生后，再用默认 `peanut create`（不传 ref 或本地归档）完成 ST/MT 首装、启动、IAB 登录及基本业务，结果如实记录。

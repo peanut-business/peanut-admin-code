@@ -4,11 +4,11 @@
     "inputs": [
         {
             "path": "modules.lock",
-            "sha256": "43b94ffab383a4a97fdde67b3d5437493b49df4267ea0fae3c42560d3a6cc8b5"
+            "sha256": "b147fae86a8a41355d968c436a66ff0a3a5075ec54b0dc3d684b89244b1e7ebe"
         },
         {
             "path": "release-versions.json",
-            "sha256": "627148563a759a5401eef07b23ba992153a3f67813dcb480f86af2ce4c7a6099"
+            "sha256": "21fdf00a6753572dff39b0a7e5bae2f96f67f9380db1e236c2b5a37d0229143b"
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",

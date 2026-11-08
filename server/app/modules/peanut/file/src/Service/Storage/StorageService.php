@@ -33,7 +33,7 @@ use PeanutAdmin\Modules\File\Service\FileAuthorizationService;
 use PeanutAdmin\Modules\File\Model\Storage\FileReference;
 use app\common\services\audit\AuditContractHost;
 
-final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules\File\Contract\FileDocumentSnapshots
+final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules\File\Contract\FileDocumentSnapshots, \PeanutAdmin\Modules\File\Contract\FileDocumentSourceChecks
 {
     public const DELIVERY_URL_TTL = 600;
     private SignedDeliveryTokenService $deliveryTokens;
@@ -144,8 +144,13 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
             if ($uploadActor instanceof TenantContext) {
                 $this->audit->appendTenantMember($uploadActor, $event, 'file.upload.write', 'file', $fileKey, null, null, 0, null, $metadata);
             } else {
-                $this->audit->appendTenantSystem($tenantId, $event, 'file.upload.write', $this->execution->requestId(),
-                    $metadata + ['file_key' => $fileKey, 'initiating_member_id' => $memberId]);
+                $this->audit->appendTenantSystem(
+                    $tenantId,
+                    $event,
+                    'file.upload.write',
+                    $this->execution->requestId(),
+                    $metadata + ['file_key' => $fileKey, 'initiating_member_id' => $memberId],
+                );
             }
         };
         // Durable intent precedes the external write; the reservation keeps its exact key and byte identity.
@@ -194,8 +199,11 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
             } catch (\Throwable) {
                 // The durable pre-write intent remains even if the current database is unavailable.
             }
-            OperationalLog::warning($this->execution, 'file_upload_write_unconfirmed',
-                $metadata + ['file_key' => $fileKey, 'exception' => $error::class]);
+            OperationalLog::warning(
+                $this->execution,
+                'file_upload_write_unconfirmed',
+                $metadata + ['file_key' => $fileKey, 'exception' => $error::class],
+            );
             throw $error;
         }
 
@@ -437,6 +445,36 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
         $this->authorization->authorizeDocumentReference($context, $object, $documentId);
     }
 
+
+    public function assertBackgroundDocumentSnapshotReadable(TenantContext $context, int $documentId, string $fileKey, string $sha256, string $verifiedMimeType): void
+    {
+        if (!(($pdo = Db::connect()->getPdo()) instanceof \PDO) || !$pdo->inTransaction()) {
+            throw BusinessException::conflict('FILE_REFERENCE_TRANSACTION_REQUIRED', '后台固定快照复核必须在来源事务内');
+        }
+        $object = $this->lockedReferenceObject($context, $fileKey);
+        $capture = FileImmutableSnapshot::where('file_key', $fileKey)->lock(true)->find();
+        if ($documentId < 1 || $capture === null || $capture->status !== 'claimed' || (int) $capture->claimed_document_id !== $documentId
+            || !in_array($object['purpose'], ['document.snapshot', 'document.snapshot-sensitive'], true) || $object['access_type'] !== 'private'
+            || preg_match('/^[0-9a-f]{64}$/D', $sha256) !== 1
+            || !hash_equals($sha256, (string) $object['sha256']) || !hash_equals($sha256, (string) $capture->source_sha256)
+            || $verifiedMimeType !== $object['media_type'] || $verifiedMimeType !== $capture->verified_mime_type) {
+            throw BusinessException::conflict('FILE_DOCUMENT_SNAPSHOT_CHANGED', '后台固定文件快照与文档版本不一致');
+        }
+        $this->authorization->authorizeBackgroundDocumentSource($context, $object);
+        $opened = $this->materialize($object);
+        try {
+            $actual = is_file($opened['path']) ? hash_file('sha256', $opened['path']) : false;
+            if (!is_string($actual) || !hash_equals($sha256, $actual)) {
+                throw BusinessException::conflict('FILE_DOCUMENT_SOURCE_BYTES_CHANGED', '后台固定文件字节与版本摘要不一致');
+            }
+            $this->authorization->authorizeBackgroundDocumentSource($context, $object);
+        } finally {
+            if ($opened['temporary'] ?? false) {
+                @unlink($opened['path']);
+            }
+        }
+    }
+
     /** File-internal reference locking/enrichment; never exposed by a cross-module or HTTP contract. */
     public function lockedReferenceObject(TenantContext $context, string $fileKey): array
     {
@@ -580,14 +618,18 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
     public function pendingDocumentSnapshots(TenantContext $context): array
     {
         $this->authorization->requireManagementPermission($context, 'peanut.file.delete');
-        $objects = $this->ownedObjects($context->tenantId)->whereIn('purpose', ['document.snapshot','document.snapshot-sensitive'])->where('created_at', '<', gmdate('Y-m-d H:i:s', time() - 3600))->order('created_at')->limit(100)->select()->toArray();
-        return array_values(array_filter(array_map(function (array $object): ?array {
+        // Exclude completed/claimed objects before limiting so they cannot starve the recovery batch.
+        $objects = $this->ownedObjects($context->tenantId)
+            ->whereIn('purpose', ['document.snapshot','document.snapshot-sensitive'])
+            ->whereNull('snapshot_cleanup_acknowledged_at')
+            ->whereNotIn('file_key', new Raw(FileImmutableSnapshot::whereIn('status', ['claimed', 'abandoned'])->field('file_key')->buildSql()))
+            ->whereNotIn('file_key', new Raw(FileReference::where([])->field('file_key')->buildSql()))
+            ->where('created_at', '<', gmdate('Y-m-d H:i:s', time() - 3600))
+            ->order('created_at')->order('file_key')->limit(100)->select()->toArray();
+        return array_map(function (array $object): array {
             $capture = FileImmutableSnapshot::where('file_key', $object['file_key'])->find();
-            if ($capture?->status === 'claimed' || $capture?->status === 'abandoned' || FileReference::where('file_key', $object['file_key'])->find() !== null) {
-                return null;
-            }
             return ['file_key' => $object['file_key'],'status' => $capture?->status ?? 'interrupted_capture','created_at' => $object['created_at']];
-        }, $objects)));
+        }, $objects);
     }
 
     public function recoverDocumentSnapshot(TenantContext $context, string $fileKey): array
@@ -615,6 +657,9 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
                 || Db::name('file_derivative')->where('source_file_key|derivative_file_key', $key)->find() !== null) {
                 throw BusinessException::conflict('FILE_SNAPSHOT_RECOVERY_DENIED', '快照已被认领、仍被引用或尚未进入恢复窗口');
             }
+            if ($object['snapshot_cleanup_acknowledged_at'] !== null || $capture?->status === 'abandoned') {
+                return ['cleanup_complete' => true];
+            }
             $this->ownedObjects($context->tenantId)->where('file_key', $key)->update(['status' => 'archived','archived_at' => new Raw('UTC_TIMESTAMP(3)'),'updated_at' => new Raw('UTC_TIMESTAMP(3)'),'revision' => new Raw('revision+1')]);
             $capture?->save(['status' => 'cleanup_pending']);
             $space = StorageSpace::where('id', $object['storage_space_id'])->lock(true)->find();
@@ -629,9 +674,17 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
             $this->audit->appendTenantMember($context, 'file.snapshot.cleanup_intent', 'file.snapshot.recover', 'file', $key);
             return $configured;
         });
+        if (isset($object['cleanup_complete'])) {
+            return ['file_key' => $key,'cleanup_pending' => false,'provider_delete_acknowledged' => true];
+        }
         try {
             $receipt = $this->drivers->make($object, $object)->delete((string) $object['object_key']);
-            FileImmutableSnapshot::where('file_key', $key)->update(['status' => 'abandoned']);
+            Db::transaction(function () use ($context, $key): void {
+                // The object ledger also survives interrupted captures which have no capture row.
+                $this->ownedObjects($context->tenantId)->where('file_key', $key)->lock(true)->find();
+                $this->ownedObjects($context->tenantId)->where('file_key', $key)->update(['snapshot_cleanup_acknowledged_at' => new Raw('UTC_TIMESTAMP(3)')]);
+                FileImmutableSnapshot::where('file_key', $key)->update(['status' => 'abandoned']);
+            });
             $result = ['file_key' => $key,'cleanup_pending' => false,'provider_delete_acknowledged' => true,'provider_outcome' => $receipt->outcome];
         } catch (\Throwable) {
             $result = ['file_key' => $key,'cleanup_pending' => true,'provider_delete_acknowledged' => false];
