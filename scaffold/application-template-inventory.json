@@ -26820,7 +26820,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "914c547b4e07d76e1423473746581f8b659729eb92cbba2a18696d80819eaab2"
+            "source_sha256": "deaf943a69787af2fa05acc2b4167accd4fdec1b14700f0808e6dffec6cc91f7"
         },
         {
             "path": "web/src/modules/peanut-reference-codes/runtime/src/contracts.ts",
@@ -27030,7 +27030,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "765dbb2c6919b4fc86aebaee5160ec0db5bd05665f31dbfff0bcc66a2b182ecf"
+            "source_sha256": "327cfe5b7d8ca2ea9ec2ce8bfd997a50b53760cd8b2ee276dfc49939c3a53f76"
         },
         {
             "path": "web/src/modules/peanut-settings/runtime/src/contracts.ts",
@@ -27226,7 +27226,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3418c9167de7fb6970997eca2527b189b899c16e0bc77dba1e4b2efc5efdbc39"
+            "source_sha256": "8a93ee91f2f15df0999b2096b6602a482d9978868ce6ac2ef35474e4e586833c"
         },
         {
             "path": "web/src/modules/peanut-task/optional-runtime/src/contracts.ts",
@@ -28332,7 +28332,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "518af2f1ec871244358c08605d302d5fcae2798678ed95b35a9fa9759a0afcc1"
+            "source_sha256": "a85aafc45b11b835f09d95c2dd4074f5ff1f0242ee6265a175327b2d6f14380a"
         },
         {
             "path": "web/src/views/system/config/locale/en-US.ts",
