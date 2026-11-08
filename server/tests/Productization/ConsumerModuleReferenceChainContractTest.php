@@ -36,7 +36,7 @@ referenceChainContractExpect(is_string($source), 'reference-chain source is unav
 // The two installed APPs must be bound to the same native P0-E source and protected configuration.
 $execution = referenceChainContractSection($source, 'def run_chain(', 'def parse_arguments(');
 foreach ([
-    'native["lifecycle_inputs"](args, candidate_tree)',
+    'native["lifecycle_inputs"](args, candidate_tree, executing=True)',
     'qualification.get("lifecycle_inputs") == inputs',
     'qualification.get("template_artifacts") == inputs["template_artifacts"]',
     'native["verify_lease"](native_args, qualification)',
