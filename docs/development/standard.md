@@ -103,6 +103,8 @@ PC 普通业务 CSR，已登记公开展示页才 SSR；公开 HTML / payload �
 
 ### 管理内容区与页面布局
 
+修改管理页面前先读[管理界面设计与开发准则](ui-guidelines.md)：统一色彩、排版、空间及五类页面模式，同时遵守 Element Plus、Web Core 与应用定制边界。
+
 适用于租户管理端、平台管理端及模块贡献的管理页面；PC/H5 按其实际能力范围采用。已存在的 Shell 负责导航、面包屑和主容器，业务内容区不得重造第二套 Shell 或整体主题。页面布局优先使用公开的 `@peanut-admin/ui-vue` 组件（PageContent、PageHeader、PageToolbar 等）及 Element Plus 基础控件；组件能力不足时先核实实际消费者，再做必要的最小扩展，不另造通用 Schema 页面引擎或竞争组件库。
 
 按业务组织以下五类布局，不要求所有页面长得相同：

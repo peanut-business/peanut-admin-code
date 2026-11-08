@@ -570,7 +570,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "65ae4a1ae09470889ca0ddd3fc1c0313c27416f3e3506484dfbed0f63522b316"
+            "source_sha256": "0f47a664b9a730406cdef91dbe1c0b2e76a2345e29be19eb677b958f477a5a04"
         },
         {
             "path": "docs/architecture/cli-and-recipes.md",
@@ -904,7 +904,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5ae8710787c685fd0c0a08af0121b9487c0c3223c2a570128e78037326a4c880"
+            "source_sha256": "5138262bf1008788acf5097d87e4ca715900efe7066ca7dc439cd87ed8bf1596"
+        },
+        {
+            "path": "docs/development/ui-guidelines.md",
+            "target": "docs/development/ui-guidelines.md",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f9fd42b7224d6beb82ca1d893c2506946c508cbcefb8bd9b4a5d11ff602452af"
         },
         {
             "path": "docs/maintenance/README.md",
@@ -3460,7 +3474,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "55a473e1dc6beccac6bca7341295cf7c0e0b9cec6662a087fa8f82e91cd36253"
+            "source_sha256": "b3ea5b373d31a0b3d00eb1a863654a776fcdacdb65d5a34da347236ffed09b9e"
         },
         {
             "path": "scripts/scaffold-upgrade",
@@ -19588,7 +19602,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a7fe67da06cf16de910622016b7bd146588ea94564c5f08fd7bfc4d1ee0e2d6d"
+            "source_sha256": "7aa9a00c45d2ae2e460810caf6d5848e7eea7140eab5c870128c7e4491d959db"
         },
         {
             "path": "server/resources/scaffold-application/SECURITY.md.stub",
@@ -25363,7 +25377,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1396974142926ada2e8e46d76864fb56d15d4543768812707d064ef78ae167bd"
+            "source_sha256": "e4c6a7392232868c35d1a08d11d7b4be3211122aea7d83698b2240e98e0ece6a"
         },
         {
             "path": "web/src/assets/world.json",
@@ -28024,7 +28038,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c627f2e4068dfdccda09294260a4400cd32fadd55d22cd4bdbd5b6bc1f491ba5"
+            "source_sha256": "21b482a919100c33e6dbc44a1715521ea25f1f0b23a7e33bc4cd52dfbfb732a5"
         },
         {
             "path": "web/src/views/dashboard/workplace/locale/en-US.ts",
@@ -28276,7 +28290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c95c8b6b1a6270d54842a7f864669911ff97a7c7a23de69fd135cd7dc13f5525"
+            "source_sha256": "b173cf279547db2315d2e00308cbaa7a47255099e5ebb921ff95ecd6898b3518"
         },
         {
             "path": "web/src/views/system/admin/locale/en-US.ts",
@@ -28402,7 +28416,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1cf98c05de99a43c151484497a3d2f68bf79b0ba5fa90e17853e4a8618ae9a3a"
+            "source_sha256": "41b14b00b9aaa8cc824dbc0be80aed65d92caed9d53a240ec34df1b1226a67c8"
         },
         {
             "path": "web/src/views/system/dict/components/DataDrawer.vue",

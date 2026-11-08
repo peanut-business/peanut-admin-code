@@ -70,7 +70,7 @@
 
     <el-card class="general-card admin-directory-list">
       <div class="admin-directory-table-scroll">
-        <el-table row-key="id" :loading="loading" :data="renderData" border>
+        <el-table row-key="id" :loading="loading" :data="renderData">
         <el-table-column
           prop="id"
           :label="$t('systemAdmin.columns.id')"
@@ -86,7 +86,8 @@
         <el-table-column
           prop="account"
           :label="$t('systemAdmin.columns.account')"
-          width="130"
+          width="240"
+          show-overflow-tooltip
         />
         <el-table-column
           prop="name"
@@ -848,11 +849,12 @@
   .admin-directory-page {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 24px;
     min-width: 0;
     width: 100%;
 
     :deep(.pa-page-header) {
+      margin-bottom: 0;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
@@ -870,7 +872,7 @@
   .admin-directory-title {
     margin: 0;
     color: var(--el-text-color-primary);
-    font-size: 20px;
+    font-size: 24px;
     font-weight: 600;
     line-height: 1.4;
   }
