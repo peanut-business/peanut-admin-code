@@ -82,7 +82,7 @@ SQL, [(int) $tenant['id']]);
                 $this->execute('INSERT INTO pa_system_menu (menu_key,parent_key,module_key,pid,type,name,icon,sort,perms,paths,component,is_cache,is_show,is_disable) VALUES (?,?,?,0,?,?,?,?,?,?,?,0,1,0)', [
                     $menu->key, $menu->parentKey, $menu->moduleKey,
                     $menu->type === 'group' ? 'M' : 'C', $menu->name, $menu->icon ?? '',
-                    $menu->sortOrder, $menu->requiredPermission ?? '', $menu->routePath ?? '', $menu->componentKey ?? '',
+                    -$menu->sortOrder, $menu->requiredPermission ?? '', $menu->routePath ?? '', $menu->componentKey ?? '',
                 ]);
             }
             $temporaryMenus = $this->fetchRow("SELECT COUNT(*) AS count FROM pa_system_menu WHERE menu_key LIKE 'seed.%'");
