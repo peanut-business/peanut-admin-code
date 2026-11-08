@@ -116,8 +116,10 @@ body {
   margin-top: var(--pa-page-header-offset-top);
   margin-inline: calc(-1 * var(--pa-page-inset));
   padding: 20px var(--pa-page-inset);
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  border-bottom: 1px solid var(--el-border-color-extra-light);
   background: var(--el-bg-color);
+  box-shadow: var(--pa-shell-page-header-shadow);
+  position: relative;
 }
 
 .pa-page-header__title {
@@ -151,12 +153,13 @@ body {
   line-height: 22px;
 }
 
-// Filter controls share one grid; density comes from the owning Shell.
+// Queries keep compact inline controls; editor forms follow Shell density.
 .pa-page-filters {
+  --el-component-size: 28px;
   display: grid;
   grid-template-columns: repeat(3, minmax(160px, 1fr)) auto;
-  align-items: end;
-  gap: var(--pa-shell-gap) var(--pa-shell-spacing);
+  align-items: center;
+  gap: 12px 20px;
   width: 100%;
 
   .el-form-item {
@@ -165,14 +168,19 @@ body {
   }
   .el-form-item__label {
     height: auto;
-    margin-bottom: 8px;
+    margin-bottom: 0;
+    padding-inline-end: 8px;
     color: var(--el-text-color-regular);
-    line-height: 20px;
+    line-height: 28px;
+    font-size: 13px;
   }
   .el-form-item__content,
   .el-select {
     min-width: 0;
     width: 100%;
+  }
+  .el-form-item__content {
+    line-height: 28px;
   }
 }
 

@@ -43,6 +43,10 @@ export default {
   'navbar.cancel': 'Cancel',
   'navbar.confirm': 'Confirm',
   'footer.about': 'About this application',
+  'footer.tools': 'Application tools',
+  'footer.license': 'License information',
+  'footer.license.description':
+    'The current tenant license summary. Actions still require module entitlement and member permissions.',
   'footer.brand': 'Brand',
   'footer.version': 'Client version',
   'footer.development': 'Development environment',

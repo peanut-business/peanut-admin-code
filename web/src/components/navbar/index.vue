@@ -540,7 +540,8 @@
     min-width: 0;
     height: 100%;
     background-color: var(--el-bg-color);
-    border-bottom: 1px solid var(--el-border-color);
+    border-bottom: 1px solid var(--el-border-color-extra-light);
+    box-shadow: var(--pa-shell-header-shadow);
   }
 
   .left-side {

@@ -6,7 +6,8 @@
         <el-form
           class="pa-page-filters"
           :model="formModel"
-          label-position="top"
+          label-position="left"
+          label-width="80px"
           @submit.prevent="search"
         >
           <el-form-item prop="name" :label="$t('systemJobs.form.name')">
@@ -39,7 +40,7 @@
               />
             </el-select>
           </el-form-item>
-          <el-form-item class="pa-page-filters__actions">
+          <el-form-item class="pa-page-filters__actions" label-width="0">
             <el-space>
               <el-button type="primary" @click="search">
                 <template #icon><Search /></template>

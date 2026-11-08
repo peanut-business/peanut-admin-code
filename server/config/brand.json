@@ -18,6 +18,13 @@
     "official_url": "",
     "github_url": "https://github.com/peanut-business/peanut-admin-code"
   },
+  "sidebar_footer": {
+    "sidebar_footer_enabled": true,
+    "sidebar_footer_title": "",
+    "sidebar_footer_settings": true,
+    "sidebar_footer_license": true,
+    "sidebar_footer_about": true
+  },
   "default_image": {
     "admin_avatar": "brand/avatar-admin.svg",
     "user_avatar": "brand/avatar-member.svg",

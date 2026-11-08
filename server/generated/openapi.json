@@ -27825,7 +27825,12 @@
                     "slogan",
                     "copyright",
                     "official_url",
-                    "github_url"
+                    "github_url",
+                    "sidebar_footer_enabled",
+                    "sidebar_footer_title",
+                    "sidebar_footer_settings",
+                    "sidebar_footer_license",
+                    "sidebar_footer_about"
                 ],
                 "properties": {
                     "name": {
@@ -27875,6 +27880,22 @@
                     },
                     "github_url": {
                         "type": "string"
+                    },
+                    "sidebar_footer_enabled": {
+                        "type": "boolean"
+                    },
+                    "sidebar_footer_title": {
+                        "type": "string",
+                        "maxLength": 60
+                    },
+                    "sidebar_footer_settings": {
+                        "type": "boolean"
+                    },
+                    "sidebar_footer_license": {
+                        "type": "boolean"
+                    },
+                    "sidebar_footer_about": {
+                        "type": "boolean"
                     }
                 }
             },

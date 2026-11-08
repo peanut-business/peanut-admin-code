@@ -43,6 +43,10 @@ export default {
   'navbar.cancel': '取消',
   'navbar.confirm': '确认',
   'footer.about': '关于应用',
+  'footer.tools': '应用工具',
+  'footer.license': '授权信息',
+  'footer.license.description':
+    '当前租户的授权摘要；实际操作仍受模块权益和成员权限限制。',
   'footer.brand': '品牌',
   'footer.version': '客户端版本',
   'footer.development': '开发环境',

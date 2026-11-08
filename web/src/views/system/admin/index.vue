@@ -18,7 +18,7 @@
 
     <el-card class="general-card">
       <PageToolbar :label="$t('systemAdmin.region.filters')">
-        <el-form class="pa-page-filters" :model="queryParams" label-position="top" @submit.prevent="search">
+        <el-form class="pa-page-filters" :model="queryParams" label-position="left" label-width="80px" @submit.prevent="search">
         <el-form-item prop="account" :label="$t('systemAdmin.search.account')">
           <el-input
             v-model="queryParams.account"
@@ -48,7 +48,7 @@
               :value="option.value"
           /></el-select>
         </el-form-item>
-        <el-form-item class="pa-page-filters__actions">
+        <el-form-item class="pa-page-filters__actions" label-width="0">
           <el-space>
             <el-button type="primary" @click="search">
               <template #icon><Search /></template>

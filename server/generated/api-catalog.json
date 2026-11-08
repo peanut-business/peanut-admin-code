@@ -12,7 +12,7 @@
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
-            "sha256": "3ed4cd31b01ef7ee411b3628265f85a33eeae46c35e9b64088b5d4c8b58a2d7e"
+            "sha256": "4b82101fd0f11c21af262dff62db194dd265c5c7e096b2c0813ef71bfc4e8f67"
         },
         {
             "path": "server/app/api/metadata/application/common.php",

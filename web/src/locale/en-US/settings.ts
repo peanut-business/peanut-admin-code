@@ -11,6 +11,18 @@ export default {
     'Choose shell regions. Page patterns organize headings, filters and results.',
   'settings.accessibility': 'Accessibility',
   'settings.themeColor': 'Brand primary color',
+  'settings.colorPreset': 'Color scheme',
+  'settings.colorPreset.enterprise': 'Business · Blue',
+  'settings.colorPreset.technology': 'Technology · Indigo',
+  'settings.colorPreset.operations': 'Operations · Green',
+  'settings.semanticColors': 'Semantic colors',
+  'settings.tone.primary': 'Primary',
+  'settings.tone.success': 'Success',
+  'settings.tone.warning': 'Warning',
+  'settings.tone.danger': 'Danger',
+  'settings.tone.info': 'Info',
+  'settings.color.fixed': 'Application fixed',
+  'settings.color.reset': 'Restore default colors',
   'settings.themeColor.fixed':
     'Brand primary color is fixed by the application',
   'settings.content': 'Content Setting',
@@ -50,7 +62,7 @@ export default {
   'settings.otherSettings': 'Other Settings',
   'settings.colorWeak': 'Color Weak',
   'settings.alertContent':
-    'Theme mode, brand color, layout, navigation, density and tabs are saved in this browser. Other page settings last for this session. Copy the configuration to set these values as application defaults in web/src/config/settings.json.',
+    'Theme mode, color preset, semantic colors, layout, navigation, density and tabs are saved in this browser. Other page settings last for this session. Copy the configuration for application developers to set the default appearance.',
   'settings.copySettings': 'Copy Settings',
   'settings.copySettings.message':
     'Copied. Paste into web/src/config/settings.json when you want these values as application defaults.',

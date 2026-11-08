@@ -65,7 +65,7 @@
         <div class="tenant-drawer__contributions">
           <ShellContributions name="sidebar-footer" />
         </div>
-        <Footer v-if="appStore.footer" sidebar />
+        <Footer v-if="appStore.footer" sidebar @action="drawerVisible = false" />
       </el-drawer>
     </template>
     <template #tabs><TabBar v-if="appStore.tabBar" /></template>
@@ -168,7 +168,8 @@
       width: var(--pa-shell-sidebar-width);
       flex-shrink: 0;
       background: var(--pa-shell-surface-color);
-      border-right: 1px solid var(--pa-shell-border-color);
+      border-right: 1px solid var(--el-border-color-extra-light);
+      box-shadow: var(--pa-shell-sidebar-shadow);
       transition: width var(--pa-shell-motion-duration);
       &.is-collapsed {
         width: var(--pa-shell-sidebar-collapsed-width);
