@@ -2,9 +2,9 @@
   "schema_version": 3,
   "protocol": "peanut.release-metadata.v3",
   "product": "Peanut Admin",
-  "source_product_version": "5.1.1",
+  "source_product_version": "5.1.2",
   "instance_version": null,
-  "expected_tag": "v5.1.1",
+  "expected_tag": "v5.1.2",
   "release_date": "2026-11-08",
   "repository": "https://github.com/peanut-business/peanut-admin-code",
   "license": {
@@ -77,18 +77,18 @@
   "lockfiles": {
     "server/composer.lock": "917b6b35a2c88480c4b19adf44701c0849573eabbaf01f74a7b3a9de9f64914b",
     "web/pnpm-lock.yaml": "41bf65ba917214771e1ee44c11c05ef27aebb46a745e2690996fbd32f77cd0ac",
-    "platform/package-lock.json": "c9df39b0a07500c03c8da3a8031801fcbc405e6f98924f499398913b0d8de5b0",
-    "pc/package-lock.json": "1172bf2f74d22be03163477cc6a1555dc97db009ee6e287493c91df909a7f6ae",
-    "uniapp/package-lock.json": "6c7febce502d19b954212cc9505b892df75853c9932c9c8f0aab1688c41a07bc"
+    "platform/package-lock.json": "3a5ccd0b2ea655351bdcde3e558954d3b96933dcb4712801ac26dbf2713165b1",
+    "pc/package-lock.json": "0e4936ea67397c36d23db61bf7eca24f30626057355941c8ee5511788ae5e8d5",
+    "uniapp/package-lock.json": "4c02d748aa97113b641b357e35e59a4272653ebda98fd3b6c26e07d8d388d163"
   },
   "legal_files": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "NOTICE": "c0680ac5f6eac2bf9106393ada2d3d54b845a50cf14d13bf8e46acb66026609f",
-    "THIRD_PARTY_NOTICES.md": "5582b4124c3075cb949273646426e71a5a47f8e599dcd625f09da8dda9ac22e3",
-    "RELEASE_SBOM.spdx.json": "8ddae91e0fcfb7eebccf72107048bd9d2eac465055e1b51196aad762d41140b1"
+    "THIRD_PARTY_NOTICES.md": "0222f37949f0d190e1e7af6ab040499071ad4ca78f8ce80f01551e9ce039be12",
+    "RELEASE_SBOM.spdx.json": "65e065c408dafb5cc28a42bc9beab78a04a7e796270777fa08b45fe72e9fb1d7"
   },
   "technical_qualification": {
-    "phase": "5.1.1-stable-candidate",
+    "phase": "5.1.2-stable-candidate",
     "result": "pending",
     "final_candidate_commit": null,
     "final_candidate_tree": null,
@@ -98,7 +98,7 @@
     "cleanup_residual_count": null,
     "lease_released": false,
     "migrations": 10,
-    "scaffold_version": "5.1.1",
+    "scaffold_version": "5.1.2",
     "application_initial_version": "0.1.0",
     "evidence": "Product stable candidate identity is prepared from public Core registry locks; qualification remains pending.",
     "release_delta": "Unifies management content regions, responsive Page components, shell navigation, reusable route tabs, configurable sidebar tools and theme palettes on published Web Core 5.0.5 while retaining PHP Core 5.0.3. Includes the integrated native module/scaffold update fixes and public Agent UI guidance; application-owned branding, themes, pages, navigation and permissions remain protected by the native three-way upgrade contract."
