@@ -154,7 +154,7 @@ CI 的 `scaffold-release.yml` 可显式选 `publish=false, pack_only=true` 并�
 
 稳定模式接受 `X.Y.Z`、注释 tag `vX.Y.Z` 并标记 latest；显式预发行模式只接受严格预发行 SemVer，永不标 latest。本地 `--prepare-only` 只准备文件；正式写入仍限定本仓 main 的唯一工作流。既有正式 Release 不覆盖，失败或 UNKNOWN 先对账同一实际对象，不自动重新上传、重建或删除他人附件。
 
-原始模板、tag、候选锁及发布清单的产品来源绑定源码 S。运输验证器从 S 的 Git 原件读取 tree、版本、inventory 和生产者摘要，不用执行工具 checkout 的字节替代历史生产输入。实际远端 main 必须等于 S，或包含同仓真实已合并 dev → main PR 的正常合并提交 M：M 的精确父序列为 `[B,S]`，B 是 S 祖先，M 与 S 同树，并核唯一 PR、merged 状态、仓库和分支身份。发布工具可以在 M 之后正常集成；其执行 HEAD 必须是实时 main，工具 commit/tree 与产品来源 S 在外部清单和现有 `MAIN_INTEGRATION_PROOF.json` 分开记录，不把后续工具修正标作 S 的内容。发布器以真实 Git/GitHub 状态核对，并在对外写入前重核远端 main/tag，保留漂移拒绝、平台权限和实际发布授权。
+原始模板、tag、候选锁及发布清单的产品来源绑定源码 S。运输验证器从 S 的 Git 原件读取 tree、版本、inventory 和生产者摘要，不用执行工具 checkout 的字节替代历史生产输入。实际远端 main 必须等于 S，或包含同仓真实已合并 dev → main PR 的正常合并提交 M：M 的精确父序列为 `[B,S]`，B 是 S 祖先；若 B 为双亲合并且与其第二亲 P 完全同树，则也接受 P 是 S 祖先作为产品基线已包含的证明；M 与 S 同树，并核唯一 PR、merged 状态、仓库和分支身份。发布工具可以在 M 之后正常集成；其执行 HEAD 必须是实时 main，工具 commit/tree 与产品来源 S 在外部清单和现有 `MAIN_INTEGRATION_PROOF.json` 分开记录，不把后续工具修正标作 S 的内容。发布器以真实 Git/GitHub 状态核对，并在对外写入前重核远端 main/tag，保留漂移拒绝、平台权限和实际发布授权。
 
 发布说明与清单明确有限验收和仍未完成的历史 full8，原 FAIL/预算保留。公开 Release/latest 产生后，默认 `peanut create` 不指定 ref 或本地 archive，分别创建 ST/MT，再按自身登记首装、启动并由真实 IAB 登录和执行基本业务。此后验结果不能由候选 CLI 创建、源码健康或已有 APP 结果替代。
 

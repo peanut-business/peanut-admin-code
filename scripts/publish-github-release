@@ -169,7 +169,14 @@ if (main !== source) {
   if (parents.length !== 2 || !parents.every(sha) || parents[1] !== source || parents[0] === source) fail('requires exact parents [B,S]')
   const base = parents[0]
   if (git('rev-parse', `${merge}^{tree}`) !== tree) fail('merge tree differs from qualified source')
-  git('merge-base', '--is-ancestor', base, source)
+  let ancestryBase = base
+  if (git('merge-base', base, source) !== base) {
+    const baseParents = git('show', '-s', '--format=%P', base).split(' ')
+    if (baseParents.length !== 2 || !baseParents.every(sha)
+      || git('rev-parse', `${base}^{tree}`) !== git('rev-parse', `${baseParents[1]}^{tree}`)) fail('base product history is not incorporated')
+    ancestryBase = baseParents[1]
+  }
+  git('merge-base', '--is-ancestor', ancestryBase, source)
   git('merge-base', '--is-ancestor', merge, main)
   const url = `https://github.com/${repository}/pull/${number}`
   if (pr.number !== number || pr.html_url !== url || pr.merged !== true || pr.state !== 'closed'
