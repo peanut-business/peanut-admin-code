@@ -612,7 +612,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "454045bf459a9b86586726f91a8957065ff2554fa160a7568385b20690c7f46d"
+            "source_sha256": "997a1710c87f9ef3cfcf3ced3ee5c4f6bb1c9042b1e5f2a7503b92db7cf866e3"
         },
         {
             "path": "docs/architecture/default-delivery-and-ownership.md",
@@ -1123,7 +1123,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "209aa1da9a052736047e2b222bf832c8cfb2c4a788e5a51694eacd4b9b4043f9"
+            "source_sha256": "3d53682775766d71d341439fa343013efcb9fe4e922021431f4257ed3ee1b332"
         },
         {
             "path": "pc/.env.example",
@@ -2643,7 +2643,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "63e5c597a5f46e103f470bd07e4d915ed12b1e23e8a10c823e76e2483da211ab"
+            "source_sha256": "3f18ef5aa13183b693f506d4c975e66fde6d30a85145e7de0099e91828af2c5c"
         },
         {
             "path": "scripts/ci-change-classifier",
@@ -7052,20 +7052,6 @@
                 "full"
             ],
             "source_sha256": "eb317491727a9d6fd9fbe9f015e1e117d95680f0525c8b5865772295faa36f41"
-        },
-        {
-            "path": "server/app/common/infrastructure/async/ModuleAwareTaskHandler.php",
-            "target": "server/app/common/infrastructure/async/ModuleAwareTaskHandler.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "a673cddbf8a6f6fef6e9c9422a52aa75b323891c5e19d219ffd9af9541669250"
         },
         {
             "path": "server/app/common/infrastructure/audit/OperationLogProjection.php",
@@ -15458,7 +15444,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "41911a843b5c24a6b764e88516adaf61f0ab2e71c7894eabd387a16cb375f926"
+            "source_sha256": "0d3951bbf7ba767c7baec75a5edbbd205083553ee2fc8787da6da37914970f7d"
         },
         {
             "path": "server/app/modules/peanut/task/database/migrations/20261101010006_initial_task_schema.php",
@@ -15514,7 +15500,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b227c24c32cdd9bf37b47576dfe08837460c7ddbb490abe03ff208f58a1adf62"
+            "source_sha256": "359dea7a24d3e40016316321635d7ff40a5b46cea693f77b9601c86cd0d143d7"
         },
         {
             "path": "server/app/modules/peanut/task/resources/menus.json",
@@ -15881,6 +15867,20 @@
             "source_sha256": "29dccbff5231da21ccd2bc104426bb39dd91eb92061f50374d692d55565cf27c"
         },
         {
+            "path": "server/app/modules/peanut/task/src/Infrastructure/Runtime/ModuleAwareTaskHandler.php",
+            "target": "server/app/modules/peanut/task/src/Infrastructure/Runtime/ModuleAwareTaskHandler.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "38d44481466edfd2c5c114595dc3326313929374a9ae14e546a71476d1dc7b75"
+        },
+        {
             "path": "server/app/modules/peanut/task/src/Infrastructure/Runtime/ThinkPhpTaskJobRuntime.php",
             "target": "server/app/modules/peanut/task/src/Infrastructure/Runtime/ThinkPhpTaskJobRuntime.php",
             "classification": "managed",
@@ -15892,7 +15892,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a442090328b6563e30404198399bb21962e026fc075fb115ec02f768b1cbeb85"
+            "source_sha256": "3cd983709873b23ed30c796e75e3e02ae87f8d0dbd0681472131d675d67ae1e6"
         },
         {
             "path": "server/app/modules/peanut/task/src/Job/Application/TaskJobException.php",
@@ -17433,7 +17433,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a948470d984ab407868a5103f544240bca46931322182c50efbedfa3f44e6422"
+            "source_sha256": "8397d0bd375332e4022107cbcbcfd793f59db30361e310cd1213e972076a3263"
         },
         {
             "path": "server/composer.lock",
@@ -17447,7 +17447,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ee92b3a5165085c5bd94405c49654fba93aa64a4e5ee1c1a432e76705a6ed3ba"
+            "source_sha256": "01e50af7e207ad4eee143f542fbb99d2dd814022b9855e51f1e5d475c4ced740"
         },
         {
             "path": "server/config/admin_api_access.php",
@@ -19307,7 +19307,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "19ff1b1ac2908270a5bb4e8bbd01551b4085045b5c7a4b0a406607afd773209b"
+            "source_sha256": "3cd2f2ede778261c2b07b2e0feffc45a9f6536efc9db9997dc48cde7607c4dcd"
         },
         {
             "path": "server/generated/openapi.json",
