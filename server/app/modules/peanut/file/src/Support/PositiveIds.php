@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace app\common\support;
+namespace PeanutAdmin\Modules\File\Support;
 
 use InvalidArgumentException;
 
