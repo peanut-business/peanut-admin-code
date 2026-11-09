@@ -1,0 +1,5 @@
+# Application-owned project rules
+
+This file belongs to this application. Record its purpose, business boundaries, local development and Git policy, permitted checks and acceptance requirements here. Reference runtime resources through `resources/project-resources.json`; never store credentials here.
+
+The scaffold development contracts are indexed in [the documentation index](README.md). Add project-specific topics beside this file or in an application-owned subdirectory and link them here. Keep project customizations out of the reusable root `AGENTS.md` and managed scaffold documentation. Scaffold upgrades preserve this file as application-owned content.

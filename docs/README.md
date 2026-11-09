@@ -13,6 +13,8 @@
 
 ## 二开开发：规范与源码
 
+[Agent 项目规则](development/agent-project-rules.md)集中维护脚手架开发入口、工具链、模块职责和升级约束；根 `AGENTS.md` 只保留可复用的 Agent 工作约定及规则加载入口。生成应用的 `docs/project-rules.md` 归应用所有，记录业务、Git、验证等项目差异，并可指向应用自有规则目录。日常定制写入该入口，不修改受管 AGENTS 或脚手架规则正文；升级继续使用原生 baseline 冲突处理，既有定制不自动覆盖。
+
 [管理界面设计与开发准则](development/ui-guidelines.md)：管理端及模块页面的视觉参数、组件边界、Agent 执行与三方升级保护。
 
 [开发规范](development/standard.md)维护共用约定；[应用约定](development/application-conventions.md)、[Controller与命名空间](development/controller-access-and-namespaces.md)、[PHP/ThinkPHP](development/php-thinkphp-guidelines.md)解释具体写法。

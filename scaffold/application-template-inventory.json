@@ -570,7 +570,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d0132e348e64289d3f4d670d603d0721c9c809c43b29f47013b48bbfa88bb1de"
+            "source_sha256": "ff4cdb552eb2036ac31b3cb8390ee8aee4d2b36e80f1e34098b81fc773f02bdf"
         },
         {
             "path": "docs/architecture/cli-and-recipes.md",
@@ -755,6 +755,20 @@
             "source_sha256": "05e9ea41d0f96262fc5d09e19e94ebca1dac10499566fbc0ae0cf41f4b5f4da4"
         },
         {
+            "path": "docs/development/agent-project-rules.md",
+            "target": "docs/development/agent-project-rules.md",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9db5f95319ce5c268e15e7f273b2bd63fbdea35ac11a08b4628bf5cc5f2ef845"
+        },
+        {
             "path": "docs/development/application-conventions.md",
             "target": "docs/development/application-conventions.md",
             "classification": "managed",
@@ -918,7 +932,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6f76df4e1be810b7b48acacf1c877728c9ab8ff4a0b373392b86cd3c4f127884"
+            "source_sha256": "a544588b767ae68736c61a5a75c47d03badee90c482fdb2cc9cd29ba9021e120"
         },
         {
             "path": "docs/development/ui-guidelines.md",
@@ -3502,7 +3516,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a323fc81dc2b4c1351eaf2dfc708610dfdfca85913ceaa93991812963fbd237b"
+            "source_sha256": "8ee26f4ab7e55afd4595f8248cdd5f428ceee33ce9ae36be2a3b414fd78628fd"
         },
         {
             "path": "scripts/scaffold-upgrade",
@@ -19685,7 +19699,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7a47983da2d2f55cd0baa21aa732f8530488c7937c710674e0642b5c6f7eb108"
+            "source_sha256": "f2d607fd85970c3dfc9a852acf0a1622eaf449f5e52eef7ef74f6b76020c8653"
         },
         {
             "path": "server/resources/scaffold-application/SECURITY.md.stub",
@@ -19700,6 +19714,20 @@
                 "full"
             ],
             "source_sha256": "0c28319c9bb8ab8a060ed94dda44ac26e9d75c74d224073541b80ff4be4052b0"
+        },
+        {
+            "path": "server/resources/scaffold-application/project-rules.md.stub",
+            "target": "docs/project-rules.md",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "7f3b5878ed1a7f4c3d3055aad2fe719e687612657395f4422e99433fd0c2d1b4"
         },
         {
             "path": "server/resources/schemas/module-artifact.schema.json",

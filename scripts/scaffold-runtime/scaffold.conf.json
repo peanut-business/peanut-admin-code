@@ -189,6 +189,7 @@
       "docs/plugin-module-development.md",
       "docs/module-layout.md",
       "docs/development/standard.md",
+      "docs/development/agent-project-rules.md",
       "docs/development/request-cache-contract.md",
       "docs/development/ui-guidelines.md",
       "docs/development/charts.md",
@@ -425,6 +426,16 @@
     },
     "server/resources/scaffold-application/SECURITY.md.stub": {
       "target": "SECURITY.md",
+      "classification": "app-owned",
+      "transform": "docs-page",
+      "profiles": [
+        "minimal",
+        "standard",
+        "full"
+      ]
+    },
+    "server/resources/scaffold-application/project-rules.md.stub": {
+      "target": "docs/project-rules.md",
       "classification": "app-owned",
       "transform": "docs-page",
       "profiles": [
