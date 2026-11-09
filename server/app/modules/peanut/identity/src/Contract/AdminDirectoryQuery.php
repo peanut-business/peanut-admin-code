@@ -8,6 +8,9 @@ use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Tenant;
 use PeanutAdmin\Modules\Identity\Persistence\Model\TenantMember;
 use PeanutAdmin\Modules\Identity\Persistence\Model\MemberJob;
+use PeanutAdmin\Modules\Identity\Auth\TenantAuthService;
+use PeanutAdmin\Kernel\Auth\TenantContext;
+use think\facade\Cache;
 
 /** Non-ORM read boundary for the native Account/TenantMember directory. */
 final readonly class AdminDirectoryQuery
@@ -15,6 +18,29 @@ final readonly class AdminDirectoryQuery
     public function __construct(
         private CurrentExecutionContext $execution,
     ) {}
+
+    /** Tenant-wide presentation settings; customer addresses/timezones belong to the business Module.
+     * @return array{id:int,code:string,name:string,display_name:string,locale:string,timezone:string}
+     */
+    public function tenantProfile(TenantContext $context): array
+    {
+        $read = static function () use ($context): array {
+            $row = Tenant::where('id', $context->tenantId)->where('status', 'active')
+                ->field('id,code,name,display_name,locale,timezone')->find();
+            if ($row === null) {
+                throw new \DomainException('TENANT_PROFILE_UNAVAILABLE');
+            }
+            $profile = $row->toArray();
+            $profile['id'] = (int) $profile['id'];
+            return $profile;
+        };
+        $admission = TenantAuthService::authenticatedRead($context);
+        if ($admission === null) {
+            return $read();
+        }
+        return Cache::remember('identity:tenant-profile:v1:' . $context->tenantId . ':'
+            . $admission['record']->tenantRevision, $read, 300);
+    }
 
     /**
      * Lifecycle projection for a bounded caller-selected set, not a grant of access.
@@ -91,12 +117,25 @@ final readonly class AdminDirectoryQuery
                 throw new \InvalidArgumentException('TENANT_MEMBER_ID_INVALID');
             }
         }
-        foreach (array_chunk(array_values(array_unique($memberIds)), 500) as $chunk) {
-            $rows = TenantMember::where('tenant_id', $context->tenantId)
-                ->whereIn('id', $chunk)->field('id,display_name')->select()->toArray();
-            foreach ($rows as $row) {
-                $names[(int) $row['id']] = (string) $row['display_name'];
+        $memberIds = array_values(array_unique($memberIds));
+        sort($memberIds, SORT_NUMERIC);
+        $admission = TenantAuthService::authenticatedRead($context);
+        foreach (array_chunk($memberIds, 500) as $chunk) {
+            $key = 'identity:member-names:v1:' . $context->tenantId . ':'
+                . $context->tenantAuthorizationRevision . ':' . hash('sha256', implode(',', $chunk));
+            $batch = $admission === null ? null : Cache::get($key);
+            if ($batch === null) {
+                $batch = [];
+                $rows = TenantMember::where('tenant_id', $context->tenantId)
+                    ->whereIn('id', $chunk)->field('id,display_name')->select()->toArray();
+                foreach ($rows as $row) {
+                    $batch[(int) $row['id']] = (string) $row['display_name'];
+                }
+                if ($admission !== null) {
+                    Cache::set($key, $batch, 300);
+                }
             }
+            $names += $batch;
         }
         return $names;
     }

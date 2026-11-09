@@ -14,6 +14,8 @@ use app\common\dto\authorization\PermissionDecision;
 use app\common\execution\AdminExecutionContext;
 use app\common\execution\CurrentExecutionContext;
 use think\facade\Db;
+use think\facade\Cache;
+use PeanutAdmin\Modules\Identity\Auth\TenantAuthService;
 use app\common\model\auth\SystemMenu;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\AuthorizationDecision;
@@ -36,16 +38,16 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         private readonly CurrentExecutionContext $execution,
     ) {}
 
-    public function principal(TenantContext $tenantContext): AdminPrincipal
+    public function principal(TenantContext $tenantContext, bool $includeTenantCount = true): AdminPrincipal
     {
-        $snapshot = $this->directory->activePrincipalProfileWithRoles($tenantContext->tenantId, $tenantContext->accountId, true);
+        $snapshot = $this->directory->activePrincipalProfileWithRoles($tenantContext->tenantId, $tenantContext->accountId, $includeTenantCount);
         if ($snapshot === null || $snapshot['profile']['member']->memberId !== $tenantContext->memberId) {
             throw new \DomainException('TENANT_ADMIN_PRINCIPAL_UNAVAILABLE');
         }
         $profile = $snapshot['profile'];
         $member = $profile['member'];
         $roles = $snapshot['roles'];
-        $switchableTenantCount = $profile['switchable_tenant_count'];
+        $switchableTenantCount = $profile['switchable_tenant_count'] ?? 0;
         $root = false;
         foreach ($roles as $role) {
             $root = $root || ($role['key'] === 'core.tenant-owner' && $role['is_builtin']);
@@ -73,7 +75,18 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
     /** Native Request storage is confined to the Login -> Auth middleware handoff. */
     public function principalForRequest(\think\Request $request, TenantContext $context): AdminPrincipal
     {
-        $principal = $this->principal($context);
+        $read = TenantAuthService::authenticatedRead($context);
+        // Business APIs need the actor, not the Shell's cross-tenant navigation count.
+        if ($read !== null && preg_match('~(?:^|/)api/v1/~', $request->pathinfo()) === 1) {
+            $record = $read['record'];
+            $key = implode(':', ['identity:admin-principal:v1', $context->tenantId, $context->memberId,
+                $context->authorizationRevision, $context->tenantAuthorizationRevision,
+                $record->tenantRevision, $record->profileRevision]);
+            $principal = AdminPrincipal::fromArray(Cache::remember($key,
+                fn(): array => $this->principal($context, false)->toArray(), 300));
+        } else {
+            $principal = $this->principal($context);
+        }
         $request->withMiddleware([self::class => ['context' => $context, 'principal' => $principal]]);
         return $principal;
     }
