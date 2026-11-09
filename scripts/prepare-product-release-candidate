@@ -41,7 +41,7 @@ LEGAL_FILES = (
     "RELEASE_SBOM.spdx.json",
 )
 CLIENT_CORE_PACKAGES = {
-    "web": ("@peanut-admin/vue", "@peanut-admin/ui-vue"),
+    "web": ("@peanut-admin/client", "@peanut-admin/vue", "@peanut-admin/ui-vue"),
     "platform": ("@peanut-admin/vue", "@peanut-admin/ui-vue"),
     "pc": ("@peanut-admin/client", "@peanut-admin/nuxt"),
     "uniapp": ("@peanut-admin/client", "@peanut-admin/uniapp"),

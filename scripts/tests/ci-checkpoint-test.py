@@ -79,7 +79,7 @@ class CheckpointTest(unittest.TestCase):
         result = subprocess.run(['bash', str(ROOT/'scripts/ci-summary'), '--candidate='+'a'*40, '--check=php:success:required', '--check=pc:skipped:false'], env=env, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
 
-    def test_all_integrated_workflows_are_manual_only_and_default_read_only(self):
+    def test_validation_is_manual_and_release_tags_are_read_only_by_default(self):
         paths = tuple((ROOT/'.github/workflows').glob('*.yml'))
         self.assertEqual({path.name for path in paths}, {
             'ci.yml', 'core-source-development.yml', 'repository-policy.yml',
@@ -89,14 +89,19 @@ class CheckpointTest(unittest.TestCase):
             with self.subTest(workflow=path.name):
                 text = path.read_text()
                 triggers = text.split('\non:\n', 1)[1].split('\npermissions:', 1)[0]
-                self.assertEqual(re.findall(r'^  (\S+):', triggers, re.MULTILINE), ['workflow_dispatch'])
                 permissions = text.split('\npermissions:\n', 1)[1].split('\n\n', 1)[0]
                 self.assertEqual(permissions, '  contents: read')
                 if path.name == 'scaffold-release.yml':
-                    # Only explicit publication on main may elevate repository permissions.
+                    self.assertEqual(re.findall(r'^  (\S+):', triggers, re.MULTILINE), ['push', 'workflow_dispatch'])
+                    self.assertEqual(triggers.split('  workflow_dispatch:', 1)[0].strip(), "push:\n    tags:\n      - 'v[0-9]*.[0-9]*.[0-9]*'")
+                    dispatch, templates = text.split('\n  dispatch-tag:\n', 1)[1].split('\n  templates:\n', 1)
+                    self.assertIn("    if: ${{ github.event_name == 'push' && !github.event.deleted && github.repository == 'peanut-business/peanut-admin-code' }}\n", dispatch)
+                    self.assertIn('      actions: write\n', dispatch)
+                    self.assertIn("    if: ${{ github.event_name == 'workflow_dispatch' && !inputs.publish }}\n", templates)
+                    # Tags may dispatch main; only the main publisher writes release content.
                     before_publish, publish = text.split('\n  publish:\n', 1)
                     self.assertNotIn('contents: write', before_publish)
-                    self.assertIn("    if: ${{ !inputs.pack_only && inputs.publish && github.ref == 'refs/heads/main' && github.repository == 'peanut-business/peanut-admin-code' }}\n", publish)
+                    self.assertIn("    if: ${{ github.event_name == 'workflow_dispatch' && !inputs.pack_only && inputs.publish && github.ref == 'refs/heads/main' && github.repository == 'peanut-business/peanut-admin-code' }}\n", publish)
                     self.assertEqual(publish.count('contents: write'), 1)
                 else:
                     self.assertEqual(triggers.strip(), 'workflow_dispatch:')

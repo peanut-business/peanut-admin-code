@@ -2,6 +2,14 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.6] - 2026-11-09
+
+- Adopt Web Core 5.1.0 session recovery for the tenant-admin Axios and module fetch transports. Definitive credential rejection clears the matching local session and navigates directly to login; network failures, permission denials and cancellation preserve the session.
+- Keep protocol classification, Cookie refresh, business cleanup and login navigation in the application. Reuse the Core refresh coordinator and prevent old responses from clearing a newer login.
+- Ship the revised development and upgrade rules: settle module and dependency inputs before generating API and inventory, use the smallest necessary preparation, and upgrade independently released modules after the scaffold.
+- Publish qualified scaffold artifacts automatically from an annotated release tag through the existing main publisher, using GitHub's short-lived workflow credentials and preserving the manual recovery entry.
+- Retain PHP Core 5.0.3. Downstream application adoption, public first-install acceptance and full8 are separate activities and are not claimed by this patch.
+
 ## [5.1.5] - 2026-11-09
 
 - Reuse admitted read identity and versioned permission, module, tenant-profile and member-name caches while preserving current session status, tenant isolation and write-time invalidation.

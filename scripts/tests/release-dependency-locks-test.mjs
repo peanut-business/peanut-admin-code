@@ -64,7 +64,7 @@ function fixture() {
     ],
   });
   for (const [client, suffixes] of Object.entries({
-    web: ['vue', 'ui-vue'],
+    web: ['client', 'vue', 'ui-vue'],
     platform: ['vue', 'ui-vue'],
     pc: ['client', 'nuxt'],
     uniapp: ['client', 'uniapp'],
@@ -87,7 +87,11 @@ function fixture() {
         },
       });
   }
-  const names = ['@peanut-admin/vue', '@peanut-admin/ui-vue'];
+  const names = [
+    '@peanut-admin/client',
+    '@peanut-admin/vue',
+    '@peanut-admin/ui-vue',
+  ];
   const yaml =
     "lockfileVersion: '9.0'\nimporters:\n  .:\n    dependencies:\n" +
     names
@@ -120,7 +124,7 @@ test('fixed v3 native locks work without a local Core tgz', () => {
   const f = fixture(),
     result = f.run();
   assert.equal(result.mode, 'registry');
-  assert.equal(result.checked.length, 8);
+  assert.equal(result.checked.length, 9);
   assert.equal(result.published, false);
 });
 test('Composer lock source identity cannot drift', () => {

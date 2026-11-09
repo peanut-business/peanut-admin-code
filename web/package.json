@@ -1,7 +1,7 @@
 {
   "name": "peanut-admin-web",
   "description": "Peanut Admin management client",
-  "version": "5.1.5",
+  "version": "5.1.6",
   "private": true,
   "author": "花生科技",
   "license": "Apache-2.0",
@@ -37,8 +37,8 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "2.3.2",
-    "@peanut-admin/ui-vue": "5.0.5",
-    "@peanut-admin/vue": "5.0.5",
+    "@peanut-admin/ui-vue": "5.1.0",
+    "@peanut-admin/vue": "5.1.0",
     "@vueuse/core": "^9.3.0",
     "axios": "0.34.0",
     "dayjs": "^1.11.5",
@@ -53,7 +53,8 @@
     "sortablejs": "^1.15.0",
     "vue": "^3.3.0",
     "vue-i18n": "^9.2.2",
-    "vue-router": "^4.0.14"
+    "vue-router": "^4.0.14",
+    "@peanut-admin/client": "5.1.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^17.1.2",
