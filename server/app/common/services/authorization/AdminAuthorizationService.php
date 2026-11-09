@@ -11,6 +11,9 @@ use app\common\contract\AdminPermissionPolicy;
 use app\common\dto\authorization\AdminAccessData;
 use app\common\dto\authorization\AdminPrincipal;
 use app\common\dto\authorization\PermissionDecision;
+use app\common\execution\AdminExecutionContext;
+use app\common\execution\CurrentExecutionContext;
+use think\facade\Db;
 use app\common\model\auth\SystemMenu;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\AuthorizationDecision;
@@ -30,6 +33,7 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         private readonly AdminDirectoryQuery $directory,
         private readonly TenantAuthorizationQuery $identityAuthorization,
         private readonly EndpointPermissionGrant $endpointGrant,
+        private readonly CurrentExecutionContext $execution,
     ) {}
 
     public function principal(TenantContext $tenantContext): AdminPrincipal
@@ -258,14 +262,28 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         if ($pending === []) {
             return $decisions;
         }
-        // Unadmitted permissions still read current membership and credential together.
-        $profile = $this->directory->activePrincipalProfile($tenantContext->tenantId, $tenantContext->accountId);
-        if ($profile === null || $profile['member']->memberId !== $tenantContext->memberId) {
-            throw new \DomainException('TENANT_ADMIN_PRINCIPAL_UNAVAILABLE');
+        // A read uses the identity already validated by Login; grants below remain a live bounded query.
+        // Direct calls and transactions retain their current membership/revision boundary.
+        $current = $this->execution->current();
+        $pdo = Db::connect()->getPdo();
+        if (!app()->runningInConsole() && app()->request->isGet()
+            && ($pdo === false || !$pdo->inTransaction())
+            && $current instanceof AdminExecutionContext && $current->tenant === $tenantContext
+            && $current->principal !== []) {
+            $admin = AdminPrincipal::fromArray($current->principal);
+            if (!$this->validContext($tenantContext, $admin)) {
+                throw new \DomainException('TENANT_ADMIN_PRINCIPAL_UNAVAILABLE');
+            }
+            $authorizationRevision = $admin->authorizationRevision;
+        } else {
+            $profile = $this->directory->activePrincipalProfile($tenantContext->tenantId, $tenantContext->accountId);
+            if ($profile === null || $profile['member']->memberId !== $tenantContext->memberId) {
+                throw new \DomainException('TENANT_ADMIN_PRINCIPAL_UNAVAILABLE');
+            }
+            $authorizationRevision = $profile['member']->authorizationRevision;
         }
-        $member = $profile['member'];
         if ($tenantContext->authorizationRevision < 1
-            || $member->authorizationRevision !== $tenantContext->authorizationRevision
+            || $authorizationRevision !== $tenantContext->authorizationRevision
             || $tenantContext->sessionKey === '' || $tenantContext->clientKey === '' || $tenantContext->requestId === '') {
             foreach ($pending as $accessUri) {
                 $decisions[$accessUri] = PermissionDecision::deny($accessUri, 'INVALID_TENANT_ADMIN_CONTEXT');

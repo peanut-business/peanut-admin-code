@@ -130,6 +130,23 @@ final readonly class AdminDirectoryQuery
             ->where('role.id', $roleId)->value('member.id') !== null;
     }
 
+    /** Active directory members in a selected tenant department set; no profiles, roles or jobs are loaded.
+     * @param list<int> $departmentIds @return list<int>
+     */
+    public function activeMemberIdsInDepartments(\PeanutAdmin\Kernel\Auth\TenantContext $context, array $departmentIds): array
+    {
+        if ($departmentIds === []) return [];
+        if ($this->execution->tenantAdmin() !== $context) {
+            throw new \DomainException('EXECUTION_TENANT_ADMIN_CONTEXT_REQUIRED');
+        }
+        return array_map('intval', TenantMember::alias('member')
+            ->join('account account', 'account.id = member.account_id')
+            ->join('credential credential', "credential.account_id = account.id AND credential.identifier_type = 'email'")
+            ->where('member.tenant_id', $context->tenantId)->where('member.status', 'active')
+            ->whereIn('member.primary_department_id', $departmentIds)
+            ->distinct(true)->column('member.id'));
+    }
+
     /** @return list<array<string,mixed>> */
     public function rows(array $filters): array
     {
