@@ -4,13 +4,17 @@
 
 ## GitHub 正式发布入口
 
-先完成模块、客户端清单及其原生锁的最终变更，再运行现有 `scripts/prepare-product-release-candidate` 刷新 `RELEASE_METADATA.json` 的锁摘要，随后生成 API、legal 和 inventory。此后原生锁再次变化时，须先重新准备同一未封存版本的候选；legal 生成器只维护自己的字段，不负责刷新依赖锁摘要。普通 `--static-only` 无制品证据模式只检查开发结构，不代表这些发行摘要已经通过精确候选核验。
+先收敛模块源码、版本、客户端清单及实际依赖组合，通过原生入口准备依赖并以 `module lock --write` 固定模块内容，再运行现有 `scripts/prepare-product-release-candidate` 刷新 `RELEASE_METADATA.json` 的锁摘要，随后生成受影响的 API、legal 和 inventory，核对版本、模块内容摘要及派生来源与最终源码一致。同一准备入口已执行的生成不再手工重复；legal 生成器只维护自己的字段，不负责刷新依赖锁摘要。此后源码或锁变化时，只重做输入已失效的准备及派生步骤；封存前集中闭合已知问题，不每修一点就生产双 Edition 或派生 APP。普通 `--static-only` 无制品证据模式只检查开发结构，不代表这些发行摘要已经通过精确候选核验。
+
+候选前按净差异追踪直接消费者：构造或上下文合同变化须核容器绑定及所有直接 `new` 调用，包括现有测试；数据结构变化须核现有 fixture 的必需列与状态；缓存路径须核正式驱动配置、命名空间及正式写入口的失效责任。fixture 直接改库不能替代正式写后失效语义。此处是影响核对，不新增 runner 或自动测试授权；仅在获准测试范围内修正、运行相应样本。报告保留真实退出码及已执行范围，fail-fast 后续部分记未执行，环境／依赖失败与产品断言失败分开，不将部分通过汇总为候选通过。未受影响且输入仍有效的证据直接复用。
 
 1. 将已审候选集成到 `dev`，核对远端提交后，手动触发该提交的 `ci.yml`。工作流使用仓库指定的 PHP 和 MySQL 补丁版本。公共 CI 执行数据库策略和资格驱动的独立合同测试。完整资源验收在维护环境读取私有登记，并绑定实际应用、数据库、租约和制品。
 2. 使用 `scaffold-release.yml` 对同一提交各生产一次 ST、MT 模板，固定独立 CLI 提交并完成原生创建检查，保存原始归档、清单和 candidate-stage。完整八组是按需授权的专项测试，不是通用发行前置；原失败和未完成结果保留，不补写通过。
-3. 按受保护的 `dev` → `main` PR 与现有平台权限进入发布。在 `main` 的同一工作流选择 `publish=true`，提供精确 source、成功候选 run、成功 CI run 和原始传输包摘要；唯一发布器直接发布原四附件。正式 Release/latest 产生后，再用默认 `peanut create`（不传 ref 或本地归档）完成 ST/MT 首装、启动、IAB 登录及基本业务，结果如实记录。
+3. 按受保护的 `dev` → `main` PR 与现有平台权限进入发布。推送指向固定产品来源 S 的注释 tag `vX.Y.Z`，由 `scaffold-release.yml` 的 tag job 核 tag、S 的 `RELEASE_METADATA.json` 与 `release-versions.json` 版本一致，选择同仓同 S 已成功的 `workflow_dispatch` CI 和模板候选。CI 取最新成功 run；候选按 run ID 从新到旧，取当前 attempt 恰有一个未过期 `scaffold-template-qualification-<S>-<run>-<attempt>` 的首个成功 run，pack-only 的 identity artifact 不准入。下载原 transport 及 sidecar，只计算并比较 SHA-256，不执行归档内容；缺资格、摘要不符或 tag 漂移明确失败，不派发发布，也不重构建。通过后使用 GitHub 原生 `workflow_dispatch(ref=main, publish=true)` 传递原 run IDs、S 和 transport 摘要，由既有消费者复核完整资格、模板原件及来源，再由唯一发布器直接发布原四附件。dispatch 成功不等于 Release 成功；main 绑定、实时 tag/集成证明及禁止覆盖保护不变。正式 Release/latest 产生后，再用默认 `peanut create`（不传 ref 或本地归档）完成 ST/MT 首装、启动、IAB 登录及基本业务，结果如实记录。
 
-推送分支或创建标签不会触发这两份手动工作流。开发机的 `peanut release` 生成本地双版包。CLI 可选的 `github-ci` Recipe 管理下游应用自己的 CI 配置与版本，采用它不会发布上游脚手架。
+分支推送不自动启动 CI 或模板构建；模板 job 只接受 `workflow_dispatch && !publish`，tag 不误构建。自动入口只接受稳定注释 tag，预发行继续手动处理。保留手动恢复入口：在 `main` 的同一工作流选择 `publish=true`，提供已核原 `build_run_id`、`ci_run_id`、`source_commit`、`build_transport_sha256`；资格缺失先完成原必要候选，失败/UNKNOWN 先对账原 run 与 Release，不重打或移动 tag、不覆盖原件。新 workflow 必须先进入目标 tag 的源码及 main，仓库 Actions 策略须允许所声明权限；真实 tag→dispatch→Release 仍须实际核验。
+
+Code tag job 仅在本仓运行，使用本次任务的短期 `GITHUB_TOKEN`（`contents:read`、`actions:write`）派发本仓 main；main 发布 job 仍以其短期 `contents:write` token 写 GitHub Release，不需要本地长期发布 token。GitHub 对 `workflow_dispatch` 允许该 token 触发后续工作流，见[原生 token 合同](https://docs.github.com/en/actions/concepts/security/github_token)。这与 Web Core 的 npm Trusted Publishing／OIDC 是不同渠道：Core tag 工作流向 npm 换取短期发行身份，Code 只消费已发行 Core 并写 GitHub Release，不改 npm 凭据或 Trusted Publisher。开发机的 `peanut release` 仍只生成本地双版包。CLI 可选的 `github-ci` Recipe 管理下游应用自己的 CI 配置与版本，采用它不会发布上游脚手架。
 
 ## 数据库维护输入
 

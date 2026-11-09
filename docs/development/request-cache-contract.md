@@ -8,6 +8,8 @@
 
 登录先验证账户；有多租户时按既有 challenge/select 合同进入指定租户。业务请求使用已选择租户的会话。接口权限、商业许可和记录可见范围是三项不同判断，不能互相替代。
 
+客户端由 Web Core `@peanut-admin/client` 的 `createSessionRecovery` 统一协调会话版本、并发刷新和失效清理；宿主 `web/src/api/tenant-session-refresh.ts` 只登记真实刷新协议、失效判定、本地业务清理和登录导航。Axios 适配和 `createSessionFetch` 共用同一实例。模块 fetch 发送前校验 API origin 与租户路由，只有控制器前拒绝的认证失败允许自动重试一次。刷新凭据被明确拒绝，或重试后仍为凭据失效时，清理对应会话并立即跳登录页，保留返回路径，不等待确认弹窗或再次刷新页面，也不额外请求远程退出。网络故障、取消、403及旧会话晚到响应不触发当前会话退出。Token/Cookie 的业务发行、撤销及租户安全域仍归 Identity 和宿主，不整体搬到技术 Core。
+
 ## 2. 哪些事实实时读取
 
 - 域名入口按 `(规范化 host, client_key)` 查询。`tenant_id` 是输出，不是域名查询的输入。`TenantEntryBindingResolver` 在同一原生 Request 中复用结果；成功映射跨请求缓存300秒。未知、停用及非法 Host 沿入口策略拒绝，不缓存失败，不把默认租户当错误域名的兜底。事务内直接读库。

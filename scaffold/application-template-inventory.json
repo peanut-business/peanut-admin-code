@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.5",
+    "template_version": "5.1.6",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -282,7 +282,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "01d72a6dd427ac298ad465f93fd1dc71fdd7f308e742c780cda61d9be90333dd"
+            "source_sha256": "1f2728a711a20d43d8e3a001685e420e60ce60ab3ebc0373e212e5a5090b6023"
         },
         {
             "path": "THIRD_PARTY_NOTICES.md",
@@ -296,7 +296,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5187d898cafb64aad6b111307c954c7f7e00cac49a7a3cf34311cc75fce7070c"
+            "source_sha256": "cbcdb6ab4662071dcb52f56833a089a0a3bd24f265280ee2b649277118ef6ecb"
         },
         {
             "path": "compose.yaml",
@@ -904,7 +904,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d3f2f8d25dc6492a2c0d04ba1bacc471b840463ec4bd3d7fd25e2149ab3f95b3"
+            "source_sha256": "9cf2b02bc78caca05b4412da5b94e89919995fb9e45fa302b582c087a76939f4"
         },
         {
             "path": "docs/development/standard.md",
@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "267b6530fcefd8cde22a463f6a6b634bf341a048aa7352107d5c0328888bd165"
+            "source_sha256": "db856651ce6c5b0e9edaed885e0bf606919d765aeb830cbeae0b7da5e0e3b5e1"
         },
         {
             "path": "docs/development/ui-guidelines.md",
@@ -1081,7 +1081,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c94ee46790cdd3492943f2ce95922f870322608414d5486b39c0e061c51efb15"
+            "source_sha256": "06373ad4ce9151b90ede2b01a5cdb241663271865659379001fdfcb44ec320cf"
         },
         {
             "path": "docs/public/release-channels.md",
@@ -1266,7 +1266,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b834ba2870dfb7d49d1e47e32af2b3bfd4f47fde38903dc63bd4e5aa2d60654e"
+            "source_sha256": "8cf20c9022ce43efe4539cc7be33b3a8dc8a71caed6d853b2de2238c9181ee23"
         },
         {
             "path": "pc/package.json",
@@ -1279,7 +1279,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7ea0b243d016dec2f7167f5fedc330cb19d53af2fe71f5a2ca1b7763057f0087"
+            "source_sha256": "f1374cd509e19321f05d55dbf77afd568ed4981fe538b43bc18b050eab5642a7"
         },
         {
             "path": "pc/pages/about.vue",
@@ -1686,7 +1686,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "32f155196ed9999d6ea37521c4501c8b3812fe95e9aafe97a805b62b4130c711"
+            "source_sha256": "bce99e1895aa7c2282e2c9a71a826cdc2bb8024cfbace0b0dfca9f9ffab52726"
         },
         {
             "path": "platform/package.json",
@@ -1700,7 +1700,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1048de77422c1c2e4c003a4a27c39be912e3afe3f46f3f67ca72c37e5f54c968"
+            "source_sha256": "7b38de3ab3e9bb811274c944deebe1ccdb99be9f7c2ad30e557d14a98a19cd9e"
         },
         {
             "path": "platform/scripts/check-governance-types.mjs",
@@ -2988,7 +2988,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0f088b0c97ebd370a52d935c36de583c861d9b73f1b1f9249f6410ae82077279"
+            "source_sha256": "2600661f4a1b8bd630e2f9f1ce94d40835976d279bd9d0b10f2cf5803ee06c85"
         },
         {
             "path": "scripts/migrate-installation-state",
@@ -3308,7 +3308,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d6afddc904805b056d41a9de037e8070f4d0ad9fbb759ba158b0e6c4dc13fd2b"
+            "source_sha256": "f794f31410fc7ecdbab315199ffbb77b9a56178d996c4ab67cdf1fd2747856ab"
         },
         {
             "path": "scripts/release-metadata-version.cjs",
@@ -19322,7 +19322,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "29a55397cb78ec68378beee69beec98b9d26aae3cb91044ca1132e60d4704baa"
+            "source_sha256": "a5ef2f2281874794639d2e7ac225c07dfb5bf331922f69cc87145538b58e1816"
         },
         {
             "path": "server/generated/openapi.json",
@@ -19336,7 +19336,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "343f5cfac2dc70fe6b1f74caa48c3f39d1d33dcaa42f0f9fcca8b0bcf3939644"
+            "source_sha256": "94f377bf3e4f634aacd92e5039b480a38b5853f395537b60511e92b4274a2ac6"
         },
         {
             "path": "server/module",
@@ -19700,7 +19700,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3a37b54f610df88cb4ec8b4244096ffa11eb0773747eba39c5cee5df07d54fe3"
+            "source_sha256": "9be6140115bbb86724995250ea166335722fdc2fc35287487c787d796d893a4c"
         },
         {
             "path": "server/resources/scaffold-application/SECURITY.md.stub",
@@ -24052,7 +24052,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f4d0d04d989a20f2088a49ee165e245932190790871959d3623684b922f13524"
+            "source_sha256": "395d058baa0e5649bbf4c48166939ece5ee399da07d653ad5bbf92aa7197228f"
         },
         {
             "path": "uniapp/package.json",
@@ -24065,7 +24065,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "142dbf35f315b25782d456673f111e9a18ef1043d438650dd2467f75250c9d44"
+            "source_sha256": "727ac9fff7935d2b1c3af80853c964c03dab0bb1b3246fb33949770131b257a8"
         },
         {
             "path": "uniapp/packages/pages/404/404.vue",
@@ -24941,7 +24941,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3e2175b89866835fde92b05b83a5db2ca2497c2959037bc43aa570cb19f28d35"
+            "source_sha256": "80baadecd904e2dea5f353e71033e3a4015da660c67940827ca9738ca854ad64"
         },
         {
             "path": "web/pnpm-lock.yaml",
@@ -24955,7 +24955,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "41bf65ba917214771e1ee44c11c05ef27aebb46a745e2690996fbd32f77cd0ac"
+            "source_sha256": "fe8710fc994afd664607ae9e34e07678f31417f17f4cc65a5900da8926c72188"
         },
         {
             "path": "web/pnpm-workspace.yaml",
@@ -25193,7 +25193,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4b3ee4a7b8595d04f48dae3ead537181b9b0dd458f2d89d6623310cf6aeecaf4"
+            "source_sha256": "dfa55d493ac25909a7c1b226c88c02175a625d3dfb0be6d2bf21e4c58226fd74"
         },
         {
             "path": "web/src/api/password-policy.ts",
@@ -25417,7 +25417,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ff5620a76e188e329f8db9f5bba4f43eeaf4839fd6dc6980ccd1f6a9cb5d998e"
+            "source_sha256": "23a2fc08f7c031d47beeedee235b7a11d336a5ab251aad6b1022ad1b30d13900"
         },
         {
             "path": "web/src/api/tenant-session-refresh.ts",
@@ -25431,7 +25431,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ba74afc475d9733312236bb0bfdfc6bdaa2f69ff997eb74a2523f016a757462d"
+            "source_sha256": "7495c413ab971b7705d4682b7ac64bdf3d0b315adc7599355639bdd0f297f86a"
         },
         {
             "path": "web/src/api/tenant-session.ts",
@@ -27616,7 +27616,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3892f437f5e6fd597797e0ac119416340bc5cba0ad806968cd9e1394ec0bcc8a"
+            "source_sha256": "78189862db42a1481423714d169e12ad7383d9634e29dd0c94d6031c3ba36a7c"
         },
         {
             "path": "web/src/router/index.ts",
@@ -28960,7 +28960,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "110e32d340ed1d36fa697db06c317fc3bd4da09bed4119f20bb6f39a2a62edf9"
+            "source_sha256": "ee5861a6f4a0454bca52d20e15dbf1eb22c534078527d2c22ee93ac3bdd23dcc"
         },
         {
             "path": "web/tests/Productization/department-parent-options.test.ts",
