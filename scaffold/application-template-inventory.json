@@ -1123,7 +1123,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b147fae86a8a41355d968c436a66ff0a3a5075ec54b0dc3d684b89244b1e7ebe"
+            "source_sha256": "42423f17e7328cd43fb3ff9f56e8af4318fe1e1b2e661f9ec4fe618bb941fadf"
         },
         {
             "path": "pc/.env.example",
@@ -19322,7 +19322,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f3a6e3a840d6e6c69577e6d26b8510daebbfad82cf23e27663b01a78945e4335"
+            "source_sha256": "29a55397cb78ec68378beee69beec98b9d26aae3cb91044ca1132e60d4704baa"
         },
         {
             "path": "server/generated/openapi.json",
