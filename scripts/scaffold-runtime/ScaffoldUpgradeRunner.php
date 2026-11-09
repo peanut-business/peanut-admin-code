@@ -1211,7 +1211,15 @@ final class ScaffoldUpgradeRunner
     {
         $baseIdentity = ScaffoldSourceIdentity::from($base, true);
         $targetIdentity = $to->sourceIdentity();
-        if (($base['channel'] ?? null) !== 'development' || !array_key_exists('release_version', $base) || $base['release_version'] !== null
+        $developmentBase = ($base['channel'] ?? null) === 'development'
+            && array_key_exists('release_version', $base) && $base['release_version'] === null;
+        $releaseBase = $baseIdentity['kind'] === 'git'
+            && ($base['repository'] ?? null) === 'peanut-business/peanut-admin-code'
+            && in_array($base['channel'] ?? null, ['stable', 'prerelease'], true)
+            && ($base['release_version'] ?? null) === $fromVersion
+            && ($base['requested_ref'] ?? null) === 'v' . $fromVersion
+            && (($base['channel'] === 'stable') === !str_contains($fromVersion, '-'));
+        if ((!$developmentBase && !$releaseBase)
             || ($selection['channel'] ?? null) !== 'development' || !isset($selection['template_package_path'])
             || !in_array($profile, ['minimal', 'standard', 'full'], true) || !in_array($workflow, ['none', 'runtime', 'full'], true)
             || Semver::compare($fromVersion, $to->version()) > 0) { throw new RuntimeException('SCAFFOLD_LOCAL_DEVELOPMENT_SOURCE_INVALID'); }
