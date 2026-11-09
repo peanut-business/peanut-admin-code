@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "db856651ce6c5b0e9edaed885e0bf606919d765aeb830cbeae0b7da5e0e3b5e1"
+            "source_sha256": "029116d9fc71dceb6173f876a2d26a9cf43e25e566c2f5243d1f51f48711f71d"
         },
         {
             "path": "docs/development/ui-guidelines.md",
@@ -19700,7 +19700,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9be6140115bbb86724995250ea166335722fdc2fc35287487c787d796d893a4c"
+            "source_sha256": "103ab0ba3474d4b74183322332c97d35282a5792c7f6798f06ae2f6499e5b5b1"
         },
         {
             "path": "server/resources/scaffold-application/SECURITY.md.stub",
