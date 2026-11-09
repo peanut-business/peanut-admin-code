@@ -9,6 +9,7 @@ use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use PeanutAdmin\Kernel\Host\ApplicationHostPolicy;
 use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
+use PeanutAdmin\Modules\Identity\Tenancy\Infrastructure\ThinkPhpTenantEntryBindingLookup;
 
 require_once defined('PHPUNIT_COMPOSER_INSTALL')
     ? PHPUNIT_COMPOSER_INSTALL
@@ -113,6 +114,7 @@ $app = new \think\App(dirname(__DIR__, 2));
 $app->env->set(['DEPLOYMENT_MODE' => 'multi-tenant', 'JWT_SECRET' => str_repeat('s', 32)]);
 $app->initialize();
 ThinkPhpTestConnection::fromPdo($pdo);
+ThinkPhpTenantEntryBindingLookup::invalidate();
 $manifest = $app->make(CompiledModuleRegistry::class)->requireManifest('peanut.file');
 $pdo->prepare("INSERT INTO pa_module_installation VALUES ('peanut.file',?,'active',1,?,?)")
     ->execute([$manifest->data['version'], $manifest->data['schema_version'], $manifest->digest]);
@@ -277,6 +279,8 @@ entryBindingExpect(
 );
 
 $pdo->exec("UPDATE pa_tenant_entry_binding SET status='disabled' WHERE tenant_id=101 AND client_key='member-api'");
+// Fixture SQL bypasses the owner; mirror its committed-write cache invalidation.
+ThinkPhpTenantEntryBindingLookup::invalidate();
 entryBindingRejects(
     static fn() => $resolver->system(
         $boundRequest,
@@ -289,6 +293,7 @@ entryBindingRejects(
 );
 $pdo->exec("UPDATE pa_tenant_entry_binding SET status='active' WHERE tenant_id=101 AND client_key='member-api'");
 $pdo->exec("UPDATE pa_tenant SET status='suspended' WHERE id=101");
+ThinkPhpTenantEntryBindingLookup::invalidate();
 entryBindingRejects(
     static fn() => $resolver->loginTenantCode(
         $boundRequest,
@@ -313,6 +318,7 @@ entryBindingExpect(
     'a suspended Tenant file remained deliverable',
 );
 $pdo->exec("UPDATE pa_tenant SET status='active' WHERE id=101");
+ThinkPhpTenantEntryBindingLookup::invalidate();
 entryBindingExpect(
     $deliverable(101, 'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
     'reactivation did not restore a still-ready Tenant file',

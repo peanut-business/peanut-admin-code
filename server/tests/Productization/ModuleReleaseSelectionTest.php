@@ -10,7 +10,7 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
 
 $pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-$pdo->exec('CREATE TABLE pa_module_installation (module_key TEXT PRIMARY KEY, status TEXT NOT NULL, last_error_code TEXT NULL)');
+$pdo->exec('CREATE TABLE pa_module_installation (module_key TEXT PRIMARY KEY, status TEXT NOT NULL, last_error_code TEXT NULL, activated_at TEXT NULL)');
 $app = new think\App(dirname(__DIR__, 2));
 ThinkPhpTestConnection::fromPdo($pdo);
 $selection = new ReflectionMethod(ModuleReconcile::class, 'releaseModuleSelection');
@@ -21,7 +21,7 @@ $empty = ['reconcile' => [], 'preserved_disabled' => [], 'preserved_uninstalled'
 $run = static function (array $keys, array $rows, ?array $expected) use ($pdo, $selection, $command, &$cases, &$assertions): void {
     ++$cases;
     $pdo->exec('DELETE FROM pa_module_installation');
-    $insert = $pdo->prepare('INSERT INTO pa_module_installation VALUES (?,?,?)');
+    $insert = $pdo->prepare('INSERT INTO pa_module_installation (module_key,status,last_error_code) VALUES (?,?,?)');
     foreach ($rows as $row) { $insert->execute($row); }
     $before = $pdo->query('SELECT * FROM pa_module_installation ORDER BY module_key')->fetchAll(PDO::FETCH_ASSOC);
     $locked = [];
