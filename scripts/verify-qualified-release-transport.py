@@ -41,6 +41,8 @@ def main():
     parser.add_argument("--transport-sha256", required=True)
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--output-root", required=True)
+    parser.add_argument("--full-ci-run-id", default="")
+    parser.add_argument("--github-output")
     args = parser.parse_args()
     source = args.source_commit
     require(re.fullmatch("[a-f0-9]{40}", source), "Exact candidate source required")
@@ -76,6 +78,10 @@ def main():
             "A successful exact-source native candidate stage is required")
     candidate_input = output / "candidate-inputs.json"
     selected = read(candidate_input)
+    run_tests_required = selected.get("run_tests", False)
+    require(isinstance(run_tests_required, bool), "Invalid original CI test requirement")
+    require(not run_tests_required or re.fullmatch(r"[1-9][0-9]*", args.full_ci_run_id),
+            "Original production required full CI; an authenticated successful CI run is required")
     require(sha(candidate_input) == receipt.get("candidate_input", {}).get("sha256")
             and selected.get("source") == {"commit": source, "tree": tree}
             and all(selected.get("cli", {}).get(key) == receipt.get("cli", {}).get(key)
@@ -115,9 +121,13 @@ def main():
                 "web/node_modules", "platform/node_modules", "pc/node_modules", "uniapp/node_modules")),
                 "Candidate creation imported Git or dependencies")
     require(sha(archive) == args.transport_sha256, "Candidate transport changed during validation")
+    if args.github_output:
+        with open(args.github_output, "a", encoding="utf-8") as output_file:
+            output_file.write("run_tests_required=" + str(run_tests_required).lower() + "\n")
     print(json.dumps({"status": "transport-verified", "candidate": source, "candidate_tree": tree,
         "execution_source": {"commit": git("rev-parse", "HEAD"), "tree": git("rev-parse", "HEAD^{tree}")},
         "transport_sha256": args.transport_sha256, "acceptance_scope": "native-template-and-cli-candidate",
+        "run_tests_required": run_tests_required,
         "full8": "not_required; no complete-suite pass claimed", "publication_authorized": False}))
 
 

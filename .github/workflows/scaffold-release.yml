@@ -6,6 +6,10 @@ on:
       - 'v[0-9]*.[0-9]*.[0-9]*'
   workflow_dispatch:
     inputs:
+      run_tests:
+        description: Require full CI before production; publication only verifies the completed result
+        type: boolean
+        default: false
       pack_only:
         description: Build templates only; no CLI candidate creation or publication
         type: boolean
@@ -111,11 +115,20 @@ jobs:
               core.info(`Run ${build.id} has no unexpired qualification artifact for its current attempt; pack-only/publish runs are not candidates`);
             }
             if (!selected) throw new Error(`No successful native candidate with one unexpired qualification artifact for source ${source}; prepare qualification before tagging`);
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun,
+              {...context.repo, run_id: selected.build.id, filter: 'all', per_page: 100});
+            const summary = jobs.filter(job => job.name === 'Full CI / CI summary')
+              .sort((a, b) => b.run_attempt - a.run_attempt || b.id - a.id)[0];
+            if (summary && summary.conclusion !== 'success') {
+              throw new Error('The selected candidate has no successful latest full CI summary');
+            }
+            const embeddedCi = Boolean(summary);
             core.setOutput('source', source);
             core.setOutput('tag', tag);
             core.setOutput('tag_object', ref.object.sha);
             core.setOutput('build_run', String(selected.build.id));
-            core.setOutput('ci_run', ci ? String(ci.id) : '');
+            core.setOutput('ci_run', embeddedCi ? String(selected.build.id) : ci ? String(ci.id) : '');
+            core.setOutput('run_tests', embeddedCi ? 'true' : 'false');
             core.setOutput('artifact', selected.artifact.name);
       - uses: actions/download-artifact@v4
         with:
@@ -154,6 +167,7 @@ jobs:
           SOURCE: ${{ steps.candidate.outputs.source }}
           BUILD_RUN: ${{ steps.candidate.outputs.build_run }}
           CI_RUN: ${{ steps.candidate.outputs.ci_run }}
+          RUN_TESTS: ${{ steps.candidate.outputs.run_tests }}
           TRANSPORT_SHA256: ${{ steps.transport.outputs.sha256 }}
         with:
           script: |
@@ -164,13 +178,22 @@ jobs:
             await github.rest.actions.createWorkflowDispatch({...context.repo, workflow_id: 'scaffold-release.yml',
               ref: 'main', inputs: {publish: 'true', pack_only: 'false', source_commit: process.env.SOURCE,
                 build_run_id: process.env.BUILD_RUN, ci_run_id: process.env.CI_RUN,
+                run_tests: process.env.RUN_TESTS,
                 build_transport_sha256: process.env.TRANSPORT_SHA256}});
             await core.summary.addHeading('Publication dispatched to main')
               .addRaw(`Source: ${process.env.SOURCE}\n\nCandidate run: ${process.env.BUILD_RUN}\n\nCI run: ${process.env.CI_RUN}\n\nTransport SHA-256: ${process.env.TRANSPORT_SHA256}\n\n`)
               .addRaw('Dispatch is not publication success. The existing main consumer and sole publisher still verify the original candidate, main integration, tag and final assets.').write();
 
+  full-tests:
+    name: Full CI
+    if: ${{ github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.run_tests }}
+    uses: ./.github/workflows/ci.yml
+    with:
+      expected_source_commit: ${{ inputs.expected_source_commit }}
+
   templates:
-    if: ${{ github.event_name == 'workflow_dispatch' && !inputs.publish }}
+    needs: full-tests
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && !inputs.publish && (needs.full-tests.result == 'success' || (!inputs.run_tests && needs.full-tests.result == 'skipped')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -245,9 +268,11 @@ jobs:
         shell: bash
         env:
           CLI_COMMIT: ${{ inputs.candidate_cli_commit }}
+          RUN_TESTS: ${{ inputs.run_tests }}
         run: |
-          scripts/ci-producer exec "$RUNNER_TEMP/ci-producer" -- bash -Eeuo pipefail <<'PRODUCER'
+          scripts/ci-producer exec "$RUNNER_TEMP/ci-producer" -- bash -Eeuo pipefail -s -- "$RUN_TESTS" <<'PRODUCER'
           set -Eeuo pipefail
+          export RUN_TESTS="$1"
           python3 - <<'PY'
           import hashlib, json, os, pathlib, subprocess
           code = pathlib.Path.cwd()
@@ -257,7 +282,8 @@ jobs:
           value = {"protocol": "peanut.p0e-candidate-inputs.v1",
                    "source": {"commit": os.environ["GITHUB_SHA"], "tree": git(code, "rev-parse", "HEAD^{tree}")},
                    "cli": {"root": str(cli), "commit": os.environ["CLI_COMMIT"], "tree": git(cli, "rev-parse", "HEAD^{tree}")},
-                   "template_build_root": os.environ["RUNNER_TEMP"] + "/scaffold-templates"}
+                   "template_build_root": os.environ["RUNNER_TEMP"] + "/scaffold-templates",
+                   "run_tests": os.environ["RUN_TESTS"] == "true"}
           path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "candidate-inputs.json"
           assert not path.exists()
           path.write_text(json.dumps(value, indent=2) + "\n")
@@ -319,9 +345,16 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - name: Record the actual release scope
+        env:
+          RUN_TESTS: ${{ inputs.run_tests }}
         shell: bash
         run: |
-          echo 'CI produces the formal Edition archives once and checks artifact integrity and native CLI creation. Full application validation is independent and is NOT_RUN by this workflow; no full-test pass is claimed.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'CI produces the formal Edition archives once and checks artifact integrity and native CLI creation.' >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$RUN_TESTS" == true ]]; then
+            echo 'Full application CI: PASS, required by run_tests=true and completed through the existing ci.yml before production.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Full application CI: NOT_RUN by this production run (run_tests=false).' >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo 'The qualification transport contains these same archives and receipts; it is not a second template build.' >> "$GITHUB_STEP_SUMMARY"
           echo 'Public latest consumption, ST/MT installation, startup, IAB login and basic business are checked against the published release; no pre-publication result claims they passed.' >> "$GITHUB_STEP_SUMMARY"
 
@@ -338,19 +371,20 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Authenticate the original CI build and optional full validation
+      - name: Authenticate the original CI build and enforce the selected test requirement
         id: candidate
         uses: actions/github-script@v7
         env:
           BUILD_RUN: ${{ inputs.build_run_id }}
           CI_RUN: ${{ inputs.ci_run_id }}
+          RUN_TESTS: ${{ inputs.run_tests }}
           SOURCE: ${{ inputs.source_commit }}
           TRANSPORT_SHA256: ${{ inputs.build_transport_sha256 }}
         with:
           script: |
             const source = process.env.SOURCE;
             const buildId = process.env.BUILD_RUN;
-            const ciId = process.env.CI_RUN;
+            let ciId = process.env.CI_RUN;
             if (!/^[a-f0-9]{40}$/.test(source) || !/^[1-9][0-9]*$/.test(buildId)
               || (ciId && !/^[1-9][0-9]*$/.test(ciId)) || !/^[a-f0-9]{64}$/.test(process.env.TRANSPORT_SHA256)) {
               throw new Error('Exact source, successful production run and original transport SHA-256 are required; a supplied validation run must be valid');
@@ -363,7 +397,22 @@ jobs:
               return run;
             };
             const build = await fetchRun(buildId, '.github/workflows/scaffold-release.yml');
-            if (ciId) await fetchRun(ciId, '.github/workflows/ci.yml');
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun,
+              {...context.repo, run_id: Number(buildId), filter: 'all', per_page: 100});
+            const summary = jobs.filter(job => job.name === 'Full CI / CI summary')
+              .sort((a, b) => b.run_attempt - a.run_attempt || b.id - a.id)[0];
+            if (summary && summary.conclusion !== 'success') {
+              throw new Error('The selected candidate has no successful latest full CI summary');
+            }
+            const embeddedCi = Boolean(summary);
+            if (ciId && ciId !== buildId) await fetchRun(ciId, '.github/workflows/ci.yml');
+            if (ciId === buildId && !embeddedCi) throw new Error('Production run does not contain successful full CI');
+            if (!ciId && embeddedCi) ciId = buildId;
+            if (process.env.RUN_TESTS === 'true' && !ciId) {
+              throw new Error('run_tests=true requires successful exact-source full CI in the production run or ci_run_id');
+            }
+            core.setOutput('ci_run', ciId);
+            core.setOutput('run_tests', process.env.RUN_TESTS === 'true' || embeddedCi ? 'true' : 'false');
             const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts,
               {...context.repo, run_id: Number(buildId), per_page: 100});
             const expected = `scaffold-template-qualification-${source}-${buildId}-${build.run_attempt}`;
@@ -401,19 +450,23 @@ jobs:
       - name: Prepare the locked manifest parser
         run: pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy
       - name: Verify the original candidate and template bytes without rebuilding
+        id: verified
         env:
           TRANSPORT_SHA256: ${{ inputs.build_transport_sha256 }}
           SOURCE: ${{ inputs.source_commit }}
+          CI_RUN: ${{ steps.candidate.outputs.ci_run }}
         run: |
           python3 scripts/verify-qualified-release-transport.py \
             --archive="$RUNNER_TEMP/candidate-transfer/scaffold-template-qualification.tgz" \
             --transport-sha256="$TRANSPORT_SHA256" --source-commit="$SOURCE" \
+            --full-ci-run-id="$CI_RUN" --github-output="$GITHUB_OUTPUT" \
             --output-root="$RUNNER_TEMP/candidate-release"
       - name: Publish the verified native templates through the sole publisher
         env:
           GH_TOKEN: ${{ github.token }}
           PEANUT_RELEASE_CANDIDATE_RUN_ID: ${{ inputs.build_run_id }}
-          PEANUT_RELEASE_CI_RUN_ID: ${{ inputs.ci_run_id }}
+          PEANUT_RELEASE_CI_RUN_ID: ${{ steps.candidate.outputs.ci_run }}
+          PEANUT_RELEASE_RUN_TESTS: ${{ steps.candidate.outputs.run_tests == 'true' || steps.verified.outputs.run_tests_required == 'true' }}
         run: |
           set -Eeuo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"

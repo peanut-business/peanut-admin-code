@@ -254,6 +254,7 @@ const manifest = {
   release_acceptance: { scope: 'ci-produced-native-template-cli-candidate',
     candidate_build_run_id: process.env.PEANUT_RELEASE_CANDIDATE_RUN_ID ?? null,
     applicable_ci_run_id: process.env.PEANUT_RELEASE_CI_RUN_ID || null,
+    full_application_ci_required: process.env.PEANUT_RELEASE_RUN_TESTS === 'true',
     full_application_ci: process.env.PEANUT_RELEASE_CI_RUN_ID ? 'passed' : 'not selected; no pass claimed',
     full8: 'not required; no complete-suite pass claimed',
     public_latest_consumers: 'ST/MT installation, startup, IAB login and basic business are verified after publication' },

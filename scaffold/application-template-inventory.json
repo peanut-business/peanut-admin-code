@@ -710,7 +710,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c222b30858fa2a1900c1901a3e6831b6be54b12c9befae0370069bb716b1d128"
+            "source_sha256": "63439e45886629c0df1f31a4e1eed7e015dcd2b81f09ec415458d583f12fb3d0"
         },
         {
             "path": "docs/architecture/overview.md",
@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "95118723778ad77dd339465e395ab1b3b129dcbdfdd941183944c13f4863afa8"
+            "source_sha256": "4d7063befe6d97f0031202f5cc6da90750b78bece220c0c5975bc5ff8f6e7914"
         },
         {
             "path": "docs/development/ui-guidelines.md",

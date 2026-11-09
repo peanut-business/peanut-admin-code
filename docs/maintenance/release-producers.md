@@ -174,7 +174,9 @@ CI 的 `scaffold-release.yml` 可显式选 `publish=false, pack_only=true` 并�
 
 正式发布仍只使用 `scripts/publish-github-release`，提供原始 `candidate-stage.json`、完整双 Edition 模板根和输出目录。`check-release-consistency` 核注释 tag、精确源码 commit/tree、版本、公开 Core、原生锁、法律文件及四附件摘要；读取已生产的原件，不重新构建。候选锁和外部清单保留真实 `candidate-passed`、有限验收 scope 和 full8 未执行状态，不伪造完整资格。
 
-在 `main` 的 `scaffold-release.yml` 选择 `publish=true`，提供 `build_run_id`、`source_commit` 和 `build_transport_sha256`，可选提供 `ci_run_id`。工作流核生产 run 的实际 workflow/event/source；提供验证 run 时同样严格核对，留空不会制造完整测试 PASS。只接受生产 run 中唯一未过期的 `scaffold-template-qualification-<source>-<run>-<attempt>`。`verify-qualified-release-transport.py` 核原 tar SHA、安全路径和普通成员、生产者源码、candidate-stage、两版 CLI 创建 manifest 及原模板字节。它不执行运输包中的脚本，不要求 full8 summary，也不另造运输格式。pack-only 身份包不能进入发布。
+在既有 `scaffold-release.yml` 生产入口选择 `run_tests=false`（默认），只执行原模板生产及原生 CLI 创建；显式 `true` 时先复用同一源码的 `ci.yml` 完整检查，成功后才生产模板。失败、取消或缺失结果均阻断本次生产，不回退不测；本地开发测试政策不随此参数改变。该 reusable 调用保留原完整 CI 的检查和 summary，不新建测试流程；完整测试内部的检查制品与正式模板原件分别负责各自合同，不能宣称完整测试不会生成任何检查制品。
+
+在 `main` 的同一工作流选择 `publish=true`，提供 `build_run_id`、`source_commit` 和 `build_transport_sha256`。发布先识别原生产 run 内的 `Full CI / CI summary` 成功结果，亦可通过 `ci_run_id` 指定独立同源成功 `ci.yml`；`run_tests=true` 时缺少成功完整 CI 即拒绝，发布阶段不补跑测试。tag 自动入口将原生产 run 的完整 CI 结果和要求交给 main 发布器；手动入口不能将原生产 run 已有的测试结果改写为 NOT_RUN。工作流核生产与验证 run 的实际 workflow/event/source/result，发布清单记录必需性、实际 run 和结果，缺省不制造测试 PASS。只接受生产 run 中唯一未过期的 `scaffold-template-qualification-<source>-<run>-<attempt>`。`verify-qualified-release-transport.py` 核原 tar SHA、安全路径和普通成员、生产者源码、candidate-stage、两版 CLI 创建 manifest 及原模板字节。它不执行运输包中的脚本，不要求 full8 summary，也不另造运输格式。pack-only 身份包不能进入发布。
 
 稳定模式接受 `X.Y.Z`、注释 tag `vX.Y.Z` 并标记 latest；显式预发行模式只接受严格预发行 SemVer，永不标 latest。本地 `--prepare-only` 只准备文件；正式写入仍限定本仓 main 的唯一工作流。既有正式 Release 不覆盖，失败或 UNKNOWN 先对账同一实际对象，不自动重新上传、重建或删除他人附件。
 
