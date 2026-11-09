@@ -19685,7 +19685,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6a50922bfd23f110b3d244ccd008b231ed4a78e124d041b4138ace604640b3c5"
+            "source_sha256": "7a47983da2d2f55cd0baa21aa732f8530488c7937c710674e0642b5c6f7eb108"
         },
         {
             "path": "server/resources/scaffold-application/SECURITY.md.stub",
