@@ -2,6 +2,14 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.7] - 2026-11-10
+
+- Reuse the published Web Core refresh coordinator in Platform while retaining the platform's own credential, Cookie and session lifecycle policies.
+- Move Task scheduling state and worker authorization integration into the Task Module (1.0.34), and File upload types and batch ID rules into the File Module (1.0.45); retain only necessary host composition.
+- Keep ThinkPHP 8.1.4's verified file-cache read-race adaptation as a minimal host override instead of adding an unnecessary full ThinkPHP dependency to PHP Core.
+- Give generated applications a reusable AGENTS entry and separate application-owned project rules; preserve module-first business development, existing application customizations and the native three-way upgrade boundary.
+- Retain the already published PHP Core 5.0.3 and Web Core 5.1.0. Local source preparation, official template publication, downstream Module adoption and real business upgrade acceptance remain independent evidence.
+
 ## [5.1.6] - 2026-11-09
 
 - Adopt Web Core 5.1.0 session recovery for the tenant-admin Axios and module fetch transports. Definitive credential rejection clears the matching local session and navigates directly to login; network failures, permission denials and cancellation preserve the session.

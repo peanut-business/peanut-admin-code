@@ -175,7 +175,7 @@ if (options.staticOnly && !options.templateArtifacts && !options.releaseEvidence
     : 'four clean client installs and builds must qualify the fixed Core Web candidate tarballs')
   if (baseline !== target) pending.push(`release metadata ${baseline} -> ${target} during candidate sealing`)
   if (inventory.template_version !== target) pending.push(`application inventory -> ${target}`)
-  pending.push('applicable CI and native template/CLI candidate acceptance for the fixed source')
+  pending.push('CI-produced native template/CLI candidate acceptance for the fixed source')
   pending.push(`one native production of each Edition for v${target}`)
   if (!(readFileSync('CHANGELOG.md', 'utf8')).includes(`## [${target}]`)) pending.push(`CHANGELOG ${target} section`)
 

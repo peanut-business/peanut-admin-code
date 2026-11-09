@@ -3426,8 +3426,9 @@ def qualify_candidate(args: argparse.Namespace) -> dict[str, Any]:
     value = read_json(input_path)
     if (value.get("protocol") != "peanut.p0e-candidate-inputs.v1"
             or not {"protocol", "source", "cli", "template_build_root"}.issubset(value)
-            or set(value) - {"protocol", "source", "cli", "template_build_root"}):
-        fail("candidate input accepts only fixed Code, CLI and template identities")
+            or set(value) - {"protocol", "source", "cli", "template_build_root", "run_tests"}
+            or not isinstance(value.get("run_tests", False), bool)):
+        fail("candidate input accepts fixed Code, CLI and template identities plus a boolean CI test requirement")
     output = Path(args.output_dir)
     if (not output.is_absolute() or output.exists() or output.is_symlink()
             or not output.parent.is_dir() or output.parent.resolve() != output.parent):

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace app\common\enum;
+namespace PeanutAdmin\Modules\File\Enum;
 
 /** 文件类型枚举，与 pa_file / pa_file_cate 的 type 字段对应 */
 class FileEnum

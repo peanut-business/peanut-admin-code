@@ -3,6 +3,17 @@ name: CI
 # Synchronization is not a validation request. Select a completed batch explicitly.
 on:
   workflow_dispatch:
+    inputs:
+      expected_source_commit:
+        description: Optional exact source when explicitly selecting a validation batch
+        type: string
+        default: ''
+  workflow_call:
+    inputs:
+      expected_source_commit:
+        description: Exact source selected by the scaffold production caller
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -11,7 +22,7 @@ env:
   COMPOSER_CACHE_DIR: ${{ github.workspace }}/../.peanut-composer-cache
 
 concurrency:
-  group: application-ci-${{ github.event.pull_request.number || github.ref }}
+  group: application-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -50,6 +61,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Check the explicitly selected source
+        if: inputs.expected_source_commit != ''
+        env:
+          EXPECTED_SOURCE: ${{ inputs.expected_source_commit }}
+        run: |
+          [[ "$EXPECTED_SOURCE" =~ ^[a-f0-9]{40}$ && "$EXPECTED_SOURCE" == "$GITHUB_SHA" ]]
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE"
 
       - name: Select validation checkpoint
         id: checkpoint

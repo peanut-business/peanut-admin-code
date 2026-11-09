@@ -123,12 +123,33 @@ final class ApplicationDevelopmentEntryTest extends TestCase
         foreach (['peanut-admin-project', '/Users/', '.webcodex-managed-worktrees', 'refactor/standard-v1-20260926'] as $privateReference) {
             self::assertStringNotContainsString($privateReference, $content);
         }
-        foreach (['docs/development/standard.md', 'docs/README.md', 'tools/quality/README.md'] as $publicPath) {
+        foreach (['docs/README.md', 'docs/project-rules.md'] as $publicPath) {
             self::assertStringContainsString($publicPath, $content);
-            self::assertFileExists($this->root . '/' . $publicPath);
         }
-        self::assertStringContainsString('管理内容区与页面布局', $content);
-        self::assertStringContainsString('### 管理内容区与页面布局', (string) file_get_contents($this->root . '/docs/development/standard.md'));
+        $inventoryByTarget = array_column($this->inventory()['files'], null, 'target');
+        self::assertSame('app-owned', $inventoryByTarget['docs/project-rules.md']['classification'] ?? null);
+        self::assertSame(
+            'server/resources/scaffold-application/project-rules.md.stub',
+            $inventoryByTarget['docs/project-rules.md']['path'] ?? null,
+        );
+        foreach ([
+            'docs/development/standard.md',
+            'docs/development/agent-project-rules.md',
+            'docs/README.md',
+            'tools/quality/README.md',
+            'server/resources/scaffold-application/project-rules.md.stub',
+        ] as $sourcePath) {
+            self::assertFileExists($this->root . '/' . $sourcePath);
+        }
+        $index = (string) file_get_contents($this->root . '/docs/README.md');
+        $sharedRules = (string) file_get_contents($this->root . '/docs/development/agent-project-rules.md');
+        self::assertStringContainsString('development/agent-project-rules.md', $index);
+        self::assertStringContainsString('Module-first ownership', $sharedRules);
+        self::assertStringContainsString('管理内容区与页面布局', $sharedRules);
+        self::assertStringContainsString(
+            '### 管理内容区与页面布局',
+            (string) file_get_contents($this->root . '/docs/development/standard.md'),
+        );
         $creator = new ApplicationCreator($this->root, $this->root . '/scaffold/application-template-inventory.json');
         $rendered = (new ReflectionMethod(ApplicationCreator::class, 'transform'))->invoke(
             $creator,
@@ -137,7 +158,8 @@ final class ApplicationDevelopmentEntryTest extends TestCase
             ['APPLICATION_VERSION' => '0.1.0', 'PRODUCT_NAME' => 'Synthetic Console', 'SLUG' => 'synthetic-console', 'PACKAGE_IDENTITY' => 'synthetic/console'],
             $this->temporary,
         );
-        self::assertStringContainsString('Synthetic Console', $rendered);
+        self::assertStringNotContainsString('Synthetic Console', $rendered);
+        self::assertStringContainsString('docs/project-rules.md', $rendered);
         self::assertStringNotContainsString('{{', $rendered);
         self::assertNotSame((string) file_get_contents($this->root . '/AGENTS.md'), $rendered);
         $digest = new ReflectionMethod(ApplicationCreator::class, 'sourceDigest');

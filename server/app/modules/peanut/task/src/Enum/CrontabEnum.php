@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace app\common\enum;
+namespace PeanutAdmin\Modules\Task\Enum;
 
 /**
  * 定时任务枚举

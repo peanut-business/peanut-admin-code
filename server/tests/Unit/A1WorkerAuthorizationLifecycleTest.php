@@ -6,7 +6,7 @@ use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\SystemExecutionContext;
 use app\common\execution\SystemExecutionMetadata;
-use app\common\infrastructure\async\ModuleAwareTaskHandler;
+use PeanutAdmin\Modules\Task\Infrastructure\Runtime\ModuleAwareTaskHandler;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
 use PeanutAdmin\Modules\Task\Contract\JobExecution;
 use PeanutAdmin\Modules\Task\Contract\LeaseLostException;
