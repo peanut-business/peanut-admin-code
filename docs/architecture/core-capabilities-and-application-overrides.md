@@ -33,7 +33,7 @@ Provider、事件/命令、套餐与许可证、HTTP/CLI/Task 上下文及安装
 | 设置与秘密 | `SecretProtector`、Sodium 默认实现 | 设置目录、租户配置、密钥引用/生命周期 | Settings ModuleProvider；写服务注入已登记的 Resolver，Resolver 必需注入租户查询；配置缺失仍 fail closed，不把秘密保护降为普通 config |
 | 外部集成 | Webhook 目的地/秘密安全协议、OAuth transport 合同 | 租户渠道、商户/回调绑定、供应商实现与业务 | Integration/OAuth ModuleProvider；支付/回调认证保留独立安全合同 |
 | 文件/媒体 | `StorageDriver`、图片元数据、变体定义及交付安全协议 | 文件账本、变体处理、引用、存储配置、授权和物理回收 | Think filesystem/供应商 SDK；File ModuleProvider；完整文件业务不搬入 Core |
-| 任务/通知/工作流 | 可信执行、幂等和安全技术协议 | 表、任务状态、消息用途、投递和业务编排 | Code 官方/Peanut 模块；已有框架/队列能力优先，不造另一套通用调度框架 |
+| 任务/通知/工作流 | 可信执行、幂等和安全技术协议 | 表、任务状态、消息用途、投递和业务编排 | Code 官方/Peanut 模块；Task 执行时模块授权复核由自身 `ModuleAwareTaskHandler` 完成、复用宿主执行上下文和 Core 授权；已有框架/队列能力优先，不造另一套通用调度框架 |
 | 客户端 | Web Core 的 transport、Vue/UI/Nuxt/UniApp 环境适配 | 业务 SDK、页面、身份状态、输入提示 | Code 各端消费公共包；密码有效策略来自 HTTP，业务 API 不进入 Web Core |
 
 普通缓存直接使用 Think Cache；旧 Core `TenantCache` / `TenantCacheStore` 和未采用的通用 key builders 已退出。旧 StorageProvider、上传策略与图片 planner 同样退出，File 实际采用 StorageDriver 与自身 FileDerivativeService。已有旧业务目录的 LICENSE 不代表其中仍有业务源码；不据目录名迁移、删除或重新实现业务。

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace app\common\infrastructure\async;
+namespace PeanutAdmin\Modules\Task\Infrastructure\Runtime;
 
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\SystemExecutionContext;
