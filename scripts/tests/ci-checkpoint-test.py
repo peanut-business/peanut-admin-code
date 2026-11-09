@@ -97,12 +97,29 @@ class CheckpointTest(unittest.TestCase):
                     dispatch, templates = text.split('\n  dispatch-tag:\n', 1)[1].split('\n  templates:\n', 1)
                     self.assertIn("    if: ${{ github.event_name == 'push' && !github.event.deleted && github.repository == 'peanut-business/peanut-admin-code' }}\n", dispatch)
                     self.assertIn('      actions: write\n', dispatch)
-                    self.assertIn("    if: ${{ github.event_name == 'workflow_dispatch' && !inputs.publish }}\n", templates)
+                    self.assertIn(
+                        "    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && !inputs.publish && (needs.full-tests.result == 'success' || (!inputs.run_tests && needs.full-tests.result == 'skipped')) }}\n",
+                        templates,
+                    )
                     # Tags may dispatch main; only the main publisher writes release content.
                     before_publish, publish = text.split('\n  publish:\n', 1)
                     self.assertNotIn('contents: write', before_publish)
                     self.assertIn("    if: ${{ github.event_name == 'workflow_dispatch' && !inputs.pack_only && inputs.publish && github.ref == 'refs/heads/main' && github.repository == 'peanut-business/peanut-admin-code' }}\n", publish)
                     self.assertEqual(publish.count('contents: write'), 1)
+                elif path.name == 'ci.yml':
+                    self.assertEqual(
+                        re.findall(r'^  (\S+):', triggers, re.MULTILINE),
+                        ['workflow_dispatch', 'workflow_call'],
+                    )
+                    self.assertIn("  workflow_dispatch:\n    inputs:\n      expected_source_commit:\n", triggers)
+                    self.assertIn(
+                        "  workflow_call:\n    inputs:\n      expected_source_commit:\n"
+                        "        description: Exact source selected by the scaffold production caller\n"
+                        "        required: true\n        type: string\n",
+                        triggers,
+                    )
+                    self.assertNotIn('  push:', triggers)
+                    self.assertNotIn('contents: write', text)
                 else:
                     self.assertEqual(triggers.strip(), 'workflow_dispatch:')
                     self.assertNotIn('contents: write', text)
