@@ -890,7 +890,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4dd5fcd098ff4dc58167e28e215f53d85d2be75f1ca03ec97580da395cd386c4"
+            "source_sha256": "5a6b905b35124a6641e5c6fa2334340860bcd15d51e3a8062c42ecf45f57d66a"
         },
         {
             "path": "docs/development/request-cache-contract.md",
@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "029116d9fc71dceb6173f876a2d26a9cf43e25e566c2f5243d1f51f48711f71d"
+            "source_sha256": "95118723778ad77dd339465e395ab1b3b129dcbdfdd941183944c13f4863afa8"
         },
         {
             "path": "docs/development/ui-guidelines.md",

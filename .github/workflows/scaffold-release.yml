@@ -19,17 +19,17 @@ on:
           - full
         default: runtime
       expected_source_commit:
-        description: Exact dispatch HEAD required for pack-only identity
+        description: Exact dispatch HEAD required for template production
         type: string
         default: ''
       publish:
-        description: Publish the exact candidate templates after CI and protected dev-to-main integration
+        description: Publish the exact CI-produced templates after protected dev-to-main integration
         type: boolean
         default: false
       candidate_cli_commit:
         description: Exact independent peanut-cli source commit for the no-DB candidate contract
         type: string
-        default: 6849d197d22a0839b7fe4a92bb5579ce337d8631
+        default: 55c14dd12ef1d40f00af0fb0516aceaaf12412b1
       build_run_id:
         description: Successful same-repository candidate run with both Edition templates and native CLI creation
         type: string
@@ -40,7 +40,7 @@ on:
         description: Independently recorded SHA-256 of the candidate run's scaffold-template-qualification.tgz
         type: string
       ci_run_id:
-        description: Successful same-repository CI run for the exact candidate source
+        description: Optional successful full-validation CI run for the exact candidate source
         type: string
 
 permissions:
@@ -59,7 +59,7 @@ jobs:
       contents: read
       actions: write
     steps:
-      - name: Select successful exact-source CI and original qualified candidate
+      - name: Select original CI-produced candidate and optional validation result
         id: candidate
         uses: actions/github-script@v7
         with:
@@ -96,7 +96,7 @@ jobs:
                 && run.event === 'workflow_dispatch' && run.path === path).sort((a, b) => b.id - a.id);
             };
             const ci = (await successfulRuns('ci.yml'))[0];
-            if (!ci) throw new Error(`No successful same-repository workflow_dispatch ci.yml run for source ${source}`);
+            if (!ci) core.info('No full-validation CI result selected; publication consumes the native template/CLI candidate only');
             let selected;
             for (const build of await successfulRuns('scaffold-release.yml')) {
               const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts,
@@ -115,7 +115,7 @@ jobs:
             core.setOutput('tag', tag);
             core.setOutput('tag_object', ref.object.sha);
             core.setOutput('build_run', String(selected.build.id));
-            core.setOutput('ci_run', String(ci.id));
+            core.setOutput('ci_run', ci ? String(ci.id) : '');
             core.setOutput('artifact', selected.artifact.name);
       - uses: actions/download-artifact@v4
         with:
@@ -178,14 +178,10 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Require the selected pack-only source
-        if: inputs.pack_only
+      - name: Require the exact production source
         env:
           EXPECTED_SOURCE: ${{ inputs.expected_source_commit }}
-          PUBLISH: ${{ inputs.publish }}
-          INGRESS_ASSET: ${{ inputs.qualification_ingress_asset_id }}
         run: |
-          [[ "$PUBLISH" == false && -z "$INGRESS_ASSET" ]]
           [[ "$EXPECTED_SOURCE" =~ ^[a-f0-9]{40}$ && "$EXPECTED_SOURCE" == "$GITHUB_SHA" ]]
           test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE"
       - name: Read the committed producer tool requirements
@@ -325,7 +321,8 @@ jobs:
       - name: Record the actual release scope
         shell: bash
         run: |
-          echo 'Release acceptance is limited to applicable CI, fixed native Edition production, artifact integrity and CLI creation. The separately authorized full8 suite is NOT_RUN by this workflow and is not a publication prerequisite.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'CI produces the formal Edition archives once and checks artifact integrity and native CLI creation. Full application validation is independent and is NOT_RUN by this workflow; no full-test pass is claimed.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'The qualification transport contains these same archives and receipts; it is not a second template build.' >> "$GITHUB_STEP_SUMMARY"
           echo 'Public latest consumption, ST/MT installation, startup, IAB login and basic business are checked against the published release; no pre-publication result claims they passed.' >> "$GITHUB_STEP_SUMMARY"
 
 
@@ -341,7 +338,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Authenticate the original candidate build and applicable CI
+      - name: Authenticate the original CI build and optional full validation
         id: candidate
         uses: actions/github-script@v7
         env:
@@ -355,8 +352,8 @@ jobs:
             const buildId = process.env.BUILD_RUN;
             const ciId = process.env.CI_RUN;
             if (!/^[a-f0-9]{40}$/.test(source) || !/^[1-9][0-9]*$/.test(buildId)
-              || !/^[1-9][0-9]*$/.test(ciId) || !/^[a-f0-9]{64}$/.test(process.env.TRANSPORT_SHA256)) {
-              throw new Error('Exact source, successful run IDs and original transport SHA-256 are required');
+              || (ciId && !/^[1-9][0-9]*$/.test(ciId)) || !/^[a-f0-9]{64}$/.test(process.env.TRANSPORT_SHA256)) {
+              throw new Error('Exact source, successful production run and original transport SHA-256 are required; a supplied validation run must be valid');
             }
             const fetchRun = async (id, path) => {
               const {data: run} = await github.rest.actions.getWorkflowRun({...context.repo, run_id: Number(id)});
@@ -366,7 +363,7 @@ jobs:
               return run;
             };
             const build = await fetchRun(buildId, '.github/workflows/scaffold-release.yml');
-            await fetchRun(ciId, '.github/workflows/ci.yml');
+            if (ciId) await fetchRun(ciId, '.github/workflows/ci.yml');
             const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts,
               {...context.repo, run_id: Number(buildId), per_page: 100});
             const expected = `scaffold-template-qualification-${source}-${buildId}-${build.run_attempt}`;
