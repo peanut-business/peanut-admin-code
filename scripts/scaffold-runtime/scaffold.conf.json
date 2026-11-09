@@ -402,7 +402,6 @@
       "application-provider": [
         "server/app/modules/peanut/settings/src/Infrastructure/BrandDefaults.php",
         "server/app/modules/peanut/settings/src/Service/WebsiteConfigService.php",
-        "server/app/common/infrastructure/crontab/CrontabTenantLock.php",
         "server/app/common/contract/notice/sms/SmsDriver.php",
         "server/app/common/infrastructure/notice/sms/AliyunSms.php",
         "server/app/common/infrastructure/notice/sms/TencentSms.php",

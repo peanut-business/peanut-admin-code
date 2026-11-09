@@ -28,7 +28,7 @@ Provider、事件/命令、套餐与许可证、HTTP/CLI/Task 上下文及安装
 | ORM、事务 | `TenantModel`、租户持久化/Scope 原语 | 业务 Model、表、迁移和最外层用例事务 | Think ORM 原生 Model/query/transaction；不提取逐表 CRUD Repository 到 Core |
 | 输入校验 | 无第二套通用 Validator | 输入合同、可写字段、业务限制 | Think Validate；`common/validation/InputValidator` 保留字段写权限/可信上下文，不能用可配置化取消保护字段 |
 | 缓存 | revision、授权命名空间/失效语义 | 业务缓存内容和有效期 | Think Cache；`RevisionPermissionCache`、`PolicyCache` 保留安全语义，普通 Cache API 不再包一层 |
-| 锁、幂等 | 租户锁协议/适配、防重复原语、可信消息协议 | 动作幂等结果、业务补偿及投递流程 | `ThinkPhpTenantLockStore` / `CrontabTenantLock`；Task/Workflow 等模块组合，业务事务不迁入 Core |
+| 锁、幂等 | 租户锁协议/适配、防重复原语、可信消息协议 | 动作幂等结果、业务补偿及投递流程 | `ThinkPhpTenantLockStore`；Task 调度直接复用 Core 租户锁，调度窗口与业务事务仍由 Task 模块拥有 |
 | 审计与日志 | 审计写合同及通用技术支持 | 审计记录、业务事件、脱敏和执行上下文 | Think Log；Identity `AuditService`、`common/logging/OperationalLog` 各守职责 |
 | 设置与秘密 | `SecretProtector`、Sodium 默认实现 | 设置目录、租户配置、密钥引用/生命周期 | Settings ModuleProvider；写服务注入已登记的 Resolver，Resolver 必需注入租户查询；配置缺失仍 fail closed，不把秘密保护降为普通 config |
 | 外部集成 | Webhook 目的地/秘密安全协议、OAuth transport 合同 | 租户渠道、商户/回调绑定、供应商实现与业务 | Integration/OAuth ModuleProvider；支付/回调认证保留独立安全合同 |

@@ -10,7 +10,6 @@ use app\common\execution\ExecutionContextStore;
 use app\common\model\TenantOwnedModel;
 use app\common\tenancy\MultiTenantDataScopePolicy;
 use app\common\tenancy\PlatformTenantDataGateway;
-use app\common\infrastructure\crontab\CrontabTenantLock;
 use app\common\services\audit\AuditContractHost;
 use PDO;
 use PeanutAdmin\Kernel\Auth\TenantContext;
@@ -197,7 +196,7 @@ final class StandardModuleBoundaryTest extends TestCase
         $now = time();
         $last = $now - 300;
         $this->database->exec("INSERT INTO pa_crontab VALUES (1,1,1,$last,'* * * * *',0,NULL),(2,3,1,$last,'* * * * *',0,NULL),(3,999,1,$last,'* * * * *',0,NULL),(4,2,2,$last,'* * * * *',0,NULL)");
-        $scheduler = new CrontabSchedulerService($this->contexts, $this->current, new CrontabTenantLock(new ThinkPhpTenantLockStore()), new AuditContractHost($this->current), new PlatformTenantDataGateway($this->current), $this->directory);
+        $scheduler = new CrontabSchedulerService($this->contexts, $this->current, new ThinkPhpTenantLockStore(), new AuditContractHost($this->current), new PlatformTenantDataGateway($this->current), $this->directory);
         $seen = [];
         $ids = $scheduler->runDue($now, function ($scope, array $item) use (&$seen): void {
             $seen[] = [$scope->tenantId(), (int) $item['id']];
@@ -220,7 +219,7 @@ final class StandardModuleBoundaryTest extends TestCase
         }
         $insert->execute([502, 1, $last]);
         $insert->execute([503, 2, $last]);
-        $scheduler = new CrontabSchedulerService($this->contexts, $this->current, new CrontabTenantLock(new ThinkPhpTenantLockStore()), new AuditContractHost($this->current), new PlatformTenantDataGateway($this->current), $this->directory);
+        $scheduler = new CrontabSchedulerService($this->contexts, $this->current, new ThinkPhpTenantLockStore(), new AuditContractHost($this->current), new PlatformTenantDataGateway($this->current), $this->directory);
         $seen = [];
         $owners = $scheduler->runDue($now, function ($scope, array $item) use (&$seen, $insert, $last): void {
             $seen[] = [$scope->tenantId(), (int) $item['id']];
