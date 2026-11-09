@@ -6,7 +6,7 @@ This checkout is the application `{{PACKAGE_IDENTITY}}`. Use the source, depende
 
 Read only the task-relevant sections of [the development standard](docs/development/standard.md), then locate the relevant contract through [the documentation index](docs/README.md). Use [the quality-tool instructions](tools/quality/README.md) and each affected client's own package scripts for authorized validation. Read the affected implementation, module declarations and existing tests before changing them; reading tests does not authorize running them. Do not infer a completed capability or a passed test from a document or configuration alone.
 
-Confirm the actual checkout, branch, worktree changes and installed dependency paths before editing. Preserve existing work and use a separate feature branch or worktree for source changes. Never overwrite unrelated changes or force shared history. A change request does not implicitly authorize publication, deployment, paid operations, or changes to customer data.
+Confirm the actual checkout, branch, worktree changes and installed dependency paths before editing. Preserve existing work and follow the application owner's current Git policy: when it requires the primary dev checkout and forbids feature branches or worktrees, work in that checkout with an exclusive write set; otherwise isolate source edits in an approved branch/worktree. Never overwrite unrelated changes or force shared history. A change request does not implicitly authorize publication, deployment, paid operations, or changes to customer data.
 
 ## Execution discipline
 
