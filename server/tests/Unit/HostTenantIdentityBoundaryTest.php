@@ -32,6 +32,9 @@ final class HostTenantIdentityBoundaryTest extends TestCase
         $root = dirname(__DIR__, 3);
         require_once $root . '/server/vendor/topthink/framework/src/helper.php';
         $this->app = new App($root . '/.local/tmp/host-tenant-identity/' . bin2hex(random_bytes(6)));
+        $cache = require $root . '/server/config/cache.php';
+        $cache['stores']['file']['path'] = $this->app->getRuntimePath() . 'cache/';
+        $this->app->config->set($cache, 'cache');
         $this->database = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         ThinkPhpTestConnection::fromPdo($this->database);
         $this->database->exec("CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY,name TEXT,status TEXT); INSERT INTO pa_tenant VALUES (101,' Alpha ','active'),(202,'Beta','suspended'),(303,'Gamma','closed'),(404,'Delta','provisioning')");

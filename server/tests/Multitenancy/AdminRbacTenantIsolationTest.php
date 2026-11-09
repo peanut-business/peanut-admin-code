@@ -72,14 +72,15 @@ try {
     $registry = new CompiledModuleRegistry([$manifest], [], [], [], hash('sha256', $manifest->digest));
     $entitlements = new TenantEntitlementService($registry);
     $queries = new TenantAuthorizationQuery(new ThinkPhpTenantMemberDirectory(), $registry);
-    $directory = new AdminDirectoryQuery(new CurrentExecutionContext(new ExecutionContextStore()));
+    $current = new CurrentExecutionContext(new ExecutionContextStore());
+    $directory = new AdminDirectoryQuery($current);
     $menus = new ThinkPhpMenuCatalogRepository($entitlements);
     $governance = new ThinkPhpModuleGovernanceProvider($serverRoot, [], ThinkPhpTestConnection::moduleCatalogs($pdo), $registry);
     $bridge = new CoreTenantModuleAdminBridge($governance,
         new ThinkPhpTenantAuthorizationRepository($entitlements, $queries), $menus, $queries,
         new MenuAdministrationService(), $entitlements);
     $authorization = new AdminAuthorizationService($bridge, new RegisteredAdminPermissionPolicy(),
-        $directory, $queries, new EndpointPermissionGrant(new think\Request()));
+        $directory, $queries, new EndpointPermissionGrant(new think\Request()), $current);
 
     $now = '2020-01-01 00:00:00.000';
     $pdo->exec(<<<SQL

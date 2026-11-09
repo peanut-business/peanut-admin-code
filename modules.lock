@@ -182,7 +182,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "dda1dadc4255eea37d2f66835029c293882f20cc9229d9e880ff02a88c8fb3fc"
+                "sha256": "3bd8ac34a05d6322e2f74b964dc5ccd3541c5a052daf92588585392ba1918058"
             },
             "trust": {
                 "channel": "bundled",
@@ -519,7 +519,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "e6b7891628aab28c743d40c32c2f478599594f2b3ebb27991444da700ba73c7d"
+                "sha256": "138779e45381a789d65a3afa3bb762a9a9ea55621f6acd78347a7c9414c624d4"
             },
             "trust": {
                 "channel": "bundled",

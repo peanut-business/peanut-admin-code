@@ -99,6 +99,7 @@ final class DepartmentHostStatusBoundaryTest extends TestCase
         $this->host = new DeptApplicationService($this->owner, $current, new AdminAuthorizationService(
             $bridge, $policy, new AdminDirectoryQuery($current), $identity,
             new \app\common\services\authorization\EndpointPermissionGrant(new \think\Request()),
+            $current,
         ));
         $this->actor = TenantContext::fromValidatedSession(new ValidatedTenantSession(1, 'dept-status', 101, 501, 601, 'admin-web', new DateTimeImmutable('2035-01-01'), 1, 1), 'dept-status-request');
     }

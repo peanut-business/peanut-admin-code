@@ -124,7 +124,7 @@ $requestFor = static function (string $method, string $path) use ($request, $rou
     $request->withMiddleware([AdminAuthorizationService::class => null]);
     return $request;
 };
-$authorization = new AdminAuthorizationService($bridge, $policy, new AdminDirectoryQuery($current), $identity, new EndpointPermissionGrant($request));
+$authorization = new AdminAuthorizationService($bridge, $policy, new AdminDirectoryQuery($current), $identity, new EndpointPermissionGrant($request), $current);
 $modules = new class implements ModuleAvailability {
     public function assertAvailable(TenantScope $scope, string $moduleKey, DateTimeImmutable $now, bool $lock = false): void { throw new LogicException('Unexpected Module admission'); }
     public function assertDeployment(string $moduleKey, bool $lock = false): void { throw new LogicException('Unexpected Module admission'); }

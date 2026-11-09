@@ -30,7 +30,7 @@ final class ModuleReconcile extends ModuleContextualCommand
             ->setDescription('Reconcile immutable locked Plugin installations')
             ->addOption('official-locked', null, Option::VALUE_NONE, 'Reconcile the default initial Module packages in modules.lock')
             ->addOption('release-locked', null, Option::VALUE_NONE, 'Reconcile installed active Modules to modules.lock, retaining disabled installations')
-            ->addOption('prepared-release', null, Option::VALUE_NONE, 'Verify already prepared release dependencies without builds')
+            ->addOption('prepared-release', null, Option::VALUE_NONE, 'Verify already prepared dependencies without builds for the release or selected installed scope')
             ->addOption('selected-installed', null, Option::VALUE_REQUIRED | Option::VALUE_IS_ARRAY, 'Prepare and reconcile only these already installed locked package keys')
             ->addOption('plan-only', null, Option::VALUE_NONE, 'Read the locked Plugin plans without lifecycle changes');
     }
@@ -43,12 +43,12 @@ final class ModuleReconcile extends ModuleContextualCommand
         $releaseLocked = (bool) $input->getOption('release-locked');
         $selected = array_values(array_unique((array) $input->getOption('selected-installed')));
         $preparedRelease = (bool) $input->getOption('prepared-release');
-        if ($preparedRelease && (!$releaseLocked || $officialLocked || $selected !== [])) {
+        if ($preparedRelease && ($officialLocked || (!$releaseLocked && $selected === []))) {
             $output->writeln('{"error":"PLUGIN_RECONCILE_SCOPE_CONFLICT"}');
             return 1;
         }
         if ((bool) $input->getOption('plan-only')) {
-            return $this->releasePlan($input, $output, $releaseLocked && !$officialLocked && $selected === []);
+            return $this->releasePlan($input, $output, $releaseLocked && !$officialLocked && $selected === [], $preparedRelease);
         }
         if (!$officialLocked && !$releaseLocked && $selected === []) {
             $output->writeln('{"error":"OFFICIAL_LOCKED_REQUIRED"}');
@@ -60,14 +60,29 @@ final class ModuleReconcile extends ModuleContextualCommand
         }
 
         if ($selected !== []) {
-            return $this->runModuleOperation($output, function ($service) use ($selected): array {
+            return $this->runModuleOperation($output, function ($service) use ($selected, $preparedRelease): array {
                 $config = Config::get('modules', []);
                 $lock = is_array($config) ? trim((string) ($config['module_lock'] ?? '')) : '';
                 if ($lock === '') {
                     throw new ModuleLifecycleException('PLUGIN_LOCK_INVALID', 'Plugin lock path is not configured.');
                 }
                 $resolver = ModuleLockResolver::forRuntime(dirname(__DIR__, 2), $lock);
-                return $service->reconcileInstalled($this->dependencyOrderedPlugins($resolver, $selected, $config));
+                $ordered = $this->dependencyOrderedPlugins($resolver, $selected, $config, $preparedRelease);
+                if (!$preparedRelease) {
+                    return $service->reconcileInstalled($ordered);
+                }
+                // Prepared adoption must not turn an absent/disabled selection into an installation.
+                $states = Db::name('module_installation')->whereIn('module_key', $ordered)->column('status', 'module_key');
+                foreach ($ordered as $key) {
+                    if (($states[$key] ?? null) !== 'active') {
+                        throw new ModuleLifecycleException('PLUGIN_STATE_INVALID', 'Prepared selected adoption requires active installed packages.');
+                    }
+                }
+                $results = [];
+                foreach ($ordered as $key) {
+                    $results[] = $service->reconcile($key, true);
+                }
+                return ['scope' => 'selected-installed', 'packages' => $results];
             });
         }
 
@@ -87,7 +102,7 @@ final class ModuleReconcile extends ModuleContextualCommand
                     ) !== [],
                 ));
                 $selection = $releaseLocked
-                    ? $this->releaseModuleSelection($resolver->all())
+                    ? $this->releaseModuleSelection($resolver->all(), $preparedRelease)
                     : ['reconcile' => $officialKeys, 'preserved_disabled' => [], 'preserved_uninstalled' => []];
                 $keys = $this->dependencyOrderedPlugins($resolver, $selection['reconcile'], $config);
                 if ($keys === [] && !$releaseLocked) {
@@ -128,9 +143,9 @@ final class ModuleReconcile extends ModuleContextualCommand
     }
 
     /** The plan branch observes the current locked selection without mutation. */
-    private function releasePlan(Input $input, Output $output, bool $validScope): int
+    private function releasePlan(Input $input, Output $output, bool $validScope, bool $preparedRelease): int
     {
-        return $this->runModuleOperation($output, function ($service) use ($validScope): array {
+        return $this->runModuleOperation($output, function ($service) use ($validScope, $preparedRelease): array {
             if (!$validScope) {
                 throw new ModuleLifecycleException('PLUGIN_RECONCILE_SCOPE_CONFLICT', 'Plans require release-locked scope.');
             }
@@ -140,11 +155,13 @@ final class ModuleReconcile extends ModuleContextualCommand
                 throw new ModuleLifecycleException('PLUGIN_LOCK_INVALID', 'Plugin lock path is not configured.');
             }
             $resolver = ModuleLockResolver::forRuntime(dirname(__DIR__, 2), $lock);
-            $selection = $this->releaseModuleSelection($resolver->all());
+            $selection = $this->releaseModuleSelection($resolver->all(), $preparedRelease);
             $this->dependencyOrderedPlugins($resolver, $selection['reconcile'], $config);
             $packages = [];
             foreach ([...$selection['reconcile'], ...$selection['preserved_disabled']] as $key) {
-                $packages[] = $service->reconcilePlan($key, in_array($key, $selection['preserved_disabled'], true));
+                $packages[] = $service->reconcilePlan(
+                    $key, in_array($key, $selection['preserved_disabled'], true), null, $preparedRelease,
+                );
             }
             return ['readonly' => true, 'packages' => $packages,
                 'preserved_uninstalled' => $selection['preserved_uninstalled'],
@@ -160,7 +177,7 @@ final class ModuleReconcile extends ModuleContextualCommand
      * @param array<string,mixed> $config
      * @return list<string>
      */
-    private function dependencyOrderedPlugins(ModuleLockResolver $resolver, array $keys, array $config): array
+    private function dependencyOrderedPlugins(ModuleLockResolver $resolver, array $keys, array $config, bool $useInstalledDependencies = false): array
     {
         $server = dirname(__DIR__, 2);
         $locked = $resolver->all();
@@ -203,7 +220,10 @@ final class ModuleReconcile extends ModuleContextualCommand
             $packages[$key] = ['version' => $locked[$key]->version, 'dependencies' => array_values($dependencies)];
         }
         try {
-            return (new PackageCheck($server))->dependencyOrder($packages, []);
+            $available = $useInstalledDependencies
+                ? Db::name('module_installation')->where('status', 'active')->column('installed_version', 'module_key')
+                : [];
+            return (new PackageCheck($server))->dependencyOrder($packages, $available);
         } catch (ModulePackageException $exception) {
             throw new ModuleLifecycleException($exception->errorCode, $exception->getMessage());
         }
@@ -217,12 +237,12 @@ final class ModuleReconcile extends ModuleContextualCommand
      * @param array<string,ModuleDescriptor> $locked
      * @return array{reconcile:list<string>,preserved_disabled:list<string>,preserved_uninstalled:list<string>}
      */
-    private function releaseModuleSelection(array $locked): array
+    private function releaseModuleSelection(array $locked, bool $preparedRelease = false): array
     {
         $keys = [];
         $preserved = [];
         $retired = [];
-        $rows = Db::name('module_installation')->field('module_key,status,last_error_code')
+        $rows = Db::name('module_installation')->field('module_key,status,last_error_code,activated_at')
             ->order('module_key')->select()->toArray();
         foreach ($rows as $row) {
             $key = (string) $row['module_key'];
@@ -236,6 +256,11 @@ final class ModuleReconcile extends ModuleContextualCommand
                     "Release reconciliation requires a locked, active, single-Module installation: {$key}");
             }
             $state = $row;
+            // Prepared deployment can finish a failed upgrade without rebuilding assets.
+            if ($preparedRelease && $state['status'] === 'failed' && $state['activated_at'] !== null) {
+                $keys[$key] = true;
+                continue;
+            }
             if (($state['status'] ?? null) === 'active' && ($state['last_error_code'] ?? null) === null) {
                 $keys[$key] = true;
                 continue;

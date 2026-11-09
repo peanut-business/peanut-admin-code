@@ -2,6 +2,14 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.5] - 2026-11-09
+
+- Reuse admitted read identity and versioned permission, module, tenant-profile and member-name caches while preserving current session status, tenant isolation and write-time invalidation.
+- Add bounded member summaries and database-paginated member options; retain native ThinkPHP query, pagination and cache capabilities.
+- Reuse prepared dependencies for selected installed-module adoption, align recovery plans with actual upgrade behavior, and repair explicit local-snapshot scaffold upgrades.
+- Refine navigation, content-region spacing and narrow-screen department dialogs. Ship request-cache and AI development rules through the generated-application inventory.
+- Refresh canonical module locks, API identities and template inventory for this release. Retain PHP Core 5.0.3 and Web Core 5.0.5; Sales-specific business modules and data are not included.
+
 ## [5.1.4] - 2026-11-08
 
 - Converge the shared File and Task source fixes from the module development application and give changed bundled modules distinct versions for conflict-aware adoption. Retain the Ops uninstalled ledger and the existing UI configuration capabilities.

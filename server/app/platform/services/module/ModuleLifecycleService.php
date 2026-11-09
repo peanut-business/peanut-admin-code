@@ -153,9 +153,9 @@ final readonly class ModuleLifecycleService implements ModuleLifecycleCommands
     }
 
     /** Uses the native lock/manifest/ownership rules, without entering lifecycle mutation or recovery. */
-    public function reconcilePlan(string $pluginKey, bool $preserveDisabled = false, ?callable $consumePlan = null): array
+    public function reconcilePlan(string $pluginKey, bool $preserveDisabled = false, ?callable $consumePlan = null, bool $preparedRelease = false): array
     {
-        return $this->nativeReadPlan($pluginKey, false, $preserveDisabled, $consumePlan);
+        return $this->nativeReadPlan($pluginKey, false, $preserveDisabled, $consumePlan, $preparedRelease);
     }
 
     /** Read only the actual install/resume policy; release plans retain their independent active-state gate. */
@@ -177,13 +177,17 @@ final readonly class ModuleLifecycleService implements ModuleLifecycleCommands
             'same_identity' => $sameIdentity, 'higher_version' => $forwardRepair];
     }
 
-    private function nativeReadPlan(string $pluginKey, bool $install, bool $preserveDisabled, ?callable $consumePlan): array
+    private function nativeReadPlan(string $pluginKey, bool $install, bool $preserveDisabled, ?callable $consumePlan, bool $preparedRelease = false): array
     {
-        return $this->withPackageLock($pluginKey, function () use ($pluginKey, $install, $preserveDisabled, $consumePlan): array {
+        return $this->withPackageLock($pluginKey, function () use ($pluginKey, $install, $preserveDisabled, $consumePlan, $preparedRelease): array {
             $plugin = $this->resolver->require($pluginKey);
             $this->assertTrustEligible($plugin);
             $manifests = $this->pluginManifests($plugin);
             $current = $this->pluginInstallation($pluginKey, false);
+            if (!$install && $preparedRelease && is_array($current)
+                && $current['status'] === 'failed' && $current['activated_at'] !== null) {
+                return $this->upgradeLocked($pluginKey, true, $consumePlan);
+            }
             $recovery = null; $installAction = 'planned_install';
             if ($install && is_array($current)) {
                 if (in_array($current['status'], ['active', 'maintenance'], true)
@@ -247,6 +251,10 @@ final readonly class ModuleLifecycleService implements ModuleLifecycleCommands
         if (!is_array($current)) {
             // A newly selected locked Module is installed once, under the same package lock.
             return $this->installLocked($pluginKey, $preparedDependencies);
+        }
+
+        if ($preparedDependencies !== null && $current['status'] === 'failed' && $current['activated_at'] !== null) {
+            return $this->upgradeLocked($pluginKey, false, null, $preparedDependencies);
         }
 
         if ((string) $current['status'] !== 'active') {
@@ -810,13 +818,13 @@ final readonly class ModuleLifecycleService implements ModuleLifecycleCommands
     }
 
     /** @param array<string,mixed> $current */
-    private function sameIdentity(ModuleDescriptor $plugin, array $current): bool
+    public static function sameIdentity(ModuleDescriptor $plugin, array $current): bool
     {
         return (string) $current['installed_version'] === $plugin->version
             && hash_equals((string) $current['artifact_sha256'], $plugin->source['sha256'])
-            && $this->jsonColumn($current['composer_identity_json']) === $this->json($plugin->composer)
-            && $this->jsonColumn($current['npm_identity_json']) === $this->json($plugin->npm)
-            && $this->jsonColumn($current['frontend_identity_json']) === $this->json($plugin->frontend);
+            && self::jsonColumn($current['composer_identity_json']) === self::json($plugin->composer)
+            && self::jsonColumn($current['npm_identity_json']) === self::json($plugin->npm)
+            && self::jsonColumn($current['frontend_identity_json']) === self::json($plugin->frontend);
     }
 
     /** @return array<string,mixed> */
@@ -842,13 +850,13 @@ final readonly class ModuleLifecycleService implements ModuleLifecycleCommands
         );
     }
 
-    private function jsonColumn(mixed $value): string
+    private static function jsonColumn(mixed $value): string
     {
         if (!is_string($value)) {
             return '';
         }
         try {
-            return $this->json(json_decode($value, true, 64, JSON_THROW_ON_ERROR));
+            return self::json(json_decode($value, true, 64, JSON_THROW_ON_ERROR));
         } catch (\JsonException) {
             return '';
         }

@@ -23,6 +23,10 @@ require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
 require_once __DIR__ . '/../Support/IdentityMysqlFixture.php';
 require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 
+$cache = require dirname(__DIR__, 2) . '/config/cache.php';
+$cache['stores']['file']['path'] = dirname(__DIR__, 3) . '/.local/tmp/TenantGovernanceTest-cache-' . bin2hex(random_bytes(6)) . '/';
+think\Container::getInstance()->config->set($cache, 'cache');
+
 function pm01Expect(bool $condition, string $message): void
 {
     $GLOBALS['pm01ExpectAssertions'] = ($GLOBALS['pm01ExpectAssertions'] ?? 0) + 1;
