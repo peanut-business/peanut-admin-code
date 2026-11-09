@@ -904,7 +904,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9cf2b02bc78caca05b4412da5b94e89919995fb9e45fa302b582c087a76939f4"
+            "source_sha256": "05b6e4a033cf797ea49773e119a3d7db37ead07de387fadc844ae118a5eddc08"
         },
         {
             "path": "docs/development/standard.md",
@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4d7063befe6d97f0031202f5cc6da90750b78bece220c0c5975bc5ff8f6e7914"
+            "source_sha256": "6f76df4e1be810b7b48acacf1c877728c9ab8ff4a0b373392b86cd3c4f127884"
         },
         {
             "path": "docs/development/ui-guidelines.md",
@@ -1756,7 +1756,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "15e37e8a893598e6cb2f6da622ab58f1c8b83fbaa1721a6e215a3adb427b5936"
+            "source_sha256": "37e7b3da519e80c579269d17600c49c19eaa6de76ef2c9b16d05dd368fb164a1"
         },
         {
             "path": "platform/src/api/tenant-license.ts",
@@ -19700,7 +19700,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "103ab0ba3474d4b74183322332c97d35282a5792c7f6798f06ae2f6499e5b5b1"
+            "source_sha256": "6a50922bfd23f110b3d244ccd008b231ed4a78e124d041b4138ace604640b3c5"
         },
         {
             "path": "server/resources/scaffold-application/SECURITY.md.stub",
