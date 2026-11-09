@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.6",
+    "template_version": "5.1.7",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -282,7 +282,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1f2728a711a20d43d8e3a001685e420e60ce60ab3ebc0373e212e5a5090b6023"
+            "source_sha256": "40bfa1f89a005497f7b12f2a668264218fbb2abc664604d49818ac8524a183e8"
         },
         {
             "path": "THIRD_PARTY_NOTICES.md",
@@ -296,7 +296,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cbcdb6ab4662071dcb52f56833a089a0a3bd24f265280ee2b649277118ef6ecb"
+            "source_sha256": "e9597f4d6ac53585124bf3913e1e7faeb43f77258c3401cf70ae7e03877113a6"
         },
         {
             "path": "compose.yaml",
@@ -1280,7 +1280,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8cf20c9022ce43efe4539cc7be33b3a8dc8a71caed6d853b2de2238c9181ee23"
+            "source_sha256": "4b023701cce780f54986dc387f3a4206ae202567f2e6f2bd5b2a59d00d412d44"
         },
         {
             "path": "pc/package.json",
@@ -1293,7 +1293,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f1374cd509e19321f05d55dbf77afd568ed4981fe538b43bc18b050eab5642a7"
+            "source_sha256": "337c86662cd566744e80739eca8b618ca483ece8559f939f502ce9fe6ee1540e"
         },
         {
             "path": "pc/pages/about.vue",
@@ -1700,7 +1700,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bce99e1895aa7c2282e2c9a71a826cdc2bb8024cfbace0b0dfca9f9ffab52726"
+            "source_sha256": "8b232be1272dcfb74b50b432c78f06f1bafe8ff501964888a790fb43a710f3b4"
         },
         {
             "path": "platform/package.json",
@@ -1714,7 +1714,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7b38de3ab3e9bb811274c944deebe1ccdb99be9f7c2ad30e557d14a98a19cd9e"
+            "source_sha256": "3d94e45481028ca78b42d20c55a634eab414fc4c911af69fea1601c4c0cf94fc"
         },
         {
             "path": "platform/scripts/check-governance-types.mjs",
@@ -19321,7 +19321,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3cd2f2ede778261c2b07b2e0feffc45a9f6536efc9db9997dc48cde7607c4dcd"
+            "source_sha256": "2fea627a3d000592c396a89247e2592f1e54d2bb974d97c570d3c690a75427e9"
         },
         {
             "path": "server/generated/openapi.json",
@@ -19335,7 +19335,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "94f377bf3e4f634aacd92e5039b480a38b5853f395537b60511e92b4274a2ac6"
+            "source_sha256": "f04f861a5b8a026a59d7d56a7a981c87e8b25bb8f951333a9dc247f461d0600c"
         },
         {
             "path": "server/module",
@@ -24065,7 +24065,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "395d058baa0e5649bbf4c48166939ece5ee399da07d653ad5bbf92aa7197228f"
+            "source_sha256": "a3f2f4e4fa98e17cdd19a0d62fda60419b89170b68536f2e9b737a4a086df316"
         },
         {
             "path": "uniapp/package.json",
@@ -24078,7 +24078,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "727ac9fff7935d2b1c3af80853c964c03dab0bb1b3246fb33949770131b257a8"
+            "source_sha256": "26e8d7b5ca757d56fc3fc26a016c078a9c59cd2b8a6ecaca97796573c85712e7"
         },
         {
             "path": "uniapp/packages/pages/404/404.vue",
@@ -24954,7 +24954,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "80baadecd904e2dea5f353e71033e3a4015da660c67940827ca9738ca854ad64"
+            "source_sha256": "483b0eb08ae33f8245b0dc116f7875a3ecd60708c5a15c96a847fa83eeb1f68d"
         },
         {
             "path": "web/pnpm-lock.yaml",
