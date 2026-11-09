@@ -32,6 +32,18 @@ class PublicDocsTest(unittest.TestCase):
         return subprocess.run([PHP, str(ROOT/'scripts/check-public-docs'), '--root='+str(self.root)], capture_output=True,text=True,timeout=10)
     def test_matching_source_and_delivered_manuals_pass(self):
         r=self.check();self.assertEqual(0,r.returncode,r.stderr)
+    def test_application_owned_manual_uses_declared_source_template(self):
+        source = 'server/resources/scaffold-application/project-rules.md.stub'
+        target = 'docs/project-rules.md'
+        self.write(source, '# Application rules\\n[manual](README.md)\\n')
+        self.entries.append({'path': source, 'target': target, 'classification': 'app-owned'})
+        self.save()
+        self.assertFalse((self.root / target).exists())
+        result = self.check()
+        self.assertEqual(0, result.returncode, result.stderr)
+        (self.root / source).unlink()
+        self.assertIn('missing public document: ' + target, self.check().stderr)
+
     def test_source_version_is_not_duplicated_in_prose(self):
         self.assertNotIn('9.8.7',(self.root/'docs/public/release-channels.md').read_text());self.assertEqual(0,self.check().returncode)
     def test_missing_manual_fails(self):

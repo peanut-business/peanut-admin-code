@@ -57,7 +57,9 @@ foreach ($required as $relative) {
     if (!isset($delivered[$relative])) { $violations[] = "public document is not delivered: {$relative}"; }
 }
 foreach (array_unique(array_merge($required, $manuals)) as $relative) {
-    $path = $root . '/' . $relative;
+    // Generated, application-owned documents are checked from their declared
+    // source template; the consumer owns the rendered target path.
+    $path = $root . '/' . ($delivered[$relative] ?? $relative);
     if (!is_file($path) || is_link($path)) {
         $violations[] = "missing public document: {$relative}";
         continue;
