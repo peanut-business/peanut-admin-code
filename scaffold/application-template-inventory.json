@@ -612,7 +612,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "37cb0a145b04df15b67e2b1d0a8ae0464f8b19547e4256d4b31147d05662b083"
+            "source_sha256": "454045bf459a9b86586726f91a8957065ff2554fa160a7568385b20690c7f46d"
         },
         {
             "path": "docs/architecture/default-delivery-and-ownership.md",
@@ -1123,7 +1123,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "42423f17e7328cd43fb3ff9f56e8af4318fe1e1b2e661f9ec4fe618bb941fadf"
+            "source_sha256": "1fd85625936034973444fbfea2bb2f7784a6035e7d63df4c31024c8b85623f51"
         },
         {
             "path": "pc/.env.example",
@@ -3502,7 +3502,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bac78a24f51b3f2c207d696b8f0e358f7e98c0d646d21546d5385f6c039f2e58"
+            "source_sha256": "a323fc81dc2b4c1351eaf2dfc708610dfdfca85913ceaa93991812963fbd237b"
         },
         {
             "path": "scripts/scaffold-upgrade",
@@ -6648,20 +6648,6 @@
             "source_sha256": "c341e60cb7af7a98b126e9df378a6eb5b2fe7972390c0b86886ba5de0ca0a715"
         },
         {
-            "path": "server/app/common/enum/CrontabEnum.php",
-            "target": "server/app/common/enum/CrontabEnum.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "802ce81692b4738418b75ed449261c8f6db792fa841b8b2bcd5b964541d21efe"
-        },
-        {
             "path": "server/app/common/enum/FileEnum.php",
             "target": "server/app/common/enum/FileEnum.php",
             "classification": "managed",
@@ -7122,21 +7108,6 @@
                 "full"
             ],
             "source_sha256": "257291e768a42858b0523c1d541759eabcd087072c9441605a2b52f628bced32"
-        },
-        {
-            "path": "server/app/common/infrastructure/crontab/CrontabTenantLock.php",
-            "target": "server/app/common/infrastructure/crontab/CrontabTenantLock.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "6b843ef268013770db4c9a7336eaa9cd8398edf2ab34821624f7cc26d7861856",
-            "adapter_kind": "application-provider"
         },
         {
             "path": "server/app/common/infrastructure/http/GuzzleOutboundHttpTransport.php",
@@ -15487,7 +15458,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "acdad86bcbb0a2553698d30b709cfdfcaa2e1637caa1188dd73b37a49dfdc003"
+            "source_sha256": "41911a843b5c24a6b764e88516adaf61f0ab2e71c7894eabd387a16cb375f926"
         },
         {
             "path": "server/app/modules/peanut/task/database/migrations/20261101010006_initial_task_schema.php",
@@ -15543,7 +15514,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3389c29c2ab1106f4effbdc9d043ca35629bea35c08c8fc568f887e754fc246f"
+            "source_sha256": "b227c24c32cdd9bf37b47576dfe08837460c7ddbb490abe03ff208f58a1adf62"
         },
         {
             "path": "server/app/modules/peanut/task/resources/menus.json",
@@ -15896,6 +15867,20 @@
             "source_sha256": "2446f12dfdbc6fbd8ee572e8b41244108061693941bfe947b0347e9fea465de5"
         },
         {
+            "path": "server/app/modules/peanut/task/src/Enum/CrontabEnum.php",
+            "target": "server/app/modules/peanut/task/src/Enum/CrontabEnum.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "29dccbff5231da21ccd2bc104426bb39dd91eb92061f50374d692d55565cf27c"
+        },
+        {
             "path": "server/app/modules/peanut/task/src/Infrastructure/Runtime/ThinkPhpTaskJobRuntime.php",
             "target": "server/app/modules/peanut/task/src/Infrastructure/Runtime/ThinkPhpTaskJobRuntime.php",
             "classification": "managed",
@@ -16131,7 +16116,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "41929bacfeb1987cb8e3d6ae0a45d8c7522e16f47c30b940ea7ce47b2d2e5196"
+            "source_sha256": "1c6e995ceef97720e17a62891b6e958e109687ec916b21e9d06f6c23143ad7d9"
         },
         {
             "path": "server/app/modules/peanut/task/src/Service/CrontabSchedulerService.php",
@@ -16145,7 +16130,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "268292ae8024475e08c439695e33cb911c3edf5379ec1c5d486d405c4ff572a8",
+            "source_sha256": "746da4c691b51681ec6b069944c1f3a50799fd21dc8050b1b76827a69351f050",
             "adapter_kind": "framework-adapter"
         },
         {
@@ -16160,7 +16145,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "887c8308e65fdc2f077ed3fccc801b280ee346bc8ac037f3fa39bb824a79b507"
+            "source_sha256": "bcf5fc998802d72a7d0671a1b60be2056de70d04a79f5dcdf0732dc566739079"
         },
         {
             "path": "server/app/modules/peanut/task/src/Service/TaskAdminApplicationService.php",
@@ -17448,7 +17433,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7eabebc8bc2f0a3806a0593fc8fa62c10714312e6edff27876fffc08d75f93e8"
+            "source_sha256": "08a055a680f12f9566e2fefdbc4ae4715e2346766a3810bb2468dd91ae3e57b7"
         },
         {
             "path": "server/composer.lock",
@@ -17462,7 +17447,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "443477fc07797df86fca53b812f146a60e1a0a1426b38168955296aa9fea4402"
+            "source_sha256": "874439da3b01138e5f58ecf2ac4f29eda03711c9110fac05e001846e8cf12e6d"
         },
         {
             "path": "server/config/admin_api_access.php",
@@ -19322,7 +19307,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a5ef2f2281874794639d2e7ac225c07dfb5bf331922f69cc87145538b58e1816"
+            "source_sha256": "d14d8df7ae8e663fa1104ecda7cefd5aacea67203f7b7aa1e67c1496b203e892"
         },
         {
             "path": "server/generated/openapi.json",
