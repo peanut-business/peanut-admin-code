@@ -12,6 +12,8 @@
 
 客户端使用公共会话机制时，必须在自身 manifest 和原生锁中直接声明 `@peanut-admin/client`，并由当前应用的 Axios 与模块 Fetch 共用同一宿主恢复实例；不得依赖其他包的传递依赖或保留私有的并发刷新、重试和失效默认实现。开发期本地 Core 源码链接、固定依赖安装、静态构建产物和实际 HTTP 运行加载是四种不同的采用状态，分别核对，不能用源码或类型检查代替运行时采用。业务登录地址、跨标签 Cookie 锁、撤销写入、菜单清理及返回地址仍由宿主和 Identity 按当前产品合同负责。
 
+运营平台的 `platform/src/api/platform.ts` 通过已有 `@peanut-admin/vue` 的 `createMemoryRefreshCoordinator` 合并同一平台会话代际与失败 Token 的在途刷新；平台的登录/退出、Cookie 顺序、token 存储、业务错误 envelope、页面状态清理继续由宿主负责。不新增第二套刷新 Map 或改变客户端 Token 协议；同标签请求合并不等于跨标签会话安全已完成验收。
+
 ## 2. 哪些事实实时读取
 
 - 域名入口按 `(规范化 host, client_key)` 查询。`tenant_id` 是输出，不是域名查询的输入。`TenantEntryBindingResolver` 在同一原生 Request 中复用结果；成功映射跨请求缓存300秒。未知、停用及非法 Host 沿入口策略拒绝，不缓存失败，不把默认租户当错误域名的兜底。事务内直接读库。
