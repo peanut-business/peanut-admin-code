@@ -517,6 +517,18 @@ try {
         && $officialAdopted['runtime_database_mutated'] === false,
         'verified official source adoption crossed the Runtime activation boundary');
     modulePackageExpect($officialAdopter->adopt($officialPath, $official['sha256'], 'fixture-release', 'peanut.content-tools')['operation'] === 'unchanged', 'official source adoption is not idempotent');
+    $officialResignedPath = $temporary . '/official-resigned.tar';
+    $officialResigned = (new ModulePackageArchiveService($serverRoot))->packModule(
+        'peanut.content-tools', $officialResignedPath, ['key_id' => 'fixture-release-2', 'secret_key' => $secret],
+    );
+    modulePackageExpect($officialResigned['sha256'] !== $official['sha256'], 're-signed fixture did not change official archive digest');
+    $officialAdopterWithBothKeys = new ModulePackageAdoptionService(
+        $officialRoot . '/server', ['fixture-release' => $public, 'fixture-release-2' => $public], 'development',
+    );
+    modulePackageRejects(
+        fn() => $officialAdopterWithBothKeys->adopt($officialResignedPath, $officialResigned['sha256'], 'fixture-release-2', 'peanut.content-tools'),
+        'PACKAGE_VERSION_IDENTITY_CONFLICT',
+    );
     (new ModuleArtifactWriter($officialRoot . '/server'))->checkLock();
     modulePackageExpect(isset((new ModuleLockResolver($officialRoot . '/server', '../modules.lock'))->all()['peanut.content-tools']), 'official source and lock are not consistent');
     if (!$archiveOnly) {

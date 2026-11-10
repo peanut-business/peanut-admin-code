@@ -87,6 +87,12 @@ final readonly class ModulePackageAdoptionService
                         || !hash_equals($previous->source['sha256'], $package->descriptor->source['sha256']))) {
                         throw new ModulePackageException('PACKAGE_VERSION_IDENTITY_CONFLICT', 'Same-version package identity changed.');
                     }
+                    if ($official && $comparison === 0) {
+                        $pinnedArchive = $promoter->pinnedArchiveSha($package->packageKey, $package->packageVersion, $previous->source['sha256']);
+                        if ($pinnedArchive === null || !hash_equals($pinnedArchive, $package->archiveSha256)) {
+                            throw new ModulePackageException('PACKAGE_VERSION_IDENTITY_CONFLICT', 'Same-version official archive identity cannot be verified.');
+                        }
+                    }
                 }
                 $routes = [];
                 $declarations = [];
