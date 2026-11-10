@@ -502,6 +502,23 @@ try {
     $officialPath = $temporary . '/official-signed.tar';
     $official = (new ModulePackageArchiveService($serverRoot))->packModule('peanut.content-tools', $officialPath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);
     modulePackageRejects(fn() => $adopter->adopt($officialPath, $official['sha256'], 'fixture-release'), 'MODULE_PACKAGE_PRIVATE_REQUIRED');
+    modulePackageRejects(fn() => $adopter->adopt($officialPath, $official['sha256'], 'fixture-release', 'peanut.identity'), 'MODULE_PACKAGE_OFFICIAL_SOURCE_MISMATCH');
+    modulePackageRejects(fn() => $adopter->adopt($signedPath, $pin, 'fixture-release', 'peanut.content-tools'), 'MODULE_PACKAGE_OFFICIAL_SOURCE_MISMATCH');
+    modulePackageRejects(fn() => $adopter->adopt($officialPath, str_repeat('0', 64), 'fixture-release', 'peanut.content-tools'), 'MODULE_PACKAGE_ARCHIVE_DIGEST_MISMATCH');
+    $officialRoot = realpath($temporary) . '/official-source-only';
+    mkdir($officialRoot . '/server/resources/schemas', 0700, true);
+    copy($serverRoot . '/resources/schemas/module-artifact.schema.json', $officialRoot . '/server/resources/schemas/module-artifact.schema.json');
+    $officialAdopter = new ModulePackageAdoptionService($officialRoot . '/server', ['fixture-release' => $public], 'development');
+    $officialAdopted = $officialAdopter->adopt($officialPath, $official['sha256'], 'fixture-release', 'peanut.content-tools');
+    modulePackageExpect($officialAdopted['operation'] === 'adopted'
+        && $officialAdopted['adoption_scope'] === 'official'
+        && $officialAdopted['runtime_activation'] === 'not-verified'
+        && $officialAdopted['reconciliation_status'] === 'pending'
+        && $officialAdopted['runtime_database_mutated'] === false,
+        'verified official source adoption crossed the Runtime activation boundary');
+    modulePackageExpect($officialAdopter->adopt($officialPath, $official['sha256'], 'fixture-release', 'peanut.content-tools')['operation'] === 'unchanged', 'official source adoption is not idempotent');
+    (new ModuleArtifactWriter($officialRoot . '/server'))->checkLock();
+    modulePackageExpect(isset((new ModuleLockResolver($officialRoot . '/server', '../modules.lock'))->all()['peanut.content-tools']), 'official source and lock are not consistent');
     if (!$archiveOnly) {
         // An incomplete source must still expose the development recovery CLI while ordinary boot fails closed.
         $bootJournal = $projectRoot . '/.local/module-source-adoption/journal.json';
