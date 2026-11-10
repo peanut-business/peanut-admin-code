@@ -1095,7 +1095,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "06373ad4ce9151b90ede2b01a5cdb241663271865659379001fdfcb44ec320cf"
+            "source_sha256": "99c035e0f13183605eada1d24348158a933da090456ec3b7a095ea39d477615c"
         },
         {
             "path": "docs/public/release-channels.md",
@@ -5733,7 +5733,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "97977bb65ebaf621ac4fe94bce3bf62ffb8c1af3511f1480784376a7fb3e5e99"
+            "source_sha256": "e6450577c4398caabe5c8aa79b9db271cbe07000178b998e7d2d76ad81742d44"
         },
         {
             "path": "server/app/command/ModuleCheck.php",
@@ -7877,7 +7877,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ad9e2a013b59d28820dae141f527ea52ce378bdaeee84c949be5ecd0f1ee2f66"
+            "source_sha256": "543ec322ae3501dca4a247059944c65b3633c4c3f33f2aa3b56ab271cd8edbfe"
         },
         {
             "path": "server/app/common/policy/permission/RegisteredAdminPermissionPolicy.php",
@@ -16803,7 +16803,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bd250ba506e3f15c7a258f1975c6126952e0be27e68969bbcd10b49c48261b33"
+            "source_sha256": "813712174f62cd314694d138b1fec7ad393b10e560e0185e3f6a9f40e866528d"
         },
         {
             "path": "server/app/platform/infrastructure/module/ModuleUninstallPlanCodec.php",
@@ -17139,7 +17139,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7cc634caa53ad1d07887a7e511bb6254e5385cbd3f27fc42e59227a20a36d2a4"
+            "source_sha256": "fd6fbfc8bcf72458a9f9890c19630deaf9ca5d59de8b1f3e9c09679ae107b51d"
         },
         {
             "path": "server/app/platform/services/module/ModulePackageArchiveService.php",
