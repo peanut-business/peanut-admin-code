@@ -123,7 +123,7 @@ $nonCaseCatalogSnapshot = static function () use ($pdo): array {
     return $snapshot;
 };
 $catalogBaselinePath = $state . '/non-case-catalog-before.json';
-if (!$resume) {
+if (!$resume || ($resumeBaseline && !is_file($catalogBaselinePath))) {
     $baselineRegistry = (new ModuleDefinitionRegistryFactory($server))->fromModuleLock($baseline, $config);
     $catalogs->apply($baselineRegistry, array_keys($manifests));
     $nonCaseCatalogBefore = $nonCaseCatalogSnapshot();
