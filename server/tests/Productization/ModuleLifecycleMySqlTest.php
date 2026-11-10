@@ -37,6 +37,11 @@ require $server . '/vendor/topthink/framework/src/helper.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
 $app = new think\App($server);
 $app->loadEnv((string) $app->env->get('env_name', ''));
+$app->initialize();
+set_exception_handler(static function (Throwable $error): void {
+    fwrite(STDERR, get_class($error) . ': ' . $error->getMessage() . "\n");
+    exit(1);
+});
 
 // Explicit manual acceptance entry. It uses the selected checkout's native authoring,
 // dependency, migration and lifecycle services; no running application or business data is imported.
@@ -101,7 +106,7 @@ $baseline = new ModuleLockResolver($server, '../modules.lock');
 foreach ($baseline->all() as $descriptor) {
     foreach ($descriptor->moduleRoots as $key => $directory) { $manifests[$key] = (new ManifestLoader())->load($directory); }
 }
-if (!$resume) {
+if (!$resume || $resumeBaseline) {
     $native = new ModuleMigrationRun(ModuleMigrationRun::sources($manifests, $server, true));
     $native->setApp($app);
     $native->run(new think\console\Input([]), new think\console\Output('buffer'));
@@ -118,7 +123,7 @@ $nonCaseCatalogSnapshot = static function () use ($pdo): array {
     return $snapshot;
 };
 $catalogBaselinePath = $state . '/non-case-catalog-before.json';
-if (!$resume) {
+if (!$resume || ($resumeBaseline && !is_file($catalogBaselinePath))) {
     $baselineRegistry = (new ModuleDefinitionRegistryFactory($server))->fromModuleLock($baseline, $config);
     $catalogs->apply($baselineRegistry, array_keys($manifests));
     $nonCaseCatalogBefore = $nonCaseCatalogSnapshot();

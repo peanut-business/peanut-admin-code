@@ -2,6 +2,12 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.9] - 2026-11-10
+
+- Correct fresh-install tenant initialization so unselected optional Notification tables and seeds are not treated as required; when Notification is actually selected and entitled, its normal installation remains supported.
+- Align the existing native module-lifecycle, failure-recovery and governance test fixtures with the current installed package and catalog baselines. Reuse their recorded validation evidence; do not run a new all-product qualification solely for publication.
+- Keep the previously published PHP Core 5.0.3, Web Core 5.1.0 and existing module versions. This release supplies immutable Standalone and Multi-tenant scaffold inputs; adopting it in Sales, media or DCS remains a separate application upgrade.
+
 ## [5.1.8] - 2026-11-10
 
 - Correct immutable official Module identities for the authenticated scaffold upgrade path: Identity 4.0.0-rc.60 and Settings 1.0.28 now distinguish the source revisions already present in Code from the older same-version modules in the 5.1.4 consumer baseline.

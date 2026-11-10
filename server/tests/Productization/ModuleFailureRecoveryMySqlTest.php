@@ -34,6 +34,11 @@ require $server . '/vendor/topthink/framework/src/helper.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
 $app = new think\App($server);
 $app->loadEnv((string) $app->env->get('env_name', ''));
+$app->initialize();
+set_exception_handler(static function (Throwable $error): void {
+    fwrite(STDERR, get_class($error) . ': ' . $error->getMessage() . "\n");
+    exit(1);
+});
 
 $databaseEnvironment = [];
 foreach (['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASS'] as $key) {
