@@ -2,8 +2,8 @@
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "Peanut Admin 5.1.7 release dependency SBOM",
-  "documentNamespace": "https://github.com/peanut-business/peanut-admin-code/releases/tag/v5.1.7/sbom",
+  "name": "Peanut Admin 5.1.8 release dependency SBOM",
+  "documentNamespace": "https://github.com/peanut-business/peanut-admin-code/releases/tag/v5.1.8/sbom",
   "creationInfo": {
     "created": "2026-11-10T00:00:00Z",
     "creators": [
@@ -26,7 +26,7 @@
     {
       "name": "Peanut Admin",
       "SPDXID": "SPDXRef-Package-Peanut-Admin",
-      "versionInfo": "5.1.7",
+      "versionInfo": "5.1.8",
       "downloadLocation": "https://github.com/peanut-business/peanut-admin-code",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0",
@@ -37,7 +37,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:github/peanut-business/peanut-admin-code@5.1.7"
+          "referenceLocator": "pkg:github/peanut-business/peanut-admin-code@5.1.8"
         }
       ]
     },
@@ -556,8 +556,8 @@
     },
     {
       "name": "peanut-business/peanut-identity",
-      "SPDXID": "SPDXRef-Package-composer-6995d62cdb112581ef4c",
-      "versionInfo": "4.0.0-rc.59",
+      "SPDXID": "SPDXRef-Package-composer-bc01aaa4b53f06570af1",
+      "versionInfo": "4.0.0-rc.60",
       "downloadLocation": "app/modules/peanut/identity",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
@@ -569,7 +569,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:composer/peanut-business/peanut-identity@4.0.0-rc.59"
+          "referenceLocator": "pkg:composer/peanut-business/peanut-identity@4.0.0-rc.60"
         }
       ]
     },
@@ -632,8 +632,8 @@
     },
     {
       "name": "peanut-business/peanut-settings",
-      "SPDXID": "SPDXRef-Package-composer-e52344bc3251d30856b3",
-      "versionInfo": "1.0.27",
+      "SPDXID": "SPDXRef-Package-composer-b445a36ddfce13b383ed",
+      "versionInfo": "1.0.28",
       "downloadLocation": "app/modules/peanut/settings",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
@@ -645,7 +645,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:composer/peanut-business/peanut-settings@1.0.27"
+          "referenceLocator": "pkg:composer/peanut-business/peanut-settings@1.0.28"
         }
       ]
     },
@@ -59906,7 +59906,7 @@
     {
       "spdxElementId": "SPDXRef-Package-Peanut-Admin",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-composer-6995d62cdb112581ef4c",
+      "relatedSpdxElement": "SPDXRef-Package-composer-bc01aaa4b53f06570af1",
       "comment": "composer; runtime"
     },
     {
@@ -59930,7 +59930,7 @@
     {
       "spdxElementId": "SPDXRef-Package-Peanut-Admin",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-composer-e52344bc3251d30856b3",
+      "relatedSpdxElement": "SPDXRef-Package-composer-b445a36ddfce13b383ed",
       "comment": "composer; runtime"
     },
     {

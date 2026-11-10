@@ -2,6 +2,12 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.8] - 2026-11-10
+
+- Correct immutable official Module identities for the authenticated scaffold upgrade path: Identity 4.0.0-rc.60 and Settings 1.0.28 now distinguish the source revisions already present in Code from the older same-version modules in the 5.1.4 consumer baseline.
+- Preserve the fail-closed module version and source identity check rather than permitting an equal-version source replacement. Task 1.0.34 and File 1.0.45 remain the canonical module-owned technical integrations.
+- Reuse published PHP Core 5.0.3 and Web Core 5.1.0; do not republish unchanged Cores. This scaffold version does not itself upgrade installed applications or their customer-owned state.
+
 ## [5.1.7] - 2026-11-10
 
 - Reuse the published Web Core refresh coordinator in Platform while retaining the platform's own credential, Cookie and session lifecycle policies.
