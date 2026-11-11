@@ -52,21 +52,44 @@ final class EditionProjector
                 }
                 $content = self::json($composer);
             }
-            if ($path === 'web/pnpm-workspace.yaml') {
-                $content = "packages:\n  - src/modules/*\n";
-            }
-            if (in_array($path, ['platform/package.json', 'pc/package.json', 'uniapp/package.json'], true)) {
-                $package = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
-                $package['workspaces'] = [($path === 'pc/package.json' ? 'modules/' : 'src/modules/') . '*'];
-                $content = self::json($package);
-            }
             if ($content !== file_get_contents($absolute)) {
                 $this->writeFile($absolute, $content, $file['mode']);
                 $file['sha256'] = hash('sha256', $content);
             }
             $result[] = $file;
         }
-        return $result;
+        return $this->moduleWorkspaces($stage, $result);
+    }
+
+    /**
+     * Seals module workspace globs once for both the released neutral package
+     * and the final edition projection. This is idempotent and never bypasses
+     * immutable adoption-byte verification.
+     */
+    public function moduleWorkspaces(string $stage, array $files): array
+    {
+        foreach ($files as $index => $file) {
+            $path = $file['path'];
+            if ($path !== 'web/pnpm-workspace.yaml'
+                && !in_array($path, ['platform/package.json', 'pc/package.json', 'uniapp/package.json'], true)) {
+                continue;
+            }
+            $absolute = $stage . '/' . $path;
+            $content = (string) file_get_contents($absolute);
+            if ($path === 'web/pnpm-workspace.yaml') {
+                $projected = "packages:\n  - src/modules/*\n";
+            } else {
+                $package = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
+                $package['workspaces'] = [($path === 'pc/package.json' ? 'modules/' : 'src/modules/') . '*'];
+                $projected = self::json($package);
+            }
+            if ($content !== $projected) {
+                $this->writeFile($absolute, $projected, $file['mode']);
+                $file['sha256'] = hash('sha256', $projected);
+                $files[$index] = $file;
+            }
+        }
+        return $files;
     }
 
     /** Final bytes are projected before the canonical Plugin writer and API inventory. */
