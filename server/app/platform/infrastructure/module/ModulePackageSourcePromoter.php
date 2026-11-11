@@ -21,7 +21,8 @@ final class ModulePackageSourcePromoter
         $canonicalServer = realpath($serverRoot);
         if ($root === false || $canonicalServer === false || !is_dir($canonicalServer)
             || basename(rtrim($serverRoot, '/')) !== 'server'
-            || $canonicalServer !== rtrim($root, '/') . '/server' || is_link($serverRoot)) {
+            || $canonicalServer !== rtrim($root, '/') . '/server' || is_link($serverRoot)
+            || is_link(dirname($serverRoot))) {
             throw new ModulePackageException('MODULE_PACKAGE_PATH_INVALID', 'Use an existing application server directory.');
         }
         $this->root = rtrim($root, '/');
