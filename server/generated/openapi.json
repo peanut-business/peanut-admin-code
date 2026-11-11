@@ -286,6 +286,9 @@
             }
         },
         "/adminapi/peanut.file.upload.file": {
+            "x-peanut-required-modules": [
+                "peanut.file"
+            ],
             "post": {
                 "tags": [
                     "File"
@@ -370,6 +373,9 @@
             }
         },
         "/api/storage/delivery": {
+            "x-peanut-required-modules": [
+                "peanut.file"
+            ],
             "get": {
                 "tags": [
                     "File"
@@ -454,6 +460,9 @@
             }
         },
         "/adminapi/peanut.file.list": {
+            "x-peanut-required-modules": [
+                "peanut.file"
+            ],
             "get": {
                 "tags": [
                     "File"
