@@ -682,7 +682,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "973f959e658423c172ed53d696313becd44f7eac5d973b21f508b18ccb1e96f7"
+            "source_sha256": "269c3be49c9a2fdd9badec62980429db2a6eea67feb82f434ec1e5d97fb65e4d"
         },
         {
             "path": "docs/architecture/identity-organization-access.md",
@@ -18769,7 +18769,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0add57153fa8dd84e3be43483c948e1acaa38d70e8be2e29acb500c85063db80"
+            "source_sha256": "9659288d1078fb6970843c28a395a22bbe3abadb9073929ec098466ef8b06c66"
         },
         {
             "path": "server/generated/openapi.json",
@@ -18783,7 +18783,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c9ff81a88b1fb115c6225e427b65a9209098bca82003447dddef009901d1082f"
+            "source_sha256": "87dba472ece7c3bbd13198901b83ec9d356ab41015e23991a9912f0998c8dc63"
         },
         {
             "path": "server/module",
