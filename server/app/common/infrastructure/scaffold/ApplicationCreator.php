@@ -624,6 +624,7 @@ final class ApplicationCreator
         // These artifacts are rebuilt from the individually verified final managed inputs.
         return $path === 'server/generated/api-catalog.json'
             || $path === 'server/generated/openapi.json'
+            || $path === 'web/src/generated/openapi.d.ts'
             || $path === 'modules.lock'
             || preg_match('#^plugins/[a-z][a-z0-9.-]*/plugin\.json$#D', $path) === 1;
     }
