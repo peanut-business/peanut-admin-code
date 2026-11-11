@@ -45,6 +45,16 @@ function modulePackageRejects(callable $operation, string $errorCode): ModulePac
     }
 }
 
+/** The native bridge returns structured failure and recovery identity, never a bare error object. */
+function modulePackageNativeFailure(string $output, string $code): bool
+{
+    $payload = json_decode($output, true);
+    return is_array($payload) && ($payload['schema_version'] ?? null) === 1
+        && ($payload['error'] ?? null) === $code
+        && is_string($payload['message'] ?? null)
+        && is_array($payload['recovery'] ?? null);
+}
+
 function modulePackageCopyTree(string $source, string $target): void
 {
     mkdir($target, 0777, true);
@@ -833,14 +843,17 @@ PHP);
             modulePackageExpect($exit !== 0 && str_contains($output, 'Run module:adopt-package --recover'), 'ordinary Runtime consumed incomplete source');
             [$exit, $output] = $invoke(true, $environment);
             modulePackageExpect(
-                $exit !== 0 && $output === '{"error":"MODULE_PACKAGE_RECOVERY_REQUIRED"}',
-                'development recovery CLI could not reach the journal: ' . $output,
+                $exit !== 0 && modulePackageNativeFailure($output, 'MODULE_PACKAGE_RECOVERY_REQUIRED')
+                    && (json_decode($output, true)['recovery']['status'] ?? null) === 'invalid'
+                    && !isset(json_decode($output, true)['recovery']['resume']),
+                'development recovery CLI did not fail closed on a corrupt journal: ' . $output,
             );
             [$exit, $output] = $invoke(true, $environment, 'upgrade', [$officialPath, '--sha256=' . $official['sha256'], '--dry-run']);
             modulePackageExpect($exit !== 0 && str_contains($output, 'Run module:adopt-package --recover'),
                 'Runtime package upgrade consumed incomplete source');
             [$exit, $output] = $invoke(true, $environment, 'adopt', [$officialPath, '--sha256=' . $official['sha256'], '--official-key=peanut.content-tools']);
-            modulePackageExpect($exit !== 0 && $output === '{"error":"MODULE_PACKAGE_RECOVERY_REQUIRED"}',
+            modulePackageExpect($exit !== 0
+                    && modulePackageNativeFailure($output, 'MODULE_PACKAGE_RECOVERY_REQUIRED'),
                 'Initial official adoption could not reach its source transaction: ' . $output);
             unlink($bootJournal);
             $sourceLock = (string) file_get_contents($projectRoot . '/modules.lock');
@@ -851,7 +864,7 @@ PHP);
                     [$official['sha256'], 'peanut.content-tools', 'PACKAGE_VERSION_IDENTITY_CONFLICT'],
                 ] as [$digest, $key, $error]) {
                     [$exit, $output] = $invoke(true, $environment, 'adopt', [$officialPath, '--sha256=' . $digest, '--official-key=' . $key]);
-                    modulePackageExpect($exit !== 0 && $output === json_encode(['error' => $error], JSON_THROW_ON_ERROR),
+                    modulePackageExpect($exit !== 0 && modulePackageNativeFailure($output, $error),
                         'Native official adoption did not reach package admission without a database: ' . $output);
                     modulePackageExpect(file_get_contents($projectRoot . '/modules.lock') === $sourceLock,
                         'Rejected native official adoption changed the deployment lock');
@@ -869,7 +882,8 @@ PHP);
                 file_put_contents($bootEnvironment, $contents);
                 [$exit, $output] = $invoke(true, $environment + $untrusted);
                 modulePackageExpect(
-                    $exit !== 0 && $output === '{"error":"MODULE_SOURCE_ADOPTION_DISABLED"}' && $state() === $before,
+                    $exit !== 0 && modulePackageNativeFailure($output, 'MODULE_SOURCE_ADOPTION_DISABLED')
+                        && $state() === $before,
                     'recovery accepted an external development environment or modified source state',
                 );
             }

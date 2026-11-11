@@ -214,8 +214,26 @@ final class ModulePackageSourcePromoter
             return ['status' => 'clean', 'completed_writes' => []];
         }
         $journal = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        // A malformed journal is evidence of a blocked recovery, not a usable
+        // transaction handle. Never inspect arbitrary scopes or claim --recover
+        // can resume it.
+        $invalid = ['status' => 'invalid', 'transaction' => null,
+            'journal' => '.local/module-source-adoption/journal.json', 'completed_writes' => []];
+        if (!is_array($journal) || ($journal['schema_version'] ?? null) !== 1
+            || preg_match('/^[a-f0-9]{32}$/D', (string) ($journal['transaction'] ?? '')) !== 1
+            || !is_array($journal['entries'] ?? null) || !array_is_list($journal['entries'])
+            || $journal['entries'] === []
+            || preg_match('/^[a-f0-9]{64}$/D', (string) ($journal['lock_after'] ?? '')) !== 1) {
+            return $invalid;
+        }
+        foreach ($journal['entries'] as $entry) {
+            if (!is_array($entry) || !is_string($entry['scope'] ?? null)
+                || !is_array($entry['after'] ?? null)) {
+                return $invalid;
+            }
+        }
         $completed = [];
-        foreach ($journal['entries'] ?? [] as $entry) {
+        foreach ($journal['entries'] as $entry) {
             if ($this->tree($this->target($entry['scope'])) === $entry['after']) {
                 $completed[] = $entry['scope'];
             }
