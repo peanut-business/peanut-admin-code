@@ -320,6 +320,32 @@ final readonly class PackageCheck
         return $ordered;
     }
 
+    /** Collect edge failures together, then check the remaining graph for cycles using the same admission rules. */
+    public function dependencyDiagnostics(array $modules): array
+    {
+        $versions = array_map(static fn(array $module): string => $module['version'], $modules);
+        $valid = $modules;
+        $diagnostics = [];
+        foreach ($modules as $key => $module) {
+            $valid[$key]['dependencies'] = [];
+            foreach ($module['dependencies'] as $dependency) {
+                try {
+                    $this->dependencyOrder([$key => ['version' => $module['version'], 'dependencies' => [$dependency]]], $versions);
+                    $valid[$key]['dependencies'][] = $dependency;
+                } catch (ModulePackageException $exception) {
+                    $diagnostics[] = ['code' => $exception->errorCode, 'module_key' => $key,
+                        'dependency' => $dependency, 'message' => $exception->getMessage()];
+                }
+            }
+        }
+        try {
+            $this->dependencyOrder($valid, []);
+        } catch (ModulePackageException $exception) {
+            $diagnostics[] = ['code' => $exception->errorCode, 'message' => $exception->getMessage()];
+        }
+        return $diagnostics;
+    }
+
     private function moduleSchema(): string
     {
         $kernelRoot = dirname((new \ReflectionClass(\PeanutAdmin\Kernel\Module\ModuleProvider::class))->getFileName(), 3);

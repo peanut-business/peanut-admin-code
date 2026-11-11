@@ -5746,7 +5746,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e6450577c4398caabe5c8aa79b9db271cbe07000178b998e7d2d76ad81742d44"
+            "source_sha256": "5378835fca555926b1c207e7984839343347954feb984b0f7023b9b3d3d016d8"
         },
         {
             "path": "server/app/command/ModuleCheck.php",
@@ -7834,7 +7834,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ec4f67e20b2b924118927fd24ac1d720d65055d8718917602b84b0413e15b193"
+            "source_sha256": "ff0c4214546312eb94364d932e9120f204a75a3fb7e925696c402166cb646212"
         },
         {
             "path": "server/app/common/persistence/AdvisoryLockExecution.php",
@@ -16816,7 +16816,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "813712174f62cd314694d138b1fec7ad393b10e560e0185e3f6a9f40e866528d"
+            "source_sha256": "098498372fd7aa3b553525171765d45a82da3c79c8e3182e2af60701c778e42f"
         },
         {
             "path": "server/app/platform/infrastructure/module/ModuleUninstallPlanCodec.php",
@@ -17152,7 +17152,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fd6fbfc8bcf72458a9f9890c19630deaf9ca5d59de8b1f3e9c09679ae107b51d"
+            "source_sha256": "b94ad292b0f67c26de90c24412216d606da0c2c20c4e09d171cdd296c53a4ecf"
         },
         {
             "path": "server/app/platform/services/module/ModulePackageArchiveService.php",
@@ -17712,7 +17712,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "621b8dcf81f612117d313462c496dfb81adcd428025a9f50b9e5aa905d6ccb5c"
+            "source_sha256": "995a1e65df21467aeb07f3e10c5b2fda2792d6e9208a67b52fe47da0adbc5bff"
         },
         {
             "path": "server/config/module_packages.php",
@@ -17894,7 +17894,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2adb871d6dbfd6c4f5242c0ad1528afd21e8e5d609c3962c61ab54f8aaa8db7a"
+            "source_sha256": "d8da33d675528e7f9bba4145f73c7d0c766b74c8c3f870a91522ea549bf8018b"
         },
         {
             "path": "server/database/WorkbenchDemoData.php",
@@ -21823,6 +21823,19 @@
         {
             "path": "server/tests/Productization/ModuleScaffoldLayoutTest.php",
             "target": "server/tests/Productization/ModuleScaffoldLayoutTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/ModuleSourceCompositionTest.php",
+            "target": "server/tests/Productization/ModuleSourceCompositionTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

@@ -10,5 +10,6 @@
     "peanut.integration",
     "peanut.ops"
   ],
-  "default": []
+  "default": [],
+  "optional": []
 }

@@ -81,7 +81,7 @@ final class InitialInstallationSource
             throw new RuntimeException('INSTALL_MODULE_COMPOSITION_INVALID');
         }
         $seen = [];
-        foreach (['mandatory', 'default'] as $selection) {
+        foreach (['mandatory', 'default', 'optional'] as $selection) {
             $keys = $composition[$selection] ?? null;
             if (!is_array($keys) || !array_is_list($keys) || ($selection === 'mandatory' && $keys === [])) {
                 throw new RuntimeException('INSTALL_MODULE_COMPOSITION_INVALID');
