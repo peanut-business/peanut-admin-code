@@ -218,7 +218,7 @@ def main():
     elif source_identity is not None and source_identity.get('kind') != 'git':
         raise ValueError('TEMPLATE_SOURCE_IDENTITY_INVALID')
     # Dependency bytes follow the final APP projection; producer identity remains source-bound above.
-    dependency_source = app / 'server' if projection is not None else tooling_source
+    dependency_source = app / 'server'
     tooling_inputs = {name: (dependency_source / name).read_bytes() for name in ['composer.json', 'composer.lock']}
     lock = json.loads(tooling_inputs['composer.lock'])
     def tooling_identity(package):
@@ -291,6 +291,8 @@ def main():
                 archive.chmod(mode)
             environment = {key: value for key, value in os.environ.items() if key != 'COMPOSER' and not key.startswith('COMPOSER_')}
             environment['COMPOSER_HOME'] = str(server / 'composer-home')
+            if os.environ.get('COMPOSER_CACHE_DIR'):
+                environment['COMPOSER_CACHE_DIR'] = os.environ['COMPOSER_CACHE_DIR']
             result = subprocess.run(['composer', '--no-plugins', '--no-scripts', '--working-dir', str(server),
                                      'install', '--no-dev', '--prefer-dist', '--no-interaction', '--no-progress'],
                                     env=environment, capture_output=True)

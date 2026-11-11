@@ -10,12 +10,12 @@ MT 当前必选根来自宿主消费者：Identity 提供身份、权限和租�
 
 ## CLI 创建交接接口
 
-Code 提供以下原生源码计划/准备合同；CLI create 的选择计划尚未调用它，不应据此宣称薄模板首装完成。ST 不在本接口范围内。
+CLI create 的 MT staged/approval 流程调用以下原生源码计划/准备合同。源码采用不等于数据库首装完成；ST 本轮暂缓。
 
 1. CLI 从已验证的模板 inventory 中读取 `server/config/module_composition.json`；不在 CLI 保存第二份模块名单。minimal 选择 `mandatory`，standard 选择 `mandatory + default`。记录实际选择与清单摘要，模板组合版本不是模块版本 pin；客户端交付 profile 独立选择。
 2. 用户选择官方发行渠道和固定索引，例如预发行 `v1.0.0-rc.1`；CLI 沿已有 `peanut.module-release-index.v1` 校验 Release、索引 digest、固定 source commit、模块版本、Edition、依赖范围、撤回状态及每个 TAR 的独立 SHA。稳定渠道缺完整闭包时明确拒绝，不能隐式改用 RC。按索引及包内同一依赖声明求完整闭包，拒绝版本冲突和循环，依赖先于消费者准备。
 3. 未安装 MT 应用通过同一 `server/module` 的 `adopt --composition <request.json>` 先取得完整计划；准备时再传 `--plan-sha256 <reviewed-plan-sha>`。不能逐包试错发现依赖。单包 `adopt <tar>` 仍供明确的独立源码采用使用。桥接只加载安全环境及所需配置，建立原有 CLI 上下文，不构造 AppService、不启动业务 Module 或读取数据库；环境文件须为其他用户不可读写的普通文件，显式设 `APP_ENV=development` 与 `DEPLOYMENT_MODE=multi-tenant`。源码恢复仍使用 `adopt --recover`。
-4. 整个最终闭包准备齐全后，只调用一次现有 `Dependencies::prepareRelease()` 的原生依赖准备能力，客户端集合取各 Module manifest。Composer path 包、开发 metapackage、各端 workspace 与原生锁继续由现有机制处理；不能剪裁锁 JSON、伪造 content-hash 或复制其他应用 vendor。该能力当前没有独立的未安装应用 CLI 编排接口，须由后续 Code/CLI 接入共同闭合。
+4. 整个最终闭包准备齐全后，在新应用自己的 Git 开发目录运行 `python3 scripts/project-env exec -- bash scripts/deploy-update.sh --prepare-release`。此既有入口在业务启动前加载 Edition 配置，只调用一次 `Dependencies::prepareRelease()`，MT 准备 Admin/Platform；各 Module manifest 决定依赖输入。Composer path 包、开发 metapackage、各端 workspace 与原生锁继续由现有机制处理；不能剪裁锁 JSON、伪造 content-hash 或复制其他应用 vendor。入口随后生成 API、构建客户端并编译 registry，不执行数据库安装。
 5. 依赖准备、API 生成和 registry 编译依据实际最终输入执行；数据库就绪后交给现有安装器完成首次迁移、身份初始化、模块登记及目录同步。源码创建、来源采用、依赖准备、数据库安装和运行验收分别报告。
 
 ### 原生组合请求与响应
@@ -67,8 +67,8 @@ Code 提供以下原生源码计划/准备合同；CLI create 的选择计划尚
 
 ## 模板退出与后续升级
 
-当前生成器和清单仍保留启动所需的 8 模块源码、Composer path 节点与锁输入。原生整图 plan/源码准备已提供，CLI 调用、未安装态的原生依赖准备/API/编译与运行消费者仍未闭合；不删除这些源码，不把当前生成应用标成 thin scaffold。
+发行 inventory 排除官方后端和各端作者源码，升级工具自身也使用投影后的应用 Composer 清单与锁，不夹带作者包。Code 的开发依赖和作者目录保留；它们不进入创建的应用。`server/resources/scaffold-application/composer.json` 与原生 Composer 生成的同目录 lock 是模板起始依赖，不包含 Module path 包或测试开发依赖。创建只生成空 `modules.lock`；完整锁和源码由 CLI 调用原生 adopt 后接收。客户端 workspace 保留通用扩展入口，API 只投影实际模块，宿主公共类型仍由现有 metadata 生成。
 
-后续退出需在同一可运行变更中完成：inventory 排除官方后端和各端作者源码；模板的 Composer/客户端默认作者输入退出且通过原生工具生成对应锁；`modules.lock` 只记录实际接收的固定发行来源；源码归属使用现有模块采用及升级机制，不把独立模块再次登记为 scaffold-managed。未准备必选模块的应用由安装入口返回明确未就绪状态，不能 fatal 或放行管理 API。**全部源码退出前，必须由纯净 MT 消费者完成真实创建/首装和必要登录、公共路由正向验证**；本批不触碰历史 ST/MT/业务库，因此这些验收仍为 NOT_RUN，ST 暂缓。
+CLI `create --plan` 首先返回私有 staged consumer；按该消费者自己的工具登记和起始锁执行 Composer install，再使用同一 `--composition-stage` 重做 plan，审阅 SHA 后批准源码准备。CLI 不复制 vendor，不偷偷运行依赖安装。源码未准备时 HTTP 返回 503 / `INSTALL_MODULE_SOURCE_MISSING` / `uninstalled`，在业务绑定前停止；不会放行管理 API。采用后使用上面的既有准备入口，然后才可进行新库安装。真实 MT 数据库首次安装、登录、公共路由和租户隔离仍须独立验收；未执行时记 NOT_RUN，不据源码链通过宣称 S3–S5 完成或允许正式发布。
 
 既有应用仍通过 `scripts/scaffold-upgrade` 的三方计划升级宿主；已安装且兼容的较新模块、同版摘要、应用定制、disabled 状态与恢复合同继续保留。宿主最低要求上升时列出联动模块计划，不静默降级或替换。composition 改动不授权数据库重置、现有应用写入或正式发布。

@@ -210,7 +210,7 @@ final class ApplicationCreator
                 $files = $this->projectEdition($stage, $inventory, $files, $editionProfile);
             }
             $projector = new EditionProjector();
-            $files = $projector->modules($stage, $files);
+            $files = $projector->modules($stage, $files, $this->sourceRoot . '/server');
             $files = $projector->workflow($stage, $files, $workflow);
             $files = $this->materializeUniappPages($stage, $files);
             $files = $this->materializeApiCatalog($stage, $files);
@@ -728,7 +728,7 @@ final class ApplicationCreator
             }
             if (!in_array($classification, self::CLASSIFICATIONS, true)
                 || !in_array($transform, self::TRANSFORMS, true)
-                || ($transform === 'composer-lock' && $path !== 'server/composer.lock')
+                || ($transform === 'composer-lock' && $target !== 'server/composer.lock')
                 || !is_string($entry['owner'] ?? null)
                 || !is_array($entry['profiles'] ?? null)
                 || array_values(array_unique($entry['profiles'])) !== $entry['profiles']
@@ -855,7 +855,7 @@ final class ApplicationCreator
             'readme' => $this->render($this->readme(), $parameters),
             'license' => $this->render($this->license(), $parameters),
             'modules-config' => $this->modulesConfig($content),
-            'package' => $this->packageTransform($content, $parameters, (string) $entry['path']),
+            'package' => $this->packageTransform($content, $parameters, (string) $entry['target']),
             'modules-lock' => $this->modulesLock($content),
             'sbom' => $this->sbom($content, $parameters),
             'third-party-notices' => $this->thirdPartyNotices($content, $parameters),
@@ -1277,30 +1277,10 @@ final class ApplicationCreator
         ) {
             throw new RuntimeException('CREATE_APP_PLUGIN_LOCK_SOURCE_INVALID');
         }
-        $bundled = [];
-        $keys = [];
-        $selected = \InitialInstallationSource::modules($this->sourceRoot . '/server');
-        foreach ($source['modules'] as $plugin) {
-            $key = is_array($plugin) ? ($plugin['key'] ?? null) : null;
-            if (!is_string($key) || $key === '') {
-                throw new RuntimeException('CREATE_APP_PLUGIN_LOCK_SOURCE_INVALID');
-            }
-            // Static API collection needs the selected roots before final canonicalization.
-            if (str_starts_with($key, 'fixture.')
-                || !in_array($key, $selected, true)) {
-                continue;
-            }
-            if (isset($keys[$key])) {
-                throw new RuntimeException('CREATE_APP_PLUGIN_LOCK_SOURCE_INVALID');
-            }
-            $keys[$key] = true;
-            $bundled[] = $plugin;
-        }
-        if ($bundled === []) {
-            throw new RuntimeException('CREATE_APP_PLUGIN_SET_EMPTY');
-        }
+        // A fresh host has accepted no Module source. Only native adopt writes
+        // release identities; the author's development lock is never inherited.
         return json_encode(
-            ['schema_version' => 1, 'modules' => $bundled],
+            ['schema_version' => 1, 'modules' => []],
             JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
         ) . "\n";
     }
@@ -1318,7 +1298,7 @@ final class ApplicationCreator
         }
         ksort($manifestPaths, SORT_STRING);
         if ($manifestPaths === []) {
-            throw new RuntimeException('CREATE_APP_PLUGIN_SET_EMPTY');
+            return $files;
         }
 
         // create-app runs from the tool repository with its Composer dependencies

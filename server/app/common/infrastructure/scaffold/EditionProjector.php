@@ -11,11 +11,15 @@ require_once dirname(__DIR__, 4) . '/database/InitialInstallationSource.php';
 
 final class EditionProjector
 {
-    /** Project the same default Module set before Plugin lock and API generation. */
-    public function modules(string $stage, array $files): array
+    /** The template owns Host sources; CLI adopts the composition from a release. */
+    public function modules(string $stage, array $files, string $sourceServerRoot): array
     {
-        $selected = \InitialInstallationSource::modules($stage . '/server');
-        $database = \InitialInstallationSource::project($stage . '/server', $selected);
+        $selected = [];
+        // Host SQL can reference required Module tables. Validate those edges
+        // against the composition source, without shipping Module author files.
+        $database = \InitialInstallationSource::project(
+            $sourceServerRoot, \InitialInstallationSource::modules($sourceServerRoot),
+        );
         $result = [];
         foreach ($files as $file) {
             $path = $file['path'];
@@ -47,6 +51,14 @@ final class EditionProjector
                     }
                 }
                 $content = self::json($composer);
+            }
+            if ($path === 'web/pnpm-workspace.yaml') {
+                $content = "packages:\n  - src/modules/*\n";
+            }
+            if (in_array($path, ['platform/package.json', 'pc/package.json', 'uniapp/package.json'], true)) {
+                $package = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
+                $package['workspaces'] = [($path === 'pc/package.json' ? 'modules/' : 'src/modules/') . '*'];
+                $content = self::json($package);
             }
             if ($content !== file_get_contents($absolute)) {
                 $this->writeFile($absolute, $content, $file['mode']);

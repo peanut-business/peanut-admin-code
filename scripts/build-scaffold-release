@@ -896,7 +896,7 @@ try {
     $inventoryTransforms = [];
     foreach ($inventory['files'] ?? [] as $inventoryEntry) {
         if (is_array($inventoryEntry) && is_string($inventoryEntry['path'] ?? null) && is_string($inventoryEntry['transform'] ?? null)) {
-            $inventoryTransforms[$inventoryEntry['path']] = $inventoryEntry['transform'];
+            $inventoryTransforms[$inventoryEntry['target'] ?? $inventoryEntry['path']] = $inventoryEntry['transform'];
         }
     }
     $files = [];
