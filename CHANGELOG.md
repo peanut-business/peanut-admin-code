@@ -2,6 +2,12 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.10-rc.2] - 2026-11-11
+
+- Adopt the publicly released PHP Core 5.1.0 and its tenant/resource/record/field-bound business-field protection API, using existing authorized operation contexts and fail-closed key rotation.
+- Keep Settings secrets separate from business fields; no new ORM, key-management service, permission model, Workflow-wide approval rule or File asset identity is introduced.
+- Preserve the published Web Core 5.1.0, the CLI and all official module versions; three downstream business applications retain independent upgrade and domain-acceptance responsibility. Full CI remains opt-in.
+
 ## [5.1.10-rc.1] - 2026-11-11
 
 - Permit explicitly reviewed, SHA-256-pinned official Module source adoption before Runtime assembly when consumer code already needs a newly exported interface. Preserve origin identity, downgrade/same-version integrity rejection and transaction recovery.

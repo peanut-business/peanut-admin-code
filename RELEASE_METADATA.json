@@ -2,9 +2,9 @@
   "schema_version": 3,
   "protocol": "peanut.release-metadata.v3",
   "product": "Peanut Admin",
-  "source_product_version": "5.1.10-rc.1",
+  "source_product_version": "5.1.10-rc.2",
   "instance_version": null,
-  "expected_tag": "v5.1.10-rc.1",
+  "expected_tag": "v5.1.10-rc.2",
   "release_date": "2026-11-11",
   "repository": "https://github.com/peanut-business/peanut-admin-code",
   "license": {
@@ -30,11 +30,11 @@
   "public_runtime_dependencies": {
     "composer": {
       "package": "peanut-admin/core",
-      "constraint": "5.0.3",
-      "resolved_version": "v5.0.3",
+      "constraint": "5.1.0",
+      "resolved_version": "v5.1.0",
       "source_type": "git",
       "source_url": "https://github.com/peanut-business/peanut-admin-core-php.git",
-      "source_reference": "f2b0435f577c5119f1dfc58d34c274ccb149c477"
+      "source_reference": "e785b1bcf42dab5d7548ceb3f7e6682d213399fb"
     },
     "npm": {
       "source_type": "git",
@@ -75,20 +75,20 @@
     }
   },
   "lockfiles": {
-    "server/composer.lock": "4a1dd1f7656bd21c7468064d063368f9e80f53376a60658a5c4d8e2d4b882a32",
+    "server/composer.lock": "3f4401032c322f8b77496cff89f964ca02e40cd416ff0ef126dacc0e7a1936d5",
     "web/pnpm-lock.yaml": "fe8710fc994afd664607ae9e34e07678f31417f17f4cc65a5900da8926c72188",
-    "platform/package-lock.json": "f3cc198f0c2caed20e194c64510e470f1b570baca78bf1267c7f5eef8a4eb515",
-    "pc/package-lock.json": "6cec95555b09d926ed0420b967fea3d26273ec754300350a83df3a9729a7fbe6",
-    "uniapp/package-lock.json": "b2c284a191319a03770a65c720b649901021aabfa15b4c2730c04d00f1445b97"
+    "platform/package-lock.json": "f684fe6cd5aa8eb73f0b6c6ccd54629fb8bca9694b6512446800893f8baa87fc",
+    "pc/package-lock.json": "42715fab9c2c6183b20142d7cf26744654fb5f7f0d1a65d22e42dda7424e296a",
+    "uniapp/package-lock.json": "a3aaabbffce6bcbbab2307ab4ab8c0dab397de14472a69a3bf85fd3fa869eb83"
   },
   "legal_files": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "NOTICE": "c0680ac5f6eac2bf9106393ada2d3d54b845a50cf14d13bf8e46acb66026609f",
-    "THIRD_PARTY_NOTICES.md": "7c3cb22f232cf58fffbab64a95cdb04ec16a2e349ceaaef1f0b7187cc96867ce",
-    "RELEASE_SBOM.spdx.json": "536a353ff8b230081b308d3b6a8c38a390037369d53f88a23808d8c7921acd02"
+    "THIRD_PARTY_NOTICES.md": "1ff6d2479fd224f961c3bfcc61906c03f47fe81a368ff6b0b2ebb8aa0d7bbf71",
+    "RELEASE_SBOM.spdx.json": "cdeb270a137fa62288a937b228c5a0e2600d77c699fd2f4ef78f6941ec0267bf"
   },
   "technical_qualification": {
-    "phase": "5.1.10-rc.1-prerelease-candidate",
+    "phase": "5.1.10-rc.2-prerelease-candidate",
     "result": "pending",
     "final_candidate_commit": null,
     "final_candidate_tree": null,
@@ -98,7 +98,7 @@
     "cleanup_residual_count": null,
     "lease_released": false,
     "migrations": 10,
-    "scaffold_version": "5.1.10-rc.1",
+    "scaffold_version": "5.1.10-rc.2",
     "application_initial_version": "0.1.0",
     "evidence": "Product prerelease candidate identity is prepared from public Core registry locks; qualification remains pending.",
     "release_delta": "Adopts the published fixed PHP Core and Web Core package identities recorded in public_runtime_dependencies, separates source product identity from customer-owned instance identity, and prepares one-source deterministic Standalone and Multi-tenant scaffold inputs."

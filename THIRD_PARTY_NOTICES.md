@@ -1,6 +1,6 @@
 # Peanut Admin Third-Party Notices
 
-Generated for Peanut Admin 5.1.10-rc.1 on 2026-11-11.
+Generated for Peanut Admin 5.1.10-rc.2 on 2026-11-11.
 
 Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-party components remain governed by their own licenses.
 
@@ -18,7 +18,7 @@ Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-pa
 | Arco Design Pro Vue | MIT | The initial management client used Arco Design Pro Vue material; applicable upstream MIT attribution is retained. Source: https://github.com/arco-design/arco-design-pro-vue |
 | LikeAdmin 1.9.4 | MIT | Used as the documented behavioral parity reference. This notice does not claim the application is a clean-room implementation. Source: https://github.com/likeadmin-likeshop/likeadmin_php |
 | ThinkPHP 8 | Apache-2.0 | Backend framework. Its upstream notice is also retained at `server/LICENSE.txt`. Source: https://github.com/top-think/framework |
-| `peanut-admin/core` | Apache-2.0 | Composer core package locked at v5.0.3 (f2b0435f577c5119f1dfc58d34c274ccb149c477). Source: https://github.com/peanut-business/peanut-admin-core-php |
+| `peanut-admin/core` | Apache-2.0 | Composer core package locked at v5.1.0 (e785b1bcf42dab5d7548ceb3f7e6682d213399fb). Source: https://github.com/peanut-business/peanut-admin-core-php |
 | Peanut Admin Core Web | Apache-2.0 | npm core packages locked as @peanut-admin/client@5.1.0, @peanut-admin/vue@5.1.0, @peanut-admin/ui-vue@5.1.0, @peanut-admin/nuxt@5.1.0, @peanut-admin/uniapp@5.1.0, @peanut-admin/testing@5.1.0. Source: https://github.com/peanut-business/peanut-admin-core-web |
 
 ## License handling
@@ -117,7 +117,7 @@ These 54 packages are installed with `composer install --no-dev` in the producti
 | `opis/json-schema` | `2.6.0` | `Apache-2.0` | https://github.com/opis/json-schema.git |
 | `opis/string` | `2.1.0` | `Apache-2.0` | https://github.com/opis/string.git |
 | `opis/uri` | `1.1.0` | `Apache-2.0` | https://github.com/opis/uri.git |
-| `peanut-admin/core` | `v5.0.3` | `Apache-2.0` | https://github.com/peanut-business/peanut-admin-core-php.git |
+| `peanut-admin/core` | `v5.1.0` | `Apache-2.0` | https://github.com/peanut-business/peanut-admin-core-php.git |
 | `peanut-business/peanut-content-tools` | `1.0.2` | `Apache-2.0` | app/modules/peanut/content_tools |
 | `peanut-business/peanut-file` | `1.0.45` | `Apache-2.0` | app/modules/peanut/file |
 | `peanut-business/peanut-identity` | `4.0.0-rc.60` | `Apache-2.0` | app/modules/peanut/identity |
