@@ -16265,7 +16265,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "098498372fd7aa3b553525171765d45a82da3c79c8e3182e2af60701c778e42f"
+            "source_sha256": "806e07e536924331223aaaac8b38fc93e9e8c4a3467eb4c4819efcc8059ba8ac"
         },
         {
             "path": "server/app/platform/infrastructure/module/ModuleUninstallPlanCodec.php",
