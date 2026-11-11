@@ -201,10 +201,9 @@ final class ApplicationCreator
             $this->prepareWritableDirectories($stage);
             usort($files, static fn(array $a, array $b): int => strcmp((string) $a['path'], (string) $b['path']));
             $this->assertNoUnresolvedVariables($stage);
-            // 中性模板在投影前核验；明确 Edition 的发布包必须与投影后的实际文件核验。
-            if ($adoption !== null && !$adoptsEdition) {
-                $this->assertAdoptionEquivalent($stage, $adoption, $parameters, $files);
-            }
+            // Both legacy neutral and Edition-qualified artifacts are produced
+            // after their deterministic source projections. Verify their final
+            // managed bytes against the immutable adoption manifest below.
             // Project selected source bytes before generating their derived artifacts.
             if ($this->projectEdition && !$candidate) {
                 $files = $this->projectEdition($stage, $inventory, $files, $editionProfile);
@@ -218,7 +217,7 @@ final class ApplicationCreator
             // The catalog records modules.lock as an input; refreshing only its
             // metadata after canonicalization leaves Module SDK bytes unchanged.
             $files = $this->materializeApiCatalog($stage, $files, true);
-            if ($adoptsEdition) {
+            if ($adoption !== null) {
                 $this->assertAdoptionEquivalent($stage, $adoption, $parameters, $files);
             }
             $templateIdentity = $adoption === null
