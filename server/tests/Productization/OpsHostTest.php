@@ -56,7 +56,7 @@ $redacted = OperationLogService::redactSensitive([
 ]);
 expectOpsHost(($redacted['safe'] ?? null) === $safeValue, 'safe value must remain visible');
 expectOpsHost(($redacted['jobs_code'] ?? null) === 'ops_job', 'business code must not be over-redacted');
-expectOpsHost(($redacted['nested']['public_key'] ?? null) === $safeValue, 'public key must remain visible');
+expectOpsHost(($redacted['nested']['public_key'] ?? null) === '******', 'public key must be redacted from audit logs');
 foreach (['password', 'mch_key', 'api_v3_key', 'wx_pay_cert_path', 'verification_code'] as $key) {
     expectOpsHost(($redacted[$key] ?? null) === '******', 'sensitive field was not redacted: ' . $key);
 }

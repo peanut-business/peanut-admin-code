@@ -1,5 +1,4 @@
 name: Scaffold templates and release
-
 on:
   push:
     tags:
@@ -55,135 +54,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  dispatch-tag:
-    if: ${{ github.event_name == 'push' && !github.event.deleted && github.repository == 'peanut-business/peanut-admin-code' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      actions: write
-    steps:
-      - name: Select original CI-produced candidate and optional validation result
-        id: candidate
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const tag = context.ref.replace(/^refs\/tags\//, '');
-            if (!/^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(tag)) {
-              throw new Error('Automatic publication accepts only stable vX.Y.Z tags; use manual dispatch for prereleases');
-            }
-            const {data: ref} = await github.rest.git.getRef({...context.repo, ref: `tags/${tag}`});
-            if (ref.object.type !== 'tag') throw new Error('Publication requires an annotated tag, not a lightweight tag');
-            const {data: annotated} = await github.rest.git.getTag({...context.repo, tag_sha: ref.object.sha});
-            if (annotated.tag !== tag || annotated.object.type !== 'commit') {
-              throw new Error('Annotated tag must name this release and point directly to its source commit');
-            }
-            const source = annotated.object.sha;
-            const readSourceJson = async path => {
-              const {data} = await github.rest.repos.getContent({...context.repo, path, ref: source});
-              if (data.type !== 'file' || data.encoding !== 'base64') throw new Error(`Unreadable source metadata: ${path}`);
-              return JSON.parse(Buffer.from(data.content, 'base64').toString('utf8'));
-            };
-            const metadata = await readSourceJson('RELEASE_METADATA.json');
-            const versions = await readSourceJson('release-versions.json');
-            const version = tag.slice(1);
-            if (metadata.expected_tag !== tag || metadata.source_product_version !== version
-              || versions.scaffold_template !== version || versions.source_product_version !== version) {
-              throw new Error('Tag version differs from the exact source release metadata or scaffold version');
-            }
-            const successfulRuns = async workflow => {
-              const path = `.github/workflows/${workflow}`;
-              const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {...context.repo,
-                workflow_id: workflow, head_sha: source, event: 'workflow_dispatch', status: 'success', per_page: 100});
-              return runs.filter(run => run.head_sha === source && run.head_repository?.full_name === context.payload.repository.full_name
-                && run.status === 'completed' && run.conclusion === 'success'
-                && run.event === 'workflow_dispatch' && run.path === path).sort((a, b) => b.id - a.id);
-            };
-            const ci = (await successfulRuns('ci.yml'))[0];
-            if (!ci) core.info('No full-validation CI result selected; publication consumes the native template/CLI candidate only');
-            let selected;
-            for (const build of await successfulRuns('scaffold-release.yml')) {
-              const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts,
-                {...context.repo, run_id: build.id, per_page: 100});
-              const expected = `scaffold-template-qualification-${source}-${build.id}-${build.run_attempt}`;
-              const found = artifacts.filter(a => a.name === expected && !a.expired);
-              if (found.length > 1) throw new Error(`Ambiguous original qualification artifact in run ${build.id}`);
-              if (found.length === 1) {
-                selected = {build, artifact: found[0]};
-                break;
-              }
-              core.info(`Run ${build.id} has no unexpired qualification artifact for its current attempt; pack-only/publish runs are not candidates`);
-            }
-            if (!selected) throw new Error(`No successful native candidate with one unexpired qualification artifact for source ${source}; prepare qualification before tagging`);
-            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun,
-              {...context.repo, run_id: selected.build.id, filter: 'all', per_page: 100});
-            const summary = jobs.filter(job => job.name === 'Full CI / CI summary')
-              .sort((a, b) => b.run_attempt - a.run_attempt || b.id - a.id)[0];
-            if (summary && summary.conclusion !== 'success') {
-              throw new Error('The selected candidate has no successful latest full CI summary');
-            }
-            const embeddedCi = Boolean(summary);
-            core.setOutput('source', source);
-            core.setOutput('tag', tag);
-            core.setOutput('tag_object', ref.object.sha);
-            core.setOutput('build_run', String(selected.build.id));
-            core.setOutput('ci_run', embeddedCi ? String(selected.build.id) : ci ? String(ci.id) : '');
-            core.setOutput('run_tests', embeddedCi ? 'true' : 'false');
-            core.setOutput('artifact', selected.artifact.name);
-      - uses: actions/download-artifact@v4
-        with:
-          github-token: ${{ github.token }}
-          run-id: ${{ steps.candidate.outputs.build_run }}
-          name: ${{ steps.candidate.outputs.artifact }}
-          path: ${{ runner.temp }}/candidate-transfer
-      - name: Verify the original transport against its SHA-256 sidecar without executing it
-        id: transport
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          import hashlib, os, re
-          from pathlib import Path
-          root = Path(os.environ['RUNNER_TEMP']) / 'candidate-transfer'
-          archive = root / 'scaffold-template-qualification.tgz'
-          sidecar = root / 'scaffold-template-qualification.tgz.sha256'
-          for path in (archive, sidecar):
-              if not path.is_file() or path.is_symlink():
-                  raise SystemExit('Missing original regular transport or SHA-256 sidecar')
-          match = re.fullmatch(r'([a-f0-9]{64})  scaffold-template-qualification\.tgz\n?', sidecar.read_text(encoding='ascii'))
-          if not match:
-              raise SystemExit('Invalid native transport SHA-256 sidecar')
-          with archive.open('rb') as stream:
-              digest = hashlib.file_digest(stream, 'sha256').hexdigest()
-          if digest != match[1]:
-              raise SystemExit('Original candidate transport differs from its SHA-256 sidecar')
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              output.write('sha256=' + digest + '\n')
-          PY
-      - name: Dispatch the sole publisher on main with the original run IDs and digest
-        uses: actions/github-script@v7
-        env:
-          TAG: ${{ steps.candidate.outputs.tag }}
-          TAG_OBJECT: ${{ steps.candidate.outputs.tag_object }}
-          SOURCE: ${{ steps.candidate.outputs.source }}
-          BUILD_RUN: ${{ steps.candidate.outputs.build_run }}
-          CI_RUN: ${{ steps.candidate.outputs.ci_run }}
-          RUN_TESTS: ${{ steps.candidate.outputs.run_tests }}
-          TRANSPORT_SHA256: ${{ steps.transport.outputs.sha256 }}
-        with:
-          script: |
-            const {data: ref} = await github.rest.git.getRef({...context.repo, ref: `tags/${process.env.TAG}`});
-            if (ref.object.type !== 'tag' || ref.object.sha !== process.env.TAG_OBJECT) {
-              throw new Error('Tag changed while selecting the original candidate');
-            }
-            await github.rest.actions.createWorkflowDispatch({...context.repo, workflow_id: 'scaffold-release.yml',
-              ref: 'main', inputs: {publish: 'true', pack_only: 'false', source_commit: process.env.SOURCE,
-                build_run_id: process.env.BUILD_RUN, ci_run_id: process.env.CI_RUN,
-                run_tests: process.env.RUN_TESTS,
-                build_transport_sha256: process.env.TRANSPORT_SHA256}});
-            await core.summary.addHeading('Publication dispatched to main')
-              .addRaw(`Source: ${process.env.SOURCE}\n\nCandidate run: ${process.env.BUILD_RUN}\n\nCI run: ${process.env.CI_RUN}\n\nTransport SHA-256: ${process.env.TRANSPORT_SHA256}\n\n`)
-              .addRaw('Dispatch is not publication success. The existing main consumer and sole publisher still verify the original candidate, main integration, tag and final assets.').write();
-
   full-tests:
     name: Full CI
     if: ${{ github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.run_tests }}
@@ -193,20 +63,56 @@ jobs:
 
   templates:
     needs: full-tests
-    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && !inputs.publish && (needs.full-tests.result == 'success' || (!inputs.run_tests && needs.full-tests.result == 'skipped')) }}
+    if: ${{ !cancelled() && ((github.event_name == 'push' && !github.event.deleted && github.repository == 'peanut-business/peanut-admin-code' && startsWith(github.ref, 'refs/tags/')) || (github.event_name == 'workflow_dispatch' && !inputs.publish)) && (needs.full-tests.result == 'success' || (!inputs.run_tests && needs.full-tests.result == 'skipped')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    outputs:
+      source: ${{ github.sha }}
+      run_id: ${{ github.run_id }}
+      run_attempt: ${{ github.run_attempt }}
+      transport_sha256: ${{ steps.preserve_candidate.outputs.sha256 }}
+      artifact_id: ${{ steps.qualification_artifact.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
       - name: Require the exact production source
+        uses: actions/github-script@v7
         env:
           EXPECTED_SOURCE: ${{ inputs.expected_source_commit }}
-        run: |
-          [[ "$EXPECTED_SOURCE" =~ ^[a-f0-9]{40}$ && "$EXPECTED_SOURCE" == "$GITHUB_SHA" ]]
-          test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE"
+        with:
+          script: |
+            if (context.eventName === 'workflow_dispatch') {
+              if (!/^[a-f0-9]{40}$/.test(process.env.EXPECTED_SOURCE) || process.env.EXPECTED_SOURCE !== context.sha) {
+                throw new Error('Exact dispatch source must match the production HEAD');
+              }
+            } else {
+              const tag = context.ref.replace(/^refs\/tags\//, '');
+              if (!/^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-rc\.(0|[1-9][0-9]*))?$/.test(tag)) {
+                throw new Error('Automatic publication requires a stable vX.Y.Z or vX.Y.Z-rc.N tag');
+              }
+              const {data: ref} = await github.rest.git.getRef({...context.repo, ref: `tags/${tag}`});
+              if (ref.object.type !== 'tag') throw new Error('Publication requires an annotated tag');
+              const {data: annotated} = await github.rest.git.getTag({...context.repo, tag_sha: ref.object.sha});
+              const {data: main} = await github.rest.git.getRef({...context.repo, ref: 'heads/main'});
+              if (annotated.tag !== tag || annotated.object.type !== 'commit'
+                || annotated.object.sha !== context.sha || main.object.sha !== context.sha) {
+                throw new Error('Tag source must be the current main commit');
+              }
+              const readSourceJson = async path => {
+                const {data} = await github.rest.repos.getContent({...context.repo, path, ref: context.sha});
+                if (data.type !== 'file' || data.encoding !== 'base64') throw new Error(`Unreadable source metadata: ${path}`);
+                return JSON.parse(Buffer.from(data.content, 'base64').toString('utf8'));
+              };
+              const metadata = await readSourceJson('RELEASE_METADATA.json');
+              const versions = await readSourceJson('release-versions.json');
+              const version = tag.slice(1);
+              if (metadata.expected_tag !== tag || metadata.source_product_version !== version
+                || versions.scaffold_template !== version || versions.source_product_version !== version) {
+                throw new Error('Tag version differs from the exact source release metadata or scaffold version');
+              }
+            }
       - name: Read the committed producer tool requirements
         id: requirements
         shell: bash
@@ -223,7 +129,7 @@ jobs:
       - name: Require a fixed independent CLI source
         if: ${{ !inputs.pack_only }}
         env:
-          CLI_COMMIT: ${{ inputs.candidate_cli_commit }}
+          CLI_COMMIT: ${{ inputs.candidate_cli_commit || '55c14dd12ef1d40f00af0fb0516aceaaf12412b1' }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -232,7 +138,7 @@ jobs:
         if: ${{ !inputs.pack_only }}
         with:
           repository: peanut-business/peanut-cli
-          ref: ${{ inputs.candidate_cli_commit }}
+          ref: ${{ inputs.candidate_cli_commit || '55c14dd12ef1d40f00af0fb0516aceaaf12412b1' }}
           path: .local/qualification-cli
           fetch-depth: 0
           persist-credentials: false
@@ -250,7 +156,7 @@ jobs:
       - name: Build both Editions with the local native contract
         shell: bash
         env:
-          WORKFLOW: ${{ inputs.workflow }}
+          WORKFLOW: ${{ inputs.workflow || 'runtime' }}
         run: |
           scripts/ci-producer exec "$RUNNER_TEMP/ci-producer" -- bash -Eeuo pipefail -s -- "$WORKFLOW" <<'PRODUCER'
           set -Eeuo pipefail
@@ -267,8 +173,8 @@ jobs:
         if: ${{ !inputs.pack_only }}
         shell: bash
         env:
-          CLI_COMMIT: ${{ inputs.candidate_cli_commit }}
-          RUN_TESTS: ${{ inputs.run_tests }}
+          CLI_COMMIT: ${{ inputs.candidate_cli_commit || '55c14dd12ef1d40f00af0fb0516aceaaf12412b1' }}
+          RUN_TESTS: ${{ inputs.run_tests && 'true' || 'false' }}
         run: |
           scripts/ci-producer exec "$RUNNER_TEMP/ci-producer" -- bash -Eeuo pipefail -s -- "$RUN_TESTS" <<'PRODUCER'
           set -Eeuo pipefail
@@ -320,6 +226,7 @@ jobs:
           tar -czf "$RUNNER_TEMP/$transport_name.tgz" -C "$RUNNER_TEMP" -- "${inputs[@]}"
           cd "$RUNNER_TEMP"
           sha256sum "$transport_name.tgz" | tee "$transport_name.tgz.sha256"
+          echo "sha256=$(cut -d ' ' -f1 "$transport_name.tgz.sha256")" >> "$GITHUB_OUTPUT"
           echo "transport_path=$RUNNER_TEMP/$transport_name.tgz" >> "$GITHUB_OUTPUT"
           echo "available=true" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
@@ -337,6 +244,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         if: ${{ always() && steps.preserve_candidate.outputs.available == 'true' }}
+        id: qualification_artifact
         with:
           name: ${{ inputs.pack_only && 'scaffold-template-identity' || 'scaffold-template-qualification' }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -346,7 +254,7 @@ jobs:
           retention-days: 7
       - name: Record the actual release scope
         env:
-          RUN_TESTS: ${{ inputs.run_tests }}
+          RUN_TESTS: ${{ inputs.run_tests && 'true' || 'false' }}
         shell: bash
         run: |
           echo 'CI produces the formal Edition archives once and checks artifact integrity and native CLI creation.' >> "$GITHUB_STEP_SUMMARY"
@@ -360,7 +268,8 @@ jobs:
 
 
   publish:
-    if: ${{ github.event_name == 'workflow_dispatch' && !inputs.pack_only && inputs.publish && github.ref == 'refs/heads/main' && github.repository == 'peanut-business/peanut-admin-code' }}
+    needs: templates
+    if: ${{ !cancelled() && github.repository == 'peanut-business/peanut-admin-code' && ((github.event_name == 'push' && !github.event.deleted && startsWith(github.ref, 'refs/tags/') && needs.templates.result == 'success') || (github.event_name == 'workflow_dispatch' && !inputs.pack_only && inputs.publish && github.ref == 'refs/heads/main')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -369,17 +278,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
           persist-credentials: false
       - name: Authenticate the original CI build and enforce the selected test requirement
         id: candidate
         uses: actions/github-script@v7
         env:
-          BUILD_RUN: ${{ inputs.build_run_id }}
+          BUILD_RUN: ${{ github.event_name == 'push' && needs.templates.outputs.run_id || inputs.build_run_id }}
           CI_RUN: ${{ inputs.ci_run_id }}
-          RUN_TESTS: ${{ inputs.run_tests }}
-          SOURCE: ${{ inputs.source_commit }}
-          TRANSPORT_SHA256: ${{ inputs.build_transport_sha256 }}
+          RUN_TESTS: ${{ inputs.run_tests && 'true' || 'false' }}
+          SOURCE: ${{ github.event_name == 'push' && needs.templates.outputs.source || inputs.source_commit }}
+          TRANSPORT_SHA256: ${{ github.event_name == 'push' && needs.templates.outputs.transport_sha256 || inputs.build_transport_sha256 }}
+          PRODUCER_RESULT: ${{ needs.templates.result }}
+          PRODUCER_ATTEMPT: ${{ needs.templates.outputs.run_attempt }}
+          PRODUCER_ARTIFACT_ID: ${{ needs.templates.outputs.artifact_id }}
         with:
           script: |
             const source = process.env.SOURCE;
@@ -396,15 +309,40 @@ jobs:
                 || run.path !== path) throw new Error('Run source, origin, workflow or actual result differs');
               return run;
             };
-            const build = await fetchRun(buildId, '.github/workflows/scaffold-release.yml');
-            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun,
-              {...context.repo, run_id: Number(buildId), filter: 'all', per_page: 100});
+            const sameRun = context.eventName === 'push';
+            let build;
+            if (sameRun) {
+              const {data: run} = await github.rest.actions.getWorkflowRun({...context.repo, run_id: Number(buildId)});
+              if (String(buildId) !== String(context.runId) || run.id !== context.runId
+                || run.head_sha !== source || source !== context.sha || run.event !== 'push'
+                || run.head_repository?.full_name !== context.payload.repository.full_name
+                || run.path !== '.github/workflows/scaffold-release.yml'
+                || run.run_attempt !== Number(process.env.PRODUCER_ATTEMPT)
+                || run.run_attempt !== Number(process.env.GITHUB_RUN_ATTEMPT)
+                || process.env.PRODUCER_RESULT !== 'success') {
+                throw new Error('Tag publication requires this run and attempt of the successful producer');
+              }
+              build = run;
+            } else {
+              build = await fetchRun(buildId, '.github/workflows/scaffold-release.yml');
+            }
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRunAttempt,
+              {...context.repo, run_id: Number(buildId), attempt_number: build.run_attempt, per_page: 100});
+            const producers = jobs.filter(job => job.name === 'templates');
+            if (producers.length !== 1 || producers[0].run_id !== Number(buildId)
+              || producers[0].head_sha !== source || producers[0].status !== 'completed'
+              || producers[0].conclusion !== 'success') {
+              throw new Error('One completed successful templates job for the exact production attempt is required');
+            }
             const summary = jobs.filter(job => job.name === 'Full CI / CI summary')
-              .sort((a, b) => b.run_attempt - a.run_attempt || b.id - a.id)[0];
-            if (summary && summary.conclusion !== 'success') {
+              .sort((a, b) => b.id - a.id)[0];
+            if (summary && (summary.status !== 'completed' || summary.conclusion !== 'success')) {
               throw new Error('The selected candidate has no successful latest full CI summary');
             }
             const embeddedCi = Boolean(summary);
+            if (sameRun && (ciId || embeddedCi || process.env.RUN_TESTS !== 'false')) {
+              throw new Error('An in-progress tag run cannot serve as completed full CI');
+            }
             if (ciId && ciId !== buildId) await fetchRun(ciId, '.github/workflows/ci.yml');
             if (ciId === buildId && !embeddedCi) throw new Error('Production run does not contain successful full CI');
             if (!ciId && embeddedCi) ciId = buildId;
@@ -413,16 +351,22 @@ jobs:
             }
             core.setOutput('ci_run', ciId);
             core.setOutput('run_tests', process.env.RUN_TESTS === 'true' || embeddedCi ? 'true' : 'false');
+            core.setOutput('build_run', buildId);
+            core.setOutput('source', source);
+            core.setOutput('transport_sha256', process.env.TRANSPORT_SHA256);
             const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts,
               {...context.repo, run_id: Number(buildId), per_page: 100});
             const expected = `scaffold-template-qualification-${source}-${buildId}-${build.run_attempt}`;
             const found = artifacts.filter(a => a.name === expected && !a.expired);
             if (found.length !== 1) throw new Error('One original successful native candidate artifact is required');
+            if (sameRun && String(found[0].id) !== process.env.PRODUCER_ARTIFACT_ID) {
+              throw new Error('Artifact differs from this successful templates job output');
+            }
             core.setOutput('artifact', found[0].name);
       - uses: actions/download-artifact@v4
         with:
           github-token: ${{ github.token }}
-          run-id: ${{ inputs.build_run_id }}
+          run-id: ${{ steps.candidate.outputs.build_run }}
           name: ${{ steps.candidate.outputs.artifact }}
           path: ${{ runner.temp }}/candidate-transfer
       - name: Read the committed verifier requirements
@@ -452,8 +396,8 @@ jobs:
       - name: Verify the original candidate and template bytes without rebuilding
         id: verified
         env:
-          TRANSPORT_SHA256: ${{ inputs.build_transport_sha256 }}
-          SOURCE: ${{ inputs.source_commit }}
+          TRANSPORT_SHA256: ${{ steps.candidate.outputs.transport_sha256 }}
+          SOURCE: ${{ steps.candidate.outputs.source }}
           CI_RUN: ${{ steps.candidate.outputs.ci_run }}
         run: |
           python3 scripts/verify-qualified-release-transport.py \
@@ -464,7 +408,8 @@ jobs:
       - name: Publish the verified native templates through the sole publisher
         env:
           GH_TOKEN: ${{ github.token }}
-          PEANUT_RELEASE_CANDIDATE_RUN_ID: ${{ inputs.build_run_id }}
+          TRANSPORT_SHA256: ${{ steps.candidate.outputs.transport_sha256 }}
+          PEANUT_RELEASE_CANDIDATE_RUN_ID: ${{ steps.candidate.outputs.build_run }}
           PEANUT_RELEASE_CI_RUN_ID: ${{ steps.candidate.outputs.ci_run }}
           PEANUT_RELEASE_RUN_TESTS: ${{ steps.candidate.outputs.run_tests == 'true' || steps.verified.outputs.run_tests_required == 'true' }}
         run: |
@@ -474,6 +419,7 @@ jobs:
           publisher=(scripts/publish-github-release "$version")
           if [[ "${version%%+*}" == *-* ]]; then publisher+=(--prerelease); fi
           "${publisher[@]}" \
+            --qualification-transport-sha256="$TRANSPORT_SHA256" \
             --qualification "$RUNNER_TEMP/candidate-release/template-qualification/candidate-stage.json" \
             --template-artifacts "$RUNNER_TEMP/candidate-release/scaffold-templates" \
             --output "$RUNNER_TEMP/published-release"

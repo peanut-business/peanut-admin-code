@@ -51,18 +51,21 @@ final class OperationLogRedactionBoundaryTest extends TestCase
     private function params(): array
     {
         return ['password'=>'synthetic-password','password_confirm'=>'synthetic-confirm','jobs_code'=>'visible-job',
-            'public_key'=>'visible-public-key','nested'=>[['token'=>'synthetic-token','signature'=>'synthetic-signature'],
-            ['X-Peanut-Signature'=>'synthetic-webhook-signature']]];
+            'public_key'=>'synthetic-public-key','device_credential_ref'=>'synthetic-device-credential','device_fingerprint_hash'=>'synthetic-device-fingerprint','nested'=>[['token'=>'synthetic-token','signature'=>'synthetic-signature'],
+            ['X-Peanut-Signature'=>'synthetic-webhook-signature','device'=>['publicKey'=>'synthetic-nested-public-key']]]];
     }
 
     private function assertSafe(string $encoded): void
     {
-        foreach (['synthetic-password','synthetic-confirm','synthetic-token','synthetic-signature','synthetic-webhook-signature'] as $secret) {
+        foreach (['synthetic-password','synthetic-confirm','synthetic-token','synthetic-signature','synthetic-webhook-signature','synthetic-public-key','synthetic-device-credential','synthetic-device-fingerprint','synthetic-nested-public-key'] as $secret) {
             self::assertStringNotContainsString($secret,$encoded);
         }
         $params = json_decode($encoded,true,512,JSON_THROW_ON_ERROR);
         self::assertSame('visible-job',$params['jobs_code']);
-        self::assertSame('visible-public-key',$params['public_key']);
+        self::assertSame('******',$params['public_key']);
+        self::assertSame('******',$params['device_credential_ref']);
+        self::assertSame('******',$params['device_fingerprint_hash']);
+        self::assertSame('******',$params['nested'][1]['device']['publicKey']);
         self::assertSame('******',$params['nested'][0]['signature']);
     }
 

@@ -153,7 +153,6 @@ if (options.staticOnly && !options.templateArtifacts && !options.releaseEvidence
   const inventory = readJson('scaffold/application-template-inventory.json')
   const target = versions.source_product_version ?? ''
   const baseline = metadata.source_product_version ?? ''
-  const stableVersion = /^\d+\.\d+\.\d+$/
   const strictSemver = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
   const currentV3 = versions.schema_version === 3 && versions.protocol === 'peanut.release-versions.v3'
   if (!currentV3 || !strictSemver.test(target) || versions.instance_version !== null
@@ -165,7 +164,7 @@ if (options.staticOnly && !options.templateArtifacts && !options.releaseEvidence
       mode === 'registry' ? lockedYamlParser(toolRoot) : undefined)
   } catch (error) { developmentFailures.push(error.message) }
   if (![2, 3].includes(metadata.schema_version) || metadata.protocol !== `peanut.release-metadata.v${metadata.schema_version}`
-    || !stableVersion.test(baseline) || metadata.instance_version !== null
+    || !strictSemver.test(baseline) || metadata.instance_version !== null
     || metadata.expected_tag !== `v${baseline}` || versionCompare(baseline, target) > 0) {
     developmentFailures.push('source release metadata is invalid or newer than the development target')
   }

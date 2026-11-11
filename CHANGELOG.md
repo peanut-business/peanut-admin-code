@@ -2,6 +2,12 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.10-rc.1] - 2026-11-11
+
+- Permit explicitly reviewed, SHA-256-pinned official Module source adoption before Runtime assembly when consumer code already needs a newly exported interface. Preserve origin identity, downgrade/same-version integrity rejection and transaction recovery.
+- Keep Module Runtime installation, database migration and tenant authorization as subsequent native steps; source adoption reports pending rather than falsely claiming activation.
+- Make stable and RC annotated tags use the same validated GitHub Actions template build and release process. Full application CI remains opt-in; unchanged Core releases and consumer applications are not republished or upgraded.
+
 ## [5.1.9] - 2026-11-10
 
 - Correct fresh-install tenant initialization so unselected optional Notification tables and seeds are not treated as required; when Notification is actually selected and entitled, its normal installation remains supported.

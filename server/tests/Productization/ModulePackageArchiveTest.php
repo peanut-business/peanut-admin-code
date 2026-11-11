@@ -455,6 +455,19 @@ try {
     $upgradePath = $temporary . '/upgrade.tar';
     $upgrade = (new ModulePackageArchiveService($upgradeRoot . '/server'))->packModule('acme.delivery-record', $upgradePath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);
     $oldLock = (string) file_get_contents($adoptRoot . '/modules.lock');
+    $customerWip = $adoptRoot . '/server/app/modules/acme/delivery_record/customer-wip.php';
+    $customerWipContents = "<?php\n// Uncommitted application customization.\n";
+    file_put_contents($customerWip, $customerWipContents);
+    try {
+        $adopter->adopt($upgradePath, $upgrade['sha256'], 'fixture-release');
+        throw new RuntimeException('Adoption overwrote unlocked customer WIP');
+    } catch (ModuleLifecycleException $exception) {
+        modulePackageExpect($exception->errorCode === 'PLUGIN_ARTIFACT_MISMATCH', 'Customer WIP did not fail source admission');
+        modulePackageExpect(file_get_contents($customerWip) === $customerWipContents
+            && file_get_contents($adoptRoot . '/modules.lock') === $oldLock,
+            'Rejected customer WIP changed source or lock');
+    }
+    unlink($customerWip);
     $updated = $adopter->adopt($upgradePath, $upgrade['sha256'], 'fixture-release');
     modulePackageExpect($updated['route_contributions'] === ['server/app/modules/acme/delivery_record/route/app.php'], 'conventional route contribution was not reported');
     $receipts = glob($adoptRoot . '/.local/module-source-adoption/*/transaction.json') ?: [];
@@ -502,6 +515,253 @@ try {
     $officialPath = $temporary . '/official-signed.tar';
     $official = (new ModulePackageArchiveService($serverRoot))->packModule('peanut.content-tools', $officialPath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);
     modulePackageRejects(fn() => $adopter->adopt($officialPath, $official['sha256'], 'fixture-release'), 'MODULE_PACKAGE_PRIVATE_REQUIRED');
+    modulePackageRejects(fn() => $adopter->adopt($officialPath, $official['sha256'], 'fixture-release', 'peanut.identity'), 'MODULE_PACKAGE_OFFICIAL_SOURCE_MISMATCH');
+    modulePackageRejects(fn() => $adopter->adopt($signedPath, $pin, 'fixture-release', 'peanut.content-tools'), 'MODULE_PACKAGE_OFFICIAL_SOURCE_MISMATCH');
+    modulePackageRejects(fn() => $adopter->adopt($officialPath, str_repeat('0', 64), 'fixture-release', 'peanut.content-tools'), 'MODULE_PACKAGE_ARCHIVE_DIGEST_MISMATCH');
+    $officialRoot = realpath($temporary) . '/official-source-only';
+    mkdir($officialRoot . '/server/resources/schemas', 0700, true);
+    copy($serverRoot . '/resources/schemas/module-artifact.schema.json', $officialRoot . '/server/resources/schemas/module-artifact.schema.json');
+    $officialAdopter = new ModulePackageAdoptionService($officialRoot . '/server', ['fixture-release' => $public], 'development');
+    $officialAdopted = $officialAdopter->adopt($officialPath, $official['sha256'], 'fixture-release', 'peanut.content-tools');
+    modulePackageExpect($officialAdopted['operation'] === 'adopted'
+        && $officialAdopted['adoption_scope'] === 'official'
+        && $officialAdopted['runtime_activation'] === 'not-verified'
+        && $officialAdopted['reconciliation_status'] === 'pending'
+        && $officialAdopted['runtime_database_mutated'] === false,
+        'verified official source adoption crossed the Runtime activation boundary');
+    modulePackageExpect($officialAdopter->adopt($officialPath, $official['sha256'], 'fixture-release', 'peanut.content-tools')['operation'] === 'unchanged', 'official source adoption is not idempotent');
+    $officialResignedPath = $temporary . '/official-resigned.tar';
+    $officialResigned = (new ModulePackageArchiveService($serverRoot))->packModule(
+        'peanut.content-tools', $officialResignedPath, ['key_id' => 'fixture-release-2', 'secret_key' => $secret],
+    );
+    modulePackageExpect($officialResigned['sha256'] !== $official['sha256'], 're-signed fixture did not change official archive digest');
+    $officialAdopterWithBothKeys = new ModulePackageAdoptionService(
+        $officialRoot . '/server', ['fixture-release' => $public, 'fixture-release-2' => $public], 'development',
+    );
+    modulePackageRejects(
+        fn() => $officialAdopterWithBothKeys->adopt($officialResignedPath, $officialResigned['sha256'], 'fixture-release-2', 'peanut.content-tools'),
+        'PACKAGE_VERSION_IDENTITY_CONFLICT',
+    );
+    (new ModuleArtifactWriter($officialRoot . '/server'))->checkLock();
+    modulePackageExpect(isset((new ModuleLockResolver($officialRoot . '/server', '../modules.lock'))->all()['peanut.content-tools']), 'official source and lock are not consistent');
+
+    // Real canonical official source can advance repeatedly while Runtime adoption remains pending.
+    // These locally produced archives exercise source adoption, not published-channel provenance or MySQL.
+    $officialAuthor = $temporary . '/official-upgrade-source';
+    $officialBackend = '/server/app/modules/peanut/content_tools';
+    modulePackageCopyTree($officialRoot . $officialBackend, $officialAuthor . $officialBackend);
+    $officialManifest = json_decode((string) file_get_contents($officialRoot . $officialBackend . '/module.json'), true, 64, JSON_THROW_ON_ERROR);
+    foreach (\app\platform\value\module\ModuleFrontendLayout::contributions($officialManifest['frontend'], 'peanut.content-tools') as $contribution) {
+        modulePackageCopyTree($officialRoot . '/' . $contribution['root'], $officialAuthor . '/' . $contribution['root']);
+    }
+    mkdir($officialAuthor . '/server/resources/schemas', 0700, true);
+    copy($serverRoot . '/resources/schemas/module-artifact.schema.json', $officialAuthor . '/server/resources/schemas/module-artifact.schema.json');
+    $customization = $officialRoot . '/application-owned.txt';
+    file_put_contents($customization, 'customer-owned contents');
+    $previousVersion = $officialAdopted['version'];
+    foreach (['2.0.0', '4.0.0'] as $version) {
+        modulePackageRewriteTree($officialAuthor, ['"version": "' . $previousVersion . '"' => '"version": "' . $version . '"']);
+        $path = $temporary . '/official-' . $version . '.tar';
+        $packed = (new ModulePackageArchiveService($officialAuthor . '/server'))->packModule('peanut.content-tools', $path);
+        $adoption = $officialAdopter->adopt($path, $packed['sha256'], null, 'peanut.content-tools');
+        modulePackageExpect($adoption['version'] === $version && $adoption['operation'] === 'adopted'
+            && $adoption['reconciliation_status'] === 'pending' && $adoption['runtime_database_mutated'] === false,
+            'Repeated official source adoption crossed the Runtime boundary');
+        modulePackageExpect($officialAdopter->adopt($path, $packed['sha256'], null, 'peanut.content-tools')['operation'] === 'unchanged',
+            'Repeated official source adoption lost its archive pin');
+        (new ModuleArtifactWriter($officialRoot . '/server'))->checkLock();
+        modulePackageExpect(file_get_contents($customization) === 'customer-owned contents', 'Official adoption changed application-owned source');
+        $previousVersion = $version;
+    }
+    modulePackageRejects(fn() => $officialAdopter->adopt($officialPath, $official['sha256'], 'fixture-release', 'peanut.content-tools'), 'PLUGIN_DOWNGRADE_REJECTED');
+
+    // BUG-01: a real consumer import must fail against the locked old official API.
+    // Reuse the delivery fixture, native archive/lock producer, Core compiler and PHP sources.
+    $boundaryRoot = realpath($temporary) . '/contract-consumer';
+    $boundaryAuthor = $temporary . '/contract-author';
+    $upstreamBackend = '/server/app/modules/official/delivery_record';
+    modulePackageCopyTree($authorRoot, $boundaryAuthor);
+    rename($boundaryAuthor . '/server/app/modules/acme', $boundaryAuthor . '/server/app/modules/official');
+    rename($boundaryAuthor . '/web/src/modules/acme-delivery-record', $boundaryAuthor . '/web/src/modules/official-delivery-record');
+    $upstreamNamespace = 'Official\\Modules\\DeliveryRecord';
+    modulePackageRewriteTree($boundaryAuthor, [
+        'acme.delivery-record' => 'official.delivery-record',
+        'acme-delivery-record' => 'official-delivery-record',
+        $toNamespace => $upstreamNamespace,
+        trim(json_encode($toNamespace), '"') => trim(json_encode($upstreamNamespace), '"'),
+        'pa_fixture_delivery_record' => 'pa_official_delivery_record',
+    ]);
+    modulePackageCopyTree($boundaryAuthor, $boundaryRoot);
+    modulePackageCopyTree($fixtureBackend, $boundaryRoot . '/server/app/modules/acme/delivery_record');
+    modulePackageCopyTree($fixtureFrontend, $boundaryRoot . '/web/src/modules/acme-delivery-record');
+    $consumerManifestPath = $boundaryRoot . '/server/app/modules/acme/delivery_record/module.json';
+    $consumerManifest = json_decode((string) file_get_contents($consumerManifestPath), true, 64, JSON_THROW_ON_ERROR);
+    $consumerManifest['dependencies'] = [['module_key' => 'official.delivery-record', 'version' => '^1.0']];
+    file_put_contents($consumerManifestPath, json_encode($consumerManifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+    file_put_contents($boundaryRoot . '/server/app/modules/acme/delivery_record/src/Service/UpstreamConsumer.php', <<<'PHP'
+<?php
+namespace Acme\Modules\DeliveryRecord\Service;
+use Official\Modules\DeliveryRecord\Contract\DeviceCredentialBindings;
+final class UpstreamConsumer
+{
+    public function __construct(private DeviceCredentialBindings $bindings) {}
+    public function revision(): string { return $this->bindings->revision(); }
+}
+PHP);
+    (new ModuleArtifactWriter($boundaryRoot . '/server'))->writeLock();
+    $beforeContractLock = (string) file_get_contents($boundaryRoot . '/modules.lock');
+
+    // Copy the actual native bridge/command and AppService unchanged: their __DIR__ owns this app.
+    // All other classes and locked third-party dependencies use the existing Composer loader.
+    mkdir($boundaryRoot . '/server/app/command', 0700, true);
+    mkdir($boundaryRoot . '/server/vendor', 0700, true);
+    mkdir($boundaryRoot . '/server/config', 0700, true);
+    foreach (['module', 'app/AppService.php', 'app/service.php', 'app/provider.php', 'app/command/ModuleAdoptPackage.php',
+        'config/app.php', 'config/cache.php', 'config/database.php', 'config/peanut.php', 'config/deployment.php',
+        'config/module_packages.php'] as $relative) {
+        copy($serverRoot . '/' . $relative, $boundaryRoot . '/server/' . $relative);
+    }
+    file_put_contents($boundaryRoot . '/server/vendor/autoload.php', "<?php\n\$loader = require "
+        . var_export($serverRoot . '/vendor/autoload.php', true) . ";\n"
+        . '$loader->addClassMap(' . var_export([
+            'app\\AppService' => $boundaryRoot . '/server/app/AppService.php',
+            'app\\command\\ModuleAdoptPackage' => $boundaryRoot . '/server/app/command/ModuleAdoptPackage.php',
+        ], true) . ");\nreturn \$loader;\n");
+    file_put_contents($boundaryRoot . '/server/.env', "APP_ENV=development\nAPP_DEBUG=true\nDEPLOYMENT_MODE=multi-tenant\n");
+    chmod($boundaryRoot . '/server/.env', 0600);
+    $compilePath = $boundaryRoot . '/compile.php';
+    file_put_contents($compilePath, <<<'PHP'
+<?php
+use PeanutAdmin\Kernel\Module\{ManifestLoader, ModuleRegistryCompiler, ModuleBoundaryChecker, ModuleProvider, ModuleException};
+require __DIR__ . '/server/vendor/autoload.php';
+$app = new \think\App(__DIR__ . '/server');
+$app->config->set(['mode' => 'multi-tenant'], 'deployment');
+$roots = [];
+foreach ((new \app\platform\infrastructure\module\ModuleLockResolver(__DIR__ . '/server', '../modules.lock'))->moduleRoots() as $root) {
+    $document = (new ManifestLoader())->load($root);
+    $roots[$document->data['key']] = $root;
+}
+$layout = \app\common\infrastructure\module\ModuleHostLayoutFactory::fromModuleRoots($roots);
+foreach (\app\common\value\module\ModulePhpNamespace::map($roots) as $key => $namespace) {
+    $loader->setPsr4($namespace, [$roots[$key] . '/src']);
+}
+try {
+    $documents = array_map(static fn(string $root) => (new ManifestLoader())->load($root), array_values($roots));
+    $components = [];
+    foreach ($documents as $document) {
+        foreach ($document->data['catalog']['menus'] as $menu) {
+            $components[] = $menu['component_key'];
+        }
+    }
+    $compiler = new ModuleRegistryCompiler(
+        new \app\platform\validation\module\OpisManifestSchemaValidator(
+            dirname((new ReflectionClass(ModuleProvider::class))->getFileName(), 3) . '/resources/schemas/module-manifest.schema.json'),
+        '1.0.0', $components, $layout, [], ['admin-web'], [],
+    );
+    $registry = $compiler->compile($documents);
+    (new ModuleBoundaryChecker($registry, $layout, ['pa_']))->check();
+    (new \app\common\composition\ModuleComposition($app))->register($registry);
+    $consumer = $app->make(\Acme\Modules\DeliveryRecord\Service\UpstreamConsumer::class);
+    if ($consumer->revision() !== 'new-official-contract') {
+        throw new RuntimeException('Consumer did not execute the adopted official implementation.');
+    }
+    echo json_encode(['modules' => $registry->moduleKeys(), 'revision' => $consumer->revision()], JSON_THROW_ON_ERROR);
+} catch (ModuleException $exception) {
+    fwrite(STDERR, json_encode(['error' => $exception->errorCode, 'message' => $exception->getMessage()], JSON_THROW_ON_ERROR));
+    exit(1);
+}
+PHP);
+    $runBoundary = static function (bool $adopt = false, array $arguments = []) use ($boundaryRoot, $compilePath): array {
+        $process = proc_open([PHP_BINARY, $adopt ? $boundaryRoot . '/server/module' : $compilePath],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $boundaryRoot,
+            ['PATH' => (string) getenv('PATH')]);
+        modulePackageExpect(is_resource($process), 'Cannot start native contract fixture');
+        if ($adopt) {
+            fwrite($pipes[0], json_encode(['operation' => 'adopt', 'arguments' => $arguments], JSON_THROW_ON_ERROR));
+        }
+        fclose($pipes[0]);
+        $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        return [proc_close($process), trim($output)];
+    };
+    $expectBoundaryFailure = static function (string $code) use ($runBoundary): void {
+        [$exit, $output] = $runBoundary();
+        modulePackageExpect($exit === 1, 'Contract compile unexpectedly succeeded: ' . $output);
+        $error = json_decode($output, true, 32, JSON_THROW_ON_ERROR);
+        modulePackageExpect($error['error'] === $code
+            && str_contains($error['message'], 'UpstreamConsumer.php')
+            && str_contains($error['message'], 'Official\\Modules\\DeliveryRecord\\Contract\\DeviceCredentialBindings'),
+            'Unexpected contract compile rejection: ' . $output);
+        echo "BUG-01 compile exit={$exit} {$output}\n";
+    };
+    $expectBoundaryFailure('MODULE_CONTRACT_MISSING');
+    modulePackageExpect(file_get_contents($boundaryRoot . '/modules.lock') === $beforeContractLock,
+        'Failed old-contract compile changed the locked graph');
+
+    modulePackageRewriteTree($boundaryAuthor, ['"version": "1.0.0"' => '"version": "1.1.0"']);
+    file_put_contents($boundaryAuthor . $upstreamBackend . '/src/Contract/DeviceCredentialBindings.php', <<<'PHP'
+<?php
+namespace Official\Modules\DeliveryRecord\Contract;
+interface DeviceCredentialBindings { public function revision(): string; }
+PHP);
+    file_put_contents($boundaryAuthor . $upstreamBackend . '/src/Service/DeviceCredentialBindingsService.php', <<<'PHP'
+<?php
+namespace Official\Modules\DeliveryRecord\Service;
+use Official\Modules\DeliveryRecord\Contract\DeviceCredentialBindings;
+final class DeviceCredentialBindingsService implements DeviceCredentialBindings
+{
+    public function revision(): string { return 'new-official-contract'; }
+}
+PHP);
+    $providerPath = $boundaryAuthor . $upstreamBackend . '/src/ModuleProvider.php';
+    file_put_contents($providerPath, str_replace('return [', 'return [' . "\n"
+        . '            \\Official\\Modules\\DeliveryRecord\\Contract\\DeviceCredentialBindings::class => \\Official\\Modules\\DeliveryRecord\\Service\\DeviceCredentialBindingsService::class,',
+        (string) file_get_contents($providerPath)));
+    $upstreamManifestPath = $boundaryAuthor . $upstreamBackend . '/module.json';
+    $upstreamManifest = json_decode((string) file_get_contents($upstreamManifestPath), true, 64, JSON_THROW_ON_ERROR);
+    $upstreamManifest['contracts']['exports'][] = $upstreamNamespace . '\\Contract\\DeviceCredentialBindings';
+    file_put_contents($upstreamManifestPath, json_encode($upstreamManifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+    $contractArchive = $temporary . '/official-contract.tar';
+    $contractPackage = (new ModulePackageArchiveService($boundaryAuthor . '/server'))->packModule('official.delivery-record', $contractArchive);
+    [$exit, $output] = $runBoundary(true, [$contractArchive, '--sha256=' . $contractPackage['sha256'], '--official-key=official.delivery-record']);
+    modulePackageExpect($exit === 0, 'Native official contract adoption failed: ' . $output);
+    $contractAdopted = json_decode($output, true, 64, JSON_THROW_ON_ERROR);
+    modulePackageExpect($contractAdopted['operation'] === 'adopted' && $contractAdopted['version'] === '1.1.0'
+        && $contractAdopted['adoption_scope'] === 'official' && $contractAdopted['reconciliation_status'] === 'pending'
+        && $contractAdopted['runtime_activation'] === 'not-verified' && $contractAdopted['runtime_database_mutated'] === false,
+        'Native contract adoption crossed the source-only boundary: ' . $output);
+    echo "BUG-01 native adopt exit={$exit} sha256={$contractPackage['sha256']} version=1.1.0 reconciliation=pending\n";
+    (new ModuleArtifactWriter($boundaryRoot . '/server'))->checkLock();
+    [$exit, $output] = $runBoundary();
+    modulePackageExpect($exit === 0, 'Fresh process could not compile/assemble the adopted contract: ' . $output);
+    $compiled = json_decode($output, true, 32, JSON_THROW_ON_ERROR);
+    modulePackageExpect($compiled['modules'] === ['official.delivery-record', 'acme.delivery-record']
+        && $compiled['revision'] === 'new-official-contract', 'Adopted consumer did not execute: ' . $output);
+    echo "BUG-01 fresh compile+composition exit={$exit} {$output}\n";
+
+    $consumerBytes = (string) file_get_contents($consumerManifestPath);
+    $consumerLock = (string) file_get_contents($boundaryRoot . '/modules.lock');
+    try {
+        $consumerManifest['dependencies'] = [];
+        file_put_contents($consumerManifestPath, json_encode($consumerManifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+        (new ModuleArtifactWriter($boundaryRoot . '/server'))->writeLock();
+        $expectBoundaryFailure('MODULE_DEPENDENCY_MISSING');
+    } finally {
+        file_put_contents($consumerManifestPath, $consumerBytes);
+        file_put_contents($boundaryRoot . '/modules.lock', $consumerLock);
+    }
+    // Remove only the new export in a new package; its real PHP interface remains present.
+    array_pop($upstreamManifest['contracts']['exports']);
+    file_put_contents($upstreamManifestPath, json_encode($upstreamManifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+    modulePackageRewriteTree($boundaryAuthor, ['"version": "1.1.0"' => '"version": "1.2.0"']);
+    $unexportedArchive = $temporary . '/official-unexported-contract.tar';
+    $unexportedPackage = (new ModulePackageArchiveService($boundaryAuthor . '/server'))->packModule('official.delivery-record', $unexportedArchive);
+    [$exit, $output] = $runBoundary(true, [$unexportedArchive, '--sha256=' . $unexportedPackage['sha256'], '--official-key=official.delivery-record']);
+    modulePackageExpect($exit === 0 && json_decode($output, true, 64, JSON_THROW_ON_ERROR)['reconciliation_status'] === 'pending',
+        'Native unexported contract adoption failed: ' . $output);
+    echo "BUG-01 native unexported adopt exit={$exit} sha256={$unexportedPackage['sha256']} version=1.2.0 reconciliation=pending\n";
+    $expectBoundaryFailure('MODULE_CONTRACT_MISSING');
     if (!$archiveOnly) {
         // An incomplete source must still expose the development recovery CLI while ordinary boot fails closed.
         $bootJournal = $projectRoot . '/.local/module-source-adoption/journal.json';
@@ -522,15 +782,15 @@ try {
                 . "PEANUT_MODULE_TRUSTED_KEYS_JSON={}\n",
         );
         chmod($bootEnvironment, 0600);
-        $invoke = static function (bool $recover, array $environment) use ($serverRoot): array {
+        $invoke = static function (bool $bridge, array $environment, string $operation = 'adopt', array $arguments = ['--recover']) use ($serverRoot): array {
             $process = proc_open(
-                $recover ? [PHP_BINARY, $serverRoot . '/module'] : [PHP_BINARY, $serverRoot . '/think', 'list'],
+                $bridge ? [PHP_BINARY, $serverRoot . '/module'] : [PHP_BINARY, $serverRoot . '/think', 'list'],
                 [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
                 $pipes, $serverRoot, ['PATH' => (string) getenv('PATH')] + $environment,
             );
             modulePackageExpect(is_resource($process), 'cannot start recovery boot check');
-            if ($recover) {
-                fwrite($pipes[0], '{"operation":"adopt","arguments":["--recover"]}');
+            if ($bridge) {
+                fwrite($pipes[0], json_encode(['operation' => $operation, 'arguments' => $arguments], JSON_THROW_ON_ERROR));
             }
             fclose($pipes[0]);
             $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
@@ -551,6 +811,29 @@ try {
                 $exit !== 0 && $output === '{"error":"MODULE_PACKAGE_RECOVERY_REQUIRED"}',
                 'development recovery CLI could not reach the journal: ' . $output,
             );
+            [$exit, $output] = $invoke(true, $environment, 'upgrade', [$officialPath, '--sha256=' . $official['sha256'], '--dry-run']);
+            modulePackageExpect($exit !== 0 && str_contains($output, 'Run module:adopt-package --recover'),
+                'Runtime package upgrade consumed incomplete source');
+            [$exit, $output] = $invoke(true, $environment, 'adopt', [$officialPath, '--sha256=' . $official['sha256'], '--official-key=peanut.content-tools']);
+            modulePackageExpect($exit !== 0 && $output === '{"error":"MODULE_PACKAGE_RECOVERY_REQUIRED"}',
+                'Initial official adoption could not reach its source transaction: ' . $output);
+            unlink($bootJournal);
+            $sourceLock = (string) file_get_contents($projectRoot . '/modules.lock');
+            try {
+                foreach ([
+                    [str_repeat('0', 64), 'peanut.content-tools', 'MODULE_PACKAGE_ARCHIVE_DIGEST_MISMATCH'],
+                    [$official['sha256'], 'peanut.identity', 'MODULE_PACKAGE_OFFICIAL_SOURCE_MISMATCH'],
+                    [$official['sha256'], 'peanut.content-tools', 'PACKAGE_VERSION_IDENTITY_CONFLICT'],
+                ] as [$digest, $key, $error]) {
+                    [$exit, $output] = $invoke(true, $environment, 'adopt', [$officialPath, '--sha256=' . $digest, '--official-key=' . $key]);
+                    modulePackageExpect($exit !== 0 && $output === json_encode(['error' => $error], JSON_THROW_ON_ERROR),
+                        'Native official adoption did not reach package admission without a database: ' . $output);
+                    modulePackageExpect(file_get_contents($projectRoot . '/modules.lock') === $sourceLock,
+                        'Rejected native official adoption changed the deployment lock');
+                }
+            } finally {
+                file_put_contents($bootJournal, '{"schema_version":0}');
+            }
             $state = static function () use ($projectRoot, $bootJournal): array {
                 $paths = [$bootJournal, $projectRoot . '/modules.lock', dirname($bootJournal) . '/writer.lock'];
                 return array_map(static fn(string $path) => is_file($path) ? hash_file('sha256', $path) : null, $paths);
