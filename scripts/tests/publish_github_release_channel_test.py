@@ -15,6 +15,27 @@ TMP = ROOT / '.local/tmp/release-channel-test'
 
 
 class PublishGithubReleaseChannelTest(unittest.TestCase):
+    def test_formal_workflow_identity_accepts_only_main_dispatch_or_exact_tag_push(self):
+        source = (ROOT / 'scripts/publish-github-release').read_text()
+        start = source.index('if [[ "$PREPARE_ONLY" != 1 ]]; then')
+        guard = source[start:source.index('\n[[ "$OUTPUT_DIR" == /* ]]', start)]
+        repository = 'peanut-business/peanut-admin-code'
+        for tag in ('v1.2.3', 'v1.2.3-rc.1'):
+            for event, ref in [('workflow_dispatch', 'refs/heads/main'), ('push', 'refs/tags/' + tag)]:
+                env = dict(os.environ, PREPARE_ONLY='0', TAG=tag, REPOSITORY=repository, GITHUB_ACTIONS='true',
+                           GITHUB_REPOSITORY=repository, GITHUB_EVENT_NAME=event, GITHUB_REF=ref,
+                           GITHUB_WORKFLOW_REF=f'{repository}/.github/workflows/scaffold-release.yml@{ref}')
+                result = subprocess.run(['bash', '-Eeuo', 'pipefail', '-c', guard], env=env, text=True, capture_output=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                for key, value in [('GITHUB_ACTIONS', 'false'), ('GITHUB_REPOSITORY', 'foreign/repo'),
+                                   ('GITHUB_EVENT_NAME', 'pull_request'), ('GITHUB_REF', 'refs/heads/dev'),
+                                   ('GITHUB_WORKFLOW_REF', f'{repository}/.github/workflows/other.yml@{ref}'),
+                                   ('GITHUB_WORKFLOW_REF', f'{repository}/.github/workflows/scaffold-release.yml@refs/tags/v9.9.9')]:
+                    with self.subTest(tag=tag, event=event, rejected=key, value=value):
+                        result = subprocess.run(['bash', '-Eeuo', 'pipefail', '-c', guard], env=dict(env, **{key: value}),
+                                                text=True, capture_output=True)
+                        self.assertNotEqual(result.returncode, 0)
+
     def test_target_draft_upload_verification_cleanup_and_native_publication_order(self):
         source = (ROOT / 'scripts/publish-github-release').read_text()
         command = source[source.index('release_paths=()'):]
@@ -101,6 +122,7 @@ verify_main_integration() { printf '%s\\n' '["main"]' >> "$CALLS"; }
                     self.assertEqual(result.returncode, 0, result.stderr)
                     args = json.loads((case / 'args.json').read_text())
                     self.assertEqual(args, [version, *(['--prerelease'] if prerelease else []),
+                        '--qualification-transport-sha256=' + 'b'*64,
                         '--qualification', str(case / 'runner/candidate-release/template-qualification/candidate-stage.json'),
                         '--template-artifacts', str(case / 'runner/candidate-release/scaffold-templates'),
                         '--output', str(case / 'runner/published-release')])
@@ -167,7 +189,7 @@ os.execv(os.environ['INTEGRATION_GIT'],[os.environ['INTEGRATION_GIT'],*a])
             publisher = (ROOT / 'scripts/publish-github-release').read_text()
             function = publisher[publisher.index('verify_main_integration() {'):publisher.index('\nif [[ "$PREPARE_ONLY" != 1 ]]; then', publisher.index('verify_main_integration() {'))]
             def check(main=merge, change=None, receipt_change=None, local=None, expected='', absent=False,
-                      source_merge=None, checkout=None):
+                      source_merge=None, checkout=None, event='workflow_dispatch'):
                 state = {'main': main, 'source': source, 'tag_object': tag_object, 'pr': json.loads(json.dumps(pr)),
                          'associated': [{'number': 7, 'merge_commit_sha': source_merge or main, 'head': {'sha': source}}]}
                 if change:
@@ -184,7 +206,8 @@ os.execv(os.environ['INTEGRATION_GIT'],[os.environ['INTEGRATION_GIT'],*a])
                 proof.unlink(missing_ok=True)
                 command = function + '\nverify_main_integration "$PROOF" "$EXPECTED"\n'
                 run_env = dict(env, REPOSITORY=repository, COMMIT=source, TAG='v1.2.3', TAG_OBJECT=tag_object,
-                               MAIN_INTEGRATION='' if absent else str(receipt_path), PROOF=str(proof), EXPECTED=expected)
+                               MAIN_INTEGRATION='' if absent else str(receipt_path), PROOF=str(proof), EXPECTED=expected,
+                               GITHUB_EVENT_NAME=event)
                 result = subprocess.run(['bash', '-Eeuo', 'pipefail', '-c', command], cwd=case, env=run_env,
                                         text=True, capture_output=True, timeout=10)
                 return result, json.loads(proof.read_text()) if proof.exists() else None
@@ -199,6 +222,12 @@ os.execv(os.environ['INTEGRATION_GIT'],[os.environ['INTEGRATION_GIT'],*a])
                         self.assertEqual(proof['parents'], [base, source])
                         self.assertEqual(proof['pr_number'], 7)
                         self.assertRegex(proof['pr_response_sha256'], r'^[0-9a-f]{64}$')
+            result, proof = check(main=source, event='push')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(proof['mode'], 'exact-source')
+            result, proof = check(main=merge, event='push')
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIsNone(proof)
             result, proof = check(change=lambda state: state.update(origin=f'https://github.com/{repository}'))
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(proof['remote'], f'https://github.com/{repository}')

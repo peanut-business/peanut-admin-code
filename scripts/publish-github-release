@@ -89,9 +89,13 @@ if [[ "$PRERELEASE" != 1 && "$VERSION" == *-* ]]; then
 fi
 TAG="v$VERSION"
 if [[ "$PREPARE_ONLY" != 1 ]]; then
-  [[ "${GITHUB_ACTIONS:-}" == true && "${GITHUB_REPOSITORY:-}" == "$REPOSITORY" \
-    && "${GITHUB_WORKFLOW_REF:-}" == "$REPOSITORY/.github/workflows/scaffold-release.yml@refs/heads/main" ]] || {
-    printf 'publish-github-release: formal publication requires the registered repository scaffold-release CI on main\n' >&2
+  [[ "${GITHUB_ACTIONS:-}" == true && "${GITHUB_REPOSITORY:-}" == "$REPOSITORY" ]] && {
+    [[ "${GITHUB_EVENT_NAME:-}" == workflow_dispatch && "${GITHUB_REF:-}" == refs/heads/main \
+      && "${GITHUB_WORKFLOW_REF:-}" == "$REPOSITORY/.github/workflows/scaffold-release.yml@refs/heads/main" ]] \
+    || [[ "${GITHUB_EVENT_NAME:-}" == push && "${GITHUB_REF:-}" == "refs/tags/$TAG" \
+      && "${GITHUB_WORKFLOW_REF:-}" == "$REPOSITORY/.github/workflows/scaffold-release.yml@refs/tags/$TAG" ]]
+  } || {
+    printf 'publish-github-release: formal publication requires the registered main dispatch or exact tag workflow\n' >&2
     exit 1
   }
 fi
@@ -145,6 +149,7 @@ if (live.length !== 1 || !/^[0-9a-f]{40}\trefs\/heads\/main$/.test(live[0])) fai
 const main = live[0].split('\t')[0]
 if (git('rev-parse', 'origin/main^{commit}') !== main) fail('local origin/main is stale')
 if (git('rev-parse', 'HEAD') !== main) fail('execution checkout is not live main')
+if (process.env.GITHUB_EVENT_NAME === 'push' && main !== source) fail('tag source is not live main')
 if (expectedMain && main !== expectedMain) fail('live main changed before publication')
 const tagRefs = git('ls-remote', '--tags', 'origin', `refs/tags/${tag}`, `refs/tags/${tag}^{}`).split('\n').sort()
 if (JSON.stringify(tagRefs) !== JSON.stringify([`${tagObject}\trefs/tags/${tag}`, `${source}\trefs/tags/${tag}^{}`].sort())

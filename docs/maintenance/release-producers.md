@@ -4,37 +4,37 @@
 
 ## 开发、本地包与固定资格
 
-顺序为开发收敛 → 本地包及直接必要运行确认/按需测试 → CI 正式制包与包消费检查 → 正式 tag 发布 → 应用采用/公开渠道首装后验。本地确认后才安排正式发行；已知缺陷在定版前集中处理，不在正式发布阶段继续开发、重包或补测。测试与正式生产分离，复用仍有效的开发验证，不因发行再启动整套测试。未执行、环境失败、部分通过和 UNKNOWN 不包装为 PASS，不拼接成功结论或新增 runner/门禁。
+Code 正常发行（稳定版及 RC）从准备好版本的受保护 main 开始：推送指向当前 main 原 commit S 的 annotated tag，由同一次 `scaffold-release.yml` 自动生产并发布。开发收敛、本地必要运行确认和按需测试在定版前完成；本地包、dirty 快照、pack-only identity 包和内部 Core 候选不能冒充正式模板，不上传为正式发行输入。普通分支推送不自动 CI 或制包。
 
-Code 正式消费者要求最终精确来源 S 的成功 `scaffold-release.yml` 模板生产 run。它各生产一次 ST、MT 原件，直接检查同一原件并调用固定独立 CLI 创建临时 APP；不运行完整应用测试、不接业务数据库。`ci.yml` 是独立按需验证入口，不再作为每次发行的强制前置；同源成功结果存在时可记录，无结果时清单明确不声明通过。维护者先确认开发验证范围与结果，再安排 CI 制包；本地结论不会被转换成 CI PASS。普通分支不自动 CI，本地开发包不上传为正式原件，也不通过 GitHub 草稿接入正式生产。`peanut release --source-commit=<S>` 虽已有本地固定来源能力，仍不改变正式包由 CI 生产的职责；dirty/无 HEAD 包、pack-only identity 包和内部 Core 候选不能冒充正式模板。
+tag run 的 `templates` job 各生产一次 ST、MT 模板，直接复用原生固定源码、manifest、锁、模块和独立 CLI 候选检查，不接业务数据库，不构建生产实例。无 tag inputs 时固定使用 `workflow=runtime`、`candidate_cli_commit=55c14dd12ef1d40f00af0fb0516aceaaf12412b1`、`run_tests=false`。完整应用 CI 仅通过既有 `workflow_dispatch run_tests=true` 显式选择，复用 `ci.yml`，失败、取消或缺失成功结果均阻断相应生产或发布；未执行不声明 PASS。该参数不改变本地开发测试政策。
 
-两 Core 的 `ci.yml mode=production` 生产正式包并检查原生消费者，`mode=qualification` 保留完整测试，二者不要求先后各跑一次。tag 工作流读取各自 `CORE_QUALIFICATION_RUN_ID` 指向的成功 CI 原件，不重建、不重测；不能将 Core 的同树合并规则套给 Code 的精确 S 合同。测试范围以原件记录为准，包消费检查不代表完整测试。输入、包或原件失效时回到原生产阶段说明原因，只处理直接受影响部分；正式发布阶段不自动制造替代品。不因发行工具修改重发未变化的 Core，不顺手升级下游；公开渠道首装后验独立安排。
+两 Core 的 `ci.yml mode=production` 生产正式包并检查原生消费者，`mode=qualification` 保留完整测试，二者不要求先后各跑一次。Core tag 工作流读取各自 `CORE_QUALIFICATION_RUN_ID` 指向的成功 CI 原件，不重建、不重测；不因 Code 发行工具修改重发未变化 Core。
 
 ```mermaid
 flowchart LR
-    A[本地开发与按需验证] --> B[维护者确认最终源码与发行范围]
-    B --> C[CI 正式生产一次并检查包消费]
-    C --> D[保存同一次原件和摘要]
-    D --> E[受保护集成与注释 tag]
-    E --> F[读取 CI 原件并发布]
-    F --> G[应用采用与独立首装验收]
+    A[开发收敛与按需验证] --> B[版本准备并集成受保护 main]
+    B --> C[推送当前 main 原 commit 的注释 tag]
+    C --> D[同 run templates 生产 ST/MT 并通过原生候选]
+    D --> E[同 run publish 核固定摘要及原件并发布]
+    E --> F[独立安排应用采用与公开渠道后验]
 ```
 
-CI 的 qualification transport 只是将该次模板原件、摘要与检查记录封装供发布器读取，不是另一套模板生产，也不是本地包上传。正式生产仍会在 CI 执行一次，与本地开发包的用途不同；本流程消除的是强制重复完整测试与发布阶段重复制包，不承诺本地和 CI 合计只构建一次。
+qualification transport 只封装该次模板原件、摘要和检查记录；发布消费这些字节，不再次构建模板或补跑测试，不将本地结果转换成 CI PASS，不自动升级消费者。
 
 ## GitHub 正式发布入口
 
-先收敛模块源码、版本、客户端清单及实际依赖组合，通过原生入口准备依赖并以 `module lock --write` 固定模块内容，再运行现有 `scripts/prepare-product-release-candidate` 刷新 `RELEASE_METADATA.json` 的锁摘要，随后生成受影响的 API、legal 和 inventory，核对版本、模块内容摘要及派生来源与最终源码一致。同一准备入口已执行的生成不再手工重复；legal 生成器只维护自己的字段，不负责刷新依赖锁摘要。此后源码或锁变化时，只重做输入已失效的准备及派生步骤；封存前集中闭合已知问题，不每修一点就生产双 Edition 或派生 APP。普通 `--static-only` 无制品证据模式只检查开发结构，不代表这些发行摘要已经通过精确候选核验。
+先收敛模块源码、版本、客户端清单及实际依赖组合，通过原生入口准备依赖并以 `module lock --write` 固定模块内容，再运行现有 `scripts/prepare-product-release-candidate` 刷新 `RELEASE_METADATA.json` 的锁摘要，随后生成受影响的 API、legal 和 inventory，核对版本、模块内容摘要及派生来源与最终源码一致。同一入口已完成的生成不重复；legal 生成器不负责刷新依赖锁摘要。普通 `--static-only` 无制品证据模式只检查开发结构，不代表发行摘要通过精确候选核验。
 
 候选前按净差异追踪直接消费者：构造或上下文合同变化须核容器绑定及所有直接 `new` 调用，包括现有测试；数据结构变化须核现有 fixture 的必需列与状态；缓存路径须核正式驱动配置、命名空间及正式写入口的失效责任。fixture 直接改库不能替代正式写后失效语义。此处是影响核对，不新增 runner 或自动测试授权；仅在获准测试范围内修正、运行相应样本。报告保留真实退出码及已执行范围，fail-fast 后续部分记未执行，环境／依赖失败与产品断言失败分开，不将部分通过汇总为候选通过。未受影响且输入仍有效的证据直接复用。
 
-1. 将已审候选集成到 `dev`，核对远端精确提交 S，确认本次开发验证已完成及其限制。只有用户另行安排完整应用 CI 时才触发同提交的 `ci.yml`，不为取得发行凭据补跑。完整资源验收仍只在获准范围内读取登记并绑定实际应用、数据库与制品。
-2. 触发 `scaffold-release.yml`，提供 `expected_source_commit=S`、`publish=false`、`pack_only=false` 及固定独立 CLI 提交，对同一源码各生产一次 ST、MT 模板，完成原件与原生创建检查，保存原始归档、清单和 candidate-stage。已有同 S、同生产合同且原件仍可取的成功 run 直接复用，不再制包。完整八组按需授权，原失败和未完成结果保留，不补写通过。
-3. 按受保护的 `dev` → `main` PR 与现有平台权限进入发布。推送指向固定产品来源 S 的注释 tag `vX.Y.Z`，由 tag job 核版本，选择同仓同 S 已成功的模板生产 run；候选按 run ID 从新到旧，取当前 attempt 恰有一个未过期 `scaffold-template-qualification-<S>-<run>-<attempt>` 的首个成功 run，pack-only 的 identity artifact 不准入。同源 `ci.yml` 最新成功结果仅为可选记录。下载原 transport 及 sidecar，只计算并比较 SHA-256，不执行归档内容；缺原件、摘要不符或 tag 漂移明确失败，不派发发布，也不重构建。通过后使用 GitHub 原生 `workflow_dispatch(ref=main, publish=true)` 传递生产 run ID、S、transport 摘要及可选验证 run ID，由既有消费者复核原件、模板及来源，再由唯一发布器发布。dispatch 成功不等于 Release 成功；main 绑定、实时 tag/集成证明及禁止覆盖保护不变。公开渠道首装后验独立安排。
+1. 按既有受保护 `dev` → `main` 流程集成准备好的版本，确认开发验证范围及其限制。源码或锁变化仅重做输入失效部分，不在正式发行阶段继续开发或反复制包。
+2. 推送当前 main 原 commit S 的 annotated tag：稳定版 `vX.Y.Z` 或 RC `vX.Y.Z-rc.N`。tag 类型、精确来源、实时 main 与版本元数据在生产前核对；tag、main、权限及版本不符明确拒绝。
+3. 同一 run 的 `templates` 执行原生双 Edition 生产和 CLI 候选，上传唯一的 `scaffold-template-qualification-<S>-<run>-<attempt>` artifact，输出固定 transport SHA-256 和上传 artifact ID。失败输出仍可留存，但不能进入发布。
+4. `publish` 依赖 `templates` 成功，从 GitHub 原生按 attempt 的 jobs 接口核实本 run、本 attempt、同源的 `templates` 已 completed/success，并核 artifact ID 与名称、未过期和唯一性。消费同次 artifact 及 job 输出摘要后，在实时 main checkout 调用唯一 publisher；仍在运行的整个 tag run 不冒充成功完整 CI。稳定版标 latest，RC 标 prerelease 且不标 latest。
 
-分支推送不自动启动 CI 或模板构建；模板 job 只接受 `workflow_dispatch && !publish`，tag 不误构建。自动入口只接受稳定注释 tag，预发行继续手动处理。手动恢复在 `main` 选择 `publish=true`，提供已核原 `build_run_id`、`source_commit`、`build_transport_sha256`；`ci_run_id` 可空，提供时必须真实成功且同源。原件缺失先回原生产入口，失败/UNKNOWN 先对账原 run 与 Release，不重打或移动 tag、不覆盖原件。新 workflow 必须先进入目标 tag 的源码及 main，仓库 Actions 策略须允许所声明权限；真实 tag→dispatch→Release 仍须实际核验。
+旧 `dispatch-tag` 已退役；tag 不再选择旧候选或另行派发第二个 run。手动 `workflow_dispatch` 制包及 main 上 `publish=true` 独立恢复保留原准入：原生产 run 必须同仓、同源、属于本工作流的 workflow_dispatch 且完整成功，当前 attempt 的 producing job 已成功；提供原 `build_run_id`、`source_commit`、独立记录的 `build_transport_sha256`。可选 `ci_run_id` 必须是真实同源成功完整 CI；`run_tests=true` 缺结果即拒绝。失败/UNKNOWN 先对账原 run 与 Release，不移动 tag、不覆盖原件；历史失败 tag run 不冒充成功手动生产 run。
 
-Code tag job 仅在本仓运行，使用本次任务的短期 `GITHUB_TOKEN`（`contents:read`、`actions:write`）派发本仓 main；main 发布 job 仍以其短期 `contents:write` token 写 GitHub Release，不需要本地长期发布 token。GitHub 对 `workflow_dispatch` 允许该 token 触发后续工作流，见[原生 token 合同](https://docs.github.com/en/actions/concepts/security/github_token)。这与 Web Core 的 npm Trusted Publishing／OIDC 是不同渠道：Core tag 工作流向 npm 换取短期发行身份，Code 只消费已发行 Core 并写 GitHub Release，不改 npm 凭据或 Trusted Publisher。开发机的 `peanut release` 仍只生成本地双版包。CLI 可选的 `github-ci` Recipe 管理下游应用自己的 CI 配置与版本，采用它不会发布上游脚手架。
+工作流全局权限仍为 `contents:read`，仅 publish job 使用短期 `contents:write` 与 `actions:read`；不再需要 `actions:write` 派发权限。仓库 Actions 策略须允许这些既有权限。新机制须先进入目标 main 及 tag 源码；真实 tag → Release 成功仍需正式发行时实际核验。发行不构建/部署生产实例，不自动升级消费者；公开渠道首装后验另行安排。
 
 ## 数据库维护输入
 
@@ -176,11 +176,11 @@ CI 的 `scaffold-release.yml` 可显式选 `publish=false, pack_only=true` 并�
 
 在既有 `scaffold-release.yml` 生产入口选择 `run_tests=false`（默认），只执行原模板生产及原生 CLI 创建；显式 `true` 时先复用同一源码的 `ci.yml` 完整检查，成功后才生产模板。失败、取消或缺失结果均阻断本次生产，不回退不测；本地开发测试政策不随此参数改变。该 reusable 调用保留原完整 CI 的检查和 summary，不新建测试流程；完整测试内部的检查制品与正式模板原件分别负责各自合同，不能宣称完整测试不会生成任何检查制品。
 
-在 `main` 的同一工作流选择 `publish=true`，提供 `build_run_id`、`source_commit` 和 `build_transport_sha256`。发布先识别原生产 run 内的 `Full CI / CI summary` 成功结果，亦可通过 `ci_run_id` 指定独立同源成功 `ci.yml`；`run_tests=true` 时缺少成功完整 CI 即拒绝，发布阶段不补跑测试。tag 自动入口将原生产 run 的完整 CI 结果和要求交给 main 发布器；手动入口不能将原生产 run 已有的测试结果改写为 NOT_RUN。工作流核生产与验证 run 的实际 workflow/event/source/result，发布清单记录必需性、实际 run 和结果，缺省不制造测试 PASS。只接受生产 run 中唯一未过期的 `scaffold-template-qualification-<source>-<run>-<attempt>`。`verify-qualified-release-transport.py` 核原 tar SHA、安全路径和普通成员、生产者源码、candidate-stage、两版 CLI 创建 manifest 及原模板字节。它不执行运输包中的脚本，不要求 full8 summary，也不另造运输格式。pack-only 身份包不能进入发布。
+main 上 `publish=true` 的独立手动恢复按上文核原 run，并识别其当前 attempt 内 `Full CI / CI summary` 的完整成功结果，亦可通过 `ci_run_id` 指定独立同源成功 `ci.yml`；手动输入不能将原生产要求改写为 NOT_RUN。tag 自动路径只消费当前 templates job，默认完整 CI 未执行，不将当前进行中的 run 填为 CI run ID。发布清单记录实际必需性、run 和结果，不制造测试 PASS。`verify-qualified-release-transport.py` 核独立 transport SHA、安全路径和普通成员、生产者源码、candidate-stage、两版 CLI 创建 manifest 及原模板字节，不执行运输包中的脚本，不要求 full8 summary，不另造运输格式。pack-only 身份包不能进入发布。
 
-稳定模式接受 `X.Y.Z`、注释 tag `vX.Y.Z` 并标记 latest；显式预发行模式只接受严格预发行 SemVer，永不标 latest。本地 `--prepare-only` 只准备文件；正式写入仍限定本仓 main 的唯一工作流。既有正式 Release 不覆盖，失败或 UNKNOWN 先对账同一实际对象，不自动重新上传、重建或删除他人附件。
+稳定模式接受 `X.Y.Z`、注释 tag `vX.Y.Z` 并标记 latest；显式预发行模式只接受严格预发行 SemVer，永不标 latest。本地 `--prepare-only` 只准备文件；正式写入限定本仓 `scaffold-release.yml` 的 main dispatch 或精确匹配当前 tag 的 push 工作流，执行 checkout 必须是实时 main。既有正式 Release 不覆盖，失败或 UNKNOWN 先对账同一实际对象，不自动重新上传、重建或删除他人附件。
 
-原始模板、tag、候选锁及发布清单的产品来源绑定源码 S。运输验证器从 S 的 Git 原件读取 tree、版本、inventory 和生产者摘要，不用执行工具 checkout 的字节替代历史生产输入。实际远端 main 必须等于 S，或包含同仓真实已合并 dev → main PR 的正常合并提交 M：M 的精确父序列为 `[B,S]`，B 是 S 祖先；若 B 为双亲合并且与其第二亲 P 完全同树，则也接受 P 是 S 祖先作为产品基线已包含的证明；M 与 S 同树，并核唯一 PR、merged 状态、仓库和分支身份。发布工具可以在 M 之后正常集成；其执行 HEAD 必须是实时 main，工具 commit/tree 与产品来源 S 在外部清单和现有 `MAIN_INTEGRATION_PROOF.json` 分开记录，不把后续工具修正标作 S 的内容。发布器以真实 Git/GitHub 状态核对，并在对外写入前重核远端 main/tag，保留漂移拒绝、平台权限和实际发布授权。
+原始模板、tag、候选锁及发布清单的产品来源绑定源码 S。运输验证器从 S 的 Git 原件读取 tree、版本、inventory 和生产者摘要，不用执行工具 checkout 的字节替代历史生产输入。tag push 路径要求实际远端 main 等于 S；手动恢复继续允许 main 包含同仓真实已合并 dev → main PR 的正常合并提交 M：M 的精确父序列为 `[B,S]`，B 是 S 祖先；若 B 为双亲合并且与其第二亲 P 完全同树，则也接受 P 是 S 祖先作为产品基线已包含的证明；M 与 S 同树，并核唯一 PR、merged 状态、仓库和分支身份。手动恢复的发布工具可以在 M 之后正常集成；其执行 HEAD 必须是实时 main，工具 commit/tree 与产品来源 S 在外部清单和现有 `MAIN_INTEGRATION_PROOF.json` 分开记录，不把后续工具修正标作 S 的内容。发布器以真实 Git/GitHub 状态核对，并在对外写入前重核远端 main/tag，保留漂移拒绝、平台权限和实际发布授权。
 
 发布说明与清单明确实际有限验收及 full8 未执行范围，原 FAIL/预算保留。公开渠道首装后验是发行后的独立阶段，本轮发行不自动启动：后续安排时用默认 `peanut create`，不指定 ref 或本地 archive，分别创建 ST/MT，再按自身登记首装、启动、真实浏览器登录和基本业务确认。其结果不能由候选 CLI 创建、源码健康或已有 APP 结果替代；也不因后验而重新生产已发布原件或批量升级既有应用。
 
