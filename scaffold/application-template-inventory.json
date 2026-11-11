@@ -2803,6 +2803,19 @@
             ]
         },
         {
+            "path": "scripts/consumers/thin-scaffold-check.php",
+            "target": "scripts/consumers/thin-scaffold-check.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "scripts/continue-product-release",
             "target": "scripts/continue-product-release",
             "classification": "excluded",
@@ -21558,19 +21571,6 @@
         {
             "path": "server/tests/Productization/ServerUpdatePlanTest.php",
             "target": "server/tests/Productization/ServerUpdatePlanTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Productization/ThinScaffoldTest.php",
-            "target": "server/tests/Productization/ThinScaffoldTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

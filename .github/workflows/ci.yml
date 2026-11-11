@@ -149,6 +149,18 @@ jobs:
         run: php scripts/build-application-template-inventory --check
       - name: Verify create-app contract
         run: php server/tests/Productization/CreateApplicationTest.php
+      - name: Verify a clean installed thin MT consumer
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          consumer="$RUNNER_TEMP/peanut-ci-thin-mt-$GITHUB_RUN_ID"
+          test ! -e "$consumer"
+          php scripts/create-app \
+            --name="CI Thin MT" --slug=ci-thin-mt --package=ci/thin-mt \
+            --edition=multi-tenant --profile=standard --target="$consumer"
+          composer --working-dir="$consumer/server" install \
+            --no-dev --no-interaction --prefer-dist --no-progress --no-scripts --no-plugins
+          php scripts/consumers/thin-scaffold-check.php "$consumer"
 
   php:
     name: PHP 8.3

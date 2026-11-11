@@ -2,11 +2,16 @@
 
 declare(strict_types=1);
 
-// Inspect a real, uninstalled CLI staged consumer after its own Composer install.
+// Explicit consumer acceptance. A clean Code checkout is NOT an installed application.
+// The CI Create app job first creates the MT app and installs its exact Composer lock.
 // No database or alternate fixture source is used.
-$root = realpath($argv[1] ?? '');
-if ($root === false || !is_file($root . '/server/vendor/autoload.php')) {
-    throw new RuntimeException('Usage: php ThinScaffoldTest.php /absolute/staged-application');
+if (count($argv) !== 2 || !is_string($argv[1]) || !str_starts_with($argv[1], '/')) {
+    throw new RuntimeException('Usage: php scripts/consumers/thin-scaffold-check.php /absolute/staged-mt-application');
+}
+$root = realpath($argv[1]);
+if ($root === false || !is_file($root . '/.peanut/application-manifest.json')
+    || !is_file($root . '/server/vendor/autoload.php')) {
+    throw new RuntimeException('Staged MT consumer and its own locked Composer installation are required');
 }
 $assertions = 0;
 $expect = static function (bool $value, string $message) use (&$assertions): void {
