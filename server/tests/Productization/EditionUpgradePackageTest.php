@@ -320,6 +320,9 @@ try {
         'scripts/scaffold-upgrade' => "<?php // new cli\n",
         'scripts/scaffold-runtime/EditionUpgradePackage.php' => "<?php // new loader\n",
         'server/database/migrations/20260830-edition-upgrade.sql' => "SELECT 1;\n",
+        // The isolated upgrade fixture now exercises the same fail-closed customer
+        // Module Kernel compatibility check as a real thin Host release.
+        'server/config/modules.php' => "<?php\nreturn ['kernel_version' => (string) env('PEANUT_MODULE_KERNEL_VERSION', '1.0.0')];\n",
         'modules.lock' => json_encode(['schema_version' => 1, 'modules' => []], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n",
     ];
     $targetFiles = [];
@@ -624,6 +627,12 @@ function editionAdoptionFixture(string $temporary, string $edition, bool $custom
     editionUpgradeFile($project . '/modules.lock', $emptyModuleLock);
     editionUpgradeFile($project . '/.peanut/scaffold-baseline/3.0.14/files/modules.lock', $emptyModuleLock);
     editionUpgradeFile($package . '/target/files/modules.lock', $emptyModuleLock);
+    // The thin-host upgrade preflight must resolve the target Kernel version
+    // even for an empty Module graph. Keep the synthetic fixture complete.
+    $targetKernelConfig = "<?php
+return ['kernel_version' => (string) env('PEANUT_MODULE_KERNEL_VERSION', '1.0.0')];
+";
+    editionUpgradeFile($package . '/target/files/server/config/modules.php', $targetKernelConfig);
     $applicationFiles = [];
     foreach (editionUpgradeSourceRoot($project) as $path => $contents) {
         $applicationFiles[] = [
@@ -676,6 +685,11 @@ function editionAdoptionFixture(string $temporary, string $edition, bool $custom
         'path' => 'modules.lock', 'source' => 'files/modules.lock',
         'template_sha256' => hash('sha256', $emptyModuleLock), 'classification' => 'managed',
         'transform' => 'tokens', 'mode' => 0644, 'policy' => 'managed', 'owner' => 'host',
+    ];
+    $targetFiles[] = [
+        'path' => 'server/config/modules.php', 'source' => 'files/server/config/modules.php',
+        'template_sha256' => hash('sha256', $targetKernelConfig), 'classification' => 'managed',
+        'transform' => 'tokens', 'mode' => 0644, 'policy' => 'managed', 'owner' => 'backend',
     ];
     usort($applicationFiles, static fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
     usort($targetFiles, static fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
