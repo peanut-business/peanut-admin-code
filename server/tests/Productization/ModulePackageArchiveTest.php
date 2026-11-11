@@ -615,6 +615,9 @@ PHP);
     // All other classes and locked third-party dependencies use the existing Composer loader.
     mkdir($boundaryRoot . '/server/app/command', 0700, true);
     mkdir($boundaryRoot . '/server/vendor', 0700, true);
+    mkdir($boundaryRoot . '/server/vendor/topthink/framework/src', 0700, true);
+    file_put_contents($boundaryRoot . '/server/vendor/topthink/framework/src/helper.php', '<?php require_once '
+        . var_export($serverRoot . '/vendor/topthink/framework/src/helper.php', true) . ";\n");
     mkdir($boundaryRoot . '/server/config', 0700, true);
     foreach (['module', 'app/AppService.php', 'app/service.php', 'app/provider.php', 'app/command/ModuleAdoptPackage.php',
         'config/app.php', 'config/cache.php', 'config/database.php', 'config/peanut.php', 'config/deployment.php',
@@ -626,7 +629,9 @@ PHP);
         . '$loader->addClassMap(' . var_export([
             'app\\AppService' => $boundaryRoot . '/server/app/AppService.php',
             'app\\command\\ModuleAdoptPackage' => $boundaryRoot . '/server/app/command/ModuleAdoptPackage.php',
-        ], true) . ");\nreturn \$loader;\n");
+        ], true) . ");\nspl_autoload_register(static function (string \$class): void {\n"
+        . "    if (\$class === 'app\\\\AppService') { throw new \\RuntimeException('SOURCE_ADOPTION_RUNTIME_BOOTED'); }\n"
+        . "}, true, true);\nreturn \$loader;\n");
     file_put_contents($boundaryRoot . '/server/.env', "APP_ENV=development\nAPP_DEBUG=true\nDEPLOYMENT_MODE=multi-tenant\n");
     chmod($boundaryRoot . '/server/.env', 0600);
     $compilePath = $boundaryRoot . '/compile.php';
@@ -762,6 +767,26 @@ PHP);
         'Native unexported contract adoption failed: ' . $output);
     echo "BUG-01 native unexported adopt exit={$exit} sha256={$unexportedPackage['sha256']} version=1.2.0 reconciliation=pending\n";
     $expectBoundaryFailure('MODULE_CONTRACT_MISSING');
+    $bridgeEnvironment = $boundaryRoot . '/server/.env';
+    $bridgeEnvironmentBytes = (string) file_get_contents($bridgeEnvironment);
+    $bridgeLock = (string) file_get_contents($boundaryRoot . '/modules.lock');
+    $bridgeArguments = [$unexportedArchive, '--sha256=' . $unexportedPackage['sha256'], '--official-key=official.delivery-record'];
+    try {
+        chmod($bridgeEnvironment, 0644);
+        [$exit, $output] = $runBoundary(true, $bridgeArguments);
+        modulePackageExpect($exit !== 0 && str_contains($output, 'MODULE_RECOVERY_BACKEND_ENVIRONMENT_INVALID'),
+            'Source adoption accepted an insecure environment file: ' . $output);
+        chmod($bridgeEnvironment, 0600);
+        file_put_contents($bridgeEnvironment, "APP_ENV=production\nDEPLOYMENT_MODE=multi-tenant\n");
+        [$exit, $output] = $runBoundary(true, $bridgeArguments);
+        modulePackageExpect($exit !== 0 && str_contains($output, 'MODULE_SOURCE_ADOPTION_DISABLED'),
+            'Source adoption accepted a production instance: ' . $output);
+        modulePackageExpect(file_get_contents($boundaryRoot . '/modules.lock') === $bridgeLock,
+            'Rejected source adoption changed the Module lock');
+    } finally {
+        chmod($bridgeEnvironment, 0600);
+        file_put_contents($bridgeEnvironment, $bridgeEnvironmentBytes);
+    }
     if (!$archiveOnly) {
         // An incomplete source must still expose the development recovery CLI while ordinary boot fails closed.
         $bootJournal = $projectRoot . '/.local/module-source-adoption/journal.json';

@@ -570,7 +570,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ff4cdb552eb2036ac31b3cb8390ee8aee4d2b36e80f1e34098b81fc773f02bdf"
+            "source_sha256": "2d61087408d72f215b89e8042ea45c8f14b8498b3203ee57d3f8cf2d87d4a9c7"
         },
         {
             "path": "docs/architecture/cli-and-recipes.md",
@@ -697,6 +697,19 @@
                 "full"
             ],
             "source_sha256": "e94b097de7846aa259fd14b041b73cc5c4589bcebbe45006d7b525c3540e3818"
+        },
+        {
+            "path": "docs/architecture/module-composition.md",
+            "target": "docs/architecture/module-composition.md",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
         },
         {
             "path": "docs/architecture/module-development-delivery.md",
@@ -1095,7 +1108,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "99c035e0f13183605eada1d24348158a933da090456ec3b7a095ea39d477615c"
+            "source_sha256": "cd8119d8df0e90d959c40d8f3ec00e6053c3d2a98c9005ef36db009d7ed6c4ef"
         },
         {
             "path": "docs/public/release-channels.md",
@@ -3488,7 +3501,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "35a2e4b8349356c3680d23d663c1537d2203baa28590edb7aad16b86a29fb94d"
+            "source_sha256": "8c1f98eb510aa3bdd4edf280742ed5d56b9274fc188c10366b6c69342ce1cc5b"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -5845,7 +5858,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "08ea36141cb1ac0e952bff10d68d67904358cb91789094ad22939f1a0f1c5757"
+            "source_sha256": "3be3e4a95f83e9ce7ee6bed91d0ab9f2ee45e7ccc074334a713b1727e3f820a9"
         },
         {
             "path": "server/app/command/ModuleLock.php",
@@ -5915,7 +5928,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "13e152ed9f2812a0cc9a809887f22170281d3c282eed437e21bb1635d8e4f7e1"
+            "source_sha256": "80482a0a41e2830bd7a8ff1860271c924140ef0ad1f81d6fd46efc5fb11bbb17"
         },
         {
             "path": "server/app/command/ModuleReleaseComposition.php",
@@ -6153,7 +6166,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0783b0efeacb4289b078c5944887c751710078c8a6fd5958a9a15a0090f7bb28"
+            "source_sha256": "9974ceb3bbedc428bb532ce469b3941e845efcefd63231a360a2b043ac1d4866"
         },
         {
             "path": "server/app/common/composition/ModuleConsoleCommands.php",
@@ -7779,7 +7792,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "956825e8c17dffdcc7c5c77365dcc2da140b849e36f16a7837266728533dcf54"
+            "source_sha256": "9ff263ee625760e9eca111f256ed859e3beba20a35b5ad6037e06f954ac07045"
         },
         {
             "path": "server/app/common/module/ModuleMigrationRun.php",
@@ -7821,7 +7834,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dad155d590d3c2c8415eafbb544a1be4690a02fc9ecae0ee12aff72d42f1be6e"
+            "source_sha256": "ec4f67e20b2b924118927fd24ac1d720d65055d8718917602b84b0413e15b193"
         },
         {
             "path": "server/app/common/persistence/AdvisoryLockExecution.php",
@@ -8130,7 +8143,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "467c63f696a25b2e2b85eaeded7e641d95ba242646e2d117cb158bd04d4dabcd"
+            "source_sha256": "d551aed39aa35774e7ae0db0295b2f97e1a9f8e2f4568489a15882291415aaeb"
         },
         {
             "path": "server/app/common/services/installation/InstallationPreflightHost.php",
@@ -16775,7 +16788,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "146f96615b16f0b953ad4cb476c1804d4d8d877bbc03cde26cebcb38ff87f264"
+            "source_sha256": "8da703a6c75e9e2f5f53dae7b80e72980c638dabccf301816a8f437e9652e884"
         },
         {
             "path": "server/app/platform/infrastructure/module/ModulePackageInstaller.php",
@@ -16789,7 +16802,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f6b0dd44367f6f57c43475d41dc4d9fe12b24764b156976b2b4305ec9b404d00"
+            "source_sha256": "8e6e6d6cfcc96f1edff6ea7957d08f9e1ac5afe6f9c197d65aa5fcc10fb280fe"
         },
         {
             "path": "server/app/platform/infrastructure/module/ModulePackageSourcePromoter.php",
@@ -17153,7 +17166,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e763881be65b9e8d4f451c387dfc73b1acb7d4bbd75014e92a8bcfcb9aaa46fe"
+            "source_sha256": "1c8b7fa693ad20bfa0c9a8d328498d7a271da68c90b66221f8bd7c030541a47c"
         },
         {
             "path": "server/app/platform/services/module/ModuleQualificationQueryService.php",
@@ -17195,7 +17208,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "86b7a5bf57a4638b194b1efad97025bf7980b6dcf0f4693f5c52bc989483f0c9"
+            "source_sha256": "4680b7e162b153ed7b9df89b5dbf605c0ec9b55710c225d72838a982b585ef36"
         },
         {
             "path": "server/app/platform/services/provider/PlatformProviderQualificationService.php",
@@ -17688,6 +17701,20 @@
             "source_sha256": "8177c782d11ec3c1df6365c55a9e10fc60f9d7a6543fec2ae34fdbe0d1cd2503"
         },
         {
+            "path": "server/config/module_composition.json",
+            "target": "server/config/module_composition.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "621b8dcf81f612117d313462c496dfb81adcd428025a9f50b9e5aa905d6ccb5c"
+        },
+        {
             "path": "server/config/module_packages.php",
             "target": "server/config/module_packages.php",
             "classification": "managed",
@@ -17867,7 +17894,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "456e1c3cc4281155c0ae276fee9a5aea5834060725d1f6b1b6b8a4fedc70f1a5"
+            "source_sha256": "2adb871d6dbfd6c4f5242c0ad1528afd21e8e5d609c3962c61ab54f8aaa8db7a"
         },
         {
             "path": "server/database/WorkbenchDemoData.php",
@@ -17909,7 +17936,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d8fb2847344427750d88cc792a2446cac408c7398d9753cc6b72670811f1b706"
+            "source_sha256": "7199abbd896b85c0d69ee06ae0aa03f3de6399363e190d9f2adaab5160edc727"
         },
         {
             "path": "server/database/installation/20261101020000_initial_scaffold_baseline.php",
@@ -19349,7 +19376,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "53eeccfd02e17fb98b01288da8be1032572fad5196a5bb5b63d65909eff9fd24"
+            "source_sha256": "c93bf8bf54f2ea49e63d00df97ef0465569116a0a9d61578abdcbd0e3824acb2"
         },
         {
             "path": "server/public/.htaccess",
@@ -21466,7 +21493,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3cd060d84bf69de727e6f3b51de3b5298c74ba044b1fbdb9e313ef8d97b9e94c"
+            "source_sha256": "a7a39b3c2dec4cee22db8d2977676b024ccfc609fd605e74afebe92ada8cb3d6"
         },
         {
             "path": "server/tests/Productization/InstallRuntimePermissionsLinuxTest.sh",
@@ -21653,6 +21680,19 @@
         {
             "path": "server/tests/Productization/ModuleIdentityTest.php",
             "target": "server/tests/Productization/ModuleIdentityTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/ModuleInstallPackageDryRunTest.php",
+            "target": "server/tests/Productization/ModuleInstallPackageDryRunTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -21859,6 +21899,19 @@
             ]
         },
         {
+            "path": "server/tests/Productization/OptionalTaskCompositionTest.php",
+            "target": "server/tests/Productization/OptionalTaskCompositionTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Productization/OutboundHttpTransportObservabilityTest.php",
             "target": "server/tests/Productization/OutboundHttpTransportObservabilityTest.php",
             "classification": "excluded",
@@ -21978,6 +22031,19 @@
         {
             "path": "server/tests/Productization/Scaffold2xUpgradeQualificationTest.php",
             "target": "server/tests/Productization/Scaffold2xUpgradeQualificationTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/ScaffoldNewerBundledModuleRetentionTest.php",
+            "target": "server/tests/Productization/ScaffoldNewerBundledModuleRetentionTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

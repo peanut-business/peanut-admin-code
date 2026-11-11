@@ -14,7 +14,8 @@ final class EditionProjector
     /** Project the same default Module set before Plugin lock and API generation. */
     public function modules(string $stage, array $files): array
     {
-        $database = \InitialInstallationSource::project($stage . '/server', \InitialInstallationSource::MODULES);
+        $selected = \InitialInstallationSource::modules($stage . '/server');
+        $database = \InitialInstallationSource::project($stage . '/server', $selected);
         $result = [];
         foreach ($files as $file) {
             $path = $file['path'];
@@ -27,7 +28,7 @@ final class EditionProjector
                 $module = $match[1];
             }
             $absolute = $stage . '/' . $path;
-            if ($module !== null && !in_array('peanut.' . $module, \InitialInstallationSource::MODULES, true)) {
+            if ($module !== null && !in_array('peanut.' . $module, $selected, true)) {
                 if (!unlink($absolute)) {
                     throw new RuntimeException('CREATE_APP_MODULE_REMOVE_FAILED: ' . $path);
                 }
@@ -41,7 +42,7 @@ final class EditionProjector
                 $composer = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
                 foreach ($composer['autoload']['psr-4'] as $namespace => $directory) {
                     if (is_string($directory) && preg_match('#^app/modules/peanut/([^/]+)/#', $directory, $match) === 1
-                        && !in_array('peanut.' . str_replace('_', '-', $match[1]), \InitialInstallationSource::MODULES, true)) {
+                        && !in_array('peanut.' . str_replace('_', '-', $match[1]), $selected, true)) {
                         unset($composer['autoload']['psr-4'][$namespace]);
                     }
                 }

@@ -1279,6 +1279,7 @@ final class ApplicationCreator
         }
         $bundled = [];
         $keys = [];
+        $selected = \InitialInstallationSource::modules($this->sourceRoot . '/server');
         foreach ($source['modules'] as $plugin) {
             $key = is_array($plugin) ? ($plugin['key'] ?? null) : null;
             if (!is_string($key) || $key === '') {
@@ -1286,7 +1287,7 @@ final class ApplicationCreator
             }
             // Static API collection needs the selected roots before final canonicalization.
             if (str_starts_with($key, 'fixture.')
-                || !in_array($key, \InitialInstallationSource::MODULES, true)) {
+                || !in_array($key, $selected, true)) {
                 continue;
             }
             if (isset($keys[$key])) {
