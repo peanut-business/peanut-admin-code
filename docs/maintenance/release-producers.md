@@ -6,7 +6,7 @@
 
 Code 正常发行（稳定版及 RC）从准备好版本的受保护 main 开始：推送指向当前 main 原 commit S 的 annotated tag，由同一次 `scaffold-release.yml` 自动生产并发布。开发收敛、本地必要运行确认和按需测试在定版前完成；本地包、dirty 快照、pack-only identity 包和内部 Core 候选不能冒充正式模板，不上传为正式发行输入。普通分支推送不自动 CI 或制包。
 
-tag run 的 `templates` job 各生产一次 ST、MT 模板，直接复用原生固定源码、manifest、锁、模块和独立 CLI 候选检查，不接业务数据库，不构建生产实例。无 tag inputs 时固定使用 `workflow=runtime`、`candidate_cli_commit=55c14dd12ef1d40f00af0fb0516aceaaf12412b1`、`run_tests=false`。完整应用 CI 仅通过既有 `workflow_dispatch run_tests=true` 显式选择，复用 `ci.yml`，失败、取消或缺失成功结果均阻断相应生产或发布；未执行不声明 PASS。该参数不改变本地开发测试政策。
+tag run 的 `templates` job 各生产一次 ST、MT 模板，直接复用原生固定源码、manifest、锁、模块和独立 CLI 候选检查，不接业务数据库，不构建生产实例。无 tag inputs 时固定使用 `workflow=runtime`、`candidate_cli_commit=c47ceecf539e817cf023177bb2bcba5f0f16d4a6`、`run_tests=false`。完整应用 CI 仅通过既有 `workflow_dispatch run_tests=true` 显式选择，复用 `ci.yml`，失败、取消或缺失成功结果均阻断相应生产或发布；未执行不声明 PASS。该参数不改变本地开发测试政策。
 
 两 Core 的 `ci.yml mode=production` 生产正式包并检查原生消费者，`mode=qualification` 保留完整测试，二者不要求先后各跑一次。Core tag 工作流读取各自 `CORE_QUALIFICATION_RUN_ID` 指向的成功 CI 原件，不重建、不重测；不因 Code 发行工具修改重发未变化 Core。
 

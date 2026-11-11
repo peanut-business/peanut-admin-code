@@ -42,7 +42,7 @@ class TemplateStageTest(unittest.TestCase):
         self.candidate, self.tree = self.git("rev-parse", "HEAD"), self.git("rev-parse", "HEAD^{tree}")
         self.cli = self.root / "cli"
         (self.cli / "bin").mkdir(parents=True)
-        (self.cli / "package.json").write_text('{"name":"@peanut/cli"}\n')
+        (self.cli / "package.json").write_text('{"name":"@peanut-admin/cli"}\n')
         (self.cli / "bin/peanut.js").write_text("// synthetic independent CLI identity\n")
         self.commit_fixture(self.cli)
         subprocess.run(["git", "-C", str(self.cli), "remote", "add", "origin",

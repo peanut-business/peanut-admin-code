@@ -633,7 +633,7 @@ def candidate_inputs(value: dict[str, Any], candidate: str, tree: str) -> dict[s
         "git@github.com:peanut-business/peanut-cli.git", "https://github.com/peanut-business/peanut-cli.git",
         "https://github.com/peanut-business/peanut-cli"):
         fail("independent CLI source repository differs")
-    if read_json(cli_root / "package.json").get("name") != "@peanut/cli":
+    if read_json(cli_root / "package.json").get("name") != "@peanut-admin/cli":
         fail("independent CLI package identity differs")
     entry = canonical(str(cli_root / "bin/peanut.js"))
     cli = {**cli, "entry_sha256": sha256(entry)}

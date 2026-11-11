@@ -32,7 +32,7 @@ on:
       candidate_cli_commit:
         description: Exact independent peanut-cli source commit for the no-DB candidate contract
         type: string
-        default: 55c14dd12ef1d40f00af0fb0516aceaaf12412b1
+        default: c47ceecf539e817cf023177bb2bcba5f0f16d4a6
       build_run_id:
         description: Successful same-repository candidate run with both Edition templates and native CLI creation
         type: string
@@ -129,7 +129,7 @@ jobs:
       - name: Require a fixed independent CLI source
         if: ${{ !inputs.pack_only }}
         env:
-          CLI_COMMIT: ${{ inputs.candidate_cli_commit || '55c14dd12ef1d40f00af0fb0516aceaaf12412b1' }}
+          CLI_COMMIT: ${{ inputs.candidate_cli_commit || 'c47ceecf539e817cf023177bb2bcba5f0f16d4a6' }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -138,7 +138,7 @@ jobs:
         if: ${{ !inputs.pack_only }}
         with:
           repository: peanut-business/peanut-cli
-          ref: ${{ inputs.candidate_cli_commit || '55c14dd12ef1d40f00af0fb0516aceaaf12412b1' }}
+          ref: ${{ inputs.candidate_cli_commit || 'c47ceecf539e817cf023177bb2bcba5f0f16d4a6' }}
           path: .local/qualification-cli
           fetch-depth: 0
           persist-credentials: false
@@ -173,7 +173,7 @@ jobs:
         if: ${{ !inputs.pack_only }}
         shell: bash
         env:
-          CLI_COMMIT: ${{ inputs.candidate_cli_commit || '55c14dd12ef1d40f00af0fb0516aceaaf12412b1' }}
+          CLI_COMMIT: ${{ inputs.candidate_cli_commit || 'c47ceecf539e817cf023177bb2bcba5f0f16d4a6' }}
           RUN_TESTS: ${{ inputs.run_tests && 'true' || 'false' }}
         run: |
           scripts/ci-producer exec "$RUNNER_TEMP/ci-producer" -- bash -Eeuo pipefail -s -- "$RUN_TESTS" <<'PRODUCER'
