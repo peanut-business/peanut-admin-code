@@ -623,6 +623,7 @@ final class ApplicationCreator
         // Content digests cannot be rendered by replacing application identity tokens.
         // These artifacts are rebuilt from the individually verified final managed inputs.
         return $path === 'server/generated/api-catalog.json'
+            || $path === 'server/generated/openapi.json'
             || $path === 'modules.lock'
             || preg_match('#^plugins/[a-z][a-z0-9.-]*/plugin\.json$#D', $path) === 1;
     }
