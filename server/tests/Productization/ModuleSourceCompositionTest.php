@@ -99,6 +99,12 @@ try {
     compositionExpect($plan['plan']['roots'] === $expectedRoots, 'Plan lost selected roots');
     compositionExpect(count($plan['plan']['modules']) === count($keys), 'Closure is incomplete');
     compositionExpect($plan['plan']['dependency_order'] === $keys, 'Native dependency order differs');
+    compositionExpect($plan['plan']['host_composer_sha256'] === hash_file('sha256', $host . '/server/composer.json'),
+        'The reviewed plan must bind the consumer bootstrap manifest');
+    compositionExpect(!$plan['plan']['dependencies_installed']
+        && $plan['plan']['compatibility']['composer_npm'] === 'native-preparation-required'
+        && in_array('registry_compile', $plan['plan']['pending_actions'], true),
+        'Source admission must not claim dependency or compile qualification');
     compositionExpect(!file_exists($host . '/.local') && !file_exists($host . '/modules.lock'), 'Planning changed application files');
     compositionExpect($service->compose($request)['plan_sha256'] === $plan['plan_sha256'], 'Plan is not deterministic');
     $missing = $request;
@@ -106,6 +112,26 @@ try {
     compositionExpect(count($service->compose($missing)['plan']['diagnostics']) >= count($keys), 'Missing TARs were not reported together');
     compositionRejected(fn() => $service->compose($request, str_repeat('0', 64)), 'MODULE_COMPOSITION_PLAN_CHANGED');
     compositionExpect(!file_exists($host . '/modules.lock') && !file_exists($host . '/server/app/modules'), 'Rejected plan exposed sources');
+    $blocked = $service->compose($missing);
+    $blockedApply = $service->compose($missing, $blocked['plan_sha256']);
+    compositionExpect($blockedApply['plan']['status'] === 'blocked' && !isset($blockedApply['status']),
+        'Reviewing a blocked plan must not prepare an incomplete bootstrap graph');
+    compositionExpect(!file_exists($host . '/modules.lock') && !file_exists($host . '/server/app/modules')
+        && !file_exists($host . '/.local/module-source-adoption/journal.json'),
+        'A blocked bootstrap plan must not promote source, lock or a transaction');
+    $hostComposerPath = $host . '/server/composer.json';
+    $hostComposer = file_get_contents($hostComposerPath);
+    file_put_contents($hostComposerPath, $hostComposer . "\n");
+    try {
+        $changedHost = $service->compose($request);
+        compositionExpect($changedHost['plan']['status'] === 'ready' && $changedHost['plan_sha256'] !== $plan['plan_sha256'],
+            'Changing consumer bootstrap bytes must invalidate the reviewed plan');
+        compositionRejected(fn() => $service->compose($request, $plan['plan_sha256']), 'MODULE_COMPOSITION_PLAN_CHANGED');
+        compositionExpect(!file_exists($host . '/modules.lock') && !file_exists($host . '/server/app/modules'),
+            'A stale bootstrap review must leave the consumer sources untouched');
+    } finally {
+        file_put_contents($hostComposerPath, $hostComposer);
+    }
     $moduleMigration = array_values(array_filter($plan['plan']['migrations'], static fn(array $source): bool => $source['module_key'] !== null))[0];
     $moduleDirectory = $server . '/app/modules/' . str_replace(['.', '-'], ['/', '_'], $moduleMigration['module_key']);
     $collisionSource = glob($moduleDirectory . '/database/migrations/' . $moduleMigration['migration_key'] . '_*.php')[0];
