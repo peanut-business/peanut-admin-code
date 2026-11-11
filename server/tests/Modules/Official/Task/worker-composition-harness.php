@@ -82,12 +82,39 @@ final class FixtureWorkerProvider implements ModuleProvider, TaskWorkerContribut
     }
 }
 
+// Task is now optional: a worker-only Module must not construct Task's
+// registry until the Task Module itself is part of the compiled selection.
+final class FixtureTaskProvider implements ModuleProvider
+{
+    public function moduleKey(): string
+    {
+        return 'peanut.task';
+    }
+
+    public function bindings(): array
+    {
+        return [];
+    }
+}
+
+$fixture = ManifestDocument::fromObject('/fixture/worker', (object) [
+    'key' => 'fixture.worker',
+    'backend' => (object) ['provider' => FixtureWorkerProvider::class],
+]);
+$withoutTaskApp = new App(dirname(__DIR__, 4));
+(new ModuleComposition($withoutTaskApp))->register(new CompiledModuleRegistry([
+    $fixture,
+], [], [], [], 'without-task'));
+workerExpect(!$withoutTaskApp->bound(TaskWorkerDefinitionRegistry::class),
+    'optional Task worker registry was instantiated without its Task Module');
+
 $registry = new CompiledModuleRegistry([
-    ManifestDocument::fromObject('/fixture/worker', (object) [
-        'key' => 'fixture.worker',
-        'backend' => (object) ['provider' => FixtureWorkerProvider::class],
+    $fixture,
+    ManifestDocument::fromObject('/peanut/task', (object) [
+        'key' => 'peanut.task',
+        'backend' => (object) ['provider' => FixtureTaskProvider::class],
     ]),
-], [], [], [], 'test');
+], [], [], [], 'with-task');
 $app = new App(dirname(__DIR__, 4));
 (new ModuleComposition($app))->register($registry);
 $definitions = $app->make(TaskWorkerDefinitionRegistry::class)->resolve($app);
