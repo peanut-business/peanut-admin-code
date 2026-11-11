@@ -2,6 +2,11 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.10-rc.3] - 2026-11-11
+
+- Regenerate the API catalog and OpenAPI source using the existing native generator so `info.version` matches the fixed 5.1.10-rc.3 scaffold source and does not fail ST/MT creation.
+- Retain the verified PHP Core 5.1.0 field-protection API adoption from rc.2 with identical locked Core/Web and Module inputs. The immutable rc.2 Git tag did not produce a public Release because its prior generated OpenAPI source still declared rc.1; rc.3 corrects this release-input omission without weakening version checks or redoing full CI.
+
 ## [5.1.10-rc.2] - 2026-11-11
 
 - Adopt the publicly released PHP Core 5.1.0 and its tenant/resource/record/field-bound business-field protection API, using existing authorized operation contexts and fail-closed key rotation.
