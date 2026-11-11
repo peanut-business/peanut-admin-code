@@ -15,12 +15,18 @@ final class ModulePackageSourcePromoter
 
     public function __construct(string $serverRoot)
     {
-        $this->root = rtrim(dirname($serverRoot), '/');
-        if (!is_dir($serverRoot) || realpath($this->root) !== $this->root) {
-            throw new ModulePackageException('MODULE_PACKAGE_PATH_INVALID', 'Use the canonical application root.');
+        // Resolve the application's location, not the caller's spelling
+        // of it: macOS can expose the same tree as /var and /private/var.
+        $root = realpath(dirname($serverRoot));
+        $canonicalServer = realpath($serverRoot);
+        if ($root === false || $canonicalServer === false || !is_dir($canonicalServer)
+            || basename(rtrim($serverRoot, '/')) !== 'server'
+            || $canonicalServer !== rtrim($root, '/') . '/server' || is_link($serverRoot)) {
+            throw new ModulePackageException('MODULE_PACKAGE_PATH_INVALID', 'Use an existing application server directory.');
         }
+        $this->root = rtrim($root, '/');
         $this->assertPath($this->root);
-        $this->assertPath($serverRoot);
+        $this->assertPath($canonicalServer);
         $this->state = $this->root . '/.local/module-source-adoption';
         $this->assertPath($this->state);
         $this->assertPath($this->root . '/.local/module-staging');

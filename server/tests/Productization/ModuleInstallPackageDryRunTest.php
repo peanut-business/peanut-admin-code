@@ -114,6 +114,12 @@ try {
         $expect($plan['target']['archive_sha256'] === $sha && $plan['files'] !== [], 'Plan lost the audited identity');
         $expect($plan['runtime']['status'] === 'not-checked' && $snapshot($consumer) === $before && $database->calls === 0, 'Dry run changed application or accessed DB');
         $expect($installer->install($package, $sha, null, true) === $plan, 'Read-only plan is not repeatable');
+        // Equivalent relocated application paths must not depend on cwd or DB.
+        $alternate = new ModulePackageInstaller($consumer . '/../consumer/server', $config, [], $catalogs);
+        $expect($alternate->install($package, $sha, null, true) === $plan,
+            'Equivalent application-root spelling changed the source plan');
+        $expect($snapshot($consumer) === $before && $database->calls === 0,
+            'Alternate consumer path changed source or accessed the DB');
     }
     // Exercise the actual command, context and service dispatch. Unused runtime
     // collaborators deliberately remain uninitialized: planning must not touch them.
