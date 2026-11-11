@@ -70,6 +70,16 @@ Identity 升级若变更核心权限目录，升级完成后须在新的 CLI 进
 
 `peanut module install <archive> --sha256=<trusted-64-hex>`是已知Standalone / multi-tenant实例的本地开发或调试Runtime安装入口；它不创建租户、开通TenantModule或授予RBAC。确需签名时，打包同时提供`--signing-key-id`和`--signing-secret-key-file`，安装可显式要求`--signature-key-id`；既有签名不被无条件忽略。生产模块交付仍走该版本支持的受控入口，不允许普通租户自行上传和运行PHP。
 
+首次安装前可在应用的 `server` 目录执行原生只读预检：
+
+```sh
+php think module:install-package /absolute/module.tar --sha256=<trusted-64-hex> --dry-run
+```
+
+此入口沿用本地开发维护权限和实际安装器的归档、摘要、manifest、Edition、依赖图及源码校验，不要求应用数据库已经安装。解包使用进程临时目录并在成功或拒绝后清理，不创建模块源码、`modules.lock`、源码写锁、恢复 journal、运行目录或数据库记录，不同步目录、不执行 Provider、依赖安装或迁移。输出 JSON 固定归档/源码 SHA、模块版本与依赖顺序、目标文件清单、源码路径动作、锁当前摘要、迁移身份及 Kernel/Core 要求。缺依赖、错误 Edition、Kernel/Core/宿主能力不兼容、迁移来源冲突和未归属的不同目标内容均在产品状态写入前拒绝。安装执行在原有锁内重新使用相同源码预检规则，继续执行原生 Runtime 检查。
+
+`source-preflight-ready` 只证明源码预检：`runtime.status=not-checked` 明确保留安装表、依赖 active/disabled 状态、迁移账本和备份的执行期检查。已锁源码不等于已安装或 active；需要替换旧源码的安装恢复返回 `runtime-recovery-check-required`，仅既有 failed/installing 恢复规则可在执行时批准。普通已安装模块应使用原生升级入口。首次应用建库、准备依赖/前端/API、执行迁移、激活和租户授权仍由各原生入口分别承担。CLI 对该新预检参数的转发与线上模块选择需由相应 CLI 版本提供，不能用旧版 CLI 的升级失败替代安装计划。
+
 租户开通使用套餐与许可证：套餐包含已安装模块及明确权限组合，租户的唯一当前许可证引用套餐并记录期限和状态。平台通过 plans 和 tenants/license 管理，逐租户模块 enable/disable 接口与命令已退出。安装包不会自动改已有套餐或授予成员权限；升级许可证只改变可用上限。成员权限沿应用的角色、成员管理入口办理，并核对实际权限键及租户 Scope；平台 operators/roles/replace 是平台操作员角色入口，不等同租户成员授权。
 
 Standalone 实例的部署 owner（应用 server 目录的本地系统 owner 或 root）通过 Identity 包内原生 CLI 维护其唯一 default 租户现有 application-default 套餐：

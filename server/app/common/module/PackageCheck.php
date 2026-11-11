@@ -14,6 +14,9 @@ use PeanutAdmin\Kernel\Module\ManifestLoader;
 use PeanutAdmin\Kernel\Module\ManifestSchemaValidator;
 use PeanutAdmin\Kernel\Module\ModuleHostLayout;
 use PeanutAdmin\Kernel\Module\ModuleKey;
+use Composer\InstalledVersions;
+use Composer\Semver\Semver;
+use Composer\Semver\VersionParser;
 
 /** Validates package Module identity and all values derived from module.json. */
 final readonly class PackageCheck
@@ -247,6 +250,23 @@ final readonly class PackageCheck
     {
         if (!in_array($edition, self::editions($moduleRoot), true)) {
             throw new ModulePackageException('MODULE_EDITION_UNSUPPORTED', 'The Module does not support the selected application Edition.');
+        }
+    }
+
+    /** Native Composer metadata owns runtime requirement matching. @param array<string,string> $requirements */
+    public static function assertComposerRequirements(array $requirements): void
+    {
+        $parser = new VersionParser();
+        foreach ($requirements as $name => $range) {
+            $satisfied = match (true) {
+                $name === 'php' => Semver::satisfies(PHP_VERSION, $range),
+                str_starts_with($name, 'ext-') => extension_loaded(substr($name, 4)) && is_string(phpversion(substr($name, 4)))
+                    && Semver::satisfies(phpversion(substr($name, 4)), $range),
+                default => InstalledVersions::isInstalled($name) && InstalledVersions::satisfies($parser, $name, $range),
+            };
+            if (!$satisfied) {
+                throw new ModulePackageException('MODULE_RELEASE_PREPARATION_REQUIRED', "{$name} {$range} requires native dependency preparation through the deployment CLI.");
+            }
         }
     }
 
