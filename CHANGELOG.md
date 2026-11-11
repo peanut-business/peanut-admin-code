@@ -2,6 +2,13 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.10] - 2026-11-12
+
+- Release the locally verified thin Standalone and Multi-tenant scaffold with PHP Core and Web Core 5.1.0, keeping official Module author source in the Module delivery flow.
+- Correct consumer Module source-root resolution and reject symlink aliases; preserve immutable digest verification and native recovery rather than adding compatibility layers.
+- Complete local native first-install, protected HTTP session and tenant Host isolation acceptance, and the isolated MySQL Module lifecycle qualification; formal release and public consumer evidence are verified separately.
+- Keep CLI, official Modules and downstream business applications independently versioned; do not bundle or deploy those applications as part of this scaffold release.
+
 ## [5.1.10-rc.3] - 2026-11-11
 
 - Regenerate the API catalog and OpenAPI source using the existing native generator so `info.version` matches the fixed 5.1.10-rc.3 scaffold source and does not fail ST/MT creation.

@@ -70,10 +70,64 @@ final class InitialInstallationSource
             && is_file($root . '/release-versions.json');
     }
 
-    public const MODULES = [
-        'peanut.identity', 'peanut.file', 'peanut.settings', 'peanut.reference-codes',
-        'peanut.task', 'peanut.ops', 'peanut.content-tools', 'peanut.integration',
-    ];
+    /** Product selection owns roots only; Module manifests own their dependency edges. */
+    public static function composition(string $serverRoot): array
+    {
+        $composition = json_decode(self::read($serverRoot . '/config/module_composition.json'), true, 64, JSON_THROW_ON_ERROR);
+        if (!is_array($composition) || ($composition['schema_version'] ?? null) !== 1
+            || ($composition['protocol'] ?? null) !== 'peanut.application-module-composition.v1'
+            || !is_string($composition['version'] ?? null)
+            || preg_match('/^\d+\.\d+\.\d+$/D', $composition['version']) !== 1) {
+            throw new RuntimeException('INSTALL_MODULE_COMPOSITION_INVALID');
+        }
+        $seen = [];
+        foreach (['mandatory', 'default', 'optional'] as $selection) {
+            $keys = $composition[$selection] ?? null;
+            if (!is_array($keys) || !array_is_list($keys) || ($selection === 'mandatory' && $keys === [])) {
+                throw new RuntimeException('INSTALL_MODULE_COMPOSITION_INVALID');
+            }
+            foreach ($keys as $key) {
+                if (!is_string($key) || preg_match('/^peanut\.[a-z][a-z0-9-]*$/D', $key) !== 1 || isset($seen[$key])) {
+                    throw new RuntimeException('INSTALL_MODULE_COMPOSITION_INVALID');
+                }
+                $seen[$key] = true;
+            }
+        }
+        return $composition;
+    }
+
+    /** @return list<string> Dependency-first selection; this does not install or enable Modules. */
+    public static function modules(string $serverRoot, bool $includeDefaults = true): array
+    {
+        $composition = self::composition($serverRoot);
+        $pending = [...$composition['mandatory'], ...($includeDefaults ? $composition['default'] : [])];
+        $definitions = [];
+        $layout = \app\common\infrastructure\module\ModuleHostLayoutFactory::pathLayout();
+        $loader = new \PeanutAdmin\Kernel\Module\ManifestLoader();
+        while ($pending !== []) {
+            $key = array_pop($pending);
+            if (isset($definitions[$key])) {
+                continue;
+            }
+            $relative = $layout->backendRelativePath(\PeanutAdmin\Kernel\Module\ModuleKey::fromString($key));
+            $root = $serverRoot . '/' . substr($relative, strlen('server/'));
+            if (!is_file($root . '/module.json')) {
+                throw new RuntimeException('INSTALL_MODULE_SOURCE_MISSING: ' . $key);
+            }
+            $manifest = $loader->load($root)->data;
+            if ($manifest['key'] !== $key) {
+                throw new RuntimeException('INSTALL_MODULE_COMPOSITION_IDENTITY_MISMATCH: ' . $key);
+            }
+            $definitions[$key] = [
+                'version' => $manifest['version'],
+                'dependencies' => $manifest['dependencies'] ?? [],
+            ];
+            foreach ($definitions[$key]['dependencies'] as $dependency) {
+                $pending[] = $dependency['module_key'];
+            }
+        }
+        return (new \app\common\module\PackageCheck(dirname($serverRoot)))->dependencyOrder($definitions, []);
+    }
 
     // These legacy Host tables have no Module owner. Module tables come only from module.json.
     private const HOST_TABLES = [
@@ -154,7 +208,7 @@ final class InitialInstallationSource
                 }
             }
         }
-        return self::MODULES;
+        return self::modules($serverRoot);
     }
 
     private static function read(string $path): string

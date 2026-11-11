@@ -132,6 +132,15 @@ function publicIdentitySource(string $root, string $target, array $inventory): v
     }
     copy($editionSource, $target . '/scaffold/edition-profiles.json');
     publicIdentityWriteJson($target . '/scaffold/application-template-inventory.json', $inventory);
+    // The producer still validates its author-source Composer identities,
+    // while a thin generated application uses the separate bootstrap lock.
+    // Keep the two source-only files out of the shipped inventory.
+    foreach (['server/composer.json', 'server/composer.lock'] as $relative) {
+        publicIdentityExpect(is_file($root . '/' . $relative), 'source Composer input is missing');
+        if (!is_file($target . '/' . $relative)) {
+            copy($root . '/' . $relative, $target . '/' . $relative);
+        }
+    }
     symlink($root . '/server/vendor', $target . '/server/vendor');
     publicIdentityRun(['git', 'init', '--quiet', '--initial-branch=fixture'], $target);
     $origin = trim(publicIdentityRun(['git', 'remote', 'get-url', 'origin'], $root));
@@ -172,6 +181,7 @@ mkdir($temporary, 0700, true);
 try {
     $inventory = json_decode((string) file_get_contents($root . '/scaffold/application-template-inventory.json'), true, 512, JSON_THROW_ON_ERROR);
     $version = (string) $inventory['template_version'];
+    $releaseChannel = str_contains($version, '-') ? 'prerelease' : 'stable';
     $source = $temporary . '/source';
     publicIdentitySource($root, $source, $inventory);
 
@@ -211,7 +221,7 @@ try {
         'php', $source . '/scripts/create-app', '--name=Public Candidate', '--slug=public-candidate',
         '--package=fixture/public-candidate', '--target=' . $target, '--edition=multi-tenant', '--profile=full',
         '--scaffold-manifest=' . $releasePath, '--application-version=1.2.3',
-        '--source-channel=stable', '--release-version=' . $version,
+        '--source-channel=' . $releaseChannel, '--release-version=' . $version,
     ], $source), true, 512, JSON_THROW_ON_ERROR);
     $manifest = json_decode((string) file_get_contents($target . '/.peanut/application-manifest.json'), true, 512, JSON_THROW_ON_ERROR);
     publicIdentityCatalog($target);
@@ -239,7 +249,7 @@ try {
             'php', $source . '/scripts/create-app', '--name=Edition Consumer', '--slug=edition-consumer',
             '--package=fixture/edition-consumer', '--target=' . $editionTarget, '--edition=' . $edition,
             '--profile=full', '--scaffold-manifest=' . $releasePath,
-            '--source-channel=stable', '--release-version=' . $version,
+            '--source-channel=' . $releaseChannel, '--release-version=' . $version,
         ];
         $created = json_decode(publicIdentityRun($arguments, $source), true, 512, JSON_THROW_ON_ERROR);
         publicIdentityCatalog($editionTarget);

@@ -358,12 +358,16 @@ try {
         ($standardManifest['application']['profile'] ?? null) === 'standard',
         'ApplicationCreator must retain standard as the implicit profile',
     );
-    foreach (['platform/src/modules/peanut-ops/contribution.ts', 'server/route/platform.php'] as $requiredHostPath) {
+    foreach (['server/route/platform.php', 'server/config/module_composition.json'] as $requiredHostPath) {
         createApplicationExpect(
             is_file($standardTarget . '/' . $requiredHostPath),
-            'standard profile omitted a selected Module contribution or multi-tenant Host: ' . $requiredHostPath,
+            'standard profile omitted a required multi-tenant Host source: ' . $requiredHostPath,
         );
     }
+    createApplicationExpect(
+        !is_file($standardTarget . '/platform/src/modules/peanut-ops/contribution.ts'),
+        'thin application must adopt the Ops contribution from its independent Module Release',
+    );
     $creator = new ApplicationCreator($root, $inventoryPath, $identity, $releasePath, apiGeneratorPath: $installedApiGenerator);
     $first = $temporary . '/first';
     $second = $temporary . '/second';
@@ -516,19 +520,19 @@ try {
     $sourcePlugins = (new ModuleLockResolver($root . '/server', '../modules.lock'))->all();
     createApplicationExpect($sourcePlugins !== [], 'source fixture lock must resolve at least one fixture Plugin');
     $generatedLock = json_decode((string) file_get_contents($first . '/modules.lock'), true, 64, JSON_THROW_ON_ERROR);
-    $expectedOfficialPlugins = array_values(array_filter(
-        $sourcePlugins,
-        static fn(object $plugin): bool => $plugin->key !== 'fixture.delivery-record',
-    ));
+    // The source checkout may own a development lock, but a fresh thin Host has
+    // not accepted any Module source. Only the native reviewed adoption writes it.
     $generatedPlugins = (new ModuleLockResolver($first . '/server', '../modules.lock'))->all();
-    createApplicationExpect($expectedOfficialPlugins !== [], 'source lock must contain official Plugins');
     createApplicationExpect(
-        array_keys($generatedPlugins) === array_map(static fn(object $plugin): string => $plugin->key, $expectedOfficialPlugins),
-        'generated Plugin lock must contain every selected production Plugin and exclude the test fixture',
+        $generatedLock === ['schema_version' => 1, 'modules' => []] && $generatedPlugins === [],
+        'fresh thin application inherited bundled official or fixture Module identity',
     );
+    $composition = json_decode((string) file_get_contents($first . '/server/config/module_composition.json'), true, 32, JSON_THROW_ON_ERROR);
     createApplicationExpect(
-        !array_key_exists('fixture.delivery-record', $generatedPlugins),
-        'source-only fixture Plugin leaked into the generated Plugin lock',
+        $composition['protocol'] === 'peanut.application-module-composition.v1'
+            && in_array('peanut.identity', $composition['mandatory'], true)
+            && in_array('peanut.ops', $composition['mandatory'], true),
+        'thin Host lost the authoritative mandatory Module composition',
     );
     $generatedProductionDockerfile = (string) file_get_contents($first . '/deploy/docker/production.Dockerfile');
     // 检查真正的构建依赖顺序，不要求 COPY 与 RUN 相邻；环境选择文件也必须在构建前生成。
@@ -788,7 +792,11 @@ try {
     createApplicationExpect(!str_contains((string) file_get_contents($first . '/server/database/schema/baseline-schema.sql'), "MD5(CONCAT(MD5('admin123456')"), 'shared default password must be absent');
     createApplicationExpect((string) json_decode((string) file_get_contents($first . '/server/config/brand.json'), true)['website']['name'] === 'Acme Console', 'generated brand identity must be used');
     createApplicationExpect(is_file($first . '/server/config/peanut.php') && is_file($first . '/web/src/peanut.overrides.ts'), 'stable Host override entries must be preserved');
-    $sourceComposerLock = json_decode((string) file_get_contents($root . '/server/composer.lock'), true, 512, JSON_THROW_ON_ERROR);
+    // A fresh Host adopts the isolated bootstrap lock, not the author's Code
+    // checkout lock containing the eight official Module source packages.
+    $sourceComposerLock = json_decode((string) file_get_contents(
+        $root . '/server/resources/scaffold-application/composer.lock',
+    ), true, 512, JSON_THROW_ON_ERROR);
     foreach (createApplicationFiles($first) as $path) {
         $absolute = $first . '/' . $path;
         if (filesize($absolute) > 5_000_000) {
@@ -900,9 +908,9 @@ try {
         );
     }
     createApplicationExpect(
-        is_file($first . '/server/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php')
-            && is_file($first . '/server/app/modules/peanut/reference_codes/database/migrations/20261101010005_initial_reference_codes_schema.php'),
-        'generated APP must retain the selected Module schema migration sources',
+        !is_dir($first . '/server/app/modules/peanut/identity')
+            && !is_dir($first . '/server/app/modules/peanut/reference_codes'),
+        'thin Host must not ship official author migrations before reviewed Module adoption',
     );
 
     $builderTarget = $temporary . '/builder-identity';

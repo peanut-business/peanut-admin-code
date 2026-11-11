@@ -64,7 +64,11 @@ $root = dirname(__DIR__, 3);
 $creator = new ApplicationCreator($root, $root . '/scaffold/application-template-inventory.json');
 $parameters = ['PRODUCT_NAME' => 'Source Consumer', 'PACKAGE_IDENTITY' => 'consumer/application', 'SLUG' => 'source-consumer', 'APPLICATION_VERSION' => '0.1.0'];
 $transform = Closure::bind(
-    fn(string $content, string $path, string $kind): string => $this->transform($content, ['path' => $path, 'transform' => $kind], $parameters, $root),
+    fn(string $content, string $path, string $kind): string => $this->transform($content, [
+        'path' => $path,
+        'target' => $path === 'server/resources/scaffold-application/composer.json' ? 'server/composer.json' : $path,
+        'transform' => $kind,
+    ], $parameters, $root),
     $creator,
     ApplicationCreator::class,
 );
@@ -74,10 +78,18 @@ $renderedDocumentation = $transform($documentation, 'docs/public/release-channel
 preg_match_all('#https://github\.com/peanut-business/peanut-admin-code[^\s)]+#', $documentation, $sourceLinks);
 preg_match_all('#https://github\.com/peanut-business/peanut-admin-code[^\s)]+#', $renderedDocumentation, $renderedLinks);
 brandExpect(count($sourceLinks[0]) >= 2 && $renderedLinks[0] === $sourceLinks[0], 'generated documentation must retain actual upstream repository URLs');
-$sourceComposer = json_decode((string) file_get_contents($root . '/server/composer.json'), true, 512, JSON_THROW_ON_ERROR);
-$applicationComposer = json_decode($transform((string) file_get_contents($root . '/server/composer.json'), 'server/composer.json', 'package'), true, 512, JSON_THROW_ON_ERROR);
+$bootstrapSource = 'server/resources/scaffold-application/composer.json';
+$sourceComposer = json_decode((string) file_get_contents($root . '/' . $bootstrapSource), true, 512, JSON_THROW_ON_ERROR);
+$applicationComposer = json_decode($transform((string) file_get_contents($root . '/' . $bootstrapSource), $bootstrapSource, 'package'), true, 512, JSON_THROW_ON_ERROR);
 brandExpect($applicationComposer['name'] === $parameters['PACKAGE_IDENTITY'], 'application package name must still render its own identity');
 brandExpect($applicationComposer['description'] === 'Source Consumer application backend' && $applicationComposer['authors'][0]['name'] === 'application owner', 'application brand and author must still render');
-brandExpect($applicationComposer['homepage'] === $sourceComposer['homepage'] && $applicationComposer['repositories'] === $sourceComposer['repositories'] && $applicationComposer['require'] === $sourceComposer['require'], 'external source references and dependency identities must remain unchanged');
+brandExpect(
+    $applicationComposer['homepage'] === $sourceComposer['homepage']
+        && !isset($sourceComposer['repositories']) && !isset($applicationComposer['repositories'])
+        && $applicationComposer['require'] === $sourceComposer['require']
+        && isset($applicationComposer['require']['peanut-admin/core'])
+        && count(array_filter(array_keys($applicationComposer['require']), static fn(string $name): bool => str_starts_with($name, 'peanut-business/peanut-'))) === 0,
+    'thin Host application brand must preserve external dependency identities without bundled official author packages',
+);
 
 echo "PB08A-BRAND-SCAFFOLD-001 bootstrap passed\n";

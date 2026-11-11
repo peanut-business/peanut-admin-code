@@ -45,6 +45,16 @@ function modulePackageRejects(callable $operation, string $errorCode): ModulePac
     }
 }
 
+/** The native bridge returns structured failure and recovery identity, never a bare error object. */
+function modulePackageNativeFailure(string $output, string $code): bool
+{
+    $payload = json_decode($output, true);
+    return is_array($payload) && ($payload['schema_version'] ?? null) === 1
+        && ($payload['error'] ?? null) === $code
+        && is_string($payload['message'] ?? null)
+        && is_array($payload['recovery'] ?? null);
+}
+
 function modulePackageCopyTree(string $source, string $target): void
 {
     mkdir($target, 0777, true);
@@ -615,6 +625,9 @@ PHP);
     // All other classes and locked third-party dependencies use the existing Composer loader.
     mkdir($boundaryRoot . '/server/app/command', 0700, true);
     mkdir($boundaryRoot . '/server/vendor', 0700, true);
+    mkdir($boundaryRoot . '/server/vendor/topthink/framework/src', 0700, true);
+    file_put_contents($boundaryRoot . '/server/vendor/topthink/framework/src/helper.php', '<?php require_once '
+        . var_export($serverRoot . '/vendor/topthink/framework/src/helper.php', true) . ";\n");
     mkdir($boundaryRoot . '/server/config', 0700, true);
     foreach (['module', 'app/AppService.php', 'app/service.php', 'app/provider.php', 'app/command/ModuleAdoptPackage.php',
         'config/app.php', 'config/cache.php', 'config/database.php', 'config/peanut.php', 'config/deployment.php',
@@ -626,7 +639,9 @@ PHP);
         . '$loader->addClassMap(' . var_export([
             'app\\AppService' => $boundaryRoot . '/server/app/AppService.php',
             'app\\command\\ModuleAdoptPackage' => $boundaryRoot . '/server/app/command/ModuleAdoptPackage.php',
-        ], true) . ");\nreturn \$loader;\n");
+        ], true) . ");\nspl_autoload_register(static function (string \$class): void {\n"
+        . "    if (\$class === 'app\\\\AppService') { throw new \\RuntimeException('SOURCE_ADOPTION_RUNTIME_BOOTED'); }\n"
+        . "}, true, true);\nreturn \$loader;\n");
     file_put_contents($boundaryRoot . '/server/.env', "APP_ENV=development\nAPP_DEBUG=true\nDEPLOYMENT_MODE=multi-tenant\n");
     chmod($boundaryRoot . '/server/.env', 0600);
     $compilePath = $boundaryRoot . '/compile.php';
@@ -762,6 +777,26 @@ PHP);
         'Native unexported contract adoption failed: ' . $output);
     echo "BUG-01 native unexported adopt exit={$exit} sha256={$unexportedPackage['sha256']} version=1.2.0 reconciliation=pending\n";
     $expectBoundaryFailure('MODULE_CONTRACT_MISSING');
+    $bridgeEnvironment = $boundaryRoot . '/server/.env';
+    $bridgeEnvironmentBytes = (string) file_get_contents($bridgeEnvironment);
+    $bridgeLock = (string) file_get_contents($boundaryRoot . '/modules.lock');
+    $bridgeArguments = [$unexportedArchive, '--sha256=' . $unexportedPackage['sha256'], '--official-key=official.delivery-record'];
+    try {
+        chmod($bridgeEnvironment, 0644);
+        [$exit, $output] = $runBoundary(true, $bridgeArguments);
+        modulePackageExpect($exit !== 0 && str_contains($output, 'MODULE_RECOVERY_BACKEND_ENVIRONMENT_INVALID'),
+            'Source adoption accepted an insecure environment file: ' . $output);
+        chmod($bridgeEnvironment, 0600);
+        file_put_contents($bridgeEnvironment, "APP_ENV=production\nDEPLOYMENT_MODE=multi-tenant\n");
+        [$exit, $output] = $runBoundary(true, $bridgeArguments);
+        modulePackageExpect($exit !== 0 && str_contains($output, 'MODULE_SOURCE_ADOPTION_DISABLED'),
+            'Source adoption accepted a production instance: ' . $output);
+        modulePackageExpect(file_get_contents($boundaryRoot . '/modules.lock') === $bridgeLock,
+            'Rejected source adoption changed the Module lock');
+    } finally {
+        chmod($bridgeEnvironment, 0600);
+        file_put_contents($bridgeEnvironment, $bridgeEnvironmentBytes);
+    }
     if (!$archiveOnly) {
         // An incomplete source must still expose the development recovery CLI while ordinary boot fails closed.
         $bootJournal = $projectRoot . '/.local/module-source-adoption/journal.json';
@@ -808,14 +843,17 @@ PHP);
             modulePackageExpect($exit !== 0 && str_contains($output, 'Run module:adopt-package --recover'), 'ordinary Runtime consumed incomplete source');
             [$exit, $output] = $invoke(true, $environment);
             modulePackageExpect(
-                $exit !== 0 && $output === '{"error":"MODULE_PACKAGE_RECOVERY_REQUIRED"}',
-                'development recovery CLI could not reach the journal: ' . $output,
+                $exit !== 0 && modulePackageNativeFailure($output, 'MODULE_PACKAGE_RECOVERY_REQUIRED')
+                    && (json_decode($output, true)['recovery']['status'] ?? null) === 'invalid'
+                    && !isset(json_decode($output, true)['recovery']['resume']),
+                'development recovery CLI did not fail closed on a corrupt journal: ' . $output,
             );
             [$exit, $output] = $invoke(true, $environment, 'upgrade', [$officialPath, '--sha256=' . $official['sha256'], '--dry-run']);
             modulePackageExpect($exit !== 0 && str_contains($output, 'Run module:adopt-package --recover'),
                 'Runtime package upgrade consumed incomplete source');
             [$exit, $output] = $invoke(true, $environment, 'adopt', [$officialPath, '--sha256=' . $official['sha256'], '--official-key=peanut.content-tools']);
-            modulePackageExpect($exit !== 0 && $output === '{"error":"MODULE_PACKAGE_RECOVERY_REQUIRED"}',
+            modulePackageExpect($exit !== 0
+                    && modulePackageNativeFailure($output, 'MODULE_PACKAGE_RECOVERY_REQUIRED'),
                 'Initial official adoption could not reach its source transaction: ' . $output);
             unlink($bootJournal);
             $sourceLock = (string) file_get_contents($projectRoot . '/modules.lock');
@@ -826,7 +864,7 @@ PHP);
                     [$official['sha256'], 'peanut.content-tools', 'PACKAGE_VERSION_IDENTITY_CONFLICT'],
                 ] as [$digest, $key, $error]) {
                     [$exit, $output] = $invoke(true, $environment, 'adopt', [$officialPath, '--sha256=' . $digest, '--official-key=' . $key]);
-                    modulePackageExpect($exit !== 0 && $output === json_encode(['error' => $error], JSON_THROW_ON_ERROR),
+                    modulePackageExpect($exit !== 0 && modulePackageNativeFailure($output, $error),
                         'Native official adoption did not reach package admission without a database: ' . $output);
                     modulePackageExpect(file_get_contents($projectRoot . '/modules.lock') === $sourceLock,
                         'Rejected native official adoption changed the deployment lock');
@@ -844,7 +882,8 @@ PHP);
                 file_put_contents($bootEnvironment, $contents);
                 [$exit, $output] = $invoke(true, $environment + $untrusted);
                 modulePackageExpect(
-                    $exit !== 0 && $output === '{"error":"MODULE_SOURCE_ADOPTION_DISABLED"}' && $state() === $before,
+                    $exit !== 0 && modulePackageNativeFailure($output, 'MODULE_SOURCE_ADOPTION_DISABLED')
+                        && $state() === $before,
                     'recovery accepted an external development environment or modified source state',
                 );
             }

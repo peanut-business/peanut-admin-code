@@ -105,6 +105,7 @@ final class ModuleAuthoringBootstrapTest extends TestCase
             'server/composer.lock',
             'server/vendor/composer/installed.json',
             'server/app/AppService.php',
+            'server/database/InitialInstallationSource.php',
             'server/app/service.php',
             'server/app/command/ModuleMake.php',
             'server/app/command/ModuleLock.php',

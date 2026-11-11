@@ -92,7 +92,9 @@
       "server/docker/scripts/product-upgrade-host",
       "server/docker/scripts/scaffold-runtime/ScaffoldPathGuard.php",
       "server/docker/scripts/ops-backup-worker",
-      "server/docker/scripts/ops-restore-worker"
+      "server/docker/scripts/ops-restore-worker",
+      "server/composer.json",
+      "server/composer.lock"
     ],
     "prefixes": [
       "scaffold/",
@@ -163,9 +165,7 @@
         "server/app/common/value/installation/ApplicationReleaseVersions.php",
         "scripts/deploy-update.sh"
       ],
-      "prefixes": [
-        "server/app/modules/peanut/"
-      ]
+      "prefixes": []
     },
     "retained_paths": [
       "scripts/scaffold-upgrade",
@@ -222,7 +222,8 @@
       "docs/public/application-release.md",
       "docs/public/support.md",
       "scripts/scaffold-runtime/scaffold.conf.json",
-      "scripts/scaffold-runtime/ScaffoldConfiguration.php"
+      "scripts/scaffold-runtime/ScaffoldConfiguration.php",
+      "docs/architecture/module-composition.md"
     ],
     "excluded": {
       "paths": [
@@ -329,7 +330,13 @@
         "plugins/fixture.workflow-business/",
         "web/tests/fixtures/",
         "server/fixtures/module-lifecycle/",
-        "scaffold/"
+        "scaffold/",
+        "server/app/modules/peanut/",
+        "web/src/modules/peanut-",
+        "platform/src/modules/peanut-",
+        "pc/modules/peanut-",
+        "uniapp/src/modules/peanut-",
+        "plugins/peanut."
       ]
     },
     "generated_managed_paths": [
@@ -438,6 +445,26 @@
       "target": "docs/project-rules.md",
       "classification": "app-owned",
       "transform": "docs-page",
+      "profiles": [
+        "minimal",
+        "standard",
+        "full"
+      ]
+    },
+    "server/resources/scaffold-application/composer.json": {
+      "target": "server/composer.json",
+      "classification": "managed",
+      "transform": "package",
+      "profiles": [
+        "minimal",
+        "standard",
+        "full"
+      ]
+    },
+    "server/resources/scaffold-application/composer.lock": {
+      "target": "server/composer.lock",
+      "classification": "managed",
+      "transform": "composer-lock",
       "profiles": [
         "minimal",
         "standard",

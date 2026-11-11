@@ -298,7 +298,7 @@ process.stdout.write(String(cases.length + 1));
                     self.assertNotIn('createWorkflowDispatch', text)
                     self.assertNotIn('actions: write', text)
                     self.assertIn("inputs.workflow || 'runtime'", templates)
-                    self.assertEqual(templates.count("inputs.candidate_cli_commit || '55c14dd12ef1d40f00af0fb0516aceaaf12412b1'"), 3)
+                    self.assertEqual(templates.count("inputs.candidate_cli_commit || 'c47ceecf539e817cf023177bb2bcba5f0f16d4a6'"), 3)
                     self.assertIn("RUN_TESTS: ${{ inputs.run_tests && 'true' || 'false' }}", templates)
                     self.assertIn('transport_sha256: ${{ steps.preserve_candidate.outputs.sha256 }}', templates)
                     # Only the publisher writes release content, after its producer succeeds.

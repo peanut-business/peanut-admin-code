@@ -8,7 +8,7 @@
         },
         {
             "path": "release-versions.json",
-            "sha256": "13746063a1ed47c2b6cd69668a1c819ef50294e43a1ebe79790e8f0d20662e68"
+            "sha256": "a91e77fa97bb9dc2035286b6496e76ebb1df6792258dfaef80e27329c40c5969"
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
@@ -36,7 +36,7 @@
         },
         {
             "path": "server/app/api/metadata/contracts/openapi.json",
-            "sha256": "0ea05c5c6a554d1b4587cac43ed999e74557a1685480dde9c917937b6d00e733"
+            "sha256": "ae6bec487569bd5cdb1ffda54ab4276964a509a56b2b4212c877913e9d3918a1"
         },
         {
             "path": "server/app/modules/peanut/file/api/metadata/openapi.php",

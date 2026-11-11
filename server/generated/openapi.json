@@ -6,7 +6,7 @@
     },
     "info": {
         "title": "Peanut Admin HTTP API",
-        "version": "5.1.10-rc.3",
+        "version": "5.1.10",
         "description": "Application HTTP contract for the identity, Tenant, article, file and notification entry points. Runtime authorization and Tenant binding remain enforced by the server middleware.",
         "x-peanut-contract-generator": {
             "name": "scripts/generate-api-contracts.php",
@@ -286,6 +286,9 @@
             }
         },
         "/adminapi/peanut.file.upload.file": {
+            "x-peanut-required-modules": [
+                "peanut.file"
+            ],
             "post": {
                 "tags": [
                     "File"
@@ -370,6 +373,9 @@
             }
         },
         "/api/storage/delivery": {
+            "x-peanut-required-modules": [
+                "peanut.file"
+            ],
             "get": {
                 "tags": [
                     "File"
@@ -454,6 +460,9 @@
             }
         },
         "/adminapi/peanut.file.list": {
+            "x-peanut-required-modules": [
+                "peanut.file"
+            ],
             "get": {
                 "tags": [
                     "File"

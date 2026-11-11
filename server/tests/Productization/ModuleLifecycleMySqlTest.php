@@ -34,7 +34,9 @@ $argv = array_values(array_filter($argv ?? [], static fn(string $value): bool =>
     !str_starts_with($value, '--application-root=') && !str_starts_with($value, '--expected-server-uuid=')));
 require $server . '/vendor/autoload.php';
 require $server . '/vendor/topthink/framework/src/helper.php';
-require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
+if (!class_exists('ThinkPhpTestConnection', false)) {
+    require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
+}
 $app = new think\App($server);
 $app->loadEnv((string) $app->env->get('env_name', ''));
 $app->initialize();

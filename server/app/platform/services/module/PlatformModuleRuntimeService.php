@@ -155,9 +155,9 @@ final readonly class PlatformModuleRuntimeService
 
     /** @return array<string,mixed> */
     public function install(string $archivePath, ?string $expectedSha256, ?string $signatureKeyId,
-        ?PlatformContext $context = null, ?string $idempotencyKey = null): array
+        ?PlatformContext $context = null, ?string $idempotencyKey = null, bool $dryRun = false): array
     {
-        if ($context !== null) {
+        if ($context !== null && !$dryRun) {
             return $this->submitPackage($context, 'install', $archivePath, $expectedSha256, $signatureKeyId, $idempotencyKey);
         }
         $result = (new ModulePackageInstaller(
@@ -166,7 +166,10 @@ final readonly class PlatformModuleRuntimeService
             $this->trustedPublicKeys,
             $this->catalogs,
         ))
-            ->install($archivePath, $expectedSha256, $signatureKeyId);
+            ->install($archivePath, $expectedSha256, $signatureKeyId, $dryRun);
+        if ($dryRun) {
+            return $result;
+        }
         $catalog = $this->catalog();
         $operation = ($result['operation'] ?? null) === 'unchanged'
             ? 'unchanged'

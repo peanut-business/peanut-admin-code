@@ -11,10 +11,15 @@ require_once dirname(__DIR__, 4) . '/database/InitialInstallationSource.php';
 
 final class EditionProjector
 {
-    /** Project the same default Module set before Plugin lock and API generation. */
-    public function modules(string $stage, array $files): array
+    /** The template owns Host sources; CLI adopts the composition from a release. */
+    public function modules(string $stage, array $files, string $sourceServerRoot): array
     {
-        $database = \InitialInstallationSource::project($stage . '/server', \InitialInstallationSource::MODULES);
+        $selected = [];
+        // Host SQL can reference required Module tables. Validate those edges
+        // against the composition source, without shipping Module author files.
+        $database = \InitialInstallationSource::project(
+            $sourceServerRoot, \InitialInstallationSource::modules($sourceServerRoot),
+        );
         $result = [];
         foreach ($files as $file) {
             $path = $file['path'];
@@ -27,7 +32,7 @@ final class EditionProjector
                 $module = $match[1];
             }
             $absolute = $stage . '/' . $path;
-            if ($module !== null && !in_array('peanut.' . $module, \InitialInstallationSource::MODULES, true)) {
+            if ($module !== null && !in_array('peanut.' . $module, $selected, true)) {
                 if (!unlink($absolute)) {
                     throw new RuntimeException('CREATE_APP_MODULE_REMOVE_FAILED: ' . $path);
                 }
@@ -41,7 +46,7 @@ final class EditionProjector
                 $composer = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
                 foreach ($composer['autoload']['psr-4'] as $namespace => $directory) {
                     if (is_string($directory) && preg_match('#^app/modules/peanut/([^/]+)/#', $directory, $match) === 1
-                        && !in_array('peanut.' . str_replace('_', '-', $match[1]), \InitialInstallationSource::MODULES, true)) {
+                        && !in_array('peanut.' . str_replace('_', '-', $match[1]), $selected, true)) {
                         unset($composer['autoload']['psr-4'][$namespace]);
                     }
                 }
@@ -53,7 +58,38 @@ final class EditionProjector
             }
             $result[] = $file;
         }
-        return $result;
+        return $this->moduleWorkspaces($stage, $result);
+    }
+
+    /**
+     * Seals module workspace globs once for both the released neutral package
+     * and the final edition projection. This is idempotent and never bypasses
+     * immutable adoption-byte verification.
+     */
+    public function moduleWorkspaces(string $stage, array $files): array
+    {
+        foreach ($files as $index => $file) {
+            $path = $file['path'];
+            if ($path !== 'web/pnpm-workspace.yaml'
+                && !in_array($path, ['platform/package.json', 'pc/package.json', 'uniapp/package.json'], true)) {
+                continue;
+            }
+            $absolute = $stage . '/' . $path;
+            $content = (string) file_get_contents($absolute);
+            if ($path === 'web/pnpm-workspace.yaml') {
+                $projected = "packages:\n  - src/modules/*\n";
+            } else {
+                $package = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
+                $package['workspaces'] = [($path === 'pc/package.json' ? 'modules/' : 'src/modules/') . '*'];
+                $projected = self::json($package);
+            }
+            if ($content !== $projected) {
+                $this->writeFile($absolute, $projected, $file['mode']);
+                $file['sha256'] = hash('sha256', $projected);
+                $files[$index] = $file;
+            }
+        }
+        return $files;
     }
 
     /** Final bytes are projected before the canonical Plugin writer and API inventory. */
