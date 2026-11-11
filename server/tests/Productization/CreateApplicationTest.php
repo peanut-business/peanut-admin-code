@@ -792,7 +792,11 @@ try {
     createApplicationExpect(!str_contains((string) file_get_contents($first . '/server/database/schema/baseline-schema.sql'), "MD5(CONCAT(MD5('admin123456')"), 'shared default password must be absent');
     createApplicationExpect((string) json_decode((string) file_get_contents($first . '/server/config/brand.json'), true)['website']['name'] === 'Acme Console', 'generated brand identity must be used');
     createApplicationExpect(is_file($first . '/server/config/peanut.php') && is_file($first . '/web/src/peanut.overrides.ts'), 'stable Host override entries must be preserved');
-    $sourceComposerLock = json_decode((string) file_get_contents($root . '/server/composer.lock'), true, 512, JSON_THROW_ON_ERROR);
+    // A fresh Host adopts the isolated bootstrap lock, not the author's Code
+    // checkout lock containing the eight official Module source packages.
+    $sourceComposerLock = json_decode((string) file_get_contents(
+        $root . '/server/resources/scaffold-application/composer.lock',
+    ), true, 512, JSON_THROW_ON_ERROR);
     foreach (createApplicationFiles($first) as $path) {
         $absolute = $first . '/' . $path;
         if (filesize($absolute) > 5_000_000) {
