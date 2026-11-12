@@ -8,7 +8,7 @@
         },
         {
             "path": "release-versions.json",
-            "sha256": "a59b9010e340bad4186fe020fc25bdd1d1612a103416216ca1dd74eaccccfdc2"
+            "sha256": "a95aa529fd7af89916e343816834aa0e64d417e06bc02c3f6617ed76330c1417"
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
