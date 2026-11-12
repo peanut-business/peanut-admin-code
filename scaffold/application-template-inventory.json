@@ -3320,7 +3320,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "61d206fa713286fd80bf3fc10f75ac73354fa1e30f68c89a163da7ce2b6bf122"
+            "source_sha256": "efab6396e79f215597284dbd85baa6465532574882c75b8b958a2ecf2bb5db30"
         },
         {
             "path": "scripts/scaffold-upgrade",
@@ -3848,6 +3848,19 @@
         {
             "path": "scripts/tests/publish_github_release_channel_test.py",
             "target": "scripts/tests/publish_github_release_channel_test.py",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "scripts/tests/qualified_release_tag_test.py",
+            "target": "scripts/tests/qualified_release_tag_test.py",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

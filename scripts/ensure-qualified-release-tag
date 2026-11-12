@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+"""Check the exact qualified-source tag before mutation; create it only in main CI publish."""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+
+REPO = "peanut-business/peanut-admin-code"
+SHA = re.compile(r"^[a-f0-9]{40}$")
+VERSION = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-rc\.(0|[1-9][0-9]*))?$")
+
+
+def command(*argv):
+    completed = subprocess.run(argv, check=False, capture_output=True, text=True, timeout=35)
+    if completed.returncode:
+        raise ValueError(f"command failed ({completed.returncode}): {' '.join(argv[:3])}: {completed.stderr[-250:]}")
+    return completed.stdout.strip()
+
+
+def git(*args):
+    return command("git", *args)
+
+
+def api(path):
+    return json.loads(command("gh", "api", path))
+
+
+def require(condition, error):
+    if not condition:
+        raise ValueError("RELEASE_TAG_PREFLIGHT_" + error)
+
+
+def remote_ref(name):
+    data = git("ls-remote", "origin", name)
+    if not data:
+        return None
+    lines = data.splitlines()
+    require(len(lines) == 1 and lines[0].endswith("\t" + name), "REF_AMBIGUOUS")
+    return lines[0].split("\t", 1)[0]
+
+
+def verify(version, source):
+    require(VERSION.fullmatch(version) is not None and SHA.fullmatch(source) is not None, "ARGUMENT_INVALID")
+    tag = "v" + version
+    current_main = remote_ref("refs/heads/main")
+    require(current_main is not None and SHA.fullmatch(current_main) is not None, "MAIN_UNAVAILABLE")
+    # Always bind to the published source commit; a same-tree PR merge is not the candidate.
+    require(git("rev-parse", source + "^{commit}") == source, "SOURCE_UNAVAILABLE")
+    require(git("rev-parse", current_main + "^{commit}") == current_main, "MAIN_SOURCE_MISSING")
+    require(git("rev-parse", source + "^{tree}") == git("rev-parse", current_main + "^{tree}"), "MAIN_TREE_DRIFT")
+    versions = json.loads(git("show", source + ":release-versions.json"))
+    metadata = json.loads(git("show", source + ":RELEASE_METADATA.json"))
+    require(versions.get("source_product_version") == version
+            and versions.get("scaffold_template") == version
+            and metadata.get("expected_tag") == tag
+            and metadata.get("source_product_version") == version, "SOURCE_VERSION_MISMATCH")
+    if current_main != source:
+        parents = git("show", "-s", "--format=%P", current_main).split()
+        require(len(parents) == 2 and parents[1] == source, "PR_PARENTS_INVALID")
+        prs = api(f"repos/{REPO}/commits/{source}/pulls")
+        require(isinstance(prs, list), "PR_DISCOVERY_INVALID")
+        matching = [entry for entry in prs if entry.get("merge_commit_sha") == current_main
+                    and entry.get("head", {}).get("sha") == source]
+        require(len(matching) == 1, "PR_IDENTITY_MISSING")
+        number = matching[0]["number"]
+        pr = api(f"repos/{REPO}/pulls/{number}")
+        require(pr.get("merged") is True and pr.get("state") == "closed"
+                and pr.get("merge_commit_sha") == current_main
+                and pr.get("head", {}).get("sha") == source
+                and pr.get("head", {}).get("ref") == "dev"
+                and pr.get("base", {}).get("ref") == "main"
+                and pr.get("head", {}).get("repo", {}).get("full_name") == REPO
+                and pr.get("base", {}).get("repo", {}).get("full_name") == REPO, "PR_IDENTITY_INVALID")
+
+    tag_object = remote_ref("refs/tags/" + tag)
+    if tag_object:
+        record = api(f"repos/{REPO}/git/tags/{tag_object}")
+        require(record.get("tag") == tag and record.get("object", {}).get("type") == "commit"
+                and record.get("object", {}).get("sha") == source, "EXISTING_TAG_WRONG_SOURCE")
+        require(remote_ref("refs/tags/" + tag + "^{}") == source, "EXISTING_TAG_WRONG_TARGET")
+    return {"version": version, "tag": tag, "source": source, "main": current_main,
+            "existing_tag_object": tag_object, "tag_action": "reuse" if tag_object else "create"}
+
+
+def create(report):
+    require(os.environ.get("GITHUB_ACTIONS") == "true"
+            and os.environ.get("GITHUB_REPOSITORY") == REPO
+            and os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
+            and os.environ.get("GITHUB_REF") == "refs/heads/main"
+            and os.environ.get("GITHUB_SHA") == report["main"], "CREATE_NOT_AUTHORIZED")
+    if report["tag_action"] == "create":
+        created = json.loads(command("gh", "api", "--method", "POST", f"repos/{REPO}/git/tags",
+                                   "-f", "tag=" + report["tag"],
+                                   "-f", "message=Qualified Peanut Admin " + report["version"]
+                                   + " source " + report["source"],
+                                   "-f", "object=" + report["source"], "-f", "type=commit"))
+        tag_object = created.get("sha")
+        require(isinstance(tag_object, str) and SHA.fullmatch(tag_object), "CREATED_TAG_INVALID")
+        command("gh", "api", "--method", "POST", f"repos/{REPO}/git/refs",
+                "-f", "ref=refs/tags/" + report["tag"], "-f", "sha=" + tag_object)
+    refreshed = verify(report["version"], report["source"])
+    require(refreshed["existing_tag_object"] is not None, "TAG_NOT_PUBLISHED")
+    git("fetch", "--no-tags", "origin", f"refs/tags/{report['tag']}:refs/tags/{report['tag']}")
+    require(git("rev-parse", report["tag"] + "^{commit}") == report["source"], "LOCAL_TAG_MISMATCH")
+    return refreshed
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--version", required=True)
+    parser.add_argument("--source", required=True)
+    parser.add_argument("--create-in-publish-ci", action="store_true")
+    args = parser.parse_args()
+    report = verify(args.version, args.source)
+    if args.create_in_publish_ci:
+        report = create(report)
+    print(json.dumps({"status": "passed", "mode": "create" if args.create_in_publish_ci else "check",
+                      **report}, sort_keys=True))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (ValueError, OSError, json.JSONDecodeError, subprocess.TimeoutExpired) as error:
+        print(f"ensure-qualified-release-tag: {error}", file=sys.stderr)
+        raise SystemExit(1)
