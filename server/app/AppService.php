@@ -602,6 +602,11 @@ class AppService extends Service
     private function registerApplicationServices(): void
     {
         $this->app->bind(
+            \app\platform\services\module\OfficialModuleReleaseService::class,
+            fn(): \app\platform\services\module\OfficialModuleReleaseService =>
+                new \app\platform\services\module\OfficialModuleReleaseService(dirname(__DIR__, 2), new \GuzzleHttp\Client()),
+        );
+        $this->app->bind(
             \app\platform\services\developer\DeveloperCenterCatalogService::class,
             fn(): \app\platform\services\developer\DeveloperCenterCatalogService =>
                 new \app\platform\services\developer\DeveloperCenterCatalogService(

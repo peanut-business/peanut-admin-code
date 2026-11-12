@@ -2,8 +2,106 @@
 """Accept only an explicit batch-validation request; Git synchronization is not one."""
 import argparse
 import json
+import re
+import subprocess
 import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY = 'peanut-business/peanut-admin-code'
+FULL_JOBS = {'Stale facts', 'Changed paths', 'Create app', 'PHP 8.3', 'Integration / MySQL 8.4',
+             'Web', 'Platform', 'PC', 'UniApp', 'Public docs', 'CI summary'}
+GROUPS = ('server', 'web', 'platform', 'pc', 'uniapp', 'create_app', 'integration', 'api', 'docs')
+
+
+def full_success_jobs(run: dict, jobs: list) -> bool:
+    """A green partial summary is not evidence that every group was actually run."""
+    prefix = 'Full CI / ' if run.get('path') == '.github/workflows/scaffold-release.yml' else ''
+    for name in FULL_JOBS:
+        selected = [job for job in jobs if job.get('name') == prefix + name]
+        if (len(selected) != 1 or selected[0].get('status') != 'completed'
+                or selected[0].get('conclusion') != 'success'
+                or selected[0].get('head_sha') != run.get('head_sha')
+                or selected[0].get('run_id') != run.get('id')):
+            return False
+    return True
+
+
+def github_json(path: str):
+    response = subprocess.run(['gh', 'api', path], check=True, capture_output=True, text=True, timeout=45)
+    return json.loads(response.stdout)
+
+
+def eligible_baseline(source: str, api=github_json, ancestor=None, current_run_id=''):
+    if ancestor is None:
+        def ancestor(base):
+            result = subprocess.run(['git', '-C', str(ROOT), 'merge-base', '--is-ancestor', base, source],
+                                    capture_output=True, timeout=20)
+            return result.returncode == 0
+    for page in range(1, 4):
+        payload = api(f'repos/{REPOSITORY}/actions/runs?status=success&event=workflow_dispatch&per_page=100&page={page}')
+        runs = payload.get('workflow_runs')
+        if not isinstance(runs, list):
+            raise ValueError('Invalid workflow history; no baseline was assumed')
+        for run in runs:
+            if (run.get('path') not in ('.github/workflows/ci.yml', '.github/workflows/scaffold-release.yml')
+                    or run.get('head_repository', {}).get('full_name') != REPOSITORY
+                    or run.get('event') != 'workflow_dispatch' or run.get('status') != 'completed'
+                    or run.get('conclusion') != 'success' or type(run.get('id')) is not int
+                    or type(run.get('run_attempt')) is not int or run['run_attempt'] < 1
+                    or not re.fullmatch(r'[a-f0-9]{40}', run.get('head_sha', ''))
+                    or str(run['id']) == current_run_id or not ancestor(run['head_sha'])):
+                continue
+            jobs = []
+            for job_page in range(1, 6):
+                result = api(f"repos/{REPOSITORY}/actions/runs/{run['id']}/attempts/{run['run_attempt']}/jobs?per_page=100&page={job_page}")
+                batch = result.get('jobs')
+                if not isinstance(batch, list):
+                    raise ValueError('Invalid workflow jobs; no baseline was assumed')
+                jobs.extend(batch)
+                if len(batch) < 100:
+                    break
+            else:
+                raise ValueError('Incomplete workflow job pagination')
+            if full_success_jobs(run, jobs):
+                return run
+        if len(runs) < 100:
+            break
+    return None
+
+
+def classify(scope: str, source: str, repository: str = '', current_run_id: str = '') -> tuple[str, str]:
+    if scope not in ('full', 'affected') or not re.fullmatch(r'[a-f0-9]{40}', source):
+        raise ValueError('Select full/affected and an exact source commit')
+    observed = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
+    if observed != source:
+        raise ValueError('Validation source differs from checkout HEAD')
+    baseline = None
+    if scope == 'affected':
+        if repository != REPOSITORY or (current_run_id and not re.fullmatch(r'[1-9][0-9]*', current_run_id)):
+            raise ValueError('Automatic CI evidence discovery requires the official repository')
+        baseline = eligible_baseline(source, current_run_id=current_run_id)
+    command = [str(ROOT / 'scripts/ci-change-classifier')]
+    if baseline is not None:
+        unchanged = subprocess.run(['git', '-C', str(ROOT), 'diff', '--quiet', baseline['head_sha'], source], timeout=20)
+        if unchanged.returncode not in (0, 1):
+            raise ValueError('Cannot compare verified baseline source')
+        note = (f"Affected validation against completed full CI run {baseline['id']} attempt {baseline['run_attempt']} "
+                f"at {baseline['head_sha']}. Unaffected groups reuse source/lock/tool-contract evidence; "
+                'this run does not claim a fresh full runtime qualification.')
+        if unchanged.returncode == 0:
+            output = ''.join(f'{group}=false\n' for group in GROUPS)
+            output += 'conservative=false\nbaseline=verified-full-source-reuse\nchanged_count=0\n'
+        else:
+            output = subprocess.check_output([*command, '--base=' + baseline['head_sha'], '--head=' + source,
+                                              '--comparison=direct'], cwd=ROOT, text=True)
+        output += f"validation_scope=affected\nvalidated_baseline_run={baseline['id']}\nvalidated_baseline_source={baseline['head_sha']}\n"
+    else:
+        reason = 'explicit full validation' if scope == 'full' else 'no reusable completed full CI ancestor'
+        output = subprocess.check_output([*command, '--all', '--reason=' + reason], cwd=ROOT, text=True)
+        output += 'validation_scope=full\nvalidated_baseline_run=\n'
+        note = 'Full validation selected: ' + reason + '.'
+    return output, note
 
 
 def select(event_name: str, payload: dict) -> str:
@@ -16,19 +114,31 @@ def select(event_name: str, payload: dict) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--event-name', required=True)
-    parser.add_argument('--event-file', required=True, type=Path)
+    parser.add_argument('--event-name')
+    parser.add_argument('--event-file', type=Path)
+    parser.add_argument('--classify', action='store_true')
+    parser.add_argument('--scope', choices=('full', 'affected'), default='full')
+    parser.add_argument('--source')
+    parser.add_argument('--repository', default='')
+    parser.add_argument('--current-run-id', default='')
     parser.add_argument('--github-output', type=Path)
     parser.add_argument('--github-summary', type=Path)
     args = parser.parse_args()
-    decision = select(args.event_name, json.loads(args.event_file.read_text()))
-    output = f'validation={decision}\n'
+    if args.classify:
+        if args.event_file or args.event_name or not args.source:
+            parser.error('--classify requires --source; do not mix event-checkpoint arguments')
+        output, note = classify(args.scope, args.source, args.repository, args.current_run_id)
+    else:
+        if not args.event_name or not args.event_file or args.source:
+            parser.error('event checkpoint requires --event-name and --event-file')
+        decision = select(args.event_name, json.loads(args.event_file.read_text()))
+        output = f'validation={decision}\n'
+        note = ('Explicit batch checkpoint: selected checks must actually succeed. '
+                'A pushed commit alone is not tested or release-qualified.')
     if args.github_output:
         with args.github_output.open('a') as handle:
             handle.write(output)
     sys.stdout.write(output)
-    note = ('Explicit batch checkpoint: selected checks must actually succeed. '
-            'A pushed commit alone is not tested or release-qualified.')
     print(note)
     if args.github_summary:
         with args.github_summary.open('a') as handle:
@@ -39,6 +149,6 @@ def main() -> int:
 if __name__ == '__main__':
     try:
         raise SystemExit(main())
-    except (ValueError, OSError) as error:
+    except (ValueError, OSError, subprocess.SubprocessError) as error:
         print(f'ci-checkpoint: {error}', file=sys.stderr)
         raise SystemExit(2)

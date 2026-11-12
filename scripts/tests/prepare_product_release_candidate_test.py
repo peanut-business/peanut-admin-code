@@ -6,6 +6,7 @@ import hashlib
 import importlib.machinery
 import importlib.util
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -141,11 +142,11 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
         pnpm_packages = "\n".join(
             f"  '{name}@4.0.0-rc.4':\n"
             f"    resolution: {{integrity: '{sri(name)}'}}"
-            for name in ("@peanut-admin/vue", "@peanut-admin/ui-vue")
+            for name in candidate.CLIENT_CORE_PACKAGES['web']
         )
         importer = "".join(
             f"      '{name}':\n        specifier: 4.0.0-rc.4\n        version: 4.0.0-rc.4\n"
-            for name in ("@peanut-admin/vue", "@peanut-admin/ui-vue")
+            for name in candidate.CLIENT_CORE_PACKAGES['web']
         )
         (self.root / "web/pnpm-lock.yaml").write_text("importers:\n  .:\n    dependencies:\n" + importer + "packages:\n" + pnpm_packages + "\n", encoding="utf-8")
         self.registry = {
@@ -568,6 +569,83 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
                 with self.assertRaisesRegex(SystemExit, "qualified release metadata|pending, unsealed"):
                     candidate.check_inputs("4.0.0-dev.14")
                 self.assertEqual((self.root / "RELEASE_METADATA.json").read_bytes(), before)
+
+    def test_resume_workspace_reuses_completed_native_stages_and_rejects_drift(self) -> None:
+        self.write_json('release-versions.json', {'scaffold_template': '1.0.0'})
+        self.write_json('server/composer.json', {'name': 'fixture/native'})
+        self.write_json('web/package.json', {'name': 'fixture-web'})
+        self.write_json('uniapp/package.json', {'name': 'fixture-uniapp'})
+        workspace = self.root / '.local/release/build-test'
+        workspace.mkdir(parents=True)
+        output = self.root.parent / (self.root.name + '-unused-release-output')
+        snapshot = workspace / 'source'
+        calls = []
+        fail_web = [True]
+
+        def files(root):
+            return [p for p in sorted(root.rglob('*')) if p.is_file()
+                    and not any(x in p.relative_to(root).parts for x in ('.local', 'vendor', 'node_modules'))]
+
+        def source_identity(args, **kwargs):
+            root = Path(args[4])
+            if '::files(' in args[2]:
+                return json.dumps([p.relative_to(root).as_posix() for p in files(root)])
+            value = '\n'.join(p.relative_to(root).as_posix() + ':' + hashlib.sha256(p.read_bytes()).hexdigest() for p in files(root))
+            return json.dumps({'snapshot_sha256': hashlib.sha256(value.encode()).hexdigest()})
+
+        def write(relative, value):
+            path = snapshot / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(value)
+
+        def native(args, **kwargs):
+            if any(str(value).startswith('--prepare-core-snapshot=') for value in args):
+                calls.append('core-projection')
+            elif args[0] == 'composer':
+                calls.append('composer')
+                write('server/vendor/autoload.php', '<?php // fixture')
+                write('server/vendor/composer/installed.json', '{}')
+            elif args[0] == 'pnpm':
+                calls.append('web-install')
+                if fail_web[0]:
+                    fail_web[0] = False
+                    raise SystemExit('fixture web dependency installation failed')
+                write('web/node_modules/.modules.yaml', 'fixture: true')
+            elif args[0] == 'npm':
+                calls.append('uniapp-install')
+                write('uniapp/node_modules/.package-lock.json', '{}')
+            elif str(args[1]).endswith('/generate-api-contracts.php'):
+                calls.append('api')
+                write('server/generated/api-catalog.json', '{}')
+            elif str(args[1]).endswith('/build-application-template-inventory'):
+                calls.append('inventory')
+                write('scaffold/application-template-inventory.json', '{}')
+            else:
+                self.fail('Unexpected native command: ' + repr(args))
+
+        with patch.dict(os.environ), patch.object(candidate.subprocess, 'check_output', side_effect=source_identity), \
+                patch.object(candidate, 'run', side_effect=native), patch.object(candidate, 'npm_command', return_value='npm'), \
+                patch.object(candidate, 'resolve_core_release', return_value={'fixture': True}) as resolve:
+            with self.assertRaisesRegex(SystemExit, 'fixture web'):
+                candidate.prepare_release_workspace(workspace, output, False, None, None)
+            state = json.loads((workspace / 'preparation.json').read_text())
+            self.assertEqual(state['stages']['composer-lock-install']['status'], 'done')
+            self.assertEqual(state['stages']['web-lock-install']['status'], 'failed')
+            candidate.prepare_release_workspace(workspace, output, False, None, None, True)
+            self.assertEqual(calls, ['core-projection', 'composer', 'web-install', 'web-install', 'uniapp-install', 'api', 'inventory'])
+            resolve.assert_called_once()
+            before = list(calls)
+            candidate.prepare_release_workspace(workspace, output, False, None, None, True)
+            self.assertEqual(calls, before)
+            write('server/vendor/autoload.php', 'tampered')
+            with self.assertRaisesRegex(SystemExit, 'completed preparation output changed: composer-lock-install'):
+                candidate.prepare_release_workspace(workspace, output, False, None, None, True)
+            self.assertEqual(calls, before)
+            write('server/vendor/autoload.php', '<?php // fixture')
+            (self.root / 'changed.php').write_text('<?php return 1;')
+            with self.assertRaisesRegex(SystemExit, 'inputs changed'):
+                candidate.prepare_release_workspace(workspace, output, False, None, None, True)
+            self.assertEqual(calls, before)
 
     def test_rejects_fixed_candidate_artifacts_and_local_repository_before_writes(self) -> None:
         self.write_manifests()

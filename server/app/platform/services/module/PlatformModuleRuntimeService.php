@@ -215,6 +215,14 @@ final readonly class PlatformModuleRuntimeService
         try {
             // A submission is scoped to its trusted operator, not permanently to an archive digest.
             $submissionDigest = hash('sha256', $context->operatorId . ':' . $idempotencyKey);
+            // Lost HTTP responses must reuse the submitted Ops task before native
+            // preflight, which can be locked by the task already executing.
+            $previous = Db::name('ops_task')->where('submitted_by_operator_id', $context->operatorId)
+                ->where('idempotency_digest', hash('sha256', $idempotencyKey))->find();
+            if (is_array($previous)) {
+                $requestKey = self::previousPackageRequestKey($previous, $operation, $sha256, $keyId);
+                return $this->moduleOperations->submit($context, $requestKey, $idempotencyKey);
+            }
             $request = $this->deliveryRequests->prepareUpload($operation, $path, $sha256, $keyId, $submissionDigest);
             return $this->moduleOperations->submit($context, (string) $request['request_key'], $idempotencyKey);
         } catch (\RuntimeException $exception) {
@@ -223,6 +231,25 @@ final readonly class PlatformModuleRuntimeService
             }
             throw $exception;
         }
+    }
+
+    /** Compare against the existing Ops task identity without acquiring the source writer lock. */
+    private static function previousPackageRequestKey(array $task, string $operation, string $sha256, ?string $keyId): string
+    {
+        try {
+            $payload = json_decode((string) ($task['payload_json'] ?? ''), true, 64, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            $payload = null;
+        }
+        if (($task['task_type'] ?? null) !== 'ops.module.execute' || !is_array($payload)
+            || ($payload['operation'] ?? null) !== $operation
+            || ($payload['archive_sha256'] ?? null) !== $sha256
+            || ($payload['signature_key_id'] ?? null) !== ($keyId ?? '')
+            || !is_string($payload['request_key'] ?? null)
+            || preg_match('/^modreq_[a-f0-9]{32}$/D', $payload['request_key']) !== 1) {
+            throw new ModuleLifecycleException('OPS_IDEMPOTENCY_CONFLICT', 'This idempotency key belongs to another Module request.');
+        }
+        return $payload['request_key'];
     }
 
     public function task(PlatformContext $context, string $taskKey): array

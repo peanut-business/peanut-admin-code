@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.11",
+    "template_version": "5.1.12",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -780,7 +780,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9db5f95319ce5c268e15e7f273b2bd63fbdea35ac11a08b4628bf5cc5f2ef845"
+            "source_sha256": "6cf2ac84bc9075e518f68a4b20759d4d8e42b750bbb17b20fac48d8d9b404ef5"
         },
         {
             "path": "docs/development/application-conventions.md",
@@ -863,7 +863,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "98877e72bd8845d0b73cc9bc28ebb2d5a6d623f4dd3a0615616cfd6cdb1ba3af"
+            "source_sha256": "87070fa2a50853a84fb73aef38aa6b62603185a00ae4f5f1835684a2b882728e"
         },
         {
             "path": "docs/development/menu-navigation.md",
@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3b90850a9f2113959306b06d81c62088075b2dcce347c1a14dce4ab5c73ab0c5"
+            "source_sha256": "e339a12a17a3d7f7e78c76c3a800c05c2d4e7c8f8d2849190e1c4e4e1a02338c"
         },
         {
             "path": "docs/development/request-cache-contract.md",
@@ -1294,7 +1294,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a4fe9ea67df0991f4508a125485a20fa6a5b5e841197ae7052c3addd7fe3de9e"
+            "source_sha256": "33a4a41b0fd7f0a77d15ee6fe94ccac2e4c56c71affa88b2c9ae99908859dd70"
         },
         {
             "path": "pc/package.json",
@@ -1307,7 +1307,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0be3ee65a38f8e63e2447835d44e0b8d3c77f9a38dc437557891b9cbc5da1f10"
+            "source_sha256": "ad0805d0192e24602b2d8440314d93e790f7361279287619b0e827df00f1485b"
         },
         {
             "path": "pc/pages/about.vue",
@@ -1714,7 +1714,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0039cffa35efa0e4bc6abcdeb0eb73717b47812e518ee03e94ff21ab1ee82fd2"
+            "source_sha256": "a644850f00e92488ca4b7f5c7668648e8e9c575e8942b267d7fa1a28af5ba81a"
         },
         {
             "path": "platform/package.json",
@@ -1728,7 +1728,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "86af5085f00a004327266f72a6255ffa88cac2ed77ca5cb9cf5ca6bbd9567a39"
+            "source_sha256": "67d9d184292e9b550a814cca6b2406ecefe9ead60be88934ee2406032bb942b2"
         },
         {
             "path": "platform/scripts/check-governance-types.mjs",
@@ -1756,7 +1756,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7dd3a5194797aed6cbcd5aa0022fa6ff6315ab5ef49f23e470cb93fc40d6be9f"
+            "source_sha256": "cbafe6d9e96b0009e4e3e768b5857ebadfc2e4a2d9dc73c35531f8c2b9aef614"
         },
         {
             "path": "platform/src/api/permission-bundles.ts",
@@ -1784,7 +1784,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "37e7b3da519e80c579269d17600c49c19eaa6de76ef2c9b16d05dd368fb164a1"
+            "source_sha256": "c766e97ad8d0b681be916fdd1ee6465757e6c9503f92c5b8fa0ee101e9c24dbe"
         },
         {
             "path": "platform/src/api/tenant-license.ts",
@@ -1812,7 +1812,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "711da35cb9842df12d3cdcc489f8944c86a9d178d17d5c4156f1895e95ae4c37"
+            "source_sha256": "89e01a3e5f98c49051cf9a6c6650004be14393fc07779d4c745bdecc262cdc2c"
         },
         {
             "path": "platform/src/components/PermissionBundlesPanel.vue",
@@ -3020,7 +3020,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ae652c3ce020c3c29b663930a64dfb041e8fb6dcbd9c05e0d5f954630a724a3b"
+            "source_sha256": "8177dd0d7f12d5ee269e8d8c5d158fcfb00d5e13a9e395be69402eac8e065b41"
         },
         {
             "path": "scripts/project-resource-application.py",
@@ -3534,6 +3534,19 @@
             ]
         },
         {
+            "path": "scripts/tests/developer-updates-ui-test.mjs",
+            "target": "scripts/tests/developer-updates-ui-test.mjs",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "scripts/tests/format-configuration-test.mjs",
             "target": "scripts/tests/format-configuration-test.mjs",
             "classification": "excluded",
@@ -3787,6 +3800,19 @@
             "owner": "template-source-only",
             "transform": "copy",
             "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "scripts/tests/project_env_automation_test.py",
+            "target": "scripts/tests/project_env_automation_test.py",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
@@ -4318,7 +4344,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e0aec70fd9f5d89534a08c980992015459e637fdb66748db5af77f1770eaaf40"
+            "source_sha256": "13fcaf0c0807d0e97e249a8aa69d0e8876837c2deb6da63535e4f0d8ef5211d3"
         },
         {
             "path": "server/app/BaseController.php",
@@ -5340,7 +5366,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0d76507c2a1deb5724afa7c173dd5faa2065f1fa09c827e2db6acbb18b0508f9"
+            "source_sha256": "fc8945d970e0b827d4c7055114448ba084e79a07017a74042e9a48a9a4343d5e"
         },
         {
             "path": "server/app/api/metadata/application/shared.php",
@@ -8242,7 +8268,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "265b9b3482b8fafd6cc5e033380deff305cf6d273ff311c34b66e1b45f231b80"
+            "source_sha256": "dc72cc12ee421e46d2e52da44bfd8cd03e37b8bbd1634d728a23bcd204fbb988"
         },
         {
             "path": "server/app/common/validation/scaffold/ScaffoldPathGuard.php",
@@ -8690,7 +8716,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "600c643165dd084499f9c546e0af48ab281d876fc1ac1fb179c8dfa925db3a18"
+            "source_sha256": "f43f2aa1db597a16bdca8934830909d97057e36d7ea691dc6065b0e2e6fb58aa"
         },
         {
             "path": "server/app/platform/controller/PlatformOpsController.php",
@@ -9418,7 +9444,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b94ad292b0f67c26de90c24412216d606da0c2c20c4e09d171cdd296c53a4ecf"
+            "source_sha256": "8c201f84ee24a75a3642b7c020e7336361311f8df59042e8c2f782835c8684ab"
         },
         {
             "path": "server/app/platform/services/module/ModulePackageArchiveService.php",
@@ -9463,6 +9489,20 @@
             "source_sha256": "2b29da15b5bc196292714501d7bf4b764b3f524178ffe9540497f0e6c79b6e91"
         },
         {
+            "path": "server/app/platform/services/module/OfficialModuleReleaseService.php",
+            "target": "server/app/platform/services/module/OfficialModuleReleaseService.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "cfbe2c73ffc09c662342c237c2aabfd98de5ce11979ca343211aa8f08c518d7a"
+        },
+        {
             "path": "server/app/platform/services/module/PlatformModuleRuntimeService.php",
             "target": "server/app/platform/services/module/PlatformModuleRuntimeService.php",
             "classification": "managed",
@@ -9474,7 +9514,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4680b7e162b153ed7b9df89b5dbf605c0ec9b55710c225d72838a982b585ef36"
+            "source_sha256": "70ce70f999cd6cfb2aeaa5b9ca8369e129483f739ade2250cbef38e191dee3ee"
         },
         {
             "path": "server/app/platform/services/provider/PlatformProviderQualificationService.php",
@@ -11586,7 +11626,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "15c85a397d0e62db022bf0311ab98cee20e0f8f0865a1cfbc954629e3ac4b586"
+            "source_sha256": "882477a9782afcf0dd3f38485ad8256c0a7c94650d695bdd86edbfe1f19b19b5"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11600,7 +11640,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a7ceb07f85db101911b763d69e19973f5e968e9442971fe507823eac8ef8b0dc"
+            "source_sha256": "c8bc7637ebcdb2b3d6f4cb885808af10719b9401098703f7dea8839b0a88102d"
         },
         {
             "path": "server/module",
@@ -12076,7 +12116,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e31a44e5fbd0423fa7895dffe30b92ca70c440e9f5a31543282b7e0d5cde890e"
+            "source_sha256": "7d8f6af4bd4b030fdd067c1930b6d00d1bc95a547d04452acd260644c5085eba"
         },
         {
             "path": "server/route/public_api.php",
@@ -13790,6 +13830,19 @@
         {
             "path": "server/tests/Productization/NativeNotificationCompositionTest.php",
             "target": "server/tests/Productization/NativeNotificationCompositionTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/OfficialReleaseDiscoveryTest.php",
+            "target": "server/tests/Productization/OfficialReleaseDiscoveryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -15829,7 +15882,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7f4398381a8cddbdc343e8af33125948f24687186be124a19a5f00b0ac34b68c"
+            "source_sha256": "0b73783f7b099562b01ee235b8986794af309da614a346e3ec1220a01e75f83a"
         },
         {
             "path": "tools/quality/README.md",
@@ -15941,7 +15994,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3c6d30da7e18a8375111c2a94d998de7cf40591a19c712103e5ee1a3d75fbf96"
+            "source_sha256": "da2e9bb1d1623b94a44c2f38615ab7329c0ad1177315df75986c9a75cdbfc081"
         },
         {
             "path": "tools/toolchain.local.example.json",
@@ -16007,7 +16060,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2e19312700016a194152a5d997075170044f145a7de119ce24d52cf417244a55"
+            "source_sha256": "a2b98d2c4a6a9bf5203b8f7392655f7eda707dfc9f183d676111a96a9f4e1035"
         },
         {
             "path": "uniapp/package.json",
@@ -16020,7 +16073,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ef2995b8ca0be9d182e8babdf841f8d0728afd9e832c18e486ca1deb6e51333b"
+            "source_sha256": "71050f033d73f7f04eccabc196d1f0f762cf3ee5ffd29566e3887f22d9566e48"
         },
         {
             "path": "uniapp/packages/pages/404/404.vue",
@@ -16896,7 +16949,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "17489adb313850a63e4e034a513f12779667001e5f339928c5831401aa68b195"
+            "source_sha256": "a13c411726094d73a1f9e2a19cb6a102119562f58dc6a075f30ef0072726a72f"
         },
         {
             "path": "web/pnpm-lock.yaml",
@@ -17835,7 +17888,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e9f663747273a4834cb9b96f2df4f229224df3548198f820660c6584204100d5"
+            "source_sha256": "4134e6a402e31591107fbfdcd14ea10637e16d4a2b6e26d689ea6b9e77e4c5db"
         },
         {
             "path": "web/src/hooks/loading.ts",

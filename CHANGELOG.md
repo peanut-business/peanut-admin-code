@@ -2,6 +2,13 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.12] - 2026-11-13
+
+- Automate the existing release and development toolchain: scope tool discovery to the operation, reuse a validated environment, and preserve verified Standalone/Multi-tenant original artifacts across interrupted builds. Explicit tool-path failures remain fail-closed.
+- Select CI checks from an actual qualified full-validation baseline and affected changes; do not treat partial green jobs as full qualification or rerun unrelated tests by default.
+- Add development-only Platform discovery, native preflight and confirmed Ops-queued updates for immutable official Module releases. Retrying an already queued update uses the original operator-scoped idempotency identity before acquiring a Module source lock; runtime permissions and worker admission remain enforced.
+- Keep official Module author and versioning in the dedicated Module application. Retain PHP Core 5.1.0 and Web Core 5.1.0 without republishing unchanged Cores; Module developer application upgrades and ST/MT public consumer runtime acceptance are separate subsequent stages.
+
 ## [5.1.11] - 2026-11-12
 
 - Consolidate eight official Module author implementations exclusively in the Module application. The scaffold Host supplies only composition, public integration contracts and consumer-side coverage; no duplicate official Module business source is bundled.

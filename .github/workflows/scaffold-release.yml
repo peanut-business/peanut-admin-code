@@ -55,9 +55,13 @@ concurrency:
 jobs:
   full-tests:
     name: Full CI
+    permissions:
+      contents: read
+      actions: read
     if: ${{ github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.run_tests }}
     uses: ./.github/workflows/ci.yml
     with:
+      validation_scope: full
       expected_source_commit: ${{ inputs.expected_source_commit }}
 
   templates:
@@ -339,10 +343,26 @@ jobs:
               throw new Error('The selected candidate has no successful latest full CI summary');
             }
             const embeddedCi = Boolean(summary);
+            const verifyFullJobs = (selectedJobs, run, prefix) => {
+              for (const name of ['Stale facts', 'Changed paths', 'Create app', 'PHP 8.3', 'Integration / MySQL 8.4',
+                'Web', 'Platform', 'PC', 'UniApp', 'Public docs', 'CI summary']) {
+                const rows = selectedJobs.filter(job => job.name === prefix + name);
+                if (rows.length !== 1 || rows[0].status !== 'completed' || rows[0].conclusion !== 'success'
+                  || rows[0].head_sha !== source || rows[0].run_id !== run.id) {
+                  throw new Error('A partial/reused CI summary is not a completed full CI qualification: ' + name);
+                }
+              }
+            };
+            if (embeddedCi) verifyFullJobs(jobs, build, 'Full CI / ');
             if (sameRun && (ciId || embeddedCi || process.env.RUN_TESTS !== 'false')) {
               throw new Error('An in-progress tag run cannot serve as completed full CI');
             }
-            if (ciId && ciId !== buildId) await fetchRun(ciId, '.github/workflows/ci.yml');
+            if (ciId && ciId !== buildId) {
+              const selectedCi = await fetchRun(ciId, '.github/workflows/ci.yml');
+              const ciJobs = await github.paginate(github.rest.actions.listJobsForWorkflowRunAttempt,
+                {...context.repo, run_id: Number(ciId), attempt_number: selectedCi.run_attempt, per_page: 100});
+              verifyFullJobs(ciJobs, selectedCi, '');
+            }
             if (ciId === buildId && !embeddedCi) throw new Error('Production run does not contain successful full CI');
             if (!ciId && embeddedCi) ciId = buildId;
             if (process.env.RUN_TESTS === 'true' && !ciId) {
