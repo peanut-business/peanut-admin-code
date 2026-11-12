@@ -72,15 +72,10 @@ preflight() {
 
 suite_success_pattern() {
   case "$1" in
-    */FileControlledAccessTest.php) printf '%s\n' 'FILE_CONTROLLED_ACCESS_OK assertions=[1-9][0-9]*' ;;
-    */FileDeliveryEdgeCasesTest.php) printf '%s\n' 'FILE_DELIVERY_EDGE_CASES_OK assertions=[1-9][0-9]*' ;;
-    */IntegrationSecurityMysqlTest.php) printf '%s\n' 'integration-security mysql harness: PASS \(40 checks\)' ;;
     */AdminRbacTenantIsolationTest.php) printf '%s\n' 'NATIVE-ADMIN-RBAC-TENANT-ISOLATION-001 passed; assertions=[1-9][0-9]*' ;;
     */BackendStabilizationHttpTest.php) printf '%s\n' 'BACKEND-STABILIZATION-HTTP-001 slice=d03; requests=[1-9][0-9]*; assertions=[1-9][0-9]*; failures=0' ;;
     */DecorationPageTenantIsolationTest.php) printf '%s\n' 'MT02-DECORATION-PAGE-TENANT-ISOLATION-001 passed' ;;
     */DecorationTabbarTenantIsolationTest.php) printf '%s\n' 'MT03-DECORATION-TABBAR-TENANT-ISOLATION-001 passed' ;;
-    */DictTenantIsolationTest.php) printf '%s\n' 'MT02-DICT-TENANT-ISOLATION-001 passed' ;;
-    */FileTenantIsolationTest.php) printf '%s\n' 'MT03-FILE-TENANT-OWNERSHIP-001 passed' ;;
     */HotSearchTenantIsolationTest.php) printf '%s\n' 'MT03-HOT-SEARCH-TENANT-ISOLATION-001 passed' ;;
     */OperationLogTenantIsolationTest.php) printf '%s\n' 'MT03-OPERATION-LOG-TENANT-001 passed' ;;
     */OrgTenantIsolationTest.php) printf '%s\n' 'MT02-ORG-TENANT-ISOLATION-001 passed; assertions=[1-9][0-9]*' ;;
@@ -156,24 +151,10 @@ server/tests/CoreIntegration/kernel/tests/Integration/Schema/AuthorizationPersis
 server/tests/CoreIntegration/kernel/tests/Integration/Schema/KernelMigrationTest.php
 server/tests/CoreIntegration/kernel/tests/Integration/Schema/KernelSchemaConstraintTest.php
 server/tests/CoreIntegration/kernel/tests/Integration/Tenancy/TenantWorkspaceQueryServiceTest.php
-server/tests/Modules/Official/FileControlledAccessTest.php
-server/tests/Modules/Official/FileDeliveryEdgeCasesTest.php
-server/tests/Modules/Official/Identity/Integration/SourceReadScopeIntegrationTest.php
-server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest.php
-server/tests/Modules/Official/ReferenceCodes/DictTenantIsolationTest.php
-server/tests/Modules/Official/ReferenceCodes/Versioned/Integration/Application/ReferenceCodeAdminServiceTest.php
-server/tests/Modules/Official/ReferenceCodes/Versioned/Integration/Application/ReferenceCodeQueryTest.php
-server/tests/Modules/Official/ReferenceCodes/Versioned/Integration/Schema/ReferenceCodesMigrationTest.php
-server/tests/Modules/Official/ReferenceCodes/Versioned/Security/ReferenceCodesIsolationTest.php
-server/tests/Modules/Official/Settings/Integration/Application/SettingAdminServiceTest.php
-server/tests/Modules/Official/Settings/Integration/Application/SettingResolverTest.php
-server/tests/Modules/Official/Settings/Integration/Schema/SettingsMigrationTest.php
-server/tests/Modules/Official/Settings/Security/SettingsIsolationTest.php
 server/tests/Multitenancy/AdminRbacTenantIsolationTest.php
 server/tests/Multitenancy/BackendStabilizationHttpTest.php
 server/tests/Multitenancy/DecorationPageTenantIsolationTest.php
 server/tests/Multitenancy/DecorationTabbarTenantIsolationTest.php
-server/tests/Multitenancy/FileTenantIsolationTest.php
 server/tests/Multitenancy/HotSearchTenantIsolationTest.php
 server/tests/Multitenancy/OperationLogTenantIsolationTest.php
 server/tests/Multitenancy/OrgTenantIsolationTest.php

@@ -5,8 +5,18 @@ declare(strict_types=1);
 use app\adminapi\services\system\SystemApplicationService;
 use app\adminapi\services\OperationLogService;
 use app\common\policy\permission\RegisteredAdminPermissionPolicy;
+use app\platform\infrastructure\module\ModuleLockResolver;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+$root = realpath($argv[1] ?? dirname(__DIR__, 3));
+if ($root === false) { throw new RuntimeException('Prepared application root is unavailable'); }
+$serverRoot = $root . '/server';
+require $serverRoot . '/vendor/autoload.php';
+$bootstrap = new think\App($serverRoot);
+$bootstrap->config->set(['mode' => 'multi-tenant'], 'deployment');
+(new \app\platform\composition\module\ModuleDefinitionRegistryFactory($serverRoot))->fromModuleLock(
+    new ModuleLockResolver($serverRoot, '../modules.lock'),
+    ['roots' => [], 'kernel_version' => '1.0.0', 'registered_client_keys' => ['admin-web', 'platform-web', 'pc-web', 'uniapp']],
+);
 
 function expectOpsHost(bool $condition, string $message): void
 {
@@ -15,8 +25,6 @@ function expectOpsHost(bool $condition, string $message): void
     }
 }
 
-$serverRoot = dirname(__DIR__, 2);
-$repositoryRoot = dirname($serverRoot);
 $app = new think\App($serverRoot);
 require_once $app->getThinkPath() . 'helper.php';
 
@@ -101,8 +109,11 @@ $logicSource = (string) file_get_contents($serverRoot . '/app/adminapi/services/
 $serviceSource = (string) file_get_contents($serverRoot . '/app/adminapi/services/OperationLogService.php');
 $auditHostSource = (string) file_get_contents($serverRoot . '/app/common/services/audit/AuditContractHost.php');
 $projectionSource = (string) file_get_contents($serverRoot . '/app/common/infrastructure/audit/OperationLogProjection.php');
-$diagnosticSource = (string) file_get_contents($serverRoot . '/app/modules/peanut/ops/src/Service/PlatformDiagnosticBundleService.php');
-$diagnosticQuerySource = (string) file_get_contents($serverRoot . '/app/modules/peanut/identity/src/Audit/Diagnostic/ThinkPhpTenantAuditDiagnosticQuery.php');
+$modules = new ModuleLockResolver($serverRoot, '../modules.lock');
+$opsRoot = $modules->require('peanut.ops')->moduleRoots['peanut.ops'];
+$identityRoot = $modules->require('peanut.identity')->moduleRoots['peanut.identity'];
+$diagnosticSource = (string) file_get_contents($opsRoot . '/src/Service/PlatformDiagnosticBundleService.php');
+$diagnosticQuerySource = (string) file_get_contents($identityRoot . '/src/Audit/Diagnostic/ThinkPhpTenantAuditDiagnosticQuery.php');
 expectOpsHost(!str_contains($middlewareSource, 'OperationLog::create'), 'middleware must use the unique log service');
 expectOpsHost(!str_contains($logicSource, 'OperationLog::create'), 'clear must use the unique log service');
 expectOpsHost(str_contains($serviceSource, 'AuditContractHost'), 'log service must use the unified audit host');

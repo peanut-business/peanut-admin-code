@@ -30,7 +30,7 @@ case_name="$2"
 run_php_with_backend_environment() {
   [[ " $* " == *' --fail-on-skipped '* ]] || return 41
   case "$case_name" in
-    passed|dirty) echo 'integration-security mysql harness: PASS (40 checks)' ;;
+    passed|dirty) echo 'NATIVE-ADMIN-RBAC-TENANT-ISOLATION-001 passed; assertions=40' ;;
     menu-passed) echo '{"status":"passed","assertions":224,"scenarios":[{"scenario":"multi_tenant_fresh"},{"scenario":"module_lifecycle"}]}' ;;
     menu-zero) echo '{"status":"passed","assertions":0,"scenarios":[{}]}' ;;
     menu-prefixed) echo 'diagnostic: {"status":"passed","assertions":224,"scenarios":[{}]}' ;;
@@ -45,7 +45,7 @@ preflight() {
   case "$case_name" in dirty|failed-dirty) return 9 ;; esac
   return 0
 }
-target=server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest.php
+target=server/tests/Multitenancy/AdminRbacTenantIsolationTest.php
 if [[ "$case_name" == menu-* ]]; then target=server/tests/Productization/MenuGroupingTest.php; fi
 if run_suite "$target"; then result=0; else result=$?; fi
 exit "$result"

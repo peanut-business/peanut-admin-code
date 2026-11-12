@@ -2,7 +2,11 @@
 
 declare(strict_types=1);
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+use app\platform\infrastructure\module\ModuleLockResolver;
+
+$root = realpath($argv[1] ?? dirname(__DIR__, 3));
+if ($root === false) { throw new RuntimeException('Prepared application root is unavailable'); }
+require $root . '/server/vendor/autoload.php';
 
 function pluginMigrationExpect(bool $condition, string $message): void
 {
@@ -27,13 +31,14 @@ function pluginMigrationNormalize(string $sql): string
     return (string) preg_replace('/\s+/', ' ', trim(rtrim($sql, ';')));
 }
 
-$serverRoot = dirname(__DIR__, 2);
+$resolver = new ModuleLockResolver($root . '/server', '../modules.lock');
 $sql = '';
 foreach ([
-    '/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php',
-    '/app/modules/peanut/settings/database/migrations/20261101010004_initial_settings_schema.php',
-] as $path) {
-    $sql .= (string) file_get_contents($serverRoot . $path);
+    'peanut.identity' => '20261101010001_initial_identity_schema.php',
+    'peanut.settings' => '20261101010004_initial_settings_schema.php',
+] as $key => $file) {
+    $moduleRoot = $resolver->require($key)->moduleRoots[$key];
+    $sql .= (string) file_get_contents($moduleRoot . '/database/migrations/' . $file);
 }
 pluginMigrationExpect($sql !== '', 'Module lifecycle migration source is unavailable');
 
