@@ -517,8 +517,11 @@ try {
     createApplicationExpect(!is_dir($first . '/server/fixtures/modules'), 'demo backend Module must remain source-only');
     createApplicationExpect(!is_dir($first . '/server/fixtures/module-lifecycle'), 'demo lifecycle runner must remain source-only');
     createApplicationExpect(!is_dir($first . '/web/tests/fixtures'), 'demo frontend Module must remain source-only');
-    $sourcePlugins = (new ModuleLockResolver($root . '/server', '../modules.lock'))->all();
-    createApplicationExpect($sourcePlugins !== [], 'source fixture lock must resolve at least one fixture Plugin');
+    $sourceModules = (new ModuleLockResolver($root . '/server', '../modules.lock'))->all();
+    createApplicationExpect(
+        $sourceModules === [] && !is_dir($root . '/server/app/modules/peanut'),
+        'thin source Host must not embed official Module author implementations',
+    );
     $generatedLock = json_decode((string) file_get_contents($first . '/modules.lock'), true, 64, JSON_THROW_ON_ERROR);
     // The source checkout may own a development lock, but a fresh thin Host has
     // not accepted any Module source. Only the native reviewed adoption writes it.
