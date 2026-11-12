@@ -3020,7 +3020,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d0f7d6a38107c81a34a9868632ffea5a40dccc511c8b61700527656897676649"
+            "source_sha256": "8177dd0d7f12d5ee269e8d8c5d158fcfb00d5e13a9e395be69402eac8e065b41"
         },
         {
             "path": "scripts/project-resource-application.py",

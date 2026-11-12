@@ -77,6 +77,13 @@ class EnvironmentAutomationTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse((self.root / '.local').exists())
 
+    def test_explicit_missing_python_path_cannot_fall_back_to_runner_interpreter(self):
+        env = {**self.env, 'PEANUT_TOOL_PYTHON3': str(self.root / 'missing-python')}
+        result = self.call('--tools', 'python3', 'doctor', env=env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('missing tools: python3', result.stderr)
+        self.assertFalse((self.root / '.local').exists())
+
     def test_tool_scope_rejects_unknown_names_and_does_not_require_other_tools(self):
         result = self.call('--tools', 'not-a-tool', 'requirements')
         self.assertNotEqual(result.returncode, 0)

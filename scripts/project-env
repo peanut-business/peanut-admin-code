@@ -316,7 +316,7 @@ def discover_host(root: Path, required: dict) -> dict:
             continue
         requested = os.environ.get('PEANUT_TOOL_' + name.upper())
         selected = shutil.which(requested or name)
-        if selected is None and name == 'python3':
+        if selected is None and name == 'python3' and not requested:
             selected = sys.executable
         if not selected:
             missing.append(name)
