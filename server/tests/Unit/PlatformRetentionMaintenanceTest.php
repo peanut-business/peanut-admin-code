@@ -30,7 +30,7 @@ final class PlatformRetentionMaintenanceTest extends TestCase
     protected function setUp(): void
     {
         $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
-        require_once $root . '/server/tests/Support/ThinkPhpTestConnection.php';
+        require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
         require_once $root . '/server/vendor/topthink/framework/src/helper.php';
         new App($root . '/.local/tmp/retention-maintenance-tests');
         $this->pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);

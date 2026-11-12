@@ -6,6 +6,7 @@ use app\common\infrastructure\scaffold\ScaffoldUpgradeRunner;
 use app\common\value\scaffold\ScaffoldManifest;
 
 require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
+require_once (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php';
 
 $root = sys_get_temp_dir() . '/peanut-newer-bundled-module-' . bin2hex(random_bytes(6));
 if (!mkdir($root, 0700)) {

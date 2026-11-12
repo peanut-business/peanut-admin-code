@@ -5,7 +5,7 @@ declare(strict_types=1);
 $root = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $script = $root . '/database/seed-demo-data.php';
 $wrapper = $root . '/../scripts/seed-demo-data';
-$inventory = $root . '/../scaffold/application-template-inventory.json';
+$inventory = dirname(__DIR__, 3) . '/scaffold/application-template-inventory.json';
 $productionDockerfile = $root . '/../deploy/docker/production.Dockerfile';
 $expect = static function (bool $condition, string $message): void {
     if (!$condition) {

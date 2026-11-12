@@ -9,7 +9,7 @@ use app\platform\infrastructure\module\ModuleLockResolver;
 use app\platform\value\module\ModuleFrontendLayout;
 use Opis\JsonSchema\Validator;
 
-$repoRoot = realpath($argv[1] ?? dirname(__DIR__, 3));
+$repoRoot = realpath($argv[1] ?? (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)));
 if ($repoRoot === false) { throw new RuntimeException('Prepared application root is unavailable'); }
 require $repoRoot . '/server/vendor/autoload.php';
 

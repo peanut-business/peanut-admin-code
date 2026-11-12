@@ -222,7 +222,8 @@ final class TenantModuleStateBoundaryTest extends TestCase
         ] as $path) {
             $traverser = new \PhpParser\NodeTraverser();
             $traverser->addVisitor(new \PhpParser\NodeVisitor\NameResolver());
-            $nodes = $traverser->traverse((new \PhpParser\ParserFactory())->createForHostVersion()->parse(file_get_contents($root . '/' . $path)));
+            $sourceRoot = str_starts_with($path, 'server/app/') ? $root : dirname(__DIR__, 3);
+            $nodes = $traverser->traverse((new \PhpParser\ParserFactory())->createForHostVersion()->parse(file_get_contents($sourceRoot . '/' . $path)));
             foreach ((new \PhpParser\NodeFinder())->findInstanceOf($nodes, \PhpParser\Node\Expr\New_::class) as $call) {
                 if ($call->class instanceof \PhpParser\Node\Name && isset($minimum[$call->class->toString()])) {
                     ++$sites;

@@ -106,7 +106,7 @@ run_suite() {
   logs+=("$log")
   set +e
   run_php_with_backend_environment "$php_binary" "$ROOT/scripts/run-php-test" \
-    "--env-file=$environment_file" --fail-on-skipped "$target" "$@" 2>&1 | tee "$log"
+    "--application-root=$application_root" "--env-file=$environment_file" --fail-on-skipped "$target" "$@" 2>&1 | tee "$log"
   child_status=${PIPESTATUS[0]}
   status="$child_status"
   set -e
@@ -202,14 +202,22 @@ fi
 mode="${1:-}"
 shift || true
 environment_file=""
-if [[ "${1:-}" == --env-file && $# -eq 2 ]]; then
-  environment_file="$2"
-  shift 2
-fi
+application_root=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --env-file) environment_file="${2:-}"; shift 2 ;;
+    --application-root=*) application_root="${1#--application-root=}"; shift ;;
+    *) echo "ERROR: unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
 [[ "$mode" == --registered || "$mode" == --ci-service ]] \
   || { echo 'ERROR: expected --registered or --ci-service' >&2; exit 2; }
 [[ $# -eq 0 && "$environment_file" == /* && -f "$environment_file" && ! -L "$environment_file" ]] \
   || { echo 'ERROR: --env-file must name an absolute regular file' >&2; exit 2; }
+[[ "$application_root" == /* && -f "$application_root/server/vendor/autoload.php" ]] \
+  || { echo 'ERROR: --application-root must name an absolute prepared application' >&2; exit 2; }
+application_root="$(CDPATH= cd -- "$application_root" && pwd -P)"
+export PEANUT_TEST_APPLICATION_ROOT="$application_root"
 
 required_environment=(
   DB_HOST DB_PORT DB_NAME

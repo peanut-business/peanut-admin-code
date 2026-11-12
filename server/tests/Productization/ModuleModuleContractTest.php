@@ -16,11 +16,11 @@ use app\common\infrastructure\module\ModuleHostLayoutFactory;
 use think\App;
 
 require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
-require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/fixtures/modules/delivery_record/src/Contract/DeliveryRecordCommands.php';
-require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/fixtures/modules/delivery_record/src/Service/DeliveryRecordAccess.php';
-require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/fixtures/modules/delivery_record/src/Infrastructure/Authorization/ThinkPhpDeliveryRecordAccess.php';
-require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/fixtures/modules/delivery_record/src/Service/DeliveryRecordService.php';
-require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/fixtures/modules/delivery_record/src/ModuleProvider.php';
+require dirname(__DIR__, 2) . '/fixtures/modules/delivery_record/src/Contract/DeliveryRecordCommands.php';
+require dirname(__DIR__, 2) . '/fixtures/modules/delivery_record/src/Service/DeliveryRecordAccess.php';
+require dirname(__DIR__, 2) . '/fixtures/modules/delivery_record/src/Infrastructure/Authorization/ThinkPhpDeliveryRecordAccess.php';
+require dirname(__DIR__, 2) . '/fixtures/modules/delivery_record/src/Service/DeliveryRecordService.php';
+require dirname(__DIR__, 2) . '/fixtures/modules/delivery_record/src/ModuleProvider.php';
 
 interface ModuleModuleAutowireContract {}
 
@@ -142,7 +142,7 @@ function pluginModuleContractMakeOfficial(App $app, string $abstract, string $co
 }
 
 $serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
-$moduleRoot = $serverRoot . '/fixtures/modules/delivery_record';
+$moduleRoot = dirname(__DIR__, 2) . '/fixtures/modules/delivery_record';
 $officialModuleRoots = glob($serverRoot . '/app/modules/peanut/*', GLOB_ONLYDIR) ?: [];
 sort($officialModuleRoots, SORT_STRING);
 $moduleRoots = [$moduleRoot, ...$officialModuleRoots];

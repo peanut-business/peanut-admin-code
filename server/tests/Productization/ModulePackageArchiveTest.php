@@ -118,8 +118,8 @@ $application->config->set(['mode' => 'multi-tenant'], 'deployment');
 try {
     // A real private Module namespace participates in the deployment lock; fixture.* is intentionally excluded.
     $authorRoot = $temporary . '/author';
-    modulePackageCopyTree($projectRoot . '/server/fixtures/modules/delivery_record', $authorRoot . '/server/app/modules/acme/delivery_record');
-    modulePackageCopyTree($projectRoot . '/web/tests/fixtures/modules/fixture-delivery-record', $authorRoot . '/web/src/modules/acme-delivery-record');
+    modulePackageCopyTree(dirname(__DIR__, 3) . '/server/fixtures/modules/delivery_record', $authorRoot . '/server/app/modules/acme/delivery_record');
+    modulePackageCopyTree(dirname(__DIR__, 3) . '/web/tests/fixtures/modules/fixture-delivery-record', $authorRoot . '/web/src/modules/acme-delivery-record');
     $fromNamespace = implode(chr(92), ['PeanutAdmin', 'Fixtures', 'DeliveryRecord']);
     $toNamespace = implode(chr(92), ['Acme', 'Modules', 'DeliveryRecord']);
     modulePackageRewriteTree($authorRoot, [
@@ -512,7 +512,12 @@ try {
     (new ModuleArtifactWriter($adoptRoot . '/server'))->checkLock();
     modulePackageRejects(fn() => $adopter->adopt($signedPath, $pin, 'fixture-release'), 'PLUGIN_DOWNGRADE_REJECTED');
     // The same edition generator must retain private manifests when composing the next bundled source lock.
-    $creator = new \app\common\infrastructure\scaffold\ApplicationCreator($projectRoot, $projectRoot . '/scaffold/application-template-inventory.json');
+    $producer = <<<'PHP'
+    $templateRoot = $argv[1];
+    $adoptRoot = $argv[2];
+    require $templateRoot . '/server/vendor/autoload.php';
+    require_once $templateRoot . '/server/app/common/infrastructure/scaffold/ApplicationCreator.php';
+    $creator = new \app\common\infrastructure\scaffold\ApplicationCreator($templateRoot, $templateRoot . '/scaffold/application-template-inventory.json');
     $rebuild = new ReflectionMethod($creator, 'rebuildBundledModuleArtifacts');
     $artifactFiles = [];
     foreach (['server/app/modules/acme/delivery_record/module.json', 'modules.lock'] as $relative) {
@@ -520,7 +525,11 @@ try {
         $artifactFiles[] = ['path' => $relative, 'mode' => 0644];
     }
     $rebuild->invoke($creator, $adoptRoot, $artifactFiles);
-    modulePackageExpect(isset((new ModuleLockResolver($adoptRoot . '/server', '../modules.lock'))->all()['acme.delivery-record']), 'edition composition discarded private package identity');
+    if (!isset((new \app\platform\infrastructure\module\ModuleLockResolver($adoptRoot . '/server', '../modules.lock'))->all()['acme.delivery-record'])) { throw new RuntimeException('edition composition discarded private package identity'); }
+
+PHP;
+    $process = proc_open([PHP_BINARY, '-r', $producer, dirname(__DIR__, 3), $adoptRoot], [0 => STDIN, 1 => STDOUT, 2 => STDERR], $pipes, dirname(__DIR__, 3));
+    modulePackageExpect(is_resource($process) && proc_close($process) === 0, 'template producer discarded private package identity');
 
     $officialPath = $temporary . '/official-signed.tar';
     $official = (new ModulePackageArchiveService($serverRoot))->packModule('peanut.content-tools', $officialPath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);

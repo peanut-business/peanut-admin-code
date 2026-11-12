@@ -183,7 +183,7 @@ final class OpsWorkerContractTest extends TestCase
 
     public function testLifecycleFixtureConsumesInitializedContainerWithoutDuplicatingTheConstructor(): void
     {
-        $source = file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/fixtures/module-lifecycle/run.php');
+        $source = file_get_contents(dirname(__DIR__, 2) . '/fixtures/module-lifecycle/run.php');
         self::assertStringNotContainsString('SourceApplicationBackup', $source);
         self::assertStringContainsString('$app = (new think\\App($root . \'/server\'))->initialize();', $source);
         self::assertStringContainsString('memberUploadInstalledAssertions($app, $pdo,', $source);
@@ -211,8 +211,15 @@ final class OpsWorkerContractTest extends TestCase
             mkdir($directory, 0700, true);
         }
         $registry = tempnam($directory, 'ops-worker-registry-');
+        $applicationRoot = getenv('PEANUT_TEST_APPLICATION_ROOT');
+        $instanceRegistry = $applicationRoot ? $applicationRoot . '/server/private/resources/project-resources.json' : null;
+        $previousRegistry = $instanceRegistry !== null && is_file($instanceRegistry) ? file_get_contents($instanceRegistry) : null;
+        $previousRegistryMode = $previousRegistry !== null ? fileperms($instanceRegistry) & 0777 : null;
+        $projectId = $applicationRoot
+            ? \app\common\value\installation\ApplicationSourceIdentity::load($applicationRoot . '/server')->applicationSlug()
+            : 'peanut-admin';
         file_put_contents($registry, json_encode([
-            'schema_version' => 1, 'project_id' => 'peanut-admin', 'authority' => ['role' => 'maintainer'],
+            'schema_version' => 1, 'project_id' => $projectId, 'authority' => ['role' => $applicationRoot ? 'application' : 'maintainer'],
             'resources' => ['databases' => [[
                 'stable_resource_id' => 'ops-worker-fixture', 'environment' => 'development',
                 'service_type' => 'mysql', 'fallback' => 'none', 'database' => 'ops_worker_fixture',
@@ -220,8 +227,15 @@ final class OpsWorkerContractTest extends TestCase
                 'upstream_endpoint' => ['endpoint_id' => 'ops-worker-fixture', 'host' => '127.0.0.1', 'port' => 1, 'consumers' => ['host']],
             ]]],
         ], JSON_THROW_ON_ERROR));
+        if ($instanceRegistry !== null) {
+            if (!is_dir(dirname($instanceRegistry))) {
+                mkdir(dirname($instanceRegistry), 0700, true);
+            }
+            file_put_contents($instanceRegistry, file_get_contents($registry));
+            chmod($instanceRegistry, 0600);
+        }
         $environment = [
-            'PEANUT_RESOURCE_REGISTRY' => $registry, 'PEANUT_DATABASE_RESOURCE_ID' => 'ops-worker-fixture',
+            'PEANUT_RESOURCE_REGISTRY' => $applicationRoot ? '' : $registry, 'PEANUT_DATABASE_RESOURCE_ID' => 'ops-worker-fixture',
             'PEANUT_DEPLOYMENT_TARGET' => 'local-development', 'PEANUT_DATABASE_CONSUMER' => 'host',
             'PEANUT_DATABASE_ENDPOINT_ID' => 'ops-worker-fixture',
         ];
@@ -237,6 +251,14 @@ final class OpsWorkerContractTest extends TestCase
                 putenv($value === false ? $key : $key . '=' . $value);
             }
             unlink($registry);
+            if ($instanceRegistry !== null) {
+                if ($previousRegistry === null) {
+                    unlink($instanceRegistry);
+                } else {
+                    file_put_contents($instanceRegistry, $previousRegistry);
+                    chmod($instanceRegistry, $previousRegistryMode);
+                }
+            }
             \think\Container::setInstance($previousApp);
         }
     }

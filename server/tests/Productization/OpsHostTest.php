@@ -7,7 +7,7 @@ use app\adminapi\services\OperationLogService;
 use app\common\policy\permission\RegisteredAdminPermissionPolicy;
 use app\platform\infrastructure\module\ModuleLockResolver;
 
-$root = realpath($argv[1] ?? dirname(__DIR__, 3));
+$root = realpath($argv[1] ?? (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)));
 if ($root === false) { throw new RuntimeException('Prepared application root is unavailable'); }
 $serverRoot = $root . '/server';
 require $serverRoot . '/vendor/autoload.php';

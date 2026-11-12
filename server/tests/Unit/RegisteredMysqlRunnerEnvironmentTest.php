@@ -26,6 +26,7 @@ logs=()
 trap 'rm -f -- "${logs[@]}"; rmdir "$RUNNER_TEMP"' EXIT
 php_binary="$3"
 environment_file="$RUNNER_TEMP/synthetic.env"
+application_root="$ROOT"
 case_name="$2"
 run_php_with_backend_environment() {
   [[ " $* " == *' --fail-on-skipped '* ]] || return 41
@@ -217,7 +218,7 @@ BASH,
                 <<<'BASH'
 if [[ "$4" != probe ]]; then
   export PHP_BINARY="$2"
-  exec "$BASH" "$1" "$6" --env-file "$3"
+  exec "$BASH" "$1" "$6" --env-file "$3" "--application-root=$7"
 fi
 source "$1"
 environment_file="$3"
@@ -290,6 +291,7 @@ if (is_file($isolated)) {
 fwrite(STDOUT, "PROBE:native-env-and-authorization-retained\n");
 PHP,
                 $runnerMode,
+                (string) (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: $root),
             ];
             $environment = $ambient + [
                 'PATH' => (string) (getenv('PATH') ?: '/usr/bin:/bin'),

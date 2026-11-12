@@ -204,18 +204,6 @@ importers:
         specifier: 3.2.5
         version: 3.2.5(typescript@5.9.3)
 
-  src/modules/peanut-content-tools: {}
-
-  src/modules/peanut-file: {}
-
-  src/modules/peanut-integration: {}
-
-  src/modules/peanut-reference-codes: {}
-
-  src/modules/peanut-settings: {}
-
-  src/modules/peanut-task: {}
-
 packages:
 
   '@babel/code-frame@7.29.7':

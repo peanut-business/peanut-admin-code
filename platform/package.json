@@ -37,6 +37,6 @@
     "vue-tsc": "^1.0.14"
   },
   "workspaces": [
-    "src/modules/peanut-ops"
+    "src/modules/*"
   ]
 }

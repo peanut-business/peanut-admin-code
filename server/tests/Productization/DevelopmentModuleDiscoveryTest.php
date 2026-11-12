@@ -7,7 +7,7 @@ use app\platform\exception\module\ModuleLifecycleException;
 use app\common\infrastructure\module\ModuleHostLayoutFactory;
 use PeanutAdmin\Kernel\Module\ModuleKey;
 
-$projectRoot = realpath($argv[1] ?? dirname(__DIR__, 3));
+$projectRoot = realpath($argv[1] ?? (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)));
 if ($projectRoot === false) { throw new RuntimeException('Prepared application root is unavailable'); }
 require $projectRoot . '/server/vendor/autoload.php';
 

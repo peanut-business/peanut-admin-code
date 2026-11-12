@@ -47,7 +47,7 @@ try {
     foreach (['base', 'child'] as $name) {
         $namespace = implode(chr(92), ['Acme', 'Modules', ucfirst($name)]);
         $target = $root . '/server/app/modules/acme/' . $name;
-        retirementCopy($server . '/fixtures/modules/delivery_record', $target, [
+        retirementCopy(dirname(__DIR__, 2) . '/fixtures/modules/delivery_record', $target, [
             'fixture.delivery-record' => 'acme.' . $name,
             'peanut-fixture/delivery-record' => 'acme/' . $name,
             'fixture_delivery_record' => 'acme_' . $name,
