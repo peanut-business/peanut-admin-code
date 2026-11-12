@@ -20,6 +20,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from functools import lru_cache
 from urllib.parse import quote, unquote, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
@@ -968,17 +969,17 @@ def prepare(product_version: str, core_php_version: str, core_php_reference: str
 
 
 def prepare_release_workspace(workspace: Path, output_root: Path, local_core: bool,
-                              php_version: str | None, web_version: str | None) -> None:
-    """Prepare disposable inputs; the CLI owns output selection and atomic adoption."""
+                              php_version: str | None, web_version: str | None, resume: bool = False) -> None:
+    """Prepare isolated inputs, retaining successful native stages for explicit continuation."""
     source_root = ROOT
     parent = source_root / '.local/release'
     if not workspace.is_absolute() or workspace.is_symlink() or not workspace.is_dir() \
-            or workspace.resolve().parent != parent.resolve() or any(workspace.iterdir()):
+            or workspace.resolve().parent != parent.resolve() or (not resume and any(workspace.iterdir())):
         fail('release workspace must be an empty operation directory under .local/release')
     if not output_root.is_absolute() or output_root.resolve() == source_root:
         fail('release output root must be absolute and distinct from source')
     temporary = workspace / 'tmp'
-    temporary.mkdir(mode=0o700)
+    temporary.mkdir(mode=0o700, exist_ok=resume)
     os.environ['TMPDIR'] = str(temporary)
     helper = source_root / 'scripts/scaffold-runtime/ScaffoldSourceIdentity.php'
 
@@ -995,7 +996,7 @@ def prepare_release_workspace(workspace: Path, output_root: Path, local_core: bo
         root = root.resolve(strict=True)
         exclusions = [output_root.resolve().relative_to(root).as_posix()] if output_root.resolve().is_relative_to(root) else []
         files = source_value(root, 'files', exclusions)
-        target.mkdir(mode=0o700)
+        target.mkdir(mode=0o700, exist_ok=resume)
         for relative in files:
             original, destination = root / relative, target / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -1003,19 +1004,81 @@ def prepare_release_workspace(workspace: Path, output_root: Path, local_core: bo
             destination.chmod(0o755 if original.stat().st_mode & 0o111 else 0o644)
 
     snapshot_root = workspace / 'source'
+    state_path = workspace / 'preparation.json'
+    inputs = {'source_sha256': source_value(source_root, 'local')['snapshot_sha256'],
+              'local_core': local_core, 'php_version': php_version, 'web_version': web_version}
+    host = read_json(source_root / '.local/toolchain/host.json') if local_core else {}
+    core = host.get('core', {})
+    if local_core:
+        if any(not isinstance(core.get(name), str) or not core[name] for name in ('php', 'web')):
+            fail('local PHP and Web Core paths must be configured')
+        inputs['local_cores'] = {kind: source_value(source_root / core[kind], 'local')['snapshot_sha256']
+                                for kind in ('php', 'web')}
+    if state_path.exists():
+        if not resume or state_path.is_symlink():
+            fail('existing preparation requires explicit resume')
+        state = read_json(state_path)
+        if state.get('inputs') != inputs or state.get('protocol') != 'peanut.release-preparation.v1':
+            fail('preparation inputs changed; retained output may not be reused')
+        if state.get('source_sha256') and source_value(snapshot_root, 'local')['snapshot_sha256'] != state['source_sha256']:
+            fail('prepared source changed outside the native preparation')
+    else:
+        if resume:
+            fail('resume has no original preparation state')
+        state = {'protocol': 'peanut.release-preparation.v1', 'inputs': inputs, 'stages': {}}
+
+    def persist() -> None:
+        fd, name = tempfile.mkstemp(prefix='.preparation-', dir=workspace)
+        try:
+            with os.fdopen(fd, 'w') as stream:
+                json.dump(state, stream, indent=2)
+                stream.write('\n')
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(name, state_path)
+        finally:
+            if os.path.exists(name):
+                os.unlink(name)
+
+    def step(name: str, action: Any, outputs: list[Path] | None = None) -> None:
+        previous = state['stages'].get(name)
+        if previous and previous.get('status') == 'done':
+            for file, expected in previous.get('outputs', {}).items():
+                candidate = workspace / file
+                if candidate.is_symlink() or not candidate.is_file() or hashlib.sha256(candidate.read_bytes()).hexdigest() != expected:
+                    fail('completed preparation output changed: ' + name)
+            print('[peanut release] Reuse preparation ' + name, flush=True)
+            return
+        if previous and previous.get('status') == 'running':
+            fail('unknown preparation outcome; inspect original command before retry: ' + name)
+        state['stages'][name] = {'status': 'running'}
+        persist()
+        try:
+            action()
+            proof = {}
+            for file in outputs or []:
+                if file.is_symlink() or not file.is_file():
+                    fail('native preparation did not create ' + str(file))
+                proof[file.relative_to(workspace).as_posix()] = hashlib.sha256(file.read_bytes()).hexdigest()
+            state['stages'][name] = {'status': 'done', 'outputs': proof}
+        except BaseException as error:
+            state['stages'][name] = {'status': 'failed', 'error': str(error)}
+            if snapshot_root.is_dir():
+                state['source_sha256'] = source_value(snapshot_root, 'local')['snapshot_sha256']
+            persist()
+            raise
+        state['source_sha256'] = source_value(snapshot_root, 'local')['snapshot_sha256']
+        persist()
+
     print('[peanut release] Input snapshot', flush=True)
-    snapshot(source_root, snapshot_root)
+    step('source-snapshot', lambda: snapshot(source_root, snapshot_root))
     producer = source_root / 'scripts/prepare-product-release-candidate'
     # Each preparation subcommand retains its own ROOT and native lock contract.
     if local_core:
         print('[peanut release] Core inputs: configured local sources', flush=True)
-        host = read_json(source_root / '.local/toolchain/host.json')
-        core = host.get('core', {})
-        if any(not isinstance(core.get(name), str) or not core[name] for name in ('php', 'web')):
-            fail('local PHP and Web Core paths must be configured')
         php_copy, web_copy = workspace / 'core-php', workspace / 'core-web'
-        snapshot(source_root / core['php'], php_copy)
-        snapshot(source_root / core['web'], web_copy)
+        step('php-core-snapshot', lambda: snapshot(source_root / core['php'], php_copy))
+        step('web-core-snapshot', lambda: snapshot(source_root / core['web'], web_copy))
         php_digest = source_value(php_copy, 'local')['snapshot_sha256']
         web_digest = source_value(web_copy, 'local')['snapshot_sha256']
         version = read_json(snapshot_root / 'release-versions.json').get('core_php', {}).get('resolved_version')
@@ -1025,34 +1088,36 @@ def prepare_release_workspace(workspace: Path, output_root: Path, local_core: bo
         web_host = source_root / '.local/toolchain/cores/web/host.json'
         read_json(web_host)
         receipt_parent = workspace / 'core-inputs'
-        receipt_parent.mkdir()
+        receipt_parent.mkdir(exist_ok=resume)
         receipt_dir = receipt_parent / 'frozen'
-        run(['pnpm', '--dir', str(snapshot_root / 'web'), 'install', '--frozen-lockfile', '--ignore-scripts'])
+        step('local-core-web-tools', lambda: run(['pnpm', '--dir', str(snapshot_root / 'web'), 'install', '--frozen-lockfile', '--ignore-scripts']),
+             [snapshot_root / 'web/node_modules/.modules.yaml'])
         php_executable = shutil.which('php')
         if php_executable is None:
             fail('registered PHP command is required')
-        run([sys.executable, str(source_root / 'scripts/project-env'), '--root', str(web_copy),
+        step('freeze-local-core', lambda: run([sys.executable, str(source_root / 'scripts/project-env'), '--root', str(web_copy),
              '--state-root', str(source_root), '--host', str(web_host), 'exec', '--', sys.executable,
              str(source_root / 'scripts/freeze-core-release'), '--local', f'--php-core-dir={php_copy}',
              f'--web-core-dir={web_copy}', f'--output={receipt_dir}', f'--php-version={version}',
              f'--php-source-sha256={php_digest}', f'--web-source-sha256={web_digest}',
-             f'--source-identity-helper={helper}', f'--source-identity-php={php_executable}'])
-        run([sys.executable, str(producer), f'--prepare-local-core-snapshot={snapshot_root}',
-             f'--core-inputs={receipt_dir / "release-core-inputs.json"}', f'--tool-root={snapshot_root}'])
+             f'--source-identity-helper={helper}', f'--source-identity-php={php_executable}']), [receipt_dir / 'release-core-inputs.json'])
+        step('project-local-core', lambda: run([sys.executable, str(producer), f'--prepare-local-core-snapshot={snapshot_root}',
+             f'--core-inputs={receipt_dir / "release-core-inputs.json"}', f'--tool-root={snapshot_root}']))
     else:
         print('[peanut release] Core inputs: published fixed releases', flush=True)
-        resolution = resolve_core_release(php_version, web_version)
         resolution_path = workspace / 'core-resolution.json'
-        write_json(resolution_path, resolution)
-        run([sys.executable, str(producer), f'--prepare-core-snapshot={snapshot_root}',
-             f'--core-resolution={resolution_path}'])
+        step('resolve-public-core', lambda: write_json(resolution_path, resolve_core_release(php_version, web_version)), [resolution_path])
+        step('project-public-core', lambda: run([sys.executable, str(producer), f'--prepare-core-snapshot={snapshot_root}',
+             f'--core-resolution={resolution_path}']))
     print('[peanut release] Derived inputs: locked dependencies, API, inventory', flush=True)
-    run(['composer', 'install', f'--working-dir={snapshot_root / "server"}', '--no-scripts', '--no-plugins',
-         '--no-interaction', '--no-progress', '--prefer-dist'])
-    run(['pnpm', '--dir', str(snapshot_root / 'web'), 'install', '--frozen-lockfile', '--ignore-scripts'])
-    run([npm_command(), 'ci', '--prefix', str(snapshot_root / 'uniapp'), '--ignore-scripts'])
-    run(['php', str(snapshot_root / 'scripts/generate-api-contracts.php')])
-    run(['php', str(snapshot_root / 'scripts/build-application-template-inventory'), '--local'])
+    step('composer-lock-install', lambda: run(['composer', 'install', f'--working-dir={snapshot_root / "server"}', '--no-scripts', '--no-plugins',
+         '--no-interaction', '--no-progress', '--prefer-dist']), [snapshot_root / 'server/vendor/autoload.php', snapshot_root / 'server/vendor/composer/installed.json'])
+    step('web-lock-install', lambda: run(['pnpm', '--dir', str(snapshot_root / 'web'), 'install', '--frozen-lockfile', '--ignore-scripts']),
+         [snapshot_root / 'web/node_modules/.modules.yaml'])
+    step('uniapp-lock-install', lambda: run([npm_command(), 'ci', '--prefix', str(snapshot_root / 'uniapp'), '--ignore-scripts']),
+         [snapshot_root / 'uniapp/node_modules/.package-lock.json'])
+    step('api-generation', lambda: run(['php', str(snapshot_root / 'scripts/generate-api-contracts.php')]))
+    step('template-inventory', lambda: run(['php', str(snapshot_root / 'scripts/build-application-template-inventory'), '--local']))
 
 
 def main() -> None:
@@ -1060,6 +1125,7 @@ def main() -> None:
     parser.add_argument('--prepare-release-workspace', type=Path,
                         help='Prepare complete source/Core/derived inputs in an empty .local/release operation directory.')
     parser.add_argument('--release-output-root', type=Path)
+    parser.add_argument('--resume-release-workspace', action='store_true')
     parser.add_argument('--with-local-core', action='store_true')
     parser.add_argument("--resolve-core", action="store_true",
                         help="Read-only resolution of exact published stable Core package identities.")
@@ -1090,9 +1156,9 @@ def main() -> None:
                 or (args.with_local_core and (args.core_php_version or args.core_web_version)):
             fail('--prepare-release-workspace requires only output root and optional Core selectors')
         prepare_release_workspace(args.prepare_release_workspace, args.release_output_root,
-                                  args.with_local_core, args.core_php_version, args.core_web_version)
+                                  args.with_local_core, args.core_php_version, args.core_web_version, args.resume_release_workspace)
         return
-    if args.release_output_root is not None or args.with_local_core:
+    if args.release_output_root is not None or args.with_local_core or args.resume_release_workspace:
         fail('--release-output-root and --with-local-core require --prepare-release-workspace')
 
     if args.resolve_core:

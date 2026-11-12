@@ -74,7 +74,9 @@ final readonly class ModulePackageAdoptionService
             throw new ModulePackageException('MODULE_COMPOSITION_INDEX_INVALID', 'Provide one independently pinned index file.');
         }
         $index = json_decode((string) file_get_contents($indexPath), true, 512, JSON_THROW_ON_ERROR);
-        if (($index['schema_version'] ?? null) !== 1 || ($index['protocol'] ?? null) !== 'peanut.module-release-index.v1'
+        $indexVersion = $index['schema_version'] ?? null;
+        if (!in_array($indexVersion, [1, 2], true)
+            || ($index['protocol'] ?? null) !== 'peanut.module-release-index.v' . $indexVersion
             || ($index['repository'] ?? null) !== 'peanut-opensource/peanut-module-code'
             || ($index['repository'] ?? null) !== ($identity['repository'] ?? null)
             || !is_string($index['tag'] ?? null) || preg_match('/^[A-Za-z0-9][A-Za-z0-9._+-]*$/D', $index['tag']) !== 1
@@ -98,6 +100,16 @@ final readonly class ModulePackageAdoptionService
                 || ($row['asset'] ?? null) !== $row['key'] . '-' . $row['version'] . '.tar'
                 || ($row['license'] ?? null) !== 'Apache-2.0') {
                 throw new ModulePackageException('MODULE_COMPOSITION_INDEX_INVALID', 'Invalid or duplicate catalog entry.');
+            }
+            if ($indexVersion === 2) {
+                if (!is_string($row['artifact_tag'] ?? null)
+                    || preg_match('/^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-rc\.(0|[1-9][0-9]*))?$/D', $row['artifact_tag']) !== 1
+                    || !is_string($row['source_sha256'] ?? null)
+                    || preg_match('/^[a-f0-9]{64}$/D', $row['source_sha256']) !== 1) {
+                    throw new ModulePackageException('MODULE_COMPOSITION_INDEX_INVALID', 'Incremental catalog reference is invalid.');
+                }
+            } elseif (array_key_exists('artifact_tag', $row)) {
+                throw new ModulePackageException('MODULE_COMPOSITION_INDEX_INVALID', 'Artifact references require the v2 catalog.');
             }
             foreach ($row['dependencies'] as $dependency) {
                 if (!is_array($dependency) || !is_string($dependency['module_key'] ?? null)
@@ -123,7 +135,9 @@ final readonly class ModulePackageAdoptionService
         $diagnostics = [];
         while ($pending !== []) {
             $key = array_pop($pending);
-            if (isset($selected[$key])) { continue; }
+            if (isset($selected[$key])) {
+                continue;
+            }
             $row = $catalog[$key] ?? null;
             if ($row === null) {
                 $selected[$key] = true;
@@ -133,7 +147,9 @@ final readonly class ModulePackageAdoptionService
             $keep = isset($current[$key]) && version_compare($current[$key]->version, $row['version']) > 0;
             $selected[$key] = $keep ? 'retain-higher' : 'candidate';
             $graph[$key] = $keep ? $graph[$key] : ['version' => $row['version'], 'dependencies' => $row['dependencies']];
-            foreach ($graph[$key]['dependencies'] as $dependency) { $pending[] = $dependency['module_key']; }
+            foreach ($graph[$key]['dependencies'] as $dependency) {
+                $pending[] = $dependency['module_key'];
+            }
         }
         ksort($graph, SORT_STRING);
         $preflight = new PackageCheck($root);
@@ -198,8 +214,11 @@ final readonly class ModulePackageAdoptionService
                     }
                     PackageCheck::assertEdition($manifest->root, 'multi-tenant');
                     $composer = json_decode((string) file_get_contents($manifest->root . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
-                    PackageCheck::assertComposerRequirements(array_filter($composer['require'] ?? [],
-                        static fn(string $name): bool => in_array($name, ['php', 'peanut-admin/core'], true) || str_starts_with($name, 'ext-'), ARRAY_FILTER_USE_KEY));
+                    PackageCheck::assertComposerRequirements(array_filter(
+                        $composer['require'] ?? [],
+                        static fn(string $name): bool => in_array($name, ['php', 'peanut-admin/core'], true) || str_starts_with($name, 'ext-'),
+                        ARRAY_FILTER_USE_KEY,
+                    ));
                     if (!$matcher->matches($kernel, $manifest->data['kernel_constraint'])) {
                         throw new ModulePackageException('MODULE_KERNEL_INCOMPATIBLE', 'Module Kernel requirement is incompatible.');
                     }
@@ -219,7 +238,8 @@ final readonly class ModulePackageAdoptionService
             $migrations = [];
             try {
                 \app\common\infrastructure\module\ModuleHostLayoutFactory::fromModuleRoots(
-                    array_map(static fn($manifest): string => $manifest->root, $manifests));
+                    array_map(static fn($manifest): string => $manifest->root, $manifests),
+                );
             } catch (\InvalidArgumentException $exception) {
                 $diagnostics[] = ['code' => 'PLUGIN_MODULE_CONFLICT', 'message' => $exception->getMessage()];
             }
@@ -254,7 +274,9 @@ final readonly class ModulePackageAdoptionService
                 $diagnostics[] = ['code' => $exception->errorCode, 'message' => $exception->getMessage()];
             }
             $nextLock = json_encode(['schema_version' => 1, 'modules' => array_values($entries)], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
-            if ($writes !== []) { $writes['modules.lock'] = hash('sha256', $nextLock); }
+            if ($writes !== []) {
+                $writes['modules.lock'] = hash('sha256', $nextLock);
+            }
             ksort($writes, SORT_STRING);
             $plan = ['schema_version' => 1, 'protocol' => 'peanut.module-source-composition-plan.v1',
                 'status' => $diagnostics === [] ? 'ready' : 'blocked', 'edition' => 'multi-tenant', 'roots' => $roots,
@@ -272,7 +294,9 @@ final readonly class ModulePackageAdoptionService
                 'runtime_database_mutated' => false, 'tenant_modules_enabled' => false, 'rbac_granted' => false];
             $sha = hash('sha256', json_encode($plan, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
             $response = ['plan' => $plan, 'plan_sha256' => $sha, 'recovery' => $promoter->recoveryState()];
-            if ($approvedSha === null || $diagnostics !== []) { return $response; }
+            if ($approvedSha === null || $diagnostics !== []) {
+                return $response;
+            }
             if (!hash_equals($sha, $approvedSha)) {
                 throw new ModulePackageException('MODULE_COMPOSITION_PLAN_CHANGED', 'Re-plan and review the changed input before source preparation.');
             }
@@ -281,7 +305,9 @@ final readonly class ModulePackageAdoptionService
             $response['completed_writes'] = array_keys($writes);
             return $response;
         } finally {
-            foreach ($packages as $package) { $archive->cleanup($package); }
+            foreach ($packages as $package) {
+                $archive->cleanup($package);
+            }
         }
     }
 
