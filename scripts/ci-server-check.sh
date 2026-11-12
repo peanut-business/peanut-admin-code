@@ -311,7 +311,9 @@ while IFS= read -r test_file <&3; do
       run_command p0e-template-stage-contract 1 python3 scripts/tests/p0e_template_stage_test.py
       ;;
     server/tests/Productization/CreateApplicationTest.php|\
-    server/tests/Productization/EditionUpgradePackageTest.php)
+    server/tests/Productization/EditionUpgradePackageTest.php|\
+    server/tests/Productization/InstallationConfigurationHostTest.php|\
+    server/tests/Productization/ScaffoldUpgradeRunnerTest.php)
       # Source author test: never load a different application's app\ classes
       # before checking the immutable Code candidate and its native producer.
       run_command "test:${test_file}:source" 1 \

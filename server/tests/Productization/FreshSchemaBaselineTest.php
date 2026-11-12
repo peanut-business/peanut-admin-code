@@ -9,7 +9,7 @@ function freshSchemaExpect(bool $condition, string $message): void
     }
 }
 
-$serverRoot = dirname(__DIR__, 2);
+$serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 require_once $serverRoot . '/vendor/autoload.php';
 $schema = (string) file_get_contents($serverRoot . '/database/schema/baseline-schema.sql');
 $data = (string) file_get_contents($serverRoot . '/database/schema/baseline-data.sql');
