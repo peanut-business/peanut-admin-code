@@ -1,6 +1,6 @@
 # peanut-admin-code
 
-Application composition, official/business modules, client pages and delivery; no private Project documents or duplicate kernel.
+Peanut Admin Host composition, client delivery and runtime acceptance; official Module author source belongs to the dedicated Module development application, not this Code repository. No private Project dependencies or duplicate kernel.
 
 ## Execution discipline
 
