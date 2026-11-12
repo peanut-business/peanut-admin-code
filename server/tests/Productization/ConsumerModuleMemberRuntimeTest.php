@@ -238,7 +238,9 @@ try:
 finally:
     case.doCleanups()
 PY;
-$process = proc_open(['python3', '-c', $generator, $root, $temporaryRoot], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $root);
+// The generator is a Code-owned test fixture, not part of the thin consumer.
+$fixtureSourceRoot = dirname(__DIR__, 3);
+$process = proc_open(['python3', '-c', $generator, $fixtureSourceRoot, $temporaryRoot], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $fixtureSourceRoot);
 memberRuntimeExpect(is_resource($process), 'native sample generation process unavailable');
 $generatedOutput = stream_get_contents($pipes[1]);
 $generatedError = stream_get_contents($pipes[2]);
