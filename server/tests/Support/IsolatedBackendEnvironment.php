@@ -11,6 +11,15 @@ final class IsolatedBackendEnvironment
     private static array $paths = [];
     private static bool $cleanupRegistered = false;
 
+    /** Host tests must write the temporary env into their selected consumer. */
+    private static function serverRoot(): string
+    {
+        $consumer = getenv('PEANUT_TEST_APPLICATION_ROOT');
+        return $consumer !== false && $consumer !== ''
+            ? $consumer . '/server'
+            : dirname(__DIR__, 2);
+    }
+
     public static function activateDatabase(
         string $host,
         int|string $port,
@@ -37,7 +46,7 @@ final class IsolatedBackendEnvironment
     /** @param array<string,string|int|bool> $values */
     public static function activate(array $values): string
     {
-        $serverRoot = dirname(__DIR__, 2);
+        $serverRoot = self::serverRoot();
         $app = \think\Container::getInstance();
         if (!$app instanceof \think\App) {
             $app = new \think\App($serverRoot);
@@ -165,7 +174,7 @@ final class IsolatedBackendEnvironment
     public static function cleanup(): void
     {
         foreach (array_reverse(self::$paths) as $path) {
-            $serverRoot = dirname(__DIR__, 2);
+            $serverRoot = self::serverRoot();
             if (dirname($path) === $serverRoot
                 && preg_match('/^\.env\.test-[a-f0-9]{16}$/D', basename($path)) === 1
                 && is_file($path)
