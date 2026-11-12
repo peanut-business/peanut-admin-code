@@ -120,7 +120,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Set up PHP
+      - &consumer-php
+        name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3.24'
@@ -196,7 +197,8 @@ jobs:
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
-      - name: Create isolated backend environment
+      - &prepare-static-backend
+        name: Create isolated backend environment
         shell: bash
         run: |
           backend_env="$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
@@ -213,6 +215,7 @@ jobs:
             'DB_PASS=mt02_root' \
             'PEANUT_DATABASE_RESOURCE_ID=peanut-admin-ci-static' \
             'DB_PREFIX=pa_' > "$backend_env"
+          printf 'PEANUT_CI_BACKEND_ENV=%s\n' "$backend_env" >> "$GITHUB_ENV"
 
       - name: Cache Composer downloads
         uses: actions/cache@v4
@@ -229,11 +232,14 @@ jobs:
           ../scripts/project-composer prepare
           ../scripts/project-composer validate --strict --no-check-all
 
-      - name: Install Composer dependencies
+      - &install-host-tools
+        name: Install Composer dependencies
         working-directory: server
         env:
           PEANUT_SERVER_ENV_FILE: ${{ github.workspace }}/server/.env.ci-${{ github.run_id }}
-        run: ../scripts/project-composer install --no-interaction --no-progress --prefer-dist
+        run: |
+          ../scripts/project-composer prepare
+          ../scripts/project-composer install --no-interaction --no-progress --prefer-dist
 
       - name: Install locked UniApp generator dependencies
         working-directory: uniapp
@@ -242,6 +248,71 @@ jobs:
       - name: Install locked Web API generator dependencies
         working-directory: web
         run: pnpm install --frozen-lockfile --ignore-scripts --package-import-method=copy
+
+      - &prepare-module-consumer
+        name: Prepare the selected native Module consumer
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          consumer="$RUNNER_TEMP/peanut-ci-module-host-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          packages="$RUNNER_TEMP/peanut-ci-official-modules"
+          mkdir -p "$packages"
+          gh release download v1.0.0-rc.2 --repo peanut-opensource/peanut-module-code --dir "$packages" \
+            --pattern module-release-index.json \
+            --pattern peanut.content-tools-1.0.2.tar --pattern peanut.file-1.0.47.tar \
+            --pattern peanut.identity-4.0.0-rc.62.tar --pattern peanut.integration-1.0.29.tar \
+            --pattern peanut.ops-1.0.34.tar --pattern peanut.reference-codes-1.0.27.tar \
+            --pattern peanut.settings-1.0.28.tar --pattern peanut.task-1.0.34.tar
+          printf '%s  %s\n' 2d80801dca75524641e37f2d57b64ec918c14f9febb25375f5c4b4a4460a6f18 \
+            "$packages/module-release-index.json" | sha256sum --check
+          php scripts/create-app --name="CI Module Host" --slug=ci-module-host --package=ci/module-host \
+            --edition=multi-tenant --profile=standard --workflow=none --target="$consumer" \
+            --source-repository=peanut-business/peanut-admin-code --source-ref="$GITHUB_SHA" \
+            --source-channel=development --source-commit="$(git rev-parse HEAD)" --source-tree="$(git rev-parse HEAD^{tree})"
+          install -m 0600 "$PEANUT_CI_BACKEND_ENV" "$consumer/server/.env.ci"
+          export PHP_ENV_NAME=ci
+          composer --working-dir="$consumer/server" install --no-interaction --prefer-dist --no-progress --no-scripts
+          php -r '
+            [$app,$packages]=[$argv[1],$argv[2]];
+            $index=json_decode(file_get_contents($packages."/module-release-index.json"),true,512,JSON_THROW_ON_ERROR);
+            $keys=["peanut.content-tools","peanut.file","peanut.identity","peanut.integration","peanut.ops","peanut.reference-codes","peanut.settings","peanut.task"];
+            $archives=[];
+            foreach($index["modules"] as $module){if(in_array($module["key"],$keys,true)){$archives[$module["key"]]=$packages."/".$module["asset"];}}
+            $request=["schema_version"=>1,"protocol"=>"peanut.module-source-composition-request.v1","edition"=>"multi-tenant",
+              "composition_sha256"=>hash_file("sha256",$app."/server/config/module_composition.json"),"preset"=>"standard","optional"=>[],
+              "index"=>["path"=>$packages."/module-release-index.json","sha256"=>hash_file("sha256",$packages."/module-release-index.json"),
+                "repository"=>"peanut-opensource/peanut-module-code","tag"=>"v1.0.0-rc.2","commit"=>"afa5b346ff3ca0640cf1631912a96ed3c010f9ea"],"archives"=>$archives];
+            file_put_contents($packages."/composition.json",json_encode($request,JSON_THROW_ON_ERROR));
+          ' "$consumer" "$packages"
+          php -r 'echo json_encode(["operation"=>"adopt","arguments"=>["--composition=".$argv[1]]],JSON_THROW_ON_ERROR);' \
+            "$packages/composition.json" | php "$consumer/server/module" > "$packages/plan.json"
+          plan=$(php -r '$p=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); if(($p["plan"]["status"]??null)!=="ready"){throw new RuntimeException("Module composition blocked");} echo $p["plan_sha256"];' "$packages/plan.json")
+          php -r 'echo json_encode(["operation"=>"adopt","arguments"=>["--composition=".$argv[1],"--plan-sha256=".$argv[2]]],JSON_THROW_ON_ERROR);' \
+            "$packages/composition.json" "$plan" | php "$consumer/server/module"
+          "$consumer/scripts/project-composer" prepare
+          python3 - "$consumer" <<'PY'
+          import json, os, pathlib, shutil, sys
+          app=pathlib.Path(sys.argv[1]); tools={name:str(pathlib.Path(shutil.which(name)).resolve()) for name in ("php","node","npm","pnpm","python3")}
+          commands={name:[tools[name]] for name in ("php","node","python3")}
+          commands.update({name:[tools["node"],tools[name]] for name in ("npm","pnpm")})
+          commands["composer"]=[tools["php"],str(app/".local/toolchain/composer-2.10.2.phar")]
+          host={"schema_version":1,"commands":commands,"extra_path":[p for p in os.environ["PATH"].split(os.pathsep) if pathlib.Path(p).is_dir()],
+            "caches":{name:str(app/".local/toolchain/cache"/name) for name in ("npm","pnpm","composer")},"watch_paths":["tools/toolchain.json"]}
+          for path in host["caches"].values(): pathlib.Path(path).mkdir(parents=True, exist_ok=True)
+          (app/".local/toolchain/host.json").write_text(json.dumps(host))
+          PY
+          python3 "$consumer/scripts/project-env" prepare
+          pnpm --dir "$consumer/web" install --no-frozen-lockfile --strict-peer-dependencies --ignore-scripts
+          php -r '
+            $server=$argv[1]."/server";require $server."/vendor/autoload.php";
+            $app=new think\App($server);require_once $app->getThinkPath()."helper.php";
+            $app->loadEnv("ci");$app->config->set(require $server."/config/deployment.php","deployment");
+            (new app\common\module\Dependencies($server))->prepareRelease(new app\platform\infrastructure\module\ModuleLockResolver($server,"../modules.lock"),[]);
+          ' "$consumer"
+          printf '%s' '{"operation":"compile","arguments":[]}' | php "$consumer/server/module"
+          printf 'PEANUT_CI_APPLICATION_ROOT=%s\nPEANUT_CI_BACKEND_ENV=%s\n' "$consumer" "$consumer/server/.env.ci" >> "$GITHUB_ENV"
 
       - name: Run daily server gates
         if: github.event_name != 'workflow_dispatch'
@@ -254,7 +325,7 @@ jobs:
           if [[ '${{ needs.changes.outputs.baseline }}' == 'fallback-full' ]]; then
             mode='--broad'
           fi
-          ./scripts/ci-server-check.sh "$mode" --env-file "$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
+          ./scripts/ci-server-check.sh "$mode" "--application-root=$PEANUT_CI_APPLICATION_ROOT" --env-file "$PEANUT_CI_BACKEND_ENV"
 
       - name: Check installation permissions with the Linux application UID
         shell: bash
@@ -282,7 +353,7 @@ jobs:
           TMPDIR: ${{ github.workspace }}/.local/tmp/server-gate-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           mkdir -p -m 0700 "$TMPDIR"
-          ./scripts/ci-server-check.sh --broad --env-file "$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
+          ./scripts/ci-server-check.sh --broad "--application-root=$PEANUT_CI_APPLICATION_ROOT" --env-file "$PEANUT_CI_BACKEND_ENV"
 
       - name: Remove isolated backend environment
         if: always()
@@ -319,6 +390,15 @@ jobs:
           php-version: '8.3.24'
           tools: composer:2.10.2
           coverage: none
+      - name: Set up Node.js for the consumer API tools
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.2'
+      - name: Set up pnpm for the consumer API tools
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.6
+          run_install: false
       - name: Cache Composer downloads
         uses: actions/cache@v4
         with:
@@ -348,11 +428,15 @@ jobs:
             'PEANUT_DATABASE_RESOURCE_ID=peanut-admin-ci-real-mysql84' \
             'PEANUT_DATABASE_ENDPOINT_ID=peanut-admin-ci-real-mysql84-host' \
             'PEANUT_DATABASE_CONSUMER=host' > "$registered_mysql_env"
+          printf 'PEANUT_CI_BACKEND_ENV=%s\n' "$registered_mysql_env" >> "$GITHUB_ENV"
       - name: Install Composer dependencies
         working-directory: server
         env:
           PEANUT_SERVER_ENV_FILE: ${{ github.workspace }}/server/.env.ci-mysql-${{ github.run_id }}
         run: composer install --no-interaction --no-progress --prefer-dist
+      - name: Install locked source API generator dependencies
+        run: pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy
+      - *prepare-module-consumer
       - name: Run lease-bound real MySQL 8.4 gate
         env:
           DB_HOST: 127.0.0.1
@@ -367,7 +451,7 @@ jobs:
           PEANUT_DATABASE_LEASE_OWNER: github-actions:${{ github.repository_id }}:${{ github.run_id }}:${{ github.run_attempt }}
           PEANUT_DATABASE_LEASE_GATE: real-mysql
           PEANUT_MYSQL_RESOURCE_MODE: --ci-service
-        run: ./scripts/ci-server-check.sh --integration --env-file "$GITHUB_WORKSPACE/server/.env.ci-mysql-${GITHUB_RUN_ID}"
+        run: ./scripts/ci-server-check.sh --integration "--application-root=$PEANUT_CI_APPLICATION_ROOT" --env-file "$PEANUT_CI_BACKEND_ENV"
       - name: Remove isolated registered MySQL environment
         if: always()
         shell: bash
@@ -396,15 +480,19 @@ jobs:
           node-version: '22.23.2'
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
+      - *consumer-php
+      - *prepare-static-backend
+      - *install-host-tools
       - name: Install dependencies
         working-directory: web
         env:
           HUSKY: '0'
         run: pnpm install --frozen-lockfile
+      - *prepare-module-consumer
       - name: Check generated brand files
         run: node scripts/sync-brand-assets.mjs --check
-      - name: Build
-        working-directory: web
+      - name: Build the adopted Module consumer
+        working-directory: ${{ env.PEANUT_CI_APPLICATION_ROOT }}/web
         run: pnpm run build
       - name: Test Web policies and form helpers
         working-directory: web
@@ -455,12 +543,21 @@ jobs:
           node-version: '22.23.2'
           cache: npm
           cache-dependency-path: platform/package-lock.json
-      - name: Install dependencies
-        working-directory: platform
+      - *consumer-php
+      - name: Set up pnpm for the consumer API tools
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.6
+          run_install: false
+      - *prepare-static-backend
+      - *install-host-tools
+      - *prepare-module-consumer
+      - name: Install consumer dependencies
+        working-directory: ${{ env.PEANUT_CI_APPLICATION_ROOT }}/platform
         run: npm ci
       # The native build script already runs vue-tsc before Vite.
-      - name: Build
-        working-directory: platform
+      - name: Build the adopted Module consumer
+        working-directory: ${{ env.PEANUT_CI_APPLICATION_ROOT }}/platform
         run: npm run build
 
   pc:
