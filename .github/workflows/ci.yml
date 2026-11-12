@@ -284,7 +284,7 @@ jobs:
             --source-channel=development --source-commit="$(git rev-parse HEAD)" --source-tree="$(git rev-parse HEAD^{tree})"
           install -m 0600 "$PEANUT_CI_BACKEND_ENV" "$consumer/server/.env.ci"
           export PHP_ENV_NAME=ci
-          composer --working-dir="$consumer/server" install --no-interaction --prefer-dist --no-progress --no-scripts
+          composer --working-dir="$consumer/server" install --no-interaction --prefer-dist --no-progress
           php -r '
             [$app,$packages]=[$argv[1],$argv[2]];
             $index=json_decode(file_get_contents($packages."/module-release-index.json"),true,512,JSON_THROW_ON_ERROR);
@@ -563,6 +563,10 @@ jobs:
           run_install: false
       - *prepare-static-backend
       - *install-host-tools
+      # Native create-app generates SDK types using Code's locked Web generator.
+      # This Runner has no Web node_modules until this required source input is prepared.
+      - name: Install locked source API generator dependencies
+        run: pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy
       - *prepare-module-consumer
       - name: Install consumer dependencies
         working-directory: ${{ env.PEANUT_CI_APPLICATION_ROOT }}/platform

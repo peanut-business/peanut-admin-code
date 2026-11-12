@@ -398,5 +398,26 @@ process.stdout.write(String(cases.length + 1));
         self.assertIn('"$test_file" -- "$APPLICATION_ROOT"', module)
 
 
+    def test_platform_prepares_Code_API_generator_before_native_app_creation(self):
+        workflow = (ROOT/'.github/workflows/ci.yml').read_text()
+        section = workflow.split('  platform:\n', 1)[1].split('  pc:\n', 1)[0]
+        self.assertLess(
+            section.index('name: Install locked source API generator dependencies'),
+            section.index('      - *prepare-module-consumer'),
+        )
+        self.assertIn('pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy', section)
+        self.assertLess(section.index('      - *prepare-module-consumer'), section.index('name: Install consumer dependencies'))
+
+
+    def test_native_consumer_discovery_runs_existing_Composer_postautoload(self):
+        workflow = (ROOT/'.github/workflows/ci.yml').read_text()
+        consumer = workflow.split('      - &prepare-module-consumer\n', 1)[1].split('      - name: Run daily server gates\n', 1)[0]
+        self.assertIn('composer --working-dir="$consumer/server" install --no-interaction --prefer-dist --no-progress', consumer)
+        self.assertNotIn('--no-scripts', consumer)
+        self.assertLess(consumer.index('composer --working-dir="$consumer/server" install'), consumer.index('php -r'))
+        composer = json.loads((ROOT/'server/composer.json').read_text())
+        self.assertIn('@php docker/scripts/prepare-vendor.php', composer['scripts']['post-autoload-dump'])
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
