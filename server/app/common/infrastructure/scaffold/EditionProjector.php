@@ -15,11 +15,9 @@ final class EditionProjector
     public function modules(string $stage, array $files, string $sourceServerRoot): array
     {
         $selected = [];
-        // Host SQL can reference required Module tables. Validate those edges
-        // against the composition source, without shipping Module author files.
-        $database = \InitialInstallationSource::project(
-            $sourceServerRoot, \InitialInstallationSource::modules($sourceServerRoot),
-        );
+        // The thin template preserves Host SQL and its foreign keys. The
+        // installer validates those edges against the modules actually adopted.
+        $database = \InitialInstallationSource::projectTemplate($sourceServerRoot);
         $result = [];
         foreach ($files as $file) {
             $path = $file['path'];

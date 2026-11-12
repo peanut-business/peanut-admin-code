@@ -86,8 +86,8 @@ foreach ($lock['modules'] as $module) {
 qualificationExpect(
     is_file($root . '/server/tests/Multitenancy/AdminApiPermissionBoundaryTest.php')
         && is_file($root . '/server/tests/Modules/Official/ExecutionRootLifecycleTest.php')
-        && is_file($root . '/server/tests/Modules/Official/Integration/IntegrationSecurityFeatureTest.php'),
-    'Code no longer carries its own real authorization, execution or Integration tests',
+        && is_file($root . '/server/tests/Unit/IntegrationBootstrapAuthorizationTest.php'),
+    'Code no longer carries its own authorization, execution or Integration host-boundary tests',
 );
 
 echo 'CODE-SELECTED-MODULE-QUALIFICATION-001 passed; selected=8; tenant/manifest/dependency/source checks; actual HTTP/MySQL handled by native dynamic suites' . PHP_EOL;

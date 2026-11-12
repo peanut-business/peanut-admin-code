@@ -17314,7 +17314,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d8da33d675528e7f9bba4145f73c7d0c766b74c8c3f870a91522ea549bf8018b"
+            "source_sha256": "09c939061cdb356b6401af5e1f17582dedff553fcde4dcd065b1119abfcba2cc"
         },
         {
             "path": "server/database/WorkbenchDemoData.php",
@@ -19836,19 +19836,6 @@
             ]
         },
         {
-            "path": "server/tests/Modules/Official/ContentTools/ModuleStructureTest.php",
-            "target": "server/tests/Modules/Official/ContentTools/ModuleStructureTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Modules/Official/ContentTools/SECURITY.md",
             "target": "server/tests/Modules/Official/ContentTools/SECURITY.md",
             "classification": "excluded",
@@ -19901,34 +19888,8 @@
             ]
         },
         {
-            "path": "server/tests/Modules/Official/Identity/Auth/AuthRequestPasswordCostTest.php",
-            "target": "server/tests/Modules/Official/Identity/Auth/AuthRequestPasswordCostTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Modules/Official/Identity/Integration/SourceReadScopeIntegrationTest.php",
             "target": "server/tests/Modules/Official/Identity/Integration/SourceReadScopeIntegrationTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Official/Integration/IntegrationSecurityFeatureTest.php",
-            "target": "server/tests/Modules/Official/Integration/IntegrationSecurityFeatureTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -20070,19 +20031,6 @@
             ]
         },
         {
-            "path": "server/tests/Modules/Official/ReferenceCodes/Versioned/Unit/Definition/ReferenceCodeSetLoaderTest.php",
-            "target": "server/tests/Modules/Official/ReferenceCodes/Versioned/Unit/Definition/ReferenceCodeSetLoaderTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Modules/Official/Settings/Integration/Application/SettingAdminServiceTest.php",
             "target": "server/tests/Modules/Official/Settings/Integration/Application/SettingAdminServiceTest.php",
             "classification": "excluded",
@@ -20150,32 +20098,6 @@
         {
             "path": "server/tests/Modules/Official/Settings/Security/SettingsIsolationTest.php",
             "target": "server/tests/Modules/Official/Settings/Security/SettingsIsolationTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Official/Settings/Unit/Definition/SettingDefinitionLoaderTest.php",
-            "target": "server/tests/Modules/Official/Settings/Unit/Definition/SettingDefinitionLoaderTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Modules/Official/Settings/WebsiteConfigServiceTest.php",
-            "target": "server/tests/Modules/Official/Settings/WebsiteConfigServiceTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -20420,7 +20342,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3473175c5759d028bcce22b155e3f1972147fde72f997392bfae67e440a1a287"
+            "source_sha256": "7610cf74d122e5a39b7e373c9135d9fbf3e9911586a2f12cc52c608f75b45ea2"
         },
         {
             "path": "server/tests/Multitenancy/OperationLogTenantIsolationTest.php",

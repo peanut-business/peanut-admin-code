@@ -140,7 +140,18 @@ final class InitialInstallationSource
     /** @param list<string> $modules @return array<string,string> */
     public static function project(string $serverRoot, array $modules): array
     {
-        $tables = array_fill_keys(self::tables($serverRoot, $modules), true);
+        return self::projectSql($serverRoot, array_fill_keys(self::tables($serverRoot, $modules), true));
+    }
+
+    /** @return array<string,string> */
+    public static function projectTemplate(string $serverRoot): array
+    {
+        return self::projectSql($serverRoot, null);
+    }
+
+    /** @param array<string,true>|null $tables @return array<string,string> */
+    private static function projectSql(string $serverRoot, ?array $tables): array
+    {
         $schema = self::read($serverRoot . '/database/schema/baseline-schema.sql');
         preg_match_all('/^CREATE TABLE `([^`]+)` \(\n.*?^\) ENGINE=[^\r\n]+;$/ms', $schema, $definitions, PREG_SET_ORDER);
         $selected = [];
@@ -148,7 +159,7 @@ final class InitialInstallationSource
             if (in_array($definition[1], self::HOST_TABLES, true)) {
                 preg_match_all('/\bREFERENCES\s+`([^`]+)`/i', $definition[0], $references);
                 foreach ($references[1] as $referencedTable) {
-                    if (!isset($tables[$referencedTable])) {
+                    if ($tables !== null && !isset($tables[$referencedTable])) {
                         throw new RuntimeException(
                             'INSTALL_INITIAL_DEPENDENCY_MISSING: ' . $definition[1] . ' requires ' . $referencedTable,
                         );
@@ -168,7 +179,7 @@ final class InitialInstallationSource
         $defaults = [];
         foreach ($statements[0] as $statement) {
             if (preg_match('/^INSERT(?: IGNORE)? INTO `([^`]+)`/', $statement, $target) === 1
-                && isset($tables[$target[1]])
+                && ($tables === null || isset($tables[$target[1]]))
                 && in_array($target[1], ['pa_system_dict_type', 'pa_system_dict_data', 'pa_tenant_setting'], true)) {
                 $defaults[] = $statement;
             }
