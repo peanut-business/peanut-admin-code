@@ -568,9 +568,9 @@ jobs:
       - name: Install locked source API generator dependencies
         run: pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy
       - *prepare-module-consumer
-      - name: Install consumer dependencies
+      - name: Reconcile adopted Platform workspace and install dependencies
         working-directory: ${{ env.PEANUT_CI_APPLICATION_ROOT }}/platform
-        run: npm ci
+        run: npm install --include=dev --strict-peer-deps --ignore-scripts --no-audit --no-fund
       # The native build script already runs vue-tsc before Vite.
       - name: Build the adopted Module consumer
         working-directory: ${{ env.PEANUT_CI_APPLICATION_ROOT }}/platform

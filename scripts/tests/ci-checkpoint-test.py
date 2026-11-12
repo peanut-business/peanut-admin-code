@@ -406,7 +406,10 @@ process.stdout.write(String(cases.length + 1));
             section.index('      - *prepare-module-consumer'),
         )
         self.assertIn('pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy', section)
-        self.assertLess(section.index('      - *prepare-module-consumer'), section.index('name: Install consumer dependencies'))
+        self.assertLess(section.index('      - *prepare-module-consumer'), section.index('name: Reconcile adopted Platform workspace and install dependencies'))
+        self.assertIn('npm install --include=dev --strict-peer-deps --ignore-scripts --no-audit --no-fund', section)
+        self.assertNotIn('run: npm ci', section)
+        self.assertLess(section.index('name: Reconcile adopted Platform workspace and install dependencies'), section.index('name: Build the adopted Module consumer'))
 
 
     def test_native_consumer_discovery_runs_existing_Composer_postautoload(self):
