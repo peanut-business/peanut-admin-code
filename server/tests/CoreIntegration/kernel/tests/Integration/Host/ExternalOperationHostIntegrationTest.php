@@ -65,7 +65,7 @@ final class ExternalOperationHostIntegrationTest extends DatabaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $root = dirname(__DIR__, 6);
+        $root = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 7)) . '/server');
         $this->app = \think\Container::getInstance();
         $cache = require $root . '/config/cache.php';
         if (!is_array($cache)) {

@@ -20,7 +20,7 @@ final class DemoAccountPolicyBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $temporary = $root . '/.local/tmp/demo-account-policy-tests';
         if (!is_dir($temporary) && !mkdir($temporary, 0700, true) && !is_dir($temporary)) {
             throw new \RuntimeException('DEMO_POLICY_TEST_DIRECTORY_UNAVAILABLE');
@@ -44,9 +44,9 @@ final class DemoAccountPolicyBoundaryTest extends TestCase
 
     public function testPolicyIsPublishedByIdentityWithNoCompatibilityClass(): void
     {
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(DemoAccountPolicy::class, $manifest['contracts']['exports']);
-        self::assertFileDoesNotExist(dirname(__DIR__, 2) . '/app/common/policy/DemoAccountPolicy.php');
+        self::assertFileDoesNotExist(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/common/policy/DemoAccountPolicy.php');
         self::assertStringContainsString('/modules/peanut/identity/src/', (new \ReflectionClass(DemoAccountPolicy::class))->getFileName());
     }
 

@@ -10,11 +10,21 @@ use app\common\services\audit\AuditContractHost;
 use PeanutAdmin\Modules\Ops\Service\DeploymentModuleRequestService;
 use PeanutAdmin\Modules\Ops\Infrastructure\ThinkPhpModuleOperationTaskExecutionService;
 use app\platform\infrastructure\module\ModuleCatalogApplier;
+use app\platform\infrastructure\module\ModuleLockResolver;
 use think\App;
 use think\console\Input;
 use think\console\Output;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+$root = realpath($argv[1] ?? (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)));
+if ($root === false) { throw new RuntimeException('Prepared application root is unavailable'); }
+$serverRoot = $root . '/server';
+require $serverRoot . '/vendor/autoload.php';
+$bootstrap = new App($serverRoot);
+$bootstrap->config->set(['mode' => 'multi-tenant'], 'deployment');
+(new \app\platform\composition\module\ModuleDefinitionRegistryFactory($serverRoot))->fromModuleLock(
+    new ModuleLockResolver($serverRoot, '../modules.lock'),
+    ['roots' => [], 'kernel_version' => '1.0.0', 'registered_client_keys' => ['admin-web', 'platform-web', 'pc-web', 'uniapp']],
+);
 
 function expectOpsModuleWiring(bool $condition, string $message): void
 {
@@ -23,12 +33,13 @@ function expectOpsModuleWiring(bool $condition, string $message): void
     }
 }
 
-$app = new App(dirname(__DIR__, 2));
+$app = new App($serverRoot);
 $contexts = new ExecutionContextStore();
 $current = new CurrentExecutionContext($contexts);
 $audit = (new ReflectionClass(AuditContractHost::class))->newInstanceWithoutConstructor();
 $trustedKey = str_repeat('k', SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES);
-$moduleConfig = ['module_lock' => '../modules.lock', 'roots' => ['app/modules/peanut/identity']];
+$identity = (new ModuleLockResolver($serverRoot, '../modules.lock'))->require('peanut.identity');
+$moduleConfig = ['module_lock' => '../modules.lock', 'roots' => [$identity->moduleRoots['peanut.identity']]];
 $app->config->set($moduleConfig, 'modules');
 $app->bind((new \PeanutAdmin\Modules\Identity\ModuleProvider())->bindings());
 $app->bind((new \PeanutAdmin\Modules\Ops\ModuleProvider())->bindings());
@@ -67,7 +78,7 @@ expectOpsModuleWiring(
     $trustedKeysProperty->getValue($requests) === ['c01-test' => $trustedKey],
     'AppService did not decode trusted Module keys for the request service',
 );
-$source = (string) file_get_contents(dirname(__DIR__, 2) . '/app/command/OpsModuleTask.php');
+$source = (string) file_get_contents($serverRoot . '/app/command/OpsModuleTask.php');
 expectOpsModuleWiring(!str_contains($source, 'RuntimeFactory'), 'OpsModuleTask retained Runtime factory construction');
 expectOpsModuleWiring(!str_contains($source, 'trustedKeys('), 'OpsModuleTask retained duplicate trusted-key decoding');
 

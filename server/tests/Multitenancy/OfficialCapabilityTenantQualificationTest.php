@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 use app\platform\infrastructure\module\ModuleArtifactWriter;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+$codeRoot = dirname(__DIR__, 3);
+$root = realpath($argv[1] ?? (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: $codeRoot));
+if ($root === false) { throw new RuntimeException('Prepared application root is unavailable'); }
+require $root . '/server/vendor/autoload.php';
 
 /**
- * Current eight-Module Code product qualification.
+ * Eight-Module Host composition qualification.
  * Optional Article/Member/OAuth/Payment/Notification/Workflow/ImportExport
  * are tested in the 22-Module application, not reinstalled into Code.
  * This is a static source/manifest check; real tenant HTTP/MySQL and revoked
@@ -20,7 +23,6 @@ function qualificationExpect(bool $condition, string $message): void
     }
 }
 
-$root = dirname(__DIR__, 3);
 $expected = [
     'peanut.content-tools', 'peanut.file', 'peanut.identity',
     'peanut.integration', 'peanut.ops', 'peanut.reference-codes',
@@ -33,7 +35,7 @@ qualificationExpect(($lock['schema_version'] ?? null) === 1 && is_array($lock['m
 
 $actual = array_column($lock['modules'], 'key');
 sort($actual, SORT_STRING);
-qualificationExpect($actual === $expected, 'Code shipped an incomplete or unexpected optional Module graph');
+qualificationExpect($actual === $expected, 'Prepared Host has an incomplete or unexpected Module graph');
 (new ModuleArtifactWriter($root . '/server'))->checkLock();
 
 $owners = [];
@@ -67,7 +69,7 @@ foreach ($lock['modules'] as $module) {
     );
     foreach ($source['dependencies'] ?? [] as $dependency) {
         qualificationExpect(in_array($dependency['module_key'] ?? null, $expected, true),
-            'Code Module requires an unselected dependency: ' . $key);
+            'Locked Module requires an unselected dependency: ' . $key);
     }
     foreach ($tenant['requires'] ?? [] as $requiredKey) {
         qualificationExpect(in_array($requiredKey, $expected, true),
@@ -84,10 +86,10 @@ foreach ($lock['modules'] as $module) {
         && trim($source['backend']['provider']) !== '', 'Module provider is missing: ' . $key);
 }
 qualificationExpect(
-    is_file($root . '/server/tests/Multitenancy/AdminApiPermissionBoundaryTest.php')
-        && is_file($root . '/server/tests/Modules/Official/ExecutionRootLifecycleTest.php')
-        && is_file($root . '/server/tests/Modules/Official/Integration/IntegrationSecurityFeatureTest.php'),
-    'Code no longer carries its own real authorization, execution or Integration tests',
+    is_file($codeRoot . '/server/tests/Multitenancy/AdminApiPermissionBoundaryTest.php')
+        && is_file($codeRoot . '/server/tests/Modules/Official/ExecutionRootLifecycleTest.php')
+        && is_file($codeRoot . '/server/tests/Unit/IntegrationBootstrapAuthorizationTest.php'),
+    'Code no longer carries its own authorization, execution or Integration host-boundary tests',
 );
 
 echo 'CODE-SELECTED-MODULE-QUALIFICATION-001 passed; selected=8; tenant/manifest/dependency/source checks; actual HTTP/MySQL handled by native dynamic suites' . PHP_EOL;

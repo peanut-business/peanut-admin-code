@@ -15,7 +15,7 @@ use app\common\composition\ModuleComposition;
 use app\common\infrastructure\module\ModuleHostLayoutFactory;
 use think\App;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require dirname(__DIR__, 2) . '/fixtures/modules/delivery_record/src/Contract/DeliveryRecordCommands.php';
 require dirname(__DIR__, 2) . '/fixtures/modules/delivery_record/src/Service/DeliveryRecordAccess.php';
 require dirname(__DIR__, 2) . '/fixtures/modules/delivery_record/src/Infrastructure/Authorization/ThinkPhpDeliveryRecordAccess.php';
@@ -141,8 +141,8 @@ function pluginModuleContractMakeOfficial(App $app, string $abstract, string $co
     return $app->make($abstract);
 }
 
-$serverRoot = dirname(__DIR__, 2);
-$moduleRoot = $serverRoot . '/fixtures/modules/delivery_record';
+$serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
+$moduleRoot = dirname(__DIR__, 2) . '/fixtures/modules/delivery_record';
 $officialModuleRoots = glob($serverRoot . '/app/modules/peanut/*', GLOB_ONLYDIR) ?: [];
 sort($officialModuleRoots, SORT_STRING);
 $moduleRoots = [$moduleRoot, ...$officialModuleRoots];

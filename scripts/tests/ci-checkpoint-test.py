@@ -288,8 +288,9 @@ process.stdout.write(String(cases.length + 1));
                 permissions = text.split('\npermissions:\n', 1)[1].split('\n\n', 1)[0]
                 self.assertEqual(permissions, '  contents: read')
                 if path.name == 'scaffold-release.yml':
-                    self.assertEqual(re.findall(r'^  (\S+):', triggers, re.MULTILINE), ['push', 'workflow_dispatch'])
-                    self.assertEqual(triggers.split('  workflow_dispatch:', 1)[0].strip(), "push:\n    tags:\n      - 'v[0-9]*.[0-9]*.[0-9]*'")
+                    self.assertEqual(re.findall(r'^  (\S+):', triggers, re.MULTILINE), ['workflow_dispatch'])
+                    self.assertNotIn('push:', triggers)
+                    self.assertNotIn('tags:', triggers)
                     templates = text.split('\n  templates:\n', 1)[1].split('\n  publish:\n', 1)[0]
                     self.assertIn("github.event_name == 'push' && !github.event.deleted", templates)
                     self.assertIn("github.event_name == 'workflow_dispatch' && !inputs.publish", templates)
@@ -363,6 +364,62 @@ process.stdout.write(String(cases.length + 1));
         text = (ROOT/'.github/workflows/ci.yml').read_text()
         self.assertLess(text.index("Install the tool's locked dependencies"), text.index('Verify source inventory after locked dependencies'))
         self.assertLess(text.index('Verify source inventory after locked dependencies'), text.index('Verify create-app contract'))
+
+    def test_module_consumer_registers_real_node_package_manager_cli_files(self):
+        workflow = (ROOT/'.github/workflows/ci.yml').read_text()
+        self.assertEqual(workflow.count('      - &prepare-module-consumer\n'), 1)
+        step = workflow.split('      - &prepare-module-consumer\n', 1)[1].split(
+            '      - name: Run daily server gates\n', 1
+        )[0]
+        self.assertIn('readlink -f "$(command -v npm)"', step)
+        self.assertIn('pnpm/bin/pnpm.cjs', step)
+        self.assertIn('node "$npm_cli" --version >/dev/null', step)
+        self.assertIn('node "$pnpm_cli" --version >/dev/null', step)
+        self.assertLess(step.index('node "$pnpm_cli" --version'), step.index('gh release download'))
+        self.assertIn('commands["npm"]=[tools["node"],os.environ["PEANUT_CI_NPM_CLI"]]', step)
+        self.assertIn('commands["pnpm"]=[tools["node"],os.environ["PEANUT_CI_PNPM_CLI"]]', step)
+        self.assertNotIn('commands.update({name:[tools["node"],tools[name]]', step)
+
+
+    def test_source_producer_test_never_uses_installed_consumer_autoload(self):
+        runner = (ROOT/'scripts/ci-server-check.sh').read_text()
+        source = runner.split('    server/tests/Unit/GeneratedPackageIdentityTest.php)', 1)[1].split('      ;;',1)[0]
+        self.assertIn('CreateApplicationTest.php|', runner)
+        self.assertIn('EditionUpgradePackageTest.php|', runner)
+        self.assertIn('InstallationConfigurationHostTest.php|', runner)
+        self.assertIn('A1EditionDockerProjectionTest.php|', runner)
+        self.assertIn('ApplicationDevelopmentEntryTest.php|', runner)
+        self.assertIn('ScaffoldUpgradeRunnerTest.php|', runner)
+        self.assertIn('env -u PEANUT_TEST_APPLICATION_ROOT -u PEANUT_SERVER_ENV_FILE', source)
+        self.assertIn('php "$ROOT/scripts/run-php-test" "$test_file"', source)
+        self.assertNotIn('"--application-root=$APPLICATION_ROOT"', source)
+        module = runner.split('    server/tests/Productization/ModuleSourceCompositionTest.php)', 1)[1].split('      ;;',1)[0]
+        self.assertIn('"--application-root=$APPLICATION_ROOT"', module)
+        self.assertIn('"$test_file" -- "$APPLICATION_ROOT"', module)
+
+
+    def test_platform_prepares_Code_API_generator_before_native_app_creation(self):
+        workflow = (ROOT/'.github/workflows/ci.yml').read_text()
+        section = workflow.split('  platform:\n', 1)[1].split('  pc:\n', 1)[0]
+        self.assertLess(
+            section.index('name: Install locked source API generator dependencies'),
+            section.index('      - *prepare-module-consumer'),
+        )
+        self.assertIn('pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy', section)
+        self.assertLess(section.index('      - *prepare-module-consumer'), section.index('name: Reconcile adopted Platform workspace and install dependencies'))
+        self.assertIn('npm install --include=dev --strict-peer-deps --ignore-scripts --no-audit --no-fund', section)
+        self.assertNotIn('run: npm ci', section)
+        self.assertLess(section.index('name: Reconcile adopted Platform workspace and install dependencies'), section.index('name: Build the adopted Module consumer'))
+
+
+    def test_native_consumer_discovery_runs_existing_Composer_postautoload(self):
+        workflow = (ROOT/'.github/workflows/ci.yml').read_text()
+        consumer = workflow.split('      - &prepare-module-consumer\n', 1)[1].split('      - name: Run daily server gates\n', 1)[0]
+        self.assertIn('composer --working-dir="$consumer/server" install --no-interaction --prefer-dist --no-progress', consumer)
+        self.assertNotIn('--no-scripts', consumer)
+        self.assertLess(consumer.index('composer --working-dir="$consumer/server" install'), consumer.index('php -r'))
+        composer = json.loads((ROOT/'server/composer.json').read_text())
+        self.assertIn('@php docker/scripts/prepare-vendor.php', composer['scripts']['post-autoload-dump'])
 
 
 if __name__ == '__main__':

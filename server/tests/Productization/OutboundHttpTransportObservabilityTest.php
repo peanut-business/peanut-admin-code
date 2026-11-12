@@ -18,8 +18,8 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use think\App;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
-require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/topthink/framework/src/helper.php';
 
 final class OutboundHttpLogTestApp extends App
 {
@@ -72,7 +72,7 @@ function outboundHttpTransport(array $queue): GuzzleOutboundHttpTransport
     ]));
 }
 
-$serverRoot = dirname(__DIR__, 2);
+$serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 putenv('PEANUT_DATABASE_RESOURCE_ID=outbound-http-observability-test');
 $_ENV['PEANUT_DATABASE_RESOURCE_ID'] = 'outbound-http-observability-test';
 $_SERVER['PEANUT_DATABASE_RESOURCE_ID'] = 'outbound-http-observability-test';

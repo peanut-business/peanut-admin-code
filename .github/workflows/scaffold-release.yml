@@ -1,8 +1,7 @@
 name: Scaffold templates and release
+# Code Tag creation only records immutable source; explicit main dispatch consumes
+# the once-qualified original artifact after protected PR merge.
 on:
-  push:
-    tags:
-      - 'v[0-9]*.[0-9]*.[0-9]*'
   workflow_dispatch:
     inputs:
       run_tests:

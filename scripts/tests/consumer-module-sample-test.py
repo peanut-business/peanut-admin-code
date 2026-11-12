@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.machinery
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -13,6 +14,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+APPLICATION_ROOT = Path(os.environ.get("PEANUT_TEST_APPLICATION_ROOT", str(ROOT)))
 loader = importlib.machinery.SourceFileLoader(
     "consumer_module_reference_chain", str(ROOT / "scripts/consumer-module-reference-chain")
 )
@@ -36,7 +38,7 @@ class ConsumerModuleSampleTest(unittest.TestCase):
         (self.backend / "resources").mkdir()
         identity_target = self.author / "server/app/modules/peanut/identity/module.json"
         identity_target.parent.mkdir(parents=True)
-        shutil.copy2(ROOT / "server/app/modules/peanut/identity/module.json", identity_target)
+        shutil.copy2(APPLICATION_ROOT / "server/app/modules/peanut/identity/module.json", identity_target)
         (self.backend / "module.json").write_text(
             json.dumps(
                 {
@@ -65,7 +67,7 @@ class ConsumerModuleSampleTest(unittest.TestCase):
                 <?php
                 declare(strict_types=1);
 
-                require {json.dumps(str(ROOT / "server/vendor/autoload.php"))};
+                require {json.dumps(str(ROOT / "server/tests/Support/CiBootstrap.php"))};
                 if (!class_exists('ThinkPhpTestConnection', false)) {{
                     require {json.dumps(str(ROOT / "server/tests/Support/ThinkPhpTestConnection.php"))};
                 }}

@@ -13,6 +13,13 @@ require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
 
 // Local canonical packages exercise native composition, not public Release provenance or real installation.
 $server = dirname(__DIR__, 2);
+$requestedAuthorRoot = $argv[1] ?? (getenv('PEANUT_TEST_MODULE_AUTHOR_ROOT') ?: '');
+$authorRoot = is_string($requestedAuthorRoot) && str_starts_with($requestedAuthorRoot, '/')
+    ? realpath($requestedAuthorRoot) : false;
+if ($authorRoot === false || !is_dir($authorRoot . '/server/app/modules/peanut')) {
+    throw new RuntimeException('MODULE_SOURCE_COMPOSITION_AUTHOR_APPLICATION_REQUIRED');
+}
+$authorServer = $authorRoot . '/server';
 $temporary = sys_get_temp_dir() . '/pa-composition-' . bin2hex(random_bytes(8));
 mkdir($temporary, 0700, true);
 $temporary = realpath($temporary);
@@ -61,15 +68,31 @@ try {
     $app->env->set('PEANUT_INSTALLATION_SOURCE_MODE', 'development');
     compositionHostSources($server, $host);
     $service = new ModulePackageAdoptionService($host . '/server', [], 'development');
-    $archive = new ModulePackageArchiveService($server);
+    $archive = new ModulePackageArchiveService($authorServer);
     require_once $host . '/server/database/InitialInstallationSource.php';
-    $keys = InitialInstallationSource::modules($server);
+    // The thin Host selects roots; the dedicated author application supplies
+    // the fixed eight-Module qualification fixture and its dependency edges.
+    $selected = [
+        'peanut.content-tools', 'peanut.file', 'peanut.identity',
+        'peanut.integration', 'peanut.ops', 'peanut.reference-codes',
+        'peanut.settings', 'peanut.task',
+    ];
+    $mandatory = InitialInstallationSource::composition($host . '/server')['mandatory'];
+    compositionExpect(array_diff($mandatory, $selected) === [], 'Required Host Modules are absent from the fixture');
+    $definitions = [];
+    foreach ($selected as $key) {
+        $manifestPath = $authorServer . '/app/modules/' . str_replace(['.', '-'], ['/', '_'], $key) . '/module.json';
+        compositionExpect(is_file($manifestPath), 'Author Module source missing: ' . $key);
+        $manifest = json_decode((string) file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
+        $definitions[$key] = ['version' => $manifest['version'], 'dependencies' => $manifest['dependencies'] ?? []];
+    }
+    $keys = (new \app\common\module\PackageCheck($authorRoot))->dependencyOrder($definitions, []);
     $rows = [];
     $archives = [];
     foreach ($keys as $key) {
         $path = $temporary . '/' . $key . '.tar';
         $packed = $archive->packModule($key, $path);
-        $source = $server . '/app/modules/' . str_replace(['.', '-'], ['/', '_'], $key);
+        $source = $authorServer . '/app/modules/' . str_replace(['.', '-'], ['/', '_'], $key);
         $manifest = json_decode((string) file_get_contents($source . '/module.json'), true, 512, JSON_THROW_ON_ERROR);
         $rows[$key] = ['key' => $key, 'version' => $packed['version'], 'asset' => $key . '-' . $packed['version'] . '.tar',
             'sha256' => $packed['sha256'], 'bytes' => filesize($path), 'license' => $manifest['license'],
@@ -133,7 +156,7 @@ try {
         file_put_contents($hostComposerPath, $hostComposer);
     }
     $moduleMigration = array_values(array_filter($plan['plan']['migrations'], static fn(array $source): bool => $source['module_key'] !== null))[0];
-    $moduleDirectory = $server . '/app/modules/' . str_replace(['.', '-'], ['/', '_'], $moduleMigration['module_key']);
+    $moduleDirectory = $authorServer . '/app/modules/' . str_replace(['.', '-'], ['/', '_'], $moduleMigration['module_key']);
     $collisionSource = glob($moduleDirectory . '/database/migrations/' . $moduleMigration['migration_key'] . '_*.php')[0];
     $hostMigration = $host . '/server/database/migrations/' . basename($collisionSource);
     copy($collisionSource, $hostMigration);

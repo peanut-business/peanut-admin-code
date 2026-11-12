@@ -14,7 +14,7 @@ function developerCenterExpect(bool $condition, string $message): void
     }
 }
 
-$serverRoot = dirname(__DIR__, 2);
+$serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $app = new \think\App($serverRoot);
 $app->env->set('DEPLOYMENT_MODE', 'multi-tenant');
 $app->initialize();

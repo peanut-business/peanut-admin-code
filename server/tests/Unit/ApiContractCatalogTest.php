@@ -9,10 +9,10 @@ final class ApiContractCatalogTest extends TestCase
 {
     public function testAccessExceptionsUseCanonicalPathsWithoutRemovingSessionHostBoundaries(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $catalog = sys_get_temp_dir() . '/peanut-api-access-' . bin2hex(random_bytes(8)) . '.json';
         $process = proc_open([
-            PHP_BINARY, $root . '/scripts/generate-api-contracts.php', '--check', '--catalog-output=' . $catalog,
+            PHP_BINARY, dirname(__DIR__, 3) . '/scripts/generate-api-contracts.php', '--application-root=' . $root, '--check', '--catalog-output=' . $catalog,
         ], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
         self::assertIsResource($process);
         stream_get_contents($pipes[1]);
@@ -54,12 +54,12 @@ final class ApiContractCatalogTest extends TestCase
 
     public function testCatalogSeparatesRoutesGeneratedOperationsAndCompleteContracts(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $catalog = sys_get_temp_dir() . '/peanut-api-catalog-' . bin2hex(random_bytes(8)) . '.json';
         $command = [
             PHP_BINARY,
-            $root . '/scripts/generate-api-contracts.php',
-            '--check',
+            dirname(__DIR__, 3) . '/scripts/generate-api-contracts.php',
+            '--application-root=' . $root, '--check',
             '--catalog-output=' . $catalog,
         ];
         $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null);
@@ -146,7 +146,7 @@ final class ApiContractCatalogTest extends TestCase
 
     public function testApplicationMetadataKeepsPreciseSecurityTransportAndProjectionSchemas(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $directory = $root . '/server/app/api/metadata/application';
         $shared = require $directory . '/shared.php';
         $admin = require $directory . '/adminapi.php';
@@ -219,7 +219,7 @@ final class ApiContractCatalogTest extends TestCase
 
     public function testIntegrationDeliveryContractsMatchPublicRecordSerialization(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $inventory = self::runtimeInventory($root);
         self::assertArrayHasKey('peanut.integration', $inventory['modules']);
         $moduleRoot = $root . '/' . $inventory['modules']['peanut.integration'];

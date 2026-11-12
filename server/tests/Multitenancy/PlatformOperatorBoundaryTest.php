@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../Support/CiBootstrap.php';
 
-require_once dirname(__DIR__, 2) . '/route/registry_source.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/route/registry_source.php';
 
 use app\platform\context\PlatformOperatorContext;
 use app\platform\services\PlatformOperatorSessionService;
@@ -40,14 +40,14 @@ use PeanutAdmin\Modules\Identity\Authorization\ApiPermissionCatalog;
 use PeanutAdmin\Modules\Identity\Module\ModuleAvailabilityService;
 use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
 require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
 require __DIR__ . '/../Support/IdentityMysqlFixture.php';
 require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 
-$cache = require dirname(__DIR__, 2) . '/config/cache.php';
-$cache['stores']['file']['path'] = dirname(__DIR__, 3) . '/.local/tmp/058-PlatformOperatorBoundaryTest-cache-' . bin2hex(random_bytes(6)) . '/';
+$cache = require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/config/cache.php';
+$cache['stores']['file']['path'] = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp/058-PlatformOperatorBoundaryTest-cache-' . bin2hex(random_bytes(6)) . '/';
 think\Container::getInstance()->config->set($cache, 'cache');
 
 function poExpect(bool $condition, string $message): void
@@ -211,9 +211,9 @@ SQL);
     $current = new CurrentExecutionContext($contexts);
     $app->instance(CurrentExecutionContext::class, $current);
     $app->instance(PlanLicenseAdminService::class, $plans);
-    $app->config->set(require dirname(__DIR__, 2) . '/config/route.php', 'route');
+    $app->config->set(require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/config/route.php', 'route');
     $apis = new ApiPermissionCatalog();
-    $apis->synchronize(json_decode((string) file_get_contents(dirname(__DIR__, 2) . '/generated/api-catalog.json'), true, 512, JSON_THROW_ON_ERROR), [], false);
+    $apis->synchronize(json_decode((string) file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/generated/api-catalog.json'), true, 512, JSON_THROW_ON_ERROR), [], false);
     $loginMiddleware = new PlatformLoginMiddleware($contexts, $current,
         new ApplicationHostPolicy('multi-tenant', ['platform-boundary.example.test'], new TenantEntryBindingResolver()), $sessions);
     $writeHttp = static function (string $method, string $path, string $action, string $permission, array $input, string $requestId) use (
@@ -306,7 +306,7 @@ SQL);
         poExpect($entitlementSnapshot() === $beforeRevokedWrites, 'revoked platform role mutated plan/license/tenant state or audit');
     }
 
-    $routeSource = peanut_route_registry_source(dirname(__DIR__, 2));
+    $routeSource = peanut_route_registry_source(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
     foreach ([
         ['post', 'plans', 'create', 'platform.plan.manage'],
         ['put', 'plans', 'update', 'platform.plan.manage'],

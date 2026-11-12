@@ -22,7 +22,7 @@ final class InstallationModuleHealthBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         require_once $root . '/server/vendor/topthink/framework/src/helper.php';
         new App($root . '/.local/tmp/installation-health-test-' . bin2hex(random_bytes(5)));
         $this->database = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
@@ -147,7 +147,7 @@ final class InstallationModuleHealthBoundaryTest extends TestCase
         self::assertStringContainsString('\\assertCurrentDatabase($pdo)', $source);
         $composition = file_get_contents((new ReflectionClass(AppService::class))->getFileName());
         self::assertStringContainsString('$this->app->make(\\PeanutAdmin\\Modules\\Identity\\Contract\\TenantModuleStateQueries::class)', $composition);
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(TenantModuleStateQueries::class, $manifest['contracts']['exports']);
         $parameter = (new ReflectionMethod(InstallationExecutionHost::class, '__construct'))->getParameters()[2];
         self::assertSame('moduleStates', $parameter->getName());

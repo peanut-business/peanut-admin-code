@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 use app\platform\infrastructure\module\DevelopmentModuleDiscovery;
 use app\platform\exception\module\ModuleLifecycleException;
+use app\common\infrastructure\module\ModuleHostLayoutFactory;
+use PeanutAdmin\Kernel\Module\ModuleKey;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+$projectRoot = realpath($argv[1] ?? (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)));
+if ($projectRoot === false) { throw new RuntimeException('Prepared application root is unavailable'); }
+require $projectRoot . '/server/vendor/autoload.php';
 
 function developmentDiscoveryExpect(bool $condition, string $message): void
 {
@@ -29,13 +33,13 @@ function developmentDiscoveryRemoveTree(string $path): void
     rmdir($path);
 }
 
-$projectRoot = dirname(__DIR__, 3);
 $first = (new DevelopmentModuleDiscovery($projectRoot))->moduleRoots();
 $second = (new DevelopmentModuleDiscovery($projectRoot))->moduleRoots();
 developmentDiscoveryExpect($first === $second, 'development Module discovery is not deterministic');
 developmentDiscoveryExpect(isset($first['peanut.identity']), 'peanut.identity was not discovered without modules.lock');
 developmentDiscoveryExpect(
-    $first['peanut.identity'] === $projectRoot . '/server/app/modules/peanut/identity',
+    $first['peanut.identity'] === $projectRoot . '/' . rtrim(ModuleHostLayoutFactory::pathLayout()
+        ->backendRelativePath(ModuleKey::fromString('peanut.identity')), '/'),
     'peanut.identity backend path was not derived from its key',
 );
 $manifestCount = iterator_count(new CallbackFilterIterator(

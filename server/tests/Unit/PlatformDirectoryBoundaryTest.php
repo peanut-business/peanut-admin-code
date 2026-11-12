@@ -43,7 +43,7 @@ final class PlatformDirectoryBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $parent = $root . '/.local/tmp/platform-directory-tests';
         if (!is_dir($parent) && !mkdir($parent, 0700, true) && !is_dir($parent)) {
             throw new \RuntimeException('PLATFORM_DIRECTORY_TEST_DIRECTORY_UNAVAILABLE');
@@ -118,7 +118,7 @@ final class PlatformDirectoryBoundaryTest extends TestCase
         $source = file_get_contents((new \ReflectionClass(PlatformControlPlaneQueryService::class))->getFileName());
         self::assertStringNotContainsString('Db::', $source);
         self::assertStringContainsString('PlatformDirectoryQueries $directory', $source);
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(PlatformDirectoryQueries::class, $manifest['contracts']['exports']);
         self::assertSame(['items' => [], 'total' => 0], $this->host->moduleStates($this->hostContext(), 1, new PageRequest()));
     }

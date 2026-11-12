@@ -23,7 +23,7 @@ final class IdentityCatalogBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         require_once $root . '/server/vendor/topthink/framework/src/helper.php';
         new App($root . '/.local/tmp/identity-catalog/' . bin2hex(random_bytes(6)));
         $this->database = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
@@ -53,7 +53,7 @@ final class IdentityCatalogBoundaryTest extends TestCase
 
     public function testExistingSynchronizersArePublicWithoutExportingPersistence(): void
     {
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(ModuleAuthorizationCatalogSynchronizer::class, $manifest['contracts']['exports']);
         self::assertContains(MenuCatalogSynchronizer::class, $manifest['contracts']['exports']);
         self::assertNotContains(\PeanutAdmin\Modules\Identity\Persistence\Model\Tenant::class, $manifest['contracts']['exports']);
@@ -61,7 +61,7 @@ final class IdentityCatalogBoundaryTest extends TestCase
 
     public function testHostDelegatesIdentityReadsAndInvalidationToItsOwner(): void
     {
-        $source = file_get_contents(dirname(__DIR__, 2) . '/app/platform/infrastructure/module/ModuleCatalogApplier.php');
+        $source = file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/platform/infrastructure/module/ModuleCatalogApplier.php');
         foreach (["Db::name('permission')", "Db::name('menu_definition')", "Db::name('tenant_module')", "Db::name('tenant')", "'menus' => 'pa_menu_definition'"] as $privateAccess) {
             self::assertStringNotContainsString($privateAccess, $source);
         }

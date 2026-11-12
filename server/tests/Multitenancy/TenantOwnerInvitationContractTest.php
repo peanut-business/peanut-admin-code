@@ -9,7 +9,7 @@ use PeanutAdmin\Modules\Identity\Invitation\TenantOwnerInvitationException;
 use PeanutAdmin\Modules\Identity\Invitation\UnavailableOwnerInvitationDeliveryPort;
 
 if (!class_exists(OneTimeInvitationToken::class)) {
-    require dirname(__DIR__, 2) . '/vendor/autoload.php';
+    require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 }
 
 function ownerInvitationExpect(bool $condition, string $message): void
@@ -57,7 +57,7 @@ ownerInvitationExpect(
 );
 ownerInvitationExpect(!in_array($token->expose(), $delivery->__debugInfo(), true), 'delivery debug output exposes token');
 
-$serverRoot = dirname(__DIR__, 2);
+$serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 require_once $serverRoot . '/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php';
 $schema = (new ReflectionClass(InitialIdentitySchema::class))->getReflectionConstant('CREATE_SQL')->getValue()['pa_tenant_owner_invitation'];
 foreach (['pending', 'accepted', 'revoked', 'expired'] as $status) {

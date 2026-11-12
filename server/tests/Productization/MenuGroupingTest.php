@@ -11,7 +11,7 @@ use PeanutAdmin\Modules\Identity\Menu\MenuAdministrationService;
 use PeanutAdmin\Modules\Identity\Menu\ThinkPhpMenuCatalogRepository;
 use PeanutAdmin\Modules\Identity\Module\TenantEntitlementService;
 
-require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/Support/CiBootstrap.php';
 require_once dirname(__DIR__) . '/Support/RegisteredMysqlTestResource.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
@@ -52,7 +52,7 @@ function menuVisible(ThinkPhpMenuCatalogRepository $repository, array $permissio
     );
 }
 
-$server = dirname(__DIR__, 2);
+$server = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $database = RegisteredMysqlTestResource::configuredDatabaseName();
 $results = [];
 foreach (['multi_tenant_fresh', 'module_lifecycle'] as $scenario) {

@@ -6,7 +6,7 @@ namespace tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 
-require_once dirname(__DIR__, 3) . '/scripts/check-module-boundaries.php';
+require_once (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/scripts/check-module-boundaries.php';
 
 /** Synthetic source trees only; declarations are parsed, never executed. */
 final class ModuleBoundaryInventoryTest extends TestCase
@@ -17,7 +17,7 @@ final class ModuleBoundaryInventoryTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->root = dirname(__DIR__, 3) . '/.local/tmp/module-boundary-policy/' . bin2hex(random_bytes(8));
+        $this->root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp/module-boundary-policy/' . bin2hex(random_bytes(8));
         foreach (['alpha', 'beta'] as $key) {
             $directory = $this->root . '/server/app/modules/fixture/' . $key;
             $this->write($directory . '/src/Placeholder.php', '<?php namespace Fixture\\' . ucfirst($key) . '; final class Placeholder {}');
@@ -188,7 +188,7 @@ final class ModuleBoundaryInventoryTest extends TestCase
 
     public function testIdentityDeclaresItsNativeCatalogTablesWithoutExportingPersistence(): void
     {
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         foreach ([
             \PeanutAdmin\Modules\Identity\Module\Model\ModuleInstallation::class => 'pa_module_installation',
             \PeanutAdmin\Modules\Identity\Persistence\Model\MenuDefinition::class => 'pa_menu_definition',

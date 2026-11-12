@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /** D03：后台写命令必须把认证 TenantContext 原样交给实际加载的 Core。 */
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 
 use PeanutAdmin\Kernel\Auth\TenantContext;
 
@@ -67,7 +67,7 @@ expectFirstTenantContext(
     ['profile', 'updateProfile', 'changePassword'],
 );
 
-$server = dirname(__DIR__, 2);
+$server = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $role = (string) file_get_contents($server . '/app/adminapi/services/auth/RoleApplicationService.php');
 $rolePermissions = (string) file_get_contents($server . '/app/adminapi/controller/auth/RolePermissionController.php');
 $department = (string) file_get_contents($server . '/app/adminapi/services/dept/DeptApplicationService.php');

@@ -18,12 +18,12 @@ function platformAuthConfigurationExpect(bool $condition, string $message): void
     }
 }
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 
 /** @return object|Throwable */
 function platformAuthResolve(string $platformKey, string $tenantKey = '', bool $platformKeyPresent = true)
 {
-    $app = new \think\App(dirname(__DIR__, 2));
+    $app = new \think\App(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
     $app->config->set($platformKeyPresent ? ['identifier_hmac_key' => $platformKey] : [], 'platform_auth');
     $app->config->set(['identifier_hmac_key' => $tenantKey], 'tenant_auth');
     $service = new \app\AppService($app);
@@ -56,7 +56,7 @@ platformAuthConfigurationExpect(
 );
 
 // 平台能力未启用时，独立应用的租户登录只依赖自己的认证密钥。
-$standalone = new \think\App(dirname(__DIR__, 2));
+$standalone = new \think\App(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
 $standalone->config->set(['identifier_hmac_key' => ''], 'platform_auth');
 $standalone->config->set(['identifier_hmac_key' => str_repeat('t', 32)], 'tenant_auth');
 $standaloneService = new \app\AppService($standalone);

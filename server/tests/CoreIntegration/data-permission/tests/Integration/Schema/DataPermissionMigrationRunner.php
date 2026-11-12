@@ -20,7 +20,7 @@ final readonly class DataPermissionMigrationRunner
 
     public function rollbackAll(): void
     {
-        require_once dirname(__DIR__, 6)
+        require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 7)) . '/server')
             . '/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php';
         $migration = new \InitialIdentitySchema('testing', 20261101010001);
         $migration->setAdapter(new MysqlAdapter([

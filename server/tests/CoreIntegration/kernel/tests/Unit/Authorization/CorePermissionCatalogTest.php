@@ -31,7 +31,7 @@ final class CorePermissionCatalogTest extends TestCase
 
     public function testMaintenanceRoutesKeepExactBundlesAndSeparateReadFromMutation(): void
     {
-        $root = dirname(__DIR__, 7);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 7));
         require_once $root . '/server/route/registry_source.php';
         $expected = [
             'GET adminapi/generator/source-tables' => 'core.generator.read',

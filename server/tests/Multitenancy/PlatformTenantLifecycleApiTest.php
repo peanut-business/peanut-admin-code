@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__, 2) . '/route/registry_source.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/route/registry_source.php';
 
 require_once __DIR__ . '/../Support/CiBootstrap.php';
 
@@ -34,14 +34,14 @@ use PeanutAdmin\Modules\Identity\Tenancy\TenantStatus;
 
 require_once defined('PHPUNIT_COMPOSER_INSTALL')
     ? PHPUNIT_COMPOSER_INSTALL
-    : dirname(__DIR__, 2) . '/vendor/autoload.php';
+    : ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
 require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
 require_once __DIR__ . '/../Support/IdentityMysqlFixture.php';
 require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 
-$cache = require dirname(__DIR__, 2) . '/config/cache.php';
-$cache['stores']['file']['path'] = dirname(__DIR__, 3) . '/.local/tmp/PlatformTenantLifecycleApiTest-cache-' . bin2hex(random_bytes(6)) . '/';
+$cache = require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/config/cache.php';
+$cache['stores']['file']['path'] = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp/PlatformTenantLifecycleApiTest-cache-' . bin2hex(random_bytes(6)) . '/';
 think\Container::getInstance()->config->set($cache, 'cache');
 
 function lifecycleExpect(bool $condition, string $message): void
@@ -113,7 +113,7 @@ $database = RegisteredMysqlTestResource::configuredDatabaseName();
 [$pdo, $createdDatabase] = RegisteredMysqlTestResource::openEmptyDatabase($database);
 
 try {
-    $serverRoot = dirname(__DIR__, 2);
+    $serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
     IdentityMysqlFixture::install($pdo, [
         $serverRoot . '/app/modules/peanut/file/database/migrations',
         $serverRoot . '/app/modules/peanut/settings/database/migrations',
@@ -305,7 +305,7 @@ SQL);
         'rejected closed Tenant transition changed persisted state',
     );
 
-    $route = peanut_route_registry_source(dirname(__DIR__, 2));
+    $route = peanut_route_registry_source(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
     lifecycleExpect(
         str_contains($route, "Route::post('tenants/provision'")
             && str_contains($route, "PlatformPermissionMiddleware::class, 'platform.tenant.provision-owner'")

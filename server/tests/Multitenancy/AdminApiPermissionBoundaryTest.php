@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__, 2) . '/route/registry_source.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/route/registry_source.php';
 
 use app\adminapi\http\middleware\AuthMiddleware;
 use app\adminapi\infrastructure\AdminApiAccessRegistry;
@@ -46,7 +46,7 @@ use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationRepository;
 use PeanutAdmin\Modules\Identity\Auth\PlatformAuthService;
 
 require_once dirname(__DIR__) . '/Support/CiBootstrap.php';
-require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/topthink/framework/src/helper.php';
 
 // Both groups use synthetic sessions and SQLite; network HTTP and LoginMiddleware are separate qualification.
 $checks = 0;
@@ -85,7 +85,7 @@ expectAdminApiBoundary(!$policy->canAccess(false, 'core.member.update', ['core.m
 
 $executionContexts = new ExecutionContextStore();
 $current = new CurrentExecutionContext($executionContexts);
-$root = dirname(__DIR__, 3);
+$root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
 $temporary = $root . '/.local/tmp/admin-api-permission-boundary';
 if (!is_dir($temporary) && !mkdir($temporary, 0700, true) && !is_dir($temporary)) {
     throw new RuntimeException('ADMIN_API_TEST_DIRECTORY_UNAVAILABLE');
@@ -99,7 +99,7 @@ $database->exec(<<<'SQL'
     CREATE TABLE pa_permission_api (id INTEGER PRIMARY KEY, permission_id INTEGER, api_id TEXT);
     SQL);
 // Consume real generated endpoint identities; the instance deliberately has no bundle bindings.
-$catalog = json_decode(file_get_contents(dirname(__DIR__, 2) . '/generated/api-catalog.json'), true, 512, JSON_THROW_ON_ERROR);
+$catalog = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/generated/api-catalog.json'), true, 512, JSON_THROW_ON_ERROR);
 $insert = $database->prepare('INSERT INTO pa_api_endpoint VALUES (?,?,?,?,?,?,?,?,?)');
 foreach ($catalog['endpoints'] as $endpoint) {
     if ($endpoint['application'] !== 'adminapi' || $endpoint['owner']['type'] !== 'application') {
@@ -113,7 +113,7 @@ $registry = new CompiledModuleRegistry([], [], [], [], 'admin-api-boundary');
 $entitlements = new TenantEntitlementService($registry);
 $identity = new TenantAuthorizationQuery(new ThinkPhpTenantMemberDirectory(), $registry);
 $bridge = new CoreTenantModuleAdminBridge(
-    new ThinkPhpModuleGovernanceProvider(dirname(__DIR__, 2), [], ThinkPhpTestConnection::moduleCatalogs($database), $registry),
+    new ThinkPhpModuleGovernanceProvider(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'), [], ThinkPhpTestConnection::moduleCatalogs($database), $registry),
     new ThinkPhpTenantAuthorizationRepository($entitlements, $identity),
     new ThinkPhpMenuCatalogRepository($entitlements), $identity, new MenuAdministrationService(), $entitlements,
 );
@@ -130,7 +130,7 @@ $modules = new class implements ModuleAvailability {
     public function assertDeployment(string $moduleKey, bool $lock = false): void { throw new LogicException('Unexpected Module admission'); }
     public function assertTenant(TenantScope $scope, string $moduleKey, DateTimeImmutable $now, bool $lock = false): void { throw new LogicException('Unexpected Module admission'); }
 };
-$accessConfig = require dirname(__DIR__, 2) . '/config/admin_api_access.php';
+$accessConfig = require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/config/admin_api_access.php';
 $middleware = new AuthMiddleware(
     $current,
     $authorization,
@@ -200,28 +200,28 @@ expectAdminApiBoundary(!$contextDecision->allowed && $contextDecision->reason ==
 expectAdminApiBoundary($nextCalls === 1, 'a rejected API reached its controller');
 think\facade\Db::rollback();
 
-$routeSource = peanut_route_registry_source(dirname(__DIR__, 2));
+$routeSource = peanut_route_registry_source(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
 expectAdminApiBoundary(str_contains($routeSource, "\$peanutRouteApplication = 'adminapi'"), 'Tenant Admin route entry is missing');
 expectAdminApiBoundary(str_contains($routeSource, 'LoginMiddleware::class, AuthMiddleware::class'), 'Tenant Admin guard chain is missing');
 expectAdminApiBoundary(!str_contains($routeSource, "Route::group('platformapi'"), 'Platform routes must remain individually guarded');
 
-$loginSource = (string) file_get_contents(dirname(__DIR__, 2) . '/app/adminapi/http/middleware/LoginMiddleware.php');
+$loginSource = (string) file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/adminapi/http/middleware/LoginMiddleware.php');
 expectAdminApiBoundary(str_contains($loginSource, "str_starts_with(\$token, 'pa_tat_')"), 'Tenant Admin token audience gate is missing');
 expectAdminApiBoundary(!str_contains($loginSource, 'pa_pat_'), 'Platform credential prefix must not enter Tenant Admin login middleware');
 
-$platformLoginSource = (string) file_get_contents(dirname(__DIR__, 2) . '/app/platform/http/middleware/PlatformLoginMiddleware.php');
-$platformPermissionSource = (string) file_get_contents(dirname(__DIR__, 2) . '/app/platform/http/middleware/PlatformPermissionMiddleware.php');
+$platformLoginSource = (string) file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/platform/http/middleware/PlatformLoginMiddleware.php');
+$platformPermissionSource = (string) file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/platform/http/middleware/PlatformPermissionMiddleware.php');
 expectAdminApiBoundary(str_contains($platformPermissionSource, "str_starts_with(\$permission, 'platform.')"), 'Platform permission catalog boundary is missing');
 expectAdminApiBoundary(!str_contains($platformLoginSource, 'AdminTokenService'), 'Platform login must not use Tenant Admin sessions');
 
-$schema = strtolower((string) file_get_contents(dirname(__DIR__, 2) . '/database/schema/baseline-schema.sql'));
-$initialSeeder = (string) file_get_contents(dirname(__DIR__, 2) . '/database/seeds/InitialSeeder.php');
+$schema = strtolower((string) file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/database/schema/baseline-schema.sql'));
+$initialSeeder = (string) file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/database/seeds/InitialSeeder.php');
 expectAdminApiBoundary(str_contains($initialSeeder, 'CorePermissionCatalogSynchronizer'), 'fresh installation must synchronize the native Core catalog');
 foreach (['core.member.update', 'core.menu.read', 'core.menu.manage', 'core.generator.generate'] as $exactPermission) {
     expectAdminApiBoundary(in_array($exactPermission, CorePermissionCatalog::TENANT, true), 'exact Core permission is missing: ' . $exactPermission);
 }
 // Optional retired official.* packages are not part of this application's selected Modules.
-$identitySchema = (string) file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php');
+$identitySchema = (string) file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php');
 expectAdminApiBoundary(str_contains($identitySchema, 'CREATE TABLE `pa_role_permission`'), 'Identity must retain independent role-permission storage');
 expectAdminApiBoundary(!str_contains(strtolower($identitySchema), 'pa_system_role_menu'), 'Identity must not restore role-menu storage');
 expectAdminApiBoundary(!str_contains($schema, 'pa_system_role_menu'), 'retired role-menu storage remains in the fresh schema');
@@ -231,7 +231,7 @@ expectAdminApiBoundary(!str_contains($schema, 'pa_system_role_menu'), 'retired r
 // Preserve the 059 platform audience, deny-side-effect and identity-release matrix.
 (static function (): void {
     global $checks;
-$cachePath = dirname(__DIR__, 3) . '/.local/tmp/admin-api-permission-boundary/' . bin2hex(random_bytes(6)) . '/';
+$cachePath = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp/admin-api-permission-boundary/' . bin2hex(random_bytes(6)) . '/';
 $app = new think\App($cachePath);
 $app->config->set(['default' => 'file', 'stores' => ['file' => ['type' => 'File', 'path' => $cachePath . 'cache/']]], 'cache');
 $pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
@@ -259,7 +259,7 @@ $modules = new class implements ModuleAvailability {
 };
 $demo = new DemoAccountPolicy(false, []);
 $admin = new AuthMiddleware($current, $empty(AdminAuthorizationService::class),
-    new AdminApiAccessRegistry(1, require dirname(__DIR__, 2) . '/config/admin_api_access.php'),
+    new AdminApiAccessRegistry(1, require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/config/admin_api_access.php'),
     $demo, $catalog, $modules, new TenantEntitlementService(new CompiledModuleRegistry([], [], [], [], 'security-fixture')));
 $tenant = TenantContext::fromValidatedSession(new ValidatedTenantSession(
     7, 'synthetic-admin-session', 101, 7007, 7, 'admin-web', new DateTimeImmutable('2031-01-01'), 1, 1,

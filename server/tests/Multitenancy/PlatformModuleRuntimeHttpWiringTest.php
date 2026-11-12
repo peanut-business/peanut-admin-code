@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__, 2) . '/route/registry_source.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/route/registry_source.php';
 
 require_once __DIR__ . '/../Support/CiBootstrap.php';
 
@@ -16,13 +16,13 @@ use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Modules\Identity\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require_once __DIR__ . '/../Support/IdentityMysqlFixture.php';
 require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
 require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 
-$cache = require dirname(__DIR__, 2) . '/config/cache.php';
-$cache['stores']['file']['path'] = dirname(__DIR__, 3) . '/.local/tmp/058-PlatformModuleRuntimeHttpWiringTest-cache-' . bin2hex(random_bytes(6)) . '/';
+$cache = require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/config/cache.php';
+$cache['stores']['file']['path'] = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp/058-PlatformModuleRuntimeHttpWiringTest-cache-' . bin2hex(random_bytes(6)) . '/';
 think\Container::getInstance()->config->set($cache, 'cache');
 require_once dirname(__DIR__) . '/Support/IsolatedBackendEnvironment.php';
 
@@ -59,7 +59,7 @@ function platformModuleHttpContext(int $operatorId, int $accountId, string $sess
     ), "{$sessionKey}-request");
 }
 
-$serverRoot = dirname(__DIR__, 2);
+$serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $routeSource = peanut_route_registry_source($serverRoot);
 $controllerSource = (string) file_get_contents($serverRoot . '/app/platform/controller/PlatformModuleLifecycleController.php');
 $middlewareSource = (string) file_get_contents($serverRoot . '/app/platform/http/middleware/PlatformInstanceToolMiddleware.php');

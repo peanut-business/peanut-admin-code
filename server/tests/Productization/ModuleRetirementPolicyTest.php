@@ -9,7 +9,7 @@ use app\platform\policy\module\ModuleLifecyclePolicy;
 use PeanutAdmin\Kernel\Module\ManifestDocument;
 use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
 
 $assertions = 0;
@@ -39,7 +39,7 @@ function retirementRemove(string $root): void
     }
     rmdir($root);
 }
-$server = dirname(__DIR__, 2);
+$server = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $root = rtrim(sys_get_temp_dir(), '/') . '/pa-module-retirement-policy-' . bin2hex(random_bytes(8));
 mkdir($root, 0700, true);
 try {
@@ -47,7 +47,7 @@ try {
     foreach (['base', 'child'] as $name) {
         $namespace = implode(chr(92), ['Acme', 'Modules', ucfirst($name)]);
         $target = $root . '/server/app/modules/acme/' . $name;
-        retirementCopy($server . '/fixtures/modules/delivery_record', $target, [
+        retirementCopy(dirname(__DIR__, 2) . '/fixtures/modules/delivery_record', $target, [
             'fixture.delivery-record' => 'acme.' . $name,
             'peanut-fixture/delivery-record' => 'acme/' . $name,
             'fixture_delivery_record' => 'acme_' . $name,

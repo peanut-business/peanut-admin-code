@@ -1,6 +1,6 @@
 {
   "name": "peanut-admin-platform",
-  "version": "5.1.10",
+  "version": "5.1.11",
   "private": true,
   "description": "Peanut Admin instance platform control plane",
   "author": "花生科技",
@@ -37,6 +37,6 @@
     "vue-tsc": "^1.0.14"
   },
   "workspaces": [
-    "src/modules/peanut-ops"
+    "src/modules/*"
   ]
 }

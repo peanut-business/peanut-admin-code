@@ -14,8 +14,8 @@ Web 六包为 `@peanut-admin/client`、`vue`、`ui-vue`、`nuxt`、`uniapp`、`t
 
 ## 开发到正式发行的顺序
 
-1. **开发。** 先读已有实现和直接消费者，集中闭合已知问题、依赖和必要派生；日常联调使用既有 Core 源码选择与 watch，不为每个修复发包。
-2. **本地包与按需验证。** 先完成本次直接必要运行检查及已授权测试，再安排正式发行。本地归档、输入 seal、identity 比较、业务路径和完整资格分别报告；本地包可用于开发消费，不能自行写成 qualified 或已正式发行。
+1. **开发。** 先读已有实现和直接消费者，集中闭合已知问题、依赖和必要派生；日常联调使用既有 Core 源码选择与 watch，不为每个修复发包。发布输入的最后一次源文件（包括维护文档和测试）变更结束后，才运行一次原生 API/模板 inventory 派生生成与 --check，然后固定提交；生成后再改源文件就应只刷新受影响派生，不拿旧 inventory 冒充当前快照。
+2. **本地包与按需验证。** 先完成本次直接必要运行检查及已授权测试，再安排正式发行。本地归档、输入 seal、identity 比较、业务路径和完整资格分别报告；本地包可用于开发消费，不能自行写成 qualified 或已正式发行。新建的独立工作树没有继承主目录的私有工具注册、Composer vendor 或 Web node_modules：先经现有 project-env 选择注册工具，按原锁准备相应依赖，再运行需要它们的 API、inventory 和测试入口；缺项只补当前工作树，不修改全局环境。涉及作者源码归属、创建或升级合同的破坏性变更，应在 dev/正式 CI 之前执行受影响的原生创建/采用测试；严格固定 Git 来源的制包测试必须在最终改动已提交且工作树干净后运行，不能在未提交的修复上反复试制包。其他已通过且输入未变化的检查直接复用。
 3. **CI 正式生产。** 固定源码 S、版本、实际原生锁和生产输入，在各 Core 的 `ci.yml` 选择默认 `mode=production`，提供 `expected_source_commit=S`，只生产一次正式包并完成原生包消费检查。完整测试使用独立选择的 `mode=qualification`，不要求两种模式先后各跑一次；已有同源、同合同且原件可取的成功 production 或 qualification run 直接复用。production 如实记录完整测试 NOT_RUN，不将本地结果改成 CI PASS。`mode=identity` 仍只比较两轮标准产物，不授予发行资格。PHP 另提供不带 v 的 `release_version`。
 4. **正式 tag 发布。** 将本仓变量 `CORE_QUALIFICATION_RUN_ID` 固定到已核成功 run，核原件可取、未过期及适用输入；完成获准的源码集成后，推送指向当时当前 main 的注释 `vX.Y.Z`。tag 工作流只核资格、读取原包、发布并核公共渠道，不重新开发、构建、制包或运行原资格测试。发布端必要工具准备、原锁安装和渠道字节核验不因此省略。
 5. **应用采用与首装。** 正式渠道闭合后，应用另行选择精确版本及来源、更新自身锁并按变化确认业务；Core 发行成功不表示下游已升级。正式发行任务不顺手升级其他应用。脚手架公开渠道首装后验在发行后独立安排和记录，不反过来伪造发行前已完成，也不为此重复生产发行原件。
@@ -31,7 +31,7 @@ Web 六包为 `@peanut-admin/client`、`vue`、`ui-vue`、`nuxt`、`uniapp`、`t
 | 模板生产 `publish=false` | 跳过完整应用测试，执行原有模板生产与 CLI 创建检查 | 先通过 reusable 调用同一源码的既有 `ci.yml`；其完整检查成功后才生产模板，失败、取消或缺失结果均阻断生产 |
 | 发布 `publish=true` | 核原生产 run；存在有效测试结果时照实记录 | 必须核到原生产 run 内成功的完整 CI，或 `ci_run_id` 指定的同源成功 `ci.yml`；缺失或失败即拒绝发布，不在发布阶段补跑测试 |
 
-生产时仍填写精确 `expected_source_commit`；`run_tests` 不是本地测试参数，也不触发本机测试。生产 run 内的完整 CI 结果随 tag 自动交接给 main 发布器，手动发布同样识别它；`ci_run_id` 可以指向包含完整 CI 的原生产 run 或独立成功 `ci.yml`。发布清单分别记录是否要求完整 CI、实际成功 run 和实际结果，不能把 `false` 写成测试 PASS。两 Core 沿用现有 `mode=production`（默认）或 `mode=qualification`（显式完整测试），不新建另一套入口。参数只决定 CI 是否执行完整测试，不授予正式发行、生产部署或本地测试授权。
+生产时仍填写精确 `expected_source_commit`；`run_tests` 不是本地测试参数，也不触发本机测试。生产 run 内的完整 CI 结果由 main 的手动发布器按原 run/attempt 直接读取；Code 的 Tag 只固定来源，不再自动派发模板生产；`ci_run_id` 可以指向包含完整 CI 的原生产 run 或独立成功 `ci.yml`。发布清单分别记录是否要求完整 CI、实际成功 run 和实际结果，不能把 `false` 写成测试 PASS。两 Core 沿用现有 `mode=production`（默认）或 `mode=qualification`（显式完整测试），不新建另一套入口。参数只决定 CI 是否执行完整测试，不授予正式发行、生产部署或本地测试授权。
 
 原选择保存在现有 `candidate-inputs.json` 的 `run_tests` 布尔字段，受原 candidate-stage 的输入摘要约束；发布器核 transport 时仍执行该要求，不能通过手动传 false 取消。局部重跑沿同一个 run 查询所有 attempts，使用最新完整 CI summary；不因只重跑制包而漏掉前次已成功测试，也不把查不到结果当作默认未测。原选择要求测试但没有可认证成功结果时停止发布。
 
@@ -39,9 +39,9 @@ Web 六包为 `@peanut-admin/client`、`vue`、`ui-vue`、`nuxt`、`uniapp`、`t
 
 PHP 原生生产顺序为 `scripts/release-identity inputs` → `resolve` → `prepare`；Web 在原锁安装后执行 `node scripts/release-identity.mjs inputs` → `build` → `pack`。输入 seal、实际锁、包摘要与消费者结果由已有工具维护，不新增 runner、手写摘要或另一资格台账。生产输入、源码 tree、包字节或合同发生变化，只使实际受影响的证据失效；不能改写旧 seal 接纳新输入。两 Core 的资格读取器允许满足其合同的同树合并提交，但仍核真实 Git 对象、政策、原包 seal、qualified 与来源 run，不是忽略 commit 归属。
 
-**正式包由 CI 自动生产，tag 发布只消费同一次原件。** 本地包用于开发验证，不上传为正式原件；不设“本地包→GitHub 草稿”的第二条发行路径。保留原 artifact、seal、版本和渠道合同；production 记录包消费 PASS、完整测试 NOT_RUN、`qualified=false`，完整 qualification 才记录 `qualified=true`。既有 `*-core-qualified` artifact 名称只用于定位，发布器读取内容中的实际范围，不能凭名称认定完整测试通过。CI 的 Linux 工具输入与本机开发工具不同，本地验证不必伪装生成 Linux 正式 seal。已有生产入口直接使用，不新增回执录制器、凭据或账本。
+**正式包由一次 CI 生产，Code 的 main 显式发布只消费同一次原件。** 本地包用于开发验证，不上传为正式原件；不设“本地包→GitHub 草稿”的第二条发行路径。保留原 artifact、seal、版本和渠道合同；production 记录包消费 PASS、完整测试 NOT_RUN、`qualified=false`，完整 qualification 才记录 `qualified=true`。既有 `*-core-qualified` artifact 名称只用于定位，发布器读取内容中的实际范围，不能凭名称认定完整测试通过。CI 的 Linux 工具输入与本机开发工具不同，本地验证不必伪装生成 Linux 正式 seal。已有生产入口直接使用，不新增回执录制器、凭据或账本。
 
-Code 要求同一精确 S 的成功 `scaffold-release.yml` 模板生产 run；完整 `ci.yml` 默认不执行，显式 `run_tests=true` 时成为必须通过的前置，不能降级为可选记录。核唯一未过期原件和 transport 摘要。Core 的同树资格规则不自动适用于 Code。本地 `peanut release` 默认支持 dirty/无 HEAD 的 development 快照，也已有 `--source-commit=<S>` 固定来源能力，两者均不改变正式包由 CI 生产的职责。先本地确认，再安排一次 CI 正式生产，tag 不重建模板或重跑测试。transport 是同一次 CI 原件的封装，并非另一套资格包生产。
+Code 要求同一精确 S 的成功 `scaffold-release.yml` 模板生产 run；完整 `ci.yml` 默认不执行，显式 `run_tests=true` 时成为必须通过的前置，不能降级为可选记录。核唯一未过期原件和 transport 摘要。Core 的同树资格规则不自动适用于 Code。本地 `peanut release` 默认支持 dirty/无 HEAD 的 development 快照，也已有 `--source-commit=<S>` 固定来源能力，两者均不改变正式包由 CI 生产的职责。先本地确认，再安排一次 CI 正式生产，受保护 PR 合入 main 后由手动发布消费原件；tag 不触发模板生产或重复测试。transport 是同一次 CI 原件的封装，并非另一套资格包生产。
 
 ## 渠道发布与完成判据
 

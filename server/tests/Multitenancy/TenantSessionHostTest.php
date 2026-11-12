@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__, 2) . '/route/registry_source.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/route/registry_source.php';
 
 use PeanutAdmin\Modules\Identity\Auth\Persistence\ThinkPhpTenantAuthRepository;
 use PeanutAdmin\Kernel\Auth\SystemClock;
@@ -15,7 +15,7 @@ use PeanutAdmin\Kernel\Identity\PasswordPolicy;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require_once __DIR__ . '/../Support/CiBootstrap.php';
 require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
@@ -124,7 +124,7 @@ try {
     $auth->logout($betaAuth->tokens->access->expose(), 'mt04-logout');
     tenantHostRejects(static fn() => $auth->context($betaAuth->tokens->access->expose(), 'mt04-after-logout'));
 
-    $route = peanut_route_registry_source(dirname(__DIR__, 2));
+    $route = peanut_route_registry_source(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
     foreach (['login', 'select', 'switch', 'logout'] as $action) {
         tenantHostExpect(str_contains($route, "tenant/session/{$action}"), "Tenant session {$action} route is missing");
     }

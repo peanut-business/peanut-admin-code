@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require dirname(__DIR__, 4) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 5)) . '/server') . '/vendor/autoload.php';
 
 use app\common\composition\ModuleComposition;
 use PeanutAdmin\Kernel\Async\VerifiedJobEnvelope;
@@ -101,7 +101,7 @@ $fixture = ManifestDocument::fromObject('/fixture/worker', (object) [
     'key' => 'fixture.worker',
     'backend' => (object) ['provider' => FixtureWorkerProvider::class],
 ]);
-$withoutTaskApp = new App(dirname(__DIR__, 4));
+$withoutTaskApp = new App(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 5)) . '/server'));
 (new ModuleComposition($withoutTaskApp))->register(new CompiledModuleRegistry([
     $fixture,
 ], [], [], [], 'without-task'));
@@ -115,7 +115,7 @@ $registry = new CompiledModuleRegistry([
         'backend' => (object) ['provider' => FixtureTaskProvider::class],
     ]),
 ], [], [], [], 'with-task');
-$app = new App(dirname(__DIR__, 4));
+$app = new App(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 5)) . '/server'));
 (new ModuleComposition($app))->register($registry);
 $definitions = $app->make(TaskWorkerDefinitionRegistry::class)->resolve($app);
 workerExpect(count($definitions) === 1, 'compiled worker contribution missing');
@@ -135,7 +135,7 @@ try {
 try {
     (new TaskWorkerDefinitionRegistry([
         ['module_key' => 'fixture.other', 'definition' => FixtureWorkerDefinition::class],
-    ]))->resolve(new App(dirname(__DIR__, 4)));
+    ]))->resolve(new App(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 5)) . '/server')));
     throw new RuntimeException('worker owner mismatch was accepted');
 } catch (ModuleException $exception) {
     workerExpect($exception->errorCode === 'MODULE_TASK_WORKER_INVALID', 'worker owner mismatch error changed');

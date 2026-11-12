@@ -26,11 +26,12 @@ logs=()
 trap 'rm -f -- "${logs[@]}"; rmdir "$RUNNER_TEMP"' EXIT
 php_binary="$3"
 environment_file="$RUNNER_TEMP/synthetic.env"
+application_root="$ROOT"
 case_name="$2"
 run_php_with_backend_environment() {
   [[ " $* " == *' --fail-on-skipped '* ]] || return 41
   case "$case_name" in
-    passed|dirty) echo 'integration-security mysql harness: PASS (40 checks)' ;;
+    passed|dirty) echo 'NATIVE-ADMIN-RBAC-TENANT-ISOLATION-001 passed; assertions=40' ;;
     menu-passed) echo '{"status":"passed","assertions":224,"scenarios":[{"scenario":"multi_tenant_fresh"},{"scenario":"module_lifecycle"}]}' ;;
     menu-zero) echo '{"status":"passed","assertions":0,"scenarios":[{}]}' ;;
     menu-prefixed) echo 'diagnostic: {"status":"passed","assertions":224,"scenarios":[{}]}' ;;
@@ -45,7 +46,7 @@ preflight() {
   case "$case_name" in dirty|failed-dirty) return 9 ;; esac
   return 0
 }
-target=server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest.php
+target=server/tests/Multitenancy/AdminRbacTenantIsolationTest.php
 if [[ "$case_name" == menu-* ]]; then target=server/tests/Productization/MenuGroupingTest.php; fi
 if run_suite "$target"; then result=0; else result=$?; fi
 exit "$result"
@@ -217,7 +218,7 @@ BASH,
                 <<<'BASH'
 if [[ "$4" != probe ]]; then
   export PHP_BINARY="$2"
-  exec "$BASH" "$1" "$6" --env-file "$3"
+  exec "$BASH" "$1" "$6" --env-file "$3" "--application-root=$7"
 fi
 source "$1"
 environment_file="$3"
@@ -290,6 +291,7 @@ if (is_file($isolated)) {
 fwrite(STDOUT, "PROBE:native-env-and-authorization-retained\n");
 PHP,
                 $runnerMode,
+                (string) (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: $root),
             ];
             $environment = $ambient + [
                 'PATH' => (string) (getenv('PATH') ?: '/usr/bin:/bin'),

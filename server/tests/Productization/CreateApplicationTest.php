@@ -517,8 +517,11 @@ try {
     createApplicationExpect(!is_dir($first . '/server/fixtures/modules'), 'demo backend Module must remain source-only');
     createApplicationExpect(!is_dir($first . '/server/fixtures/module-lifecycle'), 'demo lifecycle runner must remain source-only');
     createApplicationExpect(!is_dir($first . '/web/tests/fixtures'), 'demo frontend Module must remain source-only');
-    $sourcePlugins = (new ModuleLockResolver($root . '/server', '../modules.lock'))->all();
-    createApplicationExpect($sourcePlugins !== [], 'source fixture lock must resolve at least one fixture Plugin');
+    $sourceModules = (new ModuleLockResolver($root . '/server', '../modules.lock'))->all();
+    createApplicationExpect(
+        $sourceModules === [] && !is_dir($root . '/server/app/modules/peanut'),
+        'thin source Host must not embed official Module author implementations',
+    );
     $generatedLock = json_decode((string) file_get_contents($first . '/modules.lock'), true, 64, JSON_THROW_ON_ERROR);
     // The source checkout may own a development lock, but a fresh thin Host has
     // not accepted any Module source. Only the native reviewed adoption writes it.
@@ -792,6 +795,7 @@ try {
     createApplicationExpect(!str_contains((string) file_get_contents($first . '/server/database/schema/baseline-schema.sql'), "MD5(CONCAT(MD5('admin123456')"), 'shared default password must be absent');
     createApplicationExpect((string) json_decode((string) file_get_contents($first . '/server/config/brand.json'), true)['website']['name'] === 'Acme Console', 'generated brand identity must be used');
     createApplicationExpect(is_file($first . '/server/config/peanut.php') && is_file($first . '/web/src/peanut.overrides.ts'), 'stable Host override entries must be preserved');
+    createApplicationExpect(!file_exists($first . '/scripts/check-local-runtime-contract'), 'Code-only local runtime fixture must not be delivered to APP');
     // A fresh Host adopts the isolated bootstrap lock, not the author's Code
     // checkout lock containing the eight official Module source packages.
     $sourceComposerLock = json_decode((string) file_get_contents(

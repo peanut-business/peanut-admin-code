@@ -11,7 +11,7 @@ use app\common\execution\ExecutionContextStore;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require_once __DIR__ . '/../Support/CiBootstrap.php';
 require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
@@ -94,7 +94,7 @@ INSERT INTO pa_permission (`key`,module_key,type,name,manifest_version,created_a
 SQL);
 }
 
-$serverRoot = dirname(__DIR__, 2);
+$serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $runId = getenv('PEANUT_ORG_TEST_RUN_ID') ?: strtolower(bin2hex(random_bytes(6)));
 if (preg_match('/^[a-z0-9_]{1,32}$/D', $runId) !== 1) {
     throw new RuntimeException('Invalid isolated organization test run ID.');

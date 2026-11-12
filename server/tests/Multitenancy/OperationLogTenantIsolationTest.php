@@ -12,7 +12,7 @@ use PeanutAdmin\Kernel\Audit\AuditOutcome;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Modules\Ops\Domain\Logs\TenantDiagnosticAttributes;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require_once __DIR__ . '/../Support/CiBootstrap.php';
 require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
@@ -35,7 +35,7 @@ function operationTenantContext(int $tenantId, int $memberId, string $requestId)
 
 function createOperationTenantSchema(PDO $pdo): void
 {
-    $serverRoot = dirname(__DIR__, 2);
+    $serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
     IdentityMysqlFixture::install($pdo, [
         $serverRoot . '/app/modules/peanut/file/database/migrations',
         $serverRoot . '/app/modules/peanut/settings/database/migrations',
@@ -48,7 +48,7 @@ function createOperationTenantSchema(PDO $pdo): void
     $seed->run();
 }
 
-$serverRoot = dirname(__DIR__, 2);
+$serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $runId = strtolower(bin2hex(random_bytes(5)));
 $database = RegisteredMysqlTestResource::configuredDatabaseName();
 [$pdo, $created] = RegisteredMysqlTestResource::openEmptyDatabase($database);

@@ -98,7 +98,7 @@ final class ControllerDeclaredDependencyMigrationTest extends TestCase
      */
     private function controllerDeclarations(): array
     {
-        $server = dirname(__DIR__, 2);
+        $server = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
         $parser = (new ParserFactory())->createForNewestSupportedVersion();
         $finder = new NodeFinder();
         $controllers = [];

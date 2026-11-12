@@ -64,7 +64,7 @@ final class HostCompositionContractsTest extends TestCase
     public function testExactReviewedCompositionTypesArePublishedNotTheirStores(): void
     {
         foreach (['task' => TaskWorkerDefinitionRegistry::class, 'ops' => PlatformPermissionChecker::class] as $module => $type) {
-            $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/' . $module . '/module.json'), true, 512, JSON_THROW_ON_ERROR);
+            $manifest = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/' . $module . '/module.json'), true, 512, JSON_THROW_ON_ERROR);
             self::assertContains($type, $manifest['contracts']['exports']);
             self::assertNotContains(\PeanutAdmin\Modules\Ops\Domain\Package::class, $manifest['contracts']['exports']);
         }
@@ -151,7 +151,7 @@ final class HostCompositionContractsTest extends TestCase
 
     private function app(): App
     {
-        return new App(dirname(__DIR__, 3) . '/.local/tmp/host-composition-contracts');
+        return new App((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp/host-composition-contracts');
     }
 }
 

@@ -10,7 +10,10 @@ use PeanutAdmin\Modules\ContentTools\Service\ContentCapabilitiesService;
 use PeanutAdmin\Modules\ContentTools\Service\ContentToolRegistry;
 use think\App;
 
-$root = dirname(__DIR__, 5);
+$root = realpath($argv[1] ?? (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 5)));
+if ($root === false || !is_file($root . '/server/vendor/autoload.php')) {
+    throw new RuntimeException('Content Tools host test requires a prepared application root.');
+}
 require $root . '/server/vendor/autoload.php';
 $app = new App($root . '/server');
 $app->config->set(['mode' => 'multi-tenant'], 'deployment');

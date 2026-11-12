@@ -28,7 +28,7 @@ final class TenantSettingsTransferBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $temporaryRoot = $root . '/.local/tmp/tenant-settings-transfer-tests';
         if (!is_dir($temporaryRoot) && !mkdir($temporaryRoot, 0700, true) && !is_dir($temporaryRoot)) {
             throw new \RuntimeException('TRANSFER_TEST_DIRECTORY_UNAVAILABLE');
@@ -78,7 +78,7 @@ final class TenantSettingsTransferBoundaryTest extends TestCase
         $owner = $this->app->make(TenantSettingsTransfer::class);
         self::assertInstanceOf(TenantSettingsTransfer::class, $owner);
         self::assertStringContainsString('/modules/peanut/settings/src/', (new \ReflectionClass($owner))->getFileName());
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 3) . '/server/app/modules/peanut/settings/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server/app/modules/peanut/settings/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(TenantSettingsTransfer::class, $manifest['contracts']['exports']);
         self::assertNotContains(get_class($owner), $manifest['contracts']['exports']);
     }

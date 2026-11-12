@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace tests\Unit\ControllerDependencyResolution;
 
-require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/topthink/framework/src/helper.php';
 
 use app\BaseController;
 use app\common\execution\AdminExecutionContext;

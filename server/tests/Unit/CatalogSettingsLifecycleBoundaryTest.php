@@ -22,7 +22,7 @@ final class CatalogSettingsLifecycleBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         require_once $root . '/server/vendor/topthink/framework/src/helper.php';
         new App($root . '/.local/tmp/catalog-settings-lifecycle/' . bin2hex(random_bytes(6)));
         $this->database = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
@@ -178,7 +178,7 @@ final class CatalogSettingsLifecycleBoundaryTest extends TestCase
         foreach (['Db::name(', 'Db::table(', 'Db::query(', 'Db::execute(', 'Db::raw('] as $access) {
             self::assertStringNotContainsString($access, $source);
         }
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(\PeanutAdmin\Modules\Identity\Authorization\CatalogLifecycleService::class, $manifest['contracts']['exports']);
     }
 
@@ -253,7 +253,7 @@ final class CatalogSettingsLifecycleBoundaryTest extends TestCase
             INSERT INTO pa_resource_operation_target_type VALUES (401,101,11,'active'),(402,102,11,'active');
             INSERT INTO pa_resource_operation_condition VALUES (501,101,12,'active'),(502,102,12,'active');
             SQL);
-        $manifest = \PeanutAdmin\Kernel\Module\ManifestDocument::fromObject(dirname(__DIR__, 3), (object) ['key' => 'fixture.alpha', 'catalog' => (object) [
+        $manifest = \PeanutAdmin\Kernel\Module\ManifestDocument::fromObject((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)), (object) ['key' => 'fixture.alpha', 'catalog' => (object) [
             'permissions' => [['key' => 'fixture.alpha.read']],
             'target_types' => [['key' => 'fixture.alpha.target']],
             'data_conditions' => [['key' => 'fixture.alpha.condition']],

@@ -14,7 +14,7 @@ use think\facade\Cache;
 use think\facade\Db;
 
 // Executable native contract: no application credentials, external database, or test dependency install.
-$server = dirname(__DIR__, 2);
+$server = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $loader = require $server . '/vendor/autoload.php';
 $loader->addPsr4('PeanutAdmin\\Modules\\Identity\\', $server . '/app/modules/peanut/identity/src/');
 require_once $server . '/vendor/topthink/framework/src/helper.php';

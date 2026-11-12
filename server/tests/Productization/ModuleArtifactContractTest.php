@@ -9,7 +9,9 @@ use app\platform\infrastructure\module\ModuleLockResolver;
 use app\platform\value\module\ModuleFrontendLayout;
 use Opis\JsonSchema\Validator;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+$repoRoot = realpath($argv[1] ?? (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)));
+if ($repoRoot === false) { throw new RuntimeException('Prepared application root is unavailable'); }
+require $repoRoot . '/server/vendor/autoload.php';
 
 $assertions = 0;
 function pluginArtifactExpect(bool $condition, string $message): void
@@ -38,25 +40,27 @@ function artifactRemove(string $root): void
     rmdir($root);
 }
 
-$serverRoot = dirname(__DIR__, 2);
-$repoRoot = dirname($serverRoot);
+$serverRoot = $repoRoot . '/server';
 $key = 'peanut.content-tools';
-$module = json_decode((string) file_get_contents($serverRoot . '/app/modules/peanut/content_tools/module.json'), true, 128, JSON_THROW_ON_ERROR);
+$moduleRoot = (new ModuleLockResolver($serverRoot, '../modules.lock'))->require($key)->moduleRoots[$key];
+$module = (new \PeanutAdmin\Kernel\Module\ManifestLoader())->load($moduleRoot)->data;
+$relativeRoot = substr($moduleRoot, strlen($repoRoot) + 1);
+$moduleSpec = $key . '=' . $relativeRoot;
 $root = rtrim(sys_get_temp_dir(), '/') . '/pa-single-module-artifact-' . bin2hex(random_bytes(8));
 mkdir($root, 0700, true);
 try {
-    artifactCopy($serverRoot . '/app/modules/peanut/content_tools', $root . '/server/app/modules/peanut/content_tools');
+    artifactCopy($moduleRoot, $root . '/' . $relativeRoot);
     foreach (ModuleFrontendLayout::contributions($module['frontend'], $key) as $client) {
         artifactCopy($repoRoot . '/' . $client['root'], $root . '/' . $client['root']);
     }
     mkdir($root . '/server/resources/schemas', 0700, true);
     copy($serverRoot . '/resources/schemas/module-artifact.schema.json', $root . '/server/resources/schemas/module-artifact.schema.json');
     $writer = new ModuleArtifactWriter($root . '/server');
-    $writer->make($key, $module['version'], [$key . '=server/app/modules/peanut/content_tools']);
+    $writer->make($key, $module['version'], [$moduleSpec]);
     $writer->writeLock();
-    $manifestPath = $root . '/server/app/modules/peanut/content_tools/module.json';
+    $manifestPath = $root . '/' . $relativeRoot . '/module.json';
     $lockPath = $root . '/modules.lock';
-    $validManifest = $writer->build($key, $module['version'], [$key . '=server/app/modules/peanut/content_tools']);
+    $validManifest = $writer->build($key, $module['version'], [$moduleSpec]);
     $validLock = json_decode((string) file_get_contents($lockPath), true, 128, JSON_THROW_ON_ERROR);
     $descriptor = (new ModuleLockResolver($root . '/server', '../modules.lock'))->require($key);
     pluginArtifactExpect($descriptor->key === $key && $descriptor->version === $module['version'], 'Module and artifact identity differ');
@@ -101,9 +105,9 @@ try {
     }
     foreach ([
         [$key, $module['version'], []],
-        [$key, $module['version'], [$key . '=server/app/modules/peanut/content_tools', 'acme.second=server/app/modules/acme/second']],
-        ['acme.wrong', $module['version'], [$key . '=server/app/modules/peanut/content_tools']],
-        [$key, '999.0.0', [$key . '=server/app/modules/peanut/content_tools']],
+        [$key, $module['version'], [$moduleSpec, 'acme.second=server/app/modules/acme/second']],
+        ['acme.wrong', $module['version'], [$moduleSpec]],
+        [$key, '999.0.0', [$moduleSpec]],
     ] as $arguments) {
         try {
             $writer->build(...$arguments);

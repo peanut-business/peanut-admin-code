@@ -13,7 +13,7 @@ final class ModuleAuthoringBootstrapTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->repositoryRoot = dirname(__DIR__, 3);
+        $this->repositoryRoot = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $temporaryRoot = realpath(sys_get_temp_dir());
         self::assertIsString($temporaryRoot);
         $this->fixtureRoot = $temporaryRoot . '/peanut-plugin-authoring-' . bin2hex(random_bytes(8));

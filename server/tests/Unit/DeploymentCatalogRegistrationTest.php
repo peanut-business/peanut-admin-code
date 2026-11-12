@@ -24,7 +24,7 @@ final class DeploymentCatalogRegistrationTest extends TestCase
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         require_once $root . '/server/vendor/topthink/framework/src/helper.php';
         $app = new App($root . '/.local/tmp/catalog-registration');
         $this->pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
@@ -95,7 +95,7 @@ final class DeploymentCatalogRegistrationTest extends TestCase
 
     public function testHostKeepsItsOuterTransactionAndNoLongerMutatesIdentityStorage(): void
     {
-        $source = file_get_contents(dirname(__DIR__, 2) . '/app/platform/infrastructure/module/DeploymentModuleInstaller.php');
+        $source = file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/platform/infrastructure/module/DeploymentModuleInstaller.php');
         self::assertStringContainsString('Db::transaction(', $source);
         self::assertStringContainsString('registerDeployedManifest($manifest, false)', $source);
         self::assertStringContainsString('$this->catalogs->apply(', $source);

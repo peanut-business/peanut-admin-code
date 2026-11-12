@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use app\common\services\ProductAssetReferenceService;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 
 function expectContentDecoration(bool $condition, string $message): void
 {
@@ -13,7 +13,7 @@ function expectContentDecoration(bool $condition, string $message): void
     }
 }
 
-$serverRoot = dirname(__DIR__, 2);
+$serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $repositoryRoot = dirname($serverRoot);
 $storage = (new ReflectionClass(\PeanutAdmin\Modules\File\Service\Storage\StorageService::class))->newInstanceWithoutConstructor();
 $fileService = new \PeanutAdmin\Modules\File\Service\FileService($storage, 'https://app.example');

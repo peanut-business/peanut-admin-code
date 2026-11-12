@@ -36,7 +36,7 @@ final class IntegrationTenantBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $temporary = $root . '/.local/tmp/integration-tenant-boundary-tests';
         if (!is_dir($temporary) && !mkdir($temporary, 0700, true) && !is_dir($temporary)) {
             throw new RuntimeException('INTEGRATION_BOUNDARY_TEST_DIRECTORY_UNAVAILABLE');

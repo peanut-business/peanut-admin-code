@@ -89,7 +89,7 @@ function decorationPcPage(string $name): array
     ]];
 }
 
-$serverRoot = dirname(__DIR__, 2);
+$serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $host = IsolatedBackendEnvironment::required('DB_HOST');
 $port = (int) IsolatedBackendEnvironment::required('DB_PORT');
 $user = IsolatedBackendEnvironment::required('DB_USER');

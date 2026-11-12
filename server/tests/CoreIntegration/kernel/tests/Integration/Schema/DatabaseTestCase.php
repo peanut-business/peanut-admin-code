@@ -30,7 +30,7 @@ abstract class DatabaseTestCase extends TestCase
     {
         parent::setUp();
 
-        $root = dirname(__DIR__, 6);
+        $root = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 7)) . '/server');
         $app = Container::getInstance();
         $cache = require $root . '/config/cache.php';
         if (!is_array($cache)) {

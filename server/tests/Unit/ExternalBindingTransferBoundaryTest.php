@@ -33,7 +33,7 @@ final class ExternalBindingTransferBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $temporary = $root . '/.local/tmp/external-binding-transfer-tests';
         if (!is_dir($temporary) && !mkdir($temporary, 0700, true) && !is_dir($temporary)) {
             throw new RuntimeException('BINDING_TRANSFER_TEST_DIRECTORY_UNAVAILABLE');
@@ -85,7 +85,7 @@ final class ExternalBindingTransferBoundaryTest extends TestCase
 
     public function testOwnerPublishesAndBindsTheBusinessTransferContract(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $manifest = json_decode((string) file_get_contents($root . '/server/app/modules/peanut/integration/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(ExternalBindingTransfer::class, $manifest['contracts']['exports']);
         self::assertInstanceOf(ExternalBindingTransfer::class, $this->app->make(ExternalBindingTransfer::class));

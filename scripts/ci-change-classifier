@@ -204,7 +204,7 @@ classify() {
     server/app/api/metadata/*|server/app/modules/*/*/api/metadata/*|server/route/*|server/config/admin_api_access.php)
       mark server web platform pc uniapp api docs integration
       ;;
-    server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest.php|server/tests/Support/IdentityMysqlFixture.php|server/tests/Support/RegisteredMysqlTestResource.php|scripts/tests/run-registered-mysql-tests|resources/project-resources.json|scripts/project-resource-registry|scripts/project-resource-lease)
+    server/tests/Support/IdentityMysqlFixture.php|server/tests/Support/RegisteredMysqlTestResource.php|scripts/tests/run-registered-mysql-tests|resources/project-resources.json|scripts/project-resource-registry|scripts/project-resource-lease)
       mark server integration
       ;;
     server/tests/*|server/app/*|server/config/*|server/database/*|server/bootstrap/*|server/public/*|server/think|scripts/run-php-test|scripts/check-admin-api-permissions.php|scripts/check-test-integrity|scripts/check-thinkphp-architecture)

@@ -31,8 +31,8 @@ final class BindingQualificationBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
-        require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
-        new App(dirname(__DIR__, 3) . '/.local/tmp/binding-qualification-' . bin2hex(random_bytes(6)));
+        require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/topthink/framework/src/helper.php';
+        new App((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp/binding-qualification-' . bin2hex(random_bytes(6)));
         $this->database = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         ThinkPhpTestConnection::fromPdo($this->database);
         $this->database->exec("CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY, status TEXT); INSERT INTO pa_tenant VALUES(1,'active'),(2,'inactive'),(3,'active'); CREATE TABLE pa_external_channel_binding (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER, provider TEXT, identity_hash TEXT, config_json TEXT, status INTEGER, update_time INTEGER, retired_at INTEGER, current_key INTEGER GENERATED ALWAYS AS (CASE WHEN retired_at IS NULL THEN 1 END) STORED, UNIQUE(tenant_id,provider,current_key))");
@@ -48,7 +48,7 @@ final class BindingQualificationBoundaryTest extends TestCase
 
     public function testPublicResultAndQueryAreDeclaredWithoutExposingStorage(): void
     {
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/integration/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/integration/module.json'), true, 512, JSON_THROW_ON_ERROR);
         foreach ([ExternalBindingQualification::class, ExternalBindingQualificationQueries::class] as $type) {
             self::assertContains($type, $manifest['contracts']['exports']);
             self::assertFalse(is_subclass_of($type, think\Model::class));
@@ -124,7 +124,7 @@ final class BindingQualificationBoundaryTest extends TestCase
         self::assertCount(1, $matched);
         self::assertTrue($matched[0]->configured);
         self::assertSame($this->queries->forTenants([1], ['oauth.wechat.oa'], self::KEY)[0]->configDigest, $matched[0]->configDigest);
-        $source = file_get_contents(dirname(__DIR__, 2) . '/app/platform/infrastructure/provider/AbstractTenantBindingQualificationContributor.php');
+        $source = file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/platform/infrastructure/provider/AbstractTenantBindingQualificationContributor.php');
         self::assertStringNotContainsString('config_json', $source);
         self::assertStringNotContainsString('Db::', $source);
         self::assertStringContainsString('ExternalBindingQualificationQueries', $source);

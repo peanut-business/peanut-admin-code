@@ -23,8 +23,8 @@ final class AdmittedReadCacheTest extends TestCase
     #[PreserveGlobalState(false)]
     public function testVersionedTenantAndInstallationReadsStayIsolatedAndTransactionsStayLive(): void
     {
-        require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
-        $app = new class(dirname(__DIR__, 2)) extends think\App {
+        require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/topthink/framework/src/helper.php';
+        $app = new class(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server')) extends think\App {
             public function runningInConsole(): bool { return false; }
         };
         think\Container::setInstance($app);

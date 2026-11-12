@@ -19,7 +19,7 @@ $applicationRootOption = array_values(array_filter(array_slice($argv ?? [], 1), 
 if (count($applicationRootOption) > 1) {
     throw new RuntimeException('Only one explicit qualification APP root is accepted.');
 }
-$root = realpath($applicationRootOption === [] ? dirname(__DIR__, 3) : substr($applicationRootOption[0], strlen('--application-root=')));
+$root = realpath($applicationRootOption === [] ? (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) : substr($applicationRootOption[0], strlen('--application-root=')));
 if ($root === false || !is_dir($root . '/server/app/modules') || !is_file($root . '/server/vendor/autoload.php')) {
     throw new RuntimeException('Native qualification APP source/dependencies are unavailable.');
 }

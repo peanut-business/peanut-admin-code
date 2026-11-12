@@ -5,11 +5,11 @@ declare(strict_types=1);
 use app\platform\infrastructure\module\ModuleCatalogApplier;
 use app\platform\composition\module\ModuleModuleRegistryFactory;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
 require_once dirname(__DIR__) . '/Support/IdentityMysqlFixture.php';
 require_once dirname(__DIR__) . '/Support/RegisteredMysqlTestResource.php';
-$serverRoot = dirname(__DIR__, 2);
+$serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 require_once dirname(__DIR__) . '/Support/CiBootstrap.php';
 $app = \think\Container::getInstance();
 if (!$app instanceof \think\App) {
@@ -34,7 +34,9 @@ IdentityMysqlFixture::install($pdo, [
 ]);
 
 $registry = (new ModuleModuleRegistryFactory($serverRoot))->fromDeploymentConfig([
-    'roots' => ['fixtures/modules/delivery_record'],
+    // This fixed test Module belongs to Code; the selected consumer supplies
+    // the real Host compiler, never a copied test-fixture source tree.
+    'roots' => [dirname(__DIR__, 3) . '/server/fixtures/modules/delivery_record'],
     'kernel_version' => '1.0.0',
     'registered_client_keys' => ['admin-web', 'platform-web'],
 ])->compiled();

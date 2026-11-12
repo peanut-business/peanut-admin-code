@@ -8,7 +8,7 @@ use PeanutAdmin\Modules\File\Service\Storage\StorageService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require_once __DIR__ . '/../Support/CiBootstrap.php';
 require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
@@ -60,7 +60,7 @@ function tenantXlsxRun(TenantContext $context, callable $operation): mixed
     );
 }
 
-$serverRoot = dirname(__DIR__, 2);
+$serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $runId = strtolower(bin2hex(random_bytes(6)));
 $database = RegisteredMysqlTestResource::configuredDatabaseName();
 [$pdo, $databaseCreated] = RegisteredMysqlTestResource::openEmptyDatabase($database);

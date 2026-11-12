@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace tests\Ablation;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 
 use PeanutAdmin\Modules\ReferenceCodes\Controller\DictTypeController;
 use ReflectionClass;

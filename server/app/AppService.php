@@ -312,7 +312,7 @@ class AppService extends Service
     {
         // Cross-Tenant read capabilities are server registrations supplied by source Modules.
         // The base product intentionally starts empty, so unknown/wide scopes fail closed.
-        $this->app->instance(SourceReadCapabilityRegistry::class, new SourceReadCapabilityRegistry([]));
+        $this->app->bind(SourceReadCapabilityRegistry::class, fn(): SourceReadCapabilityRegistry => new SourceReadCapabilityRegistry([]));
         $this->app->bind(\PeanutAdmin\Kernel\Authorization\TenantAuthorizationRepository::class, ThinkPhpTenantAuthorizationRepository::class);
         $this->app->bind(
             \PeanutAdmin\Kernel\Authorization\Persistence\AuthorizationCatalogRepository::class,

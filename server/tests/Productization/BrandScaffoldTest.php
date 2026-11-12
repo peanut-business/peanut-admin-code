@@ -8,7 +8,7 @@ use app\common\infrastructure\scaffold\ApplicationCreator;
 
 require_once defined('PHPUNIT_COMPOSER_INSTALL')
     ? PHPUNIT_COMPOSER_INSTALL
-    : dirname(__DIR__, 2) . '/vendor/autoload.php';
+    : ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 
 function brandExpect(bool $condition, string $message): void
 {
@@ -18,21 +18,24 @@ function brandExpect(bool $condition, string $message): void
 }
 
 $website = WebsiteConfigService::defaults();
+$applicationBrand = json_decode(file_get_contents((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server/config/brand.json'), true, 512, JSON_THROW_ON_ERROR);
+$templateBrand = json_decode(file_get_contents(dirname(__DIR__, 3) . '/server/config/brand.json'), true, 512, JSON_THROW_ON_ERROR);
+brandExpect($website === $applicationBrand['website'], 'Module defaults must read the consuming application brand');
 $defaultImages = BrandDefaults::defaultImages();
 brandExpect(
     array_keys([...$website, ...BrandDefaults::sidebarFooter()]) === WebsiteConfigService::fields(),
     'bootstrap brand and footer defaults must cover the website Runtime fields',
 );
-brandExpect($website['name'] === 'Peanut Admin', 'default product name must be complete');
-brandExpect($website['shop_name'] === 'Peanut Admin', 'default consumer name must be complete');
-brandExpect($website['pc_title'] === 'Peanut Admin', 'default PC title must be complete');
+brandExpect($templateBrand['website']['name'] === 'Peanut Admin', 'default product name must be complete');
+brandExpect($templateBrand['website']['shop_name'] === 'Peanut Admin', 'default consumer name must be complete');
+brandExpect($templateBrand['website']['pc_title'] === 'Peanut Admin', 'default PC title must be complete');
 brandExpect($website['official_url'] === '', 'environment-specific official URL must not be a template default');
 brandExpect(
-    $website['github_url'] === 'https://github.com/peanut-business/peanut-admin-code',
+    $templateBrand['website']['github_url'] === 'https://github.com/peanut-business/peanut-admin-code',
     'GitHub entry must point to the application source repository',
 );
 
-$publicRoot = dirname(__DIR__, 2) . '/public/';
+$publicRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/public/';
 foreach (['web_favicon', 'web_logo', 'login_image', 'shop_logo', 'pc_logo', 'pc_ico', 'h5_favicon'] as $field) {
     $asset = $publicRoot . $website[$field];
     brandExpect(is_file($asset), "missing bootstrap asset for {$field}");
@@ -45,7 +48,7 @@ foreach ($defaultImages as $field => $relativePath) {
     brandExpect(is_file($asset), "missing default image for {$field}");
 }
 
-$projectConfig = file_get_contents(dirname(__DIR__, 2) . '/config/project.php');
+$projectConfig = file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/config/project.php');
 brandExpect(is_string($projectConfig), 'brand test must read project config');
 foreach (['admin_avatar', 'user_avatar', 'menu', 'project_docs', 'technical_support'] as $field) {
     brandExpect(
@@ -54,13 +57,18 @@ foreach (['admin_avatar', 'user_avatar', 'menu', 'project_docs', 'technical_supp
     );
 }
 
-$seed = file_get_contents(dirname(__DIR__, 2) . '/database/schema/baseline-data.sql');
+$seed = file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/database/schema/baseline-data.sql');
 brandExpect(
     is_string($seed) && str_contains($seed, "'{$defaultImages['user_avatar']}'"),
     'initial user avatar default must match the manifest',
 );
 
-$root = dirname(__DIR__, 3);
+$producer = <<<'PHP'
+use app\common\infrastructure\scaffold\ApplicationCreator;
+require $argv[1] . '/server/vendor/autoload.php';
+function brandExpect(bool $condition, string $message): void { if (!$condition) { throw new RuntimeException($message); } }
+$root = $argv[1];
+require_once $root . '/server/app/common/infrastructure/scaffold/ApplicationCreator.php';
 $creator = new ApplicationCreator($root, $root . '/scaffold/application-template-inventory.json');
 $parameters = ['PRODUCT_NAME' => 'Source Consumer', 'PACKAGE_IDENTITY' => 'consumer/application', 'SLUG' => 'source-consumer', 'APPLICATION_VERSION' => '0.1.0'];
 $transform = Closure::bind(
@@ -91,5 +99,7 @@ brandExpect(
         && count(array_filter(array_keys($applicationComposer['require']), static fn(string $name): bool => str_starts_with($name, 'peanut-business/peanut-'))) === 0,
     'thin Host application brand must preserve external dependency identities without bundled official author packages',
 );
-
+PHP;
+$process = proc_open([PHP_BINARY, '-r', $producer, dirname(__DIR__, 3)], [0 => STDIN, 1 => STDOUT, 2 => STDERR], $pipes, dirname(__DIR__, 3));
+brandExpect(is_resource($process) && proc_close($process) === 0, 'template producer brand assertions failed');
 echo "PB08A-BRAND-SCAFFOLD-001 bootstrap passed\n";

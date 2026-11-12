@@ -1,13 +1,13 @@
 # Peanut Admin Third-Party Notices
 
-Generated for Peanut Admin 5.1.10 on 2026-11-12.
+Generated for Peanut Admin 5.1.11 on 2026-11-12.
 
 Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-party components remain governed by their own licenses.
 
 ## Distribution boundary
 
 - The normative GitHub Release distributes this repository's source. It does not attach prebuilt PHP/Nginx images; the fixed core packages are published separately in their public registries.
-- Production Compose builds static management, PC and H5 assets and installs the 54 Composer production packages listed below. No `node_modules` directory is copied into the final images.
+- Production Compose builds static management, PC and H5 assets and installs the 46 Composer production packages listed below. No `node_modules` directory is copied into the final images.
 - The exhaustive package/version/license/source inventory for the seven locked dependency graphs is `RELEASE_SBOM.spdx.json` (SPDX 2.3). The two quality-tool graphs are development inputs, separate from product runtime. Build-only entries are retained there so source-release recipients can reproduce the build and its notices.
 - Each installed dependency may include additional license or notice files. Those files remain authoritative for that dependency and must not be removed from redistributed dependency archives.
 
@@ -33,7 +33,7 @@ Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-pa
 
 | Ecosystem | Declared license | Lock entries |
 |---|---|---:|
-| composer | `Apache-2.0` | 24 |
+| composer | `Apache-2.0` | 16 |
 | composer | `BSD-3-Clause` | 24 |
 | composer | `MIT` | 34 |
 | pc | `Apache-2.0` | 21 |
@@ -91,7 +91,7 @@ Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-pa
 
 ## Composer production packages
 
-These 54 packages are installed with `composer install --no-dev` in the production PHP image.
+These 46 packages are installed with `composer install --no-dev` in the production PHP image.
 
 | Package | Version | License | Source |
 |---|---|---|---|
@@ -118,14 +118,6 @@ These 54 packages are installed with `composer install --no-dev` in the producti
 | `opis/string` | `2.1.0` | `Apache-2.0` | https://github.com/opis/string.git |
 | `opis/uri` | `1.1.0` | `Apache-2.0` | https://github.com/opis/uri.git |
 | `peanut-admin/core` | `v5.1.0` | `Apache-2.0` | https://github.com/peanut-business/peanut-admin-core-php.git |
-| `peanut-business/peanut-content-tools` | `1.0.2` | `Apache-2.0` | app/modules/peanut/content_tools |
-| `peanut-business/peanut-file` | `1.0.45` | `Apache-2.0` | app/modules/peanut/file |
-| `peanut-business/peanut-identity` | `4.0.0-rc.60` | `Apache-2.0` | app/modules/peanut/identity |
-| `peanut-business/peanut-integration` | `1.0.29` | `Apache-2.0` | app/modules/peanut/integration |
-| `peanut-business/peanut-ops` | `1.0.33` | `Apache-2.0` | app/modules/peanut/ops |
-| `peanut-business/peanut-reference-codes` | `1.0.26` | `Apache-2.0` | app/modules/peanut/reference_codes |
-| `peanut-business/peanut-settings` | `1.0.28` | `Apache-2.0` | app/modules/peanut/settings |
-| `peanut-business/peanut-task` | `1.0.34` | `Apache-2.0` | app/modules/peanut/task |
 | `psr/container` | `2.0.2` | `MIT` | https://github.com/php-fig/container.git |
 | `psr/http-client` | `1.0.3` | `MIT` | https://github.com/php-fig/http-client.git |
 | `psr/http-factory` | `1.1.0` | `MIT` | https://github.com/php-fig/http-factory.git |

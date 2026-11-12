@@ -29,7 +29,7 @@ final class HostTenantIdentityBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         require_once $root . '/server/vendor/topthink/framework/src/helper.php';
         $this->app = new App($root . '/.local/tmp/host-tenant-identity/' . bin2hex(random_bytes(6)));
         $cache = require $root . '/server/config/cache.php';
@@ -45,7 +45,7 @@ final class HostTenantIdentityBoundaryTest extends TestCase
 
     public function testHostConsumersDoNotSelectIdentityPrivateTables(): void
     {
-        $root = dirname(__DIR__, 2);
+        $root = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
         foreach (['common/infrastructure/module/ModuleExecutionBoundary.php'] as $file) {
             $source = file_get_contents($root . '/app/' . $file);
             self::assertStringNotContainsString("Db::name('tenant')", $source);

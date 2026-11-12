@@ -55,7 +55,7 @@ final class StandardModuleBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         require_once $root . '/server/vendor/topthink/framework/src/helper.php';
         $this->app = new App($root . '/.local/tmp/standard-module-boundary/case-' . bin2hex(random_bytes(6)));
         $this->database = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
@@ -110,7 +110,7 @@ final class StandardModuleBoundaryTest extends TestCase
 
     public function testIntegrationExportsThePublicResolutionUseCase(): void
     {
-        $manifest = json_decode((string) file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/integration/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode((string) file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/integration/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(ExternalTenantResolutionService::class, $manifest['contracts']['exports']);
         self::assertNotContains(\PeanutAdmin\Modules\Integration\Contract\ExternalTenantBindingRepository::class, $manifest['contracts']['exports']);
     }

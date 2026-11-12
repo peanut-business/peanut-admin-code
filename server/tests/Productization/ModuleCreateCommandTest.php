@@ -93,7 +93,8 @@ function moduleCreateRunViteDiscovery(string $projectRoot): array
     return ['code' => proc_close($process), 'output' => trim((string) $stdout . "\n" . (string) $stderr)];
 }
 
-$serverRoot = dirname(__DIR__, 2);
+// Module creation runs inside the disposable, prepared application, not the thin Code author source.
+$serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $projectRoot = dirname($serverRoot);
 $layout = new ModuleHostLayout('server/app/modules', 'app\\modules', 'web/src/modules');
 $suffix = bin2hex(random_bytes(6));

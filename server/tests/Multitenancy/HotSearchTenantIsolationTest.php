@@ -50,9 +50,9 @@ function hotSearchTenantContext(int $tenantId, int $memberId, string $requestId)
 function createHotSearchTenantSchema(PDO $pdo): void
 {
     IdentityMysqlFixture::install($pdo, [
-        dirname(__DIR__, 2) . '/app/modules/peanut/file/database/migrations',
-        dirname(__DIR__, 2) . '/app/modules/peanut/settings/database/migrations',
-        dirname(__DIR__, 2) . '/database/installation',
+        ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/file/database/migrations',
+        ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/settings/database/migrations',
+        ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/database/installation',
     ]);
 }
 
@@ -84,7 +84,7 @@ try {
     createHotSearchTenantSchema($pdo);
     seedHotSearchTenantSchema($pdo);
     IsolatedBackendEnvironment::activateDatabase($host, $port, $database, $user, $password, 'multi-tenant');
-    $app = new think\App(dirname(__DIR__, 2));
+    $app = new think\App(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
     $app->initialize();
     ThinkPhpTestConnection::fromPdo($pdo);
 

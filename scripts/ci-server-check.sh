@@ -6,20 +6,26 @@ cd "$ROOT"
 mode="${1:-}"
 shift || true
 BACKEND_ENV=''
-if [[ "${1:-}" == '--env-file' && $# -ge 2 ]]; then
-  BACKEND_ENV="$2"
-  shift 2
-fi
-[[ $# -eq 0 && "$BACKEND_ENV" == /* ]] || {
-  echo 'ERROR: --env-file /absolute/path is required' >&2
+APPLICATION_ROOT=''
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --env-file) BACKEND_ENV="${2:-}"; shift 2 ;;
+    --application-root=*) APPLICATION_ROOT="${1#--application-root=}"; shift ;;
+    *) echo "ERROR: unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
+[[ "$BACKEND_ENV" == /* && "$APPLICATION_ROOT" == /* && -f "$APPLICATION_ROOT/server/vendor/autoload.php" ]] || {
+  echo 'ERROR: --env-file /absolute/path and --application-root=/absolute/prepared-application are required' >&2
   exit 2
 }
+APPLICATION_ROOT="$(CDPATH= cd -- "$APPLICATION_ROOT" && pwd -P)"
+export PEANUT_TEST_APPLICATION_ROOT="$APPLICATION_ROOT"
 [[ -f "$BACKEND_ENV" && ! -L "$BACKEND_ENV" ]] || {
   echo "ERROR: backend environment is missing or unsafe: $BACKEND_ENV" >&2
   exit 2
 }
 backend_directory=$(CDPATH= cd -- "$(dirname -- "$BACKEND_ENV")" && pwd -P)
-[[ "$backend_directory" == "$ROOT/server" ]] || { echo 'backend environment must be inside server/' >&2; exit 2; }
+[[ "$backend_directory" == "$APPLICATION_ROOT/server" ]] || { echo 'backend environment must be inside the selected application server/' >&2; exit 2; }
 backend_name=$(basename -- "$BACKEND_ENV")
 case "$backend_name" in
   .env) native_env_name= ;;
@@ -72,6 +78,7 @@ write_summary() {
     printf '## Server gate %s\n\n' "$mode"
     printf -- '- Candidate: `%s`\n' "$candidate"
     printf -- '- Tree: `%s`\n' "$tree"
+    printf -- '- Application: `%s`\n' "$APPLICATION_ROOT"
     printf -- '- Started: `%s`\n' "$started_at"
     printf -- '- Result: **%s**\n' "$result"
     printf -- '- Commands: %d\n' "$command_count"
@@ -126,17 +133,16 @@ direct_test_target() {
       ;;
     server/tests/*Test.php|\
     server/tests/Modules/Official/*/feature-harness.php|\
-    server/tests/Modules/Official/Task/worker-composition-harness.php|\
-    server/tests/scripts/CheckModuleNamespaceMigration.php)
+    server/tests/Modules/Official/Task/worker-composition-harness.php)
       return 0
       ;;
   esac
   return 1
 }
 
-run_command admin-api-permissions 0 php scripts/check-admin-api-permissions.php
+run_command admin-api-permissions 0 php scripts/check-admin-api-permissions.php "--application-root=$APPLICATION_ROOT"
 run_command test-integrity 0 php scripts/check-test-integrity
-run_command api-contract-source 0 php scripts/generate-api-contracts.php --check
+run_command api-contract-source 0 php scripts/generate-api-contracts.php "--application-root=$APPLICATION_ROOT" --check
 
 if [[ "$mode" == '--integration' ]]; then
   mysql_resource_mode="$(printenv PEANUT_MYSQL_RESOURCE_MODE 2>/dev/null || true)"
@@ -146,12 +152,12 @@ if [[ "$mode" == '--integration' ]]; then
     exit 2
   }
   run_command registered-mysql-integration 1 \
-    "$ROOT/scripts/tests/run-registered-mysql-tests" "$mysql_resource_mode" --env-file "$BACKEND_ENV"
+    "$ROOT/scripts/tests/run-registered-mysql-tests" "$mysql_resource_mode" --env-file "$BACKEND_ENV" "--application-root=$APPLICATION_ROOT"
   write_summary passed
   exit 0
 fi
 
-run_command api-generated-drift 0 "$ROOT/scripts/check-openapi"
+run_command api-generated-drift 0 "$ROOT/scripts/check-openapi" "--application-root=$APPLICATION_ROOT"
 
 if [[ "$mode" == '--daily' ]]; then
   base="${CI_BASE_REF:-}"
@@ -298,10 +304,30 @@ while IFS= read -r test_file <&3; do
   case "$test_file" in
     server/tests/Productization/DatabaseResourceRegistryTest.php)
       run_command "test:${test_file}:schema-contract" 1 \
-        php "$ROOT/scripts/run-php-test" "--env-file=$BACKEND_ENV" "$test_file" -- --schema-contract
+        php "$ROOT/scripts/run-php-test" "--application-root=$APPLICATION_ROOT" "--env-file=$BACKEND_ENV" "$test_file" -- --schema-contract
       ;;
     server/tests/Productization/P0eRuntimeQualificationTest.php)
       run_command p0e-template-stage-contract 1 python3 scripts/tests/p0e_template_stage_test.py
+      ;;
+    server/tests/Productization/CreateApplicationTest.php|\
+    server/tests/Productization/EditionUpgradePackageTest.php|\
+    server/tests/Productization/InstallationConfigurationHostTest.php|\
+    server/tests/Productization/ScaffoldUpgradeRunnerTest.php|\
+    server/tests/Unit/A1EditionDockerProjectionTest.php|\
+    server/tests/Unit/ApplicationDevelopmentEntryTest.php|\
+    server/tests/Unit/GeneratedPackageIdentityTest.php)
+      # Source author test: never load a different application's app\ classes
+      # before checking the immutable Code candidate and its native producer.
+      run_command "test:${test_file}:source" 1 \
+        env -u PEANUT_TEST_APPLICATION_ROOT -u PEANUT_SERVER_ENV_FILE \
+        php "$ROOT/scripts/run-php-test" "$test_file"
+      ;;
+    server/tests/Productization/ModuleSourceCompositionTest.php)
+      # The official Module sources are accepted into this prepared consumer;
+      # the thin Code checkout intentionally has no author Module sources.
+      run_command "test:${test_file}:consumer-modules" 1 \
+        php "$ROOT/scripts/run-php-test" "--application-root=$APPLICATION_ROOT" \
+          "--env-file=$BACKEND_ENV" "$test_file" -- "$APPLICATION_ROOT"
       ;;
     *)
       runner=(php)
@@ -310,7 +336,7 @@ while IFS= read -r test_file <&3; do
         runner=("$ROOT/scripts/ci-producer" exec "$PEANUT_TEST_PRODUCER_STATE" -- env "PHP_ENV_NAME=$native_env_name" php)
       fi
       run_command "test:${test_file}" 1 \
-        "${runner[@]}" "$ROOT/scripts/run-php-test" "--env-file=$BACKEND_ENV" "$test_file"
+        "${runner[@]}" "$ROOT/scripts/run-php-test" "--application-root=$APPLICATION_ROOT" "--env-file=$BACKEND_ENV" "$test_file"
       ;;
   esac
 done 3<"$selected_file" </dev/null

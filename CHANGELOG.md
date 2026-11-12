@@ -2,6 +2,13 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.11] - 2026-11-12
+
+- Consolidate eight official Module author implementations exclusively in the Module application. The scaffold Host supplies only composition, public integration contracts and consumer-side coverage; no duplicate official Module business source is bundled.
+- Move Module-owned business tests and fixture helpers to the Module application while retaining Code Host, lifecycle and security boundary checks.
+- Preserve native ST/MT Edition creation and verified Module artifact consumption, including the existing permission, authentication and tenant-isolation acceptance. Module packaging and downstream application upgrades remain independently versioned.
+- Retain published PHP Core and Web Core 5.1.0 identities; unchanged Core packages are not republished for this scaffold release.
+
 ## [5.1.10] - 2026-11-12
 
 - Release the locally verified thin Standalone and Multi-tenant scaffold with PHP Core and Web Core 5.1.0, keeping official Module author source in the Module delivery flow.

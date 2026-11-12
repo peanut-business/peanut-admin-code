@@ -37,7 +37,7 @@ use think\db\Raw;
 use think\DbManager;
 use think\facade\Db;
 
-require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/Support/CiBootstrap.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
 require_once dirname(__DIR__) . '/Support/IdentityMysqlFixture.php';
@@ -206,7 +206,7 @@ PHP);
 
 $mode = $argv[1] ?? '--sqlite';
 memberRuntimeExpect(in_array($mode, ['--sqlite', '--mysql'], true) && count($argv) <= 2, 'explicit sqlite/mysql mode required');
-$root = dirname(__DIR__, 3);
+$root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
 $serverRoot = $root . '/server';
 $temporaryParent = $root . '/.local/tmp/m3-runtime-member-20260928';
 if (!is_dir($temporaryParent)) {
@@ -238,7 +238,9 @@ try:
 finally:
     case.doCleanups()
 PY;
-$process = proc_open(['python3', '-c', $generator, $root, $temporaryRoot], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $root);
+// The generator is a Code-owned test fixture, not part of the thin consumer.
+$fixtureSourceRoot = dirname(__DIR__, 3);
+$process = proc_open(['python3', '-c', $generator, $fixtureSourceRoot, $temporaryRoot], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $fixtureSourceRoot);
 memberRuntimeExpect(is_resource($process), 'native sample generation process unavailable');
 $generatedOutput = stream_get_contents($pipes[1]);
 $generatedError = stream_get_contents($pipes[2]);

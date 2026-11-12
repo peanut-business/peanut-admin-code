@@ -28,7 +28,7 @@ use think\Config as ThinkConfig;
 use think\Container;
 use think\facade\Config;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
 
 function upgradeTargetExpect(bool $condition, string $message): void
@@ -138,7 +138,7 @@ function upgradeTargetRejects(callable $operation, string $expected): void
     throw new RuntimeException("target fixture accepted invalid input: {$expected}");
 }
 
-$sourceRoot = dirname(__DIR__, 3);
+$sourceRoot = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
 $temporary = sys_get_temp_dir() . '/pa-upgrade-target-module-' . bin2hex(random_bytes(8));
 $projectRoot = $temporary . '/application';
 $targetRoot = $projectRoot . '/.peanut/upgrade-target';
@@ -151,10 +151,10 @@ $targetFrontend = $releaseRoot . '/web/src/modules/fixture-delivery-record';
 mkdir($temporary, 0700, true);
 try {
     foreach ([
-        [$sourceRoot . '/server/fixtures/modules/delivery_record', $currentModule],
-        [$sourceRoot . '/web/tests/fixtures/modules/fixture-delivery-record', $currentFrontend],
-        [$sourceRoot . '/server/fixtures/modules/delivery_record', $targetModule],
-        [$sourceRoot . '/web/tests/fixtures/modules/fixture-delivery-record', $targetFrontend],
+        [dirname(__DIR__, 3) . '/server/fixtures/modules/delivery_record', $currentModule],
+        [dirname(__DIR__, 3) . '/web/tests/fixtures/modules/fixture-delivery-record', $currentFrontend],
+        [dirname(__DIR__, 3) . '/server/fixtures/modules/delivery_record', $targetModule],
+        [dirname(__DIR__, 3) . '/web/tests/fixtures/modules/fixture-delivery-record', $targetFrontend],
     ] as [$source, $target]) {
         upgradeTargetCopyTree($source, $target);
     }
@@ -355,7 +355,7 @@ CREATE TABLE pa_module_installation (
 );
 SQL);
     $currentManifest = (new ManifestLoader())->load(
-        $sourceRoot . '/server/fixtures/modules/delivery_record',
+        dirname(__DIR__, 3) . '/server/fixtures/modules/delivery_record',
     );
     $statement = $pdo->prepare(
         'INSERT INTO pa_module_installation '
@@ -392,7 +392,7 @@ SQL);
         ThinkPhpTestConnection::moduleCatalogs($pdo),
         (new ModuleDefinitionRegistryFactory($sourceRoot . '/server'))->fromDeploymentConfig([
             ...$moduleConfig,
-            'roots' => [$sourceRoot . '/server/fixtures/modules/delivery_record'],
+            'roots' => [dirname(__DIR__, 3) . '/server/fixtures/modules/delivery_record'],
         ]),
     );
     upgradeTargetExpect(count($governance->qualification()->installedModules()) === 1, 'current installed Module fixture is unavailable');

@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.machinery
 import importlib.util
 import json
+import os
 import subprocess
 import stat
 import sys
@@ -12,6 +13,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+APPLICATION_ROOT = Path(os.environ.get("PEANUT_TEST_APPLICATION_ROOT", str(ROOT)))
 loader = importlib.machinery.SourceFileLoader(
     "consumer_module_reference_chain", str(ROOT / "scripts/consumer-module-reference-chain")
 )
@@ -103,7 +105,7 @@ with tempfile.TemporaryDirectory(dir=owned_tmp) as temporary:
     probe = root / "native-private-files.php"
     probe.write_text(
         "<?php\ndeclare(strict_types=1);\numask(0077);\n"
-        + "require " + json.dumps(str(ROOT / "server/vendor/autoload.php")) + ";\n"
+        + "require " + json.dumps(str(APPLICATION_ROOT / "server/vendor/autoload.php")) + ";\n"
         + "$root = $argv[1]; $identityFile = $root . '/identity.json';\n"
         + file_helpers
         + r"""
