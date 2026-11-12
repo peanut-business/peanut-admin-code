@@ -141,6 +141,42 @@ try {
     $middleware = (string) file_get_contents($code . '/server/app/platform/http/middleware/PlatformInstanceToolMiddleware.php');
     $expect(str_contains($middleware, "!== 'development'") && str_contains($middleware, '!app()->isDebug()')
         && str_contains($middleware, '$this->sessions->assertAllowed('), 'Developer gate weakened');
+
+    // An already claimed Ops request must be recoverable before native source
+    // preflight acquires the nonblocking writer lock; no DB/worker is started here.
+    $replay = new ReflectionMethod(\app\platform\services\module\PlatformModuleRuntimeService::class, 'previousPackageRequestKey');
+    $requestKey = 'modreq_' . str_repeat('1', 32);
+    $archiveSha = str_repeat('a', 64);
+    $payload = ['request_key' => $requestKey, 'operation' => 'update',
+        'archive_sha256' => $archiveSha, 'signature_key_id' => ''];
+    $task = ['task_type' => 'ops.module.execute', 'payload_json' => json_encode($payload, JSON_THROW_ON_ERROR)];
+    $expect($replay->invoke(null, $task, 'update', $archiveSha, null) === $requestKey, 'Identical submission was not replayable');
+    foreach ([
+        ['install', $archiveSha, null, $task],
+        ['update', str_repeat('b', 64), null, $task],
+        ['update', $archiveSha, 'other-signature', $task],
+        ['update', $archiveSha, null, array_replace($task, ['task_type' => 'ops.another'])],
+        ['update', $archiveSha, null, array_replace($task, ['payload_json' => '{not-json'])],
+        ['update', $archiveSha, null, array_replace($task, ['payload_json' => json_encode(
+            array_replace($payload, ['request_key' => 'not-a-module-request']),
+            JSON_THROW_ON_ERROR,
+        )])],
+    ] as [$operation, $sha, $signature, $otherTask]) {
+        try {
+            $replay->invoke(null, $otherTask, $operation, $sha, $signature);
+            throw new RuntimeException('Conflicting Idempotency-Key was accepted');
+        } catch (\app\platform\exception\module\ModuleLifecycleException $error) {
+            $expect($error->errorCode === 'OPS_IDEMPOTENCY_CONFLICT', 'Wrong conflict result');
+        }
+    }
+    $runtimeSource = (string) file_get_contents($code . '/server/app/platform/services/module/PlatformModuleRuntimeService.php');
+    $submit = substr($runtimeSource, (int) strpos($runtimeSource, 'private function submitPackage('));
+    $replayPosition = strpos($submit, 'self::previousPackageRequestKey($previous, $operation, $sha256, $keyId)');
+    $preparePosition = strpos($submit, '$this->deliveryRequests->prepareUpload(');
+    $expect(
+        $replayPosition !== false && $preparePosition !== false && $replayPosition < $preparePosition,
+        'Existing submission must be queried before the native package preflight',
+    );
     echo 'OFFICIAL-RELEASE-DISCOVERY-001 passed checks=' . $checks . "\n";
 } finally {
     unlink($root . '/modules.lock');
