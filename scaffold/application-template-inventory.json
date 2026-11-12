@@ -2551,20 +2551,6 @@
             "source_sha256": "779b64a5b6e6a574730c81e58a703b03c76c0d6abfc968a09057bc7c7d775c83"
         },
         {
-            "path": "scripts/check-local-runtime-contract",
-            "target": "scripts/check-local-runtime-contract",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c2fd155519e5d7481add2aa5e8dab0f3917efab5747b4a189e5fcfbc707903e9"
-        },
-        {
             "path": "scripts/check-module-boundaries.php",
             "target": "scripts/check-module-boundaries.php",
             "classification": "managed",
@@ -3529,7 +3515,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cbcd8c14b28d6141faedfc1cbbb7b48f470bf14d3e96d18b0997bd1e5e853dde"
+            "source_sha256": "65a7fdc848148aa5806ac491d9b0f3f686eb8982d451b240b01319e6e3b90ab4"
         },
         {
             "path": "scripts/scaffold-upgrade",
