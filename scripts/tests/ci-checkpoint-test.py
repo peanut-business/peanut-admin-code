@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import textwrap
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 loader = importlib.machinery.SourceFileLoader('checkpoint', str(ROOT / 'scripts/ci-checkpoint'))
@@ -167,13 +168,70 @@ const AsyncFunction = Object.getPrototypeOf(async function() {}).constructor;
         f = self.release_fixture(manual=True)
         f['env']['RUN_TESTS'] = 'true'
         self.assertNotEqual(self.release_script(step, f).returncode, 0)
-        f['jobs'].append({'name': 'Full CI / CI summary', 'id': 32, 'status': 'completed', 'conclusion': 'success'})
+        f['jobs'].extend({'name': 'Full CI / ' + name, 'id': 40 + i, 'status': 'completed',
+                          'conclusion': 'success', 'run_id': 11, 'head_sha': 'a' * 40}
+                         for i, name in enumerate(sorted(checkpoint.FULL_JOBS - {'CI summary'})))
+        f['jobs'].append({'name': 'Full CI / CI summary', 'id': 32, 'status': 'completed',
+                          'conclusion': 'success', 'run_id': 11, 'head_sha': 'a' * 40})
         result = self.release_script(step, f)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)['ci_run'], '11')
         for status in ('failure', 'cancelled', 'skipped'):
             f['jobs'][-1]['conclusion'] = status
             self.assertNotEqual(self.release_script(step, f).returncode, 0)
+
+    def test_partial_green_summary_cannot_be_claimed_as_full_release_qualification(self):
+        f = self.release_fixture(manual=True)
+        f['env']['RUN_TESTS'] = 'true'
+        f['jobs'].append({'name': 'Full CI / CI summary', 'id': 32, 'status': 'completed',
+                          'conclusion': 'success', 'run_id': 11, 'head_sha': 'a' * 40})
+        result = self.release_script('Authenticate the original CI build and enforce the selected test requirement', f)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('partial/reused', result.stderr)
+
+    def test_affected_baseline_requires_actual_full_jobs_and_verified_ancestor(self):
+        run = {'id': 91, 'run_attempt': 2, 'head_sha': 'a' * 40, 'path': '.github/workflows/ci.yml',
+               'head_repository': {'full_name': checkpoint.REPOSITORY}, 'event': 'workflow_dispatch',
+               'status': 'completed', 'conclusion': 'success'}
+        jobs = [{'name': name, 'status': 'completed', 'conclusion': 'success', 'head_sha': run['head_sha'], 'run_id': 91}
+                for name in checkpoint.FULL_JOBS]
+        def api(path):
+            return {'jobs': jobs} if '/jobs?' in path else {'workflow_runs': [run]}
+        self.assertEqual(checkpoint.eligible_baseline('b' * 40, api, lambda base: base == 'a' * 40), run)
+        self.assertIsNone(checkpoint.eligible_baseline('b' * 40, api, lambda base: False))
+        jobs[0]['conclusion'] = 'skipped'
+        self.assertIsNone(checkpoint.eligible_baseline('b' * 40, api, lambda base: True))
+        jobs[0]['conclusion'] = 'success'
+        jobs[0]['head_sha'] = 'f' * 40
+        self.assertIsNone(checkpoint.eligible_baseline('b' * 40, api, lambda base: True))
+
+    def test_affected_classification_reuses_only_exact_source_and_full_mode_stays_full(self):
+        head = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
+        with patch.dict(os.environ, {'GITHUB_REPOSITORY': checkpoint.REPOSITORY}), \
+                patch.object(checkpoint, 'eligible_baseline', return_value={'id': 91, 'run_attempt': 2, 'head_sha': head}):
+            output, note = checkpoint.classify('affected', head, checkpoint.REPOSITORY)
+            for name in checkpoint.GROUPS:
+                self.assertIn(name + '=false\n', output)
+            self.assertIn('validated_baseline_run=91', output)
+            self.assertIn('does not claim a fresh full', note)
+        with patch.object(checkpoint, 'eligible_baseline', side_effect=AssertionError('full mode must not lookup old runs')):
+            output, note = checkpoint.classify('full', head)
+            for name in checkpoint.GROUPS:
+                self.assertIn(name + '=true\n', output)
+            self.assertIn('validation_scope=full', output)
+
+    def test_no_full_baseline_falls_back_and_scope_is_wired_into_existing_workflow(self):
+        head = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
+        with patch.dict(os.environ, {'GITHUB_REPOSITORY': checkpoint.REPOSITORY}), \
+                patch.object(checkpoint, 'eligible_baseline', return_value=None):
+            output, _ = checkpoint.classify('affected', head, checkpoint.REPOSITORY)
+            self.assertIn('server=true', output)
+            self.assertIn('validation_scope=full', output)
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        self.assertIn('default: affected', workflow)
+        self.assertIn('scripts/ci-checkpoint --classify --scope "$VALIDATION_SCOPE"', workflow)
+        release = (ROOT / '.github/workflows/scaffold-release.yml').read_text()
+        self.assertIn('validation_scope: full', release)
 
     def test_release_job_conditions_with_missing_tag_inputs_and_skipped_dependencies(self):
         text = (ROOT/'.github/workflows/scaffold-release.yml').read_text()
@@ -286,7 +344,7 @@ process.stdout.write(String(cases.length + 1));
                 text = path.read_text()
                 triggers = text.split('\non:\n', 1)[1].split('\npermissions:', 1)[0]
                 permissions = text.split('\npermissions:\n', 1)[1].split('\n\n', 1)[0]
-                self.assertEqual(permissions, '  contents: read')
+                self.assertEqual(permissions, '  contents: read\n  actions: read' if path.name == 'ci.yml' else '  contents: read')
                 if path.name == 'scaffold-release.yml':
                     self.assertEqual(re.findall(r'^  (\S+):', triggers, re.MULTILINE), ['workflow_dispatch'])
                     self.assertNotIn('push:', triggers)

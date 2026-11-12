@@ -8,15 +8,25 @@ on:
         description: Optional exact source when explicitly selecting a validation batch
         type: string
         default: ''
+      validation_scope:
+        description: Reuse a verified full CI ancestor for unaffected groups, or explicitly run every group
+        type: choice
+        options: [affected, full]
+        default: affected
   workflow_call:
     inputs:
       expected_source_commit:
         description: Exact source selected by the scaffold production caller
         required: true
         type: string
+      validation_scope:
+        description: Production full-CI callers must select full
+        type: string
+        default: full
 
 permissions:
   contents: read
+  actions: read
 
 env:
   COMPOSER_CACHE_DIR: ${{ github.workspace }}/../.peanut-composer-cache
@@ -56,6 +66,8 @@ jobs:
       docs: ${{ steps.paths.outputs.docs }}
       conservative: ${{ steps.paths.outputs.conservative }}
       baseline: ${{ steps.paths.outputs.baseline }}
+      validation_scope: ${{ steps.paths.outputs.validation_scope }}
+      validated_baseline_run: ${{ steps.paths.outputs.validated_baseline_run }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -79,35 +91,22 @@ jobs:
           --github-output "$GITHUB_OUTPUT"
           --github-summary "$GITHUB_STEP_SUMMARY"
       - name: Test checkpoint and summary decisions
-        run: python3 scripts/tests/ci-checkpoint-test.py
+        run: |
+          python3 scripts/tests/ci-checkpoint-test.py
+          python3 scripts/tests/project_env_automation_test.py
+          python3 scripts/tests/prepare_product_release_candidate_test.py
 
       - name: Classify affected products
         if: steps.checkpoint.outputs.validation == 'required'
         id: paths
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VALIDATION_SCOPE: ${{ inputs.validation_scope || 'full' }}
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            ./scripts/ci-change-classifier \
-              --all \
-              --reason='manual workflow dispatch' \
-              --github-output="$GITHUB_OUTPUT"
-          else
-            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-              base_ref='${{ github.event.pull_request.base.sha }}'
-              head_ref='${{ github.event.pull_request.head.sha }}'
-              comparison='merge-base'
-            else
-              base_ref='${{ github.event.before }}'
-              head_ref='${{ github.sha }}'
-              comparison='direct'
-            fi
-            ./scripts/ci-change-classifier \
-              --base="$base_ref" \
-              --head="$head_ref" \
-              --comparison="$comparison" \
-              --fallback-full \
-              --github-output="$GITHUB_OUTPUT"
-          fi
+          python3 scripts/ci-checkpoint --classify --scope "$VALIDATION_SCOPE" \
+            --repository "$GITHUB_REPOSITORY" --current-run-id "$GITHUB_RUN_ID" \
+            --source "$GITHUB_SHA" --github-output "$GITHUB_OUTPUT" --github-summary "$GITHUB_STEP_SUMMARY"
       - name: Exercise classifier mappings and fail-closed cases
         run: ./scripts/tests/ci-change-classifier-test
 

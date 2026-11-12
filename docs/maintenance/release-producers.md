@@ -163,6 +163,16 @@ CI 的 `scaffold-release.yml` 可显式选 `publish=false, pack_only=true` 并�
 
 ## 唯一发布器及 main 绑定
 
+### 自动计划、增量验证与失败续接
+
+维护者日常仍使用 `peanut release`，不增加第二套发布器。`--plan` 读取源码/锁/工具声明及既有回执给出 `planned`、`no_build_needed`、`resume_required` 等状态；正常执行按输入指纹复用已完成双 Edition 原件。已知失败用 `--resume` 继续原工作区，准备阶段的依赖安装/生成和每个 Edition 单独记录完成证据；未变的已完成步骤不重做。UNKNOWN、输入漂移或附件损坏只报告原现场，不自动并行再提交。
+
+显式调用 `ci.yml` 默认 `validation_scope=affected`：先向 GitHub 查询真实完成的同仓、同工作流和祖先来源，逐项确认原 full job 在同一 attempt 全部成功，再交给原 `ci-change-classifier` 选择受影响组。无法找到合格基线时自动选 full；API 故障不视为没有历史。复用只表示源码、依赖锁和工具声明范围内的历史证据，不声称当前机器重新做了完整运行验证。
+
+`scaffold-release.yml` 的 `run_tests=true` 显式调用 `validation_scope=full`。正式发布器再次要求该来源全部 CI job 实际完成成功，拒绝用只跑部分组或复用历史组的绿色 summary 冒充本次 full CI。普通 dev push 仍不自动触发 CI。公开发布继续只消费原候选及摘要，不在发布阶段补测或重打包。
+
+模块作者应用的默认 `module-release.yml` 在准备 PHP/Composer 之前自动调用原 `build-module-release-index --plan-only`：零变化跳过准备/打包/发行；有变化时固定计划 SHA，按模块包源码及反向依赖范围验证。v2 目录记录源内容指纹和原件 `artifact_tag`，未变包直接引用旧不可变原件，不上传重复 TAR。完整源码、计划、成功/失败步骤及来源都由原生产者/发布器管理，见模块仓公开发行合同。
+
 正式发布只调用现有 scripts/publish-github-release，接收原 CI 下载并核摘要的 candidate-stage.json、ST/MT 模板原件和原始 transport SHA-256。check-release-consistency 核注释 tag、固定源码 commit/tree、原生版本锁和法律文件、精确模板与 CLI 消费结果。full8 等未执行范围保留 NOT_RUN，不能把候选生成、制品验证或 CI success 冒充所有业务验收。
 
 scaffold-release.yml 当前仅由 workflow_dispatch 显式触发：publish=false 在固定 dev 来源 S 上首次生产双 Edition，run_tests 默认 false、对破坏性改变可选 true 并在模板生产前调用同源完整 ci.yml；publish=true 必须在已按 PR 集成的实时 main 上运行，不再生产模板或补测。后者要求原生产 run 完成 success，原 attempt 的唯一 templates job success、artifact 唯一未过期且 SHA 固定；需要完整 CI 时还必须有该来源的成功 CI summary，不会被手动 false 覆盖。

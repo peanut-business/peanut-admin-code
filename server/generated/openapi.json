@@ -436,7 +436,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 190
+                        "line": 198
                     }
                 },
                 "x-peanut-permissions": [
@@ -514,7 +514,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 143
+                        "line": 151
                     }
                 },
                 "x-peanut-permissions": [
@@ -592,7 +592,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 187
+                        "line": 195
                     }
                 },
                 "x-peanut-permissions": [
@@ -670,7 +670,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 184
+                        "line": 192
                     }
                 },
                 "x-peanut-permissions": [
@@ -774,7 +774,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 146
+                        "line": 154
                     }
                 },
                 "x-peanut-permissions": [
@@ -852,7 +852,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 149
+                        "line": 157
                     }
                 },
                 "x-peanut-permissions": [
@@ -964,7 +964,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 157
+                        "line": 165
                     }
                 },
                 "x-peanut-permissions": [
@@ -1070,7 +1070,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 160
+                        "line": 168
                     }
                 },
                 "x-peanut-permissions": [
@@ -1171,7 +1171,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 168
+                        "line": 176
                     }
                 },
                 "x-peanut-permissions": [
@@ -1283,7 +1283,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 171
+                        "line": 179
                     }
                 },
                 "x-peanut-permissions": [
@@ -1377,7 +1377,7 @@
                     "permission": "platform.ops.upgrade.manage",
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 174
+                        "line": 182
                     }
                 },
                 "x-peanut-permissions": [
@@ -1482,7 +1482,7 @@
                     "permission": "platform.ops.module.manage",
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 179
+                        "line": 187
                     }
                 },
                 "x-peanut-permissions": [
@@ -1574,7 +1574,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 193
+                        "line": 201
                     }
                 },
                 "x-peanut-permissions": [
@@ -11802,7 +11802,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 224
+                        "line": 232
                     }
                 },
                 "x-peanut-permissions": [
@@ -11975,7 +11975,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 199
+                        "line": 207
                     }
                 },
                 "x-peanut-permissions": [
@@ -12063,7 +12063,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 202
+                        "line": 210
                     }
                 },
                 "x-peanut-permissions": [
@@ -12151,7 +12151,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 205
+                        "line": 213
                     }
                 },
                 "x-peanut-permissions": [
@@ -12895,7 +12895,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 227
+                        "line": 235
                     }
                 },
                 "x-peanut-permissions": [
@@ -13005,7 +13005,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 230
+                        "line": 238
                     }
                 },
                 "x-peanut-permissions": [
@@ -13119,7 +13119,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 233
+                        "line": 241
                     }
                 },
                 "x-peanut-permissions": [
@@ -13224,7 +13224,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 236
+                        "line": 244
                     }
                 },
                 "x-peanut-permissions": [
@@ -13329,7 +13329,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 239
+                        "line": 247
                     }
                 },
                 "x-peanut-permissions": [
@@ -13434,7 +13434,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 242
+                        "line": 250
                     }
                 },
                 "x-peanut-permissions": [
@@ -13539,7 +13539,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 245
+                        "line": 253
                     }
                 },
                 "x-peanut-permissions": [
@@ -13653,7 +13653,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 248
+                        "line": 256
                     }
                 },
                 "x-peanut-permissions": [
@@ -13758,7 +13758,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 251
+                        "line": 259
                     }
                 },
                 "x-peanut-permissions": [
@@ -13871,7 +13871,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 254
+                        "line": 262
                     }
                 },
                 "x-peanut-permissions": [
@@ -14501,7 +14501,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 134
+                        "line": 142
                     }
                 },
                 "x-peanut-permissions": [
@@ -14621,7 +14621,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 137
+                        "line": 145
                     }
                 },
                 "x-peanut-permissions": [
@@ -14726,13 +14726,252 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 196
+                        "line": 204
                     }
                 },
                 "x-peanut-permissions": [
                     {
                         "kind": "platform_action",
                         "key": "platform.tenant.update"
+                    }
+                ]
+            }
+        },
+        "/platformapi/instance-tools/modules/updates": {
+            "get": {
+                "tags": [
+                    "PlatformModules"
+                ],
+                "operationId": "checkOfficialModuleUpdates",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "channel",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "stable",
+                                "prerelease"
+                            ],
+                            "default": "stable"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/PlatformOfficialUpdateSnapshot"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "x-peanut-errors": [
+                    "MODULE_RUNTIME_MUTATION_DISABLED",
+                    "MODULE_RELEASE_CHANNEL_INVALID",
+                    "MODULE_RELEASE_ASSET_DIGEST_MISMATCH"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "platform",
+                    "owner": {
+                        "type": "application",
+                        "key": "platform"
+                    },
+                    "controller": "app\\platform\\controller\\PlatformModuleLifecycleController",
+                    "action": "updates",
+                    "permission": null,
+                    "source": {
+                        "file": "server/route/platform.php",
+                        "line": 107
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.module.read"
+                    }
+                ]
+            }
+        },
+        "/platformapi/instance-tools/modules/official-update": {
+            "post": {
+                "tags": [
+                    "PlatformModules"
+                ],
+                "operationId": "updateOfficialInstanceModule",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Idempotency-Key",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 8,
+                            "maxLength": 200,
+                            "description": "Required for confirmed submission; preserved across retries."
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/PlatformOfficialUpdateResult"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "module_key",
+                                    "version",
+                                    "sha256",
+                                    "catalog_tag",
+                                    "channel",
+                                    "dry_run"
+                                ],
+                                "properties": {
+                                    "module_key": {
+                                        "type": "string",
+                                        "pattern": "^peanut\\.[a-z][a-z0-9-]*$"
+                                    },
+                                    "version": {
+                                        "type": "string"
+                                    },
+                                    "sha256": {
+                                        "type": "string",
+                                        "pattern": "^[a-f0-9]{64}$"
+                                    },
+                                    "catalog_tag": {
+                                        "type": "string"
+                                    },
+                                    "channel": {
+                                        "type": "string",
+                                        "enum": [
+                                            "stable",
+                                            "prerelease"
+                                        ]
+                                    },
+                                    "dry_run": {
+                                        "type": "boolean"
+                                    },
+                                    "confirm_selection_sha256": {
+                                        "type": "string",
+                                        "pattern": "^[a-f0-9]{64}$",
+                                        "description": "Required on apply; exact reviewed target selection. Worker revalidates current source, dependencies and permissions."
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "x-peanut-errors": [
+                    "MODULE_RUNTIME_MUTATION_DISABLED",
+                    "MODULE_RELEASE_SELECTION_INVALID",
+                    "MODULE_RELEASE_SELECTION_CHANGED",
+                    "MODULE_RELEASE_CONFIRMATION_REQUIRED",
+                    "MODULE_RELEASE_ASSET_DIGEST_MISMATCH",
+                    "OPS_MODULE_REQUEST_INVALID"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "platform",
+                    "owner": {
+                        "type": "application",
+                        "key": "platform"
+                    },
+                    "controller": "app\\platform\\controller\\PlatformModuleLifecycleController",
+                    "action": "officialUpdate",
+                    "permission": null,
+                    "source": {
+                        "file": "server/route/platform.php",
+                        "line": 111
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.module.update"
                     }
                 ]
             }
@@ -14950,7 +15189,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 111
+                        "line": 119
                     }
                 },
                 "x-peanut-permissions": [
@@ -15069,7 +15308,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 115
+                        "line": 123
                     }
                 },
                 "x-peanut-permissions": [
@@ -15157,7 +15396,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 119
+                        "line": 127
                     }
                 },
                 "x-peanut-permissions": [
@@ -15267,7 +15506,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 107
+                        "line": 115
                     }
                 },
                 "x-peanut-permissions": [
@@ -15368,7 +15607,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 126
+                        "line": 134
                     }
                 },
                 "x-peanut-permissions": [
@@ -15460,7 +15699,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 130
+                        "line": 138
                     }
                 },
                 "x-peanut-permissions": [
@@ -15633,7 +15872,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 122
+                        "line": 130
                     }
                 },
                 "x-peanut-permissions": [
@@ -15796,7 +16035,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 140
+                        "line": 148
                     }
                 },
                 "x-peanut-permissions": [
@@ -15927,7 +16166,7 @@
                     "permission": "platform.ops.logs.read",
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 152
+                        "line": 160
                     }
                 },
                 "x-peanut-permissions": [
@@ -16027,7 +16266,7 @@
                     "permission": "platform.ops.logs.read",
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 163
+                        "line": 171
                     }
                 },
                 "x-peanut-permissions": [
@@ -16145,7 +16384,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 209
+                        "line": 217
                     }
                 },
                 "x-peanut-permissions": [
@@ -16234,7 +16473,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 212
+                        "line": 220
                     }
                 },
                 "x-peanut-permissions": [
@@ -16323,7 +16562,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 215
+                        "line": 223
                     }
                 },
                 "x-peanut-permissions": [
@@ -16414,7 +16653,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 218
+                        "line": 226
                     }
                 },
                 "x-peanut-permissions": [
@@ -16503,7 +16742,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 221
+                        "line": 229
                     }
                 },
                 "x-peanut-permissions": [
@@ -24824,6 +25063,169 @@
                         "type": "boolean"
                     }
                 }
+            },
+            "PlatformOfficialModuleUpdate": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "key",
+                    "source_version",
+                    "available_version",
+                    "sha256",
+                    "catalog_tag",
+                    "status",
+                    "compatibility"
+                ],
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "source_version": {
+                        "type": "string"
+                    },
+                    "available_version": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "sha256": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "catalog_tag": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "update_available",
+                            "current",
+                            "source_newer",
+                            "no_published_candidate"
+                        ]
+                    },
+                    "compatibility": {
+                        "type": "string",
+                        "enum": [
+                            "native_preflight_required"
+                        ]
+                    }
+                }
+            },
+            "PlatformOfficialUpdateSnapshot": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "schema_version",
+                    "channel",
+                    "edition",
+                    "modules",
+                    "scaffold",
+                    "changed",
+                    "scope"
+                ],
+                "properties": {
+                    "schema_version": {
+                        "type": "integer",
+                        "enum": [
+                            1
+                        ]
+                    },
+                    "channel": {
+                        "type": "string",
+                        "enum": [
+                            "stable",
+                            "prerelease"
+                        ]
+                    },
+                    "edition": {
+                        "type": "string",
+                        "enum": [
+                            "standalone",
+                            "multi-tenant"
+                        ]
+                    },
+                    "modules": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PlatformOfficialModuleUpdate"
+                        }
+                    },
+                    "changed": {
+                        "type": "boolean",
+                        "enum": [
+                            false
+                        ]
+                    },
+                    "scope": {
+                        "type": "string"
+                    },
+                    "scaffold": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "current_version",
+                            "available_version",
+                            "status",
+                            "upgrade_method"
+                        ],
+                        "properties": {
+                            "current_version": {
+                                "type": "string"
+                            },
+                            "available_version": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "status": {
+                                "type": "string"
+                            },
+                            "upgrade_method": {
+                                "type": "string",
+                                "enum": [
+                                    "native_cli_plan"
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+            "PlatformOfficialUpdatePreview": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "dry_run",
+                    "plan",
+                    "selection_sha256"
+                ],
+                "properties": {
+                    "dry_run": {
+                        "type": "boolean",
+                        "enum": [
+                            true
+                        ]
+                    },
+                    "plan": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "$ref": "#/components/schemas/ApplicationDynamicValue"
+                        }
+                    },
+                    "selection_sha256": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                    }
+                }
+            },
+            "PlatformOfficialUpdateResult": {
+                "oneOf": [
+                    {
+                        "$ref": "#/components/schemas/PlatformOfficialUpdatePreview"
+                    },
+                    {
+                        "$ref": "#/components/schemas/PlatformOpsTask"
+                    }
+                ]
             },
             "TenantPlan": {
                 "type": "object",
