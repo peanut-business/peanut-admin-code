@@ -288,8 +288,9 @@ process.stdout.write(String(cases.length + 1));
                 permissions = text.split('\npermissions:\n', 1)[1].split('\n\n', 1)[0]
                 self.assertEqual(permissions, '  contents: read')
                 if path.name == 'scaffold-release.yml':
-                    self.assertEqual(re.findall(r'^  (\S+):', triggers, re.MULTILINE), ['push', 'workflow_dispatch'])
-                    self.assertEqual(triggers.split('  workflow_dispatch:', 1)[0].strip(), "push:\n    tags:\n      - 'v[0-9]*.[0-9]*.[0-9]*'")
+                    self.assertEqual(re.findall(r'^  (\S+):', triggers, re.MULTILINE), ['workflow_dispatch'])
+                    self.assertNotIn('push:', triggers)
+                    self.assertNotIn('tags:', triggers)
                     templates = text.split('\n  templates:\n', 1)[1].split('\n  publish:\n', 1)[0]
                     self.assertIn("github.event_name == 'push' && !github.event.deleted", templates)
                     self.assertIn("github.event_name == 'workflow_dispatch' && !inputs.publish", templates)

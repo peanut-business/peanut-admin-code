@@ -34,10 +34,8 @@ PHP 的 `local-core-composer` 仅在 ignored `.local/composer-core/composer.json
 | --- | --- | --- |
 | PHP Core（`peanut-admin/core`） | 确认固定源码及资格，审阅 `dev → main`，推送指向当前 `main` 的 annotated `vX.Y.Z` 或 `vX.Y.Z-rc.N` Tag | 核验固定的合格 CI run、原生锁与公共来源；等待 Packagist 对应版本索引并验证，再创建 GitHub Release |
 | Web Core 六包 | 六包及根版本一致、资格有效后同样推送当前 `main` 的正式 Tag | 从合格制品按依赖顺序通过 npm trusted publishing/OIDC 发布六包、核 npm 内容，再创建 GitHub Release |
-| Peanut CLI | 版本声明及当前 `main` 一致后推送 annotated 正式 Tag | 自动生成并核对 CLI tarball，发布 GitHub Release 附件；**CLI 当前不发布 npm** |
-| ST/MT 脚手架 | 本地 `peanut release` 用于开发；正式 CI 使用 `scaffold-release.yml`、`publish=false`、`pack_only=false` 和精确 `expected_source_commit` 生产一次，获准后推稳定注释 Tag | 核对 CI 双版原件与 CLI 创建结果；Tag 自动派发 main 唯一发布器消费原件并发布 GitHub Release，不重制包。单独合入 main 不触发发行；手动 `publish=true` 保留为恢复入口 |
-
-Core/CLI 的 `release.yml` 由**推送 Tag**触发，单独合入 `main` 不触发正式发布。PHP/Web Core 在现有 `ci.yml` 选择默认 `production`，提供精确 `expected_source_commit`；正式工作流消费 `CORE_QUALIFICATION_RUN_ID` 指定的成功 CI 原件，不再制包。完整 Core 测试使用独立可选 `qualification`，完整 Code 应用 CI 同样按需，不因发行重复启动；production 保留包消费 PASS、完整测试 NOT_RUN。只有原件缺失、过期或相关输入变化才回原生产入口，不能复用不匹配原件或伪造通过。Core/CLI 正式 Tag 只接受 stable / RC；Code 稳定 Tag 自动派发，预发行按原手动入口处理。内部 `-alpha` 和本地 Git 归档不能假装已公开发包。
+| Peanut CLI | 按独立版本号与当前 CLI main 的注释 Tag 进入现有 release.yml | GitHub Release 与 npm @peanut-admin/cli 双渠道核验同一来源及 tarball/SRI；2026-11-12 npm latest 已核 0.3.4，后续须以 npm view 实际结果为准。CLI 变化不要求脚手架重发 |\n| ST/MT 脚手架 | 本地开发只运行必要入口；固定 dev 源 S，手动执行一次 scaffold-release.yml 的 publish=false，变更破坏性时 run_tests=true | 同批成功 run 保留 ST/MT 模板、CLI 消费与原 transport；受保护 PR 合并 main 并核同树，注释 Tag 固定 S 后在 main 手动 publish=true 复用原件，不重测试/制包 |\n
+Core/CLI 的 `release.yml` 由**推送 Tag**触发，单独合入 `main` 不触发正式发布。PHP/Web Core 在现有 `ci.yml` 选择默认 `production`，提供精确 `expected_source_commit`；正式工作流消费 `CORE_QUALIFICATION_RUN_ID` 指定的成功 CI 原件，不再制包。完整 Core 测试使用独立可选 `qualification`，完整 Code 应用 CI 同样按需，不因发行重复启动；production 保留包消费 PASS、完整测试 NOT_RUN。只有原件缺失、过期或相关输入变化才回原生产入口，不能复用不匹配原件或伪造通过。Core/CLI 正式 Tag 只接受 stable / RC；Code 稳定版和 RC 都由 main 明确手动发布；推送 Code Tag 不自动启动模板 CI。内部 `-alpha` 和本地 Git 归档不能假装已公开发包。
 
 GitHub Actions 使用自身短期 `GITHUB_TOKEN`；Web Core 使用 npm OIDC 可信发布。维护者优先用已授权的 `gh` CLI 和现有自动工作流，不提取浏览器 Cookie/Session、手工复制长期令牌或新增认证体系。需要本人确认的 `main`/Tag/公开发布权限只在具体版本、源码和资格明确后处理。
 
