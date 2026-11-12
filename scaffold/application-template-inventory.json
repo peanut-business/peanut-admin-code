@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5a6b905b35124a6641e5c6fa2334340860bcd15d51e3a8062c42ecf45f57d66a"
+            "source_sha256": "3b90850a9f2113959306b06d81c62088075b2dcce347c1a14dce4ab5c73ab0c5"
         },
         {
             "path": "docs/development/request-cache-contract.md",
@@ -946,7 +946,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b6e29d0d193916d0cc8de9fb2d0c642ef9e68273d5373f0a3b607ce55840dac2"
+            "source_sha256": "fa555397514a55a7a46627423c38c8e8e53c5600b73d06565df8ca0487f40c27"
         },
         {
             "path": "docs/development/ui-guidelines.md",
@@ -1053,7 +1053,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7ea1db0b2b3aa1e3d08208ea6c162794bfaf131b832d5b440dcadbc1640989a7"
+            "source_sha256": "869e0e2880a8d2d47d7a0386c41ba42c4c08a830bb89011c5d5960b327d934b7"
         },
         {
             "path": "docs/public/api-and-sdk.md",
