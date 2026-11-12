@@ -22,7 +22,7 @@ final class ReferenceCodeCatalogBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         require_once $root . '/server/vendor/topthink/framework/src/helper.php';
         $this->directory = $root . '/.local/tmp/reference-code-catalog/' . bin2hex(random_bytes(6));
         mkdir($this->directory, 0700, true);
@@ -34,7 +34,7 @@ final class ReferenceCodeCatalogBoundaryTest extends TestCase
 
     public function testHostCallsPublishedOwnerWithoutLoadingItsPersistenceTypes(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $manifest = json_decode(file_get_contents($root . '/server/app/modules/peanut/reference_codes/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(ReferenceCodeCatalogService::class, $manifest['contracts']['exports']);
         $host = file_get_contents($root . '/server/app/platform/infrastructure/module/ModuleCatalogApplier.php');

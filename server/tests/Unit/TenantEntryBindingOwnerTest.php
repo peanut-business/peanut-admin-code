@@ -29,7 +29,7 @@ final class TenantEntryBindingOwnerTest extends TestCase
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         require_once $root . '/server/vendor/topthink/framework/src/helper.php';
         $app = new App($root . '/.local/tmp/entry-binding-' . bin2hex(random_bytes(6)));
         $app->config->set(['default' => 'file', 'stores' => ['file' => ['type' => 'File', 'path' => $app->getRuntimePath() . 'cache/']]], 'cache');
@@ -54,7 +54,7 @@ final class TenantEntryBindingOwnerTest extends TestCase
 
     public function testOwnerIsPublicAndControllerUsesTheSameNativeContext(): void
     {
-        $root = dirname(__DIR__, 2);
+        $root = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
         $manifest = json_decode(file_get_contents($root . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(TenantEntryBindingAdminService::class, $manifest['contracts']['exports']);
         self::assertFileDoesNotExist($root . '/app/platform/services/TenantEntryBindingAdminService.php');

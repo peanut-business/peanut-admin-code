@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-$root = dirname(__DIR__, 4);
+$root = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 5)) . '/server');
 require_once $root . '/vendor/autoload.php';
 require_once $root . '/tests/Support/ThinkPhpTestConnection.php';
 use PeanutAdmin\Kernel\Auth\ValidatedPlatformSession;

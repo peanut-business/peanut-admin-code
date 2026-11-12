@@ -35,7 +35,7 @@ final class MemberHostActionPermissionTest extends TestCase
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         require_once $root . '/server/vendor/topthink/framework/src/helper.php';
         $this->app = new App($root . '/.local/tmp/member-host-action');
         $this->pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);

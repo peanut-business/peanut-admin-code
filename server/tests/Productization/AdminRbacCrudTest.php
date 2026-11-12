@@ -24,7 +24,7 @@ use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorization
 use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
 use think\facade\Db;
 
-require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 require_once __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
 require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';

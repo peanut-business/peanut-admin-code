@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../Support/CiBootstrap.php';
 
-require_once dirname(__DIR__, 2) . '/route/registry_source.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/route/registry_source.php';
 
 use app\platform\services\PlatformOperatorSessionService;
 use app\platform\services\PlatformTenantQueryService;
@@ -27,14 +27,14 @@ use PeanutAdmin\Modules\Identity\Platform\Authorization\ThinkPhpPlatformAuthoriz
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
 use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
 require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
 require __DIR__ . '/../Support/IdentityMysqlFixture.php';
 require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 
-$cache = require dirname(__DIR__, 2) . '/config/cache.php';
-$cache['stores']['file']['path'] = dirname(__DIR__, 3) . '/.local/tmp/058-PlatformTenantReadApiTest-cache-' . bin2hex(random_bytes(6)) . '/';
+$cache = require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/config/cache.php';
+$cache['stores']['file']['path'] = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp/058-PlatformTenantReadApiTest-cache-' . bin2hex(random_bytes(6)) . '/';
 think\Container::getInstance()->config->set($cache, 'cache');
 
 function platformTenantReadExpect(bool $condition, string $message): void
@@ -215,7 +215,7 @@ SQL);
         );
     }
 
-    $route = peanut_route_registry_source(dirname(__DIR__, 2));
+    $route = peanut_route_registry_source(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
     platformTenantReadExpect(
         str_contains($route, "Route::get('tenants'")
             && str_contains($route, "Route::get('tenants/detail'")

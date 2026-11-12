@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__, 2) . '/route/registry_source.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/route/registry_source.php';
 
 use app\platform\services\provider\PlatformProviderQualificationService;
 use app\platform\contract\provider\ProviderQualificationContributor;
@@ -11,9 +11,9 @@ use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Modules\Ops\Domain\Application\OpsConsoleException;
 use PeanutAdmin\Modules\Ops\Domain\Application\PlatformPermissionChecker;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
-$app = new \think\App(dirname(__DIR__, 2));
+$app = new \think\App(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
 $pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 ThinkPhpTestConnection::fromPdo($pdo);
 $pdo->exec('CREATE TABLE pa_provider_qualification_evidence (
@@ -183,7 +183,7 @@ try {
     expectProviderQualification($deniedContributor->calls === 0, 'contributors ran before Platform permission check');
 }
 
-$routes = peanut_route_registry_source(dirname(__DIR__, 2));
+$routes = peanut_route_registry_source(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
 expectProviderQualification(
     str_contains($routes, "Route::get('v1/ops/providers'")
         && !str_contains($routes, "Route::post('v1/ops/providers'"),
@@ -193,7 +193,7 @@ foreach ([
     'PaymentQualificationContributor.php', 'NotificationQualificationContributor.php',
     'OauthQualificationContributor.php', 'StorageQualificationContributor.php',
 ] as $file) {
-    $source = (string) file_get_contents(dirname(__DIR__, 2) . '/app/platform/infrastructure/provider/' . $file);
+    $source = (string) file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/platform/infrastructure/provider/' . $file);
     foreach (['curl_', 'file_get_contents("http', 'file_get_contents(\'http', 'Prepay', 'sendSms('] as $forbiddenCall) {
         expectProviderQualification(!str_contains($source, $forbiddenCall), 'read contributor performs an external or financial action');
     }

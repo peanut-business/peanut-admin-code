@@ -5,7 +5,7 @@ declare(strict_types=1);
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
 use PeanutAdmin\Modules\Ops\Domain\Logs\TenantDiagnosticAttributes;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 
 function expectTenantDiagnostics(bool $condition, string $message): void
 {

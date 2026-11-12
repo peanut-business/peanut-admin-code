@@ -30,7 +30,7 @@ final class TenantModuleStateBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $temporary = $root . '/.local/tmp/tenant-module-state-tests';
         if (!is_dir($temporary) && !mkdir($temporary, 0700, true) && !is_dir($temporary)) {
             throw new \RuntimeException('TENANT_MODULE_TEST_DIRECTORY_UNAVAILABLE');
@@ -83,7 +83,7 @@ final class TenantModuleStateBoundaryTest extends TestCase
 
     public function testPublicOwnerBoundaryDoesNotExposeConfigurationOrQueries(): void
     {
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(TenantModuleStateQueries::class, $manifest['contracts']['exports']);
         $source = file_get_contents((new \ReflectionClass(ModuleQualificationQueryService::class))->getFileName());
         self::assertStringContainsString('TenantModuleStateQueries $tenantStates', $source);
@@ -171,7 +171,7 @@ final class TenantModuleStateBoundaryTest extends TestCase
 
     public function testLifecycleConsumersKeepTheGuardButDoNotReadThePrivateStateTable(): void
     {
-        $root = dirname(__DIR__, 2) . '/app/platform/services/module/';
+        $root = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/platform/services/module/';
         foreach (['PlatformModuleRuntimeService.php', 'ModuleRuntimeGovernanceService.php', 'ModuleLifecycleService.php'] as $file) {
             $source = file_get_contents($root . $file);
             self::assertStringContainsString('TenantModuleStateQueries $tenantStates', $source);
@@ -182,7 +182,7 @@ final class TenantModuleStateBoundaryTest extends TestCase
 
     public function testAllFormerHostHitsUseIdentityOwnerCapabilitiesInsteadOfThePrivateInstallationTable(): void
     {
-        $root = dirname(__DIR__, 2) . '/app/';
+        $root = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/';
         foreach ([
             'command/ModuleReconcile.php',
             'modules/peanut/ops/src/Infrastructure/ThinkPhpModuleOperationTaskExecutionService.php',
@@ -205,7 +205,7 @@ final class TenantModuleStateBoundaryTest extends TestCase
 
     public function testAffectedNativeFactoriesAndRetainedFixturesSupplyTheRequiredOwnerQuery(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $minimum = [
             \app\platform\services\module\PlatformModuleRuntimeService::class => 7,
             \app\platform\services\module\ModuleRuntimeGovernanceService::class => 4,

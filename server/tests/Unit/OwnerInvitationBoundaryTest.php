@@ -48,8 +48,8 @@ final class OwnerInvitationBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
-        require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
-        $app = new App(dirname(__DIR__, 3) . '/.local/tmp/owner-invitation-' . bin2hex(random_bytes(6)));
+        require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/topthink/framework/src/helper.php';
+        $app = new App((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp/owner-invitation-' . bin2hex(random_bytes(6)));
         $app->config->set(['default' => 'file', 'stores' => ['file' => ['type' => 'File', 'path' => $app->getRuntimePath() . 'cache/']]], 'cache');
         $this->database = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         $this->database->sqliteCreateFunction('UTC_TIMESTAMP', static fn(int $precision): string => gmdate('Y-m-d H:i:s') . '.000', 1);
@@ -110,12 +110,12 @@ final class OwnerInvitationBoundaryTest extends TestCase
 
     public function testManifestOwnsTheWholeInvitationAndPublishesOnlyItsUseAndDeliveryBoundary(): void
     {
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains('pa_tenant_owner_invitation', $manifest['database']['owned_tables']);
         foreach ([TenantOwnerInvitationAdminService::class,TenantOwnerInvitationPublicService::class,TenantOwnerInvitationException::class,OwnerInvitationDeliveryPort::class,OwnerInvitationDelivery::class,OwnerInvitationDeliveryResult::class,TenantOwnerAdminProvisioner::class] as $type) {
             self::assertContains($type, $manifest['contracts']['exports']);
         }
-        self::assertFileDoesNotExist(dirname(__DIR__, 2) . '/app/platform/invitation/TenantOwnerInvitationAdminService.php');
+        self::assertFileDoesNotExist(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/platform/invitation/TenantOwnerInvitationAdminService.php');
     }
 
     public function testAllInvitationActionsRequireTheCoreContextRatherThanTheHttpWrapper(): void
@@ -126,7 +126,7 @@ final class OwnerInvitationBoundaryTest extends TestCase
         }
         self::assertSame($this->authorization, $class->getProperty('authorization')->getValue($this->admin));
         self::assertStringNotContainsString('PlatformOperatorSessionService', file_get_contents($class->getFileName()));
-        $controller = file_get_contents(dirname(__DIR__, 2) . '/app/platform/controller/PlatformTenantInvitationController.php');
+        $controller = file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/platform/controller/PlatformTenantInvitationController.php');
         self::assertSame(5, substr_count($controller, '$this->platformContext->core,'));
     }
 

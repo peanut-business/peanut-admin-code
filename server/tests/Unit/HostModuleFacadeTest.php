@@ -19,7 +19,7 @@ final class HostModuleFacadeTest extends TestCase
     public function testPublishedFacadesDoNotExposeTheirPersistenceCollaborators(): void
     {
         foreach (['settings' => WebsiteConfigService::class] as $module => $facade) {
-            $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/' . $module . '/module.json'), true, 512, JSON_THROW_ON_ERROR);
+            $manifest = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/' . $module . '/module.json'), true, 512, JSON_THROW_ON_ERROR);
             self::assertContains($facade, $manifest['contracts']['exports']);
             foreach ($manifest['contracts']['exports'] as $export) {
                 self::assertFalse(\app\platform\validation\module\ModulePublicSurfacePolicy::isInternalPersistence($export));
@@ -35,7 +35,7 @@ final class HostModuleFacadeTest extends TestCase
         $defaults['name'] = 'local change';
         self::assertNotSame($defaults, WebsiteConfigService::defaults());
         foreach (['common/services/readiness/FirstRunReadinessHost.php', 'platform/services/ApplicationTenantBootstrapService.php'] as $path) {
-            $source = file_get_contents(dirname(__DIR__, 2) . '/app/' . $path);
+            $source = file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/' . $path);
             self::assertStringNotContainsString('Settings\\Infrastructure\\BrandDefaults', $source);
             self::assertStringContainsString('WebsiteConfigService::defaults()', $source);
         }
@@ -43,17 +43,17 @@ final class HostModuleFacadeTest extends TestCase
 
     public function testNativeContainerResolvesTheExistingFacade(): void
     {
-        $app = new App(dirname(__DIR__, 2));
+        $app = new App(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
         $app->instance(FileReferences::class, $this->createStub(FileReferences::class));
         self::assertInstanceOf(WebsiteConfigService::class, $app->make(WebsiteConfigService::class));
     }
 
     public function testReadPreservesTenantSelectionAndImageMapping(): void
     {
-        $source = file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/settings/src/Infrastructure/TenantSettingWebsiteStore.php');
+        $source = file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/settings/src/Infrastructure/TenantSettingWebsiteStore.php');
         self::assertStringContainsString('$this->context,', $source);
         self::assertStringContainsString("'website'", $source);
-        $persistence = file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/settings/src/Service/TenantSettingService.php');
+        $persistence = file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/settings/src/Service/TenantSettingService.php');
         self::assertStringContainsString('$tenantId = $context->tenantId;', $persistence);
         self::assertStringContainsString('$this->provider->find($tenantId, $namespace)', $persistence);
         foreach ([101, 202] as $tenant) {
@@ -71,7 +71,7 @@ final class HostModuleFacadeTest extends TestCase
 
     public function testSaveKeepsTenantScopedFileMappingAndOneCompleteWrite(): void
     {
-        $source = file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/settings/src/Service/WebsiteConfigService.php');
+        $source = file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/settings/src/Service/WebsiteConfigService.php');
         self::assertStringContainsString('$this->files->setTenantFileUrl($context, $value)', $source);
         $store = $this->createMock(WebsiteConfigStore::class);
         $store->expects(self::once())->method('read')->willReturn([]);
@@ -105,7 +105,7 @@ final class HostModuleFacadeTest extends TestCase
 
     public function testAuthorizationUsesTheStablePublicResourceIdentifier(): void
     {
-        $source = file_get_contents(dirname(__DIR__, 2) . '/app/common/services/authorization/AdminAuthorizationService.php');
+        $source = file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/common/services/authorization/AdminAuthorizationService.php');
         self::assertStringNotContainsString('ImportExport\\Engine\\Application\\ImportExportService', $source);
         self::assertStringContainsString("'peanut.import-export'", $source);
         self::assertStringContainsString('peanut.import-export.operation-log.export', $source);

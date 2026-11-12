@@ -33,8 +33,8 @@ use think\Validate;
 
 require_once defined('PHPUNIT_COMPOSER_INSTALL')
     ? PHPUNIT_COMPOSER_INSTALL
-    : dirname(__DIR__, 2) . '/vendor/autoload.php';
-require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
+    : ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/topthink/framework/src/helper.php';
 
 function expectTpq51(bool $condition, string $message): void
 {
@@ -395,7 +395,7 @@ expectTpq51(
 );
 expectTpq51($mapper->map(new RuntimeException('unknown')) === null, 'unknown exception was exposed as a public problem');
 
-$applicationRoot = dirname(__DIR__, 2) . '/app/adminapi/services';
+$applicationRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/adminapi/services';
 $generatorSource = (string) file_get_contents($applicationRoot . '/generator/GeneratorService.php');
 expectTpq51(
     preg_match('/^\s*use\s+app\\\\[^;]+\\\\model\\\\/mi', $generatorSource) !== 1,
@@ -627,7 +627,7 @@ print(json.dumps({
     for name, (path, source) in cases.items()
 }))
 PY;
-$scannerPath = dirname(__DIR__, 3) . '/scripts/check-thinkphp-architecture';
+$scannerPath = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/scripts/check-thinkphp-architecture';
 $probeOutput = [];
 $probeStatus = 0;
 exec(
@@ -701,7 +701,7 @@ expectTpq51($contextFailure, 'Module execution boundary did not fail closed with
 
 $sceneValidator = 'app\\test\\Tpq51SceneValidate';
 class_alias(Tpq51SceneValidate::class, $sceneValidator);
-$inputValidator = new InputValidator(new App(dirname(__DIR__, 2)), $current);
+$inputValidator = new InputValidator(new App(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server')), $current);
 $inputValidator->validate(['narrow' => 'accepted'], $sceneValidator . '.narrow');
 $unknownSceneRejected = false;
 try {

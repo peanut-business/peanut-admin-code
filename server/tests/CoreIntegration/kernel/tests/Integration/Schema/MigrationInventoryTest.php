@@ -11,7 +11,7 @@ final class MigrationInventoryTest extends TestCase
 {
     public function testIdentityOwnerMigrationsUseTheNativeMigrationContract(): void
     {
-        $root = dirname(__DIR__, 6) . '/app/modules/peanut/identity/database/migrations';
+        $root = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 7)) . '/server') . '/app/modules/peanut/identity/database/migrations';
         $files = glob($root . '/*.php');
 
         self::assertIsArray($files);

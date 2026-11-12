@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__, 2) . '/route/registry_source.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/route/registry_source.php';
 
 function platformQueryExpect(bool $condition, string $message): void
 {
@@ -11,7 +11,7 @@ function platformQueryExpect(bool $condition, string $message): void
     }
 }
 
-$serverRoot = dirname(__DIR__, 2);
+$serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $queryPath = $serverRoot . '/app/modules/peanut/identity/src/Contract/PlatformDirectoryQueries.php';
 $querySource = (string) file_get_contents($queryPath);
 $hostQuerySource = (string) file_get_contents($serverRoot . '/app/platform/query/PlatformControlPlaneQueryService.php');

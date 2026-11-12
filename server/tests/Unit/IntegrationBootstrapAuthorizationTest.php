@@ -40,7 +40,7 @@ final class IntegrationBootstrapAuthorizationTest extends TestCase
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $temporaryRoot = $root . '/.local/tmp/integration-bootstrap-authorization-tests';
         if (!is_dir($temporaryRoot) && !mkdir($temporaryRoot, 0700, true) && !is_dir($temporaryRoot)) {
             throw new \RuntimeException('INTEGRATION_BOOTSTRAP_TEST_DIRECTORY_UNAVAILABLE');

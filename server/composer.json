@@ -9,64 +9,7 @@
     "vue"
   ],
   "homepage": "https://github.com/peanut-business/peanut-admin-code",
-  "repositories": [
-    {
-      "type": "path",
-      "url": "app/modules/peanut/settings",
-      "options": {
-        "symlink": false
-      }
-    },
-    {
-      "type": "path",
-      "url": "app/modules/peanut/reference_codes",
-      "options": {
-        "symlink": false
-      }
-    },
-    {
-      "type": "path",
-      "url": "app/modules/peanut/ops",
-      "options": {
-        "symlink": false
-      }
-    },
-    {
-      "type": "path",
-      "url": "app/modules/peanut/integration",
-      "options": {
-        "symlink": false
-      }
-    },
-    {
-      "type": "path",
-      "url": "app/modules/peanut/task",
-      "options": {
-        "symlink": false
-      }
-    },
-    {
-      "type": "path",
-      "url": "app/modules/peanut/file",
-      "options": {
-        "symlink": false
-      }
-    },
-    {
-      "type": "path",
-      "url": "app/modules/peanut/identity",
-      "options": {
-        "symlink": false
-      }
-    },
-    {
-      "type": "path",
-      "url": "app/modules/peanut/content_tools",
-      "options": {
-        "symlink": false
-      }
-    }
-  ],
+  "repositories": [],
   "license": "Apache-2.0",
   "authors": [
     {
@@ -92,15 +35,7 @@
     "symfony/html-sanitizer": "^7.3",
     "composer/semver": "^3.4",
     "opis/json-schema": "^2.6",
-    "topthink/think-migration": "3.1.1",
-    "peanut-business/peanut-content-tools": "1.0.2",
-    "peanut-business/peanut-identity": "4.0.0-rc.60",
-    "peanut-business/peanut-file": "1.0.45",
-    "peanut-business/peanut-task": "1.0.34",
-    "peanut-business/peanut-integration": "1.0.29",
-    "peanut-business/peanut-ops": "1.0.33",
-    "peanut-business/peanut-reference-codes": "1.0.26",
-    "peanut-business/peanut-settings": "1.0.28"
+    "topthink/think-migration": "3.1.1"
   },
   "require-dev": {
     "phpunit/phpunit": "12.5.31",
@@ -109,15 +44,7 @@
   },
   "autoload": {
     "psr-4": {
-      "app\\": "app",
-      "PeanutAdmin\\Modules\\ContentTools\\": "app/modules/peanut/content_tools/src/",
-      "PeanutAdmin\\Modules\\File\\": "app/modules/peanut/file/src/",
-      "PeanutAdmin\\Modules\\Identity\\": "app/modules/peanut/identity/src/",
-      "PeanutAdmin\\Modules\\Integration\\": "app/modules/peanut/integration/src/",
-      "PeanutAdmin\\Modules\\Ops\\": "app/modules/peanut/ops/src/",
-      "PeanutAdmin\\Modules\\ReferenceCodes\\": "app/modules/peanut/reference_codes/src/",
-      "PeanutAdmin\\Modules\\Settings\\": "app/modules/peanut/settings/src/",
-      "PeanutAdmin\\Modules\\Task\\": "app/modules/peanut/task/src/"
+      "app\\": "app"
     },
     "exclude-from-classmap": [
       "app/modules/*/*/database/migrations/",

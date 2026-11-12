@@ -14,7 +14,7 @@ use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer
 use app\common\services\authorization\GeneratedApiCatalog;
 
 ini_set('zend.exception_ignore_args', '1');
-$serverRoot = dirname(__DIR__, 2);
+$serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 if (($argv[1] ?? '') === '--request') {
     $input = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
     // MultiApp 读取全局入口文件名；CLI 测试文件不能被误认作应用名。

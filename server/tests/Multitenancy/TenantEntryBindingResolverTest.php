@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__, 2) . '/route/registry_source.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/route/registry_source.php';
 
 use PeanutAdmin\Modules\File\Service\Storage\StorageService;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
@@ -13,7 +13,7 @@ use PeanutAdmin\Modules\Identity\Tenancy\Infrastructure\ThinkPhpTenantEntryBindi
 
 require_once defined('PHPUNIT_COMPOSER_INSTALL')
     ? PHPUNIT_COMPOSER_INSTALL
-    : dirname(__DIR__, 2) . '/vendor/autoload.php';
+    : ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
 
 function entryBindingExpect(bool $condition, string $message): void
@@ -110,7 +110,7 @@ $resolver = new TenantEntryBindingResolver(
     true,
     new \PeanutAdmin\Modules\Identity\Tenancy\Infrastructure\ThinkPhpTenantEntryBindingLookup(),
 );
-$app = new \think\App(dirname(__DIR__, 2));
+$app = new \think\App(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
 $app->env->set(['DEPLOYMENT_MODE' => 'multi-tenant', 'JWT_SECRET' => str_repeat('s', 32)]);
 $app->initialize();
 ThinkPhpTestConnection::fromPdo($pdo);
@@ -336,23 +336,23 @@ entryBindingExpect(
 );
 
 $sessionController = (string) file_get_contents(
-    dirname(__DIR__, 2) . '/app/adminapi/controller/auth/TenantSessionController.php',
+    ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/adminapi/controller/auth/TenantSessionController.php',
 );
 $sessionApplication = (string) file_get_contents(
-    dirname(__DIR__, 2) . '/app/adminapi/services/auth/TenantSessionApplicationService.php',
+    ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/adminapi/services/auth/TenantSessionApplicationService.php',
 );
 $loginMiddleware = (string) file_get_contents(
-    dirname(__DIR__, 2) . '/app/adminapi/http/middleware/LoginMiddleware.php',
+    ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/adminapi/http/middleware/LoginMiddleware.php',
 );
 $storageService = (string) file_get_contents(
-    dirname(__DIR__, 2) . '/app/modules/peanut/file/src/Service/Storage/StorageService.php',
+    ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/file/src/Service/Storage/StorageService.php',
 );
 $storageController = (string) file_get_contents(
-    dirname(__DIR__, 2) . '/app/api/controller/StorageController.php',
+    ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/api/controller/StorageController.php',
 );
-$routes = peanut_route_registry_source(dirname(__DIR__, 2));
-$productionNginx = (string) file_get_contents(dirname(__DIR__, 3) . '/deploy/nginx/peanut-admin.conf');
-$developmentNginx = (string) file_get_contents(dirname(__DIR__, 3) . '/deploy/nginx/development.conf');
+$routes = peanut_route_registry_source(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
+$productionNginx = (string) file_get_contents((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/deploy/nginx/peanut-admin.conf');
+$developmentNginx = (string) file_get_contents((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/deploy/nginx/development.conf');
 entryBindingExpect(
     str_contains($sessionController, 'TenantSessionApplicationService')
         && str_contains($sessionApplication, 'TENANT_SWITCH_BOUND_ENTRY')
@@ -380,7 +380,7 @@ foreach ([$productionNginx, $developmentNginx] as $nginx) {
 }
 
 $schema = (string) file_get_contents(
-    dirname(__DIR__, 2) . '/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php',
+    ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php',
 );
 foreach (['pa_tenant_entry_binding', '`tenant_id`', '`host`', '`client_key`', 'fk_tenant_entry_binding_tenant'] as $token) {
     entryBindingExpect(str_contains($schema, $token), 'Tenant entry schema lost contract token: ' . $token);

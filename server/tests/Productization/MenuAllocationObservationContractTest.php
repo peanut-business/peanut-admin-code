@@ -7,8 +7,8 @@ use Phinx\Db\Adapter\MysqlAdapter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-require_once dirname(__DIR__, 2) . '/app/modules/peanut/identity/database/migrations/20261107005900_initialize_menu_allocation_metadata.php';
-require_once dirname(__DIR__, 2) . '/app/modules/peanut/identity/database/migrations/20261107010000_reserve_custom_menu_ids.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/identity/database/migrations/20261107005900_initialize_menu_allocation_metadata.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/identity/database/migrations/20261107010000_reserve_custom_menu_ids.php';
 
 final class MenuAllocationObservationContractTest extends TestCase
 {

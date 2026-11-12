@@ -6,7 +6,7 @@ use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-require_once dirname(__DIR__, 2) . '/database/seed-multi-tenant-demo.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/database/seed-multi-tenant-demo.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
 
 final class DemoSiteSeedContractTest extends TestCase
@@ -26,7 +26,7 @@ final class DemoSiteSeedContractTest extends TestCase
     #[DataProvider('rejectedInputs')]
     public function testSeedRefusesInvalidSelectionsBeforeDatabaseAdmission(array $override, string $expected): void
     {
-        $seed = dirname(__DIR__, 2) . '/database/seed-multi-tenant-demo.php';
+        $seed = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/database/seed-multi-tenant-demo.php';
         $environment = $override + [
             'PATH' => getenv('PATH'),
             'PHP_ENV_NAME' => 'demo-fixture-' . bin2hex(random_bytes(6)),

@@ -6,7 +6,7 @@ require_once __DIR__ . '/../Support/CiBootstrap.php';
 require_once __DIR__ . '/../Support/IdentityMysqlFixture.php';
 require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
-require_once dirname(__DIR__, 2) . '/app/common.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/common.php';
 
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
@@ -56,7 +56,7 @@ function rbacTenantContext(int $tenantId, int $accountId, int $memberId): Tenant
     ), 'native-rbac-' . $memberId);
 }
 
-$serverRoot = dirname(__DIR__, 2);
+$serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $database = RegisteredMysqlTestResource::configuredDatabaseName();
 [$pdo, $created] = RegisteredMysqlTestResource::openEmptyDatabase($database);
 try {

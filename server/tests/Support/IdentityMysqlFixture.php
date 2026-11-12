@@ -15,7 +15,7 @@ final class IdentityMysqlFixture
     {
         $config = new Config([
             'paths' => ['migrations' => [
-                dirname(__DIR__, 2) . '/app/modules/peanut/identity/database/migrations',
+                ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/identity/database/migrations',
                 ...$additionalMigrationDirectories,
             ]],
             'environments' => [

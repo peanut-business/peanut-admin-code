@@ -347,7 +347,7 @@ final class ExternalOperationHostTest extends TestCase
             },
         );
 
-        $root = dirname(__DIR__, 6);
+        $root = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 7)) . '/server');
         $app = new App($root);
         require_once $root . '/vendor/topthink/framework/src/helper.php';
         $cache = require $root . '/config/cache.php';

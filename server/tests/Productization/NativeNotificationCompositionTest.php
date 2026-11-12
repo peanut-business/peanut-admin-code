@@ -109,7 +109,7 @@ final class NativeNotificationCompositionTest extends TestCase
 
     private function appWithProducer(): array
     {
-        $app = new App(dirname(__DIR__, 2));
+        $app = new App(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
         $producer = $this->createMock(NotificationProducer::class);
         $producer->method('key')->willReturn('fixture.notification');
         $producer->expects(self::never())->method('authorize');

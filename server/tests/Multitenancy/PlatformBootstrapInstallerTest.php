@@ -22,15 +22,15 @@ use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
 use PeanutAdmin\Modules\Identity\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
-require dirname(__DIR__, 2) . '/database/install.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/database/install.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
 require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
 require __DIR__ . '/../Support/IdentityMysqlFixture.php';
 require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
 
-$cache = require dirname(__DIR__, 2) . '/config/cache.php';
-$cache['stores']['file']['path'] = dirname(__DIR__, 3) . '/.local/tmp/058-PlatformBootstrapInstallerTest-cache-' . bin2hex(random_bytes(6)) . '/';
+$cache = require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/config/cache.php';
+$cache['stores']['file']['path'] = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp/058-PlatformBootstrapInstallerTest-cache-' . bin2hex(random_bytes(6)) . '/';
 think\Container::getInstance()->config->set($cache, 'cache');
 
 function mt05BootstrapExpect(bool $condition, string $message): void
@@ -70,7 +70,7 @@ function mt05BootstrapPlatformSessions(PDO $pdo): PlatformOperatorSessionService
     );
 }
 
-$serverDir = dirname(__DIR__, 2);
+$serverDir = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $installName = RegisteredMysqlTestResource::configuredDatabaseName();
 [$install, $createdDatabase] = RegisteredMysqlTestResource::openEmptyDatabase($installName);
 $run = strtolower(bin2hex(random_bytes(5)));

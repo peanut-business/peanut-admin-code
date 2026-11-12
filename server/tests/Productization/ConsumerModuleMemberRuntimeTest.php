@@ -37,7 +37,7 @@ use think\db\Raw;
 use think\DbManager;
 use think\facade\Db;
 
-require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/Support/CiBootstrap.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
 require_once dirname(__DIR__) . '/Support/IdentityMysqlFixture.php';
@@ -206,7 +206,7 @@ PHP);
 
 $mode = $argv[1] ?? '--sqlite';
 memberRuntimeExpect(in_array($mode, ['--sqlite', '--mysql'], true) && count($argv) <= 2, 'explicit sqlite/mysql mode required');
-$root = dirname(__DIR__, 3);
+$root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
 $serverRoot = $root . '/server';
 $temporaryParent = $root . '/.local/tmp/m3-runtime-member-20260928';
 if (!is_dir($temporaryParent)) {

@@ -9,7 +9,7 @@ use app\platform\policy\module\ModuleLifecyclePolicy;
 use PeanutAdmin\Kernel\Module\ManifestDocument;
 use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
 
 $assertions = 0;
@@ -39,7 +39,7 @@ function retirementRemove(string $root): void
     }
     rmdir($root);
 }
-$server = dirname(__DIR__, 2);
+$server = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $root = rtrim(sys_get_temp_dir(), '/') . '/pa-module-retirement-policy-' . bin2hex(random_bytes(8));
 mkdir($root, 0700, true);
 try {

@@ -15,7 +15,7 @@ if (count($applicationRootOptions) !== 1 || count($expectedUuidOptions) !== 1) {
 }
 $applicationRoot = realpath(substr($applicationRootOptions[0], strlen('--application-root=')));
 $expectedServerUuid = strtolower(substr($expectedUuidOptions[0], strlen('--expected-server-uuid=')));
-if ($applicationRoot === false || $applicationRoot === realpath(dirname(__DIR__, 3))
+if ($applicationRoot === false || $applicationRoot === realpath((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)))
     || !is_file($applicationRoot . '/server/vendor/autoload.php')
     || preg_match('/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/D', $expectedServerUuid) !== 1) {
     throw new RuntimeException('Native qualification APP source/dependencies or UUID are invalid.');
@@ -149,7 +149,7 @@ moduleGovernanceExpect(is_array($identity) && hash_equals($expectedServerUuid, s
     && $identity['database_name'] === $database, 'Native qualification MySQL UUID/schema differs before the first write');
 moduleGovernanceExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_module_installation WHERE module_key='acme.governance'")->fetchColumn() === 0,
     'Retain the previous governance fixture and reconcile it before another run');
-$sourceRoot = dirname(__DIR__, 3);
+$sourceRoot = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
 $temporary = sys_get_temp_dir() . '/pa-module-governance-' . bin2hex(random_bytes(8));
 mkdir($temporary, 0700, true);
 try {

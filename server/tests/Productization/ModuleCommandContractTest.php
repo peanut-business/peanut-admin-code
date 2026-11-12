@@ -31,13 +31,13 @@ final class ModuleCommandContractTest extends TestCase
     protected function setUp(): void
     {
         $this->previousContainer = Container::getInstance();
-        $parent = dirname(__DIR__, 3) . '/.local/tmp/module-command-tests';
+        $parent = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp/module-command-tests';
         if (!is_dir($parent) && !mkdir($parent, 0700, true) && !is_dir($parent)) {
             throw new \RuntimeException('MODULE_COMMAND_TEST_DIRECTORY_UNAVAILABLE');
         }
         $temporaryRoot = realpath($parent);
         self::assertIsString($temporaryRoot);
-        self::assertStringStartsWith(dirname(__DIR__, 3) . '/.local/tmp/', $temporaryRoot);
+        self::assertStringStartsWith((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp/', $temporaryRoot);
         $this->temporary = $temporaryRoot . '/case-' . bin2hex(random_bytes(8));
         mkdir($this->temporary . '/server', 0700, true);
     }
@@ -52,7 +52,7 @@ final class ModuleCommandContractTest extends TestCase
     {
         $signingKeypair = sodium_crypto_sign_keypair();
         $archive = $this->temporary . '/signed-fixture.tar';
-        $packed = (new ModulePackageArchiveService(dirname(__DIR__, 2)))->packModule(
+        $packed = (new ModulePackageArchiveService(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server')))->packModule(
             'peanut.content-tools',
             $archive,
             [
@@ -203,7 +203,7 @@ final class ModuleCommandContractTest extends TestCase
 
     public function testPackageCommandsUseTheSharedRuntimeAndCommandBoundary(): void
     {
-        $serverRoot = dirname(__DIR__, 2);
+        $serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
         foreach ([
             'ModuleInstallPackage.php',
             'ModuleUpdatePackage.php',

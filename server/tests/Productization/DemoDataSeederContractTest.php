@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-$root = dirname(__DIR__, 2);
+$root = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $script = $root . '/database/seed-demo-data.php';
 $wrapper = $root . '/../scripts/seed-demo-data';
 $inventory = $root . '/../scaffold/application-template-inventory.json';

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__, 2) . '/route/registry_source.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/route/registry_source.php';
 
 function expectPlatformStorageBoundary(bool $condition, string $message): void
 {
@@ -11,7 +11,7 @@ function expectPlatformStorageBoundary(bool $condition, string $message): void
     }
 }
 
-$serverRoot = dirname(__DIR__, 2);
+$serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $routes = peanut_route_registry_source($serverRoot);
 $policy = (string) file_get_contents($serverRoot . '/app/modules/peanut/identity/src/Platform/InstanceControlPlanePolicy.php');
 $permissions = (string) file_get_contents($serverRoot . '/app/common/services/authorization/AdminAuthorizationService.php');

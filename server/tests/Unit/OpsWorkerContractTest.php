@@ -33,10 +33,10 @@ final class OpsWorkerContractTest extends TestCase
         $module = new \PeanutAdmin\Modules\Ops\ModuleProvider();
         self::assertSame($implementation, $module->bindings()[$port] ?? null);
         self::assertTrue(is_subclass_of($implementation, $port));
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/ops/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/ops/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains($port, $manifest['contracts']['exports']);
         self::assertNotContains($implementation, $manifest['contracts']['exports']);
-        $app = new App(dirname(__DIR__, 3) . '/.local/tmp/ops-worker-contracts');
+        $app = new App((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp/ops-worker-contracts');
         $app->bind($module->bindings());
         $fake = $this->createMock($port);
         foreach ((new ReflectionClass($port))->getMethods() as $method) {
@@ -165,7 +165,7 @@ final class OpsWorkerContractTest extends TestCase
     public function testNativeContainerInjectsThePublicWorkerAndSharedContext(): void
     {
         [$type, $port, $implementation, $name] = self::workers()['backup'];
-        $app = new App(dirname(__DIR__, 3) . '/.local/tmp/ops-worker-injection');
+        $app = new App((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp/ops-worker-injection');
         $contexts = new ExecutionContextStore();
         $worker = $this->createMock($port);
         $worker->expects(self::once())->method('heartbeat')->with('job_' . str_repeat('a', 32), 7)->willReturn([]);
@@ -183,7 +183,7 @@ final class OpsWorkerContractTest extends TestCase
 
     public function testLifecycleFixtureConsumesInitializedContainerWithoutDuplicatingTheConstructor(): void
     {
-        $source = file_get_contents(dirname(__DIR__, 2) . '/fixtures/module-lifecycle/run.php');
+        $source = file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/fixtures/module-lifecycle/run.php');
         self::assertStringNotContainsString('SourceApplicationBackup', $source);
         self::assertStringContainsString('$app = (new think\\App($root . \'/server\'))->initialize();', $source);
         self::assertStringContainsString('memberUploadInstalledAssertions($app, $pdo,', $source);
@@ -196,7 +196,7 @@ final class OpsWorkerContractTest extends TestCase
     private function withDatabaseIdentity(Closure $run, bool $matches = true): array
     {
         $previousApp = \think\Container::getInstance();
-        $app = new App(dirname(__DIR__, 3) . '/.local/tmp/ops-worker-identity');
+        $app = new App((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp/ops-worker-identity');
         $app->env->set([
             'APP_ENV' => 'development', 'DEPLOYMENT_MODE' => 'multi-tenant',
             'DB_HOST' => '127.0.0.1', 'DB_PORT' => '1', 'DB_NAME' => 'ops_worker_fixture',
@@ -206,7 +206,7 @@ final class OpsWorkerContractTest extends TestCase
             'type' => 'mysql', 'hostname' => '127.0.0.1', 'hostport' => '1',
             'database' => $matches ? 'ops_worker_fixture' : 'another_fixture',
         ]]], 'database');
-        $directory = dirname(__DIR__, 3) . '/.local/tmp';
+        $directory = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp';
         if (!is_dir($directory)) {
             mkdir($directory, 0700, true);
         }

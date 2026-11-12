@@ -29,7 +29,7 @@ final class PlatformRetentionMaintenanceTest extends TestCase
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         require_once $root . '/server/tests/Support/ThinkPhpTestConnection.php';
         require_once $root . '/server/vendor/topthink/framework/src/helper.php';
         new App($root . '/.local/tmp/retention-maintenance-tests');
@@ -169,7 +169,7 @@ final class PlatformRetentionMaintenanceTest extends TestCase
         self::assertSame(0, $purge->run(new \think\console\Input(['--limit=2', '--payload-cutoff=2031-01-02T00:00:00.000Z', '--evidence-cutoff=2031-01-02T00:00:00Z']), new \think\console\Output('buffer')));
         self::assertSame(6, (int) $this->pdo->query('SELECT COUNT(*) FROM pa_integration_webhook_attempt')->fetchColumn());
         self::assertTrue($this->contexts->isEmpty());
-        $config = require dirname(__DIR__, 2) . '/config/console.php';
+        $config = require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/config/console.php';
         self::assertArrayNotHasKey('integration:purge-expired', $config['module_commands']);
     }
 

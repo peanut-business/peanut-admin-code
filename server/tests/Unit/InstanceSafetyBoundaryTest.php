@@ -35,7 +35,7 @@ final class InstanceSafetyBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $temporary = $root . '/.local/tmp/instance-safety-tests';
         if (!is_dir($temporary) && !mkdir($temporary, 0700, true) && !is_dir($temporary)) {
             throw new \RuntimeException('INSTANCE_SAFETY_TEST_DIRECTORY_UNAVAILABLE');
@@ -88,7 +88,7 @@ final class InstanceSafetyBoundaryTest extends TestCase
 
     public function testHostDependenciesUseOnlyThePublishedQuery(): void
     {
-        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/peanut/ops/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/ops/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(InstanceSafetyQueries::class, $manifest['contracts']['exports']);
         foreach ([MaintenanceWriteGateMiddleware::class, FirstRunReadinessHost::class] as $type) {
             $source = file_get_contents((new ReflectionClass($type))->getFileName());

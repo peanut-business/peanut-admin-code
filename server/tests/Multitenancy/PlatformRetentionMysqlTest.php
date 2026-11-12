@@ -3,11 +3,11 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../Support/CiBootstrap.php';
-require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require_once __DIR__ . '/../Support/IdentityMysqlFixture.php';
 require_once __DIR__ . '/../Support/ThinkPhpTestConnection.php';
 require_once __DIR__ . '/../Support/RegisteredMysqlTestResource.php';
-require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
+require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/topthink/framework/src/helper.php';
 
 use app\common\execution\AdminExecutionContext;
 use app\common\execution\CurrentExecutionContext;
@@ -142,7 +142,7 @@ function integrationMysql(PDO $pdo, ExecutionContextStore $contexts, CurrentExec
 $database = RegisteredMysqlTestResource::configuredDatabaseName();
 [$pdo, $created] = RegisteredMysqlTestResource::openEmptyDatabase($database);
 try {
-    IdentityMysqlFixture::install($pdo, [dirname(__DIR__, 2) . '/app/modules/peanut/integration/database/migrations']);
+    IdentityMysqlFixture::install($pdo, [((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/integration/database/migrations']);
     $pdo->exec("INSERT INTO pa_tenant (id,code,name,display_name,status,created_at,updated_at) VALUES
         (101,'alpha','Alpha','Alpha','active','2000-01-01','2000-01-01'),(202,'beta','Beta','Beta','active','2000-01-01','2000-01-01')");
     $pdo->exec("INSERT INTO pa_account (id,display_name,status,created_at,updated_at) VALUES

@@ -5,7 +5,7 @@ declare(strict_types=1);
 use app\common\infrastructure\scaffold\ScaffoldUpgradeRunner;
 use app\common\value\scaffold\ScaffoldManifest;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 
 $root = sys_get_temp_dir() . '/peanut-newer-bundled-module-' . bin2hex(random_bytes(6));
 if (!mkdir($root, 0700)) {

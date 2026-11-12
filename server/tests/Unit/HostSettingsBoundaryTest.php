@@ -45,7 +45,7 @@ final class HostSettingsBoundaryTest extends TestCase
         $bindings = (new ModuleProvider())->bindings();
         self::assertSame(TenantApplicationSettingService::class, $bindings[TenantApplicationSettings::class]);
         $settings = $this->createStub(TenantApplicationSettings::class);
-        $app = new App(dirname(__DIR__, 2));
+        $app = new App(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
         $app->instance(TenantApplicationSettings::class, $settings);
         $consumer = $app->make(SearchApplicationService::class);
         self::assertSame($settings, (new ReflectionProperty($consumer, 'applicationSettings'))->getValue($consumer));
@@ -53,7 +53,7 @@ final class HostSettingsBoundaryTest extends TestCase
 
     public function testApplicationCompositionRequestsTheContractRatherThanTheConcreteClass(): void
     {
-        $source = file_get_contents(dirname(__DIR__, 2) . '/app/AppService.php');
+        $source = file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/AppService.php');
         self::assertStringNotContainsString('Settings\\Service\\TenantApplicationSettingService::class', $source);
         self::assertSame(2, substr_count($source, 'Settings\\Contract\\TenantApplicationSettings::class'));
     }

@@ -3361,7 +3361,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "185348e9cd9053b910de7d62d4e8b6a528f52daaaa37b883fa88e9e2828a0feb"
+            "source_sha256": "dbd281ebda90a30a0fa75e8b7cdc85b5c54350700fd23835901ebf920ddb090e"
         },
         {
             "path": "scripts/run-with-environment-file",
@@ -20068,7 +20068,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d96392a23fcb0b1bf14130081ee2be5e876bb80fd8dca8cacabd0925e7767453"
+            "source_sha256": "6fc1369bd41805b60e46b4041cc97009714235c59e9679a4605401e974052158"
         },
         {
             "path": "server/tests/Multitenancy/NoticeChannelHostBoundaryTest.php",
@@ -21854,19 +21854,6 @@
             ]
         },
         {
-            "path": "server/tests/Unit/IdentityPublicQueriesTest.php",
-            "target": "server/tests/Unit/IdentityPublicQueriesTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Unit/IdentityScalarIdBoundaryTest.php",
             "target": "server/tests/Unit/IdentityScalarIdBoundaryTest.php",
             "classification": "excluded",
@@ -22363,19 +22350,6 @@
         {
             "path": "server/tests/Unit/SettingsDictionaryInputBoundaryTest.php",
             "target": "server/tests/Unit/SettingsDictionaryInputBoundaryTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Unit/SourceReadProjectionTest.php",
-            "target": "server/tests/Unit/SourceReadProjectionTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

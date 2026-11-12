@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
-require dirname(__DIR__, 2) . '/database/migrations/20261103230000_unify_module_installation.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/database/migrations/20261103230000_unify_module_installation.php';
 require_once dirname(__DIR__) . '/Support/CiBootstrap.php';
 require_once dirname(__DIR__) . '/Support/RegisteredMysqlTestResource.php';
 $app = \think\Container::getInstance();
 if (!$app instanceof \think\App) {
-    $app = new \think\App(dirname(__DIR__, 2));
+    $app = new \think\App(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
 }
 require_once $app->getThinkPath() . 'helper.php';
 
@@ -23,7 +23,7 @@ $expect = static function (bool $value, string $message) use (&$assertions): voi
     ++$assertions;
     if (!$value) { throw new RuntimeException($message); }
 };
-$server = dirname(__DIR__, 2);
+$server = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $sources = file_get_contents($server . '/app/modules/peanut/identity/database/migrations/20261101010001_initial_identity_schema.php');
 foreach (['pa_module_installation'] as $name) {
     if (preg_match('/CREATE TABLE `' . $name . '` \(.*?\n\) ENGINE=.*?;/s', $sources, $match) !== 1) {

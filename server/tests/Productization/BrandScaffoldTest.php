@@ -8,7 +8,7 @@ use app\common\infrastructure\scaffold\ApplicationCreator;
 
 require_once defined('PHPUNIT_COMPOSER_INSTALL')
     ? PHPUNIT_COMPOSER_INSTALL
-    : dirname(__DIR__, 2) . '/vendor/autoload.php';
+    : ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 
 function brandExpect(bool $condition, string $message): void
 {
@@ -32,7 +32,7 @@ brandExpect(
     'GitHub entry must point to the application source repository',
 );
 
-$publicRoot = dirname(__DIR__, 2) . '/public/';
+$publicRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/public/';
 foreach (['web_favicon', 'web_logo', 'login_image', 'shop_logo', 'pc_logo', 'pc_ico', 'h5_favicon'] as $field) {
     $asset = $publicRoot . $website[$field];
     brandExpect(is_file($asset), "missing bootstrap asset for {$field}");
@@ -45,7 +45,7 @@ foreach ($defaultImages as $field => $relativePath) {
     brandExpect(is_file($asset), "missing default image for {$field}");
 }
 
-$projectConfig = file_get_contents(dirname(__DIR__, 2) . '/config/project.php');
+$projectConfig = file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/config/project.php');
 brandExpect(is_string($projectConfig), 'brand test must read project config');
 foreach (['admin_avatar', 'user_avatar', 'menu', 'project_docs', 'technical_support'] as $field) {
     brandExpect(
@@ -54,13 +54,13 @@ foreach (['admin_avatar', 'user_avatar', 'menu', 'project_docs', 'technical_supp
     );
 }
 
-$seed = file_get_contents(dirname(__DIR__, 2) . '/database/schema/baseline-data.sql');
+$seed = file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/database/schema/baseline-data.sql');
 brandExpect(
     is_string($seed) && str_contains($seed, "'{$defaultImages['user_avatar']}'"),
     'initial user avatar default must match the manifest',
 );
 
-$root = dirname(__DIR__, 3);
+$root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
 $creator = new ApplicationCreator($root, $root . '/scaffold/application-template-inventory.json');
 $parameters = ['PRODUCT_NAME' => 'Source Consumer', 'PACKAGE_IDENTITY' => 'consumer/application', 'SLUG' => 'source-consumer', 'APPLICATION_VERSION' => '0.1.0'];
 $transform = Closure::bind(

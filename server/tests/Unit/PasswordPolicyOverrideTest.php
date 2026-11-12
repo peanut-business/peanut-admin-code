@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
-require dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/topthink/framework/src/helper.php';
 
 use app\AppService;
 use app\common\composition\CoreServiceOverrides;
@@ -61,10 +61,10 @@ final class PasswordOverrideProvisionerFixture implements \PeanutAdmin\Modules\I
     }
 }
 
-$app = new App(dirname(__DIR__, 2));
+$app = new App(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
 // Exercise real Provider/Service/Module bindings without starting resource-dependent initializers.
 $app->config->set(['mode' => 'standalone'], 'deployment');
-$app->config->load(dirname(__DIR__, 2) . '/config/modules.php', 'modules');
+$app->config->load(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/config/modules.php', 'modules');
 (new AppService($app))->register();
 $policy = $app->make(PasswordPolicy::class);
 passwordExpect($policy->minimumLength() === 6 && $policy->maximumLength() === 1024, 'Core defaults lost');
@@ -98,8 +98,8 @@ try {
 
 $customPolicy = new ApplicationTestPasswordPolicy();
 $customHasher = new ApplicationTestPasswordHasher();
-$app = new App(dirname(__DIR__, 2));
-$app->config->load(dirname(__DIR__, 2) . '/config/modules.php', 'modules');
+$app = new App(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
+$app->config->load(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/config/modules.php', 'modules');
 $app->config->set(['mode' => 'standalone'], 'deployment');
 $app->config->set(['identifier_hmac_key' => str_repeat('synthetic', 8)], 'tenant_auth');
 $app->config->set(['identifier_hmac_key' => str_repeat('synthetic', 8)], 'platform_auth');
@@ -125,7 +125,7 @@ passwordExpect(!$validator->scene('accept')->check(['token' => str_repeat('x', 4
 passwordExpect($validator->getError() === 'APPLICATION_PASSWORD_REJECTED', 'Application rejection was hidden');
 passwordExpect($validator->scene('accept')->check(['token' => str_repeat('x', 43), 'new_account_password' => 'ok']), 'Application shorter policy ignored');
 
-$environmentPath = dirname(__DIR__, 2) . '/.env.password-policy-' . getmypid();
+$environmentPath = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/.env.password-policy-' . getmypid();
 $environmentFile = fopen($environmentPath, 'x');
 if ($environmentFile === false) {
     throw new RuntimeException('Cannot create isolated password contract environment');
@@ -139,7 +139,7 @@ register_shutdown_function(static function () use ($environmentPath): void {
     }
 });
 putenv('PEANUT_SERVER_ENV_FILE=' . $environmentPath);
-require dirname(__DIR__, 2) . '/database/install.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/database/install.php';
 validateInitialAdminPassword('ok');
 passwordExpect(true, 'Installer bypassed native policy');
 try {

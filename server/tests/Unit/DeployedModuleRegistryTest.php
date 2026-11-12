@@ -13,13 +13,13 @@ final class DeployedModuleRegistryTest extends TestCase
 {
     protected function setUp(): void
     {
-        $app = new \think\App(dirname(__DIR__, 3) . '/.local/tmp/deployed-module-registry');
+        $app = new \think\App((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp/deployed-module-registry');
         $app->config->set(['mode' => 'multi-tenant'], 'deployment');
     }
 
     public function testAllShippedModulesCompileAgainstTheirPublicContracts(): void
     {
-        $server = dirname(__DIR__, 2);
+        $server = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
         $paths = glob($server . '/app/modules/*/*/module.json');
         self::assertNotEmpty($paths);
         $expected = array_map(static fn(string $path): string =>
@@ -37,7 +37,7 @@ final class DeployedModuleRegistryTest extends TestCase
 
     public function testIdentityMayOwnOnlyTheExplicitlyTransferredCoreBootstrapTables(): void
     {
-        $server = dirname(__DIR__, 2);
+        $server = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
         $identity = json_decode(
             (string) file_get_contents($server . '/app/modules/peanut/identity/module.json'),
             true,

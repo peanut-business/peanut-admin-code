@@ -8,7 +8,7 @@ use PeanutAdmin\Kernel\Module\ManifestDocument;
 use PeanutAdmin\Kernel\Module\ModuleProvider;
 use PeanutAdmin\Modules\Task\Service\TaskWorkerDefinitionRegistry;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 
 final class IndependentCompositionProvider implements ModuleProvider
 {
@@ -28,7 +28,7 @@ $denyTask = static function (string $class): void {
     }
 };
 $compose = static function (string $key, string $provider): think\App {
-    $app = new think\App(dirname(__DIR__, 2));
+    $app = new think\App(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
     $manifest = ManifestDocument::fromObject('/selected', (object) ['key' => $key, 'backend' => ['provider' => $provider]]);
     (new ModuleComposition($app))->register(new CompiledModuleRegistry([$manifest], [], [], [], 'selected'));
     return $app;

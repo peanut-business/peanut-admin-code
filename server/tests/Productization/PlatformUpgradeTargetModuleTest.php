@@ -28,7 +28,7 @@ use think\Config as ThinkConfig;
 use think\Container;
 use think\facade\Config;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
 
 function upgradeTargetExpect(bool $condition, string $message): void
@@ -138,7 +138,7 @@ function upgradeTargetRejects(callable $operation, string $expected): void
     throw new RuntimeException("target fixture accepted invalid input: {$expected}");
 }
 
-$sourceRoot = dirname(__DIR__, 3);
+$sourceRoot = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
 $temporary = sys_get_temp_dir() . '/pa-upgrade-target-module-' . bin2hex(random_bytes(8));
 $projectRoot = $temporary . '/application';
 $targetRoot = $projectRoot . '/.peanut/upgrade-target';

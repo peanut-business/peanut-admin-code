@@ -11,7 +11,7 @@ use app\platform\services\module\ModulePackageAdoptionService;
 use app\platform\services\module\ModulePackageArchiveService;
 use app\common\module\PackageCheck as ModulePackagePreflight;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/autoload.php';
 
 // 默认保留完整测试。只读源码联调可显式只跑归档/独立接收/文件恢复，绝不触碰宿主运行日志。
 $arguments = realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__
@@ -107,7 +107,7 @@ function modulePackageRewriteTree(string $root, array $replacements): void
     }
 }
 
-$serverRoot = dirname(__DIR__, 2);
+$serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $projectRoot = dirname($serverRoot);
 $temporary = sys_get_temp_dir() . '/pa-module-package-' . bin2hex(random_bytes(8));
 mkdir($temporary, 0700, true);
