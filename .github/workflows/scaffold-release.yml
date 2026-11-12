@@ -404,6 +404,14 @@ jobs:
             --transport-sha256="$TRANSPORT_SHA256" --source-commit="$SOURCE" \
             --full-ci-run-id="$CI_RUN" --github-output="$GITHUB_OUTPUT" \
             --output-root="$RUNNER_TEMP/candidate-release"
+      - name: Verify source-to-main PR and create or reuse only the exact annotated source tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE: ${{ steps.candidate.outputs.source }}
+        run: |
+          set -Eeuo pipefail
+          version="$(node -p "JSON.parse(require('node:fs').readFileSync('release-versions.json','utf8')).scaffold_template")"
+          python3 scripts/ensure-qualified-release-tag --version "$version" --source "$SOURCE" --create-in-publish-ci
       - name: Publish the verified native templates through the sole publisher
         env:
           GH_TOKEN: ${{ github.token }}

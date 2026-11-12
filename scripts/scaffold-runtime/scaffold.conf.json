@@ -84,6 +84,7 @@
   "inventory_omissions": {
     "paths": [
       "scaffold/application-template-inventory.json",
+      "scripts/ensure-qualified-release-tag",
       "SECURITY.md",
       "AGENTS.md",
       "server/modules.lock",
