@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 $root = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 5)) . '/server');
 require_once $root . '/vendor/autoload.php';
-require_once $root . '/tests/Support/ThinkPhpTestConnection.php';
+require_once dirname(__DIR__, 3) . '/Support/ThinkPhpTestConnection.php';
 use PeanutAdmin\Kernel\Auth\ValidatedPlatformSession;
 use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Modules\Ops\Domain\Application\OpsConsoleException;

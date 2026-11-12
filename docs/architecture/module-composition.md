@@ -63,7 +63,7 @@ CLI create 的 MT staged/approval 流程调用以下原生源码计划/准备合
 | 可选能力的条件消费者 | `ModuleComposition` 的 Document/File/Task 扩展、`ApplicationNoticeSmsSender`、`FirstRunReadinessHost`、`ModuleLifecyclePolicy`、`ModuleCheck` | 核未选择 Document/Notification/Workflow 时的条件注册及类加载；不能把可选业务变成 mandatory 来掩盖引用 |
 | 宿主遗留业务消费者 | Member token/tenant resolver、Article decoration 服务、搜索/热搜/装修与通知服务 | 按真实业务归属逐项处理，保留已有合同；本批未迁移、未删源码 |
 
-本批定向测试入口为 `python3 scripts/project-env exec -- php server/tests/Productization/ModuleSourceCompositionTest.php`：本地 canonical TAR、无官方 Module 源码的临时宿主、AppService/业务 Module/DB 加载拒绝陷阱、全图一次 journal、重复/冲突/保留与恢复；不是公开 RC 渠道、真实 DB、登录或 HTTP 正向验收。
+本批定向测试入口为 `PEANUT_TEST_MODULE_AUTHOR_ROOT=/absolute/path/to/peanut-module-code python3 scripts/project-env exec -- php server/tests/Productization/ModuleSourceCompositionTest.php`：官方 Module 作者源码从独立 Module 应用读取，Code 只提供 Host 测试和原生打包/组合入口，不再假定 Code 自身携带官方模块源码。测试覆盖本地 canonical TAR、无官方 Module 源码的临时宿主、AppService/业务 Module/DB 加载拒绝陷阱、全图一次 journal、重复/冲突/保留与恢复；不是公开 RC 渠道、真实 DB、登录或 HTTP 正向验收。未显式提供有效 Module 作者应用时直接拒绝，而不是让空源码导致后续打包失败。
 
 ## 模板退出与后续升级
 

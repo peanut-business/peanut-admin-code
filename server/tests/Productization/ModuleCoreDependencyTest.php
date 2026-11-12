@@ -9,7 +9,14 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 // Native declarations must describe the same Core selection. This check does
 // not resolve packages, publish versions, or prove runtime compatibility.
-$root = dirname(__DIR__, 3);
+$selectedApplication = getenv('PEANUT_TEST_APPLICATION_ROOT');
+if (!is_string($selectedApplication) || $selectedApplication === '') {
+    throw new RuntimeException('MODULE_CORE_DEPENDENCY_PREPARED_CONSUMER_REQUIRED');
+}
+$root = realpath($selectedApplication);
+if ($root === false || !is_file($root . '/modules.lock')) {
+    throw new RuntimeException('MODULE_CORE_DEPENDENCY_PREPARED_CONSUMER_INVALID');
+}
 $parser = new VersionParser();
 $overlaps = static fn(string $host, string $module): bool => Intervals::haveIntersections(
     $parser->parseConstraints($host),

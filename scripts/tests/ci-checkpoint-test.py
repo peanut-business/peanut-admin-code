@@ -365,6 +365,32 @@ process.stdout.write(String(cases.length + 1));
         self.assertLess(text.index("Install the tool's locked dependencies"), text.index('Verify source inventory after locked dependencies'))
         self.assertLess(text.index('Verify source inventory after locked dependencies'), text.index('Verify create-app contract'))
 
+    def test_module_consumer_registers_real_node_package_manager_cli_files(self):
+        workflow = (ROOT/'.github/workflows/ci.yml').read_text()
+        self.assertEqual(workflow.count('      - &prepare-module-consumer\n'), 1)
+        step = workflow.split('      - &prepare-module-consumer\n', 1)[1].split(
+            '      - name: Run daily server gates\n', 1
+        )[0]
+        self.assertIn('readlink -f "$(command -v npm)"', step)
+        self.assertIn('pnpm/bin/pnpm.cjs', step)
+        self.assertIn('node "$npm_cli" --version >/dev/null', step)
+        self.assertIn('node "$pnpm_cli" --version >/dev/null', step)
+        self.assertLess(step.index('node "$pnpm_cli" --version'), step.index('gh release download'))
+        self.assertIn('commands["npm"]=[tools["node"],os.environ["PEANUT_CI_NPM_CLI"]]', step)
+        self.assertIn('commands["pnpm"]=[tools["node"],os.environ["PEANUT_CI_PNPM_CLI"]]', step)
+        self.assertNotIn('commands.update({name:[tools["node"],tools[name]]', step)
+
+
+    def test_source_producer_test_never_uses_installed_consumer_autoload(self):
+        runner = (ROOT/'scripts/ci-server-check.sh').read_text()
+        source = runner.split('    server/tests/Productization/CreateApplicationTest.php)', 1)[1].split('      ;;',1)[0]
+        self.assertIn('env -u PEANUT_TEST_APPLICATION_ROOT -u PEANUT_SERVER_ENV_FILE', source)
+        self.assertIn('php "$ROOT/scripts/run-php-test" "$test_file"', source)
+        self.assertNotIn('"--application-root=$APPLICATION_ROOT"', source)
+        module = runner.split('    server/tests/Productization/ModuleSourceCompositionTest.php)', 1)[1].split('      ;;',1)[0]
+        self.assertIn('"--application-root=$APPLICATION_ROOT"', module)
+        self.assertIn('"$test_file" -- "$APPLICATION_ROOT"', module)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

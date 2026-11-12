@@ -310,6 +310,20 @@ while IFS= read -r test_file <&3; do
     server/tests/Productization/P0eRuntimeQualificationTest.php)
       run_command p0e-template-stage-contract 1 python3 scripts/tests/p0e_template_stage_test.py
       ;;
+    server/tests/Productization/CreateApplicationTest.php)
+      # Source author test: never load a different application's app\ classes
+      # before checking the immutable Code candidate and its native producer.
+      run_command "test:${test_file}:source" 1 \
+        env -u PEANUT_TEST_APPLICATION_ROOT -u PEANUT_SERVER_ENV_FILE \
+        php "$ROOT/scripts/run-php-test" "$test_file"
+      ;;
+    server/tests/Productization/ModuleSourceCompositionTest.php)
+      # The official Module sources are accepted into this prepared consumer;
+      # the thin Code checkout intentionally has no author Module sources.
+      run_command "test:${test_file}:consumer-modules" 1 \
+        php "$ROOT/scripts/run-php-test" "--application-root=$APPLICATION_ROOT" \
+          "--env-file=$BACKEND_ENV" "$test_file" -- "$APPLICATION_ROOT"
+      ;;
     *)
       runner=(php)
       if [[ "$test_file" == server/tests/Productization/CreateApplicationPublicIdentityTest.php && -n "${PEANUT_TEST_PRODUCER_STATE:-}" ]]; then

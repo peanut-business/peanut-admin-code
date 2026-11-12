@@ -352,7 +352,8 @@ $storageController = (string) file_get_contents(
 );
 $routes = peanut_route_registry_source(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
 $productionNginx = (string) file_get_contents((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/deploy/nginx/peanut-admin.conf');
-$developmentNginx = (string) file_get_contents((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/deploy/nginx/development.conf');
+// The development-only Nginx configuration is maintainer-owned and intentionally excluded from generated apps.
+$developmentNginx = (string) file_get_contents(dirname(__DIR__, 3) . '/deploy/nginx/development.conf');
 entryBindingExpect(
     str_contains($sessionController, 'TenantSessionApplicationService')
         && str_contains($sessionApplication, 'TENANT_SWITCH_BOUND_ENTRY')

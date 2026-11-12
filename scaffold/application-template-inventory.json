@@ -710,7 +710,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4925fcd5bc0ca18440bec30e5e9918bfa8f07930f058c61cc20e85520b1d90fa"
+            "source_sha256": "c7609317ab3d33f6077fed2bc784fd91be4ae011d22032f1364288f570cd236f"
         },
         {
             "path": "docs/architecture/module-development-delivery.md",
@@ -2740,19 +2740,6 @@
             ]
         },
         {
-            "path": "scripts/generate-all-modules-packaging-evidence",
-            "target": "scripts/generate-all-modules-packaging-evidence",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "scripts/generate-api-contracts.php",
             "target": "scripts/generate-api-contracts.php",
             "classification": "managed",
@@ -3333,7 +3320,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "65a7fdc848148aa5806ac491d9b0f3f686eb8982d451b240b01319e6e3b90ab4"
+            "source_sha256": "61d206fa713286fd80bf3fc10f75ac73354fa1e30f68c89a163da7ce2b6bf122"
         },
         {
             "path": "scripts/scaffold-upgrade",
@@ -13178,19 +13165,6 @@
         {
             "path": "server/tests/Productization/AdminRbacCrudTest.php",
             "target": "server/tests/Productization/AdminRbacCrudTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/Productization/AllModulesPackagingTest.php",
-            "target": "server/tests/Productization/AllModulesPackagingTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

@@ -256,6 +256,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
+          # npm/pnpm in PATH may be POSIX shims. project-env requires the
+          # JavaScript CLI files after the same registered Node interpreter.
+          npm_cli="$(readlink -f "$(command -v npm)")"
+          pnpm_cli="$(readlink -f "$(dirname "$(command -v pnpm)")/../pnpm/bin/pnpm.cjs")"
+          [[ -f "$npm_cli" && -f "$pnpm_cli" ]] || {
+            echo 'CI_MODULE_CONSUMER_JS_CLI_MISSING' >&2
+            exit 1
+          }
+          node "$npm_cli" --version >/dev/null
+          node "$pnpm_cli" --version >/dev/null
+          export PEANUT_CI_NPM_CLI="$npm_cli" PEANUT_CI_PNPM_CLI="$pnpm_cli"
           consumer="$RUNNER_TEMP/peanut-ci-module-host-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           packages="$RUNNER_TEMP/peanut-ci-official-modules"
           mkdir -p "$packages"
@@ -296,7 +307,8 @@ jobs:
           import json, os, pathlib, shutil, sys
           app=pathlib.Path(sys.argv[1]); tools={name:str(pathlib.Path(shutil.which(name)).resolve()) for name in ("php","node","npm","pnpm","python3")}
           commands={name:[tools[name]] for name in ("php","node","python3")}
-          commands.update({name:[tools["node"],tools[name]] for name in ("npm","pnpm")})
+          commands["npm"]=[tools["node"],os.environ["PEANUT_CI_NPM_CLI"]]
+          commands["pnpm"]=[tools["node"],os.environ["PEANUT_CI_PNPM_CLI"]]
           commands["composer"]=[tools["php"],str(app/".local/toolchain/composer-2.10.2.phar")]
           host={"schema_version":1,"commands":commands,"extra_path":[p for p in os.environ["PATH"].split(os.pathsep) if pathlib.Path(p).is_dir()],
             "caches":{name:str(app/".local/toolchain/cache"/name) for name in ("npm","pnpm","composer")},"watch_paths":["tools/toolchain.json"]}

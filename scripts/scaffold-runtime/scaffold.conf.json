@@ -245,7 +245,6 @@
         "scripts/export-release-database",
         "scripts/package-scaffold-template.py",
         "scripts/check-test-integrity",
-        "scripts/generate-all-modules-packaging-evidence",
         "scripts/core-qualification-runner",
         "scripts/core-upgrade-compatibility",
         "scripts/combined-upgrade-qualification",
