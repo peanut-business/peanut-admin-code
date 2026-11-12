@@ -626,7 +626,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "96426ccf1bb3cf23b96e7c7ad3b09995fdd2eef95e76da136a0bb775a03e48f4"
+            "source_sha256": "cea6151633fd88cc41e2aff2fda90c3223f14d2e183bbcec1e16ed0cfbbc06e5"
         },
         {
             "path": "docs/architecture/document-collaboration-standard.md",
@@ -724,7 +724,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "63439e45886629c0df1f31a4e1eed7e015dcd2b81f09ec415458d583f12fb3d0"
+            "source_sha256": "287ca9368930fbe8b114d9803035299e907bd66d22b21ea00cc7da970cccbd84"
         },
         {
             "path": "docs/architecture/overview.md",
