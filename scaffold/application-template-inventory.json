@@ -822,7 +822,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fd133764016e87f632f328f6cfc7de16deb4dc31cf2fce11db27a9ef9a97da47"
+            "source_sha256": "56ea17449ab2fb2c59cf147cc1ccba850bc681b03346925eb27b6f8e66f0f411"
         },
         {
             "path": "docs/development/core-release.md",
@@ -15478,19 +15478,6 @@
             ]
         },
         {
-            "path": "server/tests/fixtures/module-namespace-migration-map.json",
-            "target": "server/tests/fixtures/module-namespace-migration-map.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/fixtures/mt02/default-tenant-upgrade.sql",
             "target": "server/tests/fixtures/mt02/default-tenant-upgrade.sql",
             "classification": "excluded",
@@ -15744,19 +15731,6 @@
             "owner": "template-source-only",
             "transform": "copy",
             "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/scripts/CheckModuleNamespaceMigration.php",
-            "target": "server/tests/scripts/CheckModuleNamespaceMigration.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",

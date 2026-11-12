@@ -133,8 +133,7 @@ direct_test_target() {
       ;;
     server/tests/*Test.php|\
     server/tests/Modules/Official/*/feature-harness.php|\
-    server/tests/Modules/Official/Task/worker-composition-harness.php|\
-    server/tests/scripts/CheckModuleNamespaceMigration.php)
+    server/tests/Modules/Official/Task/worker-composition-harness.php)
       return 0
       ;;
   esac
