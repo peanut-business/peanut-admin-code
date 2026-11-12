@@ -52,7 +52,7 @@ final class ModulePublicSurfacePolicyTest extends TestCase
 
     public function testAllCurrentModuleManifestsUseThePolicy(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $manifests = glob($root . '/server/app/modules/*/*/module.json');
         self::assertNotEmpty($manifests);
         foreach ($manifests as $path) {

@@ -313,7 +313,10 @@ while IFS= read -r test_file <&3; do
     server/tests/Productization/CreateApplicationTest.php|\
     server/tests/Productization/EditionUpgradePackageTest.php|\
     server/tests/Productization/InstallationConfigurationHostTest.php|\
-    server/tests/Productization/ScaffoldUpgradeRunnerTest.php)
+    server/tests/Productization/ScaffoldUpgradeRunnerTest.php|\
+    server/tests/Unit/A1EditionDockerProjectionTest.php|\
+    server/tests/Unit/ApplicationDevelopmentEntryTest.php|\
+    server/tests/Unit/GeneratedPackageIdentityTest.php)
       # Source author test: never load a different application's app\ classes
       # before checking the immutable Code candidate and its native producer.
       run_command "test:${test_file}:source" 1 \

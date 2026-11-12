@@ -9,12 +9,12 @@ final class ApiMetadataCompletionTest extends TestCase
 {
     public function testEveryRuntimeRouteHasACompleteOwnerContract(): void
     {
-        $root = dirname(__DIR__, 3);
+        $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $catalog = sys_get_temp_dir() . '/peanut-api-completion-' . bin2hex(random_bytes(8)) . '.json';
         $command = [
             PHP_BINARY,
-            $root . '/scripts/generate-api-contracts.php',
-            '--check',
+            dirname(__DIR__, 3) . '/scripts/generate-api-contracts.php',
+            '--application-root=' . $root, '--check',
             '--catalog-output=' . $catalog,
         ];
         $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $root);

@@ -383,10 +383,13 @@ process.stdout.write(String(cases.length + 1));
 
     def test_source_producer_test_never_uses_installed_consumer_autoload(self):
         runner = (ROOT/'scripts/ci-server-check.sh').read_text()
-        source = runner.split('    server/tests/Productization/ScaffoldUpgradeRunnerTest.php)', 1)[1].split('      ;;',1)[0]
+        source = runner.split('    server/tests/Unit/GeneratedPackageIdentityTest.php)', 1)[1].split('      ;;',1)[0]
         self.assertIn('CreateApplicationTest.php|', runner)
         self.assertIn('EditionUpgradePackageTest.php|', runner)
         self.assertIn('InstallationConfigurationHostTest.php|', runner)
+        self.assertIn('A1EditionDockerProjectionTest.php|', runner)
+        self.assertIn('ApplicationDevelopmentEntryTest.php|', runner)
+        self.assertIn('ScaffoldUpgradeRunnerTest.php|', runner)
         self.assertIn('env -u PEANUT_TEST_APPLICATION_ROOT -u PEANUT_SERVER_ENV_FILE', source)
         self.assertIn('php "$ROOT/scripts/run-php-test" "$test_file"', source)
         self.assertNotIn('"--application-root=$APPLICATION_ROOT"', source)
