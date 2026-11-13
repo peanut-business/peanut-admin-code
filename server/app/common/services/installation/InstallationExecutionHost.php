@@ -618,15 +618,14 @@ SQL);
             \app\platform\infrastructure\module\ModuleLockResolver::forRuntime($this->serverRoot, (string) $config['module_lock']),
         );
         $lifecycle = $governance->moduleLifecycle();
+        $prepared = $lifecycle->installPrepared($moduleKeys, function (string $key): void {
+            $this->currentInstallationModule = $key;
+        });
+        $this->currentInstallationModule = null;
         $operations = [];
         foreach ($moduleKeys as $moduleKey) {
-            $this->currentInstallationModule = $moduleKey;
-            $result = $lifecycle->install($moduleKey);
-            $this->currentInstallationModule = null;
-            $operations[] = [
-                'key' => $moduleKey,
-                'operation' => (string) ($result['operation'] ?? ''),
-            ];
+            $result = $prepared['packages'][$moduleKey];
+            $operations[] = ['key' => $moduleKey, 'operation' => (string) ($result['operation'] ?? '')];
         }
         $license = $this->licenses->initializeInstallation($moduleKeys, $tenantBootstrap['code']);
         return ['operations' => $operations, 'license' => $license];

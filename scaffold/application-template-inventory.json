@@ -6263,7 +6263,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "11663dd352922cf7150a4eea3bada1abdca980ec01ae961f3e6ac8ca211d6a64"
+            "source_sha256": "4bfa04d54d342984138b08ac3e938d91883887fa8ef1cb16fdb049a129170b3d"
         },
         {
             "path": "server/app/common/contract/module/ModuleQualification.php",
@@ -7622,7 +7622,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9ff263ee625760e9eca111f256ed859e3beba20a35b5ad6037e06f954ac07045"
+            "source_sha256": "586053994646013ccd61b452af4d6d7eb9bb882945711bea7ed36a11d7421623"
         },
         {
             "path": "server/app/common/module/ModuleMigrationRun.php",
@@ -7973,7 +7973,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d551aed39aa35774e7ae0db0295b2f97e1a9f8e2f4568489a15882291415aaeb"
+            "source_sha256": "63911a01d6efcdfb4cb120ca795e1f3837d5cb266878adbb43ebeb21c4c1940f"
         },
         {
             "path": "server/app/common/services/installation/InstallationPreflightHost.php",
@@ -9430,7 +9430,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "259f361dda24542d2868e43d51212bf53f87dd89532f6a5f78fe9a4d8ee14b32"
+            "source_sha256": "0ff4efd612aad2ba6cf5a997449e188c8b242901c5f2dfc2a77204015dba75ca"
         },
         {
             "path": "server/app/platform/services/module/ModulePackageAdoptionService.php",
@@ -13462,6 +13462,19 @@
                 "full"
             ],
             "source_sha256": "a1c1919cfb5d59fb4a22afa6960a3e35566ed117b37423061c38495e11c8d33c"
+        },
+        {
+            "path": "server/tests/Productization/InitialInstallPreparedDependenciesTest.php",
+            "target": "server/tests/Productization/InitialInstallPreparedDependenciesTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
         },
         {
             "path": "server/tests/Productization/InstallRuntimePermissionsLinuxTest.sh",

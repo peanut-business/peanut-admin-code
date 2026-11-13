@@ -48,6 +48,26 @@ final readonly class ModuleLifecycleService implements ModuleLifecycleCommands
         return $this->withPackageLock($pluginKey, fn(): array => $this->installLocked($pluginKey));
     }
 
+    /** Native initial installation: the product has already prepared the selected dependency graph. */
+    public function installPrepared(array $pluginKeys, ?callable $onPackageStarting = null): array
+    {
+        $dependencies = (new Dependencies(rtrim(app()->getRootPath(), '/')))->verifyPreparedSelection(
+            $this->resolver, $pluginKeys, $this->installedModules(),
+        );
+        $results = [];
+        foreach ($pluginKeys as $pluginKey) {
+            if ($onPackageStarting !== null) {
+                $onPackageStarting($pluginKey);
+            }
+            // Keep the existing per-package admission, lifecycle lock, seed and recovery contract.
+            $results[$pluginKey] = $this->withPackageLock(
+                $pluginKey,
+                fn(): array => $this->installLocked($pluginKey, $dependencies),
+            );
+        }
+        return ['dependencies' => $dependencies, 'packages' => $results];
+    }
+
     private function installLocked(string $pluginKey, ?array $preparedDependencies = null): array
     {
         $plugin = $this->resolver->require($pluginKey);

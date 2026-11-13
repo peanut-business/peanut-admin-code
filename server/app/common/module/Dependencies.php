@@ -35,6 +35,22 @@ final readonly class Dependencies
         return $this->prepare($plugin->moduleRoots, $resolver, $installed, verifyOnly: true);
     }
 
+    /** Verify the complete already prepared initial-install graph once without invoking package managers.
+     * @param list<string> $packageKeys
+     * @param array<string,array{version:string,status:string}> $installed
+     * @return array<string,mixed>
+     */
+    public function verifyPreparedSelection(ModuleLockResolver $resolver, array $packageKeys, array $installed): array
+    {
+        $roots = [];
+        foreach ($packageKeys as $key) {
+            foreach ($resolver->require($key)->moduleRoots as $moduleKey => $root) {
+                $roots[$moduleKey] = $root;
+            }
+        }
+        return $this->prepare($roots, $resolver, $installed, verifyOnly: true);
+    }
+
     /** Prepare admitted real Module nodes once; a native consumer may reuse that result under the same lock.
      * @param null|list<string> $selectedModuleKeys
      * @param null|callable(array<string,mixed>):array<string,mixed> $consume
