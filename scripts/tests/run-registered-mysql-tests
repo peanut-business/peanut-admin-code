@@ -223,8 +223,6 @@ required_environment=(
   DB_HOST DB_PORT DB_NAME
   PEANUT_DATABASE_RESOURCE_ID PEANUT_DATABASE_ENDPOINT_ID
   PEANUT_DATABASE_CONSUMER PEANUT_DATABASE_ENVIRONMENT
-  PEANUT_DATABASE_RESOURCE_SCOPE PEANUT_DATABASE_LEASE_ID
-  PEANUT_DATABASE_LEASE_OWNER PEANUT_DATABASE_LEASE_GATE
 )
 for name in "${required_environment[@]}"; do
   [[ -n "${!name:-}" ]] || { echo "ERROR: required environment is missing: $name" >&2; exit 2; }
@@ -250,17 +248,11 @@ registry="$canonical_registry"
 registry_tool="$canonical_registry_tool"
 registry_root=""
 registry_pending=""
-lease_claimed=0
 logs=()
 
 cleanup() {
   local status=$?
   trap - EXIT INT TERM
-  if [[ "$lease_claimed" == 1 ]]; then
-    "$ROOT/scripts/project-resource-lease" release \
-      --lease "$PEANUT_DATABASE_LEASE_ID" \
-      --owner "$PEANUT_DATABASE_LEASE_OWNER" >/dev/null || status=1
-  fi
   [[ -z "$registry_pending" || ! -f "$registry_pending" ]] || rm -f -- "$registry_pending"
   if [[ -n "$registry_root" ]]; then
     [[ "$registry_root" == "$RUNNER_TEMP"/peanut-admin-ci-registry.* ]] || status=1
@@ -355,28 +347,6 @@ if [[ "$mode" == --ci-service ]]; then
       || { echo "ERROR: temporary registry resolution mismatch: $name" >&2; exit 1; }
   done
   unset resolved_output resolved_count resolved_value key value
-
-  candidate="$(git rev-parse HEAD)"
-  "$ROOT/scripts/project-resource-lease" claim \
-    --lease "$PEANUT_DATABASE_LEASE_ID" \
-    --owner "$PEANUT_DATABASE_LEASE_OWNER" \
-    --candidate "$candidate" \
-    --candidate-repository "$ROOT" \
-    --gate "$PEANUT_DATABASE_LEASE_GATE" \
-    --ttl 3600 \
-    --resource "resource-id=$PEANUT_DATABASE_RESOURCE_ID" \
-    --resource "endpoint=$PEANUT_DATABASE_ENDPOINT_ID" \
-    --resource "consumer=$PEANUT_DATABASE_CONSUMER" \
-    --resource "environment=$PEANUT_DATABASE_ENVIRONMENT" \
-    --resource "host=$DB_HOST" \
-    --resource "port=$DB_PORT" \
-    --resource "mysql-db=$DB_NAME" \
-    --resource "database=$DB_NAME" \
-    --resource "resource-scope=$PEANUT_DATABASE_RESOURCE_SCOPE" \
-    --resource 'version=8.4.10' \
-    --resource "registry-sha256=$PEANUT_DATABASE_REGISTRY_SHA256" \
-    --resource "registry-tool-sha256=$(shasum -a 256 "$registry_tool" | awk '{print $1}')" >/dev/null
-  lease_claimed=1
 fi
 
 export PEANUT_INTEGRATION=1

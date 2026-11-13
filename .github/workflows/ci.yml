@@ -448,7 +448,7 @@ jobs:
       - name: Install locked source API generator dependencies
         run: pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy
       - *prepare-module-consumer
-      - name: Run lease-bound real MySQL 8.4 gate
+      - name: Run real MySQL 8.4 gate
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: ${{ job.services.mysql.ports[3306] }}
@@ -457,10 +457,6 @@ jobs:
           PEANUT_DATABASE_ENDPOINT_ID: peanut-admin-ci-real-mysql84-host
           PEANUT_DATABASE_CONSUMER: host
           PEANUT_DATABASE_ENVIRONMENT: continuous-integration
-          PEANUT_DATABASE_RESOURCE_SCOPE: github-actions-job:${{ github.repository_id }}:${{ github.run_id }}:${{ github.run_attempt }}
-          PEANUT_DATABASE_LEASE_ID: ci-mysql-${{ github.run_id }}-${{ github.run_attempt }}
-          PEANUT_DATABASE_LEASE_OWNER: github-actions:${{ github.repository_id }}:${{ github.run_id }}:${{ github.run_attempt }}
-          PEANUT_DATABASE_LEASE_GATE: real-mysql
           PEANUT_MYSQL_RESOURCE_MODE: --ci-service
         run: ./scripts/ci-server-check.sh --integration "--application-root=$PEANUT_CI_APPLICATION_ROOT" --env-file "$PEANUT_CI_BACKEND_ENV"
       - name: Remove isolated registered MySQL environment

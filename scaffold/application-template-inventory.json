@@ -2931,32 +2931,6 @@
             "source_sha256": "8177dd0d7f12d5ee269e8d8c5d158fcfb00d5e13a9e395be69402eac8e065b41"
         },
         {
-            "path": "scripts/project-resource-application.py",
-            "target": "scripts/project-resource-application.py",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "scripts/project-resource-lease",
-            "target": "scripts/project-resource-lease",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "scripts/project-resource-registry",
             "target": "scripts/project-resource-registry",
             "classification": "excluded",
@@ -3676,19 +3650,6 @@
         {
             "path": "scripts/tests/project_resource_failed_install_retirement_test.py",
             "target": "scripts/tests/project_resource_failed_install_retirement_test.py",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "scripts/tests/project_resource_lease_parent_test.py",
-            "target": "scripts/tests/project_resource_lease_parent_test.py",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -10041,7 +10002,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9fc33525cd4ebd9e5a34d0eb5e5afad5df5ff96ba02e5ad6529bff390d5b6c9f"
+            "source_sha256": "83b88c2de87c1814cb09d28f654d75bc6873e7000114750e7241a6699debb242"
         },
         {
             "path": "server/database/install.php",

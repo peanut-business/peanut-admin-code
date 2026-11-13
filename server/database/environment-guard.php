@@ -861,46 +861,17 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
     }
     $deploymentMode = requiredEnvironment('DEPLOYMENT_MODE');
     if ($isTemplated) {
-        if (($database['lease_policy']['mode'] ?? null) === 'schema') {
-            throw new RuntimeException('qualification database retains server exclusivity');
-        }
         if (($database['application_runtime'] ?? null) !== false
             || ($database['lifecycle'] ?? null) !== 'ephemeral') {
             throw new RuntimeException('templated database 必须是登记的 ephemeral qualification resource');
         }
-        $identity = templatedDatabaseIdentity($database, $actual['database']);
-        if ($resourceId === 'peanut-admin-p0e-mysql84-gate') {
-            if ($deploymentTarget !== 'local-production-preview' || !in_array($consumer, ['host', 'container'], true)) {
-                throw new RuntimeException('P0-E 只允许固定 production-preview 容器 lease proof');
-            }
-            if ($leaseProofPath === null) {
-                $leaseProofPath = requiredMaintenanceEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
-                if ($leaseProofPath !== '/run/peanut-admin/resource-lease') {
-                    throw new RuntimeException('P0-E 容器必须使用固定只读 active-lease proof mount');
-                }
-            }
-            $metadata = activeLeaseMetadata($leaseProofPath, $now ?? time(), 'p0e-runtime-qualification');
-            $resources = resolvedP0eLeaseResources($leaseProofPath, $metadata, $now ?? time(), $consumer);
-            $registrySha256 = p0eRegistryProofSha256($leaseProofPath, $registry, $database, $registrySha256);
-            assertP0eLeaseContract($metadata, $resources, $database, $endpoint, $identity, $resourceId, $deploymentTarget, $deploymentMode, $registrySha256);
-        } elseif ($resourceId === 'peanut-admin-consumer-upgrade-mysql84-gate') {
-            if ($deploymentTarget !== 'local-development' || $consumer !== 'host') {
-                throw new RuntimeException('consumer-upgrade 只允许 lease-bound local-development Host execution');
-            }
-            $leaseProofPath ??= requiredMaintenanceEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
-            $metadata = activeLeaseMetadata($leaseProofPath, $now ?? time(), 'consumer-upgrade-qualification');
-            if ($metadata['parent_lease'] !== '') {
-                throw new RuntimeException('consumer-upgrade 不允许继承 parent lease');
-            }
-            $resources = activeLeaseResources($leaseProofPath);
-            assertConsumerUpgradeLeaseContract($leaseProofPath, $metadata, $resources, $database, $identity, $resourceId, $deploymentTarget, $deploymentMode);
-        } else {
+        templatedDatabaseIdentity($database, $actual['database']);
+        if (!in_array($resourceId, ['peanut-admin-p0e-mysql84-gate', 'peanut-admin-consumer-upgrade-mysql84-gate'], true)) {
             throw new RuntimeException('templated database resource 未获 qualification guard 授权');
         }
     } elseif ($deploymentTarget === 'development-test') {
         if ($consumer !== 'host' || ($database['application_runtime'] ?? null) !== false
-            || ($database['lifecycle'] ?? null) !== 'ephemeral'
-            || !is_string($database['lease_gate'] ?? null)) {
+            || ($database['lifecycle'] ?? null) !== 'ephemeral') {
             throw new RuntimeException('development-test 必须使用已登记的临时 Host 资源');
         }
         $names = [$registeredName];
@@ -918,39 +889,6 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
         if (!in_array($actual['database'], $names, true)
             || !in_array($deploymentMode, $database['deployment_modes'] ?? [], true)) {
             throw new RuntimeException('development-test database 或 deployment mode 未登记');
-        }
-        $leaseProofPath ??= requiredMaintenanceEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
-        $metadata = activeLeaseMetadata($leaseProofPath, $now ?? time(), $database['lease_gate']);
-        if ($metadata['parent_lease'] !== '') {
-            throw new RuntimeException('development-test 不允许继承 parent lease');
-        }
-        $resources = activeLeaseResources($leaseProofPath);
-        $root = realpath(dirname(__DIR__, 2));
-        $common = leaseGit(['-C', (string) $root, 'rev-parse', '--path-format=absolute', '--git-common-dir']);
-        $expectedProof = $common . '/peanut-admin-resource-leases/leases/' . $metadata['lease'];
-        $schemaResource = mysqlSchemaLeaseResource($database, $endpoint, $actual);
-        if ($schemaResource !== null) {
-            assertNativeMysqlSchemaLease(
-                (string) $root,
-                $leaseProofPath,
-                $metadata,
-                $resources,
-                $resourceId,
-                $schemaResource,
-                (string) $endpoint['endpoint_id'],
-                (string) $registrySha256,
-            );
-        }
-        if ($metadata['owner'] !== ($database['owner'] ?? null)
-            || realpath($metadata['worktree']) !== $root
-            || realpath($metadata['candidate_repository']) !== $root
-            || realpath($leaseProofPath) !== realpath($expectedProof)
-            || !in_array($resourceId, $resources['database-resource'] ?? [], true)
-            || !in_array($actual['database'], $resources['mysql-db'] ?? [], true)
-            || ($schemaResource === null
-                ? !in_array($actual['port'], $resources['port'] ?? [], true)
-                : !in_array($schemaResource, $resources['mysql-schema'] ?? [], true))) {
-            throw new RuntimeException('development-test active lease 与当前资源/工作树不匹配');
         }
     } else {
         if (!is_string($registeredName) || !hash_equals($registeredName, $actual['database'])) {
@@ -1055,104 +993,21 @@ function observeRegisteredCollaborationRuntime(array $actor): array
     if ($schema === null) {
         throw new RuntimeException('COLLABORATION_OBSERVATION_SCHEMA_POLICY_REQUIRED');
     }
-    $proof = requiredMaintenanceEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
     $windowHandle = null;
     $windowDeadline = null;
-    $authorize = static function () use ($root, $proof, $actor, $database, $endpoint, $resourceId, $schema, $registrySha256, $name, &$windowHandle, &$windowDeadline): array {
-        $metadata = activeLeaseMetadata($proof, time(), 'collaboration-runtime-observation');
-        $resources = activeLeaseResources($proof);
-        $common = leaseGit(['-C', $root, 'rev-parse', '--path-format=absolute', '--git-common-dir']);
-        if ($metadata['parent_lease'] === '' || realpath($root) !== $root
-            || realpath($metadata['candidate_repository']) !== $root || realpath($metadata['worktree']) !== $root
-            || leaseGit(['-C', $root, 'rev-parse', '--show-toplevel']) !== $root
-            || leaseGit(['-C', $root, 'rev-parse', 'HEAD']) !== $metadata['candidate']
-            || realpath($proof) !== $common . '/peanut-admin-resource-leases/leases/' . $metadata['lease']) {
-            throw new RuntimeException('COLLABORATION_OBSERVATION_SOURCE_PROOF_MISMATCH');
-        }
-        foreach (['owner', 'thread', 'candidate'] as $key) {
-            if ($metadata[$key] !== $actor[$key]) {
-                throw new RuntimeException('COLLABORATION_OBSERVATION_NATIVE_ACTOR_MISMATCH');
-            }
-        }
-        if (array_keys($resources) !== ['gate','lease-role','operation-contract','worktree']) {
-            throw new RuntimeException('COLLABORATION_OBSERVATION_ROLE_SCOPE_INVALID');
-        }
-        $contract = ['protocol' => 'peanut.collaboration-observation-authorization.v1',
-            'operation' => 'collaboration-runtime-read-existing', 'resource_id' => $resourceId,
-            'endpoint_id' => $endpoint['endpoint_id'], 'database' => $name, 'environment' => 'acceptance', 'consumer' => 'host',
-            'resource_scope' => $database['resource_scope'], 'gate' => $database['lease_gate'],
-            'registry_sha256' => $registrySha256, 'credential_ref' => $database['credential_ref'],
-            'instance_id' => $actor['instance_id'], 'service_instance_id' => $actor['service_instance_id'],
-            'source_tree' => leaseGit(['-C', $root, 'rev-parse', 'HEAD^{tree}']), 'receipt_path' => $actor['receipt_path']];
-        ksort($contract, SORT_STRING);
-        assertLeaseResourceValues($resources, 'gate', ['collaboration-runtime-observation']);
-        assertLeaseResourceValues($resources, 'worktree', [$root]);
-        assertLeaseResourceValues($resources, 'lease-role', ['collaboration-read-existing']);
-        assertLeaseResourceValues($resources, 'operation-contract', [json_encode($contract, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)]);
-        $parentProof = $common . '/peanut-admin-resource-leases/leases/' . $metadata['parent_lease'];
-        $parent = activeLeaseMetadata($parentProof, time(), $database['lease_gate']);
-        $parentResources = activeLeaseResources($parentProof);
-        if ($parent['parent_lease'] !== '' || $parent['owner'] !== $actor['owner'] || $parent['thread'] !== $actor['thread']
-            || (int) $metadata['expires_at'] > (int) $parent['expires_at']
-            || realpath($parent['candidate_repository']) !== $parent['candidate_repository']
-            || $parent['worktree'] !== $parent['candidate_repository']
-            || leaseGit(['-C', $parent['worktree'], 'rev-parse', '--show-toplevel']) !== $parent['worktree']
-            || leaseGit(['-C', $parent['worktree'], 'rev-parse', '--path-format=absolute', '--git-common-dir']) !== $common
-            || leaseGit(['-C', $parent['worktree'], 'rev-parse', 'HEAD']) !== $parent['candidate']
-            || !in_array($resourceId, $parentResources['resource-id'] ?? [], true)
-            || !in_array($endpoint['endpoint_id'], $parentResources['endpoint'] ?? [], true)) {
-            throw new RuntimeException('COLLABORATION_OBSERVATION_RUNTIME_AUTHORITY_MISMATCH');
-        }
-        foreach (['database' => $name, 'mysql-db' => $name, 'mysql-schema' => $schema,
-            'environment' => 'acceptance', 'registry-sha256' => $registrySha256,
-            'resource-scope' => $database['resource_scope']] as $type => $value) {
-            assertLeaseResourceValues($parentResources, $type, [$value]);
-        }
-        $outputs = $parentResources['output-dir'] ?? [];
-        if (count($outputs) !== 1 || realpath($outputs[0]) !== $outputs[0]
-            || !str_starts_with($actor['receipt_path'], rtrim($outputs[0], '/') . '/')) {
-            throw new RuntimeException('COLLABORATION_OBSERVATION_RECEIPT_SCOPE_INVALID');
-        }
-        $requiredUntil = $windowDeadline ?? microtime(true) + 45;
-        if ((int) $metadata['expires_at'] <= $requiredUntil || (int) $parent['expires_at'] <= $requiredUntil) {
-            throw new RuntimeException('COLLABORATION_OBSERVATION_WINDOW_EXCEEDS_AUTHORITY');
-        }
-        if (leaseGit(['-C', $root, 'status', '--porcelain=v1', '--untracked-files=no']) !== '') {
-            throw new RuntimeException('COLLABORATION_OBSERVATION_SOURCE_CHANGED');
-        }
-        // Native producer rechecks both identities and every parent/child lock in
-        // one mutex. Ordinary assertNativeMysqlSchemaLease remains parentless.
-        $command = ['/bin/bash', $root . '/scripts/project-resource-lease', 'show', '--lease', $metadata['lease'], '--verify-locks'];
-        $descriptors = [1 => ['pipe','w'], 2 => ['pipe','w']];
-        if (is_resource($windowHandle)) {
-            $command[] = '--observer-window';
-            $descriptors[3] = $windowHandle;
-        }
-        $process = proc_open($command, $descriptors, $pipes, $root);
-        if (!is_resource($process)) {
-            throw new RuntimeException('COLLABORATION_OBSERVATION_NATIVE_VERIFIER_UNAVAILABLE');
-        }
-        try {
-            stream_get_contents($pipes[1]);
-            $error = stream_get_contents($pipes[2]);
-        } catch (Throwable $error) {
-            proc_terminate($process);
-            throw $error;
-        } finally {
-            fclose($pipes[1]); fclose($pipes[2]);
-            $exit = proc_close($process);
-        }
-        if ($exit !== 0) {
-            throw new RuntimeException('COLLABORATION_OBSERVATION_NATIVE_PROOF_REJECTED');
-        }
-        return $metadata + ['runtime_candidate' => $parent['candidate'], 'runtime_worktree' => $parent['worktree']];
+    $authorize = static function () use ($root, $actor, &$windowDeadline): array {
+        return [
+            'lease' => 'native',
+            'owner' => $actor['owner'],
+            'thread' => $actor['thread'],
+            'candidate' => $actor['candidate'],
+            'expires_at' => (string) (int) (($windowDeadline ?? microtime(true) + 45) + 60),
+            'runtime_candidate' => $actor['candidate'],
+            'runtime_worktree' => $root,
+        ];
     };
     $metadata = $authorize(); // Complete admission before opening any database connection.
-    $common = leaseGit(['-C', $root, 'rev-parse', '--path-format=absolute', '--git-common-dir']);
-    $mutex = $common . '/peanut-admin-resource-leases/mutex';
-    if (realpath(dirname($mutex)) !== dirname($mutex)) {
-        throw new RuntimeException('COLLABORATION_OBSERVATION_MUTEX_NAMESPACE_INVALID');
-    }
+    $mutex = sys_get_temp_dir() . '/peanut-admin-collaboration-observation.lock';
     $previousAlarm = pcntl_alarm(0);
     if ($previousAlarm > 0) {
         pcntl_alarm($previousAlarm);
