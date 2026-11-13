@@ -3090,16 +3090,15 @@
         {
             "path": "scripts/read-development-docs",
             "target": "scripts/read-development-docs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "a4984b9b8154a76aec7e2b71b0f049e10da25457911bf75ebdf5fcb099ad0ecf"
+            ]
         },
         {
             "path": "scripts/release-asset-verification.mjs",
@@ -3117,16 +3116,15 @@
         {
             "path": "scripts/release-dependency-locks.mjs",
             "target": "scripts/release-dependency-locks.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "f794f31410fc7ecdbab315199ffbb77b9a56178d996c4ab67cdf1fd2747856ab"
+            ]
         },
         {
             "path": "scripts/release-metadata-version.cjs",
@@ -3320,7 +3318,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "efab6396e79f215597284dbd85baa6465532574882c75b8b958a2ecf2bb5db30"
+            "source_sha256": "481b0f6c5b6ec67e219489c245d266cb184643bbdcc6806af8ce92e7f6e589ce"
         },
         {
             "path": "scripts/scaffold-upgrade",
@@ -5702,7 +5700,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0714d87263f0e3757e950876fb33b3a8637e1324c5b9cdbda1074ac4ab4b8678"
+            "source_sha256": "584ef73cb2cb2ee679336232daf8911fe4b36ba4f69a7cdf1f5db2a9ec479578"
         },
         {
             "path": "server/app/command/ModuleMake.php",
@@ -8576,7 +8574,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6bc53df54eff9c6a396baa627e7a018b7dc34e97b209243d8c33665ee7415ae9"
+            "source_sha256": "358ccdfaad97b3a8e3e6abbfe505f9ddf9e820bcb8bc476e95fa024a78848032"
         },
         {
             "path": "server/app/platform/composition/module/ModuleModuleRegistryFactory.php",
@@ -9080,7 +9078,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8da703a6c75e9e2f5f53dae7b80e72980c638dabccf301816a8f437e9652e884"
+            "source_sha256": "c1fc6117533d056bba1580ade8aaa72a18efa5416f8da04b066bc8ee14ccefcc"
         },
         {
             "path": "server/app/platform/infrastructure/module/ModulePackageInstaller.php",
@@ -9430,7 +9428,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0ff4efd612aad2ba6cf5a997449e188c8b242901c5f2dfc2a77204015dba75ca"
+            "source_sha256": "c4e4b3f8eeb74e809e422fc04ef243a13ae13bf1acf404fd83f0e960766633a8"
         },
         {
             "path": "server/app/platform/services/module/ModulePackageAdoptionService.php",

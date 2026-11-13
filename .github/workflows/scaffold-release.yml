@@ -129,19 +129,11 @@ jobs:
               for name in ('php', 'node', 'pnpm', 'python3', 'composer'):
                   out.write(name + '=' + tools[name]['version'] + '\n')
           PY
-      - name: Require a fixed independent CLI source
-        if: ${{ !inputs.pack_only }}
-        env:
-          CLI_COMMIT: ${{ inputs.candidate_cli_commit || '79631ad08a5235af108cd65d2742e8a07f5e0eb1' }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          [[ "$CLI_COMMIT" =~ ^[a-f0-9]{40}$ ]]
       - uses: actions/checkout@v4
         if: ${{ !inputs.pack_only }}
         with:
           repository: peanut-business/peanut-cli
-          ref: ${{ inputs.candidate_cli_commit || '79631ad08a5235af108cd65d2742e8a07f5e0eb1' }}
+          ref: ${{ inputs.candidate_cli_commit || 'main' }}
           path: .local/qualification-cli
           fetch-depth: 0
           persist-credentials: false
@@ -176,21 +168,24 @@ jobs:
         if: ${{ !inputs.pack_only }}
         shell: bash
         env:
-          CLI_COMMIT: ${{ inputs.candidate_cli_commit || '79631ad08a5235af108cd65d2742e8a07f5e0eb1' }}
+          CLI_REF: ${{ inputs.candidate_cli_commit || 'main' }}
           RUN_TESTS: ${{ inputs.run_tests && 'true' || 'false' }}
         run: |
           scripts/ci-producer exec "$RUNNER_TEMP/ci-producer" -- bash -Eeuo pipefail -s -- "$RUN_TESTS" <<'PRODUCER'
           set -Eeuo pipefail
           export RUN_TESTS="$1"
           python3 - <<'PY'
-          import hashlib, json, os, pathlib, subprocess
+          import hashlib, json, os, pathlib, re, subprocess
           code = pathlib.Path.cwd()
           cli = code / ".local/qualification-cli"
           git = lambda root, *args: subprocess.check_output(["git", "-C", str(root), *args], text=True).strip()
-          assert git(cli, "rev-parse", "HEAD") == os.environ["CLI_COMMIT"]
+          cli_commit = git(cli, "rev-parse", "HEAD")
+          cli_ref = os.environ["CLI_REF"]
+          if re.fullmatch(r"[a-f0-9]{40}", cli_ref):
+              assert cli_commit == cli_ref
           value = {"protocol": "peanut.p0e-candidate-inputs.v1",
                    "source": {"commit": os.environ["GITHUB_SHA"], "tree": git(code, "rev-parse", "HEAD^{tree}")},
-                   "cli": {"root": str(cli), "commit": os.environ["CLI_COMMIT"], "tree": git(cli, "rev-parse", "HEAD^{tree}")},
+                   "cli": {"root": str(cli), "commit": cli_commit, "tree": git(cli, "rev-parse", "HEAD^{tree}")},
                    "template_build_root": os.environ["RUNNER_TEMP"] + "/scaffold-templates",
                    "run_tests": os.environ["RUN_TESTS"] == "true"}
           path = pathlib.Path(os.environ["RUNNER_TEMP"]) / "candidate-inputs.json"

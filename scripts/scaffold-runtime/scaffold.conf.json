@@ -297,6 +297,8 @@
         "web/tests/Productization/module-contribution.test.ts",
         "deploy/docker-compose.remote-development.yml",
         "scripts/project-development-database.sh",
+        "scripts/read-development-docs",
+        "scripts/release-dependency-locks.mjs",
         "server/tests/Productization/DatabaseResourceRegistryTest.php",
         "deploy/docker-compose.dev.yml",
         "deploy/docker/php-development.Dockerfile",

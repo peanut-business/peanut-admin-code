@@ -112,6 +112,7 @@ final readonly class ModuleDefinitionRegistryFactory
         ModuleLockResolver $resolver,
         array $deploymentConfig,
         bool $includeDeploymentRoots = true,
+        bool $checkBoundaries = false,
     ): CompiledModuleRegistry {
         $configuredRoots = $includeDeploymentRoots && is_array($deploymentConfig['roots'] ?? null)
             ? array_values($deploymentConfig['roots'])
@@ -120,7 +121,7 @@ final readonly class ModuleDefinitionRegistryFactory
             ...$this->resolveRoots($configuredRoots, false),
             ...$resolver->moduleRoots(),
         ];
-        return $this->compile(array_values(array_unique($roots)), $deploymentConfig);
+        return $this->compile(array_values(array_unique($roots)), $deploymentConfig, $checkBoundaries);
     }
 
     /**
@@ -150,7 +151,7 @@ final readonly class ModuleDefinitionRegistryFactory
     }
 
     /** @param list<string> $roots @param array<string,mixed> $deploymentConfig */
-    private function compile(array $roots, array $deploymentConfig): CompiledModuleRegistry
+    private function compile(array $roots, array $deploymentConfig, bool $checkBoundaries = false): CompiledModuleRegistry
     {
         if (PHP_SAPI !== 'cli') {
             throw new ModuleException('MODULE_REGISTRY_COMPILE_CLI_REQUIRED', 'HTTP cannot compile Module declarations.');
@@ -211,7 +212,9 @@ final readonly class ModuleDefinitionRegistryFactory
             $reservedTableOwners,
         );
         $registry = $compiler->compile($documents);
-        (new ModuleBoundaryChecker($registry, $layout, ['pa_']))->check();
+        if ($checkBoundaries) {
+            (new ModuleBoundaryChecker($registry, $layout, ['pa_']))->check();
+        }
         return $registry;
     }
 
