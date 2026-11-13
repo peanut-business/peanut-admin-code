@@ -657,6 +657,10 @@ final readonly class Dependencies
             $tool = 'local-core-composer';
         }
         if ($this->usesAutomaticEnvironment($project)) {
+            // Only this APP's native helper path maps to the declared tool scope; keep argv unchanged.
+            if ($tool === $project . '/scripts/local-core-web') {
+                $tool = 'local-core-web';
+            }
             // Same public invocation as CLI v2; prepare/reuse exactly once in this native run.
             return $this->execute([$this->automaticEnvironmentPython(),
                 $project . '/scripts/project-env', '--root', $project, '--state-root', $project,

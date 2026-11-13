@@ -104,6 +104,9 @@ try {
     putenv('PEANUT_TOOL_PYTHON3=' . $python);
     $dependencies = new \app\common\module\Dependencies($server);
     $reflection = new ReflectionClass($dependencies);
+    paEnvNeed(realpath((string) $reflection->getFileName())
+        === realpath(dirname(__DIR__, 2) . '/app/common/module/Dependencies.php'),
+        'regression must load the current candidate Dependencies, not the tooling checkout class');
     $invoke = $reflection->getMethod('run');
     $doctor = $reflection->getMethod('assertNativeToolchainReady');
 
@@ -172,6 +175,77 @@ try {
         && in_array('node,npm', $nativeCalls[count($nativeCalls) - 1], true),
         'v2 must request only the selected Node and native package manager scope');
 
+    // AUDIT-001: actual local Core selection and the absolute helper argument
+    // produced by adoptFrontend() must reach the same native v2 runner.
+    [$coreProject, $coreServer, $coreTrace] = paEnvFixture($base, 'core-selected', true, $python);
+    mkdir($coreProject . '/.local', 0700);
+    mkdir($base . '/php-core', 0700);
+    mkdir($base . '/web-core', 0700);
+    file_put_contents($base . '/backend.env', 'APP_ENV=development' . PHP_EOL);
+    $coreSelection = ['schema_version' => 1, 'application_root' => realpath($coreProject),
+        'php_core_dir' => $base . '/php-core', 'web_core_dir' => $base . '/web-core',
+        'backend_env' => $base . '/backend.env'];
+    file_put_contents($coreProject . '/.local/core-dev.json',
+        json_encode($coreSelection, JSON_THROW_ON_ERROR));
+    $selectedDependencies = new \app\common\module\Dependencies($coreServer);
+    $selectionMethod = $reflection->getMethod('localCoreSelection');
+    paEnvNeed($selectionMethod->invoke($selectedDependencies) === $coreSelection,
+        'fixture must pass the actual application-bound Core selection validation');
+    $webCommand = [$coreProject . '/scripts/local-core-web', 'link',
+        '--core-dir', $coreSelection['web_core_dir'], '--client', 'web,platform'];
+    $webResult = $invoke->invoke($selectedDependencies, $webCommand, $coreProject);
+    $coreCalls = paEnvCalls($coreTrace);
+    $webNative = ['--root', $coreProject, '--state-root', $coreProject,
+        '--tools', 'node,pnpm', 'run', '--', ...$webCommand];
+    paEnvNeed($webResult['tool'] === 'local-core-web' && $webResult['exit_code'] === 0
+        && $coreCalls === [$webNative],
+        'exact application local-core-web must keep its absolute argv and use one node,pnpm run');
+
+    $composerResult = $invoke->invoke($selectedDependencies, ['composer', 'install'], $coreServer);
+    $coreCalls = paEnvCalls($coreTrace);
+    $composerCommand = [$coreProject . '/scripts/local-core-composer', 'install',
+        '--core-dir', $coreSelection['php_core_dir'], '--backend-env', $coreSelection['backend_env']];
+    $composerNative = ['--root', $coreProject, '--state-root', $coreProject,
+        '--tools', 'php,composer', 'run', '--', ...$composerCommand];
+    paEnvNeed($composerResult['tool'] === 'local-core-composer' && $composerResult['exit_code'] === 0
+        && $coreCalls === [$webNative, $composerNative],
+        'explicit local PHP Core must keep the original native Composer helper path and arguments');
+
+    $traceBeforeRejection = file_get_contents($coreTrace);
+    try {
+        $invoke->invoke($selectedDependencies, [$base . '/another-app/scripts/local-core-web', 'link'], $coreProject);
+        throw new RuntimeException('same-basename foreign helper was silently admitted');
+    } catch (\app\platform\exception\module\ModulePackageException $expected) {
+        paEnvNeed($expected->errorCode === 'MODULE_DEPENDENCY_TOOLCHAIN_REQUIRED',
+            'a foreign same-basename helper must not gain the application tool scope');
+    }
+    paEnvNeed(file_get_contents($coreTrace) === $traceBeforeRejection,
+        'foreign helper must be rejected before starting any project-env command');
+
+    $wrongSelection = $coreSelection;
+    $wrongSelection['application_root'] = $base . '/another-app';
+    file_put_contents($coreProject . '/.local/core-dev.json',
+        json_encode($wrongSelection, JSON_THROW_ON_ERROR));
+    try {
+        $invoke->invoke($selectedDependencies, ['composer', 'install'], $coreServer);
+        throw new RuntimeException('foreign application Core selection was accepted');
+    } catch (\app\platform\exception\module\ModulePackageException $expected) {
+        paEnvNeed($expected->errorCode === 'MODULE_DEPENDENCY_SOURCE_CONFLICT',
+            'existing Core application identity validation must remain effective');
+    }
+    paEnvNeed(file_get_contents($coreTrace) === $traceBeforeRejection,
+        'invalid explicit Core selection must fail before native process dispatch');
+
+    $legacyWebCommand = [$legacy . '/scripts/local-core-web', 'link',
+        '--core-dir', $coreSelection['web_core_dir'], '--client', 'web'];
+    $legacyWebResult = $invoke->invoke(new \app\common\module\Dependencies($legacyServer),
+        $legacyWebCommand, $legacy);
+    $legacyWebCalls = paEnvCalls($legacyTrace);
+    paEnvNeed($legacyWebResult['exit_code'] === 0 && count($legacyWebCalls) === 4
+        && $legacyWebCalls[2] === ['--root', $legacy, 'prepare']
+        && $legacyWebCalls[3] === ['--root', $legacy, 'exec', '--', ...$legacyWebCommand],
+        'non-v2 local Web Core must retain its original explicit host prepare/exec behavior');
+
     [$removal, $removalServer, $removalTrace] = paEnvFixture($base, 'removal', true, $python);
     file_put_contents($removalServer . '/composer.json', '{"require":{},"repositories":[]}');
     file_put_contents($removalServer . '/composer.lock', '{"packages":[],"packages-dev":[]}');
@@ -190,6 +264,7 @@ try {
         && file_get_contents($removalServer . '/composer.json') === $composerBefore,
         'removal preflight must run exactly once before changing Composer inputs');
     echo 'MODULE-ENV-V2-CONTRACT passed checks=10 v2-run=3 v2-preflight=1 legacy-prepare-exec=1 removal-prewrite=1 actual-dependency-installs=0' . PHP_EOL;
+    echo 'MODULE-ENV-LOCAL-CORE-001 passed cases=5 exact-web-helper=1 composer-helper=1 rejected-foreign-helper=1 rejected-foreign-selection=1 legacy-web-helper=1 actual-core-operations=0' . PHP_EOL;
 } finally {
     if ($beforePython === false) {
         putenv('PEANUT_TOOL_PYTHON3');
