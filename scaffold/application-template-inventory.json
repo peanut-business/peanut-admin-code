@@ -2529,47 +2529,8 @@
             ]
         },
         {
-            "path": "scripts/combined-upgrade-qualification",
-            "target": "scripts/combined-upgrade-qualification",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "scripts/consumer-module-reference-chain",
             "target": "scripts/consumer-module-reference-chain",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "scripts/consumer-ready-control",
-            "target": "scripts/consumer-ready-control",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "scripts/consumer-upgrade-qualification",
-            "target": "scripts/consumer-upgrade-qualification",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -2620,19 +2581,6 @@
             ]
         },
         {
-            "path": "scripts/continue-product-release",
-            "target": "scripts/continue-product-release",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "scripts/core-dev",
             "target": "scripts/core-dev",
             "classification": "managed",
@@ -2645,32 +2593,6 @@
                 "full"
             ],
             "source_sha256": "0172f89d12cd90fd1294e951c3a94e7d85e2e97951c2d0f60065f465c6dee821"
-        },
-        {
-            "path": "scripts/core-qualification-runner",
-            "target": "scripts/core-qualification-runner",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "scripts/core-upgrade-compatibility",
-            "target": "scripts/core-upgrade-compatibility",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
         },
         {
             "path": "scripts/create-app",
@@ -2807,20 +2729,6 @@
                 "full"
             ],
             "source_sha256": "2600661f4a1b8bd630e2f9f1ce94d40835976d279bd9d0b10f2cf5803ee06c85"
-        },
-        {
-            "path": "scripts/migrate-installation-state",
-            "target": "scripts/migrate-installation-state",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "590142881f1cb2fafaed8f6ef66aa5b2873ac3613d6db8be48c105fc67ab8cf3"
         },
         {
             "path": "scripts/module-frontend-entries.mjs",
@@ -3049,19 +2957,6 @@
             ]
         },
         {
-            "path": "scripts/project-resource-mysql-metadata",
-            "target": "scripts/project-resource-mysql-metadata",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "scripts/project-resource-registry",
             "target": "scripts/project-resource-registry",
             "classification": "excluded",
@@ -3077,19 +2972,6 @@
         {
             "path": "scripts/publish-github-release",
             "target": "scripts/publish-github-release",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "scripts/read-development-docs",
-            "target": "scripts/read-development-docs",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -3349,19 +3231,6 @@
             "source_sha256": "a5d3eb5febb7d32c74652aa5d785f7bb9e1303cc0fd9749a3da770073c6658ca"
         },
         {
-            "path": "scripts/select-legacy-pre-alpha5-fixture",
-            "target": "scripts/select-legacy-pre-alpha5-fixture",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "scripts/sync-brand-assets.mjs",
             "target": "scripts/sync-brand-assets.mjs",
             "classification": "managed",
@@ -3374,19 +3243,6 @@
                 "full"
             ],
             "source_sha256": "12bdfec7f49b4d80c20a9f1d744ffb4aa203065a2eb7e7dcd400ede89401a221"
-        },
-        {
-            "path": "scripts/test-core-upgrade-public-entry-gate",
-            "target": "scripts/test-core-upgrade-public-entry-gate",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
         },
         {
             "path": "scripts/tests/ci-change-classifier-test",
@@ -3456,19 +3312,6 @@
         {
             "path": "scripts/tests/consumer-module-sample-test.py",
             "target": "scripts/tests/consumer-module-sample-test.py",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "scripts/tests/continue_product_release_test.py",
-            "target": "scripts/tests/continue_product_release_test.py",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -13240,19 +13083,6 @@
             ]
         },
         {
-            "path": "server/tests/Productization/CombinedUpgradePolicyTest.php",
-            "target": "server/tests/Productization/CombinedUpgradePolicyTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Productization/ConsumerModuleMemberRuntimeTest.php",
             "target": "server/tests/Productization/ConsumerModuleMemberRuntimeTest.php",
             "classification": "excluded",
@@ -15405,136 +15235,6 @@
             "owner": "template-source-only",
             "transform": "copy",
             "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/fixtures/core-upgrade-compatibility/combined-upgrade.json",
-            "target": "server/tests/fixtures/core-upgrade-compatibility/combined-upgrade.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/fixtures/core-upgrade-compatibility/composer-alpha5.lock",
-            "target": "server/tests/fixtures/core-upgrade-compatibility/composer-alpha5.lock",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/fixtures/core-upgrade-compatibility/domain-probe.php",
-            "target": "server/tests/fixtures/core-upgrade-compatibility/domain-probe.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/fixtures/core-upgrade-compatibility/fixture.json",
-            "target": "server/tests/fixtures/core-upgrade-compatibility/fixture.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/fixtures/core-upgrade-compatibility/manual-action.txt",
-            "target": "server/tests/fixtures/core-upgrade-compatibility/manual-action.txt",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/fixtures/core-upgrade-compatibility/pnpm-alpha4-lock.yaml",
-            "target": "server/tests/fixtures/core-upgrade-compatibility/pnpm-alpha4-lock.yaml",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/fixtures/core-upgrade-compatibility/pnpm-alpha5-lock.yaml",
-            "target": "server/tests/fixtures/core-upgrade-compatibility/pnpm-alpha5-lock.yaml",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/fixtures/core-upgrade-compatibility/web-probe.ts",
-            "target": "server/tests/fixtures/core-upgrade-compatibility/web-probe.ts",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/fixtures/core-upgrade-compatibility/web-public-entry-gate-cases.json",
-            "target": "server/tests/fixtures/core-upgrade-compatibility/web-public-entry-gate-cases.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/fixtures/core-upgrade-compatibility/web-public-entry-gate.mjs",
-            "target": "server/tests/fixtures/core-upgrade-compatibility/web-public-entry-gate.mjs",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
