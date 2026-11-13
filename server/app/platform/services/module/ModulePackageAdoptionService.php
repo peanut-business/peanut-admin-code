@@ -26,7 +26,7 @@ final readonly class ModulePackageAdoptionService
         return $promoter->run(fn(): array => $promoter->recover());
     }
 
-    /** MT pre-install composition uses the existing archive verifier, source writer and recovery journal. */
+    /** Edition-bound pre-install composition reuses the existing source writer and recovery journal. */
     public function compose(array $request, ?string $approvedPlanSha256 = null): array
     {
         $this->development();
@@ -38,11 +38,12 @@ final readonly class ModulePackageAdoptionService
     private function compositionPlan(array $request, ModulePackageSourcePromoter $promoter, ?string $approvedSha): array
     {
         $root = dirname($this->serverRoot);
+        $edition = $request['edition'] ?? null;
         if (($request['schema_version'] ?? null) !== 1
             || ($request['protocol'] ?? null) !== 'peanut.module-source-composition-request.v1'
-            || ($request['edition'] ?? null) !== 'multi-tenant'
-            || (string) \think\facade\Config::get('deployment.mode', '') !== 'multi-tenant') {
-            throw new ModulePackageException('MODULE_COMPOSITION_REQUEST_INVALID', 'Composition requires an explicit MT request and MT host.');
+            || !in_array($edition, ['standalone', 'multi-tenant'], true)
+            || (string) \think\facade\Config::get('deployment.mode', '') !== $edition) {
+            throw new ModulePackageException('MODULE_COMPOSITION_REQUEST_INVALID', 'Composition requires the exact supported Edition of the uninstalled Host.');
         }
         foreach (['private/installation/installed.json', 'private/installation/executing.json',
             'runtime/installation/installed.json', 'runtime/installation/executing.json'] as $marker) {
@@ -212,7 +213,7 @@ final readonly class ModulePackageAdoptionService
                         $action = ($selected[$key] ?? null) === 'retain-higher' ? 'retain-higher' : 'retain';
                         $archiveSha = $promoter->pinnedArchiveSha($key, $current[$key]->version, $current[$key]->source['sha256']);
                     }
-                    PackageCheck::assertEdition($manifest->root, 'multi-tenant');
+                    PackageCheck::assertEdition($manifest->root, $edition);
                     $composer = json_decode((string) file_get_contents($manifest->root . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
                     PackageCheck::assertComposerRequirements(array_filter(
                         $composer['require'] ?? [],
@@ -279,7 +280,7 @@ final readonly class ModulePackageAdoptionService
             }
             ksort($writes, SORT_STRING);
             $plan = ['schema_version' => 1, 'protocol' => 'peanut.module-source-composition-plan.v1',
-                'status' => $diagnostics === [] ? 'ready' : 'blocked', 'edition' => 'multi-tenant', 'roots' => $roots,
+                'status' => $diagnostics === [] ? 'ready' : 'blocked', 'edition' => $edition, 'roots' => $roots,
                 'composition' => ['version' => $composition['version'], 'sha256' => $compositionSha, 'preset' => $request['preset']],
                 'index' => array_intersect_key($identity, array_flip(['repository', 'tag', 'commit', 'sha256'])),
                 'kernel_version' => $kernel, 'host_composer_sha256' => hash_file('sha256', $this->serverRoot . '/composer.json'),

@@ -30,7 +30,7 @@ Core 的 prepared 指纹绑定 Code state root、该 Core 的 host scope、解�
 
 PHP 的 `local-core-composer` 仅在 ignored `.local/composer-core/composer.json` 中将 Core 依赖投影到所选源码的真实 Git 分支。已配置本地 path 模块若依赖 Core，其真实 manifest 元数据也在同一开发 manifest 内投影到该分支，模块版本保留原声明；Composer 通过原生 `package` 元数据和 `dist.type=path` 强制链接真实模块目录，不生成源码副本。局部 `update` 明确列出 Core 和这些受影响模块，其他包保持正式锁定版本；不使用 `-w/-W`、稳定版本 alias，也不修改正式 `server/composer.json`、锁或模块 manifest。此处复用 [Composer package repository](https://getcomposer.org/doc/05-repositories.md#package-2)、[path downloader](https://github.com/composer/composer/blob/2.10.2/src/Composer/Downloader/PathDownloader.php) 与[局部 update](https://getcomposer.org/doc/03-cli.md#update-u-upgrade)，只服务源码联调。
 
-原生模块生命周期的依赖准备同样读取本工程明确保存的 `.local/core-dev.json`：存在有效选择时，其 Composer 操作经正常 `project-env prepare/exec` 调用 `local-core-composer install`，沿用所选 PHP Core 和 backend env；helper 继续核对来源、锁与服务登记。不存在选择时保持正式 Composer 路径；无效或属于另一工程的选择明确失败，不回落固定包。该路由只处理 PHP 开发依赖，不隐式安装或重建 Web Core。
+原生模块生命周期的依赖准备必须消费当前 APP 已声明的 `project-env` 协议，不建立第二套工具发现。v2 在初次修改 Composer/客户端清单前按实际所需工具执行一次只读 scoped `doctor`；Composer、pnpm、npm、PHP 及原生 Core helper 随后各由既有 `project-env --tools <本次范围> run --` 自动准备或复用对应入口，不强制创建 `host.json`，也不在每条原生命令前重复 `prepare/exec`。不兼容 Node/PHP 或缺工具在写前拒绝；显式失效的 host/profile/解释器同样拒绝，不自动替换。旧版非 v2 APP 继续使用原有私有 host 和 `prepare/exec` 合同。有效的 `.local/core-dev.json` 仍通过原有 `local-core-composer install` 及现有原生 Core helper 使用所选源码、backend env 和自己的受控工具范围；无此选择保持正式 Composer 路径，错误或跨 APP 的选择立即拒绝。该路由只服务明确批准的 Module 依赖准备，不隐式安装工具、复制 vendor 或重建 Web Core。
 
 已准备依赖的只读核验也沿用这项显式选择：确认已安装 Core 路径为所选源码后，模块的 Core 约束取现有 `.local/composer-core/composer.json` 内对应模块的开发投影，再由 Composer Semver 核验实际安装版本。其他依赖、PHP 与扩展仍按模块原声明核验；没有本地 Core 选择时，全部保留正式约束。核验不生成投影、不运行 Composer；缺少对应投影须先走上述原生准备入口，不改正式约束或把开发分支伪装成发行版本。
 

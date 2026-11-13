@@ -710,7 +710,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c7609317ab3d33f6077fed2bc784fd91be4ae011d22032f1364288f570cd236f"
+            "source_sha256": "71694aa772948d77c145f3b2d1f2f1b306992f117861e51fc507ee95cf665b43"
         },
         {
             "path": "docs/architecture/module-development-delivery.md",
@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e339a12a17a3d7f7e78c76c3a800c05c2d4e7c8f8d2849190e1c4e4e1a02338c"
+            "source_sha256": "e5ad28986ac413387315f16d73350c229d3da76297f8cf4fb446505cef5344ff"
         },
         {
             "path": "docs/development/request-cache-contract.md",
@@ -946,7 +946,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fa555397514a55a7a46627423c38c8e8e53c5600b73d06565df8ca0487f40c27"
+            "source_sha256": "13b19ec8a1c05b889f29b2072aa3eb388ffe54ad92928db74b303b9147b3117d"
         },
         {
             "path": "docs/development/ui-guidelines.md",
@@ -7622,7 +7622,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "586053994646013ccd61b452af4d6d7eb9bb882945711bea7ed36a11d7421623"
+            "source_sha256": "127cb89ea5fb72210faff668e08897025c07ef7849f36013191c38edd27c95bf"
         },
         {
             "path": "server/app/common/module/ModuleMigrationRun.php",
@@ -9444,7 +9444,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8c201f84ee24a75a3642b7c020e7336361311f8df59042e8c2f782835c8684ab"
+            "source_sha256": "d499bda5eba5032070c8fd99e2934f0603b238d6bb7a20b85b2e6925160fea83"
         },
         {
             "path": "server/app/platform/services/module/ModulePackageArchiveService.php",
@@ -12004,7 +12004,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b683b5b724052ae6d64e3506a6d25dd19fff033d6b991737ab225e8ae74ffb09"
+            "source_sha256": "543f3dbb84bfab5c740b33b912559609a554191018c587fd4789276cc620b37c"
         },
         {
             "path": "server/resources/scaffold-application/SECURITY.md.stub",
@@ -13635,6 +13635,19 @@
         {
             "path": "server/tests/Productization/ModuleCreateCommandTest.php",
             "target": "server/tests/Productization/ModuleCreateCommandTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/ModuleDependencyEnvironmentContractTest.php",
+            "target": "server/tests/Productization/ModuleDependencyEnvironmentContractTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
