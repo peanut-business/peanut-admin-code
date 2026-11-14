@@ -710,7 +710,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ed168a71e96154e3cf5e21bb248eae78a45ca2706741f8690295639f61e63ab5"
+            "source_sha256": "5269b4e1f3c01cf0d71f0286d542bbf3e09def71d74411529893a41e5f1ea0d0"
         },
         {
             "path": "docs/architecture/module-development-delivery.md",
@@ -3160,7 +3160,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "69840c1cf3f68d64e02c486f9cb5978095c5778bdf225e0e3b5d0015b40fbde0"
+            "source_sha256": "7a6ef92f8882369a22e19fbb7a22b66990602f213ce40a5a85bae14318c2c800"
         },
         {
             "path": "scripts/scaffold-upgrade",
@@ -9518,6 +9518,34 @@
             "source_sha256": "e5cb7e5b503332f74b0b3b28596090ce9b43ce314b30043852a8c8fca193365c"
         },
         {
+            "path": "server/composer.json",
+            "target": "server/composer.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "package",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ec03d94c30263dcc8e4998c74a45add45ec3fc91197affe07334e1f00be6998a"
+        },
+        {
+            "path": "server/composer.lock",
+            "target": "server/composer.lock",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "composer-lock",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "82f9e53ebe83d411ab01ebc63ec95802e9b2c696964336d8231758c5b8e69fe1"
+        },
+        {
             "path": "server/config/admin_api_access.php",
             "target": "server/config/admin_api_access.php",
             "classification": "managed",
@@ -11782,34 +11810,6 @@
                 "full"
             ],
             "source_sha256": "0c28319c9bb8ab8a060ed94dda44ac26e9d75c74d224073541b80ff4be4052b0"
-        },
-        {
-            "path": "server/resources/scaffold-application/composer.json",
-            "target": "server/composer.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "package",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "531731e0a1237995af8645358913e9bb8596e0c659f3fce4b1c446a6a927ceed"
-        },
-        {
-            "path": "server/resources/scaffold-application/composer.lock",
-            "target": "server/composer.lock",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "composer-lock",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "b94bf2602ddf3287ed9bd8608bb09c04f79921005d5cf8e1d06aedd3c7b9391a"
         },
         {
             "path": "server/resources/scaffold-application/project-rules.md.stub",

@@ -879,6 +879,10 @@ final class ApplicationCreator
         if (!is_string($composer)) {
             throw new RuntimeException('CREATE_APP_COMPOSER_COMPANION_MISSING');
         }
+        // Keep the source's exact runtime resolution; repository test packages are not delivered.
+        $lock = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+        $lock['packages-dev'] = [];
+        $content = json_encode($lock, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
         return ScaffoldManifest::renderComposerLock($content, $composer);
     }
 
@@ -985,17 +989,14 @@ final class ApplicationCreator
             'uniapp/package.json', 'docs-site/package.json'], true) && array_key_exists('version', $document)) {
             $document['version'] = $parameters['APPLICATION_VERSION'];
         }
-        if ($path === 'server/composer.json' && is_array($document['autoload-dev']['classmap'] ?? null)) {
-            $document['autoload-dev']['classmap'] = array_values(array_filter(
-                $document['autoload-dev']['classmap'],
-                static fn(mixed $entry): bool => !in_array($entry, ['tests/CoreIntegration/', 'tests/Modules/'], true),
-            ));
-        }
-        if ($path === 'server/composer.json' && is_array($document['autoload-dev']['files'] ?? null)) {
-            $document['autoload-dev']['files'] = array_values(array_filter(
-                $document['autoload-dev']['files'],
-                static fn(mixed $entry): bool => $entry !== 'tests/Support/ThinkPhpTestConnection.php',
-            ));
+        if ($path === 'server/composer.json') {
+            unset($document['require-dev'], $document['autoload-dev']);
+            if (isset($document['autoload']['exclude-from-classmap'])) {
+                $document['autoload']['exclude-from-classmap'] = array_values(array_filter(
+                    $document['autoload']['exclude-from-classmap'],
+                    static fn(string $entry): bool => !str_starts_with($entry, 'tests/'),
+                ));
+            }
         }
         if (in_array($path, ['platform/package-lock.json', 'pc/package-lock.json', 'uniapp/package-lock.json'], true)) {
             if (!array_key_exists('version', $document)

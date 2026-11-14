@@ -69,7 +69,7 @@ CLI create 的 ST/MT staged/approval 流程复用以下原生源码计划/准备
 
 ## 模板退出与后续升级
 
-发行 inventory 排除官方后端和各端作者源码，升级工具自身也使用投影后的应用 Composer 清单与锁，不夹带作者包。Code 的开发依赖和作者目录保留；它们不进入创建的应用。`server/resources/scaffold-application/composer.json` 与原生 Composer 生成的同目录 lock 是模板起始依赖，不包含 Module path 包或测试开发依赖。创建只生成空 `modules.lock`；完整锁和源码由 CLI 调用原生 adopt 后接收。客户端 workspace 保留通用扩展入口，API 只投影实际模块，宿主公共类型仍由现有 metadata 生成。
+发行 inventory 排除官方后端和各端作者源码，升级工具自身也使用投影后的应用 Composer 清单与锁，不夹带作者包。Code 的开发依赖和作者目录保留；它们不进入创建的应用。模板直接以 `server/composer.json` 与原生 `server/composer.lock` 为唯一依赖来源，由现有应用生成器移除仓库测试开发声明、测试 autoload 与 lock 中的开发包，并按投影后的 Composer 清单重算 content-hash；运行依赖版本、来源与摘要原样保留，不维护第二份模板 Composer 清单或锁。创建只生成空 `modules.lock`；完整锁和源码由 CLI 调用原生 adopt 后接收。客户端 workspace 保留通用扩展入口，API 只投影实际模块，宿主公共类型仍由现有 metadata 生成。
 
 CLI `create --plan` 首先返回私有 staged consumer；按该消费者自己的工具登记和起始锁执行 Composer install，再使用同一 `--composition-stage` 重做 plan，审阅 SHA 后批准源码准备。CLI 不复制 vendor，不偷偷运行依赖安装。源码未准备时 HTTP 返回 503 / `INSTALL_MODULE_SOURCE_MISSING` / `uninstalled`，在业务绑定前停止；不会放行管理 API。采用后使用上面的既有准备入口，然后才可进行新库安装。真实 ST/MT 数据库首次安装、登录和业务入口，以及 MT A/B 租户隔离仍须分别独立验收；未执行时记 NOT_RUN，不据源码链通过宣称 S3–S5 完成或允许正式发布。
 

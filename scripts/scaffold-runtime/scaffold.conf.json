@@ -86,9 +86,7 @@
       "scaffold/application-template-inventory.json",
       "scripts/ensure-qualified-release-tag",
       "SECURITY.md",
-      "AGENTS.md",
-      "server/composer.json",
-      "server/composer.lock"
+      "AGENTS.md"
     ],
     "prefixes": [
       "scaffold/",
@@ -422,26 +420,6 @@
       "target": "docs/project-rules.md",
       "classification": "app-owned",
       "transform": "docs-page",
-      "profiles": [
-        "minimal",
-        "standard",
-        "full"
-      ]
-    },
-    "server/resources/scaffold-application/composer.json": {
-      "target": "server/composer.json",
-      "classification": "managed",
-      "transform": "package",
-      "profiles": [
-        "minimal",
-        "standard",
-        "full"
-      ]
-    },
-    "server/resources/scaffold-application/composer.lock": {
-      "target": "server/composer.lock",
-      "classification": "managed",
-      "transform": "composer-lock",
       "profiles": [
         "minimal",
         "standard",
