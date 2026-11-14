@@ -1109,7 +1109,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cd8119d8df0e90d959c40d8f3ec00e6053c3d2a98c9005ef36db009d7ed6c4ef"
+            "source_sha256": "c16e8c9a4ff80120515e15e96896fec7bd2580e317427ab1d8753e983e9e0226"
         },
         {
             "path": "docs/public/release-channels.md",
