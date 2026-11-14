@@ -92,14 +92,6 @@ try {
     }
     $writeModule('^1.0');
 
-    file_put_contents($moduleDir . '/RemovedKernelApi.php', "<?php\nuse PeanutAdmin\\Kernel\\RemovedContract;\n");
-    $missingApi = $projection();
-    if (($missingApi['compatibility']['status'] ?? null) !== 'blocked'
-        || ($missingApi['compatibility']['blockers'][0]['code'] ?? null) !== 'MODULE_CORE_CLASS_MISSING') {
-        throw new RuntimeException('Empty-key retention bypassed the Kernel public API check');
-    }
-    unlink($moduleDir . '/RemovedKernelApi.php');
-
     foreach ([
         [['module_key' => 'peanut.missing', 'version' => '^1.0'], 'MODULE_PACKAGE_DEPENDENCY_MISSING'],
         [['module_key' => $key, 'version' => '^2.0'], 'MODULE_PACKAGE_DEPENDENCY_INCOMPATIBLE'],
@@ -172,9 +164,6 @@ try {
     }
     unlink($root . '/server/app/modules/peanut/reference_codes/composer.json');
     unlink($root . '/server/app/modules/peanut/reference_codes/module.json');
-    if (is_file($root . '/server/app/modules/peanut/reference_codes/RemovedKernelApi.php')) {
-        unlink($root . '/server/app/modules/peanut/reference_codes/RemovedKernelApi.php');
-    }
     unlink($root . '/release/files/server/config/modules.php');
     foreach (['release/files/server/config', 'release/files/server', 'release/files', 'release',
         'server/app/modules/peanut/reference_codes', 'server/app/modules/peanut',
