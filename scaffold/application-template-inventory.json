@@ -2592,7 +2592,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0172f89d12cd90fd1294e951c3a94e7d85e2e97951c2d0f60065f465c6dee821"
+            "source_sha256": "880dfc9ffa330a5da0ba4f845e3afcf705079aa809e3de0d12c6740e412723db"
         },
         {
             "path": "scripts/create-app",
@@ -2700,21 +2700,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "85bb01142a58b708662781107f91bc32c8aacfb970aed4fa2b60566543290334"
-        },
-        {
-            "path": "scripts/local-core-links.mjs",
-            "target": "scripts/local-core-links.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "ef86ef20d4f21277a12e6c784c3e3566d60992cd579562a78f4fe5a9958e4003"
+            "source_sha256": "6f78788c6ef79718fe8ec6a67f1988e77f40d9afa46feb7ef3e0ac09854f09d5"
         },
         {
             "path": "scripts/local-core-web",
@@ -2728,7 +2714,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2600661f4a1b8bd630e2f9f1ce94d40835976d279bd9d0b10f2cf5803ee06c85"
+            "source_sha256": "38ff578cafab55314fcfd3036936488c2266665bab365594d81b81e8eb8f2c4f"
         },
         {
             "path": "scripts/module-frontend-entries.mjs",

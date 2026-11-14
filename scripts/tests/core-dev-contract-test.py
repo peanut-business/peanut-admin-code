@@ -14,14 +14,17 @@ class CoreDevelopmentContract(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='peanut-core-dev-test-')
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
         self.code = self.root / 'code'
         self.php = self.root / 'php'
         self.web = self.root / 'core-web'
         (self.code / 'scripts').mkdir(parents=True)
+        (self.code / 'server').mkdir(parents=True, exist_ok=True)
+        (self.code / 'server/composer.json').write_text('{"require":{"peanut-admin/core":"5.1.0"}}')
         self.php.mkdir()
         (self.php / 'composer.json').write_text('{"name":"peanut-admin/core"}')
         self.web.mkdir()
+        (self.web / 'package.json').write_text('{"name":"@peanut-admin/web-workspace"}')
         (self.web / 'pnpm-workspace.yaml').write_text('packages:\n  - packages/*\n')
         for name in PACKAGES:
             pkg = self.web / 'packages' / name
@@ -34,9 +37,9 @@ class CoreDevelopmentContract(unittest.TestCase):
             (pkg / 'dist/index.d.ts').write_text('export declare const source: true;\n')
         self.modules = self.code / 'web/node_modules/@peanut-admin'
         self.modules.mkdir(parents=True)
-        for name in ('vue', 'ui-vue'):
+        for name in ('client', 'vue', 'ui-vue'):
             (self.modules / name).symlink_to(self.web / 'packages' / name, target_is_directory=True)
-        for script in ('core-dev', 'local-core-web'):
+        for script in ('core-dev', 'local-core-web', 'local-core-composer'):
             shutil.copy2(ROOT / 'scripts' / script, self.code / 'scripts' / script)
 
     def run_web(self, action='link-status'):
