@@ -194,7 +194,9 @@ final readonly class ModuleComposition
         if ($contentRegistry !== null) {
             $this->app->instance(ContentToolRegistry::class, $contentRegistry);
         }
-        $this->app->instance(FileDocumentReferenceRegistry::class, new FileDocumentReferenceRegistry($this->app, $fileDocumentPolicy));
+        if (class_exists(FileDocumentReferenceRegistry::class)) {
+            $this->app->instance(FileDocumentReferenceRegistry::class, new FileDocumentReferenceRegistry($this->app, $fileDocumentPolicy));
+        }
         if (isset($selectedModuleKeys['peanut.document'])) {
             $this->app->instance(
                 \PeanutAdmin\Modules\Document\Service\DocumentOwnerRegistry::class,

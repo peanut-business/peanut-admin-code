@@ -2592,7 +2592,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "880dfc9ffa330a5da0ba4f845e3afcf705079aa809e3de0d12c6740e412723db"
+            "source_sha256": "74fb1bb5c3ed9fc015937dd3a6111b6365ac0109130e991a2203c73d33b541e4"
         },
         {
             "path": "scripts/create-app",
@@ -2700,7 +2700,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6f78788c6ef79718fe8ec6a67f1988e77f40d9afa46feb7ef3e0ac09854f09d5"
+            "source_sha256": "809af31a7fce4b4200c95f7b98eea9dfe5da3a440d8e4ef5b63591e92994d6b0"
         },
         {
             "path": "scripts/local-core-web",
@@ -2714,7 +2714,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4bc302903cda8db09c9d0ce27995b2d62701d8740b2792eabbac16ebe752cf3c"
+            "source_sha256": "79cdac85f20cee0c34193b09850041cb28b2f419cf692318afd22009c83c6352"
         },
         {
             "path": "scripts/module-frontend-entries.mjs",
@@ -2914,7 +2914,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8177dd0d7f12d5ee269e8d8c5d158fcfb00d5e13a9e395be69402eac8e065b41"
+            "source_sha256": "bbab015afde8c6eb25e521d90d9e7c5472ed970caa775567ee1abe78d532fa82"
         },
         {
             "path": "scripts/project-resource-registry",
@@ -5745,7 +5745,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9974ceb3bbedc428bb532ce469b3941e845efcefd63231a360a2b043ac1d4866"
+            "source_sha256": "8f915bb9b69f46c43d5efb8f2a764ffeb3178027783111d5352f45d386021de8"
         },
         {
             "path": "server/app/common/composition/ModuleConsoleCommands.php",
@@ -8325,7 +8325,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "358ccdfaad97b3a8e3e6abbfe505f9ddf9e820bcb8bc476e95fa024a78848032"
+            "source_sha256": "ec4fb716ad854ba9c288b198d5121c59486d59a980069b6ccd07b0d21aeaeed3"
         },
         {
             "path": "server/app/platform/composition/module/ModuleModuleRegistryFactory.php",
@@ -16808,6 +16808,20 @@
             "source_sha256": "b22f1ec0e18ec2e70dbb5a042779e864091afa1ce4ce8313feb07a91c32af96f"
         },
         {
+            "path": "web/src/api/file-provider.ts",
+            "target": "web/src/api/file-provider.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "6594e103bddb0d4db79a98b3be1857d3813c1eda072d13d902dfb5493453b5f1"
+        },
+        {
             "path": "web/src/api/install.ts",
             "target": "web/src/api/install.ts",
             "classification": "managed",
@@ -17183,7 +17197,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "18c9a7760c64bba56d47a899208eb4557c120e2b11b78f331124dc3362134e2e"
+            "source_sha256": "44b5945698896bb92e162dd1b3e7e5a72d6fbdeaab9bfc75c268cbe40c2b9c00"
         },
         {
             "path": "web/src/components/footer/index.vue",
@@ -17478,7 +17492,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5daf61f16e9a591d4d82eb3a53cd7153571255e02e163cd23ff9f6e8f0562c9c"
+            "source_sha256": "c6927a445f450f2605a22e38a45f7adeb32202a60774fb66c791cd9aa31d5520"
         },
         {
             "path": "web/src/generated/brand.json",
@@ -17576,7 +17590,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "76cdd6be83a0e85d56fd2822d5395c3c0d7217b2bf0bab134520d40ef08a046f"
+            "source_sha256": "bf8f0306dc37020739b73702fe7acaafb149a4f9500b91f8ce50a9545149ed41"
         },
         {
             "path": "web/src/hooks/request.ts",
@@ -17716,7 +17730,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0170eeaef91f1bf9577237811b74ba243d5395f967a9779f6af04301c89aa44b"
+            "source_sha256": "37c910415e355250114a0e42ac4b6f972e0536f92f358d564ba6cb9a99c18112"
         },
         {
             "path": "web/src/locale/en-US/settings.ts",
@@ -17758,7 +17772,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "989b49861a1b654685c616f25b63b68ef22e0b453b7b28b2b9dc42c5ab3f0705"
+            "source_sha256": "ecdc6ca39991e8b64f959167b6ee951cf29020dc8c9a4238b8b27eeac8408ac2"
         },
         {
             "path": "web/src/locale/zh-CN/settings.ts",
@@ -17800,7 +17814,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "05acaff6c92e0ace7e46480303631167caeeb9f2216f29607d380c61bbc107b2"
+            "source_sha256": "e0b18c238bbda7fb36c63f9f837614eba07db6228becc5b3b04b9c7e5a64bb51"
         },
         {
             "path": "web/src/peanut.overrides.ts",
@@ -18514,7 +18528,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "59721eb40a0e02636154073fcf0f09b49f7a16b520de2b04dada0bdb66f0006f"
+            "source_sha256": "b1b750113448ea8b1a6dae6d3cbf285da4cb83b2cfa5d62ef2aaf752a84e9254"
         },
         {
             "path": "web/src/views/decoration/pc/index.vue",
@@ -18528,7 +18542,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "58e914f4ce66e8ae92831058ee1b96b262c6774c444466f8aff21f3bce3cf3ca"
+            "source_sha256": "a28214635327d04602a5b87eadfbf407b5008a7855df57e168302dae9382364e"
         },
         {
             "path": "web/src/views/decoration/tabbar/index.vue",
@@ -18542,7 +18556,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "292ffb1b584c2c92e8026fe7ba835d5cb153b82f6d9f0c10dbda3f4940c39eea"
+            "source_sha256": "e737f86d74123c89de5b4d84e86e6c757e77b71629ab2ad582c046c87c9bc4dd"
         },
         {
             "path": "web/src/views/dev-tools/code/index.vue",
@@ -19144,7 +19158,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3ce05ae7750a6a0fbd22b4f93f26593086f6eefce232da4dc0b5d29741bf7c82"
+            "source_sha256": "750d3410902df416a7a02de3fd1add3fd3b4e28ca61537d1c03389f6a6ef1cc7"
         },
         {
             "path": "web/src/views/user/setting/locale/en-US.ts",

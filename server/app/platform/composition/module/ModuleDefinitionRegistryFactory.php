@@ -198,6 +198,12 @@ final readonly class ModuleDefinitionRegistryFactory
 
         $kernelRoot = dirname((new \ReflectionClass(ModuleProvider::class))->getFileName(), 3);
         $reservedTableOwners = $documents === [] ? [] : $this->historicalBusinessTableOwners();
+        $corePermissions = class_exists(\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::class)
+            ? [
+                ...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::TENANT,
+                ...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::PLATFORM,
+            ]
+            : [];
         $compiler = new ModuleRegistryCompiler(
             new OpisManifestSchemaValidator($kernelRoot . '/resources/schemas/module-manifest.schema.json'),
             $kernelVersion,
@@ -209,10 +215,7 @@ final readonly class ModuleDefinitionRegistryFactory
                 ...array_keys($reservedTableOwners),
             ],
             $clients,
-            [
-                ...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::TENANT,
-                ...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::PLATFORM,
-            ],
+            $corePermissions,
             $reservedTableOwners,
         );
         $registry = $compiler->compile($documents);
