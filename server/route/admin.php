@@ -22,6 +22,7 @@ use app\adminapi\controller\log\OperationLogController;
 use app\adminapi\http\middleware\AuthMiddleware;
 use app\adminapi\http\middleware\LoginMiddleware;
 use app\adminapi\http\middleware\OperationLogMiddleware;
+use app\common\http\ApiProblem;
 use think\facade\Route;
 
 if (($peanutRouteApplication ?? null) !== 'adminapi') {
@@ -29,7 +30,13 @@ if (($peanutRouteApplication ?? null) !== 'adminapi') {
 }
 
 // Anonymous Admin branding uses its own Host boundary, separate from Member APIs.
-Route::get('config/brand', [ConfigController::class, 'brand']);
+if ($peanutRouteModules === []) {
+    Route::get('config/brand', static function (): never {
+        throw ApiProblem::fromEnvelope('管理入口暂不可用，Identity Module 尚未采用。', ['error_code' => 'IDENTITY_MODULE_UNAVAILABLE'], 50300);
+    });
+} else {
+    Route::get('config/brand', [ConfigController::class, 'brand']);
+}
 
 // ─── 管理端会话与菜单路由（仅需登录，不做 RBAC） ───────────────────────────
 Route::group(function () {
