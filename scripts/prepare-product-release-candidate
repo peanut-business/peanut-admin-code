@@ -968,7 +968,7 @@ def prepare(product_version: str, core_php_version: str, core_php_reference: str
         raise
 
 
-def prepare_release_workspace(workspace: Path, output_root: Path, local_core: bool,
+def prepare_release_workspace(workspace: Path, output_root: Path, local_core: list[Path] | None,
                               php_version: str | None, web_version: str | None, resume: bool = False) -> None:
     """Prepare isolated inputs, retaining successful native stages for explicit continuation."""
     source_root = ROOT
@@ -1003,37 +1003,16 @@ def prepare_release_workspace(workspace: Path, output_root: Path, local_core: bo
             shutil.copyfile(original, destination)
             destination.chmod(0o755 if original.stat().st_mode & 0o111 else 0o644)
 
-    def resolve_local_cores() -> dict[str, str]:
-        core: dict[str, Any] = {}
-        selection_file = source_root / '.local/core-dev.json'
-        if selection_file.exists() and not selection_file.is_symlink() and selection_file.is_file():
-            selection = read_json(selection_file)
-            if selection.get('schema_version') == 1 and selection.get('application_root') == str(source_root):
-                core = {'php': selection.get('php_core_dir'), 'web': selection.get('web_core_dir')}
-        if not core and (source_root / '.local/toolchain/host.json').is_file():
-            core = dict(read_json(source_root / '.local/toolchain/host.json').get('core', {}) or {})
-        adjacent = {
-            'php': source_root.parent / 'peanut-admin-core-php',
-            'web': source_root.parent / 'peanut-admin-core-web',
-        }
-        if (not isinstance(core.get('php'), str) or not core['php']) and (adjacent['php'] / 'composer.json').is_file():
-            core['php'] = str(adjacent['php'])
-        if (not isinstance(core.get('web'), str) or not core['web']) and (
-            (adjacent['web'] / 'pnpm-workspace.yaml').is_file() or (adjacent['web'] / 'package.json').is_file()
-        ):
-            core['web'] = str(adjacent['web'])
-        if any(not isinstance(core.get(name), str) or not core[name] for name in ('php', 'web')):
-            fail('local PHP and Web Core paths must be selected, configured, or present as sibling checkouts')
-        return {'php': core['php'], 'web': core['web']}
-
     snapshot_root = workspace / 'source'
     state_path = workspace / 'preparation.json'
     inputs = {'source_sha256': source_value(source_root, 'local')['snapshot_sha256'],
-              'local_core': local_core, 'php_version': php_version, 'web_version': web_version}
-    core = resolve_local_cores() if local_core else {}
+              'local_core': bool(local_core), 'php_version': php_version, 'web_version': web_version}
     if local_core:
-        inputs['local_cores'] = {kind: source_value(source_root / core[kind], 'local')['snapshot_sha256']
-                                for kind in ('php', 'web')}
+        php_source, web_source = local_core
+        if not all(p.is_absolute() and p.is_dir() for p in local_core):
+            fail('local PHP and Web Core inputs must be absolute checkout directories')
+        inputs['local_cores'] = {kind: source_value(directory, 'local')['snapshot_sha256']
+                                 for kind, directory in (('php', php_source), ('web', web_source))}
     if state_path.exists():
         if not resume or state_path.is_symlink():
             fail('existing preparation requires explicit resume')
@@ -1097,8 +1076,8 @@ def prepare_release_workspace(workspace: Path, output_root: Path, local_core: bo
     if local_core:
         print('[peanut release] Core inputs: configured local sources', flush=True)
         php_copy, web_copy = workspace / 'core-php', workspace / 'core-web'
-        step('php-core-snapshot', lambda: snapshot(source_root / core['php'], php_copy))
-        step('web-core-snapshot', lambda: snapshot(source_root / core['web'], web_copy))
+        step('php-core-snapshot', lambda: snapshot(php_source, php_copy))
+        step('web-core-snapshot', lambda: snapshot(web_source, web_copy))
         php_digest = source_value(php_copy, 'local')['snapshot_sha256']
         web_digest = source_value(web_copy, 'local')['snapshot_sha256']
         version = read_json(snapshot_root / 'release-versions.json').get('core_php', {}).get('resolved_version')
@@ -1150,7 +1129,8 @@ def main() -> None:
                         help='Prepare complete source/Core/derived inputs in an empty .local/release operation directory.')
     parser.add_argument('--release-output-root', type=Path)
     parser.add_argument('--resume-release-workspace', action='store_true')
-    parser.add_argument('--with-local-core', action='store_true')
+    parser.add_argument('--with-local-core', nargs=2, type=Path, metavar=('PHP_DIR', 'WEB_DIR'),
+                        help='Copy the same two local checkouts used to calculate the CLI release inputs.')
     parser.add_argument("--resolve-core", action="store_true",
                         help="Read-only resolution of exact published stable Core package identities.")
     parser.add_argument("--prepare-core-snapshot", type=Path,

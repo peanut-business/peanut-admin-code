@@ -849,7 +849,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4ae0af8e5a571877d7a73d336d2d20211f2579a6589a699675c6a6fb0dc488a2"
+            "source_sha256": "9013debdb1b421ffd34af15ceeff3321966a12ab2a4a327f2154c1a25e36df7d"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e5ad28986ac413387315f16d73350c229d3da76297f8cf4fb446505cef5344ff"
+            "source_sha256": "34d8a176e45d90c60dc30ee19d2a763c014a9886526c6bfb751625afa696fc0e"
         },
         {
             "path": "docs/development/request-cache-contract.md",
@@ -2592,7 +2592,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "74fb1bb5c3ed9fc015937dd3a6111b6365ac0109130e991a2203c73d33b541e4"
+            "source_sha256": "608d886aa660fb152dc6ff65235b8aefbc6f7b0493f04faca34535063855852f"
         },
         {
             "path": "scripts/create-app",
@@ -2700,7 +2700,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "809af31a7fce4b4200c95f7b98eea9dfe5da3a440d8e4ef5b63591e92994d6b0"
+            "source_sha256": "fb73e8c9fdc3a712e6d59c38975c11fd0f0f170863ba37bfe1c66a74ef596293"
         },
         {
             "path": "scripts/local-core-web",
@@ -5745,7 +5745,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8f915bb9b69f46c43d5efb8f2a764ffeb3178027783111d5352f45d386021de8"
+            "source_sha256": "369b04c2ea6555be7847d5d32254017d7b9d894f4a1f461d9748b6ad59646dc1"
         },
         {
             "path": "server/app/common/composition/ModuleConsoleCommands.php",
@@ -8325,7 +8325,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ec4fb716ad854ba9c288b198d5121c59486d59a980069b6ccd07b0d21aeaeed3"
+            "source_sha256": "a67fc02a493e81c802bea076d0214340bb57b66676d164424ca36c7f50bcb7a4"
         },
         {
             "path": "server/app/platform/composition/module/ModuleModuleRegistryFactory.php",

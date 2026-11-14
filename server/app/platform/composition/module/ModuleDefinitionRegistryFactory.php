@@ -198,12 +198,16 @@ final readonly class ModuleDefinitionRegistryFactory
 
         $kernelRoot = dirname((new \ReflectionClass(ModuleProvider::class))->getFileName(), 3);
         $reservedTableOwners = $documents === [] ? [] : $this->historicalBusinessTableOwners();
-        $corePermissions = class_exists(\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::class)
-            ? [
+        $corePermissions = [];
+        if ($documents !== []) {
+            if (!class_exists(\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::class)) {
+                throw new ModuleException('MODULE_REGISTRY_UNAVAILABLE', 'The authoritative Core permission catalog is unavailable.');
+            }
+            $corePermissions = [
                 ...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::TENANT,
                 ...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::PLATFORM,
-            ]
-            : [];
+            ];
+        }
         $compiler = new ModuleRegistryCompiler(
             new OpisManifestSchemaValidator($kernelRoot . '/resources/schemas/module-manifest.schema.json'),
             $kernelVersion,
