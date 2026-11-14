@@ -15,7 +15,7 @@ CLI create 的 ST/MT staged/approval 流程复用以下原生源码计划/准备
 1. CLI 从已验证的模板 inventory 中读取 `server/config/module_composition.json`；不在 CLI 保存第二份模块名单。minimal 选择 `mandatory`，standard 选择 `mandatory + default`。记录实际选择与清单摘要，模板组合版本不是模块版本 pin；客户端交付 profile 独立选择。
 2. 用户选择官方发行渠道和固定索引，例如预发行 `v1.0.0-rc.1`；CLI 沿已有 `peanut.module-release-index.v1` 校验 Release、索引 digest、固定 source commit、模块版本、Edition、依赖范围、撤回状态及每个 TAR 的独立 SHA。稳定渠道缺完整闭包时明确拒绝，不能隐式改用 RC。按索引及包内同一依赖声明求完整闭包，拒绝版本冲突和循环，依赖先于消费者准备。
 3. 未安装的 ST/MT 应用通过同一 `server/module` 的 `adopt --composition <request.json>` 先取得完整计划；准备时再传 `--plan-sha256 <reviewed-plan-sha>`。不能逐包试错发现依赖。单包 `adopt <tar>` 仍供明确的独立源码采用使用。桥接只加载安全环境及所需配置，建立原有 CLI 上下文，不构造 AppService、不启动业务 Module 或读取数据库；环境文件须为其他用户不可读写的普通文件，显式设 `APP_ENV=development` 与 `DEPLOYMENT_MODE=实际选定 Edition（standalone 或 multi-tenant）`。源码恢复仍使用 `adopt --recover`。
-4. 整个最终闭包准备齐全后，在新应用自己的 Git 开发目录运行 `python3 scripts/project-env exec -- bash scripts/deploy-update.sh --prepare-release`。此既有入口在业务启动前加载 Edition 配置，只调用一次 `Dependencies::prepareRelease()`，MT 准备 Admin/Platform、ST 仅 Admin；各 Module manifest 决定依赖输入。Composer path 包、开发 metapackage、各端 workspace 与原生锁继续由现有机制处理；不能剪裁锁 JSON、伪造 content-hash 或复制其他应用 vendor。入口随后生成 API、构建客户端并编译 registry，不执行数据库安装。
+4. 整个最终闭包准备齐全后，在已按起始 Composer 锁安装 vendor 的新应用根运行 `python3 scripts/project-env run -- bash scripts/deploy-update.sh --prepare-first-install`，不要求 Git。此既有入口在业务启动前加载 Edition 配置，只调用一次 `Dependencies::prepareRelease()`，MT 准备 Admin/Platform、ST 仅 Admin；各 Module manifest 决定依赖输入。Composer path 包、开发 metapackage、各端 workspace 与原生锁继续由现有机制处理；不能剪裁锁 JSON、伪造 content-hash 或复制其他应用 vendor。入口随后生成 API、构建客户端并编译 registry，不执行数据库安装。
 5. 依赖准备、API 生成和 registry 编译依据实际最终输入执行；数据库就绪后交给现有安装器完成首次迁移、身份初始化、模块登记及目录同步。源码创建、来源采用、依赖准备、数据库安装和运行验收分别报告。
 
 ### 原生组合请求与响应
