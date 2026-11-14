@@ -17,11 +17,6 @@ export interface HttpResponse<T = unknown> {
   data: T;
 }
 
-export interface ApiResponseError extends Error {
-  apiCode?: number;
-  apiErrorCode?: string;
-}
-
 if (import.meta.env.VITE_API_BASE_URL) {
   axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL;
 }
@@ -105,13 +100,7 @@ const handleResponse = async (response: AxiosResponse<HttpResponse>) => {
     }
     if (res.code === 40100) await invalidateTenantSession(snapshot);
     else ElMessage.error({ message: res.msg || 'Error', duration: 5 * 1000 });
-    const error = new Error(res.msg || 'Error') as ApiResponseError;
-    error.apiCode = res.code;
-    error.apiErrorCode =
-      typeof res.data === 'object' && res.data !== null && 'error_code' in res.data
-        ? String((res.data as { error_code?: unknown }).error_code || '')
-        : undefined;
-    return Promise.reject(error);
+    return Promise.reject(new Error(res.msg || 'Error'));
   }
   return res;
 };
