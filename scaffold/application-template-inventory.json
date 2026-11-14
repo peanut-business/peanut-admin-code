@@ -710,7 +710,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "71694aa772948d77c145f3b2d1f2f1b306992f117861e51fc507ee95cf665b43"
+            "source_sha256": "ed168a71e96154e3cf5e21bb248eae78a45ca2706741f8690295639f61e63ab5"
         },
         {
             "path": "docs/architecture/module-development-delivery.md",
@@ -1095,7 +1095,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2152109bc14e9cd92c1205f0f0e56cca966a4d78a927395a55f7a4e664741885"
+            "source_sha256": "0d7b4319e4f5cb106811eec1627c69e75ca230319ab78f3baaf790521a7ea370"
         },
         {
             "path": "docs/public/module-development.md",
@@ -2619,7 +2619,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3bb4e6299b73b99a9e9f34ef127c621aab3f7ab16bab3bcad06f1ab4679cb5ac"
+            "source_sha256": "59e0570b010e322c091d7f27bd84c89904316f62754455d99823ffb3c770cba0"
         },
         {
             "path": "scripts/export-release-database",
@@ -4093,7 +4093,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "13fcaf0c0807d0e97e249a8aa69d0e8876837c2deb6da63535e4f0d8ef5211d3"
+            "source_sha256": "01c699aae3a21ff923ebc7b8f0004de015691843ec28a4b0a942d18b5c51cea4"
         },
         {
             "path": "server/app/BaseController.php",
@@ -11767,7 +11767,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "543f3dbb84bfab5c740b33b912559609a554191018c587fd4789276cc620b37c"
+            "source_sha256": "503ca2b5a947d076b1f2742287687d624358ca696034e963d1fb04846735957e"
         },
         {
             "path": "server/resources/scaffold-application/SECURITY.md.stub",
