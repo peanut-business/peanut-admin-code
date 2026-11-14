@@ -115,10 +115,13 @@ axios.interceptors.response.use(handleResponse, (error) => {
   }
   let message = error.msg || 'Request Error';
   if (axios.isAxiosError(error) && !error.response) {
+    const translate = (
+      i18n.global as unknown as { t: (key: string) => string }
+    ).t;
     if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-      message = i18n.global.t('tenantSession.requestTimeout');
+      message = translate('tenantSession.requestTimeout');
     } else if (error.code === 'ERR_NETWORK' || error.request) {
-      message = i18n.global.t('tenantSession.networkError');
+      message = translate('tenantSession.networkError');
     }
   }
   ElMessage.error({
