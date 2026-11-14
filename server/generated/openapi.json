@@ -332,7 +332,7 @@
                     "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 164
+                        "line": 169
                     }
                 },
                 "x-peanut-permissions": [
@@ -2155,12 +2155,12 @@
                         "type": "application",
                         "key": "adminapi"
                     },
-                    "controller": "app\\adminapi\\controller\\config\\ConfigController",
+                    "controller": "app\\adminapi\\controller\\config\\HostBrandController",
                     "action": "brand",
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 32
+                        "line": 34
                     }
                 },
                 "x-peanut-permissions": []
@@ -2288,7 +2288,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 36
+                        "line": 41
                     }
                 },
                 "x-peanut-permissions": []
@@ -2358,7 +2358,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 37
+                        "line": 42
                     }
                 },
                 "x-peanut-permissions": []
@@ -2425,7 +2425,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 44
+                        "line": 49
                     }
                 },
                 "x-peanut-permissions": [
@@ -2927,7 +2927,7 @@
                     "permission": "core.member.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 82
+                        "line": 87
                     }
                 },
                 "x-peanut-permissions": [
@@ -3009,7 +3009,7 @@
                     "permission": "core.member.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 83
+                        "line": 88
                     }
                 },
                 "x-peanut-permissions": [
@@ -3081,7 +3081,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 84
+                        "line": 89
                     }
                 },
                 "x-peanut-permissions": [
@@ -3170,7 +3170,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 85
+                        "line": 90
                     }
                 },
                 "x-peanut-permissions": [
@@ -3265,7 +3265,7 @@
                     "permission": "core.member.create",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 86
+                        "line": 91
                     }
                 },
                 "x-peanut-permissions": [
@@ -3364,7 +3364,7 @@
                     "permission": "core.member.update",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 87
+                        "line": 92
                     }
                 },
                 "x-peanut-permissions": [
@@ -3471,7 +3471,7 @@
                     "permission": "core.member.leave",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 88
+                        "line": 93
                     }
                 },
                 "x-peanut-permissions": [
@@ -3586,7 +3586,7 @@
                     "permission": "core.member.update",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 89
+                        "line": 94
                     }
                 },
                 "x-peanut-permissions": [
@@ -3661,7 +3661,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 50
+                        "line": 55
                     }
                 },
                 "x-peanut-permissions": [
@@ -3736,7 +3736,7 @@
                     "permission": "core.menu.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 51
+                        "line": 56
                     }
                 },
                 "x-peanut-permissions": [
@@ -3811,7 +3811,7 @@
                     "permission": "core.menu.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 52
+                        "line": 57
                     }
                 },
                 "x-peanut-permissions": [
@@ -3894,7 +3894,7 @@
                     "permission": "core.menu.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 53
+                        "line": 58
                     }
                 },
                 "x-peanut-permissions": [
@@ -3994,7 +3994,7 @@
                     "permission": "core.menu.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 54
+                        "line": 59
                     }
                 },
                 "x-peanut-permissions": [
@@ -4105,7 +4105,7 @@
                     "permission": "core.menu.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 55
+                        "line": 60
                     }
                 },
                 "x-peanut-permissions": [
@@ -4216,7 +4216,7 @@
                     "permission": "core.menu.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 56
+                        "line": 61
                     }
                 },
                 "x-peanut-permissions": [
@@ -4329,7 +4329,7 @@
                     "permission": "core.menu.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 57
+                        "line": 62
                     }
                 },
                 "x-peanut-permissions": [
@@ -4432,7 +4432,7 @@
                     "permission": "core.role.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 60
+                        "line": 65
                     }
                 },
                 "x-peanut-permissions": [
@@ -4507,7 +4507,7 @@
                     "permission": "core.role.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 61
+                        "line": 66
                     }
                 },
                 "x-peanut-permissions": [
@@ -4589,7 +4589,7 @@
                     "permission": "core.role.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 62
+                        "line": 67
                     }
                 },
                 "x-peanut-permissions": [
@@ -4681,7 +4681,7 @@
                     "permission": "core.role.create",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 63
+                        "line": 68
                     }
                 },
                 "x-peanut-permissions": [
@@ -4776,7 +4776,7 @@
                     "permission": "core.role.update",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 64
+                        "line": 69
                     }
                 },
                 "x-peanut-permissions": [
@@ -4880,7 +4880,7 @@
                     "permission": "core.role.archive",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 65
+                        "line": 70
                     }
                 },
                 "x-peanut-permissions": [
@@ -4976,7 +4976,7 @@
                     "permission": "core.role.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 66
+                        "line": 71
                     }
                 },
                 "x-peanut-permissions": [
@@ -5071,7 +5071,7 @@
                     "permission": "core.role.permission.assign",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 68
+                        "line": 73
                     }
                 },
                 "x-peanut-permissions": [
@@ -5172,7 +5172,7 @@
                     "permission": "core.permission.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 70
+                        "line": 75
                     }
                 },
                 "x-peanut-permissions": [
@@ -5288,7 +5288,7 @@
                     "permission": "core.role.data-policy.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 74
+                        "line": 79
                     }
                 },
                 "x-peanut-permissions": [
@@ -5383,7 +5383,7 @@
                     "permission": "core.role.data-policy.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 76
+                        "line": 81
                     }
                 },
                 "x-peanut-permissions": [
@@ -5508,7 +5508,7 @@
                     "permission": "core.role.data-policy.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 78
+                        "line": 83
                     }
                 },
                 "x-peanut-permissions": [
@@ -5850,7 +5850,7 @@
                     "permission": "core.department.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 92
+                        "line": 97
                     }
                 },
                 "x-peanut-permissions": [
@@ -6192,7 +6192,7 @@
                     "permission": "core.department.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 93
+                        "line": 98
                     }
                 },
                 "x-peanut-permissions": [
@@ -6533,7 +6533,7 @@
                     "permission": "core.department.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 94
+                        "line": 99
                     }
                 },
                 "x-peanut-permissions": [
@@ -6703,7 +6703,7 @@
                     "permission": "core.department.update",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 95
+                        "line": 100
                     }
                 },
                 "x-peanut-permissions": [
@@ -6785,7 +6785,7 @@
                     "permission": "core.department.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 96
+                        "line": 101
                     }
                 },
                 "x-peanut-permissions": [
@@ -6880,7 +6880,7 @@
                     "permission": "core.department.create",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 97
+                        "line": 102
                     }
                 },
                 "x-peanut-permissions": [
@@ -6975,7 +6975,7 @@
                     "permission": "core.department.update",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 98
+                        "line": 103
                     }
                 },
                 "x-peanut-permissions": [
@@ -7079,7 +7079,7 @@
                     "permission": "core.department.archive",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 99
+                        "line": 104
                     }
                 },
                 "x-peanut-permissions": [
@@ -7191,7 +7191,7 @@
                     "permission": "core.department.update",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 100
+                        "line": 105
                     }
                 },
                 "x-peanut-permissions": [
@@ -7344,7 +7344,7 @@
                     "permission": "core.job.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 103
+                        "line": 108
                     }
                 },
                 "x-peanut-permissions": [
@@ -7419,7 +7419,7 @@
                     "permission": "core.job.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 104
+                        "line": 109
                     }
                 },
                 "x-peanut-permissions": [
@@ -7501,7 +7501,7 @@
                     "permission": "core.job.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 105
+                        "line": 110
                     }
                 },
                 "x-peanut-permissions": [
@@ -7600,7 +7600,7 @@
                     "permission": "core.job.create",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 106
+                        "line": 111
                     }
                 },
                 "x-peanut-permissions": [
@@ -7699,7 +7699,7 @@
                     "permission": "core.job.update",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 107
+                        "line": 112
                     }
                 },
                 "x-peanut-permissions": [
@@ -7803,7 +7803,7 @@
                     "permission": "core.job.archive",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 108
+                        "line": 113
                     }
                 },
                 "x-peanut-permissions": [
@@ -7915,7 +7915,7 @@
                     "permission": "core.job.update",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 109
+                        "line": 114
                     }
                 },
                 "x-peanut-permissions": [
@@ -7987,7 +7987,7 @@
                     "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 150
+                        "line": 155
                     }
                 },
                 "x-peanut-permissions": [
@@ -8069,7 +8069,7 @@
                     "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 151
+                        "line": 156
                     }
                 },
                 "x-peanut-permissions": [
@@ -8141,7 +8141,7 @@
                     "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 154
+                        "line": 159
                     }
                 },
                 "x-peanut-permissions": [
@@ -8230,7 +8230,7 @@
                     "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 155
+                        "line": 160
                     }
                 },
                 "x-peanut-permissions": [
@@ -8302,7 +8302,7 @@
                     "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 156
+                        "line": 161
                     }
                 },
                 "x-peanut-permissions": [
@@ -8391,7 +8391,7 @@
                     "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 157
+                        "line": 162
                     }
                 },
                 "x-peanut-permissions": [
@@ -8463,7 +8463,7 @@
                     "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 158
+                        "line": 163
                     }
                 },
                 "x-peanut-permissions": [
@@ -8552,7 +8552,7 @@
                     "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 159
+                        "line": 164
                     }
                 },
                 "x-peanut-permissions": [
@@ -8624,7 +8624,7 @@
                     "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 160
+                        "line": 165
                     }
                 },
                 "x-peanut-permissions": [
@@ -8713,7 +8713,7 @@
                     "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 161
+                        "line": 166
                     }
                 },
                 "x-peanut-permissions": [
@@ -8785,7 +8785,7 @@
                     "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 152
+                        "line": 157
                     }
                 },
                 "x-peanut-permissions": [
@@ -8874,7 +8874,7 @@
                     "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 153
+                        "line": 158
                     }
                 },
                 "x-peanut-permissions": [
@@ -8949,7 +8949,7 @@
                     "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 171
+                        "line": 176
                     }
                 },
                 "x-peanut-permissions": [
@@ -9037,7 +9037,7 @@
                     "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 172
+                        "line": 177
                     }
                 },
                 "x-peanut-permissions": [
@@ -9138,7 +9138,7 @@
                     "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 173
+                        "line": 178
                     }
                 },
                 "x-peanut-permissions": [
@@ -9213,7 +9213,7 @@
                     "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 176
+                        "line": 181
                     }
                 },
                 "x-peanut-permissions": [
@@ -9301,7 +9301,7 @@
                     "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 177
+                        "line": 182
                     }
                 },
                 "x-peanut-permissions": [
@@ -9402,7 +9402,7 @@
                     "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 178
+                        "line": 183
                     }
                 },
                 "x-peanut-permissions": [
@@ -9474,7 +9474,7 @@
                     "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 174
+                        "line": 179
                     }
                 },
                 "x-peanut-permissions": [
@@ -9566,7 +9566,7 @@
                     "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 175
+                        "line": 180
                     }
                 },
                 "x-peanut-permissions": [
@@ -9678,7 +9678,7 @@
                     "permission": "core.generator.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 130
+                        "line": 135
                     }
                 },
                 "x-peanut-permissions": [
@@ -9790,7 +9790,7 @@
                     "permission": "core.generator.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 131
+                        "line": 136
                     }
                 },
                 "x-peanut-permissions": [
@@ -9872,7 +9872,7 @@
                     "permission": "core.generator.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 132
+                        "line": 137
                     }
                 },
                 "x-peanut-permissions": [
@@ -9975,7 +9975,7 @@
                     "permission": "core.generator.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 133
+                        "line": 138
                     }
                 },
                 "x-peanut-permissions": [
@@ -10073,7 +10073,7 @@
                     "permission": "core.generator.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 134
+                        "line": 139
                     }
                 },
                 "x-peanut-permissions": [
@@ -10162,7 +10162,7 @@
                     "permission": "core.generator.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 135
+                        "line": 140
                     }
                 },
                 "x-peanut-permissions": [
@@ -10268,7 +10268,7 @@
                     "permission": "core.generator.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 136
+                        "line": 141
                     }
                 },
                 "x-peanut-permissions": [
@@ -10365,7 +10365,7 @@
                     "permission": "core.generator.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 137
+                        "line": 142
                     }
                 },
                 "x-peanut-permissions": [
@@ -10467,7 +10467,7 @@
                     "permission": "core.generator.generate",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 138
+                        "line": 143
                     }
                 },
                 "x-peanut-permissions": [
@@ -10540,7 +10540,7 @@
                     "permission": "core.generator.generate",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 139
+                        "line": 144
                     }
                 },
                 "x-peanut-permissions": [
@@ -10615,7 +10615,7 @@
                     "permission": "core.generator.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 140
+                        "line": 145
                     }
                 },
                 "x-peanut-permissions": [
@@ -10788,7 +10788,7 @@
                     "permission": "core.audit.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 147
+                        "line": 152
                     }
                 },
                 "x-peanut-permissions": [
@@ -10867,7 +10867,7 @@
                     "permission": "core.audit.clear",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 148
+                        "line": 153
                     }
                 },
                 "x-peanut-permissions": [
@@ -10939,7 +10939,7 @@
                     "permission": "peanut.settings.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 167
+                        "line": 172
                     }
                 },
                 "x-peanut-permissions": [
@@ -11028,7 +11028,7 @@
                     "permission": "peanut.settings.manage",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 168
+                        "line": 173
                     }
                 },
                 "x-peanut-permissions": [
@@ -11100,7 +11100,7 @@
                     "permission": "core.system.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 143
+                        "line": 148
                     }
                 },
                 "x-peanut-permissions": [
@@ -11179,7 +11179,7 @@
                     "permission": "core.system.cache.clear",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 144
+                        "line": 149
                     }
                 },
                 "x-peanut-permissions": [
@@ -11251,7 +11251,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 47
+                        "line": 52
                     }
                 },
                 "x-peanut-permissions": [
@@ -11323,7 +11323,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 42
+                        "line": 47
                     }
                 },
                 "x-peanut-permissions": [
@@ -17914,7 +17914,7 @@
                     "permission": "core.permission.read",
                     "source": {
                         "file": "server/route/admin.php",
-                        "line": 72
+                        "line": 77
                     }
                 },
                 "x-peanut-permissions": [
@@ -21487,7 +21487,8 @@
                 "required": [
                     "website",
                     "tenantName",
-                    "demo"
+                    "demo",
+                    "login_enabled"
                 ],
                 "properties": {
                     "website": {
@@ -21515,6 +21516,9 @@
                                 "type": "string"
                             }
                         }
+                    },
+                    "login_enabled": {
+                        "type": "boolean"
                     }
                 }
             },

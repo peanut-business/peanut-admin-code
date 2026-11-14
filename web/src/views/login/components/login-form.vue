@@ -3,7 +3,11 @@
     <div class="login-form-title">{{ $t('login.form.title') }}</div>
     <div class="login-form-sub-title">{{ brandStore.website.slogan }}</div>
     <div class="login-form-error-msg">{{ errorMessage }}</div>
+    <p v-if="!brandStore.loginEnabled" class="login-disabled-message">
+      {{ $t('login.form.disabled') }}
+    </p>
     <el-form
+      v-else
       ref="loginForm"
       :model="userInfo"
       class="login-form"
@@ -108,6 +112,7 @@
   );
 
   const handleSubmit = async () => {
+    if (!brandStore.loginEnabled) return;
     if (loading.value) return;
     const valid = await loginForm.value?.validate().catch(() => false);
     if (!valid) return;
@@ -170,6 +175,11 @@
       min-height: 28px;
       color: var(--el-color-danger);
       line-height: 28px;
+    }
+
+    &-disabled-message {
+      color: var(--el-text-color-secondary);
+      line-height: 24px;
     }
 
     &-actions {
