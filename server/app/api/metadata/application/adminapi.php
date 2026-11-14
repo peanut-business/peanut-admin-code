@@ -278,7 +278,7 @@ $schemas = [
     ],
     'AdminBrandConfig' => [
         'type' => 'object', 'additionalProperties' => false,
-        'required' => ['website', 'tenantName', 'demo'],
+        'required' => ['website', 'tenantName', 'demo', 'login_enabled'],
         'properties' => [
             'website' => $ref('WebsiteConfig'),
             'tenantName' => ['type' => 'string'],
@@ -287,6 +287,7 @@ $schemas = [
                 'required' => ['enabled', 'email', 'password'],
                 'properties' => ['enabled' => ['type' => 'boolean'], 'email' => ['type' => 'string'], 'password' => ['type' => 'string']],
             ],
+            'login_enabled' => ['type' => 'boolean'],
         ],
     ],
     'CopyrightItemList' => [

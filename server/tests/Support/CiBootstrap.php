@@ -14,7 +14,7 @@ if ($applicationRoot !== false && $applicationRoot !== '') {
 require_once $server . '/vendor/autoload.php';
 if ($applicationRoot !== false && $applicationRoot !== '') {
     $roots = [];
-    foreach ((new \app\platform\infrastructure\module\ModuleLockResolver($server, '../modules.lock'))->all() as $module) {
+    foreach (\app\platform\infrastructure\module\ModuleLockResolver::forRuntime($server, '../modules.lock')->all() as $module) {
         $roots += $module->moduleRoots;
     }
     \app\common\infrastructure\module\ModuleHostLayoutFactory::registerRuntimeAutoload($roots, $server);

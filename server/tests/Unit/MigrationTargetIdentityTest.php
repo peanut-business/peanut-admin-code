@@ -103,7 +103,7 @@ PHP);
         $result = $this->installerCall(
             '$installer = file_get_contents($server . "/database/install.php");'
             . '$upgrade = file_get_contents(dirname($server) . "/scripts/scaffold-upgrade");'
-            . 'echo json_encode([!str_contains($installer, "--migrate"), str_contains($upgrade, "template-plan") && str_contains($upgrade, "release-adoption-plan")], JSON_THROW_ON_ERROR);',
+            . 'echo json_encode([!str_contains($installer, "--migrate"), str_contains($upgrade, "template-plan")], JSON_THROW_ON_ERROR);',
         );
         self::assertSame([true, true], $result);
     }

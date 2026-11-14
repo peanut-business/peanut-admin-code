@@ -11,8 +11,6 @@ local_env="$repo_dir/server/.env"
 local_state=$(dirname "$local_env")
 allow_empty_initialize=0
 repair_backup_dir=
-repair_lease=
-repair_owner=
 
 command=${1:-}
 [ $# -gt 0 ] && shift
@@ -21,8 +19,6 @@ while [ $# -gt 0 ]; do
         --backend-env) [ $# -ge 2 ] || { printf '%s\n' '--backend-env requires a value' >&2; exit 2; }; local_env=$2; local_state=$(dirname "$local_env"); shift 2 ;;
         --initialize-empty) allow_empty_initialize=1; shift ;;
         --backup-dir) [ $# -ge 2 ] || { printf '%s\n' '--backup-dir requires a value' >&2; exit 2; }; repair_backup_dir=$2; shift 2 ;;
-        --lease) [ $# -ge 2 ] || { printf '%s\n' '--lease requires a value' >&2; exit 2; }; repair_lease=$2; shift 2 ;;
-        --owner) [ $# -ge 2 ] || { printf '%s\n' '--owner requires a value' >&2; exit 2; }; repair_owner=$2; shift 2 ;;
         *) printf 'unsupported argument: %s\n' "$1" >&2; exit 2 ;;
     esac
 done
@@ -83,31 +79,6 @@ case "$command" in
     repair-root-credential)
         normalize_remote_credentials
         [ -n "$repair_backup_dir" ] || { printf '%s\n' 'repair-root-credential requires --backup-dir' >&2; exit 2; }
-        [ -n "$repair_lease" ] || { printf '%s\n' 'repair-root-credential requires --lease' >&2; exit 2; }
-        [ -n "$repair_owner" ] || { printf '%s\n' 'repair-root-credential requires --owner' >&2; exit 2; }
-        lease_info="$("$repo_dir/scripts/project-resource-lease" show --lease "$repair_lease")" || {
-            printf '%s\n' 'development database recovery lease is unavailable' >&2
-            exit 1
-        }
-        printf '%s\n' "$lease_info" | /usr/bin/grep -Fqx "status	ACTIVE" || {
-            printf '%s\n' 'development database recovery lease is not active' >&2
-            exit 1
-        }
-        printf '%s\n' "$lease_info" | /usr/bin/grep -Fqx "owner	$repair_owner" || {
-            printf '%s\n' 'development database recovery lease owner mismatch' >&2
-            exit 1
-        }
-        printf '%s\n' "$lease_info" | /usr/bin/grep -Fqx "gate	development-db-recovery" || {
-            printf '%s\n' 'development database recovery lease gate mismatch' >&2
-            exit 1
-        }
-        for resource in             "mysql-resource	peanut-admin-mysql84-development"             "docker-volume	peanut-admin-mysql84-development-data"             "docker-container	peanut-admin-mysql84-development"             "port	20183"             "backup-dir	$repair_backup_dir"; do
-            printf '%s\n' "$lease_info" | /usr/bin/grep -Fqx "$resource" || {
-                printf '%s\n' "development database recovery lease resource mismatch: $resource" >&2
-                exit 1
-            }
-        done
-        unset lease_info
         case "$repair_backup_dir" in
             "$remote_dir"/backups/*) ;;
             *) printf '%s\n' 'repair backup directory must stay under the registered remote backup root' >&2; exit 2 ;;
@@ -223,7 +194,7 @@ REMOTE
         ssh -o BatchMode=yes "$remote" "/usr/local/bin/docker inspect peanut-admin-mysql84-development --format 'image={{.Config.Image}} status={{.State.Status}} health={{.State.Health.Status}}'"
         ;;
     *)
-        printf 'Usage: %s {provision|repair-root-credential|sync-credentials|status} [--backend-env path] [--initialize-empty] [--backup-dir path] [--lease id] [--owner owner]\n' "$0" >&2
+        printf 'Usage: %s {provision|repair-root-credential|sync-credentials|status} [--backend-env path] [--initialize-empty] [--backup-dir path]\n' "$0" >&2
         exit 2
         ;;
 esac

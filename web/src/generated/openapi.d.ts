@@ -3544,6 +3544,7 @@ export interface components {
                 email: string;
                 password: string;
             };
+            login_enabled: boolean;
         };
         CopyrightItemList: {
             key: string;

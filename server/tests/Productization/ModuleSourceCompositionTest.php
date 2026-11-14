@@ -8,8 +8,19 @@ use app\platform\infrastructure\module\ModuleLockResolver;
 use app\platform\infrastructure\module\ModulePackageSourcePromoter;
 use app\platform\exception\module\ModulePackageException;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
-require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
+// In a clean source-only worktree, use the already installed immutable Code
+// tooling autoloader, while forcing the candidate's changed service source.
+// Never copy/link vendor or silently execute the Code main service by mistake.
+$sourceServer = dirname(__DIR__, 2);
+$selectedTooling = getenv('PEANUT_TEST_TOOLING_ROOT');
+$toolingServer = is_string($selectedTooling) && $selectedTooling !== ''
+    ? rtrim($selectedTooling, '/') . '/server' : $sourceServer;
+$loader = require $toolingServer . '/vendor/autoload.php';
+require_once $toolingServer . '/vendor/topthink/framework/src/helper.php';
+if ($toolingServer !== $sourceServer) {
+    $loader->addPsr4('app\\', [$sourceServer . '/app'], true);
+    require_once $sourceServer . '/app/platform/services/module/ModulePackageAdoptionService.php';
+}
 
 // Local canonical packages exercise native composition, not public Release provenance or real installation.
 $server = dirname(__DIR__, 2);
@@ -63,6 +74,11 @@ try {
         'resources/schemas/module-artifact.schema.json', 'composer.json'] as $path) {
         copy($server . '/' . $path, $host . '/server/' . $path);
     }
+    if ($toolingServer !== $sourceServer) {
+        compositionExpect((new ReflectionClass(ModulePackageAdoptionService::class))->getFileName()
+            === $sourceServer . '/app/platform/services/module/ModulePackageAdoptionService.php',
+            'Worktree regression did not load the candidate service');
+    }
     $app = new \think\App($host . '/server');
     $app->config->set(['mode' => 'multi-tenant'], 'deployment');
     $app->env->set('PEANUT_INSTALLATION_SOURCE_MODE', 'development');
@@ -115,8 +131,28 @@ try {
         $next['index']['sha256'] = hash_file('sha256', $indexPath);
         return $next;
     };
+    // Both Editions share the same verified Module source graph, but their
+    // reviewed request/plan identities and the actual Host mode must match.
+    $app->config->set(['mode' => 'standalone'], 'deployment');
+    $stRequest = $request;
+    $stRequest['edition'] = 'standalone';
+    compositionRejected(fn() => $service->compose($request), 'MODULE_COMPOSITION_REQUEST_INVALID');
+    $stPlan = $service->compose($stRequest);
+    compositionExpect($stPlan['plan']['status'] === 'ready'
+        && $stPlan['plan']['edition'] === 'standalone'
+        && $stPlan['plan']['runtime_database_mutated'] === false
+        && !file_exists($host . '/.local') && !file_exists($host . '/modules.lock'),
+        'Standalone source-only plan must validate without installation or mutation');
+    compositionExpect(count($stPlan['plan']['modules']) === count($keys)
+        && $stPlan['plan']['dependency_order'] === $keys,
+        'Standalone composition did not preserve the full dependency graph');
+    $app->config->set(['mode' => 'multi-tenant'], 'deployment');
+    compositionRejected(fn() => $service->compose($stRequest), 'MODULE_COMPOSITION_REQUEST_INVALID');
     $plan = $service->compose($request);
     compositionExpect($plan['plan']['status'] === 'ready', json_encode($plan['plan']['diagnostics']));
+    compositionExpect($plan['plan']['edition'] === 'multi-tenant'
+        && $plan['plan_sha256'] !== $stPlan['plan_sha256'],
+        'Edition must be explicitly bound to the native reviewed plan');
     $expectedRoots = InitialInstallationSource::composition($host . '/server')['mandatory'];
     sort($expectedRoots, SORT_STRING);
     compositionExpect($plan['plan']['roots'] === $expectedRoots, 'Plan lost selected roots');
@@ -208,9 +244,12 @@ try {
     }
     compositionHostSources($server, $bridge);
     file_put_contents($bridge . '/server/vendor/topthink/framework/src/helper.php', '<?php require_once '
-        . var_export($server . '/vendor/topthink/framework/src/helper.php', true) . ';');
+        . var_export($toolingServer . '/vendor/topthink/framework/src/helper.php', true) . ';');
     file_put_contents($bridge . '/server/vendor/autoload.php', '<?php $loader = require '
-        . var_export($server . '/vendor/autoload.php', true) . '; $loader->addClassMap('
+        . var_export($toolingServer . '/vendor/autoload.php', true)
+        . '; require_once '
+        . var_export($sourceServer . '/app/platform/services/module/ModulePackageAdoptionService.php', true)
+        . '; $loader->addClassMap('
         . var_export(['app\\command\\ModuleAdoptPackage' => $bridge . '/server/app/command/ModuleAdoptPackage.php'], true) . ');'
         . 'spl_autoload_register(static function(string $class): void {'
         . 'if ($class === "app\\\\AppService" || str_starts_with($class, "PeanutAdmin\\\\Modules\\\\")'
@@ -235,6 +274,20 @@ try {
         compositionExpect($exit === 0, 'Native bridge failed: ' . $output . $error);
         return json_decode($output, true, 512, JSON_THROW_ON_ERROR);
     };
+    // The shipped subprocess bridge must also load the current candidate
+    // and independently accept an ST Host without activating DB or Modules.
+    file_put_contents($bridge . '/server/.env', "APP_ENV=development\nDEPLOYMENT_MODE=standalone\nPEANUT_INSTALLATION_SOURCE_MODE=development\n");
+    $stBridgeRequest = $request;
+    $stBridgeRequest['edition'] = 'standalone';
+    compositionJson($requestPath, $stBridgeRequest);
+    $stBridgePlan = $invoke(['--composition', $requestPath]);
+    compositionExpect($stBridgePlan['plan']['status'] === 'ready'
+        && $stBridgePlan['plan']['edition'] === 'standalone'
+        && $stBridgePlan['plan']['runtime_database_mutated'] === false
+        && !file_exists($bridge . '/.local') && !file_exists($bridge . '/modules.lock'),
+        'Standalone native subprocess bridge crossed installation or source boundary');
+    file_put_contents($bridge . '/server/.env', "APP_ENV=development\nDEPLOYMENT_MODE=multi-tenant\nPEANUT_INSTALLATION_SOURCE_MODE=development\n");
+    compositionJson($requestPath, $request);
     $nativePlan = $invoke(['--composition', $requestPath]);
     compositionExpect($nativePlan['plan']['status'] === 'ready' && !file_exists($bridge . '/.local'), 'Bridge plan booted runtime or mutated sources');
     $nativeApply = $invoke(['--composition', $requestPath, '--plan-sha256', $nativePlan['plan_sha256']]);

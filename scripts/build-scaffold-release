@@ -498,6 +498,10 @@ function releaseProjectWeb(string $application, array $core, string $receipt, st
     foreach (['web', 'platform', 'pc', 'uniapp'] as $client) {
         $path = $application . '/' . $client . '/package.json';
         $manifest = releaseReadJson($path);
+        if ($client === 'platform') {
+            // Bind Vue's client peer to the same frozen archive as its consumers.
+            $manifest['dependencies']['@peanut-admin/client'] = 'file:../' . $packages['@peanut-admin/client']['archive'];
+        }
         foreach (['dependencies', 'devDependencies', 'optionalDependencies'] as $section) {
             foreach (($manifest[$section] ?? []) as $name => $specifier) {
                 if (!isset($packages[$name])) {

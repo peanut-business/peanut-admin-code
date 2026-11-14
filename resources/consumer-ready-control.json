@@ -32,8 +32,7 @@
     "inventory_builder": "scripts/build-application-template-inventory",
     "scaffold_builder": "scripts/build-scaffold-release",
     "browser_tooling": "scripts/p0e-browser-tooling",
-    "resource_registry": "scripts/project-resource-registry",
-    "resource_lease": "scripts/project-resource-lease"
+    "resource_registry": "scripts/project-resource-registry"
   },
   "remote": {
     "name": "origin",

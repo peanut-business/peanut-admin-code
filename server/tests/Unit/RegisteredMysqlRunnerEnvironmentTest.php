@@ -173,9 +173,6 @@ BASH,
             'PEANUT_DATABASE_CONSUMER' => 'host',
             'PEANUT_DATABASE_ENVIRONMENT' => 'continuous-integration',
             'PEANUT_DATABASE_RESOURCE_SCOPE' => 'runner-test-scope',
-            'PEANUT_DATABASE_LEASE_ID' => 'runner-test-lease',
-            'PEANUT_DATABASE_LEASE_OWNER' => 'runner-test-owner',
-            'PEANUT_DATABASE_LEASE_GATE' => 'real-mysql',
         ];
     }
 
@@ -233,16 +230,13 @@ BASH,
                 $probe ? 'probe' : 'validate',
                 <<<'PHP'
 $ambient = getenv();
-$lease = [
+$metadata = [
     "PEANUT_DATABASE_ENVIRONMENT" => "continuous-integration",
     "PEANUT_DATABASE_RESOURCE_SCOPE" => "runner-test-scope",
-    "PEANUT_DATABASE_LEASE_ID" => "runner-test-lease",
-    "PEANUT_DATABASE_LEASE_OWNER" => "runner-test-owner",
-    "PEANUT_DATABASE_LEASE_GATE" => "real-mysql",
 ];
-foreach ($lease as $key => $value) {
+foreach ($metadata as $key => $value) {
     if (getenv($key) !== $value) {
-        throw new RuntimeException("PROBE_LEASE_METADATA_MISSING:" . $key);
+        throw new RuntimeException("PROBE_METADATA_MISSING:" . $key);
     }
 }
 require $argv[1];
@@ -266,9 +260,9 @@ if (env('DB_PASS') !== "runner-secret-must-not-be-printed-74d11"
 if (getenv() !== $ambient) {
     throw new RuntimeException("PROBE_PROCESS_ENVIRONMENT_CHANGED");
 }
-foreach ($lease as $key => $value) {
+foreach ($metadata as $key => $value) {
     if (getenv($key) !== $value) {
-        throw new RuntimeException("PROBE_LEASE_METADATA_CHANGED:" . $key);
+        throw new RuntimeException("PROBE_METADATA_CHANGED:" . $key);
     }
 }
 require __DIR__ . '/server/tests/Support/IsolatedBackendEnvironment.php';

@@ -106,7 +106,7 @@
   const router = useRouter();
   const route = useRoute();
   const permission = usePermission();
-  const { t } = useI18n();
+  const { t, getLocaleMessage } = useI18n();
   const { menuTree } = useMenuTree();
   useResponsive(true);
   const appearance = computed(() => appStore.shellAppearance);
@@ -126,9 +126,24 @@
       .filter((item) => item.meta?.locale || item.meta?.title)
       .map((item) => {
         const locale = String(item.meta?.locale || '');
+        const translated =
+          locale &&
+          (Object.prototype.hasOwnProperty.call(
+            getLocaleMessage('zh-CN'),
+            locale
+          ) ||
+            Object.prototype.hasOwnProperty.call(
+              getLocaleMessage('en-US'),
+              locale
+            ))
+            ? t(locale)
+            : '';
         return {
           path: item.path,
-          label: item.meta?.title ? String(item.meta.title) : t(locale),
+          label:
+            translated && translated !== locale
+              ? translated
+              : String(item.meta?.title || locale),
         };
       })
   );

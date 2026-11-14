@@ -2,6 +2,14 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.13] - 2026-11-15
+
+- Derive application Composer inputs directly from the Host manifest and native lock, excluding repository test tooling without maintaining a second dependency template.
+- Adopt published PHP Core 5.1.1 and Web Core 5.1.2 with exact public dependency locks and refreshed API, legal and template inventory artifacts.
+- Let the thin, uninstalled Host prepare and display its installation shell without optional business Modules or a product Git checkout; preserve the disabled public login state when maintenance status is unavailable.
+- Correct official menu localization, literal labels and leaf routing when menu paths overlap.
+- Keep CLI and Module releases independent; business application adoption and database installation remain separate operations.
+
 ## [5.1.12] - 2026-11-13
 
 - Automate the existing release and development toolchain: scope tool discovery to the operation, reuse a validated environment, and preserve verified Standalone/Multi-tenant original artifacts across interrupted builds. Explicit tool-path failures remain fail-closed.
