@@ -10,33 +10,6 @@ require_once dirname(__DIR__) . '/Support/RegisteredMysqlTestResource.php';
 
 final class RegisteredMysqlTestResourceTest extends TestCase
 {
-    public function testRegisteredSchemaLeaseReplacesOnlyTheDatabasePortLock(): void
-    {
-        $f = $this->schemaFixture();
-        $result = \RegisteredMysqlTestResource::validateContract(...$f);
-        self::assertSame('registered_mysql_test', $result['database']);
-        foreach (['PEANUT_DATABASE_LEASE_OWNER', 'PEANUT_DATABASE_ENDPOINT_ID', 'DB_NAME'] as $field) {
-            $bad = $f; $bad[2][$field] = 'foreign';
-            $this->assertRejected($field === 'PEANUT_DATABASE_ENDPOINT_ID' ? 'REGISTERED_MYSQL_ENDPOINT_MISMATCH' : ($field === 'DB_NAME' ? 'REGISTERED_MYSQL_RESOURCE_MISMATCH' : 'REGISTERED_MYSQL_LEASE_MISMATCH'), $bad);
-        }
-        $bad = $f;
-        foreach ($bad[1]['resources'] as &$r) { if ($r[0] === 'mysql-schema') { $r[1] = '127.0.0.1:49123/foreign'; } } unset($r);
-        $this->assertRejected('REGISTERED_MYSQL_LEASE_MISMATCH', $bad);
-        $bad = $f; $bad[0]['resources']['databases'][0]['lease_policy']['physical_endpoint'] = '127.0.0.2:49123';
-        $this->assertRejected('REGISTERED_MYSQL_SCHEMA_POLICY_INVALID', $bad);
-        $bad = $f; unset($bad[0]['resources']['databases'][0]['lease_policy']);
-        $this->assertRejected('REGISTERED_MYSQL_LEASE_MISMATCH', $bad);
-    }
-
-    private function schemaFixture(): array
-    {
-        $f = $this->fixture();
-        $f[0]['resources']['databases'][0]['lease_policy'] = ['mode' => 'schema', 'physical_endpoint' => '127.0.0.1:49123', 'physical_resource_id' => 'fixture', 'max_executors' => 2, 'server_resources' => ['mysql-resource=fixture']];
-        $f[1]['resources'] = array_values(array_filter($f[1]['resources'], fn($r) => $r[0] !== 'port'));
-        $f[1]['resources'][] = ['mysql-schema', '127.0.0.1:49123/registered_mysql_test'];
-        return $f;
-    }
-
     public function testExplicitMaintainerSourceRejectsForeignRegistry(): void
     {
         $path = tempnam(sys_get_temp_dir(), 'registry-source-');
@@ -73,81 +46,50 @@ final class RegisteredMysqlTestResourceTest extends TestCase
 
     public function testExactRegisteredContractIsAccepted(): void
     {
-        [$registry, $lease, $environment, $root, $candidate, $now] = $this->fixture();
+        [$registry, $environment] = $this->fixture();
 
-        $resolved = \RegisteredMysqlTestResource::validateContract(
-            $registry,
-            $lease,
-            $environment,
-            $root,
-            $candidate,
-            $now,
-        );
+        $resolved = \RegisteredMysqlTestResource::validateContract($registry, $environment);
 
         self::assertSame($environment['DB_NAME'], $resolved['database']);
         self::assertSame($environment['DB_PORT'], (string) $resolved['port']);
-        self::assertSame($environment['PEANUT_DATABASE_LEASE_OWNER'], $resolved['lease_owner']);
+        self::assertSame($environment['PEANUT_DATABASE_RESOURCE_ID'], $resolved['resource_id']);
+    }
+
+    public function testContractAcceptsMinimalCiEnvironmentWithoutOptionalScope(): void
+    {
+        [$registry, $environment] = $this->fixture();
+        unset($environment['PEANUT_DATABASE_RESOURCE_SCOPE']);
+
+        $resolved = \RegisteredMysqlTestResource::validateContract($registry, $environment);
+
+        self::assertSame($environment['DB_NAME'], $resolved['database']);
     }
 
     public function testUnknownResourceIsRejected(): void
     {
         $fixture = $this->fixture();
-        $fixture[2]['PEANUT_DATABASE_RESOURCE_ID'] = 'unknown-resource';
+        $fixture[1]['PEANUT_DATABASE_RESOURCE_ID'] = 'unknown-resource';
         $this->assertRejected('REGISTERED_MYSQL_RESOURCE_MISSING', $fixture);
     }
 
-    public function testExactLeaseBoundP0eTemplateIsAccepted(): void
+    public function testExactP0eTemplateIsAccepted(): void
     {
         $fixture = $this->p0eFixture();
         $resolved = \RegisteredMysqlTestResource::validateContract(...$fixture);
-        self::assertSame($fixture[2]['DB_NAME'], $resolved['database']);
-        self::assertSame($fixture[2]['PEANUT_DATABASE_LEASE_OWNER'], $resolved['lease_owner']);
+        self::assertSame($fixture[1]['DB_NAME'], $resolved['database']);
+        self::assertSame($fixture[1]['PEANUT_DATABASE_RESOURCE_ID'], $resolved['resource_id']);
     }
 
     public function testP0eForeignRunAndScenarioAreRejected(): void
     {
-        foreach (['foreign_module_lifecycle', 'run1_unregistered'] as $suffix) {
+        foreach (['foreign_module_lifecycle', 'run1_unregistered', 'BAD_module_lifecycle'] as $suffix) {
             $fixture = $this->p0eFixture();
-            $fixture[2]['DB_NAME'] = 'peanut_admin_development_p0e_' . $suffix;
+            $fixture[1]['DB_NAME'] = 'peanut_admin_development_p0e_' . $suffix;
             $this->assertRejected('REGISTERED_MYSQL_RESOURCE_MISMATCH', $fixture);
         }
         $fixture = $this->p0eFixture();
-        $fixture[2]['PEANUT_DATABASE_RESOURCE_SCOPE'] = 'peanut_admin_development_p0e_foreign_';
+        $fixture[1]['PEANUT_DATABASE_RESOURCE_SCOPE'] = 'peanut_admin_development_p0e_foreign_';
         $this->assertRejected('REGISTERED_MYSQL_RESOURCE_MISMATCH', $fixture);
-        foreach (['INVALID', ''] as $runId) {
-            $fixture = $this->p0eFixture();
-            $fixture[1]['resources'][count($fixture[1]['resources']) - 2][1] = $runId;
-            $this->assertRejected('REGISTERED_MYSQL_RESOURCE_MISMATCH', $fixture);
-        }
-        $fixture = $this->p0eFixture();
-        $fixture[1]['resources'][] = ['run-id', 'run2'];
-        $this->assertRejected('REGISTERED_MYSQL_RESOURCE_MISMATCH', $fixture);
-    }
-
-    public function testP0eRegistryDigestMustBeLeaseBound(): void
-    {
-        $fixture = $this->p0eFixture();
-        $fixture[2]['PEANUT_DATABASE_REGISTRY_SHA256'] = str_repeat('c', 64);
-        $this->assertRejected('REGISTERED_MYSQL_LEASE_MISMATCH', $fixture);
-    }
-
-    public function testP0eExactDatabaseMustBeLeaseBound(): void
-    {
-        $fixture = $this->p0eFixture();
-        $fixture[1]['resources'] = array_values(array_filter(
-            $fixture[1]['resources'],
-            static fn(array $item): bool => $item[0] !== 'database',
-        ));
-        $this->assertRejected('REGISTERED_MYSQL_LEASE_MISMATCH', $fixture);
-    }
-
-    public function testP0eWrongThreadAndOwnerAreRejected(): void
-    {
-        foreach (['PEANUT_DATABASE_LEASE_THREAD', 'PEANUT_DATABASE_LEASE_OWNER'] as $key) {
-            $fixture = $this->p0eFixture();
-            $fixture[2][$key] = 'foreign';
-            $this->assertRejected('REGISTERED_MYSQL_LEASE_MISMATCH', $fixture);
-        }
     }
 
     public function testOtherNonRuntimeResourcesRemainForbidden(): void
@@ -160,50 +102,29 @@ final class RegisteredMysqlTestResourceTest extends TestCase
     public function testWrongEndpointIsRejected(): void
     {
         $fixture = $this->fixture();
-        $fixture[2]['PEANUT_DATABASE_ENDPOINT_ID'] = 'wrong-endpoint';
+        $fixture[1]['PEANUT_DATABASE_ENDPOINT_ID'] = 'wrong-endpoint';
         $this->assertRejected('REGISTERED_MYSQL_ENDPOINT_MISMATCH', $fixture);
     }
 
     public function testDatabaseOutsideExactAllowlistIsRejected(): void
     {
         $fixture = $this->fixture();
-        $fixture[2]['DB_NAME'] = 'registered_mysql_other';
+        $fixture[1]['DB_NAME'] = 'registered_mysql_other';
         $this->assertRejected('REGISTERED_MYSQL_RESOURCE_MISMATCH', $fixture);
-    }
-
-    public function testExpiredLeaseIsRejected(): void
-    {
-        $fixture = $this->fixture();
-        $fixture[1]['metadata']['expires_at'] = (string) ($fixture[5] - 1);
-        $this->assertRejected('REGISTERED_MYSQL_LEASE_MISMATCH', $fixture);
-    }
-
-    public function testMismatchedWorktreeIsRejected(): void
-    {
-        $fixture = $this->fixture();
-        $fixture[1]['metadata']['worktree'] = $fixture[3] . '-foreign';
-        $this->assertRejected('REGISTERED_MYSQL_LEASE_MISMATCH', $fixture);
-    }
-
-    public function testMismatchedCandidateIsRejected(): void
-    {
-        $fixture = $this->fixture();
-        $fixture[1]['metadata']['candidate'] = str_repeat('b', 40);
-        $this->assertRejected('REGISTERED_MYSQL_LEASE_MISMATCH', $fixture);
     }
 
     public function testMismatchedResourceScopeIsRejected(): void
     {
         $fixture = $this->fixture();
-        $fixture[2]['PEANUT_DATABASE_RESOURCE_SCOPE'] = 'foreign-scope';
+        $fixture[1]['PEANUT_DATABASE_RESOURCE_SCOPE'] = 'foreign-scope';
         $this->assertRejected('REGISTERED_MYSQL_RESOURCE_MISMATCH', $fixture);
     }
 
-    public function testMissingExplicitLeaseOwnerIsRejected(): void
+    public function testMissingRequiredEnvironmentIsRejected(): void
     {
         $fixture = $this->fixture();
-        unset($fixture[2]['PEANUT_DATABASE_LEASE_OWNER']);
-        $this->assertRejected('REGISTERED_MYSQL_ENVIRONMENT_REQUIRED:PEANUT_DATABASE_LEASE_OWNER', $fixture);
+        unset($fixture[1]['PEANUT_DATABASE_ENVIRONMENT']);
+        $this->assertRejected('REGISTERED_MYSQL_ENVIRONMENT_REQUIRED:PEANUT_DATABASE_ENVIRONMENT', $fixture);
     }
 
     public function testNonEmptyDatabasePreflightIsRejected(): void
@@ -221,27 +142,22 @@ final class RegisteredMysqlTestResourceTest extends TestCase
             [
                 'database' => 'registered_mysql_test',
                 'created' => true,
-                'lease_id' => 'lease-one',
-                'lease_owner' => 'owner-one',
+                'resource_id' => 'registered-mysql-resource',
             ],
             'registered_mysql_test',
             true,
-            ['lease_id' => 'lease-one', 'lease_owner' => 'owner-two'],
+            ['resource_id' => 'other-mysql-resource'],
         );
     }
 
     /**
      * @return array{
      *   0:array<string,mixed>,
-     *   1:array{metadata:array<string,string>,resources:list<array{0:string,1:string}>},
-     *   2:array<string,string>,3:string,4:string,5:int
+     *   1:array<string,string>
      * }
      */
     private function fixture(): array
     {
-        $root = dirname(__DIR__, 3);
-        $candidate = str_repeat('a', 40);
-        $now = 1_800_000_000;
         $environment = [
             'DB_NAME' => 'registered_mysql_test',
             'DB_HOST' => '127.0.0.1',
@@ -251,9 +167,6 @@ final class RegisteredMysqlTestResourceTest extends TestCase
             'PEANUT_DATABASE_CONSUMER' => 'host',
             'PEANUT_DATABASE_ENVIRONMENT' => 'continuous-integration',
             'PEANUT_DATABASE_RESOURCE_SCOPE' => 'ci-job-scope',
-            'PEANUT_DATABASE_LEASE_ID' => 'lease-one',
-            'PEANUT_DATABASE_LEASE_OWNER' => 'owner-one',
-            'PEANUT_DATABASE_LEASE_GATE' => 'real-mysql',
         ];
         $registry = [
             'schema_version' => 1,
@@ -267,7 +180,6 @@ final class RegisteredMysqlTestResourceTest extends TestCase
                 'namespace' => $environment['PEANUT_DATABASE_RESOURCE_SCOPE'],
                 'fallback' => 'none',
                 'application_runtime' => true,
-                'lease_gate' => 'real-mysql',
                 'upstream_endpoint' => [
                     'endpoint_id' => $environment['PEANUT_DATABASE_ENDPOINT_ID'],
                     'host' => $environment['DB_HOST'],
@@ -276,80 +188,33 @@ final class RegisteredMysqlTestResourceTest extends TestCase
                 ],
             ]]],
         ];
-        $resources = [
-            ['resource-id', $environment['PEANUT_DATABASE_RESOURCE_ID']],
-            ['endpoint', $environment['PEANUT_DATABASE_ENDPOINT_ID']],
-            ['consumer', $environment['PEANUT_DATABASE_CONSUMER']],
-            ['environment', $environment['PEANUT_DATABASE_ENVIRONMENT']],
-            ['host', $environment['DB_HOST']],
-            ['port', $environment['DB_PORT']],
-            ['mysql-db', $environment['DB_NAME']],
-            ['database', $environment['DB_NAME']],
-            ['resource-scope', $environment['PEANUT_DATABASE_RESOURCE_SCOPE']],
-            ['version', '8.4.10'],
-            ['gate', 'real-mysql'],
-            ['worktree', $root],
-        ];
-        $lease = ['metadata' => [
-            'lease' => $environment['PEANUT_DATABASE_LEASE_ID'],
-            'owner' => $environment['PEANUT_DATABASE_LEASE_OWNER'],
-            'candidate' => $candidate,
-            'candidate_repository' => $root,
-            'gate' => 'real-mysql',
-            'worktree' => $root,
-            'expires_at' => (string) ($now + 600),
-            'status' => 'ACTIVE',
-        ], 'resources' => $resources];
 
-        return [$registry, $lease, $environment, $root, $candidate, $now];
+        return [$registry, $environment];
     }
 
-    /** @return array{0:array<string,mixed>,1:array<string,mixed>,2:array<string,string>,3:string,4:string,5:int} */
+    /** @return array{0:array<string,mixed>,1:array<string,string>} */
     private function p0eFixture(): array
     {
         $fixture = $this->fixture();
-        $environment = &$fixture[2];
+        $environment = &$fixture[1];
         $environment['DB_NAME'] = 'peanut_admin_development_p0e_run1_module_lifecycle';
         $environment['PEANUT_DATABASE_RESOURCE_ID'] = 'peanut-admin-p0e-mysql84-gate';
         $environment['PEANUT_DATABASE_ENVIRONMENT'] = 'development';
         $environment['PEANUT_DATABASE_RESOURCE_SCOPE'] = 'peanut_admin_development_p0e_run1_';
-        $environment['PEANUT_DATABASE_LEASE_ID'] = 'p0e-runtime-run1';
-        $environment['PEANUT_DATABASE_LEASE_GATE'] = 'p0e-runtime-qualification';
-        $environment['PEANUT_DATABASE_REGISTRY_SHA256'] = str_repeat('d', 64);
-        $environment['PEANUT_DATABASE_LEASE_THREAD'] = 'thread-one';
         $fixture[0]['authority']['role'] = 'maintainer';
         $resource = &$fixture[0]['resources']['databases'][0];
         $resource['stable_resource_id'] = $environment['PEANUT_DATABASE_RESOURCE_ID'];
         $resource['environments'] = ['development'];
         $resource['application_runtime'] = false;
-        unset($resource['lease_gate']);
         $resource['database'] = 'peanut_admin_development_p0e_<run_id>_<scenario>';
         $resource['namespace'] = 'peanut_admin_development_p0e_<run_id>_';
         $resource['run_id_pattern'] = '^[a-z0-9]{1,11}$';
         $resource['database_name_max_length'] = 64;
         $resource['allowed_scenarios'] = ['module_lifecycle'];
-        $fixture[1]['metadata']['lease'] = $environment['PEANUT_DATABASE_LEASE_ID'];
-        $fixture[1]['metadata']['gate'] = $environment['PEANUT_DATABASE_LEASE_GATE'];
-        $fixture[1]['metadata']['thread'] = $environment['PEANUT_DATABASE_LEASE_THREAD'];
-        $resourceValues = [
-            'resource-id' => 'PEANUT_DATABASE_RESOURCE_ID',
-            'environment' => 'PEANUT_DATABASE_ENVIRONMENT',
-            'resource-scope' => 'PEANUT_DATABASE_RESOURCE_SCOPE',
-            'mysql-db' => 'DB_NAME', 'database' => 'DB_NAME',
-            'gate' => 'PEANUT_DATABASE_LEASE_GATE',
-        ];
-        foreach ($fixture[1]['resources'] as &$item) {
-            if (isset($resourceValues[$item[0]])) {
-                $item[1] = $environment[$resourceValues[$item[0]]];
-            }
-        }
-        unset($item);
-        $fixture[1]['resources'][] = ['run-id', 'run1'];
-        $fixture[1]['resources'][] = ['registry-sha256', $environment['PEANUT_DATABASE_REGISTRY_SHA256']];
         return $fixture;
     }
 
-    /** @param array{0:array<string,mixed>,1:array<string,mixed>,2:array<string,string>,3:string,4:string,5:int} $fixture */
+    /** @param array{0:array<string,mixed>,1:array<string,string>} $fixture */
     private function assertRejected(string $message, array $fixture): void
     {
         try {

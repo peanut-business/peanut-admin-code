@@ -68,8 +68,10 @@ if (count($matches) !== 1 || !is_array($expected) || $declared !== $expected["co
 ' "$APP_DIR/release-versions.json" "$APP_DIR/server/composer.lock" "$APP_DIR/server/composer.json" \
     || die 'PHP Core manifest/lock/version-contract identity mismatch'
 
-  # 共用固定 registry / 本地开发归档检查，资源授权仍由本脚本前置守卫负责。
-  node "$ROOT_DIR/scripts/release-dependency-locks.mjs" "$APP_DIR" --installed || exit $?
+  # 共用固定 registry / 本地开发归档检查（仅源码仓存在该脚本时执行）。
+  if [[ -f "$ROOT_DIR/scripts/release-dependency-locks.mjs" ]]; then
+    node "$ROOT_DIR/scripts/release-dependency-locks.mjs" "$APP_DIR" --installed || exit $?
+  fi
 
   if [[ "$LOCAL_CORE_MODE" == 1 ]]; then
     while IFS=$'\t' read -r package version; do

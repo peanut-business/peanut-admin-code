@@ -570,7 +570,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2d61087408d72f215b89e8042ea45c8f14b8498b3203ee57d3f8cf2d87d4a9c7"
+            "source_sha256": "ebcb77baf1edc367c6484f91b3005c0a717ded74dc1539cb4ff083567dfd67ab"
         },
         {
             "path": "docs/architecture/cli-and-recipes.md",
@@ -780,7 +780,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6cf2ac84bc9075e518f68a4b20759d4d8e42b750bbb17b20fac48d8d9b404ef5"
+            "source_sha256": "0930033502e2e3ee0abd9c2546cb47e4bfc09991a68526d0d034ef2f50c9154d"
         },
         {
             "path": "docs/development/application-conventions.md",
@@ -932,7 +932,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "05b6e4a033cf797ea49773e119a3d7db37ead07de387fadc844ae118a5eddc08"
+            "source_sha256": "b3c8c11b24803ad9907cd8241ad57b925ef7866e48be0d58eb5018c96dc6d509"
         },
         {
             "path": "docs/development/standard.md",
@@ -3048,7 +3048,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f5e453054a272ee7ea457ea8425e1dbe7edd4cf57fd6bb61cfb2a9cfd6947ca0"
+            "source_sha256": "9dcf04259c4b7624bc340ff1e7f9e5e644982d57381e3d1c483e32a1014530da"
         },
         {
             "path": "scripts/scaffold-runtime/EditionUpgradePackage.php",
@@ -3624,32 +3624,6 @@
         {
             "path": "scripts/tests/project_env_automation_test.py",
             "target": "scripts/tests/project_env_automation_test.py",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "scripts/tests/project_resource_application_output_test.py",
-            "target": "scripts/tests/project_resource_application_output_test.py",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "scripts/tests/project_resource_failed_install_retirement_test.py",
-            "target": "scripts/tests/project_resource_failed_install_retirement_test.py",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -7846,7 +7820,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9f6e773e04f67382d30f6b3f22ce34fd82a7855cf903e2d64e079b815172be0f"
+            "source_sha256": "1aa0c8d957258da532eebb3639c77835262993c121705c7818183a0bab5b1e91"
         },
         {
             "path": "server/app/common/services/upgrade/SourceSharedCredentialRecovery.php",
@@ -7860,7 +7834,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c335033cb431b35386e2c8de6204f4730e691377bf8c95a35acd1adf3061efd5"
+            "source_sha256": "281291054798d514d3ef630412256a16b26370b87b8f91a409fea186dde87be0"
         },
         {
             "path": "server/app/common/support/ExportPageInfo.php",
@@ -9232,7 +9206,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c4e4b3f8eeb74e809e422fc04ef243a13ae13bf1acf404fd83f0e960766633a8"
+            "source_sha256": "d186580f3e6894806f4753dbf57bd0a608269aaf41cb9cab3ce99a9d626303c6"
         },
         {
             "path": "server/app/platform/services/module/ModulePackageAdoptionService.php",
@@ -10002,7 +9976,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "83b88c2de87c1814cb09d28f654d75bc6873e7000114750e7241a6699debb242"
+            "source_sha256": "4f3030edab63b3320c7cd488cb9e9002933567a49e48e339a259a2f8a4b22238"
         },
         {
             "path": "server/database/install.php",

@@ -29,9 +29,9 @@ on:
         type: boolean
         default: false
       candidate_cli_commit:
-        description: Exact independent peanut-cli source commit for the no-DB candidate contract
+        description: Optional independent peanut-cli source commit override (defaults to main)
         type: string
-        default: 79631ad08a5235af108cd65d2742e8a07f5e0eb1
+        default: ''
       build_run_id:
         description: Successful same-repository candidate run with both Edition templates and native CLI creation
         type: string

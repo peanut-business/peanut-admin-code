@@ -11,8 +11,6 @@ local_env="$repo_dir/server/.env"
 local_state=$(dirname "$local_env")
 allow_empty_initialize=0
 repair_backup_dir=
-repair_lease=
-repair_owner=
 
 command=${1:-}
 [ $# -gt 0 ] && shift
@@ -21,8 +19,6 @@ while [ $# -gt 0 ]; do
         --backend-env) [ $# -ge 2 ] || { printf '%s\n' '--backend-env requires a value' >&2; exit 2; }; local_env=$2; local_state=$(dirname "$local_env"); shift 2 ;;
         --initialize-empty) allow_empty_initialize=1; shift ;;
         --backup-dir) [ $# -ge 2 ] || { printf '%s\n' '--backup-dir requires a value' >&2; exit 2; }; repair_backup_dir=$2; shift 2 ;;
-        --lease) [ $# -ge 2 ] || { printf '%s\n' '--lease requires a value' >&2; exit 2; }; repair_lease=$2; shift 2 ;;
-        --owner) [ $# -ge 2 ] || { printf '%s\n' '--owner requires a value' >&2; exit 2; }; repair_owner=$2; shift 2 ;;
         *) printf 'unsupported argument: %s\n' "$1" >&2; exit 2 ;;
     esac
 done
@@ -198,7 +194,7 @@ REMOTE
         ssh -o BatchMode=yes "$remote" "/usr/local/bin/docker inspect peanut-admin-mysql84-development --format 'image={{.Config.Image}} status={{.State.Status}} health={{.State.Health.Status}}'"
         ;;
     *)
-        printf 'Usage: %s {provision|repair-root-credential|sync-credentials|status} [--backend-env path] [--initialize-empty] [--backup-dir path] [--lease id] [--owner owner]\n' "$0" >&2
+        printf 'Usage: %s {provision|repair-root-credential|sync-credentials|status} [--backend-env path] [--initialize-empty] [--backup-dir path]\n' "$0" >&2
         exit 2
         ;;
 esac

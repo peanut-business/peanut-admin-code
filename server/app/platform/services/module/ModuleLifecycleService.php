@@ -795,8 +795,9 @@ final class ModuleLifecycleService implements ModuleLifecycleCommands
         if ($this->compiledRegistryCache !== null && $this->compiledRegistryLockDigest === $lockDigest) {
             return $this->compiledRegistryCache;
         }
+        $compiled = $this->registries->fromModuleLock($this->resolver, $this->moduleConfig);
         $this->compiledRegistryLockDigest = $lockDigest;
-        return $this->compiledRegistryCache = $this->registries->fromModuleLock($this->resolver, $this->moduleConfig);
+        return $this->compiledRegistryCache = $compiled;
     }
 
     /** @param array<string,ManifestDocument> $manifests @return list<string> */

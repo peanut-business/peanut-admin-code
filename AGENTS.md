@@ -15,7 +15,7 @@ Peanut Admin Host composition, client delivery and runtime acceptance; official 
 
 Read the public development standard in `docs/development/standard.md`, the relevant topics in `docs/README.md`, and the affected source before editing. Code is the single owner of public development contracts. Product users and downstream applications do not need the maintainer's private Project repository to install, develop Modules, or use the documented upgrade entry.
 
-Request-chain changes use `python3 scripts/read-development-docs request-cache-contract` to load read/cache/invalidation responsibilities. Choose only the input-dependent development and upgrade steps in `docs/public/module-development.md`; ordinary PHP method edits do not trigger full packaging, dependency preparation, API generation or client builds. Update the application AGENTS template when this public execution guidance changes.
+Request-chain changes use `docs/development/request-cache-contract.md` to load read/cache/invalidation responsibilities. Choose only the input-dependent development and upgrade steps in `docs/public/module-development.md`; ordinary PHP method edits do not trigger full packaging, dependency preparation, API generation or client builds. Update the application AGENTS template when this public execution guidance changes.
 
 For management UI changes, read `docs/development/ui-guidelines.md` before editing. Reuse Element Plus and the existing Page components; preserve Shell themes and application overrides. Ant Design is a design reference, not an additional component or stylesheet dependency.
 

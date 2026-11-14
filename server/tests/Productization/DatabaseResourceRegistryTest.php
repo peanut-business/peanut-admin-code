@@ -465,8 +465,8 @@ $developmentDatabase = (string) file_get_contents($root . '/scripts/project-deve
 $expect(str_contains($rootInstructions, 'resources/project-resources.json'), 'root AGENTS.md does not reference the registry');
 $expect(str_contains($qualificationRunner, 'resources/p0e-runtime-qualification.json')
     && str_contains($qualificationRunner, 'PEANUT_RESOURCE_REGISTRY'), 'qualification runner lost its two registry inputs');
-$expect(str_contains($guardSource, 'PEANUT_RESOURCE_LEASE_PROOF')
-    && str_contains($guardSource, '/run/peanut-admin/resource-lease'), 'P0-E guard does not require the fixed lease proof mount');
+$expect(str_contains($guardSource, 'guardedDatabaseConfig')
+    && str_contains($guardSource, 'templatedDatabaseIdentity'), 'environment guard lost templated qualification validation');
 $expect(str_contains($hostRuntime, 'tools/toolchain.json') && str_contains($hostRuntime, 'host.json')
     && str_contains($hostRuntime, 'project-composer'), 'project tool environment lost its registered PHP/Composer inputs');
 $expect(!preg_match('/(?m)^\s{2}php:\s*$/', $devCompose), 'development Compose still defines a PHP service');
@@ -475,9 +475,7 @@ $expect(str_contains($devCompose, 'NO_PROXY'), 'development containers do not by
 $expect(!str_contains($devCompose, 'DB_HOST=192.168.192.2'), 'development Compose overrides the registered database host');
 $expect(str_contains($developmentDatabase, 'repair-root-credential'), 'development database tooling lacks a bounded root credential repair entry');
 $expect(str_contains($developmentDatabase, 'StrictHostKeyChecking=yes'), 'development database credential repair does not preserve SSH host-key verification');
-$expect(str_contains($developmentDatabase, 'before-root-credential-repair'), 'development database credential repair lacks its lease-bound backup artifact');
-$expect(str_contains($developmentDatabase, 'project-resource-lease') && str_contains($developmentDatabase, "status\tACTIVE"), 'development database credential repair does not require an active resource lease');
-$expect(str_contains($developmentDatabase, 'development-db-recovery') && str_contains($developmentDatabase, 'mysql-resource') && str_contains($developmentDatabase, 'docker-volume'), 'development database credential repair does not bind the exact leased resource set');
+$expect(str_contains($developmentDatabase, 'before-root-credential-repair'), 'development database credential repair lacks its backup artifact');
 $expect(str_contains($developmentDatabase, 'MYSQL_ROOT_PASSWORD') && str_contains($developmentDatabase, 'SELECT 1'), 'development database credential repair does not verify the live root credential');
 $expect(
     str_contains($developmentDatabase, '$1 != "DB_ROOT_PASS" && $1 != "MYSQL_ROOT_PASSWORD"'),
@@ -579,267 +577,6 @@ function resourceGuardConsumerUpgradeEnvironment(string $runId, string $scenario
     ], $overrides);
 }
 
-function resourceGuardDelete(string $path): void
-{
-    if (!file_exists($path) && !is_link($path)) {
-        return;
-    }
-    if (is_dir($path) && !is_link($path)) {
-        foreach (array_diff(scandir($path) ?: [], ['.', '..']) as $entry) {
-            resourceGuardDelete($path . '/' . $entry);
-        }
-        rmdir($path);
-        return;
-    }
-    unlink($path);
-}
-
-/** @param list<string> $arguments */
-function resourceGuardGit(string $repository, array $arguments): string
-{
-    $pipes = [];
-    $process = proc_open(
-        array_merge(['/usr/bin/git', '-C', $repository], $arguments),
-        [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-        $pipes,
-    );
-    if (!is_resource($process)) {
-        throw new RuntimeException('unable to start isolated Git fixture');
-    }
-    $stdout = stream_get_contents($pipes[1]);
-    $stderr = stream_get_contents($pipes[2]);
-    fclose($pipes[1]);
-    fclose($pipes[2]);
-    if (proc_close($process) !== 0 || !is_string($stdout)) {
-        throw new RuntimeException('isolated Git fixture failed: ' . trim((string) $stderr));
-    }
-    return trim($stdout);
-}
-
-/** @return array{repository:string,candidate:string,tree:string,proof:string} */
-function resourceGuardConsumerRepository(string $root, string $lease): array
-{
-    $repository = $root . '/candidate-repository';
-    if (!is_dir($repository) && !mkdir($repository, 0700, true)) {
-        throw new RuntimeException('unable to create isolated Git fixture');
-    }
-    $repository = realpath($repository);
-    if (!is_string($repository)) {
-        throw new RuntimeException('isolated Git fixture did not resolve');
-    }
-    resourceGuardGit($repository, ['init', '--quiet']);
-    resourceGuardGit($repository, ['config', 'user.name', 'Environment Guard Test']);
-    resourceGuardGit($repository, ['config', 'user.email', 'environment-guard@example.invalid']);
-    file_put_contents($repository . '/candidate.txt', "fixed candidate\n");
-    resourceGuardGit($repository, ['add', 'candidate.txt']);
-    resourceGuardGit($repository, ['commit', '--quiet', '-m', 'fixture']);
-    $candidate = resourceGuardGit($repository, ['rev-parse', 'HEAD^{commit}']);
-    $tree = resourceGuardGit($repository, ['rev-parse', $candidate . '^{tree}']);
-    $commonDirectory = resourceGuardGit($repository, ['rev-parse', '--git-common-dir']);
-    if (!str_starts_with($commonDirectory, '/')) {
-        $commonDirectory = $repository . '/' . $commonDirectory;
-    }
-    $commonDirectory = realpath($commonDirectory);
-    if (!is_string($commonDirectory)) {
-        throw new RuntimeException('isolated Git common-dir did not resolve');
-    }
-    return [
-        'repository' => $repository,
-        'candidate' => $candidate,
-        'tree' => $tree,
-        'proof' => $commonDirectory . '/peanut-admin-resource-leases/leases/' . $lease,
-    ];
-}
-
-/**
- * @param callable(array<string,string>&,array<string,list<string>>&):void|null $mutate
- */
-function resourceGuardWriteProof(string $directory, string $runId, int $now, ?callable $mutate = null): void
-{
-    global $registryPath, $qualificationDatabase;
-    mkdir($directory, 0700, true);
-    $worktree = '/Users/xing/Documents/company-projects/peanut-admin-p0e-runtime';
-    $lease = 'p0e-runtime-' . $runId;
-    $metadata = [
-        'lease' => $lease,
-        'owner' => 'environment-guard-test',
-        'thread' => 'environment-guard-test-thread',
-        'candidate' => str_repeat('a', 40),
-        'candidate_repository' => $worktree,
-        'parent_lease' => '',
-        'gate' => 'p0e-runtime-qualification',
-        'worktree' => $worktree,
-        'created_at' => (string) ($now - 30),
-        'expires_at' => (string) ($now + 3600),
-        'status' => 'ACTIVE',
-    ];
-    $scenarios = array_keys(P0E_FRESH_SCENARIO_MODES);
-    $resources = [
-        'resource-id' => ['peanut-admin-p0e-mysql84-gate'],
-        'environment' => ['development'],
-        'deployment-target' => ['local-production-preview'],
-        'qualification-group' => ['multi-tenant-browser'],
-        'consumer' => ['host', 'container'],
-        'endpoint' => [$qualificationDatabase['upstream_endpoint']['endpoint_id'], '192.168.192.2:20183',
-            $qualificationDatabase['container_endpoint']['endpoint_id'], 'host.docker.internal:20189'],
-        'registry-sha256' => [hash_file('sha256', $registryPath)],
-        'resource-scope' => [str_replace('<run_id>', $runId, $qualificationDatabase['namespace'])],
-        'run-id' => [$runId],
-        'candidate-tree' => [str_repeat('b', 40)],
-        'mysql-db' => array_map(
-            static fn(string $scenario): string => 'peanut_admin_development_p0e_' . $runId . '_' . $scenario,
-            $scenarios,
-        ),
-        'database' => array_map(
-            static fn(string $scenario): string => 'peanut_admin_development_p0e_' . $runId . '_' . $scenario,
-            $scenarios,
-        ),
-        'deployment-mode' => ['standalone', 'multi-tenant'],
-        'port' => ['20183', '20190', '20189', '20186'],
-        'http-port' => ['20190'],
-        'docs-port' => ['20186'],
-        'database-tunnel' => ['peanut-admin-p0e-mysql84-container-tunnel'],
-        'cache-dir' => ['/Users/xing/.cache/peanut-admin/p0e-' . $runId],
-        'output-dir' => [$worktree . '/output/p0e-' . $runId],
-        'compose-project' => ['peanut-p0e-' . $runId],
-        'browser-session' => ['p0e-' . $runId],
-        'browser-host' => ['admin.p0e.localhost', 'beta.p0e.localhost', 'platform.p0e.localhost'],
-        'lease-proof-dir' => [
-            '/Users/xing/Documents/company-projects/peanut-admin/.git/peanut-admin-resource-leases/leases/' . $lease,
-        ],
-        'gate' => ['p0e-runtime-qualification'],
-        'worktree' => [$worktree],
-    ];
-    if ($mutate !== null) {
-        $mutate($metadata, $resources);
-    }
-    $metadataRows = [];
-    foreach ($metadata as $key => $value) {
-        $metadataRows[] = $key . "\t" . $value;
-    }
-    file_put_contents($directory . '/metadata.tsv', implode("\n", $metadataRows) . "\n");
-    $resourceRows = [];
-    foreach ($resources as $type => $values) {
-        foreach ($values as $value) {
-            $resourceRows[] = hash('sha256', $type . "\t" . $value) . "\t" . $type . "\t" . $value;
-        }
-    }
-    file_put_contents($directory . '/resources.tsv', implode("\n", $resourceRows) . "\n");
-}
-
-/**
- * @param callable(array<string,string>&,array<string,list<string>>&):void|null $mutate
- */
-function resourceGuardWriteConsumerUpgradeProof(
-    string $directory,
-    string $runId,
-    int $now,
-    array $repository,
-    ?callable $mutate = null,
-): void {
-    mkdir($directory, 0700, true);
-    $worktree = $repository['repository'];
-    $lease = 'consumer-upgrade-' . $runId;
-    $cache = '/Users/xing/.cache/peanut-admin/cr03-upgrade-' . $runId;
-    $metadata = [
-        'lease' => $lease,
-        'owner' => 'environment-guard-test',
-        'thread' => 'environment-guard-test-thread',
-        'candidate' => $repository['candidate'],
-        'candidate_repository' => $worktree,
-        'parent_lease' => '',
-        'gate' => 'consumer-upgrade-qualification',
-        'worktree' => $worktree,
-        'created_at' => (string) ($now - 30),
-        'expires_at' => (string) ($now + 3600),
-        'status' => 'ACTIVE',
-    ];
-    $scenarios = array_keys(CONSUMER_UPGRADE_SCENARIO_MODES);
-    $resources = [
-        'resource-id' => ['peanut-admin-consumer-upgrade-mysql84-gate'],
-        'environment' => ['development'],
-        'deployment-target' => ['local-development'],
-        'consumer' => ['host'],
-        'endpoint' => ['192.168.192.2:20183'],
-        'run-id' => [$runId],
-        'candidate-tree' => [$repository['tree']],
-        'mysql-db' => array_map(
-            static fn(string $scenario): string => 'peanut_admin_development_cr03_' . $runId . '_' . $scenario,
-            $scenarios,
-        ),
-        'instance-root' => array_map(static fn(string $scenario): string => $cache . '/instances/' . $scenario, $scenarios),
-        'backup-root' => array_map(static fn(string $scenario): string => $cache . '/backups/' . $scenario, $scenarios),
-        'tooling-resource-id' => ['peanut-admin-consumer-upgrade-mysql84-remote-admin-cli'],
-        'listener-resource-id' => ['peanut-admin-local-production-preview-gateway'],
-        'object-storage-resource-id' => ['peanut-admin-consumer-upgrade-local-storage'],
-        'object-prefix' => array_map(static fn(string $scenario): string => 'cr03/' . $runId . '/' . $scenario . '/', $scenarios),
-        'port' => ['20190'],
-        'http-port' => ['20190'],
-        'cache-dir' => [$cache],
-        'output-dir' => [$worktree . '/output/cr03-upgrade-' . $runId],
-        'lease-proof-dir' => [$repository['proof']],
-        'gate' => ['consumer-upgrade-qualification'],
-        'worktree' => [$worktree],
-    ];
-    if ($mutate !== null) {
-        $mutate($metadata, $resources);
-    }
-    $metadataRows = [];
-    foreach ($metadata as $key => $value) {
-        $metadataRows[] = $key . "\t" . $value;
-    }
-    file_put_contents($directory . '/metadata.tsv', implode("\n", $metadataRows) . "\n");
-    $resourceRows = [];
-    foreach ($resources as $type => $values) {
-        foreach ($values as $value) {
-            $resourceRows[] = hash('sha256', $type . "\t" . $value) . "\t" . $type . "\t" . $value;
-        }
-    }
-    file_put_contents($directory . '/resources.tsv', implode("\n", $resourceRows) . "\n");
-}
-
-/** @return array{child:string,parent:string,locks:string,repository:string} */
-function resourceGuardP0eParentFixture(string $root, string $runId, int $now): array
-{
-    $repository = resourceGuardConsumerRepository($root, 'p0e-runtime-' . $runId);
-    $child = $repository['proof'];
-    $parent = dirname($child) . '/p0e-controller-test';
-    resourceGuardWriteProof($child, $runId, $now, static function (array &$metadata, array &$resources) use ($repository, $parent, $runId): void {
-        $metadata['candidate'] = $repository['candidate'];
-        $metadata['candidate_repository'] = $repository['repository'];
-        $metadata['worktree'] = $repository['repository'];
-        $metadata['parent_lease'] = basename($parent);
-        $resources['candidate-tree'] = [$repository['tree']];
-        $resources['output-dir'] = [$repository['repository'] . '/output/p0e-' . $runId];
-        $resources['lease-proof-dir'] = [$repository['proof']];
-        unset($resources['worktree']);
-    });
-    mkdir($parent, 0700, true);
-    $parentMetadata = (string) file_get_contents($child . '/metadata.tsv');
-    $parentMetadata = str_replace([
-        "lease\tp0e-runtime-" . $runId . "\n",
-        "parent_lease\t" . basename($parent) . "\n",
-        "gate\tp0e-runtime-qualification\n",
-    ], ["lease\t" . basename($parent) . "\n", "parent_lease\t\n", "gate\tcontroller\n"], $parentMetadata);
-    file_put_contents($parent . '/metadata.tsv', $parentMetadata);
-    $worktree = $repository['repository'];
-    file_put_contents($parent . '/resources.tsv',
-        hash('sha256', "worktree\t" . $worktree) . "\tworktree\t" . $worktree . "\n"
-        . hash('sha256', "controller-task\tparent-only") . "\tcontroller-task\tparent-only\n");
-    $locks = dirname(dirname($child)) . '/resources';
-    foreach ([$child, $parent] as $proof) {
-        foreach (file($proof . '/resources.tsv', FILE_IGNORE_NEW_LINES) ?: [] as $row) {
-            [$hash, $type, $value] = explode("\t", $row);
-            $lock = $locks . '/' . $hash;
-            mkdir($lock, 0700, true);
-            foreach (['lease' => basename($proof), 'type' => $type, 'value' => $value] as $field => $content) {
-                file_put_contents($lock . '/' . $field, $content . "\n");
-            }
-        }
-    }
-    return ['child' => $child, 'parent' => $parent, 'locks' => $locks, 'repository' => $worktree];
-}
-
 function resourceGuardMustFail(callable $operation, string $case): void
 {
     try {
@@ -895,331 +632,60 @@ resourceGuardSetEnvironment(array_replace($ordinaryEnvironments['development'], 
 resourceGuardMustFail(static fn(): array => guardedDatabaseConfig(), 'shared development schema in preview');
 
 
-$temporary = sys_get_temp_dir() . '/peanut-environment-guard-' . bin2hex(random_bytes(6));
 $guardRunId = 'run123';
-$guardNow = 2_000_000_000;
-try {
-    $activeProof = $temporary . '/active';
-    resourceGuardWriteProof($activeProof, $guardRunId, $guardNow);
-    foreach (P0E_FRESH_SCENARIO_MODES as $scenario => $mode) {
-        resourceGuardSetEnvironment(resourceGuardP0eEnvironment($guardRunId, $scenario, $mode));
-        $config = guardedDatabaseConfig($activeProof, $guardNow);
-        $expect($config['consumer'] === 'container', "P0-E guard did not allow exact scenario {$scenario}");
-    }
-    resourceGuardSetEnvironment(resourceGuardP0eEnvironment($guardRunId, 'module_lifecycle', 'standalone'));
-    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($activeProof, $guardNow), 'Module lifecycle with standalone mode');
-    resourceGuardSetEnvironment(resourceGuardP0eEnvironment(
-        $guardRunId,
-        'standalone_fresh',
-        'standalone',
-        [
-            'PEANUT_DATABASE_CONSUMER' => 'host',
-            'PEANUT_DATABASE_ENDPOINT_ID' => 'peanut-admin-p0e-mysql84-gate-host-direct',
-            'DB_HOST' => '192.168.192.2',
-            'DB_PORT' => '20183',
-        ],
-    ));
-    $hostConfig = guardedDatabaseConfig($activeProof, $guardNow);
-    $expect($hostConfig['consumer'] === 'host', 'P0-E guard did not allow the exact lease-bound Host endpoint');
-
-    $hostEndpoint = [
+foreach (P0E_FRESH_SCENARIO_MODES as $scenario => $mode) {
+    resourceGuardSetEnvironment(resourceGuardP0eEnvironment($guardRunId, $scenario, $mode));
+    $config = guardedDatabaseConfig();
+    $expect($config['consumer'] === 'container', "P0-E guard did not allow exact scenario {$scenario}");
+}
+resourceGuardSetEnvironment(resourceGuardP0eEnvironment($guardRunId, 'module_lifecycle', 'standalone'));
+resourceGuardMustFail(static fn(): array => guardedDatabaseConfig(), 'Module lifecycle with standalone mode');
+resourceGuardSetEnvironment(resourceGuardP0eEnvironment($guardRunId, 'standalone_fresh', 'multi-tenant'));
+resourceGuardMustFail(static fn(): array => guardedDatabaseConfig(), 'Standalone fresh with multi-tenant mode');
+resourceGuardSetEnvironment(resourceGuardP0eEnvironment(
+    $guardRunId,
+    'standalone_fresh',
+    'standalone',
+    [
         'PEANUT_DATABASE_CONSUMER' => 'host',
         'PEANUT_DATABASE_ENDPOINT_ID' => 'peanut-admin-p0e-mysql84-gate-host-direct',
         'DB_HOST' => '192.168.192.2',
         'DB_PORT' => '20183',
-    ];
-    foreach (['multi-tenant-fresh' => 2, 'module-lifecycle' => 3] as $group => $count) {
-        $boundedProof = $temporary . '/' . $group;
-        resourceGuardWriteProof($boundedProof, $guardRunId, $guardNow, static function (array &$metadata, array &$resources) use ($group, $count): void {
-            $resources['qualification-group'] = [$group];
-            $resources['consumer'] = ['host'];
-            $resources['endpoint'] = ['peanut-admin-p0e-mysql84-gate-host-direct', '192.168.192.2:20183'];
-            $resources['mysql-db'] = array_slice($resources['mysql-db'], 0, $count);
-            $resources['database'] = array_slice($resources['database'], 0, $count);
-            $resources['port'] = ['20183'];
-            foreach (['http-port', 'docs-port', 'database-tunnel', 'compose-project', 'browser-session', 'browser-host', 'lease-proof-dir'] as $type) {
-                unset($resources[$type]);
-            }
-        });
-        foreach (array_slice(P0E_FRESH_SCENARIO_MODES, 0, $count, true) as $scenario => $mode) {
-            resourceGuardSetEnvironment(resourceGuardP0eEnvironment($guardRunId, $scenario, $mode, $hostEndpoint));
-            $boundedConfig = guardedDatabaseConfig($boundedProof, $guardNow);
-            $expect($boundedConfig['consumer'] === 'host', "bounded P0-E guard rejected {$group} scenario {$scenario}");
-        }
+    ],
+));
+$hostConfig = guardedDatabaseConfig();
+$expect($hostConfig['consumer'] === 'host', 'P0-E guard did not allow registered Host endpoint');
 
-        $outside = array_keys(P0E_FRESH_SCENARIO_MODES)[$count];
-        resourceGuardSetEnvironment(resourceGuardP0eEnvironment($guardRunId, $outside, P0E_FRESH_SCENARIO_MODES[$outside], $hostEndpoint));
-        resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($boundedProof, $guardNow), "{$group} with unleased {$outside}");
+$p0eRejections = [
+    'persistent-db' => ['DB_NAME' => 'peanut_admin_development'],
+    'unknown-scenario' => ['DB_NAME' => 'peanut_admin_development_p0e_run123_unknown'],
+    'invalid-run-id' => ['DB_NAME' => 'peanut_admin_development_p0e_INVALID_standalone_fresh'],
+    'host-with-container-endpoint' => ['PEANUT_DATABASE_CONSUMER' => 'host'],
+    'fallback-address' => ['DB_HOST' => '127.0.0.1', 'DB_PORT' => '3306'],
+    'production-target' => ['PEANUT_DEPLOYMENT_TARGET' => 'production'],
+];
+foreach ($p0eRejections as $case => $overrides) {
+    resourceGuardSetEnvironment(resourceGuardP0eEnvironment($guardRunId, 'standalone_fresh', 'standalone', $overrides));
+    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig(), 'P0-E ' . $case);
+}
 
-        resourceGuardSetEnvironment(resourceGuardP0eEnvironment($guardRunId, 'standalone_fresh', 'standalone'));
-        resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($boundedProof, $guardNow), "{$group} with unleased container endpoint");
-    }
-
-    $proofMutations = [
-        'expired' => static function (array &$metadata): void {
-            $metadata['expires_at'] = '2000000000';
-        },
-        'released' => static function (array &$metadata): void {
-            $metadata['status'] = 'RELEASED';
-        },
-        'candidate' => static function (array &$metadata): void {
-            $metadata['candidate'] = 'moving-head';
-        },
-        'candidate-repository' => static function (array &$metadata): void {
-            $metadata['candidate_repository'] = '/tmp/other';
-        },
-        'extra' => static function (array &$metadata, array &$resources): void {
-            $resources['fallback'] = ['localhost'];
-        },
-        'missing-db' => static function (array &$metadata, array &$resources): void {
-            array_pop($resources['mysql-db']);
-        },
-        'missing-database-lock' => static function (array &$metadata, array &$resources): void {
-            array_pop($resources['database']);
-        },
-        'foreign-database-lock' => static function (array &$metadata, array &$resources): void {
-            $resources['database'][0] = 'peanut_admin_development';
-        },
-        'registry-sha256' => static function (array &$metadata, array &$resources): void {
-            $resources['registry-sha256'] = [str_repeat('f', 64)];
-        },
-        'resource-scope' => static function (array &$metadata, array &$resources): void {
-            $resources['resource-scope'] = ['foreign-namespace'];
-        },
-        'missing-host-port' => static function (array &$metadata, array &$resources): void {
-            $resources['port'] = ['20190', '20189', '20186'];
-        },
-        'missing-endpoint-id' => static function (array &$metadata, array &$resources): void {
-            array_shift($resources['endpoint']);
-        },
-        'foreign-endpoint-id' => static function (array &$metadata, array &$resources): void {
-            $resources['endpoint'][0] = 'foreign-endpoint';
-        },
-        'missing-browser-host' => static function (array &$metadata, array &$resources): void {
-            array_pop($resources['browser-host']);
-        },
-        'tree' => static function (array &$metadata, array &$resources): void {
-            $resources['candidate-tree'] = ['tree'];
-        },
-        'proof-self' => static function (array &$metadata, array &$resources): void {
-            $resources['lease-proof-dir'] = ['/tmp/other'];
-        },
-        'worktree' => static function (array &$metadata, array &$resources): void {
-            $resources['worktree'] = ['/tmp/other'];
-        },
-        'endpoint' => static function (array &$metadata, array &$resources): void {
-            $resources['endpoint'] = ['127.0.0.1:3306'];
-        },
-    ];
-    foreach ($proofMutations as $case => $mutate) {
-        $proof = $temporary . '/' . $case;
-        resourceGuardWriteProof($proof, $guardRunId, $guardNow, $mutate);
-        resourceGuardSetEnvironment(resourceGuardP0eEnvironment($guardRunId, 'standalone_fresh', 'standalone'));
-        resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($proof, $guardNow), $case);
-    }
-
-    $applicationRegistry = $registry;
-    $applicationRegistry['authority']['role'] = 'application';
-    $projection = $qualificationDatabase;
-    unset($projection['credential_ref']);
-    resourceGuardMustFail(static fn(): string => p0eRegistryProofSha256($activeProof, $applicationRegistry, $projection, 'ignored'), 'missing original registry proof');
-    file_put_contents($activeProof . '/registry.json', $registryJson);
-    $expect(p0eRegistryProofSha256($activeProof, $applicationRegistry, $projection, 'ignored') === hash('sha256', $registryJson),
-        'APP proof did not hash the original registry bytes');
-    $changedProjection = $projection;
-    $changedProjection['namespace'] = 'foreign';
-    resourceGuardMustFail(static fn(): string => p0eRegistryProofSha256($activeProof, $applicationRegistry, $changedProjection, 'ignored'), 'changed application database projection');
-    file_put_contents($activeProof . '/registry.json', $registryJson . "\n");
-    $changedSha = p0eRegistryProofSha256($activeProof, $applicationRegistry, $projection, 'ignored');
-    $expect($changedSha !== hash('sha256', $registryJson), 'original registry byte changes were hidden');
-    resourceGuardMustFail(static fn() => assertLeaseResourceValues(activeLeaseResources($activeProof), 'registry-sha256', [$changedSha]), 'changed original registry bytes');
-    unlink($activeProof . '/registry.json');
-    symlink($registryPath, $activeProof . '/registry.json');
-    resourceGuardMustFail(static fn(): string => p0eRegistryProofSha256($activeProof, $applicationRegistry, $projection, 'ignored'), 'symlink original registry proof');
-    unlink($activeProof . '/registry.json');
-
-    $tampered = $temporary . '/tampered';
-    resourceGuardWriteProof($tampered, $guardRunId, $guardNow);
-    $bytes = (string) file_get_contents($tampered . '/resources.tsv');
-    $bytes[0] = $bytes[0] === '0' ? '1' : '0';
-    file_put_contents($tampered . '/resources.tsv', $bytes);
-    resourceGuardSetEnvironment(resourceGuardP0eEnvironment($guardRunId, 'standalone_fresh', 'standalone'));
-    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($tampered, $guardNow), 'resource hash');
-
-    $configRejections = [
-        'persistent-db' => ['DB_NAME' => 'peanut_admin_development'],
-        'unknown-scenario' => ['DB_NAME' => 'peanut_admin_development_p0e_run123_unknown'],
-        'foreign-run' => ['DB_NAME' => 'peanut_admin_development_p0e_other1_standalone_fresh'],
-        'wrong-mode' => ['DB_NAME' => 'peanut_admin_development_p0e_run123_multi_tenant_fresh'],
-        'host-with-container-endpoint' => ['PEANUT_DATABASE_CONSUMER' => 'host'],
-        'fallback-address' => ['DB_HOST' => '127.0.0.1', 'DB_PORT' => '3306'],
-        'production-target' => ['PEANUT_DEPLOYMENT_TARGET' => 'production'],
-    ];
-    foreach ($configRejections as $case => $overrides) {
-        resourceGuardSetEnvironment(resourceGuardP0eEnvironment($guardRunId, 'standalone_fresh', 'standalone', $overrides));
-        resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($activeProof, $guardNow), $case);
-    }
-    resourceGuardSetEnvironment(resourceGuardP0eEnvironment($guardRunId, 'standalone_fresh', 'standalone'));
-    resourceGuardMustFail(
-        static fn(): array => guardedDatabaseConfig($temporary . '/released-and-deleted', $guardNow),
-        'deleted proof directory',
-    );
-
-    $parentFixture = resourceGuardP0eParentFixture($temporary . '/parent-fixture', $guardRunId, $guardNow);
-    $parentProof = $parentFixture['parent'];
-    $childProof = $parentFixture['child'];
-    $hostEnvironment = resourceGuardP0eEnvironment($guardRunId, 'standalone_fresh', 'standalone', [
-        'PEANUT_DATABASE_CONSUMER' => 'host',
-        'PEANUT_DATABASE_ENDPOINT_ID' => 'peanut-admin-p0e-mysql84-gate-host-direct',
-        'DB_HOST' => '192.168.192.2', 'DB_PORT' => '20183',
-    ]);
-    resourceGuardSetEnvironment($hostEnvironment);
-    $expect(guardedDatabaseConfig($childProof, $guardNow)['consumer'] === 'host', 'P0-E exact parent lease was rejected');
-    $resolved = resolvedP0eLeaseResources($childProof, activeLeaseMetadata($childProof, $guardNow, null), $guardNow, 'host');
-    $expect(($resolved['worktree'] ?? null) === [$parentFixture['repository']], 'P0-E child did not inherit parent worktree');
-    $expect(!isset($resolved['controller-task']), 'P0-E child inherited an unrelated parent resource');
-    $parentMetadata = (string) file_get_contents($parentProof . '/metadata.tsv');
-    $parentMutations = [
-        'lease' => 'different-parent', 'owner' => 'different-owner', 'thread' => 'different-thread',
-        'candidate' => str_repeat('f', 40), 'candidate_repository' => '/tmp/other',
-        'worktree' => '/tmp/other', 'expires_at' => (string) $guardNow,
-        'status' => 'RELEASED', 'parent_lease' => 'nested-parent',
-    ];
-    foreach ($parentMutations as $key => $value) {
-        file_put_contents($parentProof . '/metadata.tsv', preg_replace('/^' . $key . "\t[^\n]*$/m", $key . "\t" . $value, $parentMetadata));
-        resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E parent ' . $key);
-        file_put_contents($parentProof . '/metadata.tsv', $parentMetadata);
-    }
-    file_put_contents($parentProof . '/metadata.tsv', $parentMetadata . "extra\tunexpected\n");
-    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E parent extra metadata');
-    file_put_contents($parentProof . '/metadata.tsv', $parentMetadata);
-    rename($parentProof, $parentProof . '-missing');
-    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E missing parent');
-    symlink($parentProof . '-missing', $parentProof);
-    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E symlink parent');
-    unlink($parentProof);
-    rename($parentProof . '-missing', $parentProof);
-    $childMetadata = (string) file_get_contents($childProof . '/metadata.tsv');
-    file_put_contents($childProof . '/metadata.tsv', preg_replace('/^expires_at\t[^\n]*$/m', "expires_at\t" . ($guardNow + 3601), $childMetadata));
-    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E child outlives parent');
-    file_put_contents($childProof . '/metadata.tsv', $childMetadata);
-    $parentResources = (string) file_get_contents($parentProof . '/resources.tsv');
-    file_put_contents($parentProof . '/resources.tsv', preg_replace('/^[^\n]*\tworktree\t[^\n]*\n/m', '', $parentResources));
-    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E parent missing worktree');
-    file_put_contents($parentProof . '/resources.tsv', $parentResources);
-    $candidateHead = resourceGuardGit($parentFixture['repository'], ['rev-parse', 'HEAD']);
-    file_put_contents($parentFixture['repository'] . '/candidate.txt', "changed candidate\n");
-    resourceGuardGit($parentFixture['repository'], ['add', 'candidate.txt']);
-    resourceGuardGit($parentFixture['repository'], ['commit', '--quiet', '-m', 'different head']);
-    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E moved candidate HEAD');
-    resourceGuardGit($parentFixture['repository'], ['reset', '--hard', $candidateHead]);
-    $childResources = (string) file_get_contents($childProof . '/resources.tsv');
-    $worktree = $parentFixture['repository'];
-    file_put_contents($childProof . '/resources.tsv', $childResources . hash('sha256', "worktree\t" . $worktree) . "\tworktree\t" . $worktree . "\n");
-    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E child direct worktree');
-    file_put_contents($childProof . '/resources.tsv', preg_replace('/^[^\n]*\tcandidate-tree\t[^\n]*$/m', hash('sha256', "candidate-tree\t" . str_repeat('f', 40)) . "\tcandidate-tree\t" . str_repeat('f', 40), $childResources));
-    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E child wrong candidate tree');
-    file_put_contents($childProof . '/resources.tsv', $childResources);
-    foreach ([['worktree', $worktree], ['gate', 'p0e-runtime-qualification']] as [$type, $value]) {
-        $lock = $parentFixture['locks'] . '/' . hash('sha256', $type . "\t" . $value);
-        foreach (['lease', 'type', 'value'] as $field) {
-            $original = (string) file_get_contents($lock . '/' . $field);
-            file_put_contents($lock . '/' . $field, "wrong\n");
-            resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E lock ' . $type . '/' . $field);
-            file_put_contents($lock . '/' . $field, $original);
-        }
-    }
-    $copiedChild = $temporary . '/copied-p0e-child';
-    mkdir($copiedChild, 0700, true);
-    copy($childProof . '/metadata.tsv', $copiedChild . '/metadata.tsv');
-    copy($childProof . '/resources.tsv', $copiedChild . '/resources.tsv');
-    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($copiedChild, $guardNow), 'P0-E copied child proof');
-
-    $consumerProof = $temporary . '/consumer-active';
-    $consumerRepository = resourceGuardConsumerRepository($temporary, 'consumer-upgrade-' . $guardRunId);
-    $consumerProof = $consumerRepository['proof'];
-    resourceGuardWriteConsumerUpgradeProof($consumerProof, $guardRunId, $guardNow, $consumerRepository);
-    foreach (CONSUMER_UPGRADE_SCENARIO_MODES as $scenario => $mode) {
-        resourceGuardSetEnvironment(resourceGuardConsumerUpgradeEnvironment($guardRunId, $scenario, $mode));
-        $config = guardedDatabaseConfig($consumerProof, $guardNow);
-        $expect($config['consumer'] === 'host', "consumer-upgrade guard did not allow exact scenario {$scenario}");
-    }
-    $consumerProofMutations = [
-        'parent-lease' => static function (array &$metadata): void {
-            $metadata['parent_lease'] = 'p0e-controller-test';
-        },
-        'extra-metadata' => static function (array &$metadata): void {
-            $metadata['extra'] = 'unexpected';
-        },
-        'released' => static function (array &$metadata): void {
-            $metadata['status'] = 'RELEASED';
-        },
-        'wrong-gate' => static function (array &$metadata): void {
-            $metadata['gate'] = 'p0e-runtime-qualification';
-        },
-        'missing-backup' => static function (array &$metadata, array &$resources): void {
-            array_pop($resources['backup-root']);
-        },
-        'extra-port' => static function (array &$metadata, array &$resources): void {
-            $resources['port'][] = '20191';
-        },
-        'wrong-endpoint' => static function (array &$metadata, array &$resources): void {
-            $resources['endpoint'] = ['127.0.0.1:3306'];
-        },
-        'wrong-instance-root' => static function (array &$metadata, array &$resources): void {
-            $resources['instance-root'][0] = '/tmp/other';
-        },
-        'wrong-candidate' => static function (array &$metadata): void {
-            $metadata['candidate'] = str_repeat('f', 40);
-        },
-        'wrong-candidate-tree' => static function (array &$metadata, array &$resources): void {
-            $resources['candidate-tree'] = [str_repeat('e', 40)];
-        },
-        'escaped-candidate-repository' => static function (array &$metadata): void {
-            $metadata['candidate_repository'] .= '/..';
-        },
-        'wrong-worktree' => static function (array &$metadata, array &$resources): void {
-            $resources['worktree'] = ['/tmp/other'];
-        },
-        'wrong-lease' => static function (array &$metadata): void {
-            $metadata['lease'] = 'consumer-upgrade-other';
-        },
-    ];
-    foreach ($consumerProofMutations as $case => $mutate) {
-        resourceGuardDelete($consumerProof);
-        resourceGuardWriteConsumerUpgradeProof($consumerProof, $guardRunId, $guardNow, $consumerRepository, $mutate);
-        resourceGuardSetEnvironment(resourceGuardConsumerUpgradeEnvironment($guardRunId, 'standalone_upgrade', 'standalone'));
-        resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($consumerProof, $guardNow), 'consumer-upgrade ' . $case);
-    }
-    resourceGuardDelete($consumerProof);
-    resourceGuardWriteConsumerUpgradeProof($consumerProof, $guardRunId, $guardNow, $consumerRepository);
-    $copiedProof = $temporary . '/copied-consumer-proof';
-    mkdir($copiedProof, 0700, true);
-    copy($consumerProof . '/metadata.tsv', $copiedProof . '/metadata.tsv');
-    copy($consumerProof . '/resources.tsv', $copiedProof . '/resources.tsv');
-    resourceGuardSetEnvironment(resourceGuardConsumerUpgradeEnvironment($guardRunId, 'standalone_upgrade', 'standalone'));
-    resourceGuardMustFail(
-        static fn(): array => guardedDatabaseConfig($copiedProof, $guardNow),
-        'consumer-upgrade copied proof',
-    );
-    $consumerConfigRejections = [
-        'missing-proof' => [],
-        'production-target' => ['APP_ENV' => 'production', 'PEANUT_DEPLOYMENT_TARGET' => 'production'],
-        'container-consumer' => ['PEANUT_DATABASE_CONSUMER' => 'container'],
-        'wrong-endpoint-id' => ['PEANUT_DATABASE_ENDPOINT_ID' => 'peanut-admin-p0e-mysql84-gate-host-direct'],
-        'wrong-mode' => ['DEPLOYMENT_MODE' => 'multi-tenant'],
-        'foreign-run' => ['DB_NAME' => 'peanut_admin_development_cr03_other1_standalone_upgrade'],
-    ];
-    foreach ($consumerConfigRejections as $case => $overrides) {
-        resourceGuardSetEnvironment(resourceGuardConsumerUpgradeEnvironment($guardRunId, 'standalone_upgrade', 'standalone', $overrides));
-        if ($case === 'missing-proof') {
-            resourceGuardMustFail(static fn(): array => guardedDatabaseConfig(null, $guardNow), 'consumer-upgrade ' . $case);
-            continue;
-        }
-        resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($consumerProof, $guardNow), 'consumer-upgrade ' . $case);
-    }
-} finally {
-    resourceGuardDelete($temporary);
+foreach (CONSUMER_UPGRADE_SCENARIO_MODES as $scenario => $mode) {
+    resourceGuardSetEnvironment(resourceGuardConsumerUpgradeEnvironment($guardRunId, $scenario, $mode));
+    $config = guardedDatabaseConfig();
+    $expect($config['consumer'] === 'host', "consumer-upgrade guard did not allow exact scenario {$scenario}");
+}
+resourceGuardSetEnvironment(resourceGuardConsumerUpgradeEnvironment($guardRunId, 'multi_tenant_upgrade', 'standalone'));
+resourceGuardMustFail(static fn(): array => guardedDatabaseConfig(), 'Consumer upgrade multi-tenant scenario with standalone mode');
+$consumerRejections = [
+    'production-target' => ['APP_ENV' => 'production', 'PEANUT_DEPLOYMENT_TARGET' => 'production'],
+    'container-consumer' => ['PEANUT_DATABASE_CONSUMER' => 'container'],
+    'wrong-endpoint-id' => ['PEANUT_DATABASE_ENDPOINT_ID' => 'peanut-admin-p0e-mysql84-gate-host-direct'],
+    'wrong-mode' => ['DEPLOYMENT_MODE' => 'multi-tenant'],
+    'unknown-scenario' => ['DB_NAME' => 'peanut_admin_development_cr03_run123_unknown'],
+];
+foreach ($consumerRejections as $case => $overrides) {
+    resourceGuardSetEnvironment(resourceGuardConsumerUpgradeEnvironment($guardRunId, 'standalone_upgrade', 'standalone', $overrides));
+    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig(), 'consumer-upgrade ' . $case);
 }
 
 echo "database resource registry contract passed\n";

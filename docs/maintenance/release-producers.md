@@ -29,11 +29,11 @@
 
 ## 数据库维护输入
 
-普通开发、启动和原生迁移不要求自写租约或候选证明；共享开发库仍核对实际部署目标、登记 endpoint、数据库名和应用凭据。`PEANUT_RESOURCE_LEASE_PROOF` 仅供固定资格、恢复等原有专用合同使用。
+普通开发、启动和原生迁移不要求自写租约或候选证明；共享开发库仍核对实际部署目标、登记 endpoint、数据库名和应用凭据。
 
 普通运行配置使用 `server/.env` 与 ThinkPHP 原生 `PHP_ENV_NAME`，不再使用PHP自定义文件选择器。Compose的 `PEANUT_SERVER_ENV_FILE` 如仍用于选择挂载源，仅属于编排输入，不传给PHP作为配置加载入口。
 
-seed、受控迁移维护和固定资格的资源选择使用独立进程输入，不从普通 `.env` 或 ThinkPHP Env 读取：`PEANUT_DATABASE_RESOURCE_ID` 选择已登记数据库；`PEANUT_DEPLOYMENT_TARGET` 必须匹配APP_ENV和登记环境；`PEANUT_DATABASE_CONSUMER` 明确选择登记endpoint；`PEANUT_DATABASE_ENDPOINT_ID` 是可选精确断言；`PEANUT_RESOURCE_LEASE_PROOF` 提供原操作要求的真实租约。先通过 `scripts/project-resource-registry database-env --resource-id=<已登记ID> --deployment-target=<已登记target> --consumer=<host或container>` 读取非秘密选择；该命令输出target、resource/endpoint/consumer及登记地址，不读取密码、不授予租约、不修改应用配置。只将维护选择传入相应命令进程，实际DB连接继续由原生应用配置加载并逐项匹配登记，不把全部输出追加到 `.env`。固定库的登记/选择检查可用同一工具的 `validate` 加相同三参数；它只证明该数据库范围，不证明健康或租约。维护者仅在明确提供绝对 `PEANUT_RESOURCE_REGISTRY` 进程输入时读取维护登记，不自动寻找Project，不从示例猜测地址、身份或凭据。普通运行和首次安装直接使用 ThinkPHP 默认连接；安装配置器不生成这些维护环境项或私有资源登记。
+seed 与受控迁移维护的资源选择使用独立进程输入，不从普通 `.env` 或 ThinkPHP Env 读取：`PEANUT_DATABASE_RESOURCE_ID` 选择已登记数据库；`PEANUT_DEPLOYMENT_TARGET` 必须匹配APP_ENV和登记环境；`PEANUT_DATABASE_CONSUMER` 明确选择登记endpoint；`PEANUT_DATABASE_ENDPOINT_ID` 是可选精确断言。先通过 `scripts/project-resource-registry database-env --resource-id=<已登记ID> --deployment-target=<已登记target> --consumer=<host或container>` 读取非秘密选择；该命令输出target、resource/endpoint/consumer及登记地址，不读取密码、不修改应用配置。只将维护选择传入相应命令进程，实际DB连接继续由原生应用配置加载并逐项匹配登记，不把全部输出追加到 `.env`。固定库的登记/选择检查可用同一工具的 `validate` 加相同三参数。维护者仅在明确提供绝对 `PEANUT_RESOURCE_REGISTRY` 进程输入时读取维护登记，不自动寻找Project，不从示例猜测地址、身份或凭据。普通运行和首次安装直接使用 ThinkPHP 默认连接；安装配置器不生成这些维护环境项或私有资源登记。
 
 这些字段是现有受控维护操作的输入，不是普通日常配置的通用必填表；缺失时仅相应受控操作明确拒绝，不能用空默认值、私有配置loader或备用库替代门禁。一次性身份文件只在安装/明确的demo输入入口读取，不进入全局Env。
 
@@ -58,7 +58,7 @@ seed、受控迁移维护和固定资格的资源选择使用独立进程输入�
 | 应用开发环境 | `project-env`、`project-composer`、`run-with-environment-file`；原生安装/开发/构建调用 | 保留；不包含本机host或依赖目录 |
 | 本地Core联调 | `core-dev`、`local-core-composer`、`local-core-web`、`local-core-links.mjs`；应用开发者显式选择Core | 保留；不隐式冻结发行 |
 | 原生产品生成物 | `generate-api-contracts.php`、`module-frontend-entries.mjs`、`release-dependency-locks.mjs`、`sync-brand-assets.mjs`；API、模块、锁和品牌生成入口 | 保留 |
-| 安装/升级/部署 | `migrate-installation-state`、`scaffold-doctor`、`scaffold-upgrade`与`scaffold-runtime/`、`deploy-update.sh`；应用生命周期入口 | 保留 |
+| 安装/升级/部署 | `scaffold-doctor`、`scaffold-upgrade`与`scaffold-runtime/`、`deploy-update.sh`；应用生命周期入口 | 保留 |
 | 运维数据保护 | `ops-backup-worker`、`ops-restore-worker`；APP登记的备份/隔离恢复与生成后的`environment-guard.php` | 保留产品所需guard；剥离资格及私有lease工具 |
 | 应用源码检查 | `check-*`、`format-source.mjs`、`run-php-test`；应用开发者按需调用 | 保留；执行测试仍取独立授权 |
 | 模板/Core生产与仓库维护 | create/build/prepare/package/release/qualification入口、`project-resource-*`、CI编排、CodeGraph、专用consumer及维护测试 | 只在Code维护，不随APP交付；CodeGraph的registry也不交付 |
@@ -186,7 +186,7 @@ scaffold-release.yml 当前仅由 workflow_dispatch 显式触发：publish=false
 
 `scripts/prepare-product-release-candidate` 只用于Peanut上游源码仓的隔离发行工作树，不随生成APP交付，也不是APP首次安装或线上更新入口。旧 `scripts/package-release.sh` 已退出当前源码；现行[产品交付](#产品交付)由产品自身的 Git 定版与更新流程负责，不再把旧包作为额外步骤。
 
-跨仓候选接续可参照[Core 独立发行](../development/core-release.md)的来源与公共渠道边界，使用 `scripts/continue-product-release`：默认只读计划；`--apply` 才建立任务输出根的状态并调用现有工具。候选依次核公开 Core 身份、原生锁、生产者依赖和库存，经审核提交最终源码封存后，在外部 `scaffold-templates/` 构建双 Edition；不再把生成清单/P0-E 投影提交回源码形成第二个产品提交。制品和资格绑定该最终 commit/tree，部分输出或身份漂移拒绝重放。`--core-web-package-evidence` 仍只替代六包元数据读取，原注释 tag、提交、成功 Action、GitHub Release 和固定摘要检查保留。
+跨仓候选与正式模板发行参照[Core 独立发行](../development/core-release.md)的来源与公共渠道边界：通过 `scripts/prepare-product-release-candidate` 核对公开 Core 身份、原生锁、生产者依赖和库存，并在 `scaffold-release.yml` 完成候选预检与双 Edition 模板构建，再由 `scripts/publish-github-release` 发布的制品绑定最终源码 commit/tree。`--core-web-package-evidence` 仍只替代六包元数据读取，原注释 tag、提交、成功 Action、GitHub Release 和固定摘要检查保留。
 
 续发器只在同一获准 CI 内调用唯一发布器。外部结果未知时保留原 publication intent；远端无完整附件不自动重发。发布器创建后和续发核对均要求精确附件集合、Release/channel/size/digest，并实际下载每个 asset 比较本地字节。差异只报告，不覆盖、删除或重新上传远端附件。旧阶段状态不作为新模板流程输入，必须保留原状态和原失败预算。APP 使用正式模板和自身 Git，不依赖此维护者编排或私有 Project。
 
