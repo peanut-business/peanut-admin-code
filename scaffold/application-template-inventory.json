@@ -8255,7 +8255,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d32823fb39dff29795e296000d1b997cd1bdaff195bd86b56859d51a202b4c42"
+            "source_sha256": "f46d13bd4b98c8d11168a3c2f778e34e2dbf1db2f75bce4772388dbf8727a8bd"
         },
         {
             "path": "server/app/installation/http/middleware/InstallationExecutionMiddleware.php",
@@ -11837,7 +11837,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f521ff6917b02764f64588dd922250003c5ebc5d68f4111870ed2e636fc51421"
+            "source_sha256": "4c6b1c19756a497708563eec87913ceeedfac58cef20a6eeafd748012fbef723"
         },
         {
             "path": "server/route/app.php",
@@ -17576,7 +17576,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "190d74f8426b4fa46b22b557b1ad1a259506f26a63160549627e149fffa22bcb"
+            "source_sha256": "3db4c19a8e6539fbdfc2ddaf0ef24dc800ec1691695397247d3d01b932d34737"
         },
         {
             "path": "web/src/hooks/public-image-references.ts",
@@ -18066,7 +18066,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "95382600e62b6cde4ede2b40041b57829f14dcf4625068ac013a473dc76d7c71"
+            "source_sha256": "b716a62ff968a97d4963e07b5eb440032414a13e53a0098f066f0ddf8755ef80"
         },
         {
             "path": "web/src/router/routes/types.ts",
