@@ -8,6 +8,7 @@ use app\adminapi\controller\auth\MenuController;
 use app\adminapi\controller\auth\RoleController;
 use app\adminapi\controller\WorkbenchController;
 use app\adminapi\controller\config\ConfigController;
+use app\adminapi\controller\config\HostBrandController;
 use app\adminapi\controller\config\ReadinessController;
 use app\adminapi\controller\dept\DeptController;
 use app\adminapi\controller\dept\JobsController;
@@ -22,7 +23,6 @@ use app\adminapi\controller\log\OperationLogController;
 use app\adminapi\http\middleware\AuthMiddleware;
 use app\adminapi\http\middleware\LoginMiddleware;
 use app\adminapi\http\middleware\OperationLogMiddleware;
-use app\common\http\ApiProblem;
 use think\facade\Route;
 
 if (($peanutRouteApplication ?? null) !== 'adminapi') {
@@ -30,10 +30,8 @@ if (($peanutRouteApplication ?? null) !== 'adminapi') {
 }
 
 // Anonymous Admin branding uses its own Host boundary, separate from Member APIs.
-if ($peanutRouteModules === []) {
-    Route::get('config/brand', static function (): never {
-        throw ApiProblem::fromEnvelope('管理入口暂不可用，Identity Module 尚未采用。', ['error_code' => 'IDENTITY_MODULE_UNAVAILABLE'], 50300);
-    });
+if (!isset($peanutRouteModules['peanut.identity'])) {
+    Route::get('config/brand', [HostBrandController::class, 'brand']);
 } else {
     Route::get('config/brand', [ConfigController::class, 'brand']);
 }
