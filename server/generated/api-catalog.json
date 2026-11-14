@@ -8,7 +8,7 @@
         },
         {
             "path": "release-versions.json",
-            "sha256": "a95aa529fd7af89916e343816834aa0e64d417e06bc02c3f6617ed76330c1417"
+            "sha256": "9b34525620fbf4c6edd0856dd0ad0092d484ef47052feb1c89250409192d161c"
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
@@ -44,7 +44,7 @@
         },
         {
             "path": "server/route/admin.php",
-            "sha256": "8951190f6799d6ad99d9995182cb06ddaf742f40c0f85230e3706097f46f9812"
+            "sha256": "cbe6ee22b1c3b16af578db9783ef1a3eb3ea33306ea4db4ba11bc7421ff316ac"
         },
         {
             "path": "server/route/app.php",
