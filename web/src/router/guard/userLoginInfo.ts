@@ -5,7 +5,7 @@ import type {
 } from 'vue-router';
 import NProgress from 'nprogress'; // progress bar
 
-import { useUserStore } from '@/store';
+import { useBrandStore, useUserStore } from '@/store';
 import { getSessionSnapshot } from '@/utils/auth';
 import { WHITE_LIST } from '../constants';
 
@@ -26,6 +26,16 @@ export default function setupUserLoginInfoGuard(router: Router) {
     const session = getSessionSnapshot();
     if (WHITE_LIST.some((route) => route.name === to.name)) {
       next();
+      return;
+    }
+
+    const brandStore = useBrandStore();
+    await brandStore.load();
+    if (!brandStore.loginEnabled) {
+      next({
+        name: 'login',
+        query: loginQuery(to),
+      });
       return;
     }
 
