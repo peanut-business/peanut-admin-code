@@ -171,9 +171,10 @@ jobs:
           CLI_REF: ${{ inputs.candidate_cli_commit || 'main' }}
           RUN_TESTS: ${{ inputs.run_tests && 'true' || 'false' }}
         run: |
-          scripts/ci-producer exec "$RUNNER_TEMP/ci-producer" -- bash -Eeuo pipefail -s -- "$RUN_TESTS" <<'PRODUCER'
+          scripts/ci-producer exec "$RUNNER_TEMP/ci-producer" -- bash -Eeuo pipefail -s -- "$RUN_TESTS" "$CLI_REF" <<'PRODUCER'
           set -Eeuo pipefail
           export RUN_TESTS="$1"
+          export CLI_REF="$2"
           python3 - <<'PY'
           import hashlib, json, os, pathlib, re, subprocess
           code = pathlib.Path.cwd()
