@@ -11795,7 +11795,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6eef45eb9f6ec258a62e0a57b96948003356c4a4550aa3de07b46f1074271cdb"
+            "source_sha256": "531731e0a1237995af8645358913e9bb8596e0c659f3fce4b1c446a6a927ceed"
         },
         {
             "path": "server/resources/scaffold-application/composer.lock",
@@ -11809,7 +11809,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fe82bad42c05897915f96223b30fb02fb1eb83fd3ca56255ca9f0f1ef9cb16c6"
+            "source_sha256": "b94bf2602ddf3287ed9bd8608bb09c04f79921005d5cf8e1d06aedd3c7b9391a"
         },
         {
             "path": "server/resources/scaffold-application/project-rules.md.stub",
