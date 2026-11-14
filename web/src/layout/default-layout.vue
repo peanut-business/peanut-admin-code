@@ -106,7 +106,7 @@
   const router = useRouter();
   const route = useRoute();
   const permission = usePermission();
-  const { t } = useI18n();
+  const { t, te } = useI18n();
   const { menuTree } = useMenuTree();
   useResponsive(true);
   const appearance = computed(() => appStore.shellAppearance);
@@ -128,7 +128,7 @@
         const locale = String(item.meta?.locale || '');
         return {
           path: item.path,
-          label: item.meta?.title ? String(item.meta.title) : t(locale),
+          label: locale && te(locale) ? t(locale) : String(item.meta?.title || locale),
         };
       })
   );
