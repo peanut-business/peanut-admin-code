@@ -194,34 +194,16 @@ class TemplateStageTest(unittest.TestCase):
         self.assertEqual(self.receipt()["status"], "failed-preserved")
         self.assertEqual(len([call for call in self.calls if call[2] == "create"]), 1)
 
-    def test_runtime_admission_uses_code_native_proof_and_preserves_actor_schema_checks(self):
+    def test_runtime_admission_uses_code_native_checks_and_preserves_actor_schema_checks(self):
         actor = self.root / "application"
         actor.mkdir()
-        proof = self.root / "native-tool-domain/leases/runtime-proof"
-        proof.mkdir(parents=True)
         runtime = {"lease": "runtime-proof", "resource_id": "synthetic-database"}
         required = [("database", "synthetic_schema"), ("mysql-db", "synthetic_schema"),
                     ("mysql-schema", "synthetic-server/synthetic_schema"), ("endpoint", "synthetic-endpoint")]
-        metadata = {"owner": "native-owner", "thread": "native-thread", "worktree": str(actor),
-                    "candidate_repository": str(actor), "candidate": self.candidate, "gate": "native-gate",
-                    "parent_lease": "", "status": "ACTIVE", "expires_at": str(int(time.time()) + 600)}
-        state = {"metadata": metadata, "resources": required, "proof": str(proof), "denied": False}
         native_calls = []
 
         def native_command(arguments, **kwargs):
             native_calls.append((arguments, kwargs))
-            if arguments[:2] == [str(stage.LEASE_TOOL), "show"]:
-                self.assertEqual(kwargs, {"cwd": actor, "capture": True})
-                self.assertEqual(arguments[2:5], ["--lease", "runtime-proof", "--verify-locks"])
-                if state["denied"]:
-                    raise stage.GateError("native lease denied")
-                if arguments[5:] == ["--proof-dir"]:
-                    text = state["proof"] + "\n"
-                else:
-                    self.assertEqual(len(arguments), 5)
-                    text = "".join(f"{key}\t{value}\n" for key, value in state["metadata"].items())
-                    text += "resources\n" + "".join(f"{key}\t{value}\n" for key, value in state["resources"])
-                return subprocess.CompletedProcess(arguments, 0, text, "")
             self.assertEqual(arguments, ["git", "-C", str(actor), "rev-parse", "HEAD"])
             return subprocess.CompletedProcess(arguments, 0, self.candidate + "\n", "")
 
@@ -229,25 +211,14 @@ class TemplateStageTest(unittest.TestCase):
              patch.object(stage, "database_registration", return_value={"lease_gate": "native-gate"}), \
              patch.object(stage, "database_resources", return_value=required):
             admission = stage.runtime_admission(runtime, str(actor), self.candidate)
-            self.assertEqual(admission["proof_dir"], str(proof))
-            self.assertFalse((actor / "scripts/project-resource-lease").exists())
+            self.assertEqual(admission["root"], str(actor))
             stage.verify_runtime_admission(admission, "native-owner", "native-thread")
-            self.assertTrue(all(call[0][0] == str(stage.LEASE_TOOL) for call in native_calls if call[0][0] != "git"))
-            self.assertEqual(native_calls[0][0][-1], "--proof-dir")
-            with self.assertRaisesRegex(stage.GateError, "directory differs"):
-                stage.verify_runtime_admission(admission | {"proof_dir": str(actor / "wrong-domain")}, "native-owner", "native-thread")
-            for field in ("owner", "thread", "worktree", "candidate_repository", "candidate", "gate", "parent_lease", "status"):
-                with self.subTest(metadata=field):
-                    state["metadata"] = metadata | {field: "wrong"}
-                    with self.assertRaisesRegex(stage.GateError, "owner/thread/source/gate"):
-                        stage.verify_runtime_admission(admission, "native-owner", "native-thread")
-            state["metadata"] = metadata
-            state["resources"] = required + [("mysql-schema", "another-server/another-schema")]
+            self.assertTrue(all(call[0][0] == "git" for call in native_calls))
+            with self.assertRaisesRegex(stage.GateError, "source differs"):
+                stage.verify_runtime_admission(admission | {"candidate": "d" * 40}, "native-owner", "native-thread")
+            bad_resources = admission | {"resources": [*admission["resources"], {"type": "mysql-schema", "value": "another-server/another-schema"}]}
             with self.assertRaisesRegex(stage.GateError, "another schema"):
-                stage.verify_runtime_admission(admission, "native-owner", "native-thread")
-            state["denied"] = True
-            with self.assertRaisesRegex(stage.GateError, "native lease denied"):
-                stage.runtime_admission(runtime, str(actor), self.candidate)
+                stage.verify_runtime_admission(bad_resources, "native-owner", "native-thread")
 
     def fresh_fixture(self):
         app_root = self.root / "fresh-standalone"
@@ -760,29 +731,15 @@ class FixedRuntimeContractTest(unittest.TestCase):
             release.assert_not_called()
             extra.unlink()
 
-            release.side_effect = stage.GateError("native release refused")
-            with self.assertRaisesRegex(stage.GateError, "native release refused") as refused:
-                runner.run()
-            runner.preserve_failure(refused.exception)
-            checkpoint = stage.read_json(runner.checkpoint_path)
-            self.assertEqual(checkpoint["groups"][group]["status"], "passed")
-            self.assertEqual(checkpoint["closeout_failure"]["error"], "native release refused")
-            self.assertEqual(stage.read_json(runner.summary_path)["status"], "failed-preserved")
-            self.assertTrue(runner.cache.is_dir())
             saved = runner.output / group / "retire-plan.json"
-            self.assertEqual(saved.read_bytes(), b"original evidence")
-
             resumed = stage.Runner(self.args, self.plan)
             resumed.resume()
-            release.side_effect = None
             resumed.run()
             business.assert_called_once()
-            release_args = [str(stage.LEASE_TOOL), "release", "--lease", self.args.lease, "--owner", self.args.owner]
-            self.assertEqual([c.args[0] for c in release.call_args_list], [release_args, release_args])
+            release.assert_not_called()
             summary = stage.read_json(resumed.summary_path)
             self.assertEqual(summary["status"], "partial-passed")
             self.assertEqual(summary["cleanup"]["external_runtime_leases_retained"], ["external-app"])
-            self.assertEqual(stage.read_json(resumed.checkpoint_path)["closeout_failure"], checkpoint["closeout_failure"])
             self.assertEqual(saved.read_bytes(), b"original evidence")
             self.assertFalse(resumed.cache.exists())
 

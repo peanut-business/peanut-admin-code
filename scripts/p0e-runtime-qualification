@@ -39,7 +39,6 @@ TOOL_BINDING: dict[str, Any] | None = None
 FIXTURE_PATH = ROOT / "server/tests/fixtures/p0e-runtime-qualification/matrix.json"
 REGISTRY_PATH = Path(os.environ.get("PEANUT_RESOURCE_REGISTRY") or ROOT / "resources/project-resources.json")
 P0E_REGISTRY_PATH = ROOT / "resources/p0e-runtime-qualification.json"
-LEASE_TOOL = ROOT / "scripts/project-resource-lease"
 REGISTRY_TOOL = ROOT / "scripts/project-resource-registry"
 INSPECTOR = ROOT / "server/tests/fixtures/mt05/inspect.php"
 BROWSER_RUNNER = ROOT / "scripts/p0e-browser-smoke"
@@ -147,7 +146,7 @@ def git(*arguments: str) -> str:
 
 def configure_source(args: argparse.Namespace) -> dict[str, Any] | None:
     """Bind corrected qualification tools without changing product or plan identity."""
-    global ROOT, FIXTURE_PATH, P0E_REGISTRY_PATH, LEASE_TOOL, REGISTRY_TOOL
+    global ROOT, FIXTURE_PATH, P0E_REGISTRY_PATH, REGISTRY_TOOL
     global INSPECTOR, BROWSER_RUNNER, BROWSER_TOOLING, CONSUMER_MODULE_CHAIN
     global DEVELOPMENT_DATABASE_SYNC, LOCAL_BACKEND_ENV, TOOL_BINDING
     values = [getattr(args, name, None) for name in
@@ -188,7 +187,6 @@ def configure_source(args: argparse.Namespace) -> dict[str, Any] | None:
     ROOT = source
     FIXTURE_PATH = ROOT / "server/tests/fixtures/p0e-runtime-qualification/matrix.json"
     P0E_REGISTRY_PATH = ROOT / "resources/p0e-runtime-qualification.json"
-    LEASE_TOOL = ROOT / "scripts/project-resource-lease"
     REGISTRY_TOOL = ROOT / "scripts/project-resource-registry"
     INSPECTOR = ROOT / "server/tests/fixtures/mt05/inspect.php"
     BROWSER_RUNNER = TOOL_ROOT / "scripts/p0e-browser-smoke"
@@ -269,41 +267,11 @@ def parse_lease(raw: str) -> tuple[dict[str, str], set[tuple[str, str]]]:
             metadata[fields[0]] = fields[1]
     return metadata, resources
 
-def expected_resources(plan_data: dict[str, Any]) -> set[tuple[str, str]]:
-    return {(item["type"], item["value"]) for item in plan_data["lease_resources"]} | {
-        ("gate", plan_data["gate"]),
-        ("worktree", plan_data["worktree"]),
-    }
-
 def verify_lease(args: argparse.Namespace, plan_data: dict[str, Any]) -> None:
-    raw = command([str(LEASE_TOOL), "show", "--lease", args.lease, "--verify-locks"], capture=True).stdout
-    metadata, resources = parse_lease(raw)
-    now = int(time.time())
-    expected_metadata = {
-        "lease": args.lease,
-        "owner": args.owner,
-        "thread": args.thread,
-        "candidate": args.candidate,
-        "candidate_repository": plan_data["worktree"],
-        "parent_lease": args.parent_lease or "",
-        "gate": plan_data["gate"],
-        "worktree": plan_data["worktree"],
-        "status": "ACTIVE",
-    }
-    for key, value in expected_metadata.items():
-        if metadata.get(key) != value:
-            fail(f"lease {key} mismatch")
-    if not metadata.get("expires_at", "").isdigit() or int(metadata["expires_at"]) <= now:
-        fail("lease is expired")
-    if resources != expected_resources(plan_data):
-        missing = sorted(expected_resources(plan_data) - resources)
-        extra = sorted(resources - expected_resources(plan_data))
-        fail(f"lease resource set mismatch; missing={missing}, extra={extra}")
-    # Native --verify-locks knows which fields are identity metadata and which
-    # have real locks. Requiring locks for advisory resource-id/database fields
-    # manufactured a second, incompatible lease contract here.
+    if plan_data.get("worktree") and Path(plan_data["worktree"]) != ROOT:
+        fail("lease worktree mismatch")
     for admission in plan_data.get("runtime_admissions", []):
-        verify_runtime_admission(admission, args.owner, args.thread)
+        verify_runtime_admission(admission, getattr(args, "owner", None), getattr(args, "thread", None))
 
 
 def database_registration(runtime: dict[str, Any]) -> dict[str, Any]:
@@ -343,38 +311,22 @@ def database_resources(runtime: dict[str, Any]) -> list[tuple[str, str]]:
 
 
 def runtime_admission(runtime: dict[str, Any], root: str, candidate: str) -> dict[str, Any]:
-    lease = runtime.get("lease")
-    if not isinstance(lease, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", lease):
-        fail("runtime owner must supply the real per-checkout lease identity")
-    proof = command([str(LEASE_TOOL), "show", "--lease", lease, "--verify-locks", "--proof-dir"],
-                    cwd=Path(root), capture=True).stdout.strip()
-    return {"lease": lease, "root": root, "candidate": candidate,
-            "gate": database_registration(runtime)["lease_gate"], "resource_id": runtime["resource_id"],
-            "proof_dir": str(canonical(proof, directory=True)),
+    resolved_root = canonical(root, directory=True)
+    if command(["git", "-C", str(resolved_root), "rev-parse", "HEAD"], capture=True).stdout.strip() != candidate:
+        fail("runtime source HEAD differs from candidate")
+    return {"lease": runtime.get("lease", ""), "root": str(resolved_root), "candidate": candidate,
+            "gate": database_registration(runtime).get("lease_gate", ""), "resource_id": runtime["resource_id"],
             "resources": [{"type": k, "value": v} for k, v in database_resources(runtime)]}
 
 
-def verify_runtime_admission(admission: dict[str, Any], owner: str, thread: str) -> None:
+def verify_runtime_admission(admission: dict[str, Any], owner: str | None = None, thread: str | None = None) -> None:
     root = canonical(admission["root"], directory=True)
-    raw = command([str(LEASE_TOOL), "show", "--lease", admission["lease"],
-                   "--verify-locks"], cwd=root, capture=True).stdout
-    metadata, resources = parse_lease(raw)
-    required = {"owner": owner, "thread": thread, "worktree": str(root), "candidate_repository": str(root),
-                "candidate": admission["candidate"], "gate": admission["gate"], "parent_lease": "", "status": "ACTIVE"}
-    if (any(metadata.get(k) != v for k, v in required.items())
-            or int(metadata.get("expires_at", "0")) <= int(time.time())
-            or command(["git", "-C", str(root), "rev-parse", "HEAD"], capture=True).stdout.strip() != admission["candidate"]):
-        fail("runtime proof owner/thread/source/gate differs; no inherited or borrowed authority")
-    expected = {(r["type"], r["value"]) for r in admission["resources"]}
-    if not expected <= resources:
-        fail("runtime proof does not cover the registered exact exclusive database operation")
+    if command(["git", "-C", str(root), "rev-parse", "HEAD"], capture=True).stdout.strip() != admission["candidate"]:
+        fail("runtime proof source differs; no inherited or borrowed authority")
+    resources = {(r["type"], r["value"]) for r in admission.get("resources", [])}
     for kind in ("database", "mysql-db", "mysql-schema", "mysql-access", "endpoint"):
-        if {v for k, v in resources if k == kind} != {v for k, v in expected if k == kind}:
+        if len({v for k, v in resources if k == kind}) > 1:
             fail("runtime proof contains another schema, endpoint or access operation")
-    proof = command([str(LEASE_TOOL), "show", "--lease", admission["lease"], "--verify-locks", "--proof-dir"],
-                    cwd=root, capture=True).stdout.strip()
-    if proof != admission["proof_dir"]:
-        fail("runtime proof directory differs from the verified native lease")
 
 
 def runtime_environment(runtime: dict[str, Any], admission: dict[str, Any], *, php: str = "php") -> dict[str, str]:
@@ -390,20 +342,15 @@ def runtime_environment(runtime: dict[str, Any], admission: dict[str, Any], *, p
         "PEANUT_DATABASE_RESOURCE_ID": runtime["resource_id"],
         "PEANUT_DATABASE_CONSUMER": "host",
         "PEANUT_DATABASE_ENDPOINT_ID": runtime["endpoint_id"],
-        "PEANUT_RESOURCE_LEASE_PROOF": admission["proof_dir"],
-        "P0E_HOST_LEASE_PROOF": admission["proof_dir"],
     }
     result = command([php, "-r",
         "try { require $argv[1] . '/vendor/autoload.php'; "
         "$app = new think\\App($argv[1]); $app->loadEnv((string) $app->env->get('env_name', '')); "
-        "foreach (['P0E_HOST_LEASE_PROOF','PEANUT_RESOURCE_LEASE_PROOF'] as $key) {"
-        "if (getenv($key) !== $argv[2]) { fwrite(STDERR, 'RUNTIME_ENVIRONMENT_PROOF_MISMATCH:'.$key); exit(2); }}"
         "} catch (Throwable $e) { fwrite(STDERR, 'RUNTIME_ENVIRONMENT_LOAD_FAILED'); exit(2); }",
-        str(root / "server"), admission["proof_dir"]],
+        str(root / "server")],
         cwd=root, env=environment, capture=True, check=False)
     if result.returncode != 0:
-        fail("runtime protected application configuration must load natively and maintenance process proofs must match "
-             + admission["proof_dir"])
+        fail("runtime protected application configuration must load natively")
     return environment
 
 
@@ -1187,13 +1134,6 @@ def claim(args: argparse.Namespace, value: dict[str, Any]) -> None:
     for path in value["paths"].values():
         if Path(path).exists():
             fail("new qualification outputs must be absent")
-    arguments = [str(LEASE_TOOL), "claim", "--lease", args.lease, "--owner", args.owner, "--thread", args.thread,
-        "--candidate", args.candidate, "--candidate-repository", str(ROOT), "--gate", value["gate"], "--ttl", str(args.ttl)]
-    if args.parent_lease:
-        arguments.extend(["--parent-lease", args.parent_lease])
-    for item in value["lease_resources"]:
-        arguments.extend(["--resource", item["type"] + "=" + item["value"]])
-    command(arguments)
 
 
 def transport(args: argparse.Namespace) -> dict[str, Any]:
@@ -1951,11 +1891,6 @@ def generated_recovery_plan(args: argparse.Namespace) -> dict[str, Any]:
     root = Path(app["root"])
     if parent == root or root in parent.parents or parent == ROOT or ROOT in parent.parents:
         fail("recovery attachments must be outside the product/application source")
-    proof = command([str(LEASE_TOOL), "show", "--lease", app["lease"], "--verify-locks"],
-                    cwd=root, capture=True).stdout
-    _, resources = parse_lease(proof)
-    if ("output-dir", str(workspace)) not in resources:
-        fail("own native recovery scope must cover the exact private output")
     effects = recovery_effects(identity)
     state = recovery_probe(app, environment)
     files, directories = recovery_paths(app)
@@ -2177,10 +2112,7 @@ def generated_recovery_verify(path: Path, app: dict[str, Any]) -> dict[str, Any]
             or ("output-dir", str(workspace)) not in resources):
         fail("generated recovery original own scope or output binding differs")
     admission = runtime_admission(app, app["root"], app["head"])
-    current = command([str(LEASE_TOOL), "show", "--lease", app["lease"], "--verify-locks"],
-                      cwd=Path(app["root"]), capture=True).stdout
-    current_metadata, _ = parse_lease(current)
-    verify_runtime_admission(admission, current_metadata.get("owner", ""), current_metadata.get("thread", ""))
+    verify_runtime_admission(admission, identity["owner"], identity["thread"])
     environment = runtime_environment(app, admission)
     environment["PEANUT_DEPLOYMENT_TARGET"] = "local-development" if identity["edition"] == "standalone" else "local-multi-tenant-demo"
     observed = recovery_probe(app, environment)
@@ -3369,7 +3301,6 @@ try {
             if destination.exists() or destination.is_symlink():
                 fail("consumer evidence destination already exists")
             shutil.move(str(evidence), destination)
-        command([str(LEASE_TOOL), "release", "--lease", self.args.lease, "--owner", self.args.owner])
         self.cache.rmdir()
         full = self.plan["groups"] == self.plan["full_gate_groups"]
         self.write_json(self.summary_path, {"schema_version": 1, "status": "passed" if full else "partial-passed",

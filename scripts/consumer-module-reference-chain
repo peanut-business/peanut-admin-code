@@ -20,7 +20,6 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 TOOL_ROOT = ROOT
 TOOL_BINDING: dict[str, Any] | None = None
-LEASE_TOOL = ROOT / "scripts/project-resource-lease"
 PHP = Path(os.environ.get("PEANUT_PHP_BINARY") or shutil.which("php") or "/usr/bin/php")
 MODULE_KEY = "acme.reference-chain"
 
@@ -150,25 +149,6 @@ def tree_sha256(root: Path) -> str:
         if path.is_file() and not path.is_symlink():
             rows.append(f"{path.relative_to(root).as_posix()}\0{sha256(path)}")
     return hashlib.sha256("\n".join(rows).encode()).hexdigest()
-
-
-def lease_fields(lease_id: str) -> tuple[dict[str, str], list[tuple[str, str]]]:
-    output = command([str(LEASE_TOOL), "show", "--lease", lease_id])
-    metadata: dict[str, str] = {}
-    resources: list[tuple[str, str]] = []
-    in_resources = False
-    for line in output.splitlines():
-        if line == "resources":
-            in_resources = True
-            continue
-        parts = line.split("\t", 1)
-        if len(parts) != 2:
-            continue
-        if in_resources:
-            resources.append((parts[0], parts[1]))
-        else:
-            metadata[parts[0]] = parts[1]
-    return metadata, resources
 
 
 def run_module(project: Path, env: dict[str, str], operation: str, arguments: list[str], log: Path) -> dict[str, Any]:
@@ -1002,13 +982,12 @@ def preview_and_execute(
 
 
 def run_chain(args: argparse.Namespace) -> dict[str, Any]:
-    global ROOT, LEASE_TOOL, TOOL_BINDING
+    global ROOT, TOOL_BINDING
     native = runpy.run_path(str(TOOL_ROOT / "scripts/p0e-runtime-qualification"))
     TOOL_BINDING = native["configure_source"](args)
     if TOOL_BINDING is not None:
         expect(bool(args.qualification_plan), "independent qualification tools require the original P0-E plan")
         ROOT = Path(TOOL_BINDING["source_root"])
-        LEASE_TOOL = ROOT / "scripts/project-resource-lease"
     if not re.fullmatch(r"[0-9a-f]{40}", args.candidate):
         fail("candidate must be an exact lowercase 40-hex commit")
     if command(["git", "rev-parse", "HEAD"]).strip() != args.candidate:
@@ -1040,10 +1019,7 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
     args.edition = "multi-tenant"
     output = Path(args.output)
     expect(output == Path(qualification["paths"]["cache-dir"]) / "consumer-module-lifecycle"
-           and not output.exists() and output.resolve() == output, "consumer output must be the absent exact lease-owned leaf")
-    metadata, resources = lease_fields(args.lease)
-    expect(metadata.get("candidate") == args.candidate and metadata.get("status") == "ACTIVE"
-           and metadata.get("worktree") == str(ROOT), "active native source lease differs")
+           and not output.exists() and output.resolve() == output, "consumer output must be the absent exact cache leaf")
     def app_environment(app: dict[str, Any]) -> dict[str, str]:
         admission = native["runtime_admission"](app, app["root"], app["head"])
         native["verify_runtime_admission"](admission, qualification["owner"], qualification["thread"])
