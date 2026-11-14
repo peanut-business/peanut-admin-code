@@ -6643,7 +6643,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c7d759b2f02e9bbb01b24fb67682bed9f549804731a0ee0d4f56f4e1a9a8e0f5"
+            "source_sha256": "6a4b487f9edda08020dedb398be78e48874fcac6e6f3b03ac7c70de2ee940704"
         },
         {
             "path": "server/app/common/http/middleware/MaintenanceWriteGateMiddleware.php",
@@ -6657,7 +6657,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eb317491727a9d6fd9fbe9f015e1e117d95680f0525c8b5865772295faa36f41"
+            "source_sha256": "e6bc83627269700dcde30654ea59c8fa930b4bc077521e8dce74dbdfa01c694c"
         },
         {
             "path": "server/app/common/infrastructure/audit/OperationLogProjection.php",
@@ -7722,7 +7722,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "63911a01d6efcdfb4cb120ca795e1f3837d5cb266878adbb43ebeb21c4c1940f"
+            "source_sha256": "734c9e13a1fc0b1f97632e927bb73979646def28b9067d17dc1dff6c6db1f0a3"
         },
         {
             "path": "server/app/common/services/installation/InstallationPreflightHost.php",

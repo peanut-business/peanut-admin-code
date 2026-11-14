@@ -53,7 +53,8 @@ final class InstanceSafetyBoundaryTest extends TestCase
             SQL);
         $this->queries = $app->make(InstanceSafetyQueries::class);
         $current = new CurrentExecutionContext(new ExecutionContextStore());
-        $this->gate = new MaintenanceWriteGateMiddleware(new AuditContractHost($current), $current, $this->queries);
+        $app->instance(AuditContractHost::class, new AuditContractHost($current));
+        $this->gate = new MaintenanceWriteGateMiddleware($current);
     }
 
     private function window(int $id = 1, string $state = 'active', string $start = '2031-01-01 12:00:00.000', string $end = '2031-01-01 13:00:00.000'): void
@@ -92,7 +93,7 @@ final class InstanceSafetyBoundaryTest extends TestCase
         self::assertContains(InstanceSafetyQueries::class, $manifest['contracts']['exports']);
         foreach ([MaintenanceWriteGateMiddleware::class, FirstRunReadinessHost::class] as $type) {
             $source = file_get_contents((new ReflectionClass($type))->getFileName());
-            self::assertStringContainsString('InstanceSafetyQueries $instanceSafety', $source);
+            self::assertStringContainsString(InstanceSafetyQueries::class, $source);
             self::assertStringNotContainsString('Db::name(', $source);
         }
     }
