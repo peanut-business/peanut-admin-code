@@ -6,7 +6,8 @@ import type {
 import NProgress from 'nprogress'; // progress bar
 
 import { useUserStore } from '@/store';
-import { getSessionSnapshot } from '@/utils/auth';
+import { clearToken, getSessionSnapshot } from '@/utils/auth';
+import type { ApiResponseError } from '@/api/interceptor';
 import { WHITE_LIST } from '../constants';
 
 function loginQuery(to: RouteLocationNormalized): LocationQueryRaw {
@@ -17,6 +18,14 @@ function loginQuery(to: RouteLocationNormalized): LocationQueryRaw {
     delete query.redirect;
   }
   return query;
+}
+
+function isMaintenanceGateUnavailable(error: unknown): boolean {
+  const apiError = error as ApiResponseError;
+  return (
+    apiError?.apiCode === 50300 &&
+    apiError.apiErrorCode === 'MAINTENANCE_GATE_UNAVAILABLE'
+  );
 }
 
 export default function setupUserLoginInfoGuard(router: Router) {
@@ -37,6 +46,14 @@ export default function setupUserLoginInfoGuard(router: Router) {
           await userStore.info();
           next();
         } catch (error) {
+          if (isMaintenanceGateUnavailable(error)) {
+            clearToken();
+            next({
+              name: 'login',
+              query: loginQuery(to),
+            });
+            return;
+          }
           // Definitive authentication failure is cleared by the shared recovery.
           // A failed profile read alone (network/403/cancel) is not a logout.
           if (getSessionSnapshot().token === null) {
