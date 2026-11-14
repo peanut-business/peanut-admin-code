@@ -104,7 +104,7 @@ final readonly class ModuleDefinitionRegistryFactory
         $roots = is_array($deploymentConfig['roots'] ?? null)
             ? array_values($deploymentConfig['roots'])
             : [];
-        return $this->compile($this->resolveRoots($roots, true), $deploymentConfig);
+        return $this->compile($this->resolveRoots($roots, true), $deploymentConfig, false, true);
     }
 
     /** @param array<string,mixed> $deploymentConfig */
@@ -121,7 +121,7 @@ final readonly class ModuleDefinitionRegistryFactory
             ...$this->resolveRoots($configuredRoots, false),
             ...$resolver->moduleRoots(),
         ];
-        return $this->compile(array_values(array_unique($roots)), $deploymentConfig, $checkBoundaries);
+        return $this->compile(array_values(array_unique($roots)), $deploymentConfig, $checkBoundaries, false);
     }
 
     /**
@@ -151,12 +151,16 @@ final readonly class ModuleDefinitionRegistryFactory
     }
 
     /** @param list<string> $roots @param array<string,mixed> $deploymentConfig */
-    private function compile(array $roots, array $deploymentConfig, bool $checkBoundaries = false): CompiledModuleRegistry
-    {
+    private function compile(
+        array $roots,
+        array $deploymentConfig,
+        bool $checkBoundaries = false,
+        bool $requireRoots = true,
+    ): CompiledModuleRegistry {
         if (PHP_SAPI !== 'cli') {
             throw new ModuleException('MODULE_REGISTRY_COMPILE_CLI_REQUIRED', 'HTTP cannot compile Module declarations.');
         }
-        if ($roots === []) {
+        if ($requireRoots && $roots === []) {
             throw new ModuleException('MODULE_REGISTRY_UNAVAILABLE', 'No locked Module roots are available.');
         }
         $kernelVersion = trim((string) ($deploymentConfig['kernel_version'] ?? ''));
@@ -193,7 +197,7 @@ final readonly class ModuleDefinitionRegistryFactory
         }
 
         $kernelRoot = dirname((new \ReflectionClass(ModuleProvider::class))->getFileName(), 3);
-        $reservedTableOwners = $this->historicalBusinessTableOwners();
+        $reservedTableOwners = $documents === [] ? [] : $this->historicalBusinessTableOwners();
         $compiler = new ModuleRegistryCompiler(
             new OpisManifestSchemaValidator($kernelRoot . '/resources/schemas/module-manifest.schema.json'),
             $kernelVersion,
