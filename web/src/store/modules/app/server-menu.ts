@@ -18,7 +18,8 @@ const staticRoutesByPath = new Map<string, RouteRecordRaw>();
 function indexStaticRoutes(routes: RouteRecordRaw[], parentPath = ''): void {
   routes.forEach((route) => {
     const fullPath = resolvePath(parentPath, route.path);
-    if (!staticRoutesByPath.has(fullPath)) {
+    const indexedRoute = staticRoutesByPath.get(fullPath);
+    if (!indexedRoute || (indexedRoute.children?.length && !route.children?.length)) {
       staticRoutesByPath.set(fullPath, route);
     }
     if (route.children?.length) {
