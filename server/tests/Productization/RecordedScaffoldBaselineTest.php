@@ -25,7 +25,7 @@ function recordedRemove(string $path): void
     } else { unlink($path); }
 }
 
-$root = sys_get_temp_dir() . '/peanut-recorded-baseline-' . bin2hex(random_bytes(8));
+$root = (realpath(sys_get_temp_dir()) ?: sys_get_temp_dir()) . '/peanut-recorded-baseline-' . bin2hex(random_bytes(8));
 mkdir($root . '/.peanut/scaffold-baseline/5.0.1/files/scripts', 0700, true);
 $baseline = $root . '/.peanut/scaffold-baseline/5.0.1/files/scripts/run';
 $bytes = "already rendered Acme source\n";
