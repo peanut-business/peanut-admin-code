@@ -5,9 +5,8 @@ import type {
 } from 'vue-router';
 import NProgress from 'nprogress'; // progress bar
 
-import { useUserStore } from '@/store';
-import { clearToken, getSessionSnapshot } from '@/utils/auth';
-import type { ApiResponseError } from '@/api/interceptor';
+import { useBrandStore, useUserStore } from '@/store';
+import { getSessionSnapshot } from '@/utils/auth';
 import { WHITE_LIST } from '../constants';
 
 function loginQuery(to: RouteLocationNormalized): LocationQueryRaw {
@@ -20,14 +19,6 @@ function loginQuery(to: RouteLocationNormalized): LocationQueryRaw {
   return query;
 }
 
-function isMaintenanceGateUnavailable(error: unknown): boolean {
-  const apiError = error as ApiResponseError;
-  return (
-    apiError?.apiCode === 50300 &&
-    apiError.apiErrorCode === 'MAINTENANCE_GATE_UNAVAILABLE'
-  );
-}
-
 export default function setupUserLoginInfoGuard(router: Router) {
   router.beforeEach(async (to, from, next) => {
     NProgress.start();
@@ -35,6 +26,16 @@ export default function setupUserLoginInfoGuard(router: Router) {
     const session = getSessionSnapshot();
     if (WHITE_LIST.some((route) => route.name === to.name)) {
       next();
+      return;
+    }
+
+    const brandStore = useBrandStore();
+    await brandStore.load();
+    if (!brandStore.loginEnabled) {
+      next({
+        name: 'login',
+        query: loginQuery(to),
+      });
       return;
     }
 
@@ -46,14 +47,6 @@ export default function setupUserLoginInfoGuard(router: Router) {
           await userStore.info();
           next();
         } catch (error) {
-          if (isMaintenanceGateUnavailable(error)) {
-            clearToken();
-            next({
-              name: 'login',
-              query: loginQuery(to),
-            });
-            return;
-          }
           // Definitive authentication failure is cleared by the shared recovery.
           // A failed profile read alone (network/403/cancel) is not a logout.
           if (getSessionSnapshot().token === null) {
