@@ -3765,19 +3765,6 @@
             ]
         },
         {
-            "path": "scripts/tests/server-update-orchestration-test.py",
-            "target": "scripts/tests/server-update-orchestration-test.py",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "scripts/tests/source-layout-test.php",
             "target": "scripts/tests/source-layout-test.php",
             "classification": "excluded",
