@@ -2714,7 +2714,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "38ff578cafab55314fcfd3036936488c2266665bab365594d81b81e8eb8f2c4f"
+            "source_sha256": "4bc302903cda8db09c9d0ce27995b2d62701d8740b2792eabbac16ebe752cf3c"
         },
         {
             "path": "scripts/module-frontend-entries.mjs",
@@ -16833,7 +16833,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dfa55d493ac25909a7c1b226c88c02175a625d3dfb0be6d2bf21e4c58226fd74"
+            "source_sha256": "1f8b4912c73ab1983e3a61c344893140033e7242ea324149b9d1758b2bcf00b9"
         },
         {
             "path": "web/src/api/password-policy.ts",
@@ -17085,7 +17085,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c8acb092a37210a36dc3b00344d7a180394f4d3e5f1ea9c4316b187912e13135"
+            "source_sha256": "d82089278b41cf8f5c7c6eb4de736bfee25ab8032a4012320e9791b6971c775a"
         },
         {
             "path": "web/src/api/user.ts",

@@ -1003,15 +1003,35 @@ def prepare_release_workspace(workspace: Path, output_root: Path, local_core: bo
             shutil.copyfile(original, destination)
             destination.chmod(0o755 if original.stat().st_mode & 0o111 else 0o644)
 
+    def resolve_local_cores() -> dict[str, str]:
+        core: dict[str, Any] = {}
+        selection_file = source_root / '.local/core-dev.json'
+        if selection_file.exists() and not selection_file.is_symlink() and selection_file.is_file():
+            selection = read_json(selection_file)
+            if selection.get('schema_version') == 1 and selection.get('application_root') == str(source_root):
+                core = {'php': selection.get('php_core_dir'), 'web': selection.get('web_core_dir')}
+        if not core and (source_root / '.local/toolchain/host.json').is_file():
+            core = dict(read_json(source_root / '.local/toolchain/host.json').get('core', {}) or {})
+        adjacent = {
+            'php': source_root.parent / 'peanut-admin-core-php',
+            'web': source_root.parent / 'peanut-admin-core-web',
+        }
+        if (not isinstance(core.get('php'), str) or not core['php']) and (adjacent['php'] / 'composer.json').is_file():
+            core['php'] = str(adjacent['php'])
+        if (not isinstance(core.get('web'), str) or not core['web']) and (
+            (adjacent['web'] / 'pnpm-workspace.yaml').is_file() or (adjacent['web'] / 'package.json').is_file()
+        ):
+            core['web'] = str(adjacent['web'])
+        if any(not isinstance(core.get(name), str) or not core[name] for name in ('php', 'web')):
+            fail('local PHP and Web Core paths must be selected, configured, or present as sibling checkouts')
+        return {'php': core['php'], 'web': core['web']}
+
     snapshot_root = workspace / 'source'
     state_path = workspace / 'preparation.json'
     inputs = {'source_sha256': source_value(source_root, 'local')['snapshot_sha256'],
               'local_core': local_core, 'php_version': php_version, 'web_version': web_version}
-    host = read_json(source_root / '.local/toolchain/host.json') if local_core else {}
-    core = host.get('core', {})
+    core = resolve_local_cores() if local_core else {}
     if local_core:
-        if any(not isinstance(core.get(name), str) or not core[name] for name in ('php', 'web')):
-            fail('local PHP and Web Core paths must be configured')
         inputs['local_cores'] = {kind: source_value(source_root / core[kind], 'local')['snapshot_sha256']
                                 for kind in ('php', 'web')}
     if state_path.exists():
@@ -1086,7 +1106,11 @@ def prepare_release_workspace(workspace: Path, output_root: Path, local_core: bo
             fail('local PHP Core version is missing')
         version = require_semver(version.removeprefix('v'), 'local PHP Core version')
         web_host = source_root / '.local/toolchain/cores/web/host.json'
-        read_json(web_host)
+        if web_host.is_file():
+            read_json(web_host)
+            web_env_args = ['--host', str(web_host), 'exec', '--']
+        else:
+            web_env_args = ['--tools', 'node,pnpm', 'run', '--']
         receipt_parent = workspace / 'core-inputs'
         receipt_parent.mkdir(exist_ok=resume)
         receipt_dir = receipt_parent / 'frozen'
@@ -1096,7 +1120,7 @@ def prepare_release_workspace(workspace: Path, output_root: Path, local_core: bo
         if php_executable is None:
             fail('registered PHP command is required')
         step('freeze-local-core', lambda: run([sys.executable, str(source_root / 'scripts/project-env'), '--root', str(web_copy),
-             '--state-root', str(source_root), '--host', str(web_host), 'exec', '--', sys.executable,
+             '--state-root', str(source_root), *web_env_args, sys.executable,
              str(source_root / 'scripts/freeze-core-release'), '--local', f'--php-core-dir={php_copy}',
              f'--web-core-dir={web_copy}', f'--output={receipt_dir}', f'--php-version={version}',
              f'--php-source-sha256={php_digest}', f'--web-source-sha256={web_digest}',

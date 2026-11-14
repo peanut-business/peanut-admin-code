@@ -75,6 +75,47 @@ class CoreDevelopmentContract(unittest.TestCase):
     def test_candidate_mode_still_rejects_source_selection(self):
         self.assertNotEqual(self.run_web('status').returncode, 0)
 
+    def test_registry_candidate_status_validates_v3_release_versions_and_installed_version(self):
+        packages = {}
+        importer_lines = ['importers:', '  .:', '    dependencies:']
+        pkg_lines = ['packages:']
+        for name in PACKAGES:
+            integrity = 'sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=='
+            packages[f'@peanut-admin/{name}'] = {
+                'version': '5.1.0',
+                'resolved': f'https://registry.npmjs.org/@peanut-admin/{name}/-/{name}-5.1.0.tgz',
+                'integrity': integrity,
+            }
+            if name in ('client', 'vue', 'ui-vue'):
+                importer_lines.extend([f"      '@peanut-admin/{name}':", '        specifier: 5.1.0', '        version: 5.1.0'])
+                pkg_lines.extend([f"  '@peanut-admin/{name}@5.1.0':", f'    resolution: {{integrity: {integrity}}}'])
+        (self.code / 'release-versions.json').write_text(json.dumps({'core_web': {'packages': packages}}))
+        (self.code / 'web/package.json').write_text(json.dumps({
+            'dependencies': {f'@peanut-admin/{name}': '5.1.0' for name in ('client', 'vue', 'ui-vue')}
+        }))
+        (self.code / 'web/pnpm-lock.yaml').write_text('\n'.join(importer_lines + pkg_lines) + '\n')
+        for name in ('client', 'vue', 'ui-vue'):
+            (self.modules / name).unlink()
+            installed_dir = self.code / 'web/node_modules/.pnpm' / f'@peanut-admin+{name}@5.1.0/node_modules/@peanut-admin/{name}'
+            (installed_dir / 'dist').mkdir(parents=True)
+            (installed_dir / 'package.json').write_text(json.dumps({
+                'name': f'@peanut-admin/{name}', 'version': '5.1.0',
+                'exports': {'.': {'import': './dist/index.js', 'types': './dist/index.d.ts'}}
+            }))
+            (installed_dir / 'dist/index.js').write_text('export const ok = true;\n')
+            (installed_dir / 'dist/index.d.ts').write_text('export declare const ok: true;\n')
+            (self.modules / name).symlink_to(installed_dir, target_is_directory=True)
+        ok = subprocess.run(['bash', str(self.code / 'scripts/local-core-web'), 'status', '--client', 'web'],
+                            text=True, capture_output=True, timeout=30)
+        self.assertEqual(ok.returncode, 0, ok.stderr)
+        self.assertIn('mode=candidate', ok.stdout)
+        stale = self.modules / 'vue/package.json'
+        stale_data = json.loads(stale.read_text()); stale_data['version'] = '5.0.5'
+        stale.write_text(json.dumps(stale_data))
+        bad = subprocess.run(['bash', str(self.code / 'scripts/local-core-web'), 'status', '--client', 'web'],
+                             text=True, capture_output=True, timeout=30)
+        self.assertNotEqual(bad.returncode, 0)
+
     def test_install_default_calls_both_local_sources(self):
         record = self.root / 'calls'
         for name in ('local-core-composer', 'local-core-web'):
