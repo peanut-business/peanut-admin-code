@@ -292,7 +292,7 @@ if [[ "$mode" == --ci-service ]]; then
         "stable_resource_id" => getenv("PEANUT_DATABASE_RESOURCE_ID"),
         "purpose" => "job-exclusive GitHub Actions real MySQL test gate",
         "environments" => [getenv("PEANUT_DATABASE_ENVIRONMENT")],
-        "owner" => getenv("PEANUT_DATABASE_LEASE_OWNER") ?: "github-actions",
+        "owner" => getenv("PEANUT_DATABASE_OWNER") ?: "github-actions",
         "service_type" => "mysql",
         "version" => "8.4.10",
         "host" => getenv("DB_HOST"),

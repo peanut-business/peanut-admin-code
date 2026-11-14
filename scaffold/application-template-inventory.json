@@ -3174,7 +3174,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "481b0f6c5b6ec67e219489c245d266cb184643bbdcc6806af8ce92e7f6e589ce"
+            "source_sha256": "69840c1cf3f68d64e02c486f9cb5978095c5778bdf225e0e3b5d0015b40fbde0"
         },
         {
             "path": "scripts/scaffold-upgrade",
