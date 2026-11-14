@@ -800,6 +800,9 @@ def prepare_local_core_snapshot(root: Path, core_inputs_path: Path, tool_root: P
     for client, selected in CLIENT_CORE_PACKAGES.items():
         path = ROOT / client / "package.json"
         manifest = read_json(path)
+        if client == "platform":
+            # Vue's client peer must resolve to this frozen set, not the registry.
+            manifest.setdefault("dependencies", {})["@peanut-admin/client"] = "file:../" + web_packages["@peanut-admin/client"]["archive"]
         for section in ("dependencies", "devDependencies", "optionalDependencies"):
             for name in selected:
                 if name in manifest.get(section, {}):
