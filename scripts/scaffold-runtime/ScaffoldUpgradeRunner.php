@@ -1303,6 +1303,11 @@ final class ScaffoldUpgradeRunner
                 || ($current['mode'] ?? null) !== ($before['mode'] ?? null);
             $upstreamChanged = !hash_equals($currentVersionDigest, $targetDigest)
                 || ($before['mode'] ?? null) !== ($after['mode'] ?? null);
+            if ($projectChanged && $upstreamChanged
+                && ($before['mode'] ?? null) === ($after['mode'] ?? null)
+                && $this->compositionInputsUnchanged($path, $currentVersionContent, $targetContent, $from, $to, $targetParameters, $versionContract)) {
+                $upstreamChanged = false;
+            }
             if ($projectChanged && $upstreamChanged) {
                 $actions[] = $this->action($path, $after, 'conflict', 'both_project_and_upstream_modified', true, $current, $targetDigest);
             } elseif ($projectChanged) {
@@ -1312,6 +1317,52 @@ final class ScaffoldUpgradeRunner
             }
         }
         return $actions;
+    }
+
+    /** Ignore only non-functional upstream differences; keep the application's composed bytes. */
+    private function compositionInputsUnchanged(
+        string $path, string $before, string $after, ScaffoldManifest $from, ScaffoldManifest $to,
+        array $parameters, array $versionContract,
+    ): bool {
+        if (!in_array($path, ['server/composer.json', 'server/composer.lock',
+            'server/generated/api-catalog.json', 'server/generated/openapi.json'], true)) {
+            return false;
+        }
+        $old = json_decode($before, true, 512, JSON_THROW_ON_ERROR);
+        $new = json_decode($after, true, 512, JSON_THROW_ON_ERROR);
+        if ($path === 'server/composer.json') {
+            if (($old['repositories'] ?? null) === []) { unset($old['repositories']); }
+            if (($new['repositories'] ?? null) === []) { unset($new['repositories']); }
+        } elseif ($path === 'server/composer.lock') {
+            // content-hash may differ only when the companion Composer inputs are equivalent.
+            $oldComposer = $from->files()['server/composer.json'] ?? null;
+            $newComposer = $to->files()['server/composer.json'] ?? null;
+            if ($oldComposer === null || $newComposer === null
+                || !$this->compositionInputsUnchanged('server/composer.json',
+                    $this->renderCurrentVersionArtifact($from, $oldComposer, $parameters, $versionContract),
+                    $this->renderCurrentVersionArtifact($to, $newComposer, $parameters, $versionContract),
+                    $from, $to, $parameters, $versionContract)) {
+                return false;
+            }
+            unset($old['content-hash'], $new['content-hash']);
+        } else {
+            // API examples distinguish JSON objects from arrays, including empty values.
+            $old = json_decode($before, false, 512, JSON_THROW_ON_ERROR);
+            $new = json_decode($after, false, 512, JSON_THROW_ON_ERROR);
+            foreach ([$old, $new] as $document) {
+                if ($path === 'server/generated/openapi.json') {
+                    unset($document->info->version);
+                    continue;
+                }
+                foreach ($document->inputs ?? [] as $input) {
+                    if (in_array($input->path, ['release-versions.json', 'server/app/api/metadata/contracts/openapi.json'], true)) {
+                        unset($input->sha256);
+                    }
+                }
+            }
+            return json_encode($old, JSON_THROW_ON_ERROR) === json_encode($new, JSON_THROW_ON_ERROR);
+        }
+        return $old === $new;
     }
 
     private function action(string $path, array $file, string $action, string $reason, bool $conflict, ?array $current, ?string $target): array

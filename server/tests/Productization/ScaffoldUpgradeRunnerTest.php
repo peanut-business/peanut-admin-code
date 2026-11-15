@@ -301,6 +301,20 @@ try {
     scaffoldExpect($adopted['generation_source']['commit'] === $targetSource['commit']
         && $adopted['application']['workflow'] === 'full', 'Applied target identity or Workflow was lost.');
     $runner->recover($project, $nativePlanPath);
+    // Composed applications keep their modules when only upstream serialization/provenance changes.
+    $equivalent = new ReflectionMethod(ScaffoldUpgradeRunner::class, 'compositionInputsUnchanged');
+    $oldManifest = app\common\value\scaffold\ScaffoldManifest::load($from);
+    $newManifest = app\common\value\scaffold\ScaffoldManifest::load($to);
+    $cases = [
+        ['server/composer.json', ['require' => ['a/b' => '1.0'], 'repositories' => []], ['require' => ['a/b' => '1.0']], ['require' => ['a/b' => '2.0']]],
+        ['server/generated/api-catalog.json', ['inputs' => [['path' => 'release-versions.json', 'sha256' => 'old']], 'endpoints' => []], ['inputs' => [['path' => 'release-versions.json', 'sha256' => 'new']], 'endpoints' => []], ['inputs' => [['path' => 'release-versions.json', 'sha256' => 'new']], 'endpoints' => ['added']]],
+        ['server/generated/openapi.json', ['info' => ['version' => '1.0'], 'paths' => []], ['info' => ['version' => '1.1'], 'paths' => []], ['info' => ['version' => '1.1'], 'paths' => ['changed']]],
+    ];
+    $cases[] = ['server/generated/openapi.json', ['info' => ['version' => '1.0'], 'example' => (object) []], ['info' => ['version' => '1.1'], 'example' => (object) []], ['info' => ['version' => '1.1'], 'example' => []]];
+    foreach ($cases as [$file, $before, $after, $changed]) {
+        scaffoldExpect($equivalent->invoke($runner, $file, json_encode($before), json_encode($after), $oldManifest, $newManifest, [], []), 'Non-functional upstream difference remained a conflict: ' . $file);
+        scaffoldExpect(!$equivalent->invoke($runner, $file, json_encode($before), json_encode($changed), $oldManifest, $newManifest, [], []), 'Functional upstream change was silently preserved: ' . $file);
+    }
     echo "SCAFFOLD-SOURCE-RECOVERY passed\n";
 } finally {
     $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($temporary, FilesystemIterator::SKIP_DOTS),

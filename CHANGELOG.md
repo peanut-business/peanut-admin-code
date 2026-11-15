@@ -2,6 +2,10 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.15] - 2026-11-15
+
+- Preserve application-composed Composer and API files automatically when upstream changes only empty Composer repository formatting, the associated lock hash, or API version/provenance metadata. Functional dependency and API changes still require conflict decisions.
+
 ## [5.1.14] - 2026-11-15
 
 - Align candidate documentation checks with the delivered Markdown layout and exercise them in the existing candidate tests.
