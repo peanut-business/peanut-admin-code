@@ -92,7 +92,6 @@ class TemplateCandidateStageTest(unittest.TestCase):
         self.patches = [
             patch.object(stage, "ROOT", self.source),
             patch.object(stage, "run_command", side_effect=self.fake_run_command),
-            patch.object(stage, "documentation_contract", return_value={"delivery": "synthetic"}),
         ]
         for p in self.patches:
             p.start()
@@ -148,6 +147,26 @@ class TemplateCandidateStageTest(unittest.TestCase):
                 "application": {"edition": edition},
                 "edition": {"name": edition},
             }
+            documents = {
+                "docs/README.md": "# Documentation\n",
+                "CHANGELOG.md": "# Changes\n",
+                "docs/public/installation.md": "# Installation\n",
+                "docs/public/application-release.md": "# Application release\n",
+                "docs/public/api-and-sdk.md": "# API and SDK\n",
+                "release-versions.json": json.dumps({"source_product_version": "5.1.13"}),
+                "server/generated/openapi.json": json.dumps({
+                    "openapi": "3.0.3", "info": {"version": "5.1.13"}, "paths": {"/health": {}},
+                }),
+                "server/generated/api-catalog.json": json.dumps({
+                    "schema_version": 1, "openapi_version": "3.0.3", "endpoints": [{"operation_id": "health"}],
+                }),
+            }
+            manifest["files"] = []
+            for relative, content in documents.items():
+                path = target / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content, encoding="utf-8")
+                manifest["files"].append({"path": relative, "sha256": stage.sha256(path)})
             (target / ".peanut/application-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
             if self.inject_node_modules and edition == "standalone":
                 (target / "web/node_modules").mkdir(parents=True, exist_ok=True)
@@ -164,6 +183,17 @@ class TemplateCandidateStageTest(unittest.TestCase):
         self.assertEqual(sorted(receipt["cli_created_applications"]), ["multi-tenant", "standalone"])
         self.assertNotIn("groups", receipt)
         self.assertNotIn("full_gate_groups", receipt)
+        documents = receipt["cli_created_applications"]["standalone"]["documentation"]["files"]
+        self.assertIn("CHANGELOG.md", documents)
+        self.assertIn("docs/public/installation.md", documents)
+        self.assertNotIn("docs/CHANGELOG.md", documents)
+        changelog = self.output / "cli-create-standalone/CHANGELOG.md"
+        changelog.write_text("changed\n", encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            stage.documentation_contract(changelog.parent)
+        changelog.unlink()
+        with self.assertRaises(SystemExit):
+            stage.documentation_contract(changelog.parent)
 
     def test_rejects_dirty_worktree(self) -> None:
         (self.source / "dirty.txt").write_text("dirty\n", encoding="utf-8")
