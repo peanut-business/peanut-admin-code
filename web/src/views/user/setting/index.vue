@@ -148,6 +148,7 @@
   import {
     getPasswordPolicy,
     passwordWithinPolicy,
+    passwordRequirementsHint,
     type PasswordPolicy,
   } from '@/api/password-policy';
   import { resolveFileProvider, type FileRecord } from '@/api/file-provider';
@@ -157,10 +158,11 @@
     type EditSelfForm,
   } from '@/api/system/admin';
 
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const fileProvider = resolveFileProvider();
   const handleAvatarUpload = (options: UploadRequestOptions) => {
-    if (!fileProvider) return Promise.reject(new Error('FILE_MODULE_UNAVAILABLE'));
+    if (!fileProvider)
+      return Promise.reject(new Error('FILE_MODULE_UNAVAILABLE'));
     return fileProvider.uploadFile(10, options);
   };
   const userStore = useUserStore();
@@ -194,7 +196,7 @@
       ? t('userSetting.security.error.length', {
           min: passwordPolicy.value.minimum_length,
           max: passwordPolicy.value.maximum_length,
-        })
+        }) + passwordRequirementsHint(passwordPolicy.value, locale.value)
       : passwordPolicyError.value || t('userSetting.security.policyLoading')
   );
   async function loadPasswordPolicy() {
