@@ -1,14 +1,68 @@
 #!/usr/bin/env python3
 """Exercise the same schema and endpoint selector used to admit installed APPs."""
+import hashlib
 import json
 from pathlib import Path
-import runpy
+import re
 import tempfile
 import unittest
 
-tool = Path(__file__).resolve().parents[1] / 'p0e-runtime-qualification'
-contract = runpy.run_path(str(tool))
-select = contract['database_resources']
+REGISTRY_PATH = Path(__file__).resolve().parents[2] / 'resources/project-resources.json'
+REGISTRY_TOOL = Path(__file__).resolve().parents[1] / 'project-resource-registry'
+
+
+def read_json(path: Path) -> dict:
+    return json.loads(path.read_text(encoding='utf-8'))
+
+
+def sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+class GateError(RuntimeError):
+    pass
+
+
+def fail(message: str) -> None:
+    raise GateError(message)
+
+
+def database_registration(runtime: dict) -> dict:
+    matches = [r for r in read_json(REGISTRY_PATH)['resources']['databases']
+               if r.get('stable_resource_id') == runtime['resource_id']]
+    if len(matches) != 1:
+        fail('database registration is missing or ambiguous')
+    return matches[0]
+
+
+def database_resources(runtime: dict) -> list[tuple[str, str]]:
+    registered = database_registration(runtime)
+    endpoint = registered['upstream_endpoint']
+    policy = registered.get('lease_policy', {})
+    if (policy.get('mode') != 'schema' or registered.get('database') != runtime['database']
+            or endpoint.get('endpoint_id') != runtime['endpoint_id'] or not registered.get('lease_gate')
+            or re.search('qualification|performance|recovery', registered['lease_gate'])):
+        fail('runtime requires its registered ordinary schema gate; service/performance qualification remains exclusive')
+    schema = f"{endpoint['host']}:{endpoint['port']}/{runtime['database']}"
+    resources = [('resource-id', runtime['resource_id']), ('database-resource', runtime['resource_id']),
+                 ('endpoint', runtime['endpoint_id']), ('database', runtime['database']),
+                 ('mysql-db', runtime['database']), ('mysql-schema', schema),
+                 ('registry-sha256', sha256(REGISTRY_PATH)), ('consumer', 'host'), ('environment', 'development')]
+    resources.append(('registry-tool-sha256', sha256(REGISTRY_TOOL)))
+    if registered.get('resource_scope'):
+        resources.append(('resource-scope', registered['resource_scope']))
+    elif registered.get('container_name'):
+        resources.append(('container', registered['container_name']))
+    else:
+        resources.append(('resource-scope', registered['namespace']))
+    if policy.get('shared_access') is not None:
+        resources.append(('mysql-access', json.dumps({'schema': schema, 'operation': 'exclusive',
+            'complete': True, 'tables': []}, separators=(',', ':'))))
+    return resources
+
+
+contract = {'GateError': GateError, 'database_resources': database_resources}
+select = database_resources
 
 
 class NativeSchemaSelectionTest(unittest.TestCase):

@@ -71,13 +71,9 @@ if (
 ) {
     throw new RuntimeException('PEANUT_RESOURCE_REGISTRY must point to the explicit private maintainer registry');
 }
-$p0eRegistryPath = $root . '/resources/p0e-runtime-qualification.json';
-$p0eMatrixPath = $root . '/server/tests/fixtures/p0e-runtime-qualification/matrix.json';
 $consumerUpgradeMatrixPath = $root . '/server/tests/fixtures/consumer-upgrade-qualification/matrix.json';
 $registryJson = (string) file_get_contents($registryPath);
 $registry = json_decode($registryJson, true, 512, JSON_THROW_ON_ERROR);
-$p0eRegistry = json_decode((string) file_get_contents($p0eRegistryPath), true, 512, JSON_THROW_ON_ERROR);
-$p0eMatrix = json_decode((string) file_get_contents($p0eMatrixPath), true, 512, JSON_THROW_ON_ERROR);
 $consumerUpgradeMatrix = json_decode((string) file_get_contents($consumerUpgradeMatrixPath), true, 512, JSON_THROW_ON_ERROR);
 
 $expect = static function (bool $condition, string $message): void {
@@ -225,18 +221,6 @@ $expect(
     ($qualificationDatabase['allowed_scenarios'] ?? null) === array_keys(P0E_FRESH_SCENARIO_MODES),
     'P0-E database scenarios are not the 2.0 fresh-only set',
 );
-$expect(
-    array_keys($p0eMatrix['scenarios'] ?? []) === array_keys(P0E_FRESH_SCENARIO_MODES),
-    'P0-E matrix scenarios diverge from the registered 2.0 fresh-only set',
-);
-$expect(($p0eMatrix['groups'] ?? null) === P0E_FRESH_GROUPS, 'P0-E matrix does not contain the seven fresh-only Gate groups');
-$expect(
-    !str_contains((string) json_encode($p0eMatrix), 'v1_0_forward')
-        && !str_contains((string) json_encode($p0eMatrix), 'v1_1_forward')
-        && !str_contains((string) json_encode($p0eMatrix), 'migration_fault')
-        && !str_contains((string) json_encode($p0eMatrix), 'recovery'),
-    'P0-E matrix retained a 1.x upgrade or recovery fixture',
-);
 $expect(($qualificationDatabase['credential_ref'] ?? null) === 'mac-14:/Users/xing/.config/peanut-admin/development-db.env', 'P0-E credential reference changed unexpectedly');
 $expect(($qualificationDatabase['lifecycle'] ?? null) === 'ephemeral', 'P0-E database lifecycle must be ephemeral');
 $expect(($qualificationDatabase['fallback'] ?? null) === 'none', 'P0-E database must fail closed');
@@ -289,44 +273,6 @@ $expect(($consumerUpgradeMatrix['gate'] ?? null) === 'consumer-upgrade-qualifica
 $expect(($consumerUpgradeMatrix['database_resource']['stable_resource_id'] ?? null) === 'peanut-admin-consumer-upgrade-mysql84-gate', 'consumer-upgrade fixture resource is invalid');
 $expect(array_keys($consumerUpgradeMatrix['scenarios'] ?? []) === array_keys(CONSUMER_UPGRADE_SCENARIO_MODES), 'consumer-upgrade fixture scenarios diverge from the registry');
 
-$expect(($p0eRegistry['schema_version'] ?? null) === 1, 'P0-E resource registry schema version is invalid');
-$expect(($p0eRegistry['project_id'] ?? null) === 'peanut-admin', 'P0-E resource registry project id is invalid');
-$expect(($p0eRegistry['gate'] ?? null) === 'p0e-runtime-qualification', 'P0-E resource registry Gate changed');
-$expect(!array_key_exists('company_allocation_evidence', $p0eRegistry['authority'] ?? []), 'P0-E registry still depends on CompanyOS allocation evidence');
-$expect(!array_key_exists('company_allocation_resource_id', $p0eRegistry['authority'] ?? []), 'P0-E registry still has a CompanyOS allocation identity');
-$expect(!str_contains((string) json_encode($p0eRegistry), 'CompanyOS') && !str_contains((string) json_encode($p0eRegistry), 'company-os'), 'P0-E registry still references CompanyOS');
-$binding = $p0eRegistry['database_administration_binding'] ?? null;
-$expect(is_array($binding), 'P0-E database administration binding is missing');
-$expect(($binding['database_resource_id'] ?? null) === 'peanut-admin-p0e-mysql84-gate', 'P0-E binding database resource changed');
-$expect(($binding['runtime_resource_id'] ?? null) === ($qualificationDatabase['runtime_resource_id'] ?? null), 'P0-E binding and project runtime resource diverged');
-$expect(($binding['administrative_tooling_resource_id'] ?? null) === 'peanut-admin-mysql84-remote-admin-cli', 'P0-E binding tooling resource changed');
-$expect(($binding['database'] ?? null) === ($qualificationDatabase['database'] ?? null), 'P0-E binding database template diverged');
-$expect(($binding['namespace'] ?? null) === ($qualificationDatabase['namespace'] ?? null), 'P0-E binding namespace diverged');
-$expect(($binding['version'] ?? null) === ($qualificationDatabase['version'] ?? null), 'P0-E binding version diverged');
-$expect(($binding['port'] ?? null) === ($qualificationDatabase['upstream_endpoint']['port'] ?? null), 'P0-E binding port diverged');
-$expect(($binding['credential_ref'] ?? null) === ($qualificationDatabase['credential_ref'] ?? null), 'P0-E binding credential provenance diverged');
-$expect(str_contains((string) ($binding['failure_policy'] ?? ''), 'never stops or restarts Docker Desktop'), 'P0-E binding failure policy is not fail-closed');
-$expect(($binding['fallback'] ?? null) === 'none', 'P0-E database administration binding must fail closed');
-
-$administrativeTools = array_values(array_filter(
-    $p0eRegistry['resources']['tooling'] ?? [],
-    static fn(array $item): bool => ($item['stable_resource_id'] ?? '') === 'peanut-admin-mysql84-remote-admin-cli',
-));
-$expect(count($administrativeTools) === 1, 'P0-E remote MySQL administration tooling registration is missing');
-$administrativeTool = $administrativeTools[0];
-$expect(($administrativeTool['host'] ?? null) === 'mac-14', 'P0-E administration moved off the database resource host');
-$expect(($administrativeTool['version'] ?? null) === '8.4.10', 'P0-E administration client version changed');
-$expect(($administrativeTool['transport'] ?? null) === 'ssh-docker-exec', 'P0-E administration transport changed');
-$expect(($administrativeTool['ssh_command'] ?? null) === '/usr/bin/ssh', 'P0-E SSH command is not absolute');
-$expect(($administrativeTool['docker_command'] ?? null) === '/usr/local/bin/docker', 'P0-E remote Docker command is not absolute');
-$expect(($administrativeTool['container_name'] ?? null) === 'peanut-admin-mysql84-development', 'P0-E administration container changed');
-$expect(($administrativeTool['mysql_command'] ?? null) === '/usr/bin/mysql', 'P0-E MySQL command is not absolute');
-$expect(($administrativeTool['credential_ref'] ?? null) === ($qualificationDatabase['credential_ref'] ?? null), 'P0-E administration credential provenance diverged');
-$expect(($administrativeTool['failure_policy'] ?? null) === ($binding['failure_policy'] ?? null), 'P0-E administration failure policy diverged');
-$expect(!array_key_exists('mysqldump_command', $administrativeTool), 'fresh-only P0-E retained backup tooling');
-$expect(str_starts_with((string) ($administrativeTool['container_image'] ?? ''), 'mysql:8.4.10@sha256:'), 'P0-E administration image is not immutable');
-$expect(($administrativeTool['fallback'] ?? null) === 'none; host mysql commands are forbidden', 'P0-E administration allowed a host CLI fallback');
-
 $upstreamEndpoint = $qualificationDatabase['upstream_endpoint'] ?? null;
 $expect(is_array($upstreamEndpoint), 'P0-E upstream endpoint is missing');
 $expect(in_array('host', $upstreamEndpoint['consumers'] ?? [], true), 'P0-E upstream endpoint consumer is invalid');
@@ -337,19 +283,6 @@ $expect(is_array($containerEndpoint), 'P0-E container endpoint is missing');
 $expect(in_array('container', $containerEndpoint['consumers'] ?? [], true), 'P0-E container endpoint consumer is invalid');
 $expect(($containerEndpoint['host'] ?? null) === 'host.docker.internal', 'P0-E container endpoint must use the Docker Desktop Host gateway');
 $expect(($containerEndpoint['port'] ?? null) === 20189, 'P0-E container endpoint must use the registered tunnel port');
-
-$databaseTunnels = array_values(array_filter(
-    $p0eRegistry['resources']['tooling'] ?? [],
-    static fn(array $item): bool => ($item['stable_resource_id'] ?? '') === 'peanut-admin-p0e-mysql84-container-tunnel',
-));
-$expect(count($databaseTunnels) === 1, 'P0-E container database tunnel tooling is missing');
-$expect(($databaseTunnels[0]['transport'] ?? null) === 'ssh-local-forward', 'P0-E database tunnel transport changed');
-$expect(($databaseTunnels[0]['local_host'] ?? null) === '127.0.0.1', 'P0-E database tunnel must remain loopback-bound');
-$expect(($databaseTunnels[0]['local_port'] ?? null) === 20189, 'P0-E database tunnel local port changed');
-$expect(($databaseTunnels[0]['container_host'] ?? null) === 'host.docker.internal', 'P0-E database tunnel container Host changed');
-$expect(($databaseTunnels[0]['upstream_host'] ?? null) === ($upstreamEndpoint['host'] ?? null), 'P0-E database tunnel upstream Host diverged');
-$expect(($databaseTunnels[0]['upstream_port'] ?? null) === ($upstreamEndpoint['port'] ?? null), 'P0-E database tunnel upstream port diverged');
-$expect(($databaseTunnels[0]['fallback'] ?? null) === 'none', 'P0-E database tunnel must fail closed');
 
 $runSelector = static function (array $arguments) use ($root): array {
     $command = escapeshellarg($root . '/scripts/project-resource-registry');
@@ -456,15 +389,12 @@ $expect(!str_contains($selectorSource, 'P0E_RESOURCE_ID'), 'resource selector st
 $expect(!str_contains($selectorSource, 'P0-E database'), 'resource selector still exposes project-specific database semantics');
 
 $rootInstructions = (string) file_get_contents($root . '/AGENTS.md');
-$qualificationRunner = (string) file_get_contents($root . '/scripts/p0e-runtime-qualification');
 $guardSource = (string) file_get_contents($root . '/server/database/environment-guard.php');
 $devCompose = (string) file_get_contents($root . '/deploy/docker-compose.dev.yml');
 $hostRuntime = (string) file_get_contents($root . '/scripts/project-env');
 $developmentDatabase = (string) file_get_contents($root . '/scripts/project-development-database.sh');
 
 $expect(str_contains($rootInstructions, 'resources/project-resources.json'), 'root AGENTS.md does not reference the registry');
-$expect(str_contains($qualificationRunner, 'resources/p0e-runtime-qualification.json')
-    && str_contains($qualificationRunner, 'PEANUT_RESOURCE_REGISTRY'), 'qualification runner lost its two registry inputs');
 $expect(str_contains($guardSource, 'guardedDatabaseConfig')
     && str_contains($guardSource, 'templatedDatabaseIdentity'), 'environment guard lost templated qualification validation');
 $expect(str_contains($hostRuntime, 'tools/toolchain.json') && str_contains($hostRuntime, 'host.json')

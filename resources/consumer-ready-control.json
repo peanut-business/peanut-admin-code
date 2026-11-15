@@ -16,9 +16,7 @@
     "version_contract": "release-versions.json",
     "release_metadata": "RELEASE_METADATA.json",
     "application_inventory": "scaffold/application-template-inventory.json",
-    "qualification_fixture": "server/tests/fixtures/p0e-runtime-qualification/matrix.json",
-    "project_resources_env": "PEANUT_RESOURCE_REGISTRY",
-    "p0e_resources": "resources/p0e-runtime-qualification.json"
+    "project_resources_env": "PEANUT_RESOURCE_REGISTRY"
   },
   "static_validation": {
     "release_identity": [
@@ -31,15 +29,12 @@
     "release_consistency": "scripts/check-release-consistency",
     "inventory_builder": "scripts/build-application-template-inventory",
     "scaffold_builder": "scripts/build-scaffold-release",
-    "browser_tooling": "scripts/p0e-browser-tooling",
+    "template_candidate_verifier": "scripts/verify-template-candidate",
     "resource_registry": "scripts/project-resource-registry"
   },
   "remote": {
     "name": "origin",
     "repository": "peanut-business/peanut-admin-code"
-  },
-  "p0e": {
-    "database_resource_id": "peanut-admin-p0e-mysql84-gate"
   },
   "scope": {
     "mutates_repository": false,

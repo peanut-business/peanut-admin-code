@@ -880,19 +880,6 @@
             "source_sha256": "1f90603187435ce9085678932260a0b9a372854e06996dc5bbd5556f64f3bfd4"
         },
         {
-            "path": "docs/development/p0e-tool-identity.md",
-            "target": "docs/development/p0e-tool-identity.md",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "docs/development/php-thinkphp-guidelines.md",
             "target": "docs/development/php-thinkphp-guidelines.md",
             "classification": "managed",
@@ -2275,19 +2262,6 @@
             ]
         },
         {
-            "path": "resources/p0e-runtime-qualification.json",
-            "target": "resources/p0e-runtime-qualification.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "resources/project-resources.json",
             "target": "resources/project-resources.json",
             "classification": "app-owned",
@@ -2785,8 +2759,8 @@
             ]
         },
         {
-            "path": "scripts/p0e-browser-iab.mjs",
-            "target": "scripts/p0e-browser-iab.mjs",
+            "path": "scripts/package-scaffold-template.py",
+            "target": "scripts/package-scaffold-template.py",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -2798,47 +2772,8 @@
             ]
         },
         {
-            "path": "scripts/p0e-browser-smoke",
-            "target": "scripts/p0e-browser-smoke",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "scripts/p0e-browser-tooling",
-            "target": "scripts/p0e-browser-tooling",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "scripts/p0e-runtime-qualification",
-            "target": "scripts/p0e-runtime-qualification",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "scripts/package-scaffold-template.py",
-            "target": "scripts/package-scaffold-template.py",
+            "path": "scripts/paired_recovery_verifier.py",
+            "target": "scripts/paired_recovery_verifier.py",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -2958,15 +2893,16 @@
         {
             "path": "scripts/release-dependency-locks.mjs",
             "target": "scripts/release-dependency-locks.mjs",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ]
+            ],
+            "source_sha256": "bc0389f7791e9075edda7a50ed1555a17797e298a76414f83bee3f9564fb786e"
         },
         {
             "path": "scripts/release-metadata-version.cjs",
@@ -3034,7 +2970,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9dcf04259c4b7624bc340ff1e7f9e5e644982d57381e3d1c483e32a1014530da"
+            "source_sha256": "631b59c63a779c44c3e9bce4f759af88a5db409feaad4eb7896dcb672f154ae8"
         },
         {
             "path": "scripts/scaffold-runtime/EditionUpgradePackage.php",
@@ -3132,7 +3068,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3dc7bd3785922efddd1aab63ec2b9e46dfc1f9384a4cff21945ebcf969564b24"
+            "source_sha256": "798ffb114805adb68bde454a50a01501d61c19ea34c17e8f0ec55dabe3084b21"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -3160,7 +3096,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7a6ef92f8882369a22e19fbb7a22b66990602f213ce40a5a85bae14318c2c800"
+            "source_sha256": "66426993136463cd5f8ca81a533f5585d2267cb87507deeaf31b8b7194fb2c5c"
         },
         {
             "path": "scripts/scaffold-upgrade",
@@ -3556,19 +3492,6 @@
             ]
         },
         {
-            "path": "scripts/tests/p0e_template_stage_test.py",
-            "target": "scripts/tests/p0e_template_stage_test.py",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "scripts/tests/pc-rendering-policy-test.mjs",
             "target": "scripts/tests/pc-rendering-policy-test.mjs",
             "classification": "excluded",
@@ -3790,6 +3713,19 @@
             ]
         },
         {
+            "path": "scripts/tests/template_candidate_stage_test.py",
+            "target": "scripts/tests/template_candidate_stage_test.py",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "scripts/tests/thinkphp-alter-coverage-test.py",
             "target": "scripts/tests/thinkphp-alter-coverage-test.py",
             "classification": "excluded",
@@ -3991,6 +3927,19 @@
             "owner": "template-source-only",
             "transform": "copy",
             "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "scripts/verify-template-candidate",
+            "target": "scripts/verify-template-candidate",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
@@ -10665,19 +10614,6 @@
             "source_sha256": "5c89a8a9c5af258d02d0bfd3582c75963bea53baa1f5f5132662b80020a63452"
         },
         {
-            "path": "server/fixtures/module-lifecycle/run.php",
-            "target": "server/fixtures/module-lifecycle/run.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/fixtures/modules/README.md",
             "target": "server/fixtures/modules/README.md",
             "classification": "excluded",
@@ -13695,19 +13631,6 @@
             ]
         },
         {
-            "path": "server/tests/Productization/P0eRuntimeQualificationTest.php",
-            "target": "server/tests/Productization/P0eRuntimeQualificationTest.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/tests/Productization/PaymentHostTest.php",
             "target": "server/tests/Productization/PaymentHostTest.php",
             "classification": "excluded",
@@ -15205,45 +15128,6 @@
         {
             "path": "server/tests/fixtures/mt05/inspect.php",
             "target": "server/tests/fixtures/mt05/inspect.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/fixtures/p0e-runtime-qualification/browser-iab-ui.js",
-            "target": "server/tests/fixtures/p0e-runtime-qualification/browser-iab-ui.js",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/fixtures/p0e-runtime-qualification/browser-smoke.js",
-            "target": "server/tests/fixtures/p0e-runtime-qualification/browser-smoke.js",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/tests/fixtures/p0e-runtime-qualification/matrix.json",
-            "target": "server/tests/fixtures/p0e-runtime-qualification/matrix.json",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

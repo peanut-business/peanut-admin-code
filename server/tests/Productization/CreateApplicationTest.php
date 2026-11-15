@@ -796,10 +796,10 @@ try {
     createApplicationExpect((string) json_decode((string) file_get_contents($first . '/server/config/brand.json'), true)['website']['name'] === 'Acme Console', 'generated brand identity must be used');
     createApplicationExpect(is_file($first . '/server/config/peanut.php') && is_file($first . '/web/src/peanut.overrides.ts'), 'stable Host override entries must be preserved');
     createApplicationExpect(!file_exists($first . '/scripts/check-local-runtime-contract'), 'Code-only local runtime fixture must not be delivered to APP');
-    // A fresh Host adopts the isolated bootstrap lock, not the author's Code
-    // checkout lock containing the eight official Module source packages.
+    // A fresh Host derives its runtime lock from server/composer.lock while
+    // stripping repository-only packages-dev entries.
     $sourceComposerLock = json_decode((string) file_get_contents(
-        $root . '/server/resources/scaffold-application/composer.lock',
+        $root . '/server/composer.lock',
     ), true, 512, JSON_THROW_ON_ERROR);
     foreach (createApplicationFiles($first) as $path) {
         $absolute = $first . '/' . $path;
@@ -816,13 +816,12 @@ try {
             || $path === '.peanut/scaffold-baseline/' . $templateVersion . '/files/server/composer.lock') {
             $generatedComposerLock = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
             // 上游包描述、作者和许可属于依赖身份，不随应用改名。先核原样保留，再检查应用字段。
-            foreach (['packages', 'packages-dev'] as $dependencyGroup) {
-                createApplicationExpect(
-                    ($generatedComposerLock[$dependencyGroup] ?? []) === ($sourceComposerLock[$dependencyGroup] ?? []),
-                    'generated Composer lock changed upstream dependency metadata: ' . $path,
-                );
-                unset($generatedComposerLock[$dependencyGroup]);
-            }
+            createApplicationExpect(
+                ($generatedComposerLock['packages'] ?? []) === ($sourceComposerLock['packages'] ?? [])
+                    && ($generatedComposerLock['packages-dev'] ?? null) === [],
+                'generated Composer lock changed upstream dependency metadata: ' . $path,
+            );
+            unset($generatedComposerLock['packages'], $generatedComposerLock['packages-dev']);
             $applicationContent = json_encode($generatedComposerLock, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         }
         // The upgrade transform rules name the upstream brand as an input;

@@ -216,7 +216,6 @@ final class TenantModuleStateBoundaryTest extends TestCase
             'server/app/AppService.php', 'server/app/command/ModuleSync.php',
             'server/app/platform/infrastructure/module/ThinkPhpModuleGovernanceProvider.php',
             'server/app/platform/infrastructure/module/ModulePackageInstaller.php',
-            'server/fixtures/module-lifecycle/run.php',
             'server/tests/Productization/ModuleCommandContractTest.php',
             'server/tests/Productization/ModuleRuntimeGovernanceTest.php',
         ] as $path) {

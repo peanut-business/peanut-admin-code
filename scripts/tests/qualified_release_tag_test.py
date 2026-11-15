@@ -73,6 +73,11 @@ class QualifiedTagTest(unittest.TestCase):
         locations = [workflow.index("      - name: " + name) for name in names]
         self.assertEqual(locations, sorted(locations))
         self.assertIn("python3 scripts/ensure-qualified-release-tag --version", workflow)
+        preflight = workflow[locations[1]:locations[2]]
+        self.assertLess(preflight.index('"${consistency[@]}"'),
+                        preflight.index('--create-in-publish-ci'))
+        # The tag entry checks S -> M through the real merged PR; S need not equal M.
+        self.assertNotIn('--require-main', preflight)
 
 
 if __name__ == "__main__":

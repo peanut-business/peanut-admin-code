@@ -982,9 +982,15 @@ def preview_and_execute(
 
 
 def run_chain(args: argparse.Namespace) -> dict[str, Any]:
+    raise RuntimeError(
+        "consumer-module-reference-chain runtime plan execution is disabled after retiring scripts/p0e-runtime-qualification"
+    )
+
+
+def _retired_run_chain_body(args: argparse.Namespace) -> dict[str, Any]:
     global ROOT, TOOL_BINDING
-    native = runpy.run_path(str(TOOL_ROOT / "scripts/p0e-runtime-qualification"))
-    TOOL_BINDING = native["configure_source"](args)
+    native: dict[str, Any] = {}
+    TOOL_BINDING = None
     if TOOL_BINDING is not None:
         expect(bool(args.qualification_plan), "independent qualification tools require the original P0-E plan")
         ROOT = Path(TOOL_BINDING["source_root"])

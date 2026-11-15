@@ -9,6 +9,7 @@ import {
   mkdtempSync,
   writeFileSync,
   copyFileSync,
+  chmodSync,
   symlinkSync,
   renameSync,
   rmSync,
@@ -232,9 +233,6 @@ test('existing static checker reads native V3 metadata and preserves not-ready s
       template_version: '9.8.7',
       application: { version: '0.1.0' },
     });
-    f.files.set('server/tests/fixtures/p0e-runtime-qualification/matrix.json', {
-      target_release: { version: '9.8.7' },
-    });
     f.files.set(
       'CHANGELOG.md',
       '## [9.8.7]\nSynthetic checker input, not a release.\n'
@@ -329,16 +327,31 @@ function installedFixture(operation) {
       resolve(process.argv[2] || root, 'web/node_modules/openapi-typescript'),
       join(app, 'web/node_modules/openapi-typescript')
     );
-    const check = () =>
+    const check = (extraArgs = []) =>
       spawnSync(
         process.execPath,
         [
           join(root, 'scripts/release-dependency-locks.mjs'),
           app,
           '--installed',
+          ...extraArgs,
         ],
         { encoding: 'utf8', timeout: 10000 }
       );
+    const doctor = () => {
+      write('resources/project-resources.json', { stable_resource_id: 'synthetic-doctor' });
+      write('.peanut/application-manifest.json', {
+        protocol: 'peanut.application-scaffold.v2', application: { profile: 'standard' },
+      });
+      write('RELEASE_METADATA.json', {});
+      // Tool discovery only; the fixture Composer entry performs no installation.
+      write('scripts/project-composer', '#!/usr/bin/env bash\nprintf "Composer synthetic fixture\\n"\n');
+      chmodSync(join(app, 'scripts/project-composer'), 0o755);
+      for (const name of ['scaffold-doctor', 'release-dependency-locks.mjs'])
+        copyFileSync(join(root, 'scripts', name), join(app, 'scripts', name));
+      return spawnSync('bash', [join(app, 'scripts/scaffold-doctor'),
+        '--resource-id', 'synthetic-doctor'], { encoding: 'utf8', timeout: 10000 });
+    };
     operation({
       app,
       temporary,
@@ -346,6 +359,7 @@ function installedFixture(operation) {
       versions: f.versions,
       write,
       check,
+      doctor,
     });
   } finally {
     rmSync(temporary, { recursive: true, force: true });
@@ -353,7 +367,7 @@ function installedFixture(operation) {
 }
 
 test('installed fixed identities accept contained native package layout', () =>
-  installedFixture(({ check }) => {
+  installedFixture(({ check, doctor }) => {
     const result = check();
     assert.equal(result.status, 0, result.stderr);
     const proof = JSON.parse(result.stdout);
@@ -361,6 +375,9 @@ test('installed fixed identities accept contained native package layout', () =>
     assert.equal(proof.installed.php.version, 'v9.2.1');
     assert.equal(proof.installed.independent_locations_checked, true);
     assert.equal(proof.installed.runtime_qualified, false);
+    const diagnosed = doctor();
+    assert.equal(diagnosed.status, 0, diagnosed.stderr);
+    assert.match(diagnosed.stdout, /scaffold-doctor: OK/);
   }));
 test('installed check rejects missing PHP dependencies rather than only reading web versions', () =>
   installedFixture(({ app, check }) => {
@@ -439,7 +456,7 @@ test('installed Web Core permits normal pnpm links into the same application', (
   }));
 
 test('development linked Core remains allowed without claiming independent installation', () =>
-  installedFixture(({ app, temporary, versions }) => {
+  installedFixture(({ app, temporary, versions, write, doctor }) => {
     versions.core_php.constraint = versions.core_php.resolved_version =
       'dev-dev';
     for (const name of coreWebPackages)
@@ -466,6 +483,56 @@ test('development linked Core remains allowed without claiming independent insta
       ).contained,
       false
     );
+    versions.core_php = {
+      package: 'peanut-admin/core', constraint: '9.2.1', resolved_version: '9.2.1',
+      source_type: 'local', source_identity: { kind: 'local', snapshot_sha256: 'b'.repeat(64) },
+    };
+    versions.core_web = {
+      source_type: 'local', source_identity: { kind: 'local', snapshot_sha256: 'c'.repeat(64) },
+      packages: versions.core_web.packages,
+    };
+    write('server/composer.lock', { packages: [{ name: 'peanut-admin/core', version: '9.2.1',
+      dist: { type: 'zip', reference: 'b'.repeat(64) } }] });
+    for (const [name, identity] of Object.entries(versions.core_web.packages)) {
+      const bytes = Buffer.from(`synthetic archive: ${name}`);
+      mkdirSync(dirname(join(app, identity.archive)), { recursive: true });
+      writeFileSync(join(app, identity.archive), bytes);
+      identity.sha256 = createHash('sha256').update(bytes).digest('hex');
+    }
+    write('release-versions.json', versions);
+    for (const client of ['web', 'platform', 'pc', 'uniapp']) {
+      const manifest = JSON.parse(readFileSync(join(app, client, 'package.json')));
+      for (const name of Object.keys(manifest.dependencies))
+        manifest.dependencies[name] = `file:../${versions.core_web.packages[name].archive}`;
+      write(`${client}/package.json`, manifest);
+      const entries = Object.entries(manifest.dependencies);
+      const resolution = name => {
+        const i = versions.core_web.packages[name];
+        return { integrity: `sha512-${createHash('sha512').update(readFileSync(join(app, i.archive))).digest('base64')}`,
+          tarball: `file:../${i.archive}` };
+      };
+      if (client === 'web') {
+        write('web/pnpm-lock.yaml', {
+          lockfileVersion: '9.0',
+          importers: { '.': { dependencies: Object.fromEntries(entries.map(([name, specifier]) =>
+            [name, { specifier, version: specifier }])) } },
+          packages: Object.fromEntries(entries.map(([name, specifier]) =>
+            [`${name}@${specifier}`, { resolution: resolution(name) }])),
+        });
+      } else {
+        write(`${client}/package-lock.json`, { lockfileVersion: 3,
+          packages: { '': { dependencies: manifest.dependencies },
+            ...Object.fromEntries(entries.map(([name, specifier]) => [`node_modules/${name}`,
+              { version: versions.core_web.packages[name].version, resolved: specifier,
+                integrity: resolution(name).integrity }])) } });
+      }
+    }
+    const diagnosed = doctor();
+    assert.equal(diagnosed.status, 0, diagnosed.stderr);
+    const badLock = JSON.parse(readFileSync(join(app, 'platform/package-lock.json')));
+    badLock.packages['node_modules/@peanut-admin/vue'].resolved = 'file:../wrong.tgz';
+    write('platform/package-lock.json', badLock);
+    assert.notEqual(doctor().status, 0, 'doctor accepted a drifted archive lock');
   }));
 
 test('candidate gate rejects absent qualification before reading candidate contents', () => {

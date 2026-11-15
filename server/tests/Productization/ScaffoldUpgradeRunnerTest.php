@@ -284,8 +284,9 @@ try {
     scaffoldWrite($package . '/scaffold-manifest.json', $targetBytes . "\n");
     scaffoldFails(fn() => $runner->apply($project, $nativePlanPath), 'SCAFFOLD_MANIFEST_CHECKSUM_DRIFT');
     scaffoldWrite($package . '/scaffold-manifest.json', $targetBytes);
-    $git(['remote', 'set-url', 'origin', 'https://example.invalid/foreign.git']);
-    scaffoldFails(fn() => $runner->apply($project, $nativePlanPath), 'SCAFFOLD_DEVELOPMENT_REPOSITORY_INVALID');
+    $git(['remote', 'set-url', 'origin', 'https://example.invalid/fork.git']);
+    scaffoldExpect($runner->preflight($project, $recorded, $package . '/scaffold-manifest.json', $selection)['status'] === 'ready',
+        'Fork or mirror Git remotes must remain accepted when commit, tree and digests match.');
     $git(['remote', 'set-url', 'origin', 'https://github.com/peanut-business/peanut-admin-code.git']);
     $metadata['workflow'] = 'runtime';
     $writeJson($package . '/template-package.json', $metadata);

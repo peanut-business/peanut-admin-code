@@ -116,9 +116,14 @@ export function verifyDraftRelease(publication, version, prerelease, source, tra
     || release.url !== `https://api.github.com/repos/${repository}/releases/${release.id}`
     || (expectedReleaseId !== null && release.id !== expectedReleaseId)) fail('target draft identity/channel/source differs')
   const assets = release.assets
-  const transport = assets?.find(asset => asset.name === 'scaffold-full-qualification.tgz')
+  const transportNames = new Set([
+    'scaffold-template-qualification.tgz',
+    'scaffold-template-identity.tgz',
+    'scaffold-full-qualification.tgz',
+  ])
+  const transports = Array.isArray(assets) ? assets.filter(asset => transportNames.has(asset.name)) : []
+  const transport = transports.length === 1 ? transports[0] : undefined
   if (!Array.isArray(assets) || assets.length !== (transportId === null ? 1 : Object.keys(files).length + 1)
-    || assets.filter(asset => asset.name === 'scaffold-full-qualification.tgz').length !== 1
     || !transport || !Number.isSafeInteger(transport.id) || transport.id <= 0
     || transport.url !== `https://api.github.com/repos/${repository}/releases/assets/${transport.id}`
     || transport.state !== 'uploaded' || !Number.isSafeInteger(transport.size) || transport.size <= 0

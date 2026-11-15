@@ -184,7 +184,7 @@ jobs:
           cli_ref = os.environ["CLI_REF"]
           if re.fullmatch(r"[a-f0-9]{40}", cli_ref):
               assert cli_commit == cli_ref
-          value = {"protocol": "peanut.p0e-candidate-inputs.v1",
+          value = {"protocol": "peanut.template-candidate-inputs.v1",
                    "source": {"commit": os.environ["GITHUB_SHA"], "tree": git(code, "rev-parse", "HEAD^{tree}")},
                    "cli": {"root": str(cli), "commit": cli_commit, "tree": git(cli, "rev-parse", "HEAD^{tree}")},
                    "template_build_root": os.environ["RUNNER_TEMP"] + "/scaffold-templates",
@@ -193,7 +193,7 @@ jobs:
           assert not path.exists()
           path.write_text(json.dumps(value, indent=2) + "\n")
           PY
-          python3 scripts/p0e-runtime-qualification candidate --candidate="$GITHUB_SHA" \
+          python3 scripts/verify-template-candidate --candidate="$GITHUB_SHA" \
             --run-id="ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
             --candidate-input="$RUNNER_TEMP/candidate-inputs.json" \
             --candidate-input-sha256="$(sha256sum "$RUNNER_TEMP/candidate-inputs.json" | cut -d ' ' -f1)" \
@@ -427,6 +427,13 @@ jobs:
         run: |
           set -Eeuo pipefail
           version="$(node -p "JSON.parse(require('node:fs').readFileSync('release-versions.json','utf8')).scaffold_template")"
+          # The exact source-to-main PR relation is checked by the tag entry below.
+          # A normal same-tree PR merge has a different commit from SOURCE.
+          consistency=(node scripts/check-release-consistency --candidate "$SOURCE"
+            --qualification "$RUNNER_TEMP/candidate-release/template-qualification/candidate-stage.json"
+            --template-artifacts "$RUNNER_TEMP/candidate-release/scaffold-templates")
+          if [[ "${version%%+*}" == *-* ]]; then consistency+=(--prerelease); fi
+          "${consistency[@]}"
           python3 scripts/ensure-qualified-release-tag --version "$version" --source "$SOURCE" --create-in-publish-ci
       - name: Publish the verified native templates through the sole publisher
         env:

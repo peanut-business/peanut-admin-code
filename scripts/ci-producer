@@ -63,5 +63,5 @@ exec docker run --rm -i --platform=linux/amd64 --user "$(id -u):$(id -g)" \
   --mount "type=bind,source=$state/identity.json,target=/opt/peanut/run-identity.json,readonly" \
   --workdir "$ROOT" --env "HOME=$ROOT/.local/ci-producer-home" \
   --env PEANUT_CI_PRODUCER_IDENTITY=/opt/peanut/run-identity.json \
-  --env GITHUB_SHA --env GITHUB_RUN_ID --env GITHUB_RUN_ATTEMPT --env RUNNER_TEMP --env GITHUB_STEP_SUMMARY --env CLI_COMMIT \
+  --env GITHUB_SHA --env GITHUB_RUN_ID --env GITHUB_RUN_ATTEMPT --env RUNNER_TEMP --env GITHUB_STEP_SUMMARY --env CLI_REF \
   --entrypoint /usr/bin/env "$image" "$@"

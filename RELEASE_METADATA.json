@@ -96,8 +96,6 @@
     "groups_passed": 0,
     "summary_sha256": null,
     "cleanup_residual_count": null,
-    "lease_released": false,
-    "migrations": 10,
     "scaffold_version": "5.1.13",
     "application_initial_version": "0.1.0",
     "evidence": "Product stable candidate identity is prepared from public Core registry locks; qualification remains pending.",

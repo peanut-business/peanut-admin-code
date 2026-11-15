@@ -1,0 +1,358 @@
+#!/usr/bin/env python3
+"""Verify fixed two-Edition scaffold templates and native CLI creation."""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import time
+from typing import Any
+
+ROOT = Path(__file__).resolve().parents[1]
+EDITIONS = ("standalone", "multi-tenant")
+PUBLIC_DOCUMENTS = (
+    "README.md",
+    "CHANGELOG.md",
+    "INSTALLATION.md",
+    "UPGRADE.md",
+    "API.md",
+)
+CLI_ORIGINS = (
+    "git@github.com:peanut-business/peanut-cli.git",
+    "https://github.com/peanut-business/peanut-cli.git",
+    "https://github.com/peanut-business/peanut-cli",
+)
+INPUT_PROTOCOL = "peanut.template-candidate-inputs.v1"
+STAGE_PROTOCOL = "peanut.template-candidate-stage.v1"
+
+
+def fail(message: str) -> None:
+    print(f"template-candidate: {message}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def read_json(path: Path) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        fail(f"invalid JSON file {path}: {exc}")
+
+
+def run_command(
+    arguments: list[str],
+    *,
+    cwd: Path | None = None,
+    capture: bool = False,
+    check: bool = True,
+) -> subprocess.CompletedProcess[str]:
+    result = subprocess.run(
+        arguments,
+        cwd=str(cwd or ROOT),
+        text=True,
+        capture_output=capture,
+        check=False,
+    )
+    if check and result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        fail(f"command failed ({result.returncode}): {' '.join(arguments)}" + (f": {detail}" if detail else ""))
+    return result
+
+
+def git(root: Path, *arguments: str) -> str:
+    return run_command(["git", "-C", str(root), *arguments], capture=True).stdout.strip()
+
+
+def canonical(raw: str, *, directory: bool = False) -> Path:
+    if not raw or not os.path.isabs(raw):
+        fail(f"absolute canonical path required: {raw!r}")
+    candidate = Path(raw)
+    if candidate.is_symlink():
+        fail(f"symlinked path is not allowed: {candidate}")
+    try:
+        resolved = candidate.resolve(strict=True)
+    except OSError as exc:
+        fail(f"missing path {candidate}: {exc}")
+    if resolved != candidate:
+        fail(f"path must be canonical without symlink ancestors: {candidate}")
+    if directory and not resolved.is_dir():
+        fail(f"directory required: {resolved}")
+    if not directory and not resolved.is_file():
+        fail(f"regular file required: {resolved}")
+    return resolved
+
+
+def file_reference(record: dict[str, Any]) -> Path:
+    if not isinstance(record, dict) or not re.fullmatch(r"[a-f0-9]{64}", str(record.get("sha256", ""))):
+        fail("fixed file reference and sha256 are required")
+    path = canonical(str(record.get("path", "")))
+    if sha256(path) != record["sha256"]:
+        fail(f"referenced file digest changed: {path}")
+    return path
+
+
+def validate_candidate(candidate: str) -> tuple[str, str]:
+    if not re.fullmatch(r"[0-9a-f]{40}", candidate):
+        fail("candidate must be an exact lowercase 40-hex commit")
+    resolved = git(ROOT, "rev-parse", f"{candidate}^{{commit}}")
+    head = git(ROOT, "rev-parse", "HEAD")
+    if resolved != candidate or head != candidate:
+        fail(f"worktree HEAD {head} is not fixed candidate {candidate}")
+    if git(ROOT, "status", "--porcelain=v1", "--untracked-files=all"):
+        fail("fixed candidate worktree is not clean")
+    return head, git(ROOT, "rev-parse", f"{candidate}^{{tree}}")
+
+
+def checkout_identity(root: Path, commit: str, tree: str) -> None:
+    if not re.fullmatch(r"[a-f0-9]{40}", commit) or not re.fullmatch(r"[a-f0-9]{40}", tree):
+        fail("exact checkout commit/tree required")
+    for arguments, expected in (
+        (["rev-parse", "--show-toplevel"], str(root)),
+        (["rev-parse", "HEAD"], commit),
+        (["rev-parse", "HEAD^{tree}"], tree),
+    ):
+        if git(root, *arguments) != expected:
+            fail("fixed checkout identity differs")
+    if git(root, "status", "--porcelain=v1", "--untracked-files=all"):
+        fail("fixed checkout must be clean")
+
+
+def template_inputs(root: Path, candidate: str, tree: str) -> dict[str, Any]:
+    version = read_json(ROOT / "release-versions.json")["scaffold_template"]
+    inventory = sha256(ROOT / "scaffold/application-template-inventory.json")
+    result = run_command(
+        ["node", str(ROOT / "scripts/release-template-artifacts.mjs"), "read", str(root), version, candidate, tree, inventory],
+        capture=True,
+    )
+    value = json.loads(result.stdout)
+    if value.get("protocol") != "peanut.template-release-inputs.v1":
+        fail("native template input identity is unavailable")
+    return value
+
+
+def candidate_inputs(value: dict[str, Any], candidate: str, tree: str) -> dict[str, Any]:
+    if value.get("source") != {"commit": candidate, "tree": tree}:
+        fail("candidate inputs must bind this exact Code source")
+    cli = value.get("cli")
+    if not isinstance(cli, dict):
+        fail("candidate inputs must declare cli identity")
+    cli_root = canonical(str(cli.get("root", "")), directory=True)
+    checkout_identity(cli_root, str(cli.get("commit", "")), str(cli.get("tree", "")))
+    if git(cli_root, "remote", "get-url", "origin") not in CLI_ORIGINS:
+        fail("independent CLI source repository differs")
+    if read_json(cli_root / "package.json").get("name") != "@peanut-admin/cli":
+        fail("independent CLI package identity differs")
+    entry = canonical(str(cli_root / "bin/peanut.js"))
+    templates_root = canonical(str(value.get("template_build_root", "")), directory=True)
+    return {
+        "cli": {**cli, "entry_sha256": sha256(entry)},
+        "template_artifacts": template_inputs(templates_root, candidate, tree),
+        "template_build_root": str(templates_root),
+    }
+
+
+def documentation_contract(project_root: Path) -> dict[str, Any]:
+    if (project_root / "docs").is_symlink() or not (project_root / "docs").is_dir():
+        fail("released public documentation directory is unavailable")
+    manifest = read_json(project_root / ".peanut/application-manifest.json")
+    released = {item.get("path"): item.get("sha256") for item in manifest.get("files", [])}
+    documents: dict[str, str] = {}
+    for relative in (*("docs/" + item for item in PUBLIC_DOCUMENTS), "server/generated/openapi.json", "server/generated/api-catalog.json"):
+        path = project_root / relative
+        if path.is_symlink() or not path.is_file() or not path.resolve().is_relative_to(project_root.resolve()) or not path.stat().st_size:
+            fail(f"public documentation input is unavailable: {relative}")
+        digest = sha256(path)
+        if released.get(relative) != digest:
+            fail(f"public documentation differs from the released application manifest: {relative}")
+        documents[relative] = digest
+    api = read_json(project_root / "server/generated/openapi.json")
+    catalog = read_json(project_root / "server/generated/api-catalog.json")
+    version = read_json(project_root / "release-versions.json")["source_product_version"]
+    if (
+        api.get("openapi") != "3.0.3"
+        or api.get("info", {}).get("version") != version
+        or not api.get("paths")
+        or catalog.get("schema_version") != 1
+        or catalog.get("openapi_version") != "3.0.3"
+        or not catalog.get("endpoints")
+    ):
+        fail("public API documentation structure/version does not match the released source")
+    return {"delivery": "versioned-markdown-and-openapi", "files": documents, "api_version": version}
+
+
+def create_candidate_applications(inputs: dict[str, Any], candidate: str, tree: str, output: Path) -> dict[str, Any]:
+    cli = inputs["cli"]
+    result: dict[str, Any] = {}
+    for edition in EDITIONS:
+        target = output / f"cli-create-{edition}"
+        archive = Path(inputs["template_build_root"]) / edition / f"peanut-scaffold-{edition}.tgz"
+        manifest = archive.with_suffix(".json")
+        if target.exists():
+            fail("CLI creation target must be absent")
+        process = run_command(
+            [
+                "node", str(Path(cli["root"]) / "bin/peanut.js"), "create", str(target),
+                "--name", "Template CLI creation", "--slug", f"candidate-{edition}",
+                "--package", f"candidate/{edition}", "--edition", edition,
+                "--archive", str(archive), "--manifest", str(manifest),
+            ],
+            capture=True,
+        )
+        created = json.loads(process.stdout)
+        identity = read_json(target / ".peanut/application-manifest.json")
+        if (
+            created.get("status") != "created"
+            or created.get("target") != str(target)
+            or identity.get("template", {}).get("source_commit") != candidate
+            or identity.get("template", {}).get("source_tree") != tree
+            or identity.get("template_package", {}).get("archive_sha256") != sha256(archive)
+            or identity.get("application", {}).get("edition") != edition
+            or identity.get("edition", {}).get("name") != edition
+            or any(
+                (target / path).exists()
+                for path in (
+                    ".git", "node_modules", "server/vendor",
+                    "web/node_modules", "platform/node_modules", "pc/node_modules", "uniapp/node_modules",
+                )
+            )
+        ):
+            fail("independent CLI create identity or no-implicit-install contract failed")
+        result[edition] = {
+            "manifest_sha256": sha256(target / ".peanut/application-manifest.json"),
+            "cli_result": created,
+            "documentation": documentation_contract(target),
+        }
+    return result
+
+
+def verify_candidate(args: argparse.Namespace) -> dict[str, Any]:
+    _, tree = validate_candidate(args.candidate)
+    input_path = file_reference({"path": args.candidate_input, "sha256": args.candidate_input_sha256})
+    value = read_json(input_path)
+    if (
+        not isinstance(value, dict)
+        or value.get("protocol") != INPUT_PROTOCOL
+        or not {"protocol", "source", "cli", "template_build_root"}.issubset(value)
+        or set(value) - {"protocol", "source", "cli", "template_build_root", "run_tests"}
+        or not isinstance(value.get("run_tests", False), bool)
+    ):
+        fail("candidate input accepts fixed Code, CLI and template identities plus an optional run_tests boolean")
+    output = Path(args.output_dir)
+    if (
+        not output.is_absolute()
+        or output.exists()
+        or output.is_symlink()
+        or not output.parent.is_dir()
+        or output.parent.resolve() != output.parent
+    ):
+        fail("candidate output must be an absent canonical directory")
+    inputs = candidate_inputs(value, args.candidate, tree)
+    roots = Path(inputs["template_build_root"])
+    protected = (ROOT, roots, Path(inputs["cli"]["root"]))
+    if any(output == root or root in output.parents or output in root.parents for root in protected):
+        fail("candidate output must be outside source, CLI and template inputs")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", args.run_id):
+        fail("candidate run id is invalid")
+    version = read_json(ROOT / "release-versions.json")["scaffold_template"]
+    inventory = sha256(ROOT / "scaffold/application-template-inventory.json")
+    verifier = ROOT / "scripts/release-template-artifacts.mjs"
+    arguments = ["node", str(verifier), "read", str(roots), version, args.candidate, tree, inventory]
+    output.mkdir(mode=0o700)
+    receipt: dict[str, Any] = {
+        "schema_version": 1,
+        "protocol": STAGE_PROTOCOL,
+        "status": "running",
+        "scope": "candidate",
+        "candidate": args.candidate,
+        "candidate_tree": tree,
+        "run_id": args.run_id,
+        "source_inventory_sha256": inventory,
+        "candidate_input": {"path": str(input_path), "sha256": args.candidate_input_sha256},
+        "cli": inputs["cli"],
+        "producer": {
+            "path": "scripts/verify-template-candidate",
+            "sha256": sha256(Path(__file__)),
+            "verifier_sha256": sha256(verifier),
+        },
+        "template_build_root": str(roots),
+        "started_at": int(time.time()),
+    }
+    path = output / "candidate-stage.json"
+    path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    try:
+        result = run_command(arguments, capture=True, check=False)
+        log = output / "native-template-check.log"
+        log.write_text((result.stdout or "") + (result.stderr or ""), encoding="utf-8")
+        receipt["native_check"] = {
+            "operation": "read",
+            "rc": result.returncode,
+            "log": log.name,
+            "log_sha256": sha256(log),
+        }
+        if result.returncode != 0:
+            fail("native template check failed; preserve this stage output, do not replay it")
+        try:
+            checked = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            fail("native template check did not return its artifact identity")
+        if (
+            not isinstance(checked, dict)
+            or checked.get("protocol") != "peanut.template-release-inputs.v1"
+            or checked.get("version") != version
+            or checked.get("source") != {"commit": args.candidate, "tree": tree, "inventory_sha256": inventory}
+            or checked != inputs["template_artifacts"]
+        ):
+            fail("native template check returned different candidate inputs")
+        created = create_candidate_applications(inputs, args.candidate, tree, output)
+        file_reference({"path": str(input_path), "sha256": args.candidate_input_sha256})
+        validate_candidate(args.candidate)
+        cli = inputs["cli"]
+        checkout_identity(Path(cli["root"]), cli["commit"], cli["tree"])
+        if sha256(Path(cli["root"]) / "bin/peanut.js") != cli["entry_sha256"] or template_inputs(roots, args.candidate, tree) != inputs["template_artifacts"]:
+            fail("candidate source, CLI or template identity changed during creation")
+        receipt.update(
+            status="candidate-passed",
+            template_artifacts=checked,
+            cli_created_applications=created,
+        )
+    except BaseException:
+        receipt["status"] = "failed-preserved"
+        raise
+    finally:
+        receipt["finished_at"] = int(time.time())
+        path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return {
+        "status": receipt["status"],
+        "scope": "candidate",
+        "receipt": str(path),
+        "receipt_sha256": sha256(path),
+    }
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Verify fixed two-Edition templates and native CLI creation")
+    parser.add_argument("--candidate", required=True)
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--candidate-input", required=True)
+    parser.add_argument("--candidate-input-sha256", required=True)
+    parser.add_argument("--output-dir", required=True)
+    args = parser.parse_args(argv)
+    result = verify_candidate(args)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result["status"] == "candidate-passed" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

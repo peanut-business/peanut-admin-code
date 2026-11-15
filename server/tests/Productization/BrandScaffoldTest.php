@@ -74,7 +74,7 @@ $parameters = ['PRODUCT_NAME' => 'Source Consumer', 'PACKAGE_IDENTITY' => 'consu
 $transform = Closure::bind(
     fn(string $content, string $path, string $kind): string => $this->transform($content, [
         'path' => $path,
-        'target' => $path === 'server/resources/scaffold-application/composer.json' ? 'server/composer.json' : $path,
+        'target' => $path,
         'transform' => $kind,
     ], $parameters, $root),
     $creator,
@@ -86,14 +86,16 @@ $renderedDocumentation = $transform($documentation, 'docs/public/release-channel
 preg_match_all('#https://github\.com/peanut-business/peanut-admin-code[^\s)]+#', $documentation, $sourceLinks);
 preg_match_all('#https://github\.com/peanut-business/peanut-admin-code[^\s)]+#', $renderedDocumentation, $renderedLinks);
 brandExpect(count($sourceLinks[0]) >= 2 && $renderedLinks[0] === $sourceLinks[0], 'generated documentation must retain actual upstream repository URLs');
-$bootstrapSource = 'server/resources/scaffold-application/composer.json';
+$bootstrapSource = 'server/composer.json';
 $sourceComposer = json_decode((string) file_get_contents($root . '/' . $bootstrapSource), true, 512, JSON_THROW_ON_ERROR);
 $applicationComposer = json_decode($transform((string) file_get_contents($root . '/' . $bootstrapSource), $bootstrapSource, 'package'), true, 512, JSON_THROW_ON_ERROR);
 brandExpect($applicationComposer['name'] === $parameters['PACKAGE_IDENTITY'], 'application package name must still render its own identity');
 brandExpect($applicationComposer['description'] === 'Source Consumer application backend' && $applicationComposer['authors'][0]['name'] === 'application owner', 'application brand and author must still render');
 brandExpect(
     $applicationComposer['homepage'] === $sourceComposer['homepage']
-        && !isset($sourceComposer['repositories']) && !isset($applicationComposer['repositories'])
+        && !isset($applicationComposer['repositories'])
+        && !isset($applicationComposer['require-dev'])
+        && !isset($applicationComposer['autoload-dev'])
         && $applicationComposer['require'] === $sourceComposer['require']
         && isset($applicationComposer['require']['peanut-admin/core'])
         && count(array_filter(array_keys($applicationComposer['require']), static fn(string $name): bool => str_starts_with($name, 'peanut-business/peanut-'))) === 0,
