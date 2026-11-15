@@ -149,6 +149,8 @@ test('only the exact target draft original transport can precede the sealed elev
       verifyDraftRelease(publication, version, false, commit, sha, value, releaseId, transportId)
     assert.deepEqual(check(null), { release_id: 0, transport_id: 0 })
     assert.deepEqual(check(release), { release_id: 27, transport_id: 90 })
+    assert.deepEqual(check({ ...release, assets: [{ ...transport, name: 'scaffold-template-qualification.tgz' }] }), { release_id: 27, transport_id: 90 })
+    assert.deepEqual(check({ ...release, assets: [{ ...transport, name: 'scaffold-template-identity.tgz' }] }), { release_id: 27, transport_id: 90 })
     for (const patch of [{ draft: false }, { prerelease: true }, { tag_name: 'v5.0.1' }, { target_commitish: 'main' },
       { target_commitish: 'b'.repeat(40) }, { url: 'https://api.github.com/repos/foreign/repo/releases/27' },
       { assets: [] }, { assets: [transport, assets[0]] }, { assets: [transport, transport] },

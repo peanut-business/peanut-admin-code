@@ -207,12 +207,10 @@ let metadataText = ''
 let versionContractText = ''
 let inventoryText = ''
 let scaffoldText = ''
-let fixtureText = ''
 let metadata = null
 let versionContract = null
 let inventory = null
 let scaffold = null
-let fixture = null
 let version = ''
 let declaredCorePhp = ''
 let declaredCoreWeb = ''
@@ -249,27 +247,29 @@ try {
     : (metadata.version ?? '')
   if (!options.templateArtifacts) throw new Error('--template-artifacts is required for sealed candidate checks')
   scaffoldText = readFileSync(join(options.templateArtifacts, 'standalone/scaffold-manifest.json'), 'utf8')
-  fixtureText = show('server/tests/fixtures/p0e-runtime-qualification/matrix.json')
   scaffold = JSON.parse(scaffoldText)
-  fixture = JSON.parse(fixtureText)
   templateInputs = readTemplateArtifacts({ root: options.templateArtifacts, version, commit, tree,
     inventorySha256: sha256(inventoryText) })
   declaredCorePhp = JSON.parse(show('server/composer.json'))?.require?.['peanut-admin/core'] ?? ''
   for (const client of ['web', 'platform', 'pc', 'uniapp']) {
     const packageJson = JSON.parse(show(`${client}/package.json`))
     declaredClientVersions[client] = packageJson?.version ?? ''
-    declaredClientCoreVersions[client] = packageJson?.dependencies?.['@peanut-admin/admin'] ?? ''
+    if (versionContract?.schema_version === 2) {
+      declaredClientCoreVersions[client] = packageJson?.dependencies?.['@peanut-admin/admin'] ?? ''
+    }
   }
-  declaredCoreWeb = declaredClientCoreVersions.web
-  const composerLock = JSON.parse(show('server/composer.lock'))
-  lockedCoreVersions.composer = composerLock?.packages?.find((pkg) => pkg?.name === 'peanut-admin/core')?.version ?? ''
-  const webCoreLock = show('web/pnpm-lock.yaml').match(/      '@peanut-admin\/admin':\n        specifier: ([^\n]+)\n        version: ([^\n(]+)/)
-  lockedCoreVersions.webSpecifier = webCoreLock?.[1] ?? ''
-  lockedCoreVersions.web = webCoreLock?.[2] ?? ''
-  for (const client of ['platform', 'pc', 'uniapp']) {
-    const packageLock = JSON.parse(show(`${client}/package-lock.json`))
-    lockedCoreVersions[client] = packageLock?.packages?.['node_modules/@peanut-admin/admin']?.version ?? ''
-    lockedCoreVersions[`${client}Specifier`] = packageLock?.packages?.['']?.dependencies?.['@peanut-admin/admin'] ?? ''
+  if (versionContract?.schema_version === 2) {
+    declaredCoreWeb = declaredClientCoreVersions.web
+    const composerLock = JSON.parse(show('server/composer.lock'))
+    lockedCoreVersions.composer = composerLock?.packages?.find((pkg) => pkg?.name === 'peanut-admin/core')?.version ?? ''
+    const webCoreLock = show('web/pnpm-lock.yaml').match(/      '@peanut-admin\/admin':\n        specifier: ([^\n]+)\n        version: ([^\n(]+)/)
+    lockedCoreVersions.webSpecifier = webCoreLock?.[1] ?? ''
+    lockedCoreVersions.web = webCoreLock?.[2] ?? ''
+    for (const client of ['platform', 'pc', 'uniapp']) {
+      const packageLock = JSON.parse(show(`${client}/package-lock.json`))
+      lockedCoreVersions[client] = packageLock?.packages?.['node_modules/@peanut-admin/admin']?.version ?? ''
+      lockedCoreVersions[`${client}Specifier`] = packageLock?.packages?.['']?.dependencies?.['@peanut-admin/admin'] ?? ''
+    }
   }
 } catch (error) {
   failures.push(`candidate contents are unreadable: ${error.message}`)
@@ -357,7 +357,7 @@ for (const [path, expected] of Object.entries({
   }
 }
 
-if (scaffold && inventory && fixture) {
+if (scaffold && inventory) {
   const release = scaffold.release ?? {}
   if (release.version !== version) failures.push(`scaffold release version ${release.version ?? 'missing'} does not match ${version}`)
   if (inventory.template_version !== version) failures.push(`inventory template version ${inventory.template_version ?? 'missing'} does not match ${version}`)
@@ -405,7 +405,7 @@ if (options.qualification) {
     if (!isAbsolute(options.qualification)) throw new Error('qualification path must be absolute')
     qualificationText = readFileSync(options.qualification, 'utf8')
     qualification = JSON.parse(qualificationText)
-    if (qualification.protocol !== 'peanut.p0e-candidate-stage.v1'
+    if (qualification.protocol !== 'peanut.template-candidate-stage.v1'
       || qualification.status !== 'candidate-passed' || qualification.scope !== 'candidate') {
       failures.push(`qualification status is ${qualification.status ?? 'missing'}`)
     }
@@ -414,11 +414,9 @@ if (options.qualification) {
     if (!templateInputs || !isDeepStrictEqual(qualification.template_artifacts, templateInputs)) {
       failures.push('qualification does not bind the exact two-Edition native template artifacts')
     }
-    const components = qualification.groups?.['generated-application']?.components ?? {}
-    if (components.native_template_contract !== 'passed' || components.cli_create_and_app_identity !== 'passed'
-      || qualification.native_check?.rc !== 0
-      || qualification.producer?.path !== 'scripts/p0e-runtime-qualification'
-      || qualification.producer?.sha256 !== sha256(show('scripts/p0e-runtime-qualification'))
+    if (qualification.native_check?.rc !== 0
+      || qualification.producer?.path !== 'scripts/verify-template-candidate'
+      || qualification.producer?.sha256 !== sha256(show('scripts/verify-template-candidate'))
       || qualification.producer?.verifier_sha256 !== sha256(show('scripts/release-template-artifacts.mjs'))
       || Object.keys(qualification.cli_created_applications ?? {}).sort().join(',') !== 'multi-tenant,standalone') {
       failures.push('native template identity or both CLI creation components are incomplete')
@@ -481,23 +479,15 @@ if (options.writeLock) {
       status: qualification.status,
       scope: qualification.scope,
       acceptance_scope: 'native-template-and-cli-candidate',
-      full8: 'not_required; historical failures are retained and no complete-suite pass is claimed',
       public_latest_consumers: 'post-publication verification; not claimed by the candidate stage',
       run_id: qualification.run_id,
       summary_sha256: sha256(qualificationText),
-      planned_groups: qualification.full_gate_groups,
-      groups: Object.fromEntries((fixture.groups ?? []).map((group) => [
-        group,
-        qualification.groups?.[group]?.status ?? 'not-run',
-      ])),
-      cleanup: qualification.cleanup,
     },
     inputs: {
       release_metadata_sha256: sha256(metadataText),
       version_contract_sha256: sha256(versionContractText),
       application_template_inventory_sha256: sha256(inventoryText),
       template_artifacts_sha256: sha256(JSON.stringify(templateInputs)),
-      p0e_fixture_sha256: sha256(fixtureText),
     },
   }
   writeFileSync(options.writeLock, `${JSON.stringify(lock, null, 2)}\n`, { flag: 'wx', mode: 0o600 })

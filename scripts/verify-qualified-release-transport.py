@@ -72,7 +72,7 @@ def main():
         package.extractall(output, filter="data")
     stage = output / "template-qualification"
     receipt = read(stage / "candidate-stage.json")
-    require(receipt.get("protocol") == "peanut.p0e-candidate-stage.v1"
+    require(receipt.get("protocol") == "peanut.template-candidate-stage.v1"
             and receipt.get("status") == "candidate-passed" and receipt.get("scope") == "candidate"
             and receipt.get("candidate") == source and receipt.get("candidate_tree") == tree,
             "A successful exact-source native candidate stage is required")
@@ -90,13 +90,10 @@ def main():
     require(native.get("rc") == 0 and native.get("log") == "native-template-check.log"
             and sha(stage / native["log"]) == native.get("log_sha256"), "Original native artifact check differs")
     producer = receipt.get("producer", {})
-    require(producer.get("path") == "scripts/p0e-runtime-qualification"
+    require(producer.get("path") == "scripts/verify-template-candidate"
             and producer.get("sha256") == hashlib.sha256(source_bytes(source, producer["path"])).hexdigest()
             and producer.get("verifier_sha256") == hashlib.sha256(source_bytes(source, "scripts/release-template-artifacts.mjs")).hexdigest(),
             "Candidate producer differs from the exact source")
-    components = receipt.get("groups", {}).get("generated-application", {}).get("components", {})
-    require(components.get("native_template_contract") == "passed"
-            and components.get("cli_create_and_app_identity") == "passed", "Native candidate components are incomplete")
     version = json.loads(source_bytes(source, "release-versions.json"))["scaffold_template"]
     checked = json.loads(subprocess.check_output(["node", str(ROOT / "scripts/release-template-artifacts.mjs"), "read",
         str(output / "scaffold-templates"), version, source, tree,

@@ -133,7 +133,8 @@ direct_test_target() {
       ;;
     server/tests/*Test.php|\
     server/tests/Modules/Official/*/feature-harness.php|\
-    server/tests/Modules/Official/Task/worker-composition-harness.php)
+    server/tests/Modules/Official/Task/worker-composition-harness.php|\
+    scripts/tests/template_candidate_stage_test.py)
       return 0
       ;;
   esac
@@ -265,6 +266,10 @@ while IFS= read -r path; do
       select_test server/tests/Productization/CreateApplicationTest.php
       behavior_selected=1
       ;;
+    scripts/verify-template-candidate|scripts/tests/template_candidate_stage_test.py|scripts/release-template-artifacts.mjs|scripts/check-release-consistency)
+      select_test scripts/tests/template_candidate_stage_test.py
+      behavior_selected=1
+      ;;
     release-versions.json|server/composer.json|server/composer.lock)
       select_test server/tests/Productization/ModuleCoreDependencyTest.php
       select_test server/tests/Unit/GeneratedPackageIdentityTest.php
@@ -285,7 +290,8 @@ if [[ "$mode" == '--broad' || "$behavior_selected" -eq 0 ]]; then
     server/tests/Multitenancy/OfficialCapabilityTenantQualificationTest.php \
     server/tests/Productization/ModuleArtifactContractTest.php \
     server/tests/Productization/ModuleModuleContractTest.php \
-    server/tests/Productization/ModuleLifecycleMigrationContractTest.php; do
+    server/tests/Productization/ModuleLifecycleMigrationContractTest.php \
+    scripts/tests/template_candidate_stage_test.py; do
     select_test "$test_file"
   done
 fi
@@ -306,8 +312,8 @@ while IFS= read -r test_file <&3; do
       run_command "test:${test_file}:schema-contract" 1 \
         php "$ROOT/scripts/run-php-test" "--application-root=$APPLICATION_ROOT" "--env-file=$BACKEND_ENV" "$test_file" -- --schema-contract
       ;;
-    server/tests/Productization/P0eRuntimeQualificationTest.php)
-      run_command p0e-template-stage-contract 1 python3 scripts/tests/p0e_template_stage_test.py
+    scripts/tests/template_candidate_stage_test.py)
+      run_command template-candidate-stage-contract 1 python3 scripts/tests/template_candidate_stage_test.py
       ;;
     server/tests/Productization/CreateApplicationTest.php|\
     server/tests/Productization/EditionUpgradePackageTest.php|\

@@ -152,6 +152,20 @@ def npm_command() -> str:
     return npm
 
 
+def php_command() -> str:
+    php = shutil.which("php")
+    if not php:
+        fail("php is required to regenerate derived release artifacts")
+    return php
+
+
+def node_command() -> str:
+    node = shutil.which("node")
+    if not node:
+        fail("node is required to regenerate release legal artifacts")
+    return node
+
+
 def corepack_command() -> str:
     pnpm = shutil.which("pnpm")
     if not pnpm:
@@ -866,8 +880,10 @@ def update_release_metadata(product_version: str, core_php: dict[str, str], core
         relative: required_release_file_sha256(relative)
         for relative in LEGAL_FILES
     }
-    data.setdefault("technical_qualification", {})
-    data["technical_qualification"].update(
+    qualification = data.setdefault("technical_qualification", {})
+    qualification.pop("lease_released", None)
+    qualification.pop("migrations", None)
+    qualification.update(
         {
             "phase": f"{product_version}-{channel}-candidate",
             "result": "pending",
@@ -877,7 +893,6 @@ def update_release_metadata(product_version: str, core_php: dict[str, str], core
             "groups_passed": 0,
             "summary_sha256": None,
             "cleanup_residual_count": None,
-            "lease_released": False,
             "scaffold_version": product_version,
             "application_initial_version": read_json(ROOT / "release-versions.json")["generated_instance_default"],
             "evidence": f"Product {channel} candidate identity is prepared from public Core registry locks; qualification remains pending.",
@@ -892,6 +907,58 @@ PREPARED_FILES = (
     "platform/package.json", "platform/package-lock.json", "pc/package.json", "pc/package-lock.json",
     "uniapp/package.json", "uniapp/package-lock.json", "release-versions.json", "RELEASE_METADATA.json",
 )
+DERIVED_RELEASE_FILES = (
+    "RELEASE_SBOM.spdx.json",
+    "THIRD_PARTY_NOTICES.md",
+    "server/generated/openapi.json",
+    "server/generated/api-catalog.json",
+    "web/src/generated/openapi.d.ts",
+    "scaffold/application-template-inventory.json",
+)
+
+REQUIRED_DERIVED_GENERATORS = (
+    "scripts/generate-api-contracts.php",
+    "scripts/generate-release-legal.mjs",
+    "scripts/build-application-template-inventory",
+)
+
+
+def dynamic_module_api_files() -> list[str]:
+    modules_dir = ROOT / "web/src/modules"
+    if not modules_dir.is_dir():
+        return []
+    return sorted(
+        path.relative_to(ROOT).as_posix()
+        for path in modules_dir.glob("*/generated/openapi.ts")
+        if path.is_file()
+    )
+
+
+def require_derived_release_generators() -> None:
+    for relative in REQUIRED_DERIVED_GENERATORS:
+        target = ROOT / relative
+        if not target.is_file():
+            fail(f"required derived release generator is missing: {relative}")
+
+
+def install_web_api_generator_dependencies() -> None:
+    run(
+        [corepack_command(), "--dir", str(ROOT / "web"), "install", "--frozen-lockfile", "--ignore-scripts"],
+        cwd=ROOT,
+    )
+
+
+def run_derived_release_generators(stage: str) -> None:
+    require_derived_release_generators()
+    if stage == "before_metadata":
+        install_web_api_generator_dependencies()
+        run([php_command(), str(ROOT / "scripts/generate-api-contracts.php")], cwd=ROOT)
+    elif stage == "legal":
+        run([node_command(), str(ROOT / "scripts/generate-release-legal.mjs")], cwd=ROOT)
+    elif stage == "after_metadata":
+        run([php_command(), str(ROOT / "scripts/build-application-template-inventory")], cwd=ROOT)
+    else:
+        fail(f"unknown derived release stage: {stage}")
 
 
 def check_inputs(product_version: str) -> None:
@@ -939,6 +1006,7 @@ def check_inputs(product_version: str) -> None:
             for name, spec in manifest.get(section, {}).items():
                 if name not in names and isinstance(spec, str) and spec.startswith(("file:", "link:", "workspace:", "git+", "./", "../")):
                     fail(f"{client}/package.json has a local dependency: {name}")
+    require_derived_release_generators()
 
 
 def prepare(product_version: str, core_php_version: str, core_php_reference: str,
@@ -946,7 +1014,11 @@ def prepare(product_version: str, core_php_version: str, core_php_reference: str
             core_web_package_evidence: tuple[Path, str] | None = None) -> None:
     check_inputs(product_version)
     # Native package managers may fail after writing a lock. Restore every owned input byte on failure.
-    originals = {path: (ROOT / path).read_bytes() if (ROOT / path).exists() else None for path in PREPARED_FILES}
+    tracked_paths = (*PREPARED_FILES, *DERIVED_RELEASE_FILES, *dynamic_module_api_files())
+    originals = {
+        path: (ROOT / path).read_bytes() if (ROOT / path).exists() else None
+        for path in tracked_paths
+    }
     try:
         set_composer_spec(core_php_version)
         set_core_web_specs(core_web_version)
@@ -960,13 +1032,27 @@ def prepare(product_version: str, core_php_version: str, core_php_reference: str
         ) if core_web_package_evidence is not None else None)
         core_web = read_core_web(core_web_version, core_web_reference, registry_packages)
         update_release_versions(product_version, core_php, core_web)
+        run_derived_release_generators("before_metadata")
         update_release_metadata(product_version, core_php, core_web)
+        run_derived_release_generators("legal")
+        # Refresh legal_files SHA256 after legal artifacts are regenerated from the new metadata/locks.
+        update_release_metadata(product_version, core_php, core_web)
+        run_derived_release_generators("after_metadata")
     except BaseException:
+        for path in dynamic_module_api_files():
+            if path not in originals:
+                target = ROOT / path
+                target.unlink(missing_ok=True)
+                if target.parent.name == "generated" and target.parent.is_dir() and not any(target.parent.iterdir()):
+                    target.parent.rmdir()
         for path, original in originals.items():
             target = ROOT / path
             if original is None:
                 target.unlink(missing_ok=True)
+                if target.parent.name == "generated" and target.parent.is_dir() and not any(target.parent.iterdir()):
+                    target.parent.rmdir()
             else:
+                target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(original)
         raise
 

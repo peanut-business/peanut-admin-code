@@ -319,6 +319,7 @@ final class ApplicationCreator
         return $files;
     }
 
+
     /** @return array{kind:'git',commit:string,tree:string}|array{kind:'local',snapshot_sha256:string} */
     private function validateSourceIdentity(array $identity): array
     {
@@ -521,6 +522,7 @@ final class ApplicationCreator
         }
         return $files;
     }
+
 
     /**
      * @param array<string,string> $parameters
@@ -880,8 +882,12 @@ final class ApplicationCreator
             throw new RuntimeException('CREATE_APP_COMPOSER_COMPANION_MISSING');
         }
         // Keep the source's exact runtime resolution; repository test packages are not delivered.
-        $lock = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
-        $lock['packages-dev'] = [];
+        // Decode as objects so empty JSON maps such as stability-flags: {} are preserved.
+        $lock = json_decode($content, false, 512, JSON_THROW_ON_ERROR);
+        if (!is_object($lock) || !is_array($lock->packages ?? null) || !is_array($lock->{'packages-dev'} ?? null)) {
+            throw new RuntimeException('CREATE_APP_COMPOSER_LOCK_INVALID');
+        }
+        $lock->{'packages-dev'} = [];
         $content = json_encode($lock, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
         return ScaffoldManifest::renderComposerLock($content, $composer);
     }
@@ -991,6 +997,9 @@ final class ApplicationCreator
         }
         if ($path === 'server/composer.json') {
             unset($document['require-dev'], $document['autoload-dev']);
+            if (($document['repositories'] ?? null) === []) {
+                unset($document['repositories']);
+            }
             if (isset($document['autoload']['exclude-from-classmap'])) {
                 $document['autoload']['exclude-from-classmap'] = array_values(array_filter(
                     $document['autoload']['exclude-from-classmap'],
@@ -1071,89 +1080,41 @@ final class ApplicationCreator
     private function releaseMetadata(array $parameters): string
     {
         $versions = $this->versionContract();
-        if ($versions->isV3()) {
-            return json_encode([
-                'schema_version' => 3,
-                'protocol' => 'peanut.release-metadata.v3',
-                'product' => $parameters['PRODUCT_NAME'],
-                'application_identity' => $parameters['PACKAGE_IDENTITY'],
-                'source_product_version' => $versions->sourceProductVersion(),
-                'instance_version' => $parameters['APPLICATION_VERSION'],
-                'status' => 'generated-application-baseline',
-                'release_policy' => 'replace this metadata from an immutable application release candidate before publishing',
-                'public_runtime_dependencies' => [
-                    'composer' => $versions->corePhpPackage(),
-                    'npm' => $versions->coreWebIdentity(),
-                ],
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+        if (!$versions->isV3()) {
+            throw new RuntimeException('CREATE_APP_VERSION_CONTRACT_UNSUPPORTED');
         }
-        if ($versions->isV2()) {
-            return json_encode([
-                'schema_version' => 2,
-                'protocol' => 'peanut.release-metadata.v2',
-                'product' => $parameters['PRODUCT_NAME'],
-                'application_identity' => $parameters['PACKAGE_IDENTITY'],
-                'source_product_version' => $versions->sourceProductVersion(),
-                'instance_version' => $parameters['APPLICATION_VERSION'],
-                'status' => 'generated-application-baseline',
-                'release_policy' => 'replace this metadata from an immutable application release candidate before publishing',
-                'public_runtime_dependencies' => [
-                    'composer' => 'peanut-admin/core@' . $versions->corePhp(),
-                    'frontend' => '@peanut-admin/admin@' . $versions->coreWeb(),
-                ],
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
-        }
-        $metadata = [
-            'schema_version' => 1,
+        return json_encode([
+            'schema_version' => 3,
+            'protocol' => 'peanut.release-metadata.v3',
             'product' => $parameters['PRODUCT_NAME'],
             'application_identity' => $parameters['PACKAGE_IDENTITY'],
-            'version' => $parameters['APPLICATION_VERSION'],
+            'source_product_version' => $versions->sourceProductVersion(),
+            'instance_version' => $parameters['APPLICATION_VERSION'],
             'status' => 'generated-application-baseline',
             'release_policy' => 'replace this metadata from an immutable application release candidate before publishing',
             'public_runtime_dependencies' => [
-                'composer' => 'peanut-admin/core@' . $versions->corePhp(),
-                'frontend' => '@peanut-admin/admin@' . $versions->coreWeb(),
+                'composer' => $versions->corePhpPackage(),
+                'npm' => $versions->coreWebIdentity(),
             ],
-        ];
-        return json_encode($metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
     }
 
     /** @param array<string,string> $parameters */
     private function versionContractDocument(array $parameters): string
     {
         $versions = $this->versionContract();
-        if ($versions->isV3()) {
-            return json_encode([
-                'schema_version' => 3,
-                'protocol' => 'peanut.release-versions.v3',
-                'source_product_version' => $versions->sourceProductVersion(),
-                'instance_version' => $parameters['APPLICATION_VERSION'],
-                'scaffold_template' => $versions->scaffoldTemplate(),
-                'generated_instance_default' => $versions->generatedInstanceDefault(),
-                'core_php' => $versions->corePhpPackage(),
-                'core_web' => $versions->coreWebIdentity(),
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
-        }
-        if ($versions->isV2()) {
-            return json_encode([
-                'schema_version' => 2,
-                'protocol' => 'peanut.release-versions.v2',
-                'source_product_version' => $versions->sourceProductVersion(),
-                'instance_version' => $parameters['APPLICATION_VERSION'],
-                'scaffold_template' => $versions->scaffoldTemplate(),
-                'generated_instance_default' => $versions->generatedInstanceDefault(),
-                'core_php' => $versions->corePhp(),
-                'core_web' => $versions->coreWeb(),
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+        if (!$versions->isV3()) {
+            throw new RuntimeException('CREATE_APP_VERSION_CONTRACT_UNSUPPORTED');
         }
         return json_encode([
-            'schema_version' => 1,
-            'protocol' => 'peanut.release-versions.v1',
-            'product_release' => $parameters['APPLICATION_VERSION'],
+            'schema_version' => 3,
+            'protocol' => 'peanut.release-versions.v3',
+            'source_product_version' => $versions->sourceProductVersion(),
+            'instance_version' => $parameters['APPLICATION_VERSION'],
             'scaffold_template' => $versions->scaffoldTemplate(),
-            'generated_application_default' => $parameters['APPLICATION_VERSION'],
-            'core_php' => $versions->corePhp(),
-            'core_web' => $versions->coreWeb(),
+            'generated_instance_default' => $versions->generatedInstanceDefault(),
+            'core_php' => $versions->corePhpPackage(),
+            'core_web' => $versions->coreWebIdentity(),
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
     }
 
@@ -1188,7 +1149,12 @@ final class ApplicationCreator
     private function thirdPartyNotices(string $content, array $parameters): string
     {
         $content = $this->textTransform($content, $parameters, 'THIRD_PARTY_NOTICES.md');
-        $content = str_replace(' 1.1.5 on 2026-08-15', ' generated application baseline', $content);
+        $content = preg_replace(
+            '/ \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)? on \d{4}-\d{2}-\d{2}/',
+            ' generated application baseline',
+            $content,
+            1,
+        ) ?? $content;
         $content = preg_replace('/Copyright \(c\) 2026 花生科技\. All rights reserved\./', 'Copyright holder: application owner. All rights reserved.', $content) ?? $content;
         return $content;
     }
@@ -1361,6 +1327,7 @@ final class ApplicationCreator
         return $files;
     }
 
+
     /** @param list<array<string,mixed>> $files @return list<array<string,mixed>> */
     private function materializeUniappPages(string $stage, array $files): array
     {
@@ -1412,8 +1379,8 @@ final class ApplicationCreator
             if ($toolGenerator !== realpath($this->apiGeneratorPath)) {
                 throw new RuntimeException('CREATE_APP_API_TOOL_INVALID');
             }
-            // Only the installed toolchain moves; generator behavior and all APP inputs stay source-bound.
-            foreach (['scripts/generate-api-contracts.php', 'web/package.json', 'web/pnpm-lock.yaml', 'tools/toolchain.json'] as $relative) {
+            // Only the installed toolchain moves; generator behavior and declared tool version stay source-bound.
+            foreach (['scripts/generate-api-contracts.php', 'tools/toolchain.json'] as $relative) {
                 $sourceFile = ScaffoldPathGuard::existingFileWithin($this->sourceRoot, ScaffoldPathGuard::projectPath($this->sourceRoot, $relative), 'CREATE_APP_API_TOOL_INPUT_INVALID');
                 $toolFile = ScaffoldPathGuard::existingFileWithin($toolRoot, ScaffoldPathGuard::projectPath($toolRoot, $relative), 'CREATE_APP_API_TOOL_INPUT_INVALID');
                 $sourceHash = hash_file('sha256', $sourceFile);
@@ -1422,20 +1389,17 @@ final class ApplicationCreator
                     throw new RuntimeException('CREATE_APP_API_TOOL_SOURCE_MISMATCH');
                 }
             }
-            $installedLock = ScaffoldPathGuard::existingFileWithin($toolRoot, $toolRoot . '/web/node_modules/.pnpm/lock.yaml', 'CREATE_APP_API_TOOL_INSTALL_INVALID');
-            $installedHash = hash_file('sha256', $installedLock);
-            if (!is_string($installedHash) || !hash_equals((string) hash_file('sha256', $toolRoot . '/web/pnpm-lock.yaml'), $installedHash)) {
-                throw new RuntimeException('CREATE_APP_API_TOOL_INSTALL_MISMATCH');
-            }
+            $sourceWebPackage = ScaffoldPathGuard::existingFileWithin($this->sourceRoot, ScaffoldPathGuard::projectPath($this->sourceRoot, 'web/package.json'), 'CREATE_APP_API_TOOL_INPUT_INVALID');
             $packagePath = ScaffoldPathGuard::existingFileWithin($toolRoot, $toolRoot . '/web/node_modules/openapi-typescript/package.json', 'CREATE_APP_API_TOOL_INSTALL_INVALID');
             $package = json_decode((string) file_get_contents($packagePath), true, 512, JSON_THROW_ON_ERROR);
-            $declared = json_decode((string) file_get_contents($toolRoot . '/web/package.json'), true, 512, JSON_THROW_ON_ERROR);
+            $declared = json_decode((string) file_get_contents($sourceWebPackage), true, 512, JSON_THROW_ON_ERROR);
             $version = $declared['devDependencies']['openapi-typescript'] ?? null;
             if (!is_string($version) || $version === '' || ($package['name'] ?? null) !== 'openapi-typescript'
                 || ($package['version'] ?? null) !== $version || ($package['bin']['openapi-typescript'] ?? null) !== 'bin/cli.js') {
                 throw new RuntimeException('CREATE_APP_API_TOOL_IDENTITY_MISMATCH');
             }
             ScaffoldPathGuard::existingFileWithin(dirname($packagePath), $toolRoot . '/web/node_modules/openapi-typescript/bin/cli.js', 'CREATE_APP_API_TOOL_BINARY_INVALID');
+            $this->assertApiToolDependenciesMatchSourceLock($toolRoot, $package);
             $generator = $toolGenerator;
         }
         $catalog = ScaffoldPathGuard::existingFileWithin($stage, ScaffoldPathGuard::projectPath($stage, $catalogPath), 'CREATE_APP_API_CATALOG_INVALID');
@@ -1485,6 +1449,126 @@ final class ApplicationCreator
         }
         unset($file);
         return $files;
+    }
+
+    /**
+     * Verify openapi-typescript and its locked runtime dependencies in $toolRoot match source web/pnpm-lock.yaml.
+     *
+     * @param array<string, mixed> $package
+     */
+    private function assertApiToolDependenciesMatchSourceLock(string $toolRoot, array $package): void
+    {
+        $sourceLock = ScaffoldPathGuard::existingFileWithin(
+            $this->sourceRoot,
+            ScaffoldPathGuard::projectPath($this->sourceRoot, 'web/pnpm-lock.yaml'),
+            'CREATE_APP_API_TOOL_INPUT_INVALID',
+        );
+        $expectedVersion = (string) ($package['version'] ?? '');
+        $expectedDeps = array_merge(
+            array_keys(is_array($package['dependencies'] ?? null) ? $package['dependencies'] : []),
+            array_keys(is_array($package['peerDependencies'] ?? null) ? $package['peerDependencies'] : []),
+        );
+        if ($expectedVersion === '' || $expectedDeps === []) {
+            return;
+        }
+        $script = <<<'JS'
+const { readFileSync, existsSync, realpathSync } = require('node:fs');
+const { dirname, join, sep } = require('node:path');
+const [lockPath, toolPkgPath, toolRoot, expectedVersion, depsJson] = process.argv.slice(1);
+const realToolRoot = realpathSync(toolRoot);
+const isWithinToolRoot = (target) => target === realToolRoot || target.startsWith(realToolRoot + sep);
+const lockLines = readFileSync(lockPath, 'utf8').split(/\r?\n/);
+const expected = new Map();
+const headerPrefix = `  openapi-typescript@${expectedVersion}`;
+let inSnapshots = false;
+let inBlock = false;
+let inDeps = false;
+for (const line of lockLines) {
+  if (!inSnapshots) {
+    if (line === 'snapshots:') inSnapshots = true;
+    continue;
+  }
+  if (!inBlock) {
+    if (/^\S/.test(line)) break;
+    if ((line === `${headerPrefix}:` || line.startsWith(`${headerPrefix}(`)) && line.endsWith(':')) {
+      inBlock = true;
+    }
+    continue;
+  }
+  if (/^  \S/.test(line)) break;
+  if (line === '    dependencies:') {
+    inDeps = true;
+    continue;
+  }
+  if (inDeps) {
+    if (!line.startsWith('      ')) {
+      inDeps = false;
+      continue;
+    }
+    const match = line.match(/^      (?:'([^']+)'|([^:\s]+)):\s*([^\s(]+)/);
+    if (match) expected.set(match[1] || match[2], match[3]);
+  }
+}
+if (!inBlock) {
+  console.error(`missing openapi-typescript@${expectedVersion} snapshot in source web/pnpm-lock.yaml`);
+  process.exit(2);
+}
+const startDir = dirname(realpathSync(toolPkgPath));
+if (!isWithinToolRoot(startDir)) {
+  console.error('api-tool-root openapi-typescript escapes tool root');
+  process.exit(6);
+}
+const resolveDepPackage = (dep) => {
+  const parts = dep.split('/');
+  let dir = startDir;
+  while (isWithinToolRoot(dir)) {
+    const candidate = join(dir, 'node_modules', ...parts, 'package.json');
+    if (existsSync(candidate)) {
+      const realCandidate = realpathSync(candidate);
+      if (!isWithinToolRoot(realCandidate)) return null;
+      return realCandidate;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+  return null;
+};
+for (const dep of JSON.parse(depsJson)) {
+  const lockedVersion = expected.get(dep);
+  if (!lockedVersion) {
+    console.error(`missing locked dependency ${dep} for openapi-typescript@${expectedVersion}`);
+    process.exit(3);
+  }
+  const pkgPath = resolveDepPackage(dep);
+  if (!pkgPath) {
+    console.error(`missing installed dependency ${dep} inside api-tool-root`);
+    process.exit(4);
+  }
+  const meta = JSON.parse(readFileSync(pkgPath, 'utf8'));
+  if (meta.version !== lockedVersion) {
+    console.error(`${dep} version mismatch: expected ${lockedVersion}, got ${meta.version}`);
+    process.exit(5);
+  }
+}
+JS;
+        $pipes = [];
+        $process = proc_open(
+            ['node', '-e', $script, $sourceLock, $toolRoot . '/web/node_modules/openapi-typescript/package.json', $toolRoot, $expectedVersion, json_encode(array_values(array_unique($expectedDeps)), JSON_THROW_ON_ERROR)],
+            [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            $toolRoot,
+        );
+        if (!is_resource($process)) {
+            throw new RuntimeException('CREATE_APP_API_TOOL_INSTALL_MISMATCH');
+        }
+        stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        if (proc_close($process) !== 0) {
+            throw new RuntimeException('CREATE_APP_API_TOOL_INSTALL_MISMATCH: ' . trim((string) $stderr));
+        }
     }
 
     private function writeFile(string $path, string $content, int $mode): void

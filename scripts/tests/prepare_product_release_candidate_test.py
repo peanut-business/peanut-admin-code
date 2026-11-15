@@ -297,6 +297,7 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
         self.write_native_locks()
         path, evidence_sha = self.write_web_evidence()
         with patch.object(candidate, "run_native_lock_updates", return_value=None), \
+                patch.object(candidate, "run_derived_release_generators", return_value=None), \
                 patch.object(candidate, "npm_registry_package", side_effect=AssertionError("npm view must not run")):
             candidate.prepare(
                 "4.0.0-rc.5",
@@ -315,6 +316,8 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
         metadata = candidate.read_json(self.root / "RELEASE_METADATA.json")
         self.assertEqual(metadata["technical_qualification"]["release_delta"], candidate.RELEASE_DELTA)
         self.assertNotIn("3.1.0", metadata["technical_qualification"]["release_delta"])
+        self.assertNotIn("lease_released", metadata["technical_qualification"])
+        self.assertNotIn("migrations", metadata["technical_qualification"])
 
     def test_rejects_native_lock_disagreement(self) -> None:
         self.write_native_locks()
@@ -340,13 +343,23 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
             (self.root / relative).write_text(f"current {relative}\n", encoding="utf-8")
         self.write_json("RELEASE_METADATA.json", {
             "legal_files": {relative: "0" * 64 for relative in candidate.LEGAL_FILES},
-            "technical_qualification": {"result": "pending", "release_delta": "stale Core 3.1.0 description"},
+            "technical_qualification": {
+                "result": "pending",
+                "release_delta": "stale Core 3.1.0 description",
+                "lease_released": False,
+                "migrations": 10,
+            },
         })
+        for script in candidate.REQUIRED_DERIVED_GENERATORS:
+            target = self.root / script
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("// fixture\n", encoding="utf-8")
 
     def test_prepare_refreshes_required_legal_file_hashes(self) -> None:
         self.write_manifests()
         self.write_native_locks()
-        with patch.object(candidate, "run_native_lock_updates", return_value=None):
+        with patch.object(candidate, "run_native_lock_updates", return_value=None), \
+                patch.object(candidate, "run_derived_release_generators", return_value=None):
             candidate.prepare("4.0.0-rc.5", "4.0.0-rc.3", "752476a811a5d16ea816d5206e3c03814a81fe6a",
                               "4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c")
         metadata = candidate.read_json(self.root / "RELEASE_METADATA.json")
@@ -356,6 +369,142 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
                 metadata["legal_files"][relative],
                 hashlib.sha256((self.root / relative).read_bytes()).hexdigest(),
             )
+
+    def test_prepare_runs_derived_generators_in_topological_order_before_and_after_metadata(self) -> None:
+        self.write_manifests()
+        self.write_native_locks()
+        for script in (
+            "scripts/generate-api-contracts.php",
+            "scripts/generate-release-legal.mjs",
+            "scripts/build-application-template-inventory",
+        ):
+            target = self.root / script
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("// fixture\n", encoding="utf-8")
+        self.write_json("server/generated/openapi.json", {"info": {"version": "4.0.0-dev.14"}})
+        self.write_json("server/generated/api-catalog.json", {"version": "4.0.0-dev.14"})
+        self.write_json("scaffold/application-template-inventory.json", {"template_version": "4.0.0-dev.14"})
+        originals = {
+            path: (self.root / path).read_bytes()
+            for path in (*candidate.PREPARED_FILES, *candidate.DERIVED_RELEASE_FILES)
+            if (self.root / path).exists()
+        }
+        events: list[str] = []
+        fail_inventory = [False]
+
+        def fake_run(command: list[str], *, cwd: Path | None = None, dry_run: bool = False) -> None:
+            if command[0] == "pnpm":
+                self.assertEqual(
+                    command,
+                    ["pnpm", "--dir", str(self.root / "web"), "install", "--frozen-lockfile", "--ignore-scripts"],
+                )
+                events.append("pnpm-web-install")
+                return
+            script = Path(command[1]).name
+            events.append(script)
+            if script == "generate-api-contracts.php":
+                self.assertEqual(candidate.read_json(self.root / "release-versions.json")["source_product_version"], "4.0.0-rc.5")
+                self.write_json("server/generated/openapi.json", {"info": {"version": "4.0.0-rc.5"}})
+                self.write_json("server/generated/api-catalog.json", {"version": "4.0.0-rc.5"})
+            elif script == "generate-release-legal.mjs":
+                meta = candidate.read_json(self.root / "RELEASE_METADATA.json")
+                self.assertEqual(meta["source_product_version"], "4.0.0-rc.5")
+                self.assertEqual(meta["expected_tag"], "v4.0.0-rc.5")
+                (self.root / "RELEASE_SBOM.spdx.json").write_text('{"spdxVersion":"SPDX-2.3","name":"4.0.0-rc.5"}\n', encoding="utf-8")
+                (self.root / "THIRD_PARTY_NOTICES.md").write_text("Notices 4.0.0-rc.5\n", encoding="utf-8")
+            elif script == "build-application-template-inventory":
+                meta = candidate.read_json(self.root / "RELEASE_METADATA.json")
+                self.assertEqual(
+                    meta["legal_files"]["RELEASE_SBOM.spdx.json"],
+                    hashlib.sha256((self.root / "RELEASE_SBOM.spdx.json").read_bytes()).hexdigest(),
+                )
+                self.assertEqual(
+                    meta["legal_files"]["THIRD_PARTY_NOTICES.md"],
+                    hashlib.sha256((self.root / "THIRD_PARTY_NOTICES.md").read_bytes()).hexdigest(),
+                )
+                if fail_inventory[0]:
+                    raise RuntimeError("inventory failed")
+                self.write_json("scaffold/application-template-inventory.json", {"template_version": "4.0.0-rc.5"})
+            else:
+                self.fail(f"unexpected command: {command!r}")
+
+        with patch.object(candidate, "run_native_lock_updates", return_value=None), \
+                patch.object(candidate, "run", side_effect=fake_run), \
+                patch.object(candidate, "corepack_command", return_value="pnpm"), \
+                patch.object(candidate, "php_command", return_value="php"), \
+                patch.object(candidate, "node_command", return_value="node"):
+            candidate.prepare("4.0.0-rc.5", "4.0.0-rc.3", "752476a811a5d16ea816d5206e3c03814a81fe6a",
+                              "4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c")
+            self.assertEqual(events, [
+                "pnpm-web-install",
+                "generate-api-contracts.php",
+                "generate-release-legal.mjs",
+                "build-application-template-inventory",
+            ])
+            self.assertEqual(candidate.read_json(self.root / "scaffold/application-template-inventory.json")["template_version"], "4.0.0-rc.5")
+
+            # Now verify rollback restores derived files as well when a derived generator fails.
+            for path, content in originals.items():
+                (self.root / path).write_bytes(content)
+            events.clear()
+            fail_inventory[0] = True
+            with self.assertRaisesRegex(RuntimeError, "inventory failed"):
+                candidate.prepare("4.0.0-rc.5", "4.0.0-rc.3", "752476a811a5d16ea816d5206e3c03814a81fe6a",
+                                  "4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c")
+            for path, content in originals.items():
+                self.assertEqual((self.root / path).read_bytes(), content, path)
+
+    def test_prepare_fails_before_mutating_when_required_generator_missing(self) -> None:
+        self.write_manifests()
+        self.write_native_locks()
+        (self.root / "scripts/generate-release-legal.mjs").unlink()
+        originals = {path: (self.root / path).read_bytes() for path in candidate.PREPARED_FILES}
+        with patch.object(candidate, "run_native_lock_updates", side_effect=AssertionError("must fail before lock updates")):
+            with self.assertRaisesRegex(SystemExit, "required derived release generator is missing: scripts/generate-release-legal.mjs"):
+                candidate.prepare(
+                    "4.0.0-rc.5", "4.0.0-rc.3", "752476a811a5d16ea816d5206e3c03814a81fe6a",
+                    "4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c",
+                )
+        self.assertEqual(originals, {path: (self.root / path).read_bytes() for path in candidate.PREPARED_FILES})
+
+    def test_prepare_rollback_restores_and_cleans_dynamic_module_api_clients(self) -> None:
+        self.write_manifests()
+        self.write_native_locks()
+        alpha = self.root / "web/src/modules/alpha/generated/openapi.ts"
+        legacy = self.root / "web/src/modules/legacy/generated/openapi.ts"
+        beta = self.root / "web/src/modules/beta/generated/openapi.ts"
+        alpha.parent.mkdir(parents=True, exist_ok=True)
+        legacy.parent.mkdir(parents=True, exist_ok=True)
+        alpha.write_text("// alpha old\n", encoding="utf-8")
+        legacy.write_text("// legacy old\n", encoding="utf-8")
+
+        def fake_run(command: list[str], *, cwd: Path | None = None, dry_run: bool = False) -> None:
+            if command[0] == "pnpm":
+                return
+            script = Path(command[1]).name
+            if script == "generate-api-contracts.php":
+                alpha.write_text("// alpha mutated\n", encoding="utf-8")
+                legacy.unlink()
+                legacy.parent.rmdir()
+                beta.parent.mkdir(parents=True, exist_ok=True)
+                beta.write_text("// beta created\n", encoding="utf-8")
+            elif script == "generate-release-legal.mjs":
+                raise RuntimeError("legal failed")
+
+        with patch.object(candidate, "run_native_lock_updates", return_value=None), \
+                patch.object(candidate, "run", side_effect=fake_run), \
+                patch.object(candidate, "corepack_command", return_value="pnpm"), \
+                patch.object(candidate, "php_command", return_value="php"), \
+                patch.object(candidate, "node_command", return_value="node"):
+            with self.assertRaisesRegex(RuntimeError, "legal failed"):
+                candidate.prepare(
+                    "4.0.0-rc.5", "4.0.0-rc.3", "752476a811a5d16ea816d5206e3c03814a81fe6a",
+                    "4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c",
+                )
+        self.assertEqual(alpha.read_text(encoding="utf-8"), "// alpha old\n")
+        self.assertEqual(legacy.read_text(encoding="utf-8"), "// legacy old\n")
+        self.assertFalse(beta.exists())
+        self.assertFalse(beta.parent.exists())
 
     def test_missing_or_linked_required_legal_file_fails_and_restores_prepared_files(self) -> None:
         for linked in (False, True):
@@ -367,7 +516,8 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
                 notice.unlink()
                 if linked:
                     notice.symlink_to(self.root / "LICENSE")
-                with patch.object(candidate, "run_native_lock_updates", return_value=None):
+                with patch.object(candidate, "run_native_lock_updates", return_value=None), \
+                        patch.object(candidate, "run_derived_release_generators", return_value=None):
                     with self.assertRaisesRegex(SystemExit, "required release file must be a real regular file: NOTICE"):
                         candidate.prepare(
                             "4.0.0-rc.5", "4.0.0-rc.3",
@@ -384,7 +534,8 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
     def test_product_and_app_versions_remain_distinct(self) -> None:
         self.write_manifests()
         self.write_native_locks()
-        with patch.object(candidate, "run_native_lock_updates", return_value=None):
+        with patch.object(candidate, "run_native_lock_updates", return_value=None), \
+                patch.object(candidate, "run_derived_release_generators", return_value=None):
             candidate.prepare("4.0.0-rc.5", "4.0.0-rc.3", "752476a811a5d16ea816d5206e3c03814a81fe6a",
                               "4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c")
         self.assertEqual(candidate.read_json(self.root / "web/package.json")["version"], "4.0.0-rc.5")

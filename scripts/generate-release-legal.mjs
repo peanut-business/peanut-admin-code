@@ -60,20 +60,47 @@ if (
 }
 const releaseTag = releaseMetadata.expected_tag;
 const releaseDate = releaseMetadata.release_date;
-const corePhpIdentity =
-  versionContract.schema_version === 3
-    ? `${versionContract.core_php.resolved_version} (${versionContract.core_php.source_reference})`
-    : versionContract.core_php;
-const coreWebIdentity =
-  versionContract.schema_version === 3
-    ? Object.entries(versionContract.core_web.packages)
-        .map(([name, identity]) => `${name}@${identity.version}`)
-        .join(', ')
-    : `@peanut-admin/admin@${versionContract.core_web}`;
+if (versionContract.schema_version !== 3 || versionContract.protocol !== 'peanut.release-versions.v3') {
+  throw new Error('RELEASE_LEGAL_VERSION_CONTRACT_UNSUPPORTED: expected peanut.release-versions.v3');
+}
+const corePhpIdentity = `${versionContract.core_php.resolved_version} (${versionContract.core_php.source_reference})`;
+const coreWebIdentity = Object.entries(versionContract.core_web.packages)
+  .map(([name, identity]) => `${name}@${identity.version}`)
+  .join(', ');
 
 // Exact registry declarations for locked development entries not installed on
 // every host. Each declared version was checked against its lock integrity.
 const lockedLicenseDeclarations = new Map([
+  ['@emnapi/core@1.10.0', 'MIT'],
+  ['@emnapi/runtime@1.10.0', 'MIT'],
+  ['@emnapi/wasi-threads@1.2.1', 'MIT'],
+  ['@esbuild/aix-ppc64@0.25.12', 'MIT'],
+  ['@esbuild/android-arm@0.25.12', 'MIT'],
+  ['@esbuild/android-arm64@0.25.12', 'MIT'],
+  ['@esbuild/android-x64@0.25.12', 'MIT'],
+  ['@esbuild/darwin-x64@0.25.12', 'MIT'],
+  ['@esbuild/freebsd-arm64@0.25.12', 'MIT'],
+  ['@esbuild/freebsd-x64@0.25.12', 'MIT'],
+  ['@esbuild/linux-arm@0.25.12', 'MIT'],
+  ['@esbuild/linux-arm64@0.25.12', 'MIT'],
+  ['@esbuild/linux-ia32@0.25.12', 'MIT'],
+  ['@esbuild/linux-loong64@0.25.12', 'MIT'],
+  ['@esbuild/linux-mips64el@0.25.12', 'MIT'],
+  ['@esbuild/linux-ppc64@0.25.12', 'MIT'],
+  ['@esbuild/linux-riscv64@0.25.12', 'MIT'],
+  ['@esbuild/linux-s390x@0.25.12', 'MIT'],
+  ['@esbuild/linux-x64@0.25.12', 'MIT'],
+  ['@esbuild/netbsd-arm64@0.25.12', 'MIT'],
+  ['@esbuild/netbsd-x64@0.25.12', 'MIT'],
+  ['@esbuild/openbsd-arm64@0.25.12', 'MIT'],
+  ['@esbuild/openbsd-x64@0.25.12', 'MIT'],
+  ['@esbuild/openharmony-arm64@0.25.12', 'MIT'],
+  ['@esbuild/sunos-x64@0.25.12', 'MIT'],
+  ['@esbuild/win32-arm64@0.25.12', 'MIT'],
+  ['@esbuild/win32-ia32@0.25.12', 'MIT'],
+  ['@esbuild/win32-x64@0.25.12', 'MIT'],
+  ['@napi-rs/lzma-linux-x64-gnu@1.5.1', 'MIT'],
+  ['@napi-rs/wasm-runtime@1.1.6', 'MIT'],
   ['@rolldown/binding-android-arm-eabi@1.2.11', 'MIT'],
   ['@rolldown/binding-android-arm64@1.2.11', 'MIT'],
   ['@rolldown/binding-darwin-x64@1.2.11', 'MIT'],
@@ -88,6 +115,52 @@ const lockedLicenseDeclarations = new Map([
   ['@rolldown/binding-openharmony-arm64@1.2.11', 'MIT'],
   ['@rolldown/binding-win32-arm64-msvc@1.2.11', 'MIT'],
   ['@rolldown/binding-win32-x64-msvc@1.2.11', 'MIT'],
+  ['@rollup/rollup-android-arm-eabi@4.63.1', 'MIT'],
+  ['@rollup/rollup-android-arm64@4.63.1', 'MIT'],
+  ['@rollup/rollup-darwin-x64@4.63.1', 'MIT'],
+  ['@rollup/rollup-freebsd-arm64@4.63.1', 'MIT'],
+  ['@rollup/rollup-freebsd-x64@4.63.1', 'MIT'],
+  ['@rollup/rollup-linux-arm-gnueabihf@4.63.1', 'MIT'],
+  ['@rollup/rollup-linux-arm-musleabihf@4.63.1', 'MIT'],
+  ['@rollup/rollup-linux-arm64-gnu@4.63.1', 'MIT'],
+  ['@rollup/rollup-linux-arm64-musl@4.63.1', 'MIT'],
+  ['@rollup/rollup-linux-loong64-gnu@4.63.1', 'MIT'],
+  ['@rollup/rollup-linux-loong64-musl@4.63.1', 'MIT'],
+  ['@rollup/rollup-linux-ppc64-gnu@4.63.1', 'MIT'],
+  ['@rollup/rollup-linux-ppc64-musl@4.63.1', 'MIT'],
+  ['@rollup/rollup-linux-riscv64-gnu@4.63.1', 'MIT'],
+  ['@rollup/rollup-linux-riscv64-musl@4.63.1', 'MIT'],
+  ['@rollup/rollup-linux-s390x-gnu@4.63.1', 'MIT'],
+  ['@rollup/rollup-linux-x64-gnu@4.63.1', 'MIT'],
+  ['@rollup/rollup-linux-x64-musl@4.63.1', 'MIT'],
+  ['@rollup/rollup-openbsd-x64@4.63.1', 'MIT'],
+  ['@rollup/rollup-openharmony-arm64@4.63.1', 'MIT'],
+  ['@rollup/rollup-win32-arm64-msvc@4.63.1', 'MIT'],
+  ['@rollup/rollup-win32-ia32-msvc@4.63.1', 'MIT'],
+  ['@rollup/rollup-win32-x64-gnu@4.63.1', 'MIT'],
+  ['@rollup/rollup-win32-x64-msvc@4.63.1', 'MIT'],
+  ['@tybys/wasm-util@0.10.3', 'MIT'],
+  ['@unrs/resolver-binding-android-arm-eabi@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-android-arm64@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-darwin-x64@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-freebsd-x64@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-linux-arm-gnueabihf@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-linux-arm-musleabihf@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-linux-arm64-gnu@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-linux-arm64-musl@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-linux-loong64-gnu@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-linux-loong64-musl@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-linux-ppc64-gnu@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-linux-riscv64-gnu@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-linux-riscv64-musl@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-linux-s390x-gnu@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-linux-x64-gnu@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-linux-x64-musl@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-openharmony-arm64@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-wasm32-wasi@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-win32-arm64-msvc@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-win32-ia32-msvc@1.12.2', 'MIT'],
+  ['@unrs/resolver-binding-win32-x64-msvc@1.12.2', 'MIT'],
   ['ansi-regex@6.3.0', 'MIT'],
   ['ansi-styles@6.2.3', 'MIT'],
   ['eastasianwidth@0.2.0', 'MIT'],
@@ -104,6 +177,7 @@ const lockedLicenseDeclarations = new Map([
   ['lightningcss-win32-x64-msvc@1.33.0', 'MPL-2.0'],
   ['string-width@5.1.2', 'MIT'],
   ['strip-ansi@7.2.0', 'MIT'],
+  ['tslib@2.8.1', '0BSD'],
   ['wrap-ansi@8.1.0', 'MIT'],
 ]);
 
@@ -125,19 +199,6 @@ const normalizeLicense = (license, name, version) => {
     return 'MIT';
   }
   if (name === 'qrcode-terminal' && version === '0.12.0') return 'Apache-2.0';
-  if (name === 'tslib') return '0BSD';
-  if (
-    name.startsWith('@emnapi/') ||
-    name.startsWith('@esbuild/') ||
-    name === '@napi-rs/wasm-runtime' ||
-    name === '@tybys/wasm-util' ||
-    name.startsWith('@unrs/resolver-binding-') ||
-    name.startsWith('esbuild-') ||
-    name === '@napi-rs/lzma-linux-x64-gnu' ||
-    name.startsWith('@rollup/rollup-')
-  ) {
-    return 'MIT';
-  }
   if (!license || license === 'Unknown') return 'NOASSERTION';
   if (license === 'Apache 2.0') return 'Apache-2.0';
   if (license === 'BSD') return 'LicenseRef-BSD-ambiguous';
@@ -253,8 +314,14 @@ const yamlUnquote = (value) => {
 const readPnpmLicenses = (relativeDir) => {
   const cwd = resolve(rootDir, relativeDir);
   const manager = readJson(`${relativeDir}/package.json`).packageManager;
-  const expected = relativeDir === 'tools/quality' ? 'pnpm@10.15.0' : 'pnpm@9.15.6';
-  if (manager !== expected) throw new Error(`undeclared license package manager for ${relativeDir}`);
+  const toolchain = readJson('tools/toolchain.json');
+  const packageManagerFile = toolchain?.tools?.pnpm?.package_manager_file;
+  const expected = relativeDir === 'tools/quality'
+    ? manager
+    : (packageManagerFile ? readJson(packageManagerFile).packageManager : manager);
+  if (typeof expected !== 'string' || !/^pnpm@\d+\.\d+\.\d+$/.test(expected) || manager !== expected) {
+    throw new Error(`undeclared license package manager for ${relativeDir}`);
+  }
   const command = relativeDir === 'tools/quality' ? 'corepack' : 'pnpm';
   const prefix = relativeDir === 'tools/quality' ? ['pnpm'] : [];
   const version = spawnSync(command, [...prefix, '--version'], { cwd, encoding: 'utf8' });

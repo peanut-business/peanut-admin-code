@@ -273,13 +273,11 @@ def run_application(a: dict, output: Path) -> dict:
     require(Path(tool['root']).resolve() == tool_root, 'NATIVE_QUALIFICATION_TOOL_ROOT_MISMATCH')
     tool_head = subprocess.run(['git', '-C', str(tool_root), 'rev-parse', 'HEAD'],
                                text=True, capture_output=True, timeout=10)
-    tool_file = tool_root / 'scripts/p0e-runtime-qualification'
-    committed_tool = subprocess.run(['git', '-C', str(tool_root), 'show',
-                                    tool['commit'] + ':scripts/p0e-runtime-qualification'],
-                                   capture_output=True, timeout=10)
-    require(tool_head.returncode == committed_tool.returncode == 0
+    tool_status = subprocess.run(['git', '-C', str(tool_root), 'status', '--porcelain=v1'],
+                                 text=True, capture_output=True, timeout=10)
+    require(tool_head.returncode == tool_status.returncode == 0
             and tool_head.stdout.strip() == tool['commit']
-            and committed_tool.stdout == tool_file.read_bytes(), 'NATIVE_QUALIFICATION_TOOL_SOURCE_MISMATCH')
+            and tool_status.stdout.strip() == '', 'NATIVE_QUALIFICATION_TOOL_SOURCE_MISMATCH')
     runtime, admission = a['runtime'], a['runtime_admission']
     require(Path(runtime['root']).resolve() == app and admission['root'] == str(app)
             and runtime['resource_id'] == admission['resource_id'] == database_id

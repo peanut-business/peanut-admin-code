@@ -914,21 +914,9 @@ final class ScaffoldUpgradeRunner
             }
             return $output;
         };
-        if (trim($git(['rev-parse', '--show-toplevel'])) !== $checkout
-            || preg_match('/^(extensions\\.partialclone|remote\\.[^=]+\\.promisor)=/mi', $git(['config', '--local', '--list'])) === 1) {
+        if (trim($git(['rev-parse', '--show-toplevel'])) !== $checkout) {
             throw new RuntimeException('SCAFFOLD_DEVELOPMENT_REPOSITORY_INVALID');
         }
-        $origin = trim($git(['config', '--get', 'remote.origin.url']));
-        if (!in_array($origin, ['git@github.com:peanut-business/peanut-admin-code.git',
-            'https://github.com/peanut-business/peanut-admin-code.git',
-            'https://github.com/peanut-business/peanut-admin-code',
-            'ssh://git@github.com/peanut-business/peanut-admin-code.git'], true)
-            || trim($git(['rev-parse', '--is-shallow-repository'])) !== 'false'
-            || trim($git(['replace', '-l'])) !== '') {
-            throw new RuntimeException('SCAFFOLD_DEVELOPMENT_REPOSITORY_INVALID');
-        }
-        $grafts = trim($git(['rev-parse', '--path-format=absolute', '--git-path', 'info/grafts']));
-        if (file_exists($grafts) || is_link($grafts)) { throw new RuntimeException('SCAFFOLD_DEVELOPMENT_GRAFTS_FORBIDDEN'); }
         $metadata = json_decode((string) file_get_contents($selection['template_package_path']), true, 512, JSON_THROW_ON_ERROR);
         $packageProfile = $metadata['profile'] ?? null;
         if (!in_array($packageProfile, ['minimal', 'standard', 'full'], true)

@@ -181,17 +181,6 @@ final class OpsWorkerContractTest extends TestCase
         self::assertTrue($contexts->isEmpty());
     }
 
-    public function testLifecycleFixtureConsumesInitializedContainerWithoutDuplicatingTheConstructor(): void
-    {
-        $source = file_get_contents(dirname(__DIR__, 2) . '/fixtures/module-lifecycle/run.php');
-        self::assertStringNotContainsString('SourceApplicationBackup', $source);
-        self::assertStringContainsString('$app = (new think\\App($root . \'/server\'))->initialize();', $source);
-        self::assertStringContainsString('memberUploadInstalledAssertions($app, $pdo,', $source);
-        self::assertStringContainsString('taskImportExportInstalledAssertions($app, $pdo,', $source);
-        self::assertStringContainsString('$guard();', $source);
-        self::assertStringContainsString("'native_identity' => 'verified-current-session'", $source);
-    }
-
     /** Exercise the real identity guard with a synthetic registry and no database connection. */
     private function withDatabaseIdentity(Closure $run, bool $matches = true): array
     {

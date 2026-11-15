@@ -2,6 +2,13 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.14] - 2026-11-15
+
+- Align candidate documentation checks with the delivered Markdown layout and exercise them in the existing candidate tests.
+- Keep the shared dependency verifier in generated applications and check native locks for both published and local Core archives.
+- Retire obsolete qualification consumers and preserve the native registered recovery receipt contract.
+- Validate candidate bytes before Tag creation while retaining the exact source-to-main PR checks and CI-only publication of original artifacts.
+
 ## [5.1.13] - 2026-11-15
 
 - Derive application Composer inputs directly from the Host manifest and native lock, excluding repository test tooling without maintaining a second dependency template.
