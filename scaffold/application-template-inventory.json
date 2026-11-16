@@ -947,7 +947,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8df48dfb162ab18401af333b4a6bf59e2fb2bbdfb27894b9b7f4c2638a4a91d4"
+            "source_sha256": "f6ec7db5109ff63f7beee648d765fc309ae2b595bcd82c003b70b0b2816c4d64"
         },
         {
             "path": "docs/maintenance/README.md",
@@ -2121,7 +2121,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d95e592fce4bd1bf964eeceb6f476715054f099ed99a360c26c82343515e056c"
+            "source_sha256": "fb56ea30e85b545deda143138b6e973cdb207dbeeb93aa028c642739547e349c"
         },
         {
             "path": "platform/tests/Productization/entry-browser.test.mjs",
@@ -17067,7 +17067,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4726ec245d5ec7da90a78a66c8ec8ec983df9e501b3eec00f8623c1fa313cd57"
+            "source_sha256": "88fe64df52a006073599e7deeb631368fe9c22cd5c8c5a62a725265e19eab1aa"
         },
         {
             "path": "web/src/assets/world.json",
@@ -17586,7 +17586,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a899759eb3959cff3f8feb550b1199f034ae6386744f91d91a1953900dd1ddc5"
+            "source_sha256": "a4024d6638a16204d1c3251d8133dce77f283390230c776615bc41167418e4b4"
         },
         {
             "path": "web/src/layout/page-layout.vue",
