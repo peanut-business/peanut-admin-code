@@ -67,7 +67,7 @@ final class ModuleReconcile extends ModuleContextualCommand
                     throw new ModuleLifecycleException('PLUGIN_LOCK_INVALID', 'Plugin lock path is not configured.');
                 }
                 $resolver = ModuleLockResolver::forRuntime(dirname(__DIR__, 2), $lock);
-                $ordered = $this->dependencyOrderedPlugins($resolver, $selected, $config, $preparedRelease);
+                $ordered = $this->dependencyOrderedPlugins($resolver, $selected, $config, true);
                 if (!$preparedRelease) {
                     return $service->reconcileInstalled($ordered);
                 }
