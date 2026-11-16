@@ -3444,6 +3444,7 @@ export interface components {
         };
         AdminRole: {
             id: number;
+            key: string;
             name: string;
             desc: string;
             sort: number;

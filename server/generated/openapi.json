@@ -21123,6 +21123,7 @@
                 "additionalProperties": false,
                 "required": [
                     "id",
+                    "key",
                     "name",
                     "desc",
                     "sort",
@@ -21135,6 +21136,9 @@
                 "properties": {
                     "id": {
                         "type": "integer"
+                    },
+                    "key": {
+                        "type": "string"
                     },
                     "name": {
                         "type": "string"
