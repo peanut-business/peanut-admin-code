@@ -7,6 +7,7 @@ use app\common\exception\BusinessException;
 use app\common\execution\AdminExecutionContext;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
+use app\common\runtime\authorization\RoleAdministrationRuntime;
 use app\common\infrastructure\authorization\CoreTenantModuleAdminBridge;
 use app\common\services\authorization\AdminAuthorizationService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
@@ -18,6 +19,7 @@ use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationQuery;
 use PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory;
 use PeanutAdmin\Modules\Identity\Contract\Dto\TenantMemberSummary;
 use PeanutAdmin\Modules\Identity\Membership\Application\MemberAdminService;
+use PeanutAdmin\Modules\Identity\Authorization\Application\RoleAdminService;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PHPUnit\Framework\TestCase;
 use think\App;
@@ -31,6 +33,7 @@ final class MemberHostActionPermissionTest extends TestCase
     private TenantContext $actor;
     private AdminApplicationService $host;
     private MemberAdminService $members;
+    private RoleAdministrationRuntime $roleAdministration;
     private array $permissions = [];
 
     protected function setUp(): void
@@ -52,6 +55,10 @@ final class MemberHostActionPermissionTest extends TestCase
             INSERT INTO pa_tenant_member VALUES (601,101,501,'Actor',NULL,'employee',NULL,'active',1,1,NULL,NULL),(602,101,502,'Target',NULL,'employee',NULL,'active',1,1,NULL,NULL),(603,202,503,'Foreign',NULL,'employee',NULL,'active',1,1,NULL,NULL);
             CREATE TABLE pa_role (id INTEGER PRIMARY KEY,tenant_id INTEGER,"key" TEXT,name TEXT,is_builtin INTEGER,status TEXT);
             INSERT INTO pa_role VALUES (701,101,'fixture.reader','Reader',0,'active'),(702,101,'fixture.writer','Writer',0,'active'),(703,202,'fixture.foreign','Foreign',0,'active');
+            ALTER TABLE pa_role ADD COLUMN description TEXT DEFAULT '';
+            ALTER TABLE pa_role ADD COLUMN authorization_revision INTEGER DEFAULT 1;
+            ALTER TABLE pa_role ADD COLUMN created_at TEXT DEFAULT '2031-01-02 00:00:00';
+            CREATE TABLE pa_role_permission (id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER,role_id INTEGER,permission_id INTEGER);
             CREATE TABLE pa_member_role (id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER,tenant_member_id INTEGER,role_id INTEGER,assigned_by_member_id INTEGER,assigned_at TEXT);
             INSERT INTO pa_member_role(tenant_id,tenant_member_id,role_id) VALUES (101,602,701),(202,603,703);
             CREATE TABLE pa_permission (id INTEGER PRIMARY KEY,"key" TEXT,module_key TEXT,status TEXT);
@@ -75,6 +82,11 @@ final class MemberHostActionPermissionTest extends TestCase
         $lookup->method('activeMembershipCount')->willReturn(1);
         $registry = new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], 'member-host');
         $identity = new TenantAuthorizationQuery($lookup, $registry);
+        $this->roleAdministration = new RoleAdministrationRuntime(
+            new RoleAdminService(new AuditService($current),
+                new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService($registry)),
+            $identity,
+        );
         $grants = $this->createStub(TenantAuthorizationRepository::class);
         $grants->method('permissions')->willReturnCallback(fn() => new EffectivePermissionSet($this->permissions));
         $bridge = new CoreTenantModuleAdminBridge(
@@ -93,6 +105,7 @@ final class MemberHostActionPermissionTest extends TestCase
             (new ReflectionClass(\app\common\services\XlsxExportService::class))->newInstanceWithoutConstructor(),
             $directory, $runtime, $this->createStub(\PeanutAdmin\Modules\File\Contract\FileReferences::class),
             new \PeanutAdmin\Kernel\Identity\PasswordPolicy(), $current, $authorization,
+            $this->roleAdministration,
         );
         $this->actor = TenantContext::fromValidatedSession(new ValidatedTenantSession(1,'member-host',101,501,601,'admin-web',new DateTimeImmutable('2035-01-01'),1,1),'member-host-request');
     }
@@ -114,6 +127,97 @@ final class MemberHostActionPermissionTest extends TestCase
             self::assertSame('MEMBER_PERMISSION_DENIED', $error->errorCode);
         }
         self::assertSame($before, $this->pdo->query('SELECT * FROM pa_tenant_member ORDER BY id')->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    public function testOrdinaryMemberCreationCannotGrantTenantOwner(): void
+    {
+        $this->pdo->exec('INSERT INTO pa_role(id,tenant_id,"key",name,is_builtin,status) '
+            . "VALUES (704,101,'core.tenant-owner','Tenant Owner',1,'active')");
+        $this->permissions = ['core.member.create', 'core.member.role.assign', 'core.member.activate'];
+        try {
+            $this->runAs(fn() => $this->host->add($this->actor, [
+                'account' => 'unexpected-owner@example.test',
+                'name' => 'Unexpected owner',
+                'password' => 'not-used-because-denied',
+                'role_id' => [704],
+                'disable' => 0,
+            ]));
+            self::fail('Ordinary member creation granted the protected owner role.');
+        } catch (BusinessException $error) {
+            self::assertSame('TENANT_OWNER_ROLE_REQUIRES_PLATFORM_FLOW', $error->errorCode);
+        }
+        self::assertSame(3, (int) $this->pdo->query('SELECT COUNT(*) FROM pa_tenant_member')->fetchColumn());
+    }
+
+    public function testOrdinaryMemberEditCannotPromoteOrDemoteTenantOwner(): void
+    {
+        $this->pdo->exec('INSERT INTO pa_role(id,tenant_id,"key",name,is_builtin,status) '
+            . "VALUES (704,101,'core.tenant-owner','Tenant Owner',1,'active')");
+        $this->permissions = ['core.member.update', 'core.member.role.assign'];
+        try {
+            $this->runAs(fn() => $this->host->edit($this->actor, [
+                'id' => 602, 'name' => 'Target', 'role_id' => [701, 704], 'disable' => 0,
+            ]));
+            self::fail('Ordinary editing promoted a member to tenant owner.');
+        } catch (BusinessException $error) {
+            self::assertSame('TENANT_OWNER_ROLE_REQUIRES_PLATFORM_FLOW', $error->errorCode);
+        }
+        // Two active owners defeat last-owner-only checks. The ordinary editor
+        // must still preserve ownership; platform owner transfer is separate.
+        $this->pdo->exec('INSERT INTO pa_member_role(tenant_id,tenant_member_id,role_id) '
+            . 'VALUES (101,601,704),(101,602,704)');
+        try {
+            $this->runAs(fn() => $this->host->edit($this->actor, [
+                'id' => 602, 'name' => 'Target', 'role_id' => [701], 'disable' => 0,
+            ]));
+            self::fail('Ordinary editing removed an existing tenant owner.');
+        } catch (BusinessException $error) {
+            self::assertSame('TENANT_OWNER_ROLE_REQUIRES_PLATFORM_FLOW', $error->errorCode);
+        }
+        self::assertSame([704, 701], $this->members->get(101, 602)['role_ids']);
+    }
+
+    public function testOrdinaryMemberEndpointsCannotSuspendOrDeleteAnOwner(): void
+    {
+        $this->pdo->exec('INSERT INTO pa_role(id,tenant_id,"key",name,is_builtin,status) '
+            . "VALUES (704,101,'core.tenant-owner','Tenant Owner',1,'active')");
+        $this->pdo->exec('INSERT INTO pa_member_role(tenant_id,tenant_member_id,role_id) '
+            . 'VALUES (101,601,704),(101,602,704)');
+        $this->permissions = ['core.member.update', 'core.member.suspend', 'core.member.leave'];
+        $operations = [
+            fn() => $this->host->edit($this->actor, [
+                'id' => 602, 'name' => 'Target', 'role_id' => [701, 704], 'disable' => 1,
+            ]),
+            fn() => $this->host->updateStatus($this->actor, 602, 1),
+            fn() => $this->host->delete($this->actor, 602),
+        ];
+        foreach ($operations as $operation) {
+            try {
+                $this->runAs($operation);
+                self::fail('Ordinary member management changed an owner account.');
+            } catch (BusinessException $error) {
+                self::assertSame('TENANT_OWNER_STATUS_REQUIRES_PLATFORM_FLOW', $error->errorCode);
+            }
+        }
+        self::assertSame('active', $this->members->get(101, 602)['status']);
+        self::assertSame([704, 701], $this->members->get(101, 602)['role_ids']);
+    }
+
+    public function testOwnerCanKeepOwnerRoleWhileAdjustingBusinessRoles(): void
+    {
+        $this->pdo->exec('INSERT INTO pa_role(id,tenant_id,"key",name,is_builtin,status) '
+            . "VALUES (704,101,'core.tenant-owner','Tenant Owner',1,'active')");
+        $this->pdo->exec('INSERT INTO pa_member_role(tenant_id,tenant_member_id,role_id) '
+            . 'VALUES (101,601,704),(101,602,704)');
+        $this->permissions = ['core.member.update', 'core.member.role.assign'];
+        self::assertTrue($this->runAs(fn() => $this->host->edit($this->actor, [
+            'id' => 602, 'name' => 'Target', 'role_id' => [701, 702, 704], 'disable' => 0,
+        ])));
+        self::assertSame([704, 701, 702], $this->members->get(101, 602)['role_ids']);
+        self::assertTrue($this->runAs(fn() => $this->host->edit($this->actor, [
+            'id' => 602, 'name' => 'Target', 'role_id' => [701, 704], 'disable' => 0,
+        ])));
+        self::assertSame([704, 701], $this->members->get(101, 602)['role_ids']);
     }
 
     public function testCreatePermissionDoesNotAssignRolesOrActivateAnAccount(): void
@@ -258,6 +362,7 @@ final class MemberHostActionPermissionTest extends TestCase
         $host = new AdminApplicationService(
             (new ReflectionProperty($this->host,'xlsxExport'))->getValue($this->host),new AdminDirectoryQuery($current),$runtime,$references,
             new \PeanutAdmin\Kernel\Identity\PasswordPolicy(),$current,(new ReflectionProperty($this->host,'authorization'))->getValue($this->host),
+            $this->roleAdministration,
         );
         self::assertTrue($this->runAs(fn()=>$host->editSelf($this->actor,601,['nickname'=>'Actor renamed','avatar'=>$key],'192.0.2.1','fixture')));
         self::assertSame($key,$this->pdo->query('SELECT avatar_uri FROM pa_account WHERE id=501')->fetchColumn());

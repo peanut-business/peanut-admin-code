@@ -281,7 +281,7 @@
               :key="option.value"
               :label="option.label"
               :value="option.value"
-              :disabled="editingOwnerRoles && option.key === 'core.tenant-owner'"
+              :disabled="option.key === 'core.tenant-owner'"
           /></el-select>
           <p v-if="editingOwnerRoles" class="pa-page-form-help">
             {{ $t('systemAdmin.field.roles.ownerFixed') }}
