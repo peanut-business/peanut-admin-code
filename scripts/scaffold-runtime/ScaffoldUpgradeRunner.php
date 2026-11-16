@@ -1068,6 +1068,27 @@ final class ScaffoldUpgradeRunner
         ];
     }
 
+    private function matchesPublishedGeneration(
+        array $application,
+        string $repository,
+        string $channel,
+        string $version,
+        string $commit,
+        string $tree,
+        string $inventoryDigest,
+    ): bool {
+        $generation = $application['generation_source'] ?? null;
+        return is_array($generation)
+            && ($generation['repository'] ?? null) === $repository
+            && ($generation['channel'] ?? null) === $channel
+            && ($generation['release_version'] ?? null) === $version
+            && ($generation['inventory_sha256'] ?? null) === $inventoryDigest
+            && ($application['template']['version'] ?? null) === $version
+            && ($application['template']['inventory_sha256'] ?? null) === $inventoryDigest
+            && ScaffoldSourceIdentity::from($generation, true) === ['kind' => 'git', 'commit' => $commit, 'tree' => $tree]
+            && ScaffoldSourceIdentity::from($application['template'] ?? []) === ['kind' => 'git', 'commit' => $commit, 'tree' => $tree];
+    }
+
     private function assertReleaseChain(array $application, ScaffoldManifest $from, ScaffoldManifest $to, bool $allowSameVersion = false): void
     {
         if ((!$allowSameVersion && Semver::greaterThanOrEqualTo($from->version(), $to->version())) || ($application['template']['version'] ?? null) !== $from->version()
