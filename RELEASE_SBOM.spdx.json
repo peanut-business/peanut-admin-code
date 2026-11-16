@@ -2,8 +2,8 @@
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "Peanut Admin 5.1.16 release dependency SBOM",
-  "documentNamespace": "https://github.com/peanut-business/peanut-admin-code/releases/tag/v5.1.16/sbom",
+  "name": "Peanut Admin 5.1.17 release dependency SBOM",
+  "documentNamespace": "https://github.com/peanut-business/peanut-admin-code/releases/tag/v5.1.17/sbom",
   "creationInfo": {
     "created": "2026-11-16T00:00:00Z",
     "creators": [
@@ -26,7 +26,7 @@
     {
       "name": "Peanut Admin",
       "SPDXID": "SPDXRef-Package-Peanut-Admin",
-      "versionInfo": "5.1.16",
+      "versionInfo": "5.1.17",
       "downloadLocation": "https://github.com/peanut-business/peanut-admin-code",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0",
@@ -37,7 +37,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:github/peanut-business/peanut-admin-code@5.1.16"
+          "referenceLocator": "pkg:github/peanut-business/peanut-admin-code@5.1.17"
         }
       ]
     },
@@ -499,8 +499,8 @@
     },
     {
       "name": "peanut-admin/core",
-      "SPDXID": "SPDXRef-Package-composer-f4eb71290ae893f4d49e",
-      "versionInfo": "v5.1.1",
+      "SPDXID": "SPDXRef-Package-composer-bd7641f0b59d26143aef",
+      "versionInfo": "v5.1.2",
       "downloadLocation": "https://github.com/peanut-business/peanut-admin-core-php.git",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
@@ -512,7 +512,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:composer/peanut-admin/core@v5.1.1"
+          "referenceLocator": "pkg:composer/peanut-admin/core@v5.1.2"
         }
       ]
     },
@@ -59736,7 +59736,7 @@
     {
       "spdxElementId": "SPDXRef-Package-Peanut-Admin",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-composer-f4eb71290ae893f4d49e",
+      "relatedSpdxElement": "SPDXRef-Package-composer-bd7641f0b59d26143aef",
       "comment": "composer; runtime"
     },
     {

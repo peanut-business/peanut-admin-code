@@ -2,6 +2,12 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.17] - 2026-11-16
+
+- Update the released PHP Core dependency from `peanut-admin/core` 5.1.1 to 5.1.2, including the exact published Composer lock and public Core source reference; retain Web Core 5.1.2 and existing Module versions.
+- Refresh the native ST/MT scaffold release metadata, client version declarations, API provenance, legal manifests and template inventory without changing instance-owned data, module contracts or tenant roles.
+- Downstream applications must use the native baseline-preserving scaffold upgrade separately. This source candidate is not a public release until the existing CI production, protected main integration and publication gates succeed.
+
 ## [5.1.16] - 2026-11-16
 
 - Let a tenant owner retain the protected `core.tenant-owner` role while explicitly assigning or removing supplementary tenant business roles. The tenant member API now rejects owner-role grants, removals, suspensions and departures through ordinary member operations, reserving ownership changes for the platform's dedicated workflow; no module permission is implicitly granted.
