@@ -1,17 +1,17 @@
 {
   "schema_version": 3,
   "protocol": "peanut.release-versions.v3",
-  "source_product_version": "5.1.16",
+  "source_product_version": "5.1.17-dev.20261116.1",
   "instance_version": null,
-  "scaffold_template": "5.1.16",
+  "scaffold_template": "5.1.17-dev.20261116.1",
   "generated_instance_default": "0.1.0",
   "core_php": {
     "package": "peanut-admin/core",
-    "constraint": "5.1.1",
-    "resolved_version": "v5.1.1",
+    "constraint": "5.1.2",
+    "resolved_version": "v5.1.2",
     "source_type": "git",
     "source_url": "https://github.com/peanut-business/peanut-admin-core-php.git",
-    "source_reference": "5f7b77032963a9c9ad8c47f786fe93647b1a865c"
+    "source_reference": "acf5a8290f12245e3dbdc4892f08efe077793ec5"
   },
   "core_web": {
     "source_type": "git",
