@@ -72,10 +72,12 @@ final class ModuleReconcile extends ModuleContextualCommand
                     return $service->reconcileInstalled($ordered);
                 }
                 // Prepared adoption must not turn an absent/disabled selection into an installation.
-                $states = Db::name('module_installation')->whereIn('module_key', $ordered)->column('status', 'module_key');
+                $states = array_column(Db::name('module_installation')->whereIn('module_key', $ordered)
+                    ->field('module_key,status,activated_at')->select()->toArray(), null, 'module_key');
                 foreach ($ordered as $key) {
-                    if (($states[$key] ?? null) !== 'active') {
-                        throw new ModuleLifecycleException('PLUGIN_STATE_INVALID', 'Prepared selected adoption requires active installed packages.');
+                    $state = $states[$key] ?? [];
+                    if (($state['status'] ?? null) !== 'active' && !$this->isPreparedUpgradeRecovery($state)) {
+                        throw new ModuleLifecycleException('PLUGIN_STATE_INVALID', 'Prepared selected adoption requires an active installation or a previously activated failed upgrade.');
                     }
                 }
                 $results = [];
@@ -260,7 +262,7 @@ final class ModuleReconcile extends ModuleContextualCommand
             }
             $state = $row;
             // Prepared deployment can finish a failed upgrade without rebuilding assets.
-            if ($preparedRelease && $state['status'] === 'failed' && $state['activated_at'] !== null) {
+            if ($preparedRelease && $this->isPreparedUpgradeRecovery($state)) {
                 $keys[$key] = true;
                 continue;
             }
@@ -279,5 +281,10 @@ final class ModuleReconcile extends ModuleContextualCommand
         sort($preserved, SORT_STRING);
         sort($retired, SORT_STRING);
         return ['reconcile' => array_keys($keys), 'preserved_disabled' => $preserved, 'preserved_uninstalled' => $retired];
+    }
+
+    private function isPreparedUpgradeRecovery(array $state): bool
+    {
+        return ($state['status'] ?? null) === 'failed' && ($state['activated_at'] ?? null) !== null;
     }
 }
