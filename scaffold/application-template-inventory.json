@@ -696,7 +696,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e94b097de7846aa259fd14b041b73cc5c4589bcebbe45006d7b525c3540e3818"
+            "source_sha256": "5fc752cce4b84dfc10921e99e5e63cd3da61e309981c1ff171494f66b11a3f06"
         },
         {
             "path": "docs/architecture/module-composition.md",
@@ -4588,7 +4588,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ede185d3331ffb1e1c1edfe1c28126d9024bf797639cede18e4d41ba11b551b5"
+            "source_sha256": "a9015587e28e50dd1084c4d5aeb1a12edc26a486838d0e94a14b822598d13b33"
         },
         {
             "path": "server/app/adminapi/services/auth/LoginApplicationService.php",
@@ -5484,7 +5484,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "80482a0a41e2830bd7a8ff1860271c924140ef0ad1f81d6fd46efc5fb11bbb17"
+            "source_sha256": "09ced7ccc1352b465f4f216c49e7c2a7c6f4b427af1188b1e93fe594b14bf77c"
         },
         {
             "path": "server/app/command/ModuleReleaseComposition.php",
@@ -18664,7 +18664,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9fd4f7554afdf3de29fa1c3961a442a8e1eaddc6430f72e57a8ba5ceaecf54ae"
+            "source_sha256": "241a719265dae23e9b4ca061ec360f3334333de5f7c75343b9c830c0a3f1c83c"
         },
         {
             "path": "web/src/views/system/admin/locale/en-US.ts",
