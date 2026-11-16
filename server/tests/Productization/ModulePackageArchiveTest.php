@@ -477,6 +477,20 @@ try {
             && file_get_contents($adoptRoot . '/modules.lock') === $oldLock,
             'Rejected customer WIP changed source or lock');
     }
+    $replaceRoot = $temporary . '/explicit-local-replacement';
+    modulePackageCopyTree($adoptRoot, $replaceRoot);
+    $beforeReceipts = glob($replaceRoot . '/.local/module-source-adoption/*/transaction.json') ?: [];
+    $replacement = (new ModulePackageAdoptionService($replaceRoot . '/server', ['fixture-release' => $public], 'development'))
+        ->adopt($upgradePath, $upgrade['sha256'], 'fixture-release', null, true);
+    $replacementReceipts = array_values(array_diff(glob($replaceRoot . '/.local/module-source-adoption/*/transaction.json') ?: [], $beforeReceipts));
+    modulePackageExpect($replacement['operation'] === 'adopted' && $replacement['runtime_database_mutated'] === false
+        && count($replacementReceipts) === 1, 'Explicit selected replacement did not remain a source-only transaction');
+    $replacedWip = $replaceRoot . '/server/app/modules/acme/delivery_record/customer-wip.php';
+    modulePackageExpect(!file_exists($replacedWip)
+        && file_get_contents(dirname($replacementReceipts[0]) . '/before/server/app/modules/acme/delivery_record/customer-wip.php') === $customerWipContents,
+        'Explicit replacement lost the actual customer before-image');
+    modulePackageExpect(file_get_contents($customerWip) === $customerWipContents && file_get_contents($adoptRoot . '/modules.lock') === $oldLock,
+        'Explicit replacement modified the separately rejected original source');
     unlink($customerWip);
     $updated = $adopter->adopt($upgradePath, $upgrade['sha256'], 'fixture-release');
     modulePackageExpect($updated['route_contributions'] === ['server/app/modules/acme/delivery_record/route/app.php'], 'conventional route contribution was not reported');

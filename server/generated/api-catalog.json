@@ -8,11 +8,11 @@
         },
         {
             "path": "release-versions.json",
-            "sha256": "3bd4a5805e582c7103b89640d67d6e0a482c4362a3b2b45883a1241a1d89508b"
+            "sha256": "775ebdfaa1b99e1de7677cfdff93b2e33142759eeb87f8bc5a39cf87923655df"
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
-            "sha256": "e3ebd3a17cd088febfe56107d8a37744ab0b366faaf0c763ce2247813b0c42a8"
+            "sha256": "adb87b154d58f0252bfa175d6be58ab086351a5ce722af8c288ceb1e0c5bb076"
         },
         {
             "path": "server/app/api/metadata/application/common.php",
@@ -20,7 +20,7 @@
         },
         {
             "path": "server/app/api/metadata/application/installation.php",
-            "sha256": "7060b8c3e456a6b1507155ea116f1bf7f27047c10fdf072a49eedd6df6f19e67"
+            "sha256": "fcba70e9df8230ec665551b98d59a6ea46c8de2ac69dddabf7e7fdfb7282faf9"
         },
         {
             "path": "server/app/api/metadata/application/permission-bundles.php",

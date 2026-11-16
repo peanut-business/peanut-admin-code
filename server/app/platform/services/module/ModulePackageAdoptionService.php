@@ -6,7 +6,9 @@ namespace app\platform\services\module;
 
 use app\platform\exception\module\ModulePackageException;
 use app\platform\infrastructure\module\ModuleLockResolver;
+use app\platform\infrastructure\module\ModuleArtifactWriter;
 use app\platform\infrastructure\module\ModulePackageSourcePromoter;
+use app\platform\exception\module\ModuleLifecycleException;
 use app\common\module\PackageCheck;
 use app\common\module\ModuleMigrationRun;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
@@ -313,7 +315,7 @@ final readonly class ModulePackageAdoptionService
     }
 
     /** Verify the transport digest and any explicitly selected signature before a source-only transaction. */
-    public function adopt(string $archivePath, ?string $expectedSha256, ?string $signatureKeyId, ?string $expectedOfficialKey = null): array
+    public function adopt(string $archivePath, ?string $expectedSha256, ?string $signatureKeyId, ?string $expectedOfficialKey = null, bool $replaceLocalSource = false): array
     {
         $this->development();
         if (!is_string($expectedSha256) || preg_match('/^[a-f0-9]{64}$/D', $expectedSha256) !== 1) {
@@ -327,10 +329,12 @@ final readonly class ModulePackageAdoptionService
             throw new ModulePackageException('MODULE_PACKAGE_OFFICIAL_SOURCE_UNTRUSTED', 'Official adoption requires an exact namespaced Module identity.');
         }
         $promoter = new ModulePackageSourcePromoter($this->serverRoot);
-        return $promoter->run(function () use ($promoter, $archivePath, $expectedSha256, $signatureKeyId, $expectedOfficialKey): array {
+        return $promoter->run(function () use ($promoter, $archivePath, $expectedSha256, $signatureKeyId, $expectedOfficialKey, $replaceLocalSource): array {
             $recovery = $promoter->recover();
             $lockPath = dirname($this->serverRoot) . '/modules.lock';
-            $current = is_file($lockPath) ? (new ModuleLockResolver($this->serverRoot, $lockPath))->all() : [];
+            // Existing development source may contain reviewed fixes; runtime declarations do not attest old archive bytes.
+            // The incoming archive below still receives the complete native source verification.
+            $current = is_file($lockPath) ? ModuleLockResolver::forRuntime($this->serverRoot, $lockPath)->all() : [];
             $versions = [];
             foreach ($current as $descriptor) {
                 foreach ($descriptor->trust['compatibility']['modules'] as $module) {
@@ -361,6 +365,7 @@ final readonly class ModulePackageAdoptionService
                     }
                 }
                 $previous = $current[$package->packageKey] ?? null;
+                $localSourceMatches = true;
                 if ($previous !== null) {
                     $before = array_keys($previous->moduleRoots);
                     $after = array_keys($package->modules);
@@ -382,6 +387,14 @@ final readonly class ModulePackageAdoptionService
                         if ($pinnedArchive === null || !hash_equals($pinnedArchive, $package->archiveSha256)) {
                             throw new ModulePackageException('PACKAGE_VERSION_IDENTITY_CONFLICT', 'Same-version official archive identity cannot be verified.');
                         }
+                    }
+                    $local = (new ModuleArtifactWriter($this->serverRoot))->build($previous->key, $previous->version,
+                        [$previous->key . '=' . dirname($package->manifestRelative)]);
+                    $localSourceMatches = ($previous->source['type'] !== 'canonical-contents'
+                        || hash_equals($previous->source['sha256'], $local['source']['sha256']))
+                        && $previous->npm === $local['npm'] && $previous->frontend === $local['frontend'];
+                    if (!$localSourceMatches && !$replaceLocalSource) {
+                        throw new ModuleLifecycleException('PLUGIN_ARTIFACT_MISMATCH', 'Selected local source differs; review it before using --replace-local-source.');
                     }
                 }
                 $routes = [];
@@ -419,7 +432,7 @@ final readonly class ModulePackageAdoptionService
                 $entries[$package->packageKey] = $incoming;
                 ksort($entries, SORT_STRING);
                 $next['modules'] = array_values($entries);
-                $unchanged = $previous !== null && $previous->version === $package->packageVersion;
+                $unchanged = $previous !== null && $previous->version === $package->packageVersion && $localSourceMatches;
                 if (!$unchanged) {
                     $promoter->promote($package, json_encode($next, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n", $previous);
                 }

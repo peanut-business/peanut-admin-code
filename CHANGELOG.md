@@ -2,6 +2,14 @@
 
 Peanut Admin, PHP Core, Web Core, the CLI and downstream applications have independent release versions.
 
+## [5.1.16] - 2026-11-16
+
+- Let a tenant owner retain the protected `core.tenant-owner` role while explicitly assigning or removing supplementary tenant business roles. The tenant member API now rejects owner-role grants, removals, suspensions and departures through ordinary member operations, reserving ownership changes for the platform's dedicated workflow; no module permission is implicitly granted.
+- Expose the stable Identity role key in the existing admin-role list/detail API and generated OpenAPI/types; owner role handling no longer depends on translated display names.
+- Keep platform operators, tenant administration and frontend Member accounts in their existing separate authorization/session realms. Reuse PHP Core 5.1.1, Web Core 5.1.2 and current official Module releases; downstream applications upgrade separately and must verify actual access.
+- Restrict Module source adoption to explicitly reviewed package replacements, preserving the guarded source identity and existing module lifecycle.
+- Correct authenticated visits to the login page so the user returns to the intended tenant admin destination rather than re-entering a stale login flow.
+
 ## [5.1.15] - 2026-11-15
 
 - Preserve application-composed Composer and API files automatically when upstream changes only empty Composer repository formatting, the associated lock hash, or API version/provenance metadata. Functional dependency and API changes still require conflict decisions.

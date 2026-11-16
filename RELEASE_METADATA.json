@@ -2,10 +2,10 @@
   "schema_version": 3,
   "protocol": "peanut.release-metadata.v3",
   "product": "Peanut Admin",
-  "source_product_version": "5.1.15",
+  "source_product_version": "5.1.16",
   "instance_version": null,
-  "expected_tag": "v5.1.15",
-  "release_date": "2026-11-15",
+  "expected_tag": "v5.1.16",
+  "release_date": "2026-11-16",
   "repository": "https://github.com/peanut-business/peanut-admin-code",
   "license": {
     "type": "Apache-2.0",
@@ -77,18 +77,18 @@
   "lockfiles": {
     "server/composer.lock": "82f9e53ebe83d411ab01ebc63ec95802e9b2c696964336d8231758c5b8e69fe1",
     "web/pnpm-lock.yaml": "eb55b0a02d0a59da8289aa6c8c9c6cdb779f55d086549140da045dbc6f6db9b5",
-    "platform/package-lock.json": "6e4e1f3a3f8025e3a75aaa1787c92b63b81f28e583e8cac462c253c10a29281d",
-    "pc/package-lock.json": "73054ecb15c7919b8f783db9d4c111c4923bfe01e17f3fa9ef5fd66190b63f6b",
-    "uniapp/package-lock.json": "fae59d3ce95aa36c58a240c303f8e74460d20a5f9aec83efd622f132f1cb36a1"
+    "platform/package-lock.json": "daef3648ff049eddf5f2fed1fd5d5e94d6806dc3eaf26622310491a046ec2649",
+    "pc/package-lock.json": "14bbbcc6755c00885e64ded07cc81b603e6bd109b5c8e382958e4509fb3e8dab",
+    "uniapp/package-lock.json": "9ed0b659175e3b54de2f3ca71594708426ccd9f4b52f3fd5668fabb42efe7609"
   },
   "legal_files": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "NOTICE": "c0680ac5f6eac2bf9106393ada2d3d54b845a50cf14d13bf8e46acb66026609f",
-    "THIRD_PARTY_NOTICES.md": "298d8d9318652457ad82e4daaaad1d5263daba5c9d17e27d36fe192b9f5abc4c",
-    "RELEASE_SBOM.spdx.json": "0807f65608fd7b5bf95f61ea0f89cd28253df36801ef4a929d2608e7a8e6611a"
+    "THIRD_PARTY_NOTICES.md": "875569412a7c3a2dc50f55744657808ec64ca8864398a4327b00bab9bf14c6b0",
+    "RELEASE_SBOM.spdx.json": "d9907a5e227e51fe1cc4f8451fc24eb950d27390ee2fcb52e494e2bb920d03d8"
   },
   "technical_qualification": {
-    "phase": "5.1.15-stable-candidate",
+    "phase": "5.1.16-stable-candidate",
     "result": "pending",
     "final_candidate_commit": null,
     "final_candidate_tree": null,
@@ -96,7 +96,7 @@
     "groups_passed": 0,
     "summary_sha256": null,
     "cleanup_residual_count": null,
-    "scaffold_version": "5.1.15",
+    "scaffold_version": "5.1.16",
     "application_initial_version": "0.1.0",
     "evidence": "Product stable candidate identity is prepared from public Core registry locks; qualification remains pending.",
     "release_delta": "Adopts the published fixed PHP Core and Web Core package identities recorded in public_runtime_dependencies, separates source product identity from customer-owned instance identity, and prepares one-source deterministic Standalone and Multi-tenant scaffold inputs."
