@@ -84,6 +84,7 @@
   import useLoading from '@/hooks/loading';
   import type { LoginData } from '@/api/user';
   import type { TenantChoice } from '@peanut-admin/vue';
+  import { loginDestination } from '@/router/login-destination';
 
   const router = useRouter();
   const { t } = useI18n();
@@ -130,19 +131,9 @@
         userInfo.tenantId = tenantChoices.value[0]?.tenant_id;
         return;
       }
-      const { redirect, ...othersQuery } = router.currentRoute.value.query;
-      const redirectRoute =
-        typeof redirect === 'string' &&
-        redirect !== 'login' &&
-        router.hasRoute(redirect)
-          ? redirect
-          : 'Workplace';
-      router.push({
-        name: redirectRoute,
-        query: {
-          ...othersQuery,
-        },
-      });
+      await router.replace(
+        loginDestination(router, router.currentRoute.value.query.redirect)
+      );
       ElMessage.success(t('login.form.login.success'));
     } catch (err) {
       errorMessage.value = (err as Error).message;
