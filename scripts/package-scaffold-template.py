@@ -170,6 +170,7 @@ def main():
     parser.add_argument('--application', required=True)
     parser.add_argument('--output', required=True)
     parser.add_argument('--tooling-source', required=True)
+    parser.add_argument('--core-inputs', type=pathlib.Path)
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args()
     app = pathlib.Path(args.application).resolve(strict=True)
@@ -180,6 +181,10 @@ def main():
     if release['protocol'] not in ['peanut.scaffold-release.v3', 'peanut.scaffold-release.v4']:
         raise ValueError('TEMPLATE_RELEASE_PROTOCOL_INVALID')
     projection = release.get('internal_core_projection')
+    core_inputs = args.core_inputs.read_bytes() if args.core_inputs is not None else None
+    if ((projection is None) != (core_inputs is None)
+            or (projection is not None and digest(core_inputs) != projection.get('core_inputs_sha256'))):
+        raise ValueError('TEMPLATE_CORE_INPUTS_INVALID')
     if projection is not None and (projection.get('protocol') != 'peanut.internal-core-scaffold-projection.v1'
             or projection.get('scope') != 'internal-upgrade-target-not-formal-release'
             or manifest.get('scaffold_candidate') != {
@@ -433,6 +438,8 @@ def main():
     receipt_path = output / 'scaffold-build-inputs.json'
     identity = {'protocol': 'peanut.scaffold-build-inputs.v1', 'source': manifest['generation_source'],
                 'inputs': inputs, 'artifacts': artifacts, 'payload_sha256': payload}
+    if core_inputs is not None:
+        identity['core_inputs_receipt'] = core_inputs.decode('utf-8')
     if args.check:
         receipt = build_inputs
         if ({key: receipt.get(key) for key in identity} != identity

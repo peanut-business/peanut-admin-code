@@ -239,10 +239,10 @@ function releaseReadJson(string $path): array
     return $data;
 }
 
-function releaseCoreInputs(string $path): array
+function releaseCoreInputs(string $path, ?string $archiveRoot = null): array
 {
     $inputs = releaseReadJson($path);
-    $root = dirname($path);
+    $root = $archiveRoot ?? dirname($path);
     $archive = $inputs['core_php_archive'] ?? null;
     $core = $inputs['core_php'] ?? null;
     $repository = $inputs['composer_repository']['package'] ?? null;
@@ -259,9 +259,16 @@ function releaseCoreInputs(string $path): array
         && ($inputs['sources']['php'] ?? null) === $identity
         && ($inputs['sources']['web'] ?? null) === $webIdentity;
     if (!is_array($archive) || !is_array($core) || !is_array($repository)
+        || (array_key_exists('php_only', $inputs) && $inputs['php_only'] !== true)
         || ($inputs['status'] ?? null) !== 'frozen-core-build-inputs-not-product-release'
         || ($core['package'] ?? null) !== 'peanut-admin/core'
         || ($repository['name'] ?? null) !== 'peanut-admin/core') {
+        throw new RuntimeException('SCAFFOLD_RELEASE_CORE_INPUTS_INVALID');
+    }
+    if (isset($inputs['php_only'])
+        && (ReleaseDependencyIdentity::validate($core, $web, 'SCAFFOLD_RELEASE_CORE_INPUTS_INVALID',
+            'SCAFFOLD_RELEASE_WEB_INPUTS_INVALID') !== 'registry'
+            || ($archive['path'] ?? null) !== 'packages/core-php/peanut-admin-core-' . $core['resolved_version'] . '.zip')) {
         throw new RuntimeException('SCAFFOLD_RELEASE_CORE_INPUTS_INVALID');
     }
     $relative = (string) ($archive['path'] ?? '');
@@ -295,6 +302,7 @@ function releaseCoreInputs(string $path): array
     }
     return [
         'inputs' => $inputs,
+        'archive_root' => $root,
         'archive_absolute' => $zip,
         'archive_relative' => $relative,
         'archive_sha256' => $sha256,
@@ -447,9 +455,9 @@ function releaseProjectWeb(string $application, array $core, string $receipt, st
         if ($web !== ($versions['core_web'] ?? null)) {
             throw new RuntimeException('SCAFFOLD_RELEASE_REUSED_WEB_INPUTS_CHANGED');
         }
-        $locks = json_decode(releaseRun(['node', $toolRoot . '/scripts/release-dependency-locks.mjs', $application,
-            '--third-party-only', '--tool-root=' . $toolRoot]), true, 512, JSON_THROW_ON_ERROR);
-        return ['packages' => $web['packages'], 'third_party_locks' => $locks];
+        releaseRun(['node', $toolRoot . '/scripts/release-dependency-locks.mjs', $application,
+            '--core-inputs=' . $receipt, '--tool-root=' . $toolRoot]);
+        return ['packages' => $web['packages']];
     }
     $suffixes = ['client', 'vue', 'ui-vue', 'nuxt', 'uniapp', 'testing'];
     $local = is_array($web) && ($web['source_type'] ?? null) === 'local';
@@ -480,7 +488,7 @@ function releaseProjectWeb(string $application, array $core, string $receipt, st
             || $path !== 'packages/core-web/peanut-admin-' . $suffix . '-' . $identity['version'] . '.tgz') {
             throw new RuntimeException('SCAFFOLD_RELEASE_WEB_ARCHIVE_IDENTITY_INVALID');
         }
-        $input = dirname($receipt) . '/' . $path;
+        $input = $core['archive_root'] . '/' . $path;
         releaseInputFile($input);
         if (!hash_equals((string) ($identity['sha256'] ?? ''), (string) hash_file('sha256', $input))) {
             throw new RuntimeException('SCAFFOLD_RELEASE_WEB_ARCHIVE_DIGEST_INVALID');
@@ -718,10 +726,16 @@ function releaseProjectScaffold(string $application, array $core, string $tempor
     ];
     if ($localSource) {
         $projection['source_identity'] = $sourceIdentity;
-        $projection['core_web_source_identity'] = $core['inputs']['core_web']['source_identity'];
     } else {
         $projection['source'] = ['commit' => $sourceIdentity['commit'], 'tree' => $sourceIdentity['tree']];
+    }
+    if ($core['local']) {
+        $projection['core_web_source_identity'] = $core['inputs']['core_web']['source_identity'];
+    } else {
         $projection['web_source_reference'] = $core['inputs']['core_web']['source_reference'];
+    }
+    if (isset($core['inputs']['php_only'])) {
+        $projection['php_only'] = true;
     }
     return $projection;
 }
@@ -869,18 +883,29 @@ try {
         throw new RuntimeException('SCAFFOLD_RELEASE_WORKFLOW_MISMATCH');
     }
     $internalProjection = null;
-    if (isset($options['internal-core-inputs'])) {
+    $output = rtrim($options['output'], '/');
+    $receipt = $options['internal-core-inputs'] ?? null;
+    if ($check && array_key_exists('internal_core_projection', $existing)) {
+        $buildInputs = releaseReadJson($output . '/scaffold-build-inputs.json');
+        $raw = $buildInputs['core_inputs_receipt'] ?? null;
+        if (!is_string($raw) || hash('sha256', $raw) !== ($existing['internal_core_projection']['core_inputs_sha256'] ?? null)) {
+            throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_RECEIPT_INVALID');
+        }
+        $receipt = $temporary . '/release-core-inputs.json';
+        releaseWrite($receipt, $raw, 0600);
+    }
+    if ($receipt !== null) {
         if (!$modernCreator || $edition === null
             || ($manifest['template']['version'] ?? null) !== $options['version']) {
             throw new RuntimeException('SCAFFOLD_RELEASE_INTERNAL_SOURCE_UNSUPPORTED');
         }
-        $core = releaseCoreInputs($options['internal-core-inputs']);
+        $core = releaseCoreInputs($receipt, $check ? $output . '/files' : null);
         $internalProjection = releaseProjectScaffold(
             $application,
             $core,
             $temporary,
             $sourceIdentity,
-            $options['internal-core-inputs'],
+            $receipt,
             $root,
         );
         $manifest = releaseReadJson($application . '/.peanut/application-manifest.json');
@@ -985,6 +1010,9 @@ try {
         // The same native projection produces creation defaults and upgrade bytes.
         $packageCommand = ['python3', ($check ? $root : $source) . '/scripts/package-scaffold-template.py',
             '--application', $application, '--output', rtrim($options['output'], '/'), '--tooling-source', $source . '/server'];
+        if ($internalProjection !== null) {
+            $packageCommand[] = '--core-inputs=' . $receipt;
+        }
         if ($check) { $packageCommand[] = '--check'; }
         releaseRun($packageCommand);
     }

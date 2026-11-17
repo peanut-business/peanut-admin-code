@@ -453,6 +453,36 @@ final class ApplicationCreator
             throw new RuntimeException('CREATE_APP_CANDIDATE_CORE_INVALID');
         }
         $archives = [$phpPath => $core['archive_sha256']];
+        if (array_key_exists('php_only', $projection)) {
+            if ($projection['php_only'] !== true || !$gitCoreIdentity) {
+                throw new RuntimeException('CREATE_APP_CANDIDATE_CORE_INVALID');
+            }
+            $source = $this->versionContract();
+            $versionsArtifact = $adoption->files()['release-versions.json'] ?? null;
+            $versions = $versionsArtifact === null ? null : json_decode(
+                (string) file_get_contents($adoption->artifactPath($versionsArtifact)), true, 512, JSON_THROW_ON_ERROR,
+            );
+            $projectedPhp = $versions['core_php'] ?? null;
+            $sourceWeb = $source->coreWebIdentity();
+            $web = $versions['core_web'] ?? null;
+            if ($web !== $sourceWeb || ($projection['core_web'] ?? null) !== $sourceWeb['packages']
+                || $projection['web_source_reference'] !== ($sourceWeb['source_reference'] ?? null)
+                || ReleaseDependencyIdentity::validate($projectedPhp, $web, 'CREATE_APP_CANDIDATE_CORE_INVALID',
+                    'CREATE_APP_CANDIDATE_WEB_INVALID') !== 'registry') {
+                throw new RuntimeException('CREATE_APP_CANDIDATE_WEB_INVALID');
+            }
+            $phpArchive = $adoption->files()[$phpPath] ?? null;
+            if (($projection['release_versions']['before'] ?? null) !== $source->corePhpPackage()
+                || ($projection['release_versions']['after'] ?? null) !== $projectedPhp
+                || $projectedPhp['constraint'] !== $version || $projectedPhp['resolved_version'] !== $version
+                || $projectedPhp['source_reference'] !== $core['source_reference']
+                || $projectedPhp['source_url'] !== $source->corePhpPackage()['source_url']
+                || $phpArchive === null || preg_match('/^[a-f0-9]{40}$/D', (string) ($core['archive_sha1'] ?? '')) !== 1
+                || hash_file('sha1', $adoption->artifactPath($phpArchive)) !== $core['archive_sha1']) {
+                throw new RuntimeException('CREATE_APP_CANDIDATE_CORE_INVALID');
+            }
+            return $archives;
+        }
         $suffixes = ['client', 'vue', 'ui-vue', 'nuxt', 'uniapp', 'testing'];
         $web = $projection['core_web'] ?? null;
         if (!is_array($web) || array_keys($web) !== array_map(static fn(string $suffix): string => '@peanut-admin/' . $suffix, $suffixes)) {
