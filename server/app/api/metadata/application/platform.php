@@ -459,10 +459,10 @@ $schemas['PlatformTenantOwnerRevocation'] = [
 $add($paths, 'POST', '/platformapi/tenants/owner/revoke', $operation(
     'revokePlatformTenantOwner',
     'PlatformTenants',
-    $responses('PlatformTenantOwnerRevocation') + ['404' => $error, '409' => $error, '412' => $error],
+    $responses('PlatformTenantOwnerRevocation') + ['400' => $error, '404' => $error, '409' => $error, '412' => $error],
     requestBody: $jsonBody($ref('PlatformTenantOwnerRevocationRequest')),
     errors: ['CHANGE_REASON_REQUIRED', 'PLATFORM_OPERATOR_INVALID', 'TENANT_NOT_ACTIVE', 'REVISION_MISMATCH', 'TENANT_OWNER_STATE_CONFLICT', 'LAST_ACTIVE_OWNER_REQUIRED'],
-    description: 'Requires an authenticated platform operator with platform.tenant.provision-owner. Removes only the selected owner role and suspends that membership; preserves the global account and other tenants. Identity rejects stale revisions and removal of the last active owner. Requires Identity 4.0.1-rc.1 or a later release containing revokeOwner.',
+    description: 'Requires an authenticated platform operator with platform.tenant.provision-owner. Missing, unknown or invalid request fields return HTTP 400 with envelope code 40000. Removes only the selected owner role and suspends that membership; preserves the global account and other tenants. Identity rejects stale revisions and removal of the last active owner. Requires Identity 4.0.1-rc.1 or a later release containing revokeOwner.',
 ));
 
 // Platform operator 与角色写入；请求字段严格对应 PlatformAccessValidate scenes。

@@ -2096,7 +2096,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Requires an authenticated platform operator with platform.tenant.provision-owner. Removes only the selected owner role and suspends that membership; preserves the global account and other tenants. Identity rejects stale revisions and removal of the last active owner. Requires Identity 4.0.1-rc.1 or a later release containing revokeOwner. */
+        /** @description Requires an authenticated platform operator with platform.tenant.provision-owner. Missing, unknown or invalid request fields return HTTP 400 with envelope code 40000. Removes only the selected owner role and suspends that membership; preserves the global account and other tenants. Identity rejects stale revisions and removal of the last active owner. Requires Identity 4.0.1-rc.1 or a later release containing revokeOwner. */
         post: operations["revokePlatformTenantOwner"];
         delete?: never;
         options?: never;
@@ -9090,6 +9090,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];

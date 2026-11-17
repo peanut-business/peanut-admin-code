@@ -5092,7 +5092,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "24c5fcf42c60b8a7f3da7fa793e1a636057f670f5782904a787eb3f67f597552"
+            "source_sha256": "a99c2b8d95c2c80c6904637c9d80f7edc3a8211625239620ea41ba4c5c72e62c"
         },
         {
             "path": "server/app/api/metadata/application/shared.php",
@@ -11367,7 +11367,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "06999d89c9353bada16e5d2f2b08e98fa6b2862368caa121c01d80916276b5ee"
+            "source_sha256": "ed3f710b0c08df72c00bd6b16c9648acaa51a2d3a86fd4df0c69b8d20c33ff1e"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11381,7 +11381,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "46e69e543ad1cf17bcefa9b22385d2d80c910518dea3dcdabea86fc7a1ff666c"
+            "source_sha256": "64fd995f55f809c53437ebb274c4d9895eeddb3cc425fdf8a387db593bf10e96"
         },
         {
             "path": "server/module",
@@ -17446,7 +17446,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "57bc7fb697afe1bf0744e5be0ee5ae73c7e7a19ab189d5127af998ae170cc89c"
+            "source_sha256": "e2586a40d3c14e9f2bc20df346d63c51223ef79a9a51c4f44e5de4f9e356cf28"
         },
         {
             "path": "web/src/hooks/loading.ts",
