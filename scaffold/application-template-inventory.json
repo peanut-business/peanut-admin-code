@@ -1096,7 +1096,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "061f3a58661fe9c66fcf4f02807fe448f7becf7a40c8124c939bc950796ab601"
+            "source_sha256": "5d892dc87292df273db93f59ab1e52e8fe3c8381f6f9785aefc13cd69359a638"
         },
         {
             "path": "docs/public/release-channels.md",
@@ -5456,7 +5456,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "63747086378c8fd832df0945c2f0603ae218691f650b999651ca7c776d9ce9b0"
+            "source_sha256": "bef08403d3c86f0c6d5c984cf319b1faa8f65f36566feaa74b27fc44c1f709d9"
         },
         {
             "path": "server/app/command/ModulePackageCommandSupport.php",

@@ -27,6 +27,12 @@
 
 本路径不改变已发布的 5.1.10 原件或历史运行记录。正式发布仍用唯一 scripts/publish-github-release 发布器，短期 GitHub Token 和原校验器；不引入第二条上传本地包、私有任务平台、自动化重试器或隐藏审批。
 
+## 开发候选与消费者交接
+
+日常功能和修复先累积在开发来源，跨应用需要固定制品时选独立本地/RC 版本，收敛后再按授权发行正式 patch。模板继续复用 `peanut release` 的现有 local 来源与显式版本合同；模块候选通过[模块开发入口](../public/module-development.md#本地模块候选)的 `module pack --prepare-candidate [--plan-only]` 准备同号声明，沿原生模块锁及 Composer/workspace 入口收敛，再普通 pack。该准备动作不制包、不改宿主依赖/锁，不以它代替最终锁准备或正式资格。不同源码使用新 RC 的 N，已固定归档与失败证据不覆盖；未变化依赖不跟随升版。
+
+生产者分别交接 source-complete、candidate-ready、published，消费者记录 adopted 或 deferred。每次只在原任务结果更新固定来源、变化对象/范围、版本与制品 SHA（尚无制品时明确无）、原生入口、已验证/未执行及实际依赖消费者。源码消息不能表述为可安装；candidate-ready 须已完成适用原生锁准备和归档验证；published 须实际核公开渠道。正式发布完成后由原 owner 通知相关消费者审阅升级，不能只更新一个 APP，也不能替消费者自动采用或另建消息队列/后台监控。正式发布流程及人工 Gate 不因此改变。
+
 ## 数据库维护输入
 
 普通开发、启动和原生迁移不要求自写租约或候选证明；共享开发库仍核对实际部署目标、登记 endpoint、数据库名和应用凭据。
