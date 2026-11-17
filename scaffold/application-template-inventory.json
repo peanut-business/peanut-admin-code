@@ -877,7 +877,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1f90603187435ce9085678932260a0b9a372854e06996dc5bbd5556f64f3bfd4"
+            "source_sha256": "670211fc5666411109e67a0abd3bda1325cc50d85e47b8f6dbcabd8ade678276"
         },
         {
             "path": "docs/development/php-thinkphp-guidelines.md",
@@ -3082,7 +3082,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "36242090e77885ba8621b146e50f8ac05f5e01521d0706e2b17d61178a8cdd06"
+            "source_sha256": "2c5cfcf94eff6cc4a50677c4fdbccee2e64ea5e37dacddc763ad3a2396d126d7"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -17249,7 +17249,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "21fe09d5b345bcada493792047bff4b1b76bb7abe1a5709024206814d5f0382e"
+            "source_sha256": "71d1a49b4f23e342dd31c159ce46189fa0ebfe494aec42a942264a746c9680f4"
         },
         {
             "path": "web/src/components/tab-bar/index.vue",
@@ -17263,7 +17263,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "48d0d51052b60a5cc2638249951e7a1373547ad0f6bf71d25d1abcb9a03ca8f2"
+            "source_sha256": "c93e5e2ad747da26c38b7844676b0cbfbfa30727525d9cca77e4c07dcad1802a"
         },
         {
             "path": "web/src/components/tab-bar/readme.md",
@@ -17291,7 +17291,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e6bc1b74ad21c07bb32ce5af69643cc8563efbf326d12b841a7f47c8e63e526d"
+            "source_sha256": "f79756cfc6e93fcca15fce5b3194007ee6fe2163d583f8294cedff61fdb01c8e"
         },
         {
             "path": "web/src/components/tenant-license/index.vue",
