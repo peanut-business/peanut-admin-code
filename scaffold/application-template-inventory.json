@@ -696,7 +696,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5fc752cce4b84dfc10921e99e5e63cd3da61e309981c1ff171494f66b11a3f06"
+            "source_sha256": "cf6401e58b895e1f3f4286439eb01107f23b290cf3836b2ae0dce599dbdf8b74"
         },
         {
             "path": "docs/architecture/module-composition.md",
@@ -5092,7 +5092,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fc8945d970e0b827d4c7055114448ba084e79a07017a74042e9a48a9a4343d5e"
+            "source_sha256": "24c5fcf42c60b8a7f3da7fa793e1a636057f670f5782904a787eb3f67f597552"
         },
         {
             "path": "server/app/api/metadata/application/shared.php",
@@ -8512,7 +8512,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "61bdfecf0885646e1c11d1afa065b7d6b337a4f1aef395888434e9bf686b4304"
+            "source_sha256": "286bc76bf2e25e75888d9f1ce0ce625775c5013a62dc8952e7fec9720951446d"
         },
         {
             "path": "server/app/platform/controller/PlatformTenantEntryBindingController.php",
@@ -9100,7 +9100,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "29b91f73851f7313a9a983fc505e200b820bde54cf3925a611f5e0533c9f55ae"
+            "source_sha256": "ec95bf04334662223c839f5ff8b20f6b484bc3aec601547962637e24813e4647"
         },
         {
             "path": "server/app/platform/services/developer/DeveloperCenterCatalogService.php",
@@ -9296,7 +9296,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "921b802d8b3ccff9e54b4b0a9d273859bc8f03468f36ed4db69dbb1a639e597b"
+            "source_sha256": "a912d5ed9f29e7d53844c542ec8ac7e4c57f6823ba7b3bfad81bb13a4cd159cf"
         },
         {
             "path": "server/app/platform/validate/TenantEntryBindingValidate.php",
@@ -11367,7 +11367,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ef3aaa4538a337be95c665c8c4ba37b8779e49c6c31ae3b788ea931ac4f02d05"
+            "source_sha256": "06999d89c9353bada16e5d2f2b08e98fa6b2862368caa121c01d80916276b5ee"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11381,7 +11381,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "685f02ae210d8266e263c2b5520aa787a4512e3eae72ce8ad341facda001d950"
+            "source_sha256": "46e69e543ad1cf17bcefa9b22385d2d80c910518dea3dcdabea86fc7a1ff666c"
         },
         {
             "path": "server/module",
@@ -11829,7 +11829,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7d8f6af4bd4b030fdd067c1930b6d00d1bc95a547d04452acd260644c5085eba"
+            "source_sha256": "b284d90b8339841351b864109d199cb41f309dc1c252a93b318712b29ef51def"
         },
         {
             "path": "server/route/public_api.php",
@@ -17446,7 +17446,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a5ee1ba94b2be86cead757dd114ab89282bedc4bd684cac4ffcb1224c8e6344b"
+            "source_sha256": "57bc7fb697afe1bf0744e5be0ee5ae73c7e7a19ab189d5127af998ae170cc89c"
         },
         {
             "path": "web/src/hooks/loading.ts",
