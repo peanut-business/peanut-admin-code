@@ -2087,23 +2087,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/platformapi/tenants/owner/revoke": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Requires an authenticated platform operator with platform.tenant.provision-owner. Missing, unknown or invalid request fields return HTTP 400 with envelope code 40000. Removes only the selected owner role and suspends that membership; preserves the global account and other tenants. Identity rejects stale revisions and removal of the last active owner. Requires Identity 4.0.1-rc.1 or a later release containing revokeOwner. */
-        post: operations["revokePlatformTenantOwner"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/platformapi/operators/create": {
         parameters: {
             query?: never;
@@ -4446,23 +4429,6 @@ export interface components {
             selection_sha256: string;
         };
         PlatformOfficialUpdateResult: components["schemas"]["PlatformOfficialUpdatePreview"] | components["schemas"]["PlatformOpsTask"];
-        PlatformTenantOwnerRevocationRequest: {
-            tenant_id: number;
-            member_id: number;
-            /** @description Target membership authorization revision, not the tenant revision. */
-            expected_revision: number;
-            change_reason: string;
-        };
-        PlatformTenantOwnerRevocation: {
-            tenant_id: string;
-            member_id: string;
-            account_id: string;
-            /** @enum {string} */
-            status: "suspended";
-            revision: string;
-            /** @enum {boolean} */
-            owner_revoked: true;
-        };
         TenantPlan: {
             id: number;
             code: string;
@@ -9060,42 +9026,6 @@ export interface operations {
             };
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    revokePlatformTenantOwner: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlatformTenantOwnerRevocationRequest"];
-            };
-        };
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["PlatformTenantOwnerRevocation"];
-                    };
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            412: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };

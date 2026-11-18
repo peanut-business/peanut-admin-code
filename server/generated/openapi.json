@@ -436,7 +436,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 201
+                        "line": 198
                     }
                 },
                 "x-peanut-permissions": [
@@ -514,7 +514,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 154
+                        "line": 151
                     }
                 },
                 "x-peanut-permissions": [
@@ -592,7 +592,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 198
+                        "line": 195
                     }
                 },
                 "x-peanut-permissions": [
@@ -670,7 +670,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 195
+                        "line": 192
                     }
                 },
                 "x-peanut-permissions": [
@@ -774,7 +774,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 157
+                        "line": 154
                     }
                 },
                 "x-peanut-permissions": [
@@ -852,7 +852,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 160
+                        "line": 157
                     }
                 },
                 "x-peanut-permissions": [
@@ -964,7 +964,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 168
+                        "line": 165
                     }
                 },
                 "x-peanut-permissions": [
@@ -1070,7 +1070,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 171
+                        "line": 168
                     }
                 },
                 "x-peanut-permissions": [
@@ -1171,7 +1171,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 179
+                        "line": 176
                     }
                 },
                 "x-peanut-permissions": [
@@ -1283,7 +1283,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 182
+                        "line": 179
                     }
                 },
                 "x-peanut-permissions": [
@@ -1377,7 +1377,7 @@
                     "permission": "platform.ops.upgrade.manage",
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 185
+                        "line": 182
                     }
                 },
                 "x-peanut-permissions": [
@@ -1482,7 +1482,7 @@
                     "permission": "platform.ops.module.manage",
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 190
+                        "line": 187
                     }
                 },
                 "x-peanut-permissions": [
@@ -1574,7 +1574,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 204
+                        "line": 201
                     }
                 },
                 "x-peanut-permissions": [
@@ -11802,7 +11802,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 235
+                        "line": 232
                     }
                 },
                 "x-peanut-permissions": [
@@ -11975,7 +11975,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 210
+                        "line": 207
                     }
                 },
                 "x-peanut-permissions": [
@@ -12063,7 +12063,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 213
+                        "line": 210
                     }
                 },
                 "x-peanut-permissions": [
@@ -12151,7 +12151,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 216
+                        "line": 213
                     }
                 },
                 "x-peanut-permissions": [
@@ -12260,7 +12260,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 87
+                        "line": 84
                     }
                 },
                 "x-peanut-permissions": [
@@ -12369,7 +12369,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 90
+                        "line": 87
                     }
                 },
                 "x-peanut-permissions": [
@@ -12478,7 +12478,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 93
+                        "line": 90
                     }
                 },
                 "x-peanut-permissions": [
@@ -12587,7 +12587,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 96
+                        "line": 93
                     }
                 },
                 "x-peanut-permissions": [
@@ -12705,7 +12705,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 99
+                        "line": 96
                     }
                 },
                 "x-peanut-permissions": [
@@ -12797,112 +12797,6 @@
                     {
                         "kind": "platform_action",
                         "key": "platform.tenant.read"
-                    }
-                ]
-            }
-        },
-        "/platformapi/tenants/owner/revoke": {
-            "post": {
-                "tags": [
-                    "PlatformTenants"
-                ],
-                "operationId": "revokePlatformTenantOwner",
-                "parameters": [],
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "additionalProperties": false,
-                                    "required": [
-                                        "code",
-                                        "msg",
-                                        "data"
-                                    ],
-                                    "properties": {
-                                        "code": {
-                                            "type": "integer",
-                                            "enum": [
-                                                20000
-                                            ]
-                                        },
-                                        "msg": {
-                                            "type": "string"
-                                        },
-                                        "data": {
-                                            "$ref": "#/components/schemas/PlatformTenantOwnerRevocation"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    },
-                    "403": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    },
-                    "400": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    },
-                    "404": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    },
-                    "409": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    },
-                    "412": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    }
-                },
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/PlatformTenantOwnerRevocationRequest"
-                            }
-                        }
-                    }
-                },
-                "x-peanut-errors": [
-                    "CHANGE_REASON_REQUIRED",
-                    "PLATFORM_OPERATOR_INVALID",
-                    "TENANT_NOT_ACTIVE",
-                    "REVISION_MISMATCH",
-                    "TENANT_OWNER_STATE_CONFLICT",
-                    "LAST_ACTIVE_OWNER_REQUIRED"
-                ],
-                "description": "Requires an authenticated platform operator with platform.tenant.provision-owner. Missing, unknown or invalid request fields return HTTP 400 with envelope code 40000. Removes only the selected owner role and suspends that membership; preserves the global account and other tenants. Identity rejects stale revisions and removal of the last active owner. Requires Identity 4.0.1-rc.1 or a later release containing revokeOwner.",
-                "security": [
-                    {
-                        "bearerAuth": {}
-                    }
-                ],
-                "x-peanut-route": {
-                    "application": "platform",
-                    "owner": {
-                        "type": "application",
-                        "key": "platform"
-                    },
-                    "controller": "app\\platform\\controller\\PlatformTenantController",
-                    "action": "revokeOwner",
-                    "permission": null,
-                    "source": {
-                        "file": "server/route/platform.php",
-                        "line": 84
-                    }
-                },
-                "x-peanut-permissions": [
-                    {
-                        "kind": "platform_action",
-                        "key": "platform.tenant.provision-owner"
                     }
                 ]
             }
@@ -13001,7 +12895,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 238
+                        "line": 235
                     }
                 },
                 "x-peanut-permissions": [
@@ -13111,7 +13005,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 241
+                        "line": 238
                     }
                 },
                 "x-peanut-permissions": [
@@ -13225,7 +13119,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 244
+                        "line": 241
                     }
                 },
                 "x-peanut-permissions": [
@@ -13330,7 +13224,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 247
+                        "line": 244
                     }
                 },
                 "x-peanut-permissions": [
@@ -13435,7 +13329,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 250
+                        "line": 247
                     }
                 },
                 "x-peanut-permissions": [
@@ -13540,7 +13434,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 253
+                        "line": 250
                     }
                 },
                 "x-peanut-permissions": [
@@ -13645,7 +13539,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 256
+                        "line": 253
                     }
                 },
                 "x-peanut-permissions": [
@@ -13759,7 +13653,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 259
+                        "line": 256
                     }
                 },
                 "x-peanut-permissions": [
@@ -13864,7 +13758,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 262
+                        "line": 259
                     }
                 },
                 "x-peanut-permissions": [
@@ -13977,7 +13871,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 265
+                        "line": 262
                     }
                 },
                 "x-peanut-permissions": [
@@ -14607,7 +14501,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 145
+                        "line": 142
                     }
                 },
                 "x-peanut-permissions": [
@@ -14727,7 +14621,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 148
+                        "line": 145
                     }
                 },
                 "x-peanut-permissions": [
@@ -14832,7 +14726,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 207
+                        "line": 204
                     }
                 },
                 "x-peanut-permissions": [
@@ -14926,7 +14820,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 110
+                        "line": 107
                     }
                 },
                 "x-peanut-permissions": [
@@ -15071,7 +14965,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 114
+                        "line": 111
                     }
                 },
                 "x-peanut-permissions": [
@@ -15189,7 +15083,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 102
+                        "line": 99
                     }
                 },
                 "x-peanut-permissions": [
@@ -15295,7 +15189,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 122
+                        "line": 119
                     }
                 },
                 "x-peanut-permissions": [
@@ -15414,7 +15308,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 126
+                        "line": 123
                     }
                 },
                 "x-peanut-permissions": [
@@ -15502,7 +15396,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 130
+                        "line": 127
                     }
                 },
                 "x-peanut-permissions": [
@@ -15612,7 +15506,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 118
+                        "line": 115
                     }
                 },
                 "x-peanut-permissions": [
@@ -15713,7 +15607,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 137
+                        "line": 134
                     }
                 },
                 "x-peanut-permissions": [
@@ -15805,7 +15699,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 141
+                        "line": 138
                     }
                 },
                 "x-peanut-permissions": [
@@ -15978,7 +15872,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 133
+                        "line": 130
                     }
                 },
                 "x-peanut-permissions": [
@@ -16063,7 +15957,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 107
+                        "line": 104
                     }
                 },
                 "x-peanut-permissions": [
@@ -16141,7 +16035,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 151
+                        "line": 148
                     }
                 },
                 "x-peanut-permissions": [
@@ -16272,7 +16166,7 @@
                     "permission": "platform.ops.logs.read",
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 163
+                        "line": 160
                     }
                 },
                 "x-peanut-permissions": [
@@ -16372,7 +16266,7 @@
                     "permission": "platform.ops.logs.read",
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 174
+                        "line": 171
                     }
                 },
                 "x-peanut-permissions": [
@@ -16490,7 +16384,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 220
+                        "line": 217
                     }
                 },
                 "x-peanut-permissions": [
@@ -16579,7 +16473,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 223
+                        "line": 220
                     }
                 },
                 "x-peanut-permissions": [
@@ -16668,7 +16562,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 226
+                        "line": 223
                     }
                 },
                 "x-peanut-permissions": [
@@ -16759,7 +16653,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 229
+                        "line": 226
                     }
                 },
                 "x-peanut-permissions": [
@@ -16848,7 +16742,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 232
+                        "line": 229
                     }
                 },
                 "x-peanut-permissions": [
@@ -25356,78 +25250,6 @@
                         "$ref": "#/components/schemas/PlatformOpsTask"
                     }
                 ]
-            },
-            "PlatformTenantOwnerRevocationRequest": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                    "tenant_id",
-                    "member_id",
-                    "expected_revision",
-                    "change_reason"
-                ],
-                "properties": {
-                    "tenant_id": {
-                        "type": "integer",
-                        "minimum": 1
-                    },
-                    "member_id": {
-                        "type": "integer",
-                        "minimum": 1
-                    },
-                    "expected_revision": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "description": "Target membership authorization revision, not the tenant revision."
-                    },
-                    "change_reason": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 500
-                    }
-                }
-            },
-            "PlatformTenantOwnerRevocation": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                    "tenant_id",
-                    "member_id",
-                    "account_id",
-                    "status",
-                    "revision",
-                    "owner_revoked"
-                ],
-                "properties": {
-                    "tenant_id": {
-                        "type": "string",
-                        "pattern": "^[1-9][0-9]*$"
-                    },
-                    "member_id": {
-                        "type": "string",
-                        "pattern": "^[1-9][0-9]*$"
-                    },
-                    "account_id": {
-                        "type": "string",
-                        "pattern": "^[1-9][0-9]*$"
-                    },
-                    "status": {
-                        "type": "string",
-                        "enum": [
-                            "suspended"
-                        ]
-                    },
-                    "revision": {
-                        "type": "string",
-                        "pattern": "^[1-9][0-9]*$"
-                    },
-                    "owner_revoked": {
-                        "type": "boolean",
-                        "enum": [
-                            true
-                        ]
-                    }
-                }
             },
             "TenantPlan": {
                 "type": "object",
