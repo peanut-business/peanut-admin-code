@@ -149,7 +149,7 @@ final class MemberHostActionPermissionTest extends TestCase
         self::assertSame(3, (int) $this->pdo->query('SELECT COUNT(*) FROM pa_tenant_member')->fetchColumn());
     }
 
-    public function testOrdinaryMemberEditCannotPromoteOrDemoteTenantOwner(): void
+    public function testOrdinaryMemberEditCannotPromoteButActiveOwnerMayDemoteAnotherOwner(): void
     {
         $this->pdo->exec('INSERT INTO pa_role(id,tenant_id,"key",name,is_builtin,status) '
             . "VALUES (704,101,'core.tenant-owner','Tenant Owner',1,'active')");
@@ -162,19 +162,52 @@ final class MemberHostActionPermissionTest extends TestCase
         } catch (BusinessException $error) {
             self::assertSame('TENANT_OWNER_ROLE_REQUIRES_PLATFORM_FLOW', $error->errorCode);
         }
-        // Two active owners defeat last-owner-only checks. The ordinary editor
-        // must still preserve ownership; platform owner transfer is separate.
+        // An active owner may remove another owner's role through the ordinary
+        // member editor; the membership itself remains active.
         $this->pdo->exec('INSERT INTO pa_member_role(tenant_id,tenant_member_id,role_id) '
             . 'VALUES (101,601,704),(101,602,704)');
+        self::assertTrue($this->runAs(fn() => $this->host->edit($this->actor, [
+            'id' => 602, 'name' => 'Target', 'role_id' => [701], 'disable' => 0,
+        ])));
+        self::assertSame([701], $this->members->get(101, 602)['role_ids']);
+        self::assertSame('active', $this->members->get(101, 602)['status']);
+        self::assertSame([704], $this->members->get(101, 601)['role_ids']);
+    }
+
+    public function testNonOwnerCannotDemoteAnotherOwner(): void
+    {
+        $this->pdo->exec('INSERT INTO pa_role(id,tenant_id,"key",name,is_builtin,status) '
+            . "VALUES (704,101,'core.tenant-owner','Tenant Owner',1,'active')");
+        $this->pdo->exec('INSERT INTO pa_member_role(tenant_id,tenant_member_id,role_id) '
+            . 'VALUES (101,602,704)');
+        $this->permissions = ['core.member.update', 'core.member.role.assign'];
         try {
             $this->runAs(fn() => $this->host->edit($this->actor, [
                 'id' => 602, 'name' => 'Target', 'role_id' => [701], 'disable' => 0,
             ]));
-            self::fail('Ordinary editing removed an existing tenant owner.');
+            self::fail('A non-owner demoted the tenant owner.');
         } catch (BusinessException $error) {
-            self::assertSame('TENANT_OWNER_ROLE_REQUIRES_PLATFORM_FLOW', $error->errorCode);
+            self::assertSame('TENANT_OWNER_ACTOR_REQUIRED', $error->errorCode);
         }
         self::assertSame([704, 701], $this->members->get(101, 602)['role_ids']);
+    }
+
+    public function testOwnerCannotRemoveTheirOwnOwnerRole(): void
+    {
+        $this->pdo->exec('INSERT INTO pa_role(id,tenant_id,"key",name,is_builtin,status) '
+            . "VALUES (704,101,'core.tenant-owner','Tenant Owner',1,'active')");
+        $this->pdo->exec('INSERT INTO pa_member_role(tenant_id,tenant_member_id,role_id) '
+            . 'VALUES (101,601,704),(101,602,704)');
+        $this->permissions = ['core.member.update', 'core.member.role.assign'];
+        try {
+            $this->runAs(fn() => $this->host->edit($this->actor, [
+                'id' => 601, 'name' => 'Actor', 'role_id' => [701], 'disable' => 0,
+            ]));
+            self::fail('Owner demoted themselves.');
+        } catch (BusinessException $error) {
+            self::assertSame('TENANT_OWNER_SELF_DEMOTION_FORBIDDEN', $error->errorCode);
+        }
+        self::assertSame([704], $this->members->get(101, 601)['role_ids']);
     }
 
     public function testOrdinaryMemberEndpointsCannotSuspendOrDeleteAnOwner(): void
