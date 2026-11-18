@@ -9,7 +9,7 @@ import test from 'node:test';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const require = createRequire(import.meta.url);
 const native = createRequire(resolve(root, 'uniapp/package.json'));
-const ts = require(resolve(root, 'tools/quality/node_modules/typescript'));
+const ts = native('typescript');
 const sfc = native('vue/compiler-sfc');
 
 test('H5 policy query changes replace old content and reject stale responses', async () => {
@@ -68,9 +68,9 @@ test('H5 policy query changes replace old content and reject stale responses', a
   assert.deepEqual(requests.map((r) => r.type), ['privacy', 'service']);
   assert.equal(exports.observed.policy.value, null);
   requests[1].resolve({ title: '服务条款', content: 'service text' });
-  await Promise.resolve();
+  await new Promise((resolve) => setImmediate(resolve));
   requests[0].resolve({ title: '隐私政策', content: 'stale text' });
-  await Promise.resolve();
+  await new Promise((resolve) => setImmediate(resolve));
   assert.equal(exports.observed.policy.value.content, 'service text');
   assert.equal(titles.at(-1), '用户协议');
   page.location.hash = '#/pages/agreement/agreement?type=invalid';
