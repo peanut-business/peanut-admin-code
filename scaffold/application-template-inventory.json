@@ -4313,7 +4313,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f3aff4e2875a2e19ce954a78dcda1f8571da293e0a936cbd0186cb935f9470e9"
+            "source_sha256": "08a00cf521b1e4577a21c90f6825781695cb254bf566934e39f7299b2164f120"
         },
         {
             "path": "server/app/adminapi/services/auth/AdminApplicationService.php",
@@ -6387,7 +6387,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c3ae93b8b84de1ed0ff81c3ce59feb64d7eab6dfff6e4cfe60a8bca818a40c4a"
+            "source_sha256": "32b0dfdcb9c7ab55bca931fd46b4d5de501c00bea1a5dcaccdc66b36e0c5d950"
         },
         {
             "path": "server/app/common/infrastructure/http/GuzzleOutboundHttpTransport.php",
@@ -7228,7 +7228,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ff1ffaf1923c0271287a3c627b8882bb9dce8ad0f09a7863cdc1f429f579cd91"
+            "source_sha256": "83664226176595b27cc7b24390c7ae8fac34bce4c49f1b300b6e7ca137a9ea70"
         },
         {
             "path": "server/app/common/services/authorization/EndpointPermissionGrant.php",
