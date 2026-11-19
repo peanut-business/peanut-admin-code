@@ -4,14 +4,20 @@ declare(strict_types=1);
 
 namespace app\api\controller;
 
+use think\App;
+
 use app\common\exception\BusinessException;
 use PeanutAdmin\Modules\File\Contract\FileStorage;
 
-/** @property-read FileStorage $storage 当前 App 中声明式解析的控制器依赖。 */
 final class StorageController extends BaseApiController
 {
-    protected string $storageClass = FileStorage::class;
+    protected readonly FileStorage $storage;
 
+    public function __construct(App $app, ?FileStorage $storage = null)
+    {
+        parent::__construct($app);
+        $this->storage = $storage ?? $app->make(FileStorage::class);
+    }
     public function delivery()
     {
         $tenantId = $this->positiveInteger($this->request->get('tenant_id'));

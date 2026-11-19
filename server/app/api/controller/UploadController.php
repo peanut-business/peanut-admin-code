@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace app\api\controller;
 
+use think\App;
+
 use PeanutAdmin\Modules\File\Contract\FileUploads;
 use PeanutAdmin\Modules\File\Contract\Dto\UploadFile;
 use PeanutAdmin\Modules\File\Enum\FileEnum;
@@ -12,12 +14,16 @@ use app\common\exception\BusinessException;
 
 /**
  * 用户端上传
- * @property-read FileUploads $uploads 当前 App 中声明式解析的控制器依赖。
  */
 class UploadController extends BaseApiController
 {
-    protected string $uploadsClass = FileUploads::class;
+    protected readonly FileUploads $uploads;
 
+    public function __construct(App $app, ?FileUploads $uploads = null)
+    {
+        parent::__construct($app);
+        $this->uploads = $uploads ?? $app->make(FileUploads::class);
+    }
     public function image()
     {
         $cidValue = $this->request->post('cid', 0);

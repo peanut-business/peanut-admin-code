@@ -4,16 +4,22 @@ declare(strict_types=1);
 
 namespace app\platform\controller;
 
+use think\App;
+
 use app\common\http\PageResult;
 use app\platform\query\PlatformControlPlaneQueryService;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 
-/** @property-read PlatformControlPlaneQueryService $queries 当前 App 中声明式解析的控制器依赖。 */
 final class PlatformControlPlaneQueryController extends BasePlatformController
 {
-    protected string $queriesClass = PlatformControlPlaneQueryService::class;
+    protected readonly PlatformControlPlaneQueryService $queries;
 
+    public function __construct(App $app, ?PlatformControlPlaneQueryService $queries = null)
+    {
+        parent::__construct($app);
+        $this->queries = $queries ?? $app->make(PlatformControlPlaneQueryService::class);
+    }
     public function operators()
     {
         return $this->listQuery('operators');

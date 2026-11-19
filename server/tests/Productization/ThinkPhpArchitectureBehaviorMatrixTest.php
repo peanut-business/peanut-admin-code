@@ -496,8 +496,8 @@ $assertGeneratedServiceOutput = static function (array $files) use ($generatorFi
         || !str_contains($byPath[$servicePath] ?? '', 'namespace PeanutAdmin\\Fixtures\\DeliveryRecord\\Service;')
         || !str_contains($byPath[$servicePath] ?? '', 'class MatrixArticleService')
         || !str_contains($controller, 'use PeanutAdmin\\Fixtures\\DeliveryRecord\\Service\\MatrixArticleService;')
-        || !str_contains($controller, 'protected string $crudClass = MatrixArticleService::class;')
-        || !str_contains($controller, '@property-read MatrixArticleService $crud')
+        || !str_contains($controller, 'protected readonly MatrixArticleService $crud;')
+        || !str_contains($controller, 'public function __construct(App $app, ?MatrixArticleService $crud = null)')
         || str_contains($controller, 'function service()')) {
         throw new RuntimeException('generator services output contract violated');
     }

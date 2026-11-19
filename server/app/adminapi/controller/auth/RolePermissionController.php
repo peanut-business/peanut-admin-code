@@ -4,16 +4,22 @@ declare(strict_types=1);
 
 namespace app\adminapi\controller\auth;
 
+use think\App;
+
 use app\adminapi\controller\BaseAdminController;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 use PeanutAdmin\Modules\Identity\Authorization\Application\RoleAdminService;
 
-/** @property-read RoleAdminService $roles */
 final class RolePermissionController extends BaseAdminController
 {
-    protected string $rolesClass = RoleAdminService::class;
+    protected readonly RoleAdminService $roles;
 
+    public function __construct(App $app, ?RoleAdminService $roles = null)
+    {
+        parent::__construct($app);
+        $this->roles = $roles ?? $app->make(RoleAdminService::class);
+    }
     public function detail()
     {
         $input = $this->fields($this->request->get(), ['role_id']);

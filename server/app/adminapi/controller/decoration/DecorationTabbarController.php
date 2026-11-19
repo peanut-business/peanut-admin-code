@@ -4,15 +4,21 @@ declare(strict_types=1);
 
 namespace app\adminapi\controller\decoration;
 
+use think\App;
+
 use app\adminapi\controller\BaseAdminController;
 use app\adminapi\services\decoration\DecorationTabbarApplicationService;
 use app\adminapi\validate\decoration\DecorationTabbarValidate;
 
-/** @property-read DecorationTabbarApplicationService $decorationTabbars 当前 App 中声明式解析的控制器依赖。 */
 class DecorationTabbarController extends BaseAdminController
 {
-    protected string $decorationTabbarsClass = DecorationTabbarApplicationService::class;
+    protected readonly DecorationTabbarApplicationService $decorationTabbars;
 
+    public function __construct(App $app, ?DecorationTabbarApplicationService $decorationTabbars = null)
+    {
+        parent::__construct($app);
+        $this->decorationTabbars = $decorationTabbars ?? $app->make(DecorationTabbarApplicationService::class);
+    }
     public function detail()
     {
         return $this->data($this->decorationTabbars->detail(

@@ -19,10 +19,9 @@ use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
 use think\App;
 use think\facade\Config;
 
-/** @property-read ConfigApplicationService $configuration 当前 App 中声明式解析的控制器依赖。 */
 class ConfigController extends BaseAdminController
 {
-    protected string $configurationClass = ConfigApplicationService::class;
+    private readonly ConfigApplicationService $configuration;
 
     public function __construct(
         App $app,
@@ -32,8 +31,10 @@ class ConfigController extends BaseAdminController
         private readonly TenantIdentityQuery $tenants,
         private readonly DemoAccountPolicy $demoAccounts,
         private readonly ExecutionContextStore $contexts,
+        ?ConfigApplicationService $configuration = null,
     ) {
         parent::__construct($app);
+        $this->configuration = $configuration ?? $app->make(ConfigApplicationService::class);
     }
 
     public function brand()

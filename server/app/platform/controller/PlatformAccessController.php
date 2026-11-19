@@ -4,16 +4,22 @@ declare(strict_types=1);
 
 namespace app\platform\controller;
 
+use think\App;
+
 use app\platform\validate\PlatformAccessValidate;
 use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Modules\Identity\Platform\PlatformOperatorStatus;
 use PeanutAdmin\Modules\Identity\Platform\Application\PlatformAccessAdminService;
 
-/** @property-read PlatformAccessAdminService $platformAccess 当前 App 中声明式解析的控制器依赖。 */
 final class PlatformAccessController extends BasePlatformController
 {
-    protected string $platformAccessClass = PlatformAccessAdminService::class;
+    protected readonly PlatformAccessAdminService $platformAccess;
 
+    public function __construct(App $app, ?PlatformAccessAdminService $platformAccess = null)
+    {
+        parent::__construct($app);
+        $this->platformAccess = $platformAccess ?? $app->make(PlatformAccessAdminService::class);
+    }
     public function createOperator()
     {
         return $this->mutate('createOperator', function (array $params, PlatformContext $context): array {

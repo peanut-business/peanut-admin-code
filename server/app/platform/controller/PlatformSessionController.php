@@ -4,17 +4,23 @@ declare(strict_types=1);
 
 namespace app\platform\controller;
 
+use think\App;
+
 use app\platform\http\PlatformRequest;
 use app\platform\services\PlatformOperatorSessionService;
 use app\platform\validate\PlatformLoginValidate;
 use PeanutAdmin\Kernel\Auth\PlatformRefreshCookie;
 use app\common\http\SessionRefreshCookie;
 
-/** @property-read PlatformOperatorSessionService $sessions 当前 App 中声明式解析的控制器依赖。 */
 final class PlatformSessionController extends BasePlatformController
 {
-    protected string $sessionsClass = PlatformOperatorSessionService::class;
+    protected readonly PlatformOperatorSessionService $sessions;
 
+    public function __construct(App $app, ?PlatformOperatorSessionService $sessions = null)
+    {
+        parent::__construct($app);
+        $this->sessions = $sessions ?? $app->make(PlatformOperatorSessionService::class);
+    }
     public function login()
     {
         $params = $this->request->post();

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace app\platform\controller;
 
+use think\App;
+
 use app\common\http\JsonResponseFactory;
 use PeanutAdmin\Modules\Ops\Service\PlatformOpsApplicationService;
 use PeanutAdmin\Modules\Ops\Domain\Application\OpsConsoleException;
@@ -12,12 +14,16 @@ use think\response\Json;
 
 /**
  * Platform-only Ops Console Host; PC20 reads plus the bounded PC21 artifact.
- * @property-read PlatformOpsApplicationService $operations 当前 App 中声明式解析的控制器依赖。
  */
 final class PlatformOpsController extends BasePlatformController
 {
-    protected string $operationsClass = PlatformOpsApplicationService::class;
+    protected readonly PlatformOpsApplicationService $operations;
 
+    public function __construct(App $app, ?PlatformOpsApplicationService $operations = null)
+    {
+        parent::__construct($app);
+        $this->operations = $operations ?? $app->make(PlatformOpsApplicationService::class);
+    }
     public function status(): Json
     {
         return $this->run(fn(): array => $this->operations->status($this->context()));

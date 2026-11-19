@@ -4,14 +4,20 @@ declare(strict_types=1);
 
 namespace app\adminapi\controller\auth;
 
+use think\App;
+
 use app\adminapi\controller\BaseAdminController;
 use app\adminapi\services\auth\RoleApplicationService;
 
-/** @property-read RoleApplicationService $roles 当前 App 中声明式解析的控制器依赖。 */
 class RoleController extends BaseAdminController
 {
-    protected string $rolesClass = RoleApplicationService::class;
+    protected readonly RoleApplicationService $roles;
 
+    public function __construct(App $app, ?RoleApplicationService $roles = null)
+    {
+        parent::__construct($app);
+        $this->roles = $roles ?? $app->make(RoleApplicationService::class);
+    }
     public function lists()
     {
         $result = $this->roles->lists($this->tenantAdminContext(), $this->request->get());

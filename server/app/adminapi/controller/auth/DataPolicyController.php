@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace app\adminapi\controller\auth;
 
+use think\App;
+
 use app\adminapi\controller\BaseAdminController;
 use PeanutAdmin\DataPermission\Catalog\ResourceOperation;
 use PeanutAdmin\DataPermission\Catalog\ResourceOperationCatalog;
@@ -11,15 +13,17 @@ use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 use PeanutAdmin\Modules\Identity\DataPermission\Application\DataPolicyAdminService;
 
-/**
- * @property-read DataPolicyAdminService $policies
- * @property-read ResourceOperationCatalog $catalog
- */
 final class DataPolicyController extends BaseAdminController
 {
-    protected string $policiesClass = DataPolicyAdminService::class;
-    protected string $catalogClass = ResourceOperationCatalog::class;
+    protected readonly DataPolicyAdminService $policies;
+    protected readonly ResourceOperationCatalog $catalog;
 
+    public function __construct(App $app, ?DataPolicyAdminService $policies = null, ?ResourceOperationCatalog $catalog = null)
+    {
+        parent::__construct($app);
+        $this->policies = $policies ?? $app->make(DataPolicyAdminService::class);
+        $this->catalog = $catalog ?? $app->make(ResourceOperationCatalog::class);
+    }
     public function detail()
     {
         $input = $this->fields($this->request->get(), ['role_id', 'resource_key', 'operation']);

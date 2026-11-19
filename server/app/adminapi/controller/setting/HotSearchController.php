@@ -4,14 +4,20 @@ declare(strict_types=1);
 
 namespace app\adminapi\controller\setting;
 
+use think\App;
+
 use app\adminapi\controller\BaseAdminController;
 use app\adminapi\services\setting\HotSearchApplicationService;
 
-/** @property-read HotSearchApplicationService $hotSearch 当前 App 中声明式解析的控制器依赖。 */
 class HotSearchController extends BaseAdminController
 {
-    protected string $hotSearchClass = HotSearchApplicationService::class;
+    protected readonly HotSearchApplicationService $hotSearch;
 
+    public function __construct(App $app, ?HotSearchApplicationService $hotSearch = null)
+    {
+        parent::__construct($app);
+        $this->hotSearch = $hotSearch ?? $app->make(HotSearchApplicationService::class);
+    }
     public function getConfig()
     {
         return $this->data($this->hotSearch->getConfig($this->tenantAdminContext()));

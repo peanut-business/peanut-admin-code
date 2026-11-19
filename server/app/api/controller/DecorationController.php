@@ -4,16 +4,21 @@ declare(strict_types=1);
 
 namespace app\api\controller;
 
+use think\App;
+
 use app\common\enum\decoration\DecorationEnum;
 use app\common\services\decoration\DecorationReadService;
 use app\common\exception\BusinessException;
 
-/** @property-read DecorationReadService $decoration 当前 App 中声明式解析的控制器依赖。 */
 class DecorationController extends BaseApiController
 {
-    protected string $decorationClass = DecorationReadService::class;
+    protected readonly DecorationReadService $decoration;
 
-
+    public function __construct(App $app, ?DecorationReadService $decoration = null)
+    {
+        parent::__construct($app);
+        $this->decoration = $decoration ?? $app->make(DecorationReadService::class);
+    }
     public function mobilePage()
     {
         $type = (int) $this->request->get('type', DecorationEnum::MOBILE_HOME);

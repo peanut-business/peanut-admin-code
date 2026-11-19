@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace app\adminapi\controller\system;
 
+use think\App;
+
 use app\adminapi\controller\BaseAdminController;
 use app\adminapi\services\system\SystemApplicationService;
 use app\common\validation\instance\InstanceToolAccessGuard;
@@ -14,12 +16,16 @@ use think\response\Json;
  * 系统维护控制器
  * Class SystemController
  * @package app\adminapi\controller\system
- * @property-read SystemApplicationService $system 当前 App 中声明式解析的控制器依赖。
  */
 class SystemController extends BaseAdminController
 {
-    protected string $systemClass = SystemApplicationService::class;
+    protected readonly SystemApplicationService $system;
 
+    public function __construct(App $app, ?SystemApplicationService $system = null)
+    {
+        parent::__construct($app);
+        $this->system = $system ?? $app->make(SystemApplicationService::class);
+    }
     /** 系统环境信息 */
     public function info()
     {

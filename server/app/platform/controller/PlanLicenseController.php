@@ -4,13 +4,19 @@ declare(strict_types=1);
 
 namespace app\platform\controller;
 
+use think\App;
+
 use PeanutAdmin\Modules\Identity\Platform\Application\PlanLicenseAdminService;
 
-/** @property-read PlanLicenseAdminService $plans */
 final class PlanLicenseController extends BasePlatformController
 {
-    protected string $plansClass = PlanLicenseAdminService::class;
+    protected readonly PlanLicenseAdminService $plans;
 
+    public function __construct(App $app, ?PlanLicenseAdminService $plans = null)
+    {
+        parent::__construct($app);
+        $this->plans = $plans ?? $app->make(PlanLicenseAdminService::class);
+    }
     public function lists()
     {
         $page = $this->positiveInteger($this->request->get('page', 1));
