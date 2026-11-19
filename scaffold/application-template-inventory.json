@@ -682,7 +682,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "269c3be49c9a2fdd9badec62980429db2a6eea67feb82f434ec1e5d97fb65e4d"
+            "source_sha256": "287585745ce96c3e94d73cf4825fc6d56ebeaa28cd1a0d7ac102885cf72b5be8"
         },
         {
             "path": "docs/architecture/identity-organization-access.md",
@@ -1096,7 +1096,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5d892dc87292df273db93f59ab1e52e8fe3c8381f6f9785aefc13cd69359a638"
+            "source_sha256": "0fe4706993b6b35182b4508fedaadb735c41f835c1be8d4609908504d102b2db"
         },
         {
             "path": "docs/public/release-channels.md",
@@ -6387,7 +6387,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "257291e768a42858b0523c1d541759eabcd087072c9441605a2b52f628bced32"
+            "source_sha256": "c3ae93b8b84de1ed0ff81c3ce59feb64d7eab6dfff6e4cfe60a8bca818a40c4a"
         },
         {
             "path": "server/app/common/infrastructure/http/GuzzleOutboundHttpTransport.php",
@@ -7059,7 +7059,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a4141403499b52685e0051e51827d987efd2dbf2f624f372c5e5576f6dc3bfcd"
+            "source_sha256": "e9b00e99dce58b1cf764e7075e31cb7ce6f588a6297e858f1558e8f3d0a5259f"
         },
         {
             "path": "server/app/common/persistence/AdvisoryLockExecution.php",
@@ -7228,7 +7228,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d3b4dbf87df11ef29293f861934d73e91601bd957ff726ebaf36bdf128cd1548"
+            "source_sha256": "ff1ffaf1923c0271287a3c627b8882bb9dce8ad0f09a7863cdc1f429f579cd91"
         },
         {
             "path": "server/app/common/services/authorization/EndpointPermissionGrant.php",
@@ -7354,7 +7354,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b5abc9d4faa3e2e4dd4006a5c4d5667c6a43a44dc50f2968932aa9c69c29447b"
+            "source_sha256": "0782108f3a4b4443dc46372e6f0faff75ad6e6dc705f6ebc80b31b837dd484ec"
         },
         {
             "path": "server/app/common/services/notice/NoticeChannelService.php",
@@ -9497,7 +9497,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4f3030edab63b3320c7cd488cb9e9002933567a49e48e339a259a2f8a4b22238"
+            "source_sha256": "a3c56fca060b6b28282b2740c41819d370c759181a2ce1f348a797f2e27f4e4a"
         },
         {
             "path": "server/database/install.php",
@@ -9664,7 +9664,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b0acd35a4f4bdd741d5bce74c56eecb13381cf77186c6e6449ab2fff0d591115"
+            "source_sha256": "f4f313ff18146d63647b012dc20071c9a72c4a81d5a2123b0284a8469888c575"
         },
         {
             "path": "server/docker/.env.example",
@@ -17235,7 +17235,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "af46dc57b0702b5f2d017d9f53416298eecaa09a514ba3afd4ac944f4027c01c"
+            "source_sha256": "9f7dd1fd52127689a48011d9118464e40f170bc6f62c61a47e5c77d79833921f"
         },
         {
             "path": "web/src/router/index.ts",
@@ -17263,7 +17263,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f769e324ba25871d6eb57331f8bf03b98714dfbbc9e811d9b4cefa5655ace94d"
+            "source_sha256": "7bf42c685a11999121a4903bd449ebb09fffa8c96fe1d898a5d5105740a6ebca"
         },
         {
             "path": "web/src/router/route-meta.ts",
@@ -17655,7 +17655,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d563abb4fbea721a541e9b667d55824adb6bc92dd481203dce1bc4430a833489"
+            "source_sha256": "b17729132927f0c456e47087bdadd1e8120342908ce4bf4fb11778aa409b5db8"
         },
         {
             "path": "web/src/utils/route-listener.ts",
@@ -18033,7 +18033,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ca95c0c4941129bbbfbe97ff415ced1dd1c70c8730bd56c8cb4079cfa32d89fc"
+            "source_sha256": "83e55758b644f563feb5b755f8a22ce626e90cc2df341548a9f80e511ad7bf19"
         },
         {
             "path": "web/src/views/system/admin/locale/en-US.ts",
