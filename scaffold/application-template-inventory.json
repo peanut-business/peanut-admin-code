@@ -1715,21 +1715,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "82e0c5aa3e309d4896a87dcc69819394ce94cf2e3a26c5808dd9013929de6677"
-        },
-        {
-            "path": "platform/scripts/check-governance-types.mjs",
-            "target": "platform/scripts/check-governance-types.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "0d98604590550890d730232c44654c852a3161f0870fc0db589da205d74a27d8"
+            "source_sha256": "88ff008b0753c8c04d1764e1bed8b2939f5b50763103ee2f6e3494284190dd83"
         },
         {
             "path": "platform/src/App.vue",
@@ -1942,160 +1928,6 @@
             "source_sha256": "e0df7377eff5cbfcb6b3d8c1c345362ed310d0ab17c001b2a4144358d71adcb1"
         },
         {
-            "path": "platform/src/modules/governance/optional-runtime/api/client.ts",
-            "target": "platform/src/modules/governance/optional-runtime/api/client.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "b4b907a8871241ff102ace76e48651cfc0f492fa8eaf889c31b1c2d2721b8e4c"
-        },
-        {
-            "path": "platform/src/modules/governance/optional-runtime/generated/api.d.ts",
-            "target": "platform/src/modules/governance/optional-runtime/generated/api.d.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "881934aa2195fc8be567af8fd78ecf495eb41841d3c69a693a2421db6ed64fe9"
-        },
-        {
-            "path": "platform/src/modules/governance/optional-runtime/governance/audit.ts",
-            "target": "platform/src/modules/governance/optional-runtime/governance/audit.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "fd0a23e977ea54d7c175bb1c20268d8570caa0f9b97c3bb07c7ee79740aaf164"
-        },
-        {
-            "path": "platform/src/modules/governance/optional-runtime/governance/catalog.ts",
-            "target": "platform/src/modules/governance/optional-runtime/governance/catalog.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "e1caba4d93490202bd289fc0a50efe0635a20163e7f364c865fa22faf9adb6fc"
-        },
-        {
-            "path": "platform/src/modules/governance/optional-runtime/governance/index.ts",
-            "target": "platform/src/modules/governance/optional-runtime/governance/index.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "af1847f6e7693cd278d008bc04110499f3020390c3fd09fa60400d13a0b5c81a"
-        },
-        {
-            "path": "platform/src/modules/governance/optional-runtime/governance/menu.ts",
-            "target": "platform/src/modules/governance/optional-runtime/governance/menu.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "de78421b9d5fa6d8bbc1a2ee5d0d9177c0f306b88fbce0b13059829c83eb29a2"
-        },
-        {
-            "path": "platform/src/modules/governance/optional-runtime/governance/roles.ts",
-            "target": "platform/src/modules/governance/optional-runtime/governance/roles.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "16f90f5c76cec86352591087ce725de2e54d3fefe41fc7a73e5b336b94fa31f2"
-        },
-        {
-            "path": "platform/src/modules/governance/optional-runtime/governance/types.ts",
-            "target": "platform/src/modules/governance/optional-runtime/governance/types.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "836bfa0d886ef32af0fe2d50ddcf3d1342a5de04ac2b87ef622a80df96c5a651"
-        },
-        {
-            "path": "platform/src/modules/governance/optional-runtime/tests/api-client.spec.ts",
-            "target": "platform/src/modules/governance/optional-runtime/tests/api-client.spec.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "9ff2c9d2d970bcc7c1cbd1b67756daa7c313a3da21ab7b3f4b01fae5b84485e6"
-        },
-        {
-            "path": "platform/src/modules/governance/optional-runtime/tests/governance/governance.spec.ts",
-            "target": "platform/src/modules/governance/optional-runtime/tests/governance/governance.spec.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "244c6cc4467960e0ba6e3cbd359580c20278729248e701426334a84cce34d7e8"
-        },
-        {
-            "path": "platform/src/modules/governance/optional-runtime/tsconfig.json",
-            "target": "platform/src/modules/governance/optional-runtime/tsconfig.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "ae79f846a6389755dd125f20bd9383c5d86629c179bab6ccae7dab89a56aece4"
-        },
-        {
             "path": "platform/src/peanut.overrides.ts",
             "target": "platform/src/peanut.overrides.ts",
             "classification": "app-owned",
@@ -2138,20 +1970,6 @@
             "source_sha256": "6b456cf302158a95d1de6d88d0d814aa9e2334ff732f18f0f64c4bfa7b45d235"
         },
         {
-            "path": "platform/tsconfig.governance-tests.json",
-            "target": "platform/tsconfig.governance-tests.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "95e624bdeaea0bc3391a45418585b44a2fe32055433016a137c982f31533e0e7"
-        },
-        {
             "path": "platform/tsconfig.json",
             "target": "platform/tsconfig.json",
             "classification": "managed",
@@ -2163,7 +1981,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fc8c490ff2a2ae3ceed442bdde39160ce12af292868fc296895e71c74a8ff342"
+            "source_sha256": "c58a716308068801b429f5a3f78b10eff4be83f6bea6520e275d3f9f03f22aa7"
         },
         {
             "path": "platform/vite.config.ts",
@@ -2178,20 +1996,6 @@
                 "full"
             ],
             "source_sha256": "d764cc30aded7b90978849ddb25aecea7dffe3e9715db693e0c33549dd01df04"
-        },
-        {
-            "path": "platform/vitest.governance.config.mjs",
-            "target": "platform/vitest.governance.config.mjs",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "10a1953ab86a372bef42dcb248fd9f34538b23b9a08a0fdbf595b3148d250b38"
         },
         {
             "path": "release-versions.json",
@@ -3069,7 +2873,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d372509a651020603d5c78942d5bcae96e3f96b2b303cce8d95777d1c5119a09"
+            "source_sha256": "fd77aa6915d02cf1adc5d4a5d97d6b17cb7bec49b5b7cf19e2be0a04815a738f"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -4187,7 +3991,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5894f0401aac356359622be0811a4fcb361ee4c058908164884ce4a7121b0618"
+            "source_sha256": "8c87f6d4766d8007376d308694a1845f1a1a8c035d191bbef65233c5a0b5a0d2"
         },
         {
             "path": "server/app/adminapi/controller/config/HostBrandController.php",
@@ -4523,7 +4327,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "582e1d5f1e6d50ed76beab4fe5a8ca944e07b81268988d8ad2d78468e9c1eac3"
+            "source_sha256": "be5db1edac07c3c8afb00fa8890c8009934d516effe4484d8b3d689e5d307ab3"
         },
         {
             "path": "server/app/adminapi/services/auth/LoginApplicationService.php",
@@ -4691,7 +4495,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b8eea1f240e4d7115fe7fa12c425f7ab657f50f683dbe01efc465f212ff4a66d"
+            "source_sha256": "1ef3931c433b47503dfd247f6ed8f4da266f0a2121f1581b0b5d53ad7d03249c"
         },
         {
             "path": "server/app/adminapi/services/log/OperationLogApplicationService.php",
@@ -4803,7 +4607,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1572452f27ca5a2cecdf204e5e923a8b7f6da6e73be78b213c39c6a72f3e9662"
+            "source_sha256": "e9abcd95ac7579fff28d65d23c843873447946ff81ac9546ebc7c6099c4fbc15"
         },
         {
             "path": "server/app/adminapi/validate/decoration/DecorationPageValidate.php",
@@ -6639,7 +6443,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7da1ef9baa94d3b3845c7ed73722a8d0abc7a2ed1d07615788cd3df2b1be4ed8"
+            "source_sha256": "8975845d773db3a90b66f2c51c9a41219acdd645a86f6ba4775f5a50fb55297d"
         },
         {
             "path": "server/app/common/infrastructure/member/MemberApiTenantContextResolver.php",
@@ -15593,19 +15397,6 @@
             "source_sha256": "644ff8732d8d51a10f28748976fd50bf5934b179a1e8fd139faae11d31d8bc6d"
         },
         {
-            "path": "uniapp/src/api/password-policy.ts",
-            "target": "uniapp/src/api/password-policy.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "standard",
-                "full"
-            ],
-            "source_sha256": "d778289463bc7babd6ee9208d3342325db804aca52c9d08dcd3e76236ceefaa1"
-        },
-        {
             "path": "uniapp/src/components/DecorationTabbar.vue",
             "target": "uniapp/src/components/DecorationTabbar.vue",
             "classification": "managed",
@@ -15980,7 +15771,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "23ef62566a7e584ffd7db127f38bb6951776a22b2fe36a74f5e87ac6c9cadffb"
+            "source_sha256": "1e6e7bbe291f1da171faea6161447fb030ca447afc9f366c367d64d24c272de1"
         },
         {
             "path": "uniapp/tests/Productization/article-module-capability.test.mjs",
@@ -17316,20 +17107,6 @@
             "source_sha256": "97cfb43dcd6e9ea31983865d7bf4766b52f70c9ddb9e778899e5caf93e2bc0cc"
         },
         {
-            "path": "web/src/generated/openapi-client.ts",
-            "target": "web/src/generated/openapi-client.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "901c3bdec2d98551998c0a1caa4dbb651868943182e95bf8ae90457ee3d9febd"
-        },
-        {
             "path": "web/src/generated/openapi.d.ts",
             "target": "web/src/generated/openapi.d.ts",
             "classification": "managed",
@@ -17426,20 +17203,6 @@
                 "full"
             ],
             "source_sha256": "d7cba0ae26304cb15bb322e185ff2c519312c59fc9062928724e389233be90d5"
-        },
-        {
-            "path": "web/src/hooks/themes.ts",
-            "target": "web/src/hooks/themes.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "cd9114e3961cbb5911a8832cfa270c9fc738832321c4a70bf9accddecb21682d"
         },
         {
             "path": "web/src/hooks/user.ts",
@@ -18128,20 +17891,6 @@
             "source_sha256": "6ba0c70073f43f8672498cad8331a0c80b1d4bf7f2fd46c1bcb00997b837d9cb"
         },
         {
-            "path": "web/src/utils/monitor.ts",
-            "target": "web/src/utils/monitor.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "0af6c5030d50321f607be22cd1bc790082f61220d6e1146ea9502a24c0b3c784"
-        },
-        {
             "path": "web/src/utils/owner-role-selection.ts",
             "target": "web/src/utils/owner-role-selection.ts",
             "classification": "managed",
@@ -18156,20 +17905,6 @@
             "source_sha256": "d563abb4fbea721a541e9b667d55824adb6bc92dd481203dce1bc4430a833489"
         },
         {
-            "path": "web/src/utils/random-uuid.ts",
-            "target": "web/src/utils/random-uuid.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "a527bfaab2fb414c7725d548db8c7b33d5f5e63106be0a1f101324b623fb91eb"
-        },
-        {
             "path": "web/src/utils/route-listener.ts",
             "target": "web/src/utils/route-listener.ts",
             "classification": "managed",
@@ -18182,34 +17917,6 @@
                 "full"
             ],
             "source_sha256": "0a22bffb7ee6874e36369119eecd2a8483e74d62a9661529b17738b213f0585d"
-        },
-        {
-            "path": "web/src/utils/sanitize-rich-text.ts",
-            "target": "web/src/utils/sanitize-rich-text.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "fcc3cdf1571eb4bb282725c4f56dc40284792aaf03c4be2f8854433d9c205420"
-        },
-        {
-            "path": "web/src/utils/setup-mock.ts",
-            "target": "web/src/utils/setup-mock.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "9065a476030788db42ac945ee991615296db85e0cadd8b5317c99f243f96c6d4"
         },
         {
             "path": "web/src/views/app-setting/hot-search/index.vue",

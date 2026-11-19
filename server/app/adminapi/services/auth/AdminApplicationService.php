@@ -105,18 +105,20 @@ final class AdminApplicationService
             self::EXPORT_MAX_ROWS,
             (int) ($params['page_size'] ?? $params['limit'] ?? 15),
         ));
-        $rows = $this->rows($context, $params);
-        $count = count($rows);
+        $rawRows = $this->directory->rows($params);
+        $count = count($rawRows);
         if ((int) ($params['export'] ?? 0) === 1) {
             return self::exportInfo($count, $pageSize);
         }
         if ((int) ($params['export'] ?? 0) === 2) {
-            return $this->export($context, $params, $rows);
+            $exportRaw = array_slice($rawRows, 0, self::EXPORT_MAX_ROWS);
+            return $this->export($context, $params, $this->hydrateRows($exportRaw));
         }
         $pagination = PaginationInput::from($params);
         $pageNo = $pagination->page;
+        $pageRaw = array_slice($rawRows, ($pageNo - 1) * $pageSize, $pageSize);
         return [
-            'lists' => array_slice($rows, ($pageNo - 1) * $pageSize, $pageSize),
+            'lists' => $this->hydrateRows($pageRaw),
             'count' => $count,
             'pageNo' => $pageNo,
             'pageSize' => $pageSize,
@@ -125,9 +127,9 @@ final class AdminApplicationService
 
     public function detail(TenantContext $context, int $id): array
     {
-        foreach ($this->rows($context, ['id' => $id]) as $row) {
-            if ($row['id'] === $id) {
-                return $row;
+        foreach ($this->directory->rows(['id' => $id]) as $rawRow) {
+            if ((int) ($rawRow['id'] ?? 0) === $id) {
+                return $this->hydrateRows([$rawRow])[0] ?? [];
             }
         }
         return [];
@@ -222,8 +224,9 @@ final class AdminApplicationService
     ): void
     {
         $requestsOwner = false;
-        foreach ($requestedRoleIds as $roleId) {
-            $role = $this->roleAdministration->service()->get($context->tenantId, $roleId);
+        $roleService = $this->roleAdministration->service();
+        foreach (array_values(array_unique($requestedRoleIds)) as $roleId) {
+            $role = $roleService->get($context->tenantId, $roleId);
             if (($role['key'] ?? null) === 'core.tenant-owner') {
                 $requestsOwner = true;
             }
@@ -319,10 +322,15 @@ final class AdminApplicationService
         return true;
     }
 
-    /** @return list<array<string,mixed>> */
-    private function rows(TenantContext $context, array $params): array
+    /**
+     * @param list<array<string,mixed>> $rawRows
+     * @return list<array<string,mixed>>
+     */
+    private function hydrateRows(array $rawRows): array
     {
-        $rawRows = $this->directory->rows($params);
+        if ($rawRows === []) {
+            return [];
+        }
         $avatarRefs = [];
         foreach ($rawRows as $row) {
             $ref = trim((string) ($row['avatar_uri'] ?? ''));

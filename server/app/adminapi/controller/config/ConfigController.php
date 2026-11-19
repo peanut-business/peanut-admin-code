@@ -78,9 +78,14 @@ class ConfigController extends BaseAdminController
 
     public function saveWebsite()
     {
+        $params = $this->validateInput(
+            $this->request->post(),
+            WebsiteValidate::class . '.website',
+            WebsiteValidate::WEBSITE_FIELDS,
+        )->writable();
         return $this->data($this->configuration->saveWebsite(
             $this->tenantAdminContext(),
-            $this->request->post(),
+            $params,
         ));
     }
 

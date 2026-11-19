@@ -2983,14 +2983,10 @@ final class ScaffoldUpgradeRunner
             throw new RuntimeException('SCAFFOLD_APPLICATION_MANIFEST_INVALID');
         }
         $protocol = $data['protocol'] ?? null;
-        if (($data['schema_version'] ?? null) === 2 && $protocol === 'peanut.application-scaffold.v2') {
-            $version = $data['application']['version'] ?? null;
-        } elseif (($data['schema_version'] ?? null) === 1 && $protocol === 'peanut.application-scaffold.v1') {
-            $version = $this->legacyApplicationVersion($root);
-            $data['application']['version'] = $version;
-        } else {
+        if (($data['schema_version'] ?? null) !== 2 || $protocol !== 'peanut.application-scaffold.v2') {
             throw new RuntimeException('SCAFFOLD_APPLICATION_MANIFEST_INVALID');
         }
+        $version = $data['application']['version'] ?? null;
         if (preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:[-+][0-9A-Za-z.-]+)?$/D', (string) $version) !== 1) {
             throw new RuntimeException('SCAFFOLD_APPLICATION_VERSION_INVALID');
         }
@@ -3093,38 +3089,6 @@ final class ScaffoldUpgradeRunner
             }
         }
         return $snapshot;
-    }
-
-    private function legacyApplicationVersion(string $root): string
-    {
-        $path = ScaffoldPathGuard::projectPath($root, 'RELEASE_METADATA.json');
-        if (!is_file($path) || is_link($path)) {
-            throw new RuntimeException('SCAFFOLD_LEGACY_APPLICATION_VERSION_UNAVAILABLE');
-        }
-        try {
-            $metadata = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException $exception) {
-            throw new RuntimeException('SCAFFOLD_LEGACY_APPLICATION_VERSION_UNAVAILABLE', 0, $exception);
-        }
-        $candidates = [];
-        if (is_array($metadata)
-            && ($metadata['schema_version'] ?? null) === 2
-            && ($metadata['protocol'] ?? null) === 'peanut.release-metadata.v2'
-            && is_string($metadata['instance_version'] ?? null)) {
-            $candidates[] = $metadata['instance_version'];
-        }
-        if (is_array($metadata) && is_string($metadata['version'] ?? null)) {
-            $candidates[] = $metadata['version'];
-        }
-        if (is_array($metadata['application'] ?? null) && is_string($metadata['application']['version'] ?? null)) {
-            $candidates[] = $metadata['application']['version'];
-        }
-        $candidates = array_values(array_unique($candidates, SORT_STRING));
-        if (count($candidates) !== 1
-            || preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:[-+][0-9A-Za-z.-]+)?$/D', $candidates[0]) !== 1) {
-            throw new RuntimeException('SCAFFOLD_LEGACY_APPLICATION_VERSION_AMBIGUOUS');
-        }
-        return $candidates[0];
     }
 
     private function regularFileState(string $path, string $relative): array

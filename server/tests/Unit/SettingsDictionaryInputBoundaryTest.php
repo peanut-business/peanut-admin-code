@@ -21,6 +21,9 @@ final class SettingsDictionaryInputBoundaryTest extends TestCase
 {
     public function testDictionaryIdentifiersAreValidatedBeforeAnyIntegerCast(): void
     {
+        if (!class_exists(DictDataValidate::class)) {
+            self::markTestSkipped('ReferenceCodes module is not installed in the neutral host.');
+        }
         foreach ([1, '1'] as $id) {
             self::assertTrue((new DictDataValidate())->scene('add')->check(['type_id' => $id, 'name' => 'Entry', 'value' => 'one']));
             self::assertTrue((new DictTypeValidate())->scene('status')->check(['id' => $id, 'is_disable' => 0]));
@@ -35,6 +38,9 @@ final class SettingsDictionaryInputBoundaryTest extends TestCase
 
     public function testDictionaryCrudRejectsProtectedAndParentFieldsRatherThanDroppingThem(): void
     {
+        if (!class_exists(DictTypeController::class)) {
+            self::markTestSkipped('ReferenceCodes module is not installed in the neutral host.');
+        }
         $app = new App();
         $contexts = new CurrentExecutionContext(new ExecutionContextStore());
         $app->instance(CurrentExecutionContext::class, $contexts);
@@ -73,6 +79,13 @@ final class SettingsDictionaryInputBoundaryTest extends TestCase
         try {
             (new ReflectionMethod(ConfigController::class, 'save'))->invoke($controller, 'statistics', 'saveStatistics');
             self::fail('Protected configuration field was accepted.');
+        } catch (ValidateException) {
+            self::assertTrue(true);
+        }
+        (new ReflectionProperty(ConfigController::class, 'request'))->setValue($controller, (new Request())->withPost(['name' => 'Demo', 'tenant_id' => 202]));
+        try {
+            $controller->saveWebsite();
+            self::fail('Protected website configuration field was accepted.');
         } catch (ValidateException) {
             self::assertTrue(true);
         }
