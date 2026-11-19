@@ -44,6 +44,16 @@ export default function setupUserLoginInfoGuard(router: Router) {
           };
     }
 
+    const brandStore = useBrandStore();
+    await brandStore.load();
+    if (!brandStore.loginEnabled) {
+      next({
+        name: 'login',
+        query: loginQuery(to),
+      });
+      return;
+    }
+
     if (session.token) {
       if (userStore.role) {
         return to.name === 'login'
