@@ -43,8 +43,12 @@ class MenuController extends BaseAdminController
         if ($denial = $this->instanceMenuDenial()) {
             return $denial;
         }
-        $this->validate($this->request->post(), MenuValidate::class . '.add');
-        $this->menus->add($this->request->post());
+        $params = $this->validateInput(
+            $this->request->post(),
+            MenuValidate::class . '.add',
+            ['name', 'type', 'parent_key', 'icon', 'sort', 'perms', 'paths', 'component', 'is_cache', 'is_show', 'is_disable'],
+        )->writable();
+        $this->menus->add($params);
         return $this->success('操作成功');
     }
 
@@ -53,8 +57,12 @@ class MenuController extends BaseAdminController
         if ($denial = $this->instanceMenuDenial()) {
             return $denial;
         }
-        $this->validate($this->request->post(), MenuValidate::class . '.edit');
-        $this->menus->edit($this->request->post());
+        $params = $this->validateInput(
+            $this->request->post(),
+            MenuValidate::class . '.edit',
+            ['menu_key', 'name', 'type', 'parent_key', 'icon', 'sort', 'perms', 'paths', 'component', 'is_cache', 'is_show', 'is_disable'],
+        )->writable();
+        $this->menus->edit($params);
         return $this->success('操作成功');
     }
 
