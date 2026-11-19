@@ -617,7 +617,7 @@ SQL);
         ?string $validFrom = null,
         ?string $validUntil = null,
     ): int {
-        return $this->insert('pa_data_permission_policy', [
+        return $this->insert('pa_data_permission', [
             'tenant_id' => $this->tenantId,
             'role_id' => $roleId,
             'protected_resource_id' => $operation['resource_id'],

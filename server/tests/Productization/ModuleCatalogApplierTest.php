@@ -49,7 +49,7 @@ moduleCatalogExpect($first['changes'] === ['menus' => 1, 'permissions' => 2, 'se
 $identity = $pdo->query(<<<'SQL'
 SELECT
  (SELECT GROUP_CONCAT(CONCAT(`key`,':',id) ORDER BY `key`) FROM pa_permission WHERE module_key='fixture.delivery-record') permissions,
- (SELECT GROUP_CONCAT(CONCAT(`key`,':',id) ORDER BY `key`) FROM pa_menu_definition WHERE module_key='fixture.delivery-record') menus,
+ (SELECT GROUP_CONCAT(CONCAT(`key`,':',id) ORDER BY `key`) FROM pa_system_menu WHERE module_key='fixture.delivery-record') menus,
  (SELECT GROUP_CONCAT(CONCAT(setting_key,':',id) ORDER BY setting_key) FROM pa_setting_definition WHERE module_key='fixture.delivery-record') settings
 SQL)->fetch();
 $second = $applier->apply($registry);
@@ -58,12 +58,12 @@ moduleCatalogExpect($second['catalog_revision'] === $first['catalog_revision'], 
 moduleCatalogExpect($pdo->query(<<<'SQL'
 SELECT
  (SELECT GROUP_CONCAT(CONCAT(`key`,':',id) ORDER BY `key`) FROM pa_permission WHERE module_key='fixture.delivery-record') permissions,
- (SELECT GROUP_CONCAT(CONCAT(`key`,':',id) ORDER BY `key`) FROM pa_menu_definition WHERE module_key='fixture.delivery-record') menus,
+ (SELECT GROUP_CONCAT(CONCAT(`key`,':',id) ORDER BY `key`) FROM pa_system_menu WHERE module_key='fixture.delivery-record') menus,
  (SELECT GROUP_CONCAT(CONCAT(setting_key,':',id) ORDER BY setting_key) FROM pa_setting_definition WHERE module_key='fixture.delivery-record') settings
 SQL)->fetch() === $identity, 'idempotent catalog apply changed string-key identities');
 
 $applier->retire(['fixture.delivery-record']);
-foreach (['pa_permission', 'pa_menu_definition', 'pa_setting_definition'] as $table) {
+foreach (['pa_permission', 'pa_system_menu', 'pa_setting_definition'] as $table) {
     moduleCatalogExpect((int) $pdo->query("SELECT COUNT(*) FROM `{$table}` WHERE module_key='fixture.delivery-record' AND status='active'")->fetchColumn() === 0, "retire left active rows in {$table}");
     moduleCatalogExpect((int) $pdo->query("SELECT COUNT(*) FROM `{$table}` WHERE module_key='fixture.delivery-record' AND status='retired'")->fetchColumn() > 0, "retire deleted or omitted rows in {$table}");
 }

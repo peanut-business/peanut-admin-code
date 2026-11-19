@@ -133,13 +133,13 @@ try {
             ),
             'department add failed',
         );
-        $jobCount = (int) $pdo->query('SELECT COUNT(*) FROM pa_jobs')->fetchColumn();
+        $jobCount = (int) $pdo->query('SELECT COUNT(*) FROM pa_job')->fetchColumn();
         $forgedJob = orgFailure(fn() => app(ExecutionContextStore::class)->run(
             orgExecutionContext($context, 'test.jobs.tenant-field.denied'),
             fn() => app(JobsApplicationService::class)->add($context, ['tenant_id' => $payloadTenantId, 'name' => 'Operator', 'code' => 'OPS', 'status' => 1]),
         ));
         expectOrgTenant($forgedJob[0] === 'JOB_INPUT_INVALID'
-            && (int) $pdo->query('SELECT COUNT(*) FROM pa_jobs')->fetchColumn() === $jobCount, 'job tenant field was accepted or mutated rows');
+            && (int) $pdo->query('SELECT COUNT(*) FROM pa_job')->fetchColumn() === $jobCount, 'job tenant field was accepted or mutated rows');
         expectOrgTenant(
             app(ExecutionContextStore::class)->run(
                 orgExecutionContext($context, 'test.jobs.add'),
@@ -153,8 +153,8 @@ try {
     $betaRole = (int) $pdo->query("SELECT id FROM pa_role WHERE tenant_id=202 AND name='Manager'")->fetchColumn();
     $alphaDept = (int) $pdo->query("SELECT id FROM pa_department WHERE tenant_id=101 AND name='Operations'")->fetchColumn();
     $betaDept = (int) $pdo->query("SELECT id FROM pa_department WHERE tenant_id=202 AND name='Operations'")->fetchColumn();
-    $alphaJobs = (int) $pdo->query("SELECT id FROM pa_jobs WHERE tenant_id=101 AND code='OPS'")->fetchColumn();
-    $betaJobs = (int) $pdo->query("SELECT id FROM pa_jobs WHERE tenant_id=202 AND code='OPS'")->fetchColumn();
+    $alphaJobs = (int) $pdo->query("SELECT id FROM pa_job WHERE tenant_id=101 AND code='OPS'")->fetchColumn();
+    $betaJobs = (int) $pdo->query("SELECT id FROM pa_job WHERE tenant_id=202 AND code='OPS'")->fetchColumn();
     expectOrgTenant($alphaRole > 0 && $betaRole > 0 && $alphaRole !== $betaRole, 'same role name was not Tenant-local');
     expectOrgTenant($alphaDept > 0 && $betaDept > 0 && $alphaDept !== $betaDept, 'same department name was not Tenant-local');
     expectOrgTenant($alphaJobs > 0 && $betaJobs > 0 && $alphaJobs !== $betaJobs, 'same job code was not Tenant-local');

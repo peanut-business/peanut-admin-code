@@ -35,8 +35,8 @@ final class DeploymentCatalogReadBoundaryTest extends TestCase
         \ThinkPhpTestConnection::fromPdo($this->pdo);
         $this->pdo->exec(<<<'SQL'
             CREATE TABLE pa_module_installation (id INTEGER PRIMARY KEY, module_key TEXT UNIQUE, installed_version TEXT, manifest_schema_version INTEGER, manifest_digest TEXT, status TEXT, revision INTEGER, activated_at TEXT, created_at TEXT, updated_at TEXT, private_note TEXT);
-            CREATE TABLE pa_menu_definition (id INTEGER PRIMARY KEY,"key" TEXT,module_key TEXT,status TEXT,private_note TEXT);
-            INSERT INTO pa_menu_definition VALUES (1,'alpha.old','fixture.alpha','active','private'),(2,'beta.live','fixture.beta','active','private'),(3,'beta.old','fixture.beta','retired','private'),(4,'core.root','core','active','private');
+            CREATE TABLE pa_system_menu (id INTEGER PRIMARY KEY,"key" TEXT,module_key TEXT,status TEXT,private_note TEXT);
+            INSERT INTO pa_system_menu VALUES (1,'alpha.old','fixture.alpha','active','private'),(2,'beta.live','fixture.beta','active','private'),(3,'beta.old','fixture.beta','retired','private'),(4,'core.root','core','active','private');
             SQL);
         $this->manifests = [];
         foreach (['alpha', 'beta'] as $key) {
@@ -115,9 +115,9 @@ final class DeploymentCatalogReadBoundaryTest extends TestCase
         $inner->expects(self::once())->method('retireMissing')->with(['alpha.new', 'beta.live', 'core.root']);
         $synchronizer = new MenuCatalogSynchronizer($inner);
         self::assertSame(['beta.live', 'core.root'], $synchronizer->activeKeysOutsideModules(['fixture.alpha']));
-        $before = $this->pdo->query('SELECT * FROM pa_menu_definition ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+        $before = $this->pdo->query('SELECT * FROM pa_system_menu ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
         (new ScopedMenuCatalogRepository($inner, ['fixture.alpha']))->retireMissing(['alpha.new', 'alpha.new']);
-        self::assertSame($before, $this->pdo->query('SELECT * FROM pa_menu_definition ORDER BY id')->fetchAll(PDO::FETCH_ASSOC));
+        self::assertSame($before, $this->pdo->query('SELECT * FROM pa_system_menu ORDER BY id')->fetchAll(PDO::FETCH_ASSOC));
     }
 
     public function testOwnerReadsUseCallersTransactionAndStorageFailuresStayFailures(): void
@@ -144,7 +144,7 @@ final class DeploymentCatalogReadBoundaryTest extends TestCase
         ] as $path) {
             $source = file_get_contents($root . $path);
             self::assertStringNotContainsString("Db::name('module_installation')", $source, $path);
-            self::assertStringNotContainsString("Db::name('menu_definition')", $source, $path);
+            self::assertStringNotContainsString("Db::name('system_menu')", $source, $path);
         }
     }
 }

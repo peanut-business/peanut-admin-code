@@ -578,7 +578,7 @@ SQL,
         string $conditionKey,
         ?int $targetSetId,
     ): int {
-        $policyId = $this->insert('pa_data_permission_policy', [
+        $policyId = $this->insert('pa_data_permission', [
             'tenant_id' => $this->alphaTenant,
             'role_id' => $roleId,
             'protected_resource_id' => $resourceId,

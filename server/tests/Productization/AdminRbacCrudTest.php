@@ -116,7 +116,7 @@ try {
         ['name' => 'RBAC department', 'pid' => 0, 'code' => 'rbac.department', 'status' => 1]));
     $departmentId = (int) Db::name('department')->where('tenant_id', $owner->tenantId)->where('code', 'rbac.department')->value('id');
     $run(static fn(TenantContext $context) => $jobs->add($context, ['name' => 'RBAC job', 'code' => 'rbac-job', 'status' => 1]));
-    $jobId = (int) Db::name('jobs')->where('tenant_id', $owner->tenantId)->where('code', 'rbac-job')->value('id');
+    $jobId = (int) Db::name('job')->where('tenant_id', $owner->tenantId)->where('code', 'rbac-job')->value('id');
     $memberInput = ['account' => 'reader@example.test', 'name' => 'RBAC reader', 'password' => 'ReaderPassword2026',
         'disable' => 0, 'role_id' => [$roleId], 'dept_id' => [$departmentId], 'jobs_id' => [$jobId]];
     $run(static fn(TenantContext $context) => $admins->add($context, $memberInput));
@@ -146,7 +146,7 @@ try {
     $run(static fn(TenantContext $context) => $departments->delete($context, $departmentId));
     $run(static fn(TenantContext $context) => $jobs->delete($context, $jobId));
     expectCrud(Db::name('department')->where('id', $departmentId)->value('status') === 'archived', 'Department archival failed');
-    expectCrud(Db::name('jobs')->where('id', $jobId)->value('delete_time') !== null, 'Job soft deletion failed');
+    expectCrud(Db::name('job')->where('id', $jobId)->value('delete_time') !== null, 'Job soft deletion failed');
     // IAM archives assigned roles and revokes their grants while retaining membership history.
     $run(static fn(TenantContext $context) => $roles->delete($context, $roleId));
     expectCrud(Db::name('role')->where('id', $roleId)->value('status') === 'archived', 'Role archival failed');

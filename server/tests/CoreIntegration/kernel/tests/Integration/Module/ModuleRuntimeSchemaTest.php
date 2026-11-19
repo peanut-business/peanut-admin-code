@@ -17,7 +17,7 @@ final class ModuleRuntimeSchemaTest extends DatabaseTestCase
     {
         $this->runner->migrate();
 
-        foreach (['pa_module_installation', 'pa_module_migration', 'pa_menu_definition'] as $table) {
+        foreach (['pa_module_installation', 'pa_module_migration', 'pa_system_menu'] as $table) {
             self::assertSame($table, $this->query("SHOW TABLES LIKE '{$table}'")->fetchColumn());
         }
 

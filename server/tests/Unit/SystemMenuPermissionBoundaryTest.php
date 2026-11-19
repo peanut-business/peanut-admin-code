@@ -6,7 +6,6 @@ namespace tests\Unit;
 
 use app\common\contract\module\ModuleQualificationQuery;
 use app\common\infrastructure\authorization\CoreTenantModuleAdminBridge;
-use app\common\runtime\authorization\RoleAdministrationRuntime;
 use app\adminapi\services\auth\RoleApplicationService;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
 use PDO;
@@ -38,7 +37,6 @@ final class SystemMenuPermissionBoundaryTest extends TestCase
     private PDO $database;
     private TenantAuthorizationQuery $identity;
     private CoreTenantModuleAdminBridge $bridge;
-    private RoleAdministrationRuntime $roles;
 
     protected function setUp(): void
     {
@@ -56,7 +54,7 @@ final class SystemMenuPermissionBoundaryTest extends TestCase
         $this->database->exec(<<<'SQL'
             CREATE TABLE pa_permission (id INTEGER PRIMARY KEY, "key" TEXT COLLATE NOCASE UNIQUE, module_key TEXT, status TEXT);
             CREATE TABLE pa_system_menu (id INTEGER PRIMARY KEY, perms TEXT, is_disable INTEGER, menu_key TEXT);
-            CREATE TABLE pa_menu_definition (id INTEGER PRIMARY KEY, "key" TEXT, scope TEXT, sort_order INTEGER, required_permission_id INTEGER);
+            CREATE TABLE pa_system_menu (id INTEGER PRIMARY KEY, "key" TEXT, scope TEXT, sort_order INTEGER, required_permission_id INTEGER);
             CREATE TABLE pa_tenant_module (tenant_id INTEGER, module_key TEXT, status TEXT, effective_at TEXT, expires_at TEXT);
             CREATE TABLE pa_plan (id INTEGER PRIMARY KEY, code TEXT, name TEXT, revision INTEGER);
             CREATE TABLE pa_tenant_license (id INTEGER PRIMARY KEY, tenant_id INTEGER, plan_id INTEGER, status TEXT, effective_at TEXT, expires_at TEXT, revision INTEGER);
@@ -96,19 +94,13 @@ final class SystemMenuPermissionBoundaryTest extends TestCase
             new MenuAdministrationService(),
             $entitlements,
         );
-        $this->roles = new RoleAdministrationRuntime(
-            new RoleAdminService(new AuditService(), $entitlements),
-            $this->identity,
-        );
     }
 
     public function testHostsDoNotJoinTheIdentityPrivatePermissionTable(): void
     {
-        foreach ([CoreTenantModuleAdminBridge::class, RoleAdministrationRuntime::class] as $type) {
-            $source = file_get_contents((new ReflectionClass($type))->getFileName());
-            self::assertStringNotContainsString("->join('permission", $source);
-        }
-        self::assertStringContainsString('->permissionStates(', file_get_contents((new ReflectionClass(CoreTenantModuleAdminBridge::class))->getFileName()));
+        $source = file_get_contents((new ReflectionClass(CoreTenantModuleAdminBridge::class))->getFileName());
+        self::assertStringNotContainsString("->join('permission", $source);
+        self::assertStringContainsString('->permissionStates(', $source);
     }
 
     public function testOwnerReturnsOnlyRequestedDefinitionMetadata(): void

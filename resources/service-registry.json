@@ -185,7 +185,7 @@
       ],
       "data_ownership": {
         "owned_tables": [
-          "pa_data_permission_policy",
+          "pa_data_permission",
           "pa_data_permission_group",
           "pa_data_permission_target_set",
           "pa_data_permission_condition",

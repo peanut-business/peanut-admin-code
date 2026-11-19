@@ -191,7 +191,7 @@ final class ModuleBoundaryInventoryTest extends TestCase
         $manifest = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         foreach ([
             \PeanutAdmin\Modules\Identity\Module\Model\ModuleInstallation::class => 'pa_module_installation',
-            \PeanutAdmin\Modules\Identity\Persistence\Model\MenuDefinition::class => 'pa_menu_definition',
+            \PeanutAdmin\Modules\Identity\Persistence\Model\MenuDefinition::class => 'pa_system_menu',
         ] as $model => $table) {
             $properties = (new \ReflectionClass($model))->getDefaultProperties();
             self::assertSame($table, 'pa_' . $properties['name']);

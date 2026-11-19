@@ -13,7 +13,7 @@ VALUES
     (1,0,'总部','','',10,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
     (2,1,'内容部','','',20,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
 
-INSERT INTO `pa_jobs`
+INSERT INTO `pa_job`
     (`id`,`name`,`code`,`sort`,`is_disable`,`status`,`remark`,`create_time`,`update_time`)
 VALUES (1,'编辑','editor',10,0,1,'MT02 fixture job',UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
 

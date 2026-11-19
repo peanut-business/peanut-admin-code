@@ -94,13 +94,13 @@ $app = new think\App($temporary);
 $database = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 ThinkPhpTestConnection::fromPdo($database);
 $database->exec(<<<'SQL'
-    CREATE TABLE pa_api_endpoint (id TEXT PRIMARY KEY, method TEXT, path TEXT, audience TEXT, module_key TEXT, access_mode TEXT, status TEXT, default_permission_keys TEXT, prerequisite_permission_keys TEXT);
+    CREATE TABLE pa_system_api (id TEXT PRIMARY KEY, method TEXT, path TEXT, audience TEXT, module_key TEXT, access_mode TEXT, status TEXT, default_permission_keys TEXT, prerequisite_permission_keys TEXT);
     CREATE TABLE pa_permission (id INTEGER PRIMARY KEY, "key" TEXT, module_key TEXT, status TEXT);
     CREATE TABLE pa_permission_api (id INTEGER PRIMARY KEY, permission_id INTEGER, api_id TEXT);
     SQL);
 // Consume real generated endpoint identities; the instance deliberately has no bundle bindings.
 $catalog = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/generated/api-catalog.json'), true, 512, JSON_THROW_ON_ERROR);
-$insert = $database->prepare('INSERT INTO pa_api_endpoint VALUES (?,?,?,?,?,?,?,?,?)');
+$insert = $database->prepare('INSERT INTO pa_system_api VALUES (?,?,?,?,?,?,?,?,?)');
 foreach ($catalog['endpoints'] as $endpoint) {
     if ($endpoint['application'] !== 'adminapi' || $endpoint['owner']['type'] !== 'application') {
         continue;
@@ -237,11 +237,11 @@ $app->config->set(['default' => 'file', 'stores' => ['file' => ['type' => 'File'
 $pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 ThinkPhpTestConnection::fromPdo($pdo);
 $pdo->exec(<<<'SQL'
-    CREATE TABLE pa_api_endpoint (id TEXT PRIMARY KEY, method TEXT, path TEXT, audience TEXT, module_key TEXT, access_mode TEXT, status TEXT, default_permission_keys TEXT, prerequisite_permission_keys TEXT);
+    CREATE TABLE pa_system_api (id TEXT PRIMARY KEY, method TEXT, path TEXT, audience TEXT, module_key TEXT, access_mode TEXT, status TEXT, default_permission_keys TEXT, prerequisite_permission_keys TEXT);
     CREATE TABLE pa_permission (id INTEGER PRIMARY KEY, "key" TEXT, module_key TEXT, status TEXT);
     CREATE TABLE pa_permission_api (id INTEGER PRIMARY KEY, permission_id INTEGER, api_id TEXT);
     CREATE TABLE business_writes (id INTEGER PRIMARY KEY);
-    INSERT INTO pa_api_endpoint VALUES
+    INSERT INTO pa_system_api VALUES
       ('self','GET','/adminapi/admin/self','tenant','peanut.admin','authenticated','active','[]','[]'),
       ('protected','POST','/adminapi/secure','tenant','peanut.admin','tenant_permission','active','["app.write"]','[]'),
       ('platform','GET','/platformapi/secure','platform','platform','platform_permission','active','["platform.read"]','["platform.prerequisite"]');
@@ -323,7 +323,7 @@ $deny(fn() => $store->run($execution, fn() => $admin->handle($request('admin/sel
 $deny(fn() => $store->run($execution, fn() => $admin->handle($request('unknown'), $next)), 403);
 // Missing trusted LoginMiddleware handoff must fail even for a root principal.
 $deny(fn() => $store->run($execution, fn() => $admin->handle($request('secure', 'POST'), $next)), 403);
-$pdo->exec("UPDATE pa_api_endpoint SET status='retired' WHERE id='self'");
+$pdo->exec("UPDATE pa_system_api SET status='retired' WHERE id='self'");
 $app->cache->clear();
 $deny(fn() => $store->run($execution, fn() => $admin->handle($request('admin/self'), $next)), 403);
 $platformRequest = $request('secure');
@@ -342,10 +342,10 @@ $permissions->keys = ['platform.prerequisite'];
 $deny(fn() => $store->run($platformExecution, $callPlatform), 403);
 $permissions->keys = ['platform.read', 'platform.prerequisite'];
 $deny(fn() => $store->run($platformExecution, fn() => $platform->handle($platformRequest, $next, 'core.member.read')), 403);
-$pdo->exec("UPDATE pa_api_endpoint SET status='retired' WHERE id='platform'");
+$pdo->exec("UPDATE pa_system_api SET status='retired' WHERE id='platform'");
 $deny(fn() => $store->run($platformExecution, $callPlatform), 403);
 expectAdminApiBoundary((int) $pdo->query('SELECT COUNT(*) FROM business_writes')->fetchColumn() === 2, 'unexpected business writes');
-$pdo->exec("UPDATE pa_api_endpoint SET status='active' WHERE id='platform'");
+$pdo->exec("UPDATE pa_system_api SET status='active' WHERE id='platform'");
 try {
     $store->run($platformExecution, fn() => $platform->handle($platformRequest,
         static fn() => throw new RuntimeException('synthetic-controller-failure'), 'platform.read'));

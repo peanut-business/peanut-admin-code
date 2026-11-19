@@ -7,7 +7,6 @@ use app\common\exception\BusinessException;
 use app\common\execution\AdminExecutionContext;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
-use app\common\runtime\authorization\RoleAdministrationRuntime;
 use app\common\infrastructure\authorization\CoreTenantModuleAdminBridge;
 use app\common\services\authorization\AdminAuthorizationService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
@@ -33,7 +32,7 @@ final class MemberHostActionPermissionTest extends TestCase
     private TenantContext $actor;
     private AdminApplicationService $host;
     private MemberAdminService $members;
-    private RoleAdministrationRuntime $roleAdministration;
+    private RoleAdminService $roleAdmin;
     private array $permissions = [];
 
     protected function setUp(): void
@@ -82,10 +81,9 @@ final class MemberHostActionPermissionTest extends TestCase
         $lookup->method('activeMembershipCount')->willReturn(1);
         $registry = new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], 'member-host');
         $identity = new TenantAuthorizationQuery($lookup, $registry);
-        $this->roleAdministration = new RoleAdministrationRuntime(
-            new RoleAdminService(new AuditService($current),
-                new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService($registry)),
-            $identity,
+        $this->roleAdmin = new RoleAdminService(
+            new AuditService($current),
+            new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService($registry),
         );
         $grants = $this->createStub(TenantAuthorizationRepository::class);
         $grants->method('permissions')->willReturnCallback(fn() => new EffectivePermissionSet($this->permissions));
@@ -98,14 +96,13 @@ final class MemberHostActionPermissionTest extends TestCase
         $authorization = new AdminAuthorizationService($bridge, new \app\common\policy\permission\RegisteredAdminPermissionPolicy(), $directory, $identity,
             new \app\common\services\authorization\EndpointPermissionGrant(new \think\Request()), $current);
         $this->members = new MemberAdminService(new AuditService($current), new \PeanutAdmin\Kernel\Identity\PasswordHasher(), new \PeanutAdmin\Kernel\Identity\PasswordPolicy());
-        $runtime = new \app\common\runtime\org\TenantAdminRuntime($this->members,
-            (new ReflectionClass(\PeanutAdmin\Modules\Identity\Identity\SelfService\AccountSelfService::class))->newInstanceWithoutConstructor(),
-            new \PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy(false, []));
+        $selfService = (new ReflectionClass(\PeanutAdmin\Modules\Identity\Identity\SelfService\AccountSelfService::class))->newInstanceWithoutConstructor();
+        $demoAccounts = new \PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy(false, []);
         $this->host = new AdminApplicationService(
             (new ReflectionClass(\app\common\services\XlsxExportService::class))->newInstanceWithoutConstructor(),
-            $directory, $runtime, $this->createStub(\PeanutAdmin\Modules\File\Contract\FileReferences::class),
+            $directory, $this->members, $selfService, $demoAccounts, $this->createStub(\PeanutAdmin\Modules\File\Contract\FileReferences::class),
             new \PeanutAdmin\Kernel\Identity\PasswordPolicy(), $current, $authorization,
-            $this->roleAdministration,
+            $this->roleAdmin,
         );
         $this->actor = TenantContext::fromValidatedSession(new ValidatedTenantSession(1,'member-host',101,501,601,'admin-web',new DateTimeImmutable('2035-01-01'),1,1),'member-host-request');
     }
@@ -391,11 +388,11 @@ final class MemberHostActionPermissionTest extends TestCase
         $self = new \PeanutAdmin\Modules\Identity\Identity\SelfService\AccountSelfService(
             new AuditService($current),new \PeanutAdmin\Kernel\Identity\PasswordHasher(),new \PeanutAdmin\Kernel\Identity\PasswordPolicy(),
         );
-        $runtime = new \app\common\runtime\org\TenantAdminRuntime($this->members,$self,new \PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy(false,[]));
+        $demoAccounts = new \PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy(false, []);
         $host = new AdminApplicationService(
-            (new ReflectionProperty($this->host,'xlsxExport'))->getValue($this->host),new AdminDirectoryQuery($current),$runtime,$references,
+            (new ReflectionProperty($this->host,'xlsxExport'))->getValue($this->host),new AdminDirectoryQuery($current),$this->members,$self,$demoAccounts,$references,
             new \PeanutAdmin\Kernel\Identity\PasswordPolicy(),$current,(new ReflectionProperty($this->host,'authorization'))->getValue($this->host),
-            $this->roleAdministration,
+            $this->roleAdmin,
         );
         self::assertTrue($this->runAs(fn()=>$host->editSelf($this->actor,601,['nickname'=>'Actor renamed','avatar'=>$key],'192.0.2.1','fixture')));
         self::assertSame($key,$this->pdo->query('SELECT avatar_uri FROM pa_account WHERE id=501')->fetchColumn());

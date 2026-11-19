@@ -336,7 +336,7 @@
       "issue_id": "application_composition_root:499e13aa6604",
       "category": "application_composition_root",
       "path": "server/app/platform/services/developer/DeveloperCenterCatalogService.php",
-      "line": 434,
+      "line": 427,
       "symbol": "return ['status' => 'ready'] + (new ModulePackageArchiveService($this->serverRoot))->previewModule($moduleKey);",
       "owner": "WP1 / Sol",
       "decision": "migrate",
@@ -402,7 +402,7 @@
       "issue_id": "application_raw_persistence:0334d227825e",
       "category": "application_raw_persistence",
       "path": "server/app/adminapi/services/auth/MenuApplicationService.php",
-      "line": 191,
+      "line": 154,
       "symbol": "$definition = Db::name('permission')->where('key', $permission)->where('status', 'active')->find();",
       "owner": "WP1 / Sol",
       "decision": "migrate",
@@ -413,7 +413,7 @@
       "issue_id": "application_raw_persistence:97753195d805",
       "category": "application_raw_persistence",
       "path": "server/app/common/services/authorization/AdminAuthorizationService.php",
-      "line": 303,
+      "line": 296,
       "symbol": "$pdo = Db::connect()->getPdo();",
       "owner": "WP1 / Sol",
       "decision": "migrate",
@@ -1231,7 +1231,7 @@
       "symbol": "use PeanutAdmin\\Modules\\Identity\\Authorization\\Application\\RoleAdminService;",
       "owner": "WP1 / Sol",
       "decision": "migrate",
-      "status": "open",
+      "status": "resolved_pending_verification",
       "verification": "pending"
     },
     {
@@ -1242,7 +1242,7 @@
       "symbol": "use PeanutAdmin\\Modules\\Identity\\Policy\\DemoAccountPolicy;",
       "owner": "WP1 / Sol",
       "decision": "migrate",
-      "status": "open",
+      "status": "resolved_pending_verification",
       "verification": "pending"
     },
     {
@@ -1253,7 +1253,7 @@
       "symbol": "use PeanutAdmin\\Modules\\Identity\\Identity\\SelfService\\AccountSelfService;",
       "owner": "WP1 / Sol",
       "decision": "migrate",
-      "status": "open",
+      "status": "resolved_pending_verification",
       "verification": "pending"
     },
     {
@@ -1264,7 +1264,7 @@
       "symbol": "use PeanutAdmin\\Modules\\Identity\\Membership\\Application\\MemberAdminService;",
       "owner": "WP1 / Sol",
       "decision": "migrate",
-      "status": "open",
+      "status": "resolved_pending_verification",
       "verification": "pending"
     },
     {
@@ -1491,7 +1491,7 @@
       "issue_id": "database_connection_locator:c73ded0e95c3",
       "category": "database_connection_locator",
       "path": "server/app/common/services/authorization/AdminAuthorizationService.php",
-      "line": 303,
+      "line": 296,
       "symbol": "$pdo = Db::connect()->getPdo();",
       "owner": "WP1 / Sol",
       "decision": "migrate",
@@ -2646,7 +2646,7 @@
       "issue_id": "direct_log_cache_session:cc37eabe6cea",
       "category": "direct_log_cache_session",
       "path": "server/app/common/services/authorization/AdminAuthorizationService.php",
-      "line": 241,
+      "line": 234,
       "symbol": "\\think\\facade\\Log::warning('ADMIN_MENUS_LOOKUP_FAILED', [",
       "owner": "TPQ44 / Sol",
       "decision": "migrate",
@@ -2844,7 +2844,7 @@
       "issue_id": "global_configuration_locator:483d36135bef",
       "category": "global_configuration_locator",
       "path": "server/app/common/services/authorization/AdminAuthorizationService.php",
-      "line": 176,
+      "line": 169,
       "symbol": "if (!InstanceToolAccessGuard::fromConfiguredValue(config('deployment.mode'))->allows()) {",
       "owner": "WP1 / Sol",
       "decision": "migrate",
@@ -2967,7 +2967,7 @@
       "issue_id": "global_service_locator:9611f44d7860",
       "category": "global_service_locator",
       "path": "server/app/platform/services/ApplicationTenantBootstrapService.php",
-      "line": 60,
+      "line": 58,
       "symbol": "$selectedModules = app(\\PeanutAdmin\\Modules\\Identity\\Contract\\TenantModuleStateQueries::class)->activeModuleKeys($tenantId);",
       "owner": "WP1 / Sol",
       "decision": "migrate",
@@ -3070,7 +3070,7 @@
       "issue_id": "handwritten_tenant_predicate:448744a54157",
       "category": "handwritten_tenant_predicate",
       "path": "server/app/adminapi/services/dept/JobsApplicationService.php",
-      "line": 188,
+      "line": 186,
       "symbol": "if (MemberJob::where('tenant_id', $context->tenantId)->where('job_id', $id)->count() > 0) {",
       "owner": "TPQ02-TPQ13 / Sol",
       "decision": "migrate",
@@ -3081,7 +3081,7 @@
       "issue_id": "handwritten_tenant_predicate:3fc962108fae",
       "category": "handwritten_tenant_predicate",
       "path": "server/app/adminapi/services/dept/JobsApplicationService.php",
-      "line": 315,
+      "line": 312,
       "symbol": "return Jobs::where('tenant_id', $context->tenantId);",
       "owner": "TPQ02-TPQ13 / Sol",
       "decision": "migrate",
@@ -4899,11 +4899,33 @@
       "verification": "pending"
     },
     {
+      "issue_id": "host_module_internal_dependency:8bb37137d305",
+      "category": "host_module_internal_dependency",
+      "path": "server/app/adminapi/services/auth/AdminApplicationService.php",
+      "line": 15,
+      "symbol": "use PeanutAdmin\\Modules\\Identity\\Authorization\\Application\\RoleAdminService;",
+      "owner": "WP1 / Sol",
+      "decision": "migrate",
+      "status": "open",
+      "verification": "pending"
+    },
+    {
       "issue_id": "host_module_internal_dependency:182ab53ae9ef",
       "category": "host_module_internal_dependency",
       "path": "server/app/adminapi/services/auth/AdminApplicationService.php",
-      "line": 22,
+      "line": 23,
       "symbol": "use PeanutAdmin\\Modules\\Identity\\Membership\\Application\\MemberAdminService;",
+      "owner": "WP1 / Sol",
+      "decision": "migrate",
+      "status": "open",
+      "verification": "pending"
+    },
+    {
+      "issue_id": "host_module_internal_dependency:e96a4b000922",
+      "category": "host_module_internal_dependency",
+      "path": "server/app/adminapi/services/auth/RoleApplicationService.php",
+      "line": 10,
+      "symbol": "use PeanutAdmin\\Modules\\Identity\\Authorization\\Application\\RoleAdminService;",
       "owner": "WP1 / Sol",
       "decision": "migrate",
       "status": "open",
@@ -5005,7 +5027,7 @@
       "symbol": "use PeanutAdmin\\Modules\\Identity\\Authorization\\Application\\RoleAdminService;",
       "owner": "WP1 / Sol",
       "decision": "migrate",
-      "status": "open",
+      "status": "resolved_pending_verification",
       "verification": "pending"
     },
     {
@@ -5016,7 +5038,7 @@
       "symbol": "use PeanutAdmin\\Modules\\Identity\\Membership\\Application\\MemberAdminService;",
       "owner": "WP1 / Sol",
       "decision": "migrate",
-      "status": "open",
+      "status": "resolved_pending_verification",
       "verification": "pending"
     },
     {
@@ -5115,7 +5137,7 @@
       "symbol": "use PeanutAdmin\\Modules\\ReferenceCodes\\Service\\ReferenceCodeCatalogService;",
       "owner": "WP1 / Sol",
       "decision": "migrate",
-      "status": "open",
+      "status": "resolved_pending_verification",
       "verification": "pending"
     },
     {
@@ -5203,7 +5225,7 @@
       "symbol": "use PeanutAdmin\\Modules\\Ops\\Domain\\Application\\OpsConsoleException;",
       "owner": "WP1 / Sol",
       "decision": "migrate",
-      "status": "open",
+      "status": "resolved_pending_verification",
       "verification": "pending"
     },
     {
@@ -5214,7 +5236,7 @@
       "symbol": "use PeanutAdmin\\Modules\\Ops\\Domain\\Application\\PlatformPermissionChecker;",
       "owner": "WP1 / Sol",
       "decision": "migrate",
-      "status": "open",
+      "status": "resolved_pending_verification",
       "verification": "pending"
     },
     {
@@ -8098,7 +8120,7 @@
       "issue_id": "raw_http_transport:6fed5f083ec4",
       "category": "raw_http_transport",
       "path": "server/app/AppService.php",
-      "line": 611,
+      "line": 565,
       "symbol": "new \\app\\platform\\services\\module\\OfficialModuleReleaseService(dirname(__DIR__, 2), new \\GuzzleHttp\\Client()),",
       "owner": "TPQ45 / Sol",
       "decision": "migrate",

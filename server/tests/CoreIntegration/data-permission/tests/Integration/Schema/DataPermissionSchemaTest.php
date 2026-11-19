@@ -36,7 +36,7 @@ final class DataPermissionSchemaTest extends DatabaseTestCase
         } catch (\Phinx\Migration\IrreversibleMigrationException $exception) {
             self::assertSame('Module data is retained. This initial schema migration cannot be rolled back.', $exception->getMessage());
         }
-        self::assertTrue($this->tableExists('pa_data_permission_policy'));
+        self::assertTrue($this->tableExists('pa_data_permission'));
         self::assertTrue($this->tableExists('pa_data_permission_target'));
         self::assertTrue($this->tableExists('pa_tenant'));
     }
@@ -105,7 +105,7 @@ final class DataPermissionSchemaTest extends DatabaseTestCase
             'added_at' => self::NOW,
         ]));
 
-        $this->assertDatabaseRejects(fn() => $this->insert('pa_data_permission_policy', [
+        $this->assertDatabaseRejects(fn() => $this->insert('pa_data_permission', [
             'tenant_id' => $beta,
             'role_id' => $betaRole,
             'protected_resource_id' => $resource,
@@ -219,7 +219,7 @@ final class DataPermissionSchemaTest extends DatabaseTestCase
         int $operationId,
         int $memberId,
     ): int {
-        return $this->insert('pa_data_permission_policy', [
+        return $this->insert('pa_data_permission', [
             'tenant_id' => $tenantId,
             'role_id' => $roleId,
             'protected_resource_id' => $resourceId,

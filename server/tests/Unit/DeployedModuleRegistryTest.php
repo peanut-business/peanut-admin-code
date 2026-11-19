@@ -44,10 +44,10 @@ final class DeployedModuleRegistryTest extends TestCase
             512,
             JSON_THROW_ON_ERROR,
         );
-        self::assertContains('pa_menu_definition', ModuleSchema::tableNames());
+        self::assertContains('pa_system_menu', ModuleSchema::tableNames());
         self::assertContains('pa_module_installation', ModuleSchema::tableNames());
         self::assertContains('pa_module_migration', ModuleSchema::tableNames());
-        self::assertContains('pa_menu_definition', $identity['database']['owned_tables']);
+        self::assertContains('pa_system_menu', $identity['database']['owned_tables']);
         self::assertContains('pa_module_installation', $identity['database']['owned_tables']);
         self::assertNotContains('pa_module_migration', $identity['database']['owned_tables']);
 

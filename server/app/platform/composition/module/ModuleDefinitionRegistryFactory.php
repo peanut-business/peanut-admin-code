@@ -89,16 +89,15 @@ final readonly class ModuleDefinitionRegistryFactory
     {
         $lock = (string) ($deploymentConfig['module_lock'] ?? '');
         $lockPath = str_starts_with($lock, '/') ? $lock : $this->serverRoot . '/' . $lock;
-        $parts = [$this->serverRoot, json_encode($deploymentConfig, JSON_THROW_ON_ERROR)];
-        foreach ([$lockPath, $this->serverRoot . '/composer.lock',
-            $this->serverRoot . '/vendor/composer/installed.json', __FILE__] as $path) {
-            $stat = @stat($path);
-            if ($stat === false) {
-                return null;
-            }
-            $parts[] = implode(':', [(string) ($stat['ino'] ?? 0), (string) ($stat['mtime'] ?? 0), (string) ($stat['size'] ?? 0)]);
+        $stat = @stat($lockPath);
+        if ($stat === false) {
+            return null;
         }
-        return implode('|', $parts);
+        return implode('|', [
+            $this->serverRoot,
+            json_encode($deploymentConfig, JSON_THROW_ON_ERROR),
+            implode(':', [(string) ($stat['ino'] ?? 0), (string) ($stat['mtime'] ?? 0), (string) ($stat['size'] ?? 0)]),
+        ]);
     }
 
     private static function processRecordCache(string $key, ?array $store = null): ?array
@@ -124,16 +123,11 @@ final readonly class ModuleDefinitionRegistryFactory
     {
         $lock = (string) ($deploymentConfig['module_lock'] ?? '');
         $lockPath = str_starts_with($lock, '/') ? $lock : $this->serverRoot . '/' . $lock;
-        $inputs = [];
-        foreach ([$lockPath, $this->serverRoot . '/composer.lock',
-            $this->serverRoot . '/vendor/composer/installed.json', __FILE__] as $path) {
-            $digest = is_file($path) ? hash_file('sha256', $path) : false;
-            if (!is_string($digest)) {
-                throw new ModuleException('MODULE_REGISTRY_NOT_COMPILED', 'Module compilation inputs are unavailable.');
-            }
-            $inputs[] = $digest;
+        $digest = is_file($lockPath) ? hash_file('sha256', $lockPath) : false;
+        if (!is_string($digest)) {
+            throw new ModuleException('MODULE_REGISTRY_NOT_COMPILED', 'Module compilation inputs are unavailable.');
         }
-        return hash('sha256', json_encode([$this->serverRoot, $deploymentConfig, $inputs], JSON_THROW_ON_ERROR));
+        return hash('sha256', json_encode([$this->serverRoot, $deploymentConfig, $digest], JSON_THROW_ON_ERROR));
     }
 
     /** @param array<string,mixed> $deploymentConfig */
@@ -279,7 +273,7 @@ final readonly class ModuleDefinitionRegistryFactory
     {
         $technical = [...array_diff(ModuleSchema::tableNames(), ['pa_module_migration']), ...IdempotencySchema::tableNames()];
         $transferredTechnicalOwners = [
-            'peanut.identity' => ['pa_menu_definition', 'pa_module_installation'],
+            'peanut.identity' => ['pa_system_menu', 'pa_module_installation'],
         ];
         $owners = [];
         $layout = ModuleHostLayoutFactory::pathLayout();

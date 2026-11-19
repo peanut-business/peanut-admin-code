@@ -33,17 +33,17 @@ final class IdentityCatalogBoundaryTest extends TestCase
         ThinkPhpTestConnection::fromPdo($this->database);
         $this->database->exec(<<<'SQL'
             CREATE TABLE pa_permission (id INTEGER PRIMARY KEY, "key" TEXT, module_key TEXT, status TEXT, retired_at TEXT, private_extra TEXT);
-            CREATE TABLE pa_menu_definition (id INTEGER PRIMARY KEY, "key" TEXT, module_key TEXT, status TEXT, manifest_digest TEXT, private_extra TEXT);
+            CREATE TABLE pa_system_menu (id INTEGER PRIMARY KEY, "key" TEXT, module_key TEXT, status TEXT, manifest_digest TEXT, private_extra TEXT);
             CREATE TABLE pa_setting_definition (id INTEGER PRIMARY KEY, module_key TEXT, setting_key TEXT, status TEXT, revision INTEGER, definition_digest TEXT);
             CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY, authorization_revision INTEGER, revision INTEGER, updated_at TEXT);
             CREATE TABLE pa_tenant_license (id INTEGER PRIMARY KEY,tenant_id INTEGER,plan_id INTEGER);
             CREATE TABLE pa_plan_module (plan_id INTEGER,module_key TEXT);
-            CREATE TABLE pa_api_endpoint (id TEXT,method TEXT,path TEXT,audience TEXT,module_key TEXT,access_mode TEXT,status TEXT,default_permission_keys TEXT,prerequisite_permission_keys TEXT);
+            CREATE TABLE pa_system_api (id TEXT,method TEXT,path TEXT,audience TEXT,module_key TEXT,access_mode TEXT,status TEXT,default_permission_keys TEXT,prerequisite_permission_keys TEXT);
             CREATE TABLE pa_permission_api (permission_id INTEGER,api_id TEXT);
             INSERT INTO pa_tenant_license VALUES (1,101,1),(2,202,1),(3,303,2);
             INSERT INTO pa_plan_module VALUES (1,'fixture.alpha'),(1,'fixture.beta'),(2,'fixture.gamma');
             INSERT INTO pa_permission VALUES (2,'fixture.beta.read','fixture.beta','retired','2031-01-01 01:02:03.456000','private'),(1,'fixture.alpha.read','fixture.alpha','active',NULL,'private');
-            INSERT INTO pa_menu_definition VALUES (2,'fixture.beta.menu','fixture.beta','retired','digest-b','private'),(1,'fixture.alpha.menu','fixture.alpha','active','digest-a','private');
+            INSERT INTO pa_system_menu VALUES (2,'fixture.beta.menu','fixture.beta','retired','digest-b','private'),(1,'fixture.alpha.menu','fixture.alpha','active','digest-a','private');
             INSERT INTO pa_tenant VALUES (101,5,8,'old'),(202,10,12,'old'),(303,20,25,'old');
             SQL);
         $this->host = ThinkPhpTestConnection::moduleCatalogs($this->database);
@@ -62,7 +62,7 @@ final class IdentityCatalogBoundaryTest extends TestCase
     public function testHostDelegatesIdentityReadsAndInvalidationToItsOwner(): void
     {
         $source = file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/platform/infrastructure/module/ModuleCatalogApplier.php');
-        foreach (["Db::name('permission')", "Db::name('menu_definition')", "Db::name('tenant_module')", "Db::name('tenant')", "'menus' => 'pa_menu_definition'"] as $privateAccess) {
+        foreach (["Db::name('permission')", "Db::name('system_menu')", "Db::name('tenant_module')", "Db::name('tenant')", "'menus' => 'pa_system_menu'"] as $privateAccess) {
             self::assertStringNotContainsString($privateAccess, $source);
         }
         self::assertStringContainsString('$this->authorization->invalidateTenantAuthorization($moduleKeys)', $source);
@@ -80,7 +80,7 @@ final class IdentityCatalogBoundaryTest extends TestCase
         ];
         self::assertSame($permissions, $this->authorization->revisionRows());
         self::assertSame($menus, $this->menus->revisionRows());
-        $expected = ['pa_permission' => $permissions, 'api_permissions' => ['endpoints' => [], 'bindings' => []], 'pa_menu_definition' => $menus, 'pa_setting_definition' => [], 'pa_reference_code_set' => []];
+        $expected = ['pa_permission' => $permissions, 'api_permissions' => ['endpoints' => [], 'bindings' => []], 'pa_system_menu' => $menus, 'pa_setting_definition' => [], 'pa_reference_code_set' => []];
         self::assertSame(hash('sha256', json_encode($expected, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)), $this->host->catalogRevision());
     }
 

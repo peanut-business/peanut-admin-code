@@ -120,7 +120,7 @@ class JobsApplicationService
     public function all(TenantContext $context): array
     {
         return self::jobs($context)->where('status', 1)
-            ->field('id,name,code,status,is_disable')
+            ->field('id,name,code,status')
             ->order(['sort' => 'desc', 'id' => 'desc'])
             ->limit(500)
             ->select()
@@ -148,7 +148,6 @@ class JobsApplicationService
                 'code'       => trim((string) $params['code']),
                 'sort'       => (int) ($params['sort'] ?? 0),
                 'status'     => $status,
-                'is_disable' => $status === 1 ? 0 : 1,
                 'remark'     => (string) ($params['remark'] ?? ''),
             ]);
             return true;
@@ -171,7 +170,6 @@ class JobsApplicationService
                 'code'       => trim((string) $params['code']),
                 'sort'       => (int) ($params['sort'] ?? 0),
                 'status'     => $status,
-                'is_disable' => $status === 1 ? 0 : 1,
                 'remark'     => (string) ($params['remark'] ?? ''),
             ]);
             return true;
@@ -202,7 +200,6 @@ class JobsApplicationService
             }
             $jobs->save([
                 'status' => $status,
-                'is_disable' => $status === 1 ? 0 : 1,
             ]);
             return true;
         });

@@ -33,7 +33,7 @@ final class CatalogSettingsLifecycleBoundaryTest extends TestCase
         );
         $this->database->sqliteCreateFunction('UTC_TIMESTAMP', static fn(int $precision): string => '2031-01-01 00:00:00.000', 1);
         foreach ([
-            'api_endpoint' => 'module_key TEXT, status TEXT, retired_at TEXT, updated_at TEXT',
+            'system_api' => 'module_key TEXT, status TEXT, retired_at TEXT, updated_at TEXT',
             'permission_api' => 'permission_id INTEGER, api_id TEXT',
             'tenant' => 'authorization_revision INTEGER, revision INTEGER, updated_at TEXT',
             'permission' => '"key" TEXT, module_key TEXT, status TEXT, retired_at TEXT, updated_at TEXT',
@@ -44,7 +44,7 @@ final class CatalogSettingsLifecycleBoundaryTest extends TestCase
             'resource_operation_permission' => 'resource_operation_id INTEGER, permission_id INTEGER',
             'resource_operation_target_type' => 'resource_operation_id INTEGER, target_type_id INTEGER, status TEXT',
             'resource_operation_condition' => 'resource_operation_id INTEGER, condition_definition_id INTEGER, status TEXT',
-            'menu_definition' => '"key" TEXT, module_key TEXT, required_permission_id INTEGER, status TEXT, updated_at TEXT',
+            'system_menu' => '"key" TEXT, module_key TEXT, required_permission_id INTEGER, status TEXT, updated_at TEXT',
             'role_permission' => 'tenant_id INTEGER, role_id INTEGER, permission_id INTEGER',
             'platform_role_permission' => 'platform_role_id INTEGER, permission_id INTEGER',
             'setting_definition' => 'module_key TEXT, setting_key TEXT, status TEXT, revision INTEGER, updated_at TEXT',

@@ -52,7 +52,7 @@ $requiredTables = [
     'pa_resource_operation_permission',
     'pa_data_condition_definition',
     'pa_resource_operation_condition',
-    'pa_menu_definition',
+    'pa_system_menu',
     'pa_setting_definition',
     'pa_setting_deployment_value',
     'pa_setting_tenant_value',
@@ -68,7 +68,7 @@ pluginMigrationExpect(
         && !str_contains($sql, 'CREATE TABLE `pa_module_migration`'),
     'initial Module-owned schema must not recreate retired Plugin or custom migration ledgers',
 );
-foreach (['pa_resource_operation_target_type', 'pa_resource_operation_permission', 'pa_menu_definition'] as $table) {
+foreach (['pa_resource_operation_target_type', 'pa_resource_operation_permission', 'pa_system_menu'] as $table) {
     pluginMigrationExpect(
         str_contains(pluginMigrationTableSql($sql, $table), 'REFERENCES `pa_permission` (`id`)'),
         "{$table} must reference Identity-owned pa_permission",

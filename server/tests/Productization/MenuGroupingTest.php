@@ -33,7 +33,7 @@ function menuRows(PDO $pdo, string $table): array
 function menuStable(PDO $pdo): array
 {
     $result = [];
-    foreach (['pa_system_menu', 'pa_menu_definition', 'pa_role_permission', 'pa_platform_role_permission'] as $table) {
+    foreach (['pa_system_menu', 'pa_system_menu', 'pa_role_permission', 'pa_platform_role_permission'] as $table) {
         $result[$table] = array_map(static function (array $row): array {
             unset($row['updated_at'], $row['created_at']);
             return $row;
@@ -90,7 +90,7 @@ foreach (['multi_tenant_fresh', 'module_lifecycle'] as $scenario) {
             menuExpect($page->parentKey !== null && $page->routeName === $source['route_name']
                 && $page->routePath === $source['route_path'] && $page->requiredPermission === $source['required_permission'], 'route, parent or permission changed: ' . $page->key);
         }
-        $ids = $pdo->query('SELECT `key`,id FROM pa_menu_definition')->fetchAll(PDO::FETCH_KEY_PAIR);
+        $ids = $pdo->query('SELECT `key`,id FROM pa_system_menu')->fetchAll(PDO::FETCH_KEY_PAIR);
         $bindings = [menuRows($pdo, 'pa_role_permission'), menuRows($pdo, 'pa_platform_role_permission')];
         $visible = menuVisible($repository, $permissions, $modules);
         menuExpect(count(array_filter($visible, static fn($row): bool => $row->parentKey === null)) === 6, 'current tenant root projection changed');
@@ -112,17 +112,17 @@ foreach (['multi_tenant_fresh', 'module_lifecycle'] as $scenario) {
             new MenuAdministrationService(),
         );
         if ($scenario === 'module_lifecycle') {
-            $pdo->exec("UPDATE pa_menu_definition SET name='我的文件',parent_key='core.organization',sort_order=997 WHERE `key`='peanut.file.library'");
-            $pdo->exec("INSERT INTO pa_menu_definition(`key`,module_key,scope,parent_key,type,name,sort_order,client_keys_json,status,manifest_digest,created_at,updated_at) VALUES('customer.category','core','tenant','core.organization','group','我的目录',999,JSON_ARRAY('admin-web'),'active',REPEAT('b',64),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
+            $pdo->exec("UPDATE pa_system_menu SET name='我的文件',parent_key='core.organization',sort_order=997 WHERE `key`='peanut.file.library'");
+            $pdo->exec("INSERT INTO pa_system_menu(`key`,module_key,scope,parent_key,type,name,sort_order,client_keys_json,status,manifest_digest,created_at,updated_at) VALUES('customer.category','core','tenant','core.organization','group','我的目录',999,JSON_ARRAY('admin-web'),'active',REPEAT('b',64),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
             $management->add(['type' => 'M', 'name' => '自建目录', 'parent_key' => 'core.content']);
             $group = array_values(array_filter($management->records(), static fn(array $row): bool => $row['name'] === '自建目录'))[0];
             $management->add(['type' => 'C', 'name' => '自建页面', 'parent_key' => $group['menu_key'], 'paths' => '/my-page']);
             $customBefore = menuRows($pdo, 'pa_system_menu');
             $applier->apply($registry);
-            $customized = $pdo->query("SELECT name,parent_key,menu_conflict_json FROM pa_menu_definition WHERE `key`='peanut.file.library'")->fetch(PDO::FETCH_ASSOC);
+            $customized = $pdo->query("SELECT name,parent_key,menu_conflict_json FROM pa_system_menu WHERE `key`='peanut.file.library'")->fetch(PDO::FETCH_ASSOC);
             menuExpect($customized['name'] === '我的文件' && $customized['parent_key'] === 'core.organization' && $customized['menu_conflict_json'] !== null, 'custom presentation or conflict lost');
             menuExpect(menuRows($pdo, 'pa_system_menu') === $customBefore, 'user-created hierarchy changed');
-            menuExpect($pdo->query("SELECT status FROM pa_menu_definition WHERE `key`='customer.category'")->fetchColumn() === 'active', 'unknown user menu retired');
+            menuExpect($pdo->query("SELECT status FROM pa_system_menu WHERE `key`='customer.category'")->fetchColumn() === 'active', 'unknown user menu retired');
             $applier->beginPackageDeployment($manifests, false, gmdate('Y-m-d H:i:s'));
             $applier->activatePackageDeployment($manifests, false, gmdate('Y-m-d H:i:s'));
             $applier->disableActivePackageModules(['peanut.task']);
@@ -143,7 +143,7 @@ foreach (['multi_tenant_fresh', 'module_lifecycle'] as $scenario) {
             menuExpect(count(array_filter($repository->activeDefinitions('tenant'), static fn($row): bool => $row->moduleKey === 'peanut.task')) === 2, 'reinstall did not reactivate both Task menus');
             $applier->retire(['peanut.file']);
             $applier->apply($registry, ['peanut.file']);
-            menuExpect($pdo->query("SELECT status,name,parent_key FROM pa_menu_definition WHERE `key`='peanut.file.library'")->fetch(PDO::FETCH_ASSOC) === ['status' => 'active', 'name' => '我的文件', 'parent_key' => 'core.organization'], 'reinstall lost customized menu');
+            menuExpect($pdo->query("SELECT status,name,parent_key FROM pa_system_menu WHERE `key`='peanut.file.library'")->fetch(PDO::FETCH_ASSOC) === ['status' => 'active', 'name' => '我的文件', 'parent_key' => 'core.organization'], 'reinstall lost customized menu');
             $applier->apply($registry);
         }
         foreach (['peanut.reference-codes.dictionary', 'peanut.file.library'] as $key) {
@@ -183,7 +183,7 @@ foreach (['multi_tenant_fresh', 'module_lifecycle'] as $scenario) {
         $management->delete($custom['menu_key']);
         $applier->apply($registry);
         foreach ($ids as $key => $id) {
-            $statement = $pdo->prepare('SELECT id FROM pa_menu_definition WHERE `key`=?');
+            $statement = $pdo->prepare('SELECT id FROM pa_system_menu WHERE `key`=?');
             $statement->execute([$key]);
             menuExpect((int) $statement->fetchColumn() === (int) $id, 'stable catalog ID changed: ' . $key);
         }

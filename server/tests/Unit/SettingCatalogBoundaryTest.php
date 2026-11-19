@@ -154,15 +154,15 @@ final class SettingCatalogBoundaryTest extends TestCase
         $this->database->sqliteCreateFunction('DATE_FORMAT', static fn($value, $format) => $value, 2);
         $this->database->exec(<<<'SQL'
             CREATE TABLE pa_permission (id INTEGER PRIMARY KEY, "key" TEXT, module_key TEXT, status TEXT, retired_at TEXT);
-            CREATE TABLE pa_menu_definition (id INTEGER PRIMARY KEY, "key" TEXT, module_key TEXT, status TEXT, manifest_digest TEXT);
-            CREATE TABLE pa_api_endpoint (id TEXT PRIMARY KEY, method TEXT, path TEXT, audience TEXT, module_key TEXT, access_mode TEXT, status TEXT, default_permission_keys TEXT, prerequisite_permission_keys TEXT);
+            CREATE TABLE pa_system_menu (id INTEGER PRIMARY KEY, "key" TEXT, module_key TEXT, status TEXT, manifest_digest TEXT);
+            CREATE TABLE pa_system_api (id TEXT PRIMARY KEY, method TEXT, path TEXT, audience TEXT, module_key TEXT, access_mode TEXT, status TEXT, default_permission_keys TEXT, prerequisite_permission_keys TEXT);
             CREATE TABLE pa_permission_api (permission_id INTEGER, api_id TEXT);
             SQL);
         $host = ThinkPhpTestConnection::moduleCatalogs($this->database);
         $before = $host->catalogRevision();
         $manifest = $this->manifest('fixture.alpha', [$this->definition('theme')]);
         $this->catalog->synchronize(['fixture.alpha' => $manifest], $this->now());
-        $rows = ['pa_permission' => [], 'api_permissions' => ['endpoints' => [], 'bindings' => []], 'pa_menu_definition' => [], 'pa_setting_definition' => $this->catalog->revisionRows(), 'pa_reference_code_set' => []];
+        $rows = ['pa_permission' => [], 'api_permissions' => ['endpoints' => [], 'bindings' => []], 'pa_system_menu' => [], 'pa_setting_definition' => $this->catalog->revisionRows(), 'pa_reference_code_set' => []];
         self::assertSame(hash('sha256', json_encode($rows, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)), $host->catalogRevision());
         self::assertNotSame($before, $host->catalogRevision());
         self::assertSame(['menus' => 0, 'permissions' => 0, 'settings' => 1, 'reference_codes' => 0], (new ReflectionMethod($host, 'activeCounts'))->invoke($host, ['fixture.alpha']));

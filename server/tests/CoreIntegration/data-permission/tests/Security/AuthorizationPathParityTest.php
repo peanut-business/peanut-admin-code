@@ -155,7 +155,7 @@ SQL)->fetchColumn());
         foreach (['export', 'job'] as $operation) {
             $policyId = $this->fixture->policyIds[$operation];
             $this->database->exec(<<<SQL
-UPDATE pa_data_permission_policy
+UPDATE pa_data_permission
 SET status = 'disabled', revision = revision + 1
 WHERE id = {$policyId}
 SQL);

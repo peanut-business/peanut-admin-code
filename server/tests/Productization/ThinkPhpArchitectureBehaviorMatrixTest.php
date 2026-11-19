@@ -90,7 +90,7 @@ final class Tpq51RecordingMysql extends Mysql
     /** 提供本测试读取所需的元数据；未知表不得触发真实数据库连接。 */
     public function getFields(string $tableName): array
     {
-        if (trim($tableName, '`') !== 'pa_jobs') {
+        if (trim($tableName, '`') !== 'pa_job') {
             throw new RuntimeException('Unexpected recording-connector schema lookup: ' . $tableName);
         }
         $types = [
@@ -431,7 +431,7 @@ foreach ([101, 202] as $jobsTenantId) {
     expectTpq51(
         $jobsRows === [] && count($connection->statements) === 1
             && ($connection->statements[0]['operation'] ?? '') === 'select'
-            && str_contains($jobsSql, '`pa_jobs`')
+            && str_contains($jobsSql, '`pa_job`')
             && $tenantPredicates[1] !== []
             && count($tenantPredicates[1]) === tpq51SqlCount($jobsSql, 'tenant_id')
             && array_unique($tenantPredicates[1]) === [(string) $jobsTenantId]
@@ -598,7 +598,7 @@ cases = {
     ),
     "services_raw_db": (
         "server/app/adminapi/services/JobsProbe.php",
-        "<?php\nDb::name('jobs')->select();\n",
+        "<?php\nDb::name('job')->select();\n",
     ),
     "services_scope_bypass": (
         "server/app/adminapi/services/JobsProbe.php",

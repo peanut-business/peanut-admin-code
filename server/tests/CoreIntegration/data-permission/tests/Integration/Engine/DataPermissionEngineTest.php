@@ -126,7 +126,7 @@ final class DataPermissionEngineTest extends DatabaseTestCase
 
         $expiredPolicy = $this->policy($this->roleA, $operationId, [[['core.tenant_all', null]]]);
         $this->database->exec(<<<SQL
-UPDATE pa_data_permission_policy
+UPDATE pa_data_permission
 SET valid_until = '2020-01-01 00:00:00.000', revision = revision + 1
 WHERE id = {$expiredPolicy}
 SQL);
@@ -171,7 +171,7 @@ SQL);
             'updated_at' => self::NOW,
         ]);
         $this->database->exec(<<<SQL
-UPDATE pa_data_permission_policy SET revision = revision + 1 WHERE id = {$policyId}
+UPDATE pa_data_permission SET revision = revision + 1 WHERE id = {$policyId}
 SQL);
 
         self::assertSame([1, 2], $this->authorizedIds('cache-revision'));
@@ -471,7 +471,7 @@ SQL);
      */
     private function policy(int $roleId, int $operationId, array $groups): int
     {
-        $policyId = $this->insert('pa_data_permission_policy', [
+        $policyId = $this->insert('pa_data_permission', [
             'tenant_id' => $this->alphaTenant,
             'role_id' => $roleId,
             'protected_resource_id' => $this->resourceId,

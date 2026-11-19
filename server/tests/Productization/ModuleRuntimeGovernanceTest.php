@@ -184,7 +184,7 @@ try {
     $unchangedInstall = $installer->install($archivePath, $packed['sha256'], null);
     moduleGovernanceExpect(($unchangedInstall['operation'] ?? null) === 'unchanged', 'repeated fixture package install was not idempotent');
     moduleGovernanceExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_permission WHERE module_key='acme.governance' AND status='active'")->fetchColumn() === 2, 'fixture permissions were not activated');
-    moduleGovernanceExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_menu_definition WHERE module_key='acme.governance' AND status='active'")->fetchColumn() === 1, 'fixture menu was not activated');
+    moduleGovernanceExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_system_menu WHERE module_key='acme.governance' AND status='active'")->fetchColumn() === 1, 'fixture menu was not activated');
     moduleGovernanceExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_setting_definition WHERE module_key='acme.governance' AND status='active'")->fetchColumn() === 1, 'fixture setting definition was not activated');
     moduleGovernanceExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_plan_module WHERE module_key='acme.governance'")->fetchColumn() === 0, 'fixture package install changed tenant plan selection');
 

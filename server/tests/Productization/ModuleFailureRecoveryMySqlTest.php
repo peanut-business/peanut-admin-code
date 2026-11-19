@@ -100,7 +100,7 @@ $config = ['roots' => [], 'module_lock' => '../modules.lock', 'kernel_version' =
 $app->config->set($config, 'modules');
 $nonCaseCatalogSnapshot = static function () use ($pdo): array {
     $snapshot = [];
-    foreach (['permission', 'menu_definition', 'setting_definition'] as $table) {
+    foreach (['permission', 'system_menu', 'setting_definition'] as $table) {
         $snapshot[$table] = $pdo->query("SELECT * FROM pa_{$table} WHERE (module_key IS NULL OR module_key NOT IN ('acme.lifecycle','acme.dependent','acme.recovery')) ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
     }
     return $snapshot;
@@ -187,7 +187,7 @@ $governance->uninstall('acme.recovery', false, $plan['confirm_plan'], $plan['pla
 $expect($pdo->query('SELECT value FROM pa_acceptance_recovery WHERE id=91')->fetchColumn() === 'retain-through-forward-repair', 'Normal retirement after repair removed business data');
 $nonCaseCatalogAfter = $nonCaseCatalogSnapshot();
 $coreMetadataValid = true;
-foreach (['permission', 'menu_definition'] as $table) {
+foreach (['permission', 'system_menu'] as $table) {
     $beforeById = array_column($nonCaseCatalogBefore[$table], null, 'id');
     foreach ($nonCaseCatalogAfter[$table] as &$row) {
         $before = $beforeById[$row['id']] ?? null;
@@ -196,7 +196,7 @@ foreach (['permission', 'menu_definition'] as $table) {
         }
         $coreMetadataValid = $coreMetadataValid && $row['updated_at'] >= $before['updated_at'];
         $row['updated_at'] = $before['updated_at'];
-        if ($table === 'menu_definition') {
+        if ($table === 'system_menu') {
             $coreMetadataValid = $coreMetadataValid && hash_equals($expectedMenuScope, $row['manifest_digest']);
             $row['manifest_digest'] = $before['manifest_digest'];
         }

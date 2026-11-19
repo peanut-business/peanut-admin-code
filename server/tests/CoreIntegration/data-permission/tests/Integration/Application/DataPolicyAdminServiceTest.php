@@ -205,7 +205,7 @@ final class DataPolicyAdminServiceTest extends DatabaseTestCase
             ));
         }
 
-        self::assertSame(0, (int) $this->query('SELECT COUNT(*) FROM pa_data_permission_policy')->fetchColumn());
+        self::assertSame(0, (int) $this->query('SELECT COUNT(*) FROM pa_data_permission')->fetchColumn());
         self::assertSame(0, (int) $this->query('SELECT COUNT(*) FROM pa_tenant_audit_event')->fetchColumn());
     }
 

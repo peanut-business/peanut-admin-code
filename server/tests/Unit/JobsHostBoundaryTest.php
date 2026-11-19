@@ -37,9 +37,9 @@ final class JobsHostBoundaryTest extends TestCase
         $this->pdo = new PDO('sqlite::memory:',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
         ThinkPhpTestConnection::fromPdo($this->pdo);
         $this->pdo->exec(<<<'SQL'
-            CREATE TABLE pa_jobs(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER,name TEXT,code TEXT,sort INTEGER DEFAULT 0,status INTEGER DEFAULT 1,is_disable INTEGER DEFAULT 0,remark TEXT DEFAULT '',create_time INTEGER,update_time INTEGER,delete_time INTEGER);
+            CREATE TABLE pa_job(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER,name TEXT,code TEXT,sort INTEGER DEFAULT 0,status INTEGER DEFAULT 1,is_disable INTEGER DEFAULT 0,remark TEXT DEFAULT '',create_time INTEGER,update_time INTEGER,delete_time INTEGER);
             CREATE TABLE pa_member_job(tenant_id INTEGER,tenant_member_id INTEGER,job_id INTEGER);
-            INSERT INTO pa_jobs(id,tenant_id,name,code,status,is_disable) VALUES(1,101,'Alpha','alpha',1,0),(2,202,'Beta','beta',1,0),(3,101,'Disabled','disabled',0,1);
+            INSERT INTO pa_job(id,tenant_id,name,code,status,is_disable) VALUES(1,101,'Alpha','alpha',1,0),(2,202,'Beta','beta',1,0),(3,101,'Disabled','disabled',0,1);
             INSERT INTO pa_member_job VALUES(101,601,1),(202,602,2);
             SQL);
         $this->contexts = new ExecutionContextStore();
@@ -78,7 +78,7 @@ final class JobsHostBoundaryTest extends TestCase
             self::assertTrue($this->jobs->edit($this->alpha,['id'=>$id,'name'=>'Updated','code'=>'new','status'=>1]));
             self::assertSame(1,$this->jobs->detail($this->alpha,$id)['status']);
             self::assertTrue($this->jobs->delete($this->alpha,$id));
-            self::assertGreaterThan(0,(int)$this->pdo->query('SELECT delete_time FROM pa_jobs WHERE id='.$id)->fetchColumn());
+            self::assertGreaterThan(0,(int)$this->pdo->query('SELECT delete_time FROM pa_job WHERE id='.$id)->fetchColumn());
             self::assertSame(2,$this->jobs->lists($this->alpha,['page_no'=>1,'page_size'=>15])->total);
         });
         self::assertSame('Beta',$this->runAs($this->beta,fn()=>$this->jobs->detail($this->beta,2))['name']);
@@ -97,8 +97,8 @@ final class JobsHostBoundaryTest extends TestCase
                 self::fail('Foreign Job reached a tenant operation.');
             } catch(BusinessException $error) { self::assertSame('ADMIN_JOB_NOT_FOUND',$error->errorCode); }
         }
-        self::assertSame('Beta',$this->pdo->query('SELECT name FROM pa_jobs WHERE id=2')->fetchColumn());
-        self::assertNull($this->pdo->query('SELECT delete_time FROM pa_jobs WHERE id=2')->fetchColumn());
+        self::assertSame('Beta',$this->pdo->query('SELECT name FROM pa_job WHERE id=2')->fetchColumn());
+        self::assertNull($this->pdo->query('SELECT delete_time FROM pa_job WHERE id=2')->fetchColumn());
     }
 
     public function testAssignedJobsCannotBeArchivedAndDisablingPreservesAssignments(): void
@@ -142,11 +142,11 @@ final class JobsHostBoundaryTest extends TestCase
 
     public function testAnAmbientTenantCannotCreateAJobForAnotherContext(): void
     {
-        $count = (int)$this->pdo->query('SELECT COUNT(*) FROM pa_jobs')->fetchColumn();
+        $count = (int)$this->pdo->query('SELECT COUNT(*) FROM pa_job')->fetchColumn();
         try {
             $this->runAs($this->alpha,fn()=>$this->jobs->add($this->beta,['name'=>'Forbidden','code'=>'foreign','status'=>1]));
             self::fail('A trusted tenant context was replaced during Job creation.');
         } catch(DomainException $error) { self::assertSame('TENANT_WRITE_OWNERSHIP_MISMATCH',$error->getMessage()); }
-        self::assertSame($count,(int)$this->pdo->query('SELECT COUNT(*) FROM pa_jobs')->fetchColumn());
+        self::assertSame($count,(int)$this->pdo->query('SELECT COUNT(*) FROM pa_job')->fetchColumn());
     }
 }
