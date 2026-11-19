@@ -150,21 +150,25 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
     }
 
     /** The caller has loaded and validated this principal in the current invocation. */
-    private function accessDataForPrincipal(TenantContext $tenantContext, AdminPrincipal $admin): AdminAccessData
+    private function accessDataForPrincipal(TenantContext $tenantContext, AdminPrincipal $admin, bool $includeShell = true): AdminAccessData
     {
         $bridge = $this->moduleAdmin;
-        $native = $bridge->adminShellAccessData($tenantContext);
+        $native = $includeShell
+            ? $bridge->adminShellAccessData($tenantContext)
+            : $bridge->accessData($tenantContext);
         $permissions = $native['permissions'];
-        $menus = array_values(array_replace(
-            array_column($this->compatibilityMenus(
-                $tenantContext,
-                $admin,
-                $permissions,
-                $native['registered_system_menu_permissions'],
-                $native['managed_menu_keys'],
-            ), null, 'menu_key'),
-            array_column($native['menu'], null, 'menu_key'),
-        ));
+        $menus = $includeShell
+            ? array_values(array_replace(
+                array_column($this->compatibilityMenus(
+                    $tenantContext,
+                    $admin,
+                    $permissions,
+                    $native['registered_system_menu_permissions'],
+                    $native['managed_menu_keys'],
+                ), null, 'menu_key'),
+                array_column($native['menu'], null, 'menu_key'),
+            ))
+            : $native['menu'];
         if (!InstanceToolAccessGuard::fromConfiguredValue(config('deployment.mode'))->allows()) {
             $menus = array_values(array_filter(
                 $menus,
@@ -225,7 +229,7 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         try {
             $admin = $this->principal($tenantContext);
             return $this->validContext($tenantContext, $admin)
-                ? $this->accessDataForPrincipal($tenantContext, $admin)->menu
+                ? $this->accessDataForPrincipal($tenantContext, $admin, false)->menu
                 : [];
         } catch (\DomainException) {
             return [];
