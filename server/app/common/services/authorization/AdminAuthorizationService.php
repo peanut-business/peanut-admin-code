@@ -186,11 +186,11 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         return new AdminAccessData(
             menu: linear_to_tree($menus, 'children', 'menu_key', 'parent_key'),
             permissions: array_values(array_unique($permissions)),
-            actionBindings: $this->actionBindings(
+            actionBindings: $includeShell ? $this->actionBindings(
                 $native['system_menu_rows'],
                 $native['managed_menu_keys'],
                 $native['assignable_menu_records'],
-            ),
+            ) : [],
         );
     }
 
