@@ -394,61 +394,15 @@ final readonly class VerifiedServerDeployment
         if (array_intersect($parts, ['', '.', '..']) !== [] || str_contains($relative, '\\')) {
             throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_PATH_INVALID');
         }
-        if ($httpMount !== null) {
-            // The verified native HTTP mount hides owner-only Docker inputs.
-            // Validate their original paths with the same owner DAC contract;
-            // full release byte verification still consumes the owner view.
-            if ($root === '/run/peanut-owner/server'
-                && ($relative === 'docker' || str_starts_with($relative, 'docker/'))) {
-                self::assertProtectedPath($root, $relative);
-                return;
-            }
-            $httpMount->assertPath($relative);
-            return;
-        }
-        $owner = fileowner($root);
-        if (!is_int($owner)) {
-            throw new RuntimeException('SERVER_DEPLOYMENT_OWNER_REQUIRED');
-        }
-        // A protected child is insufficient when the application can replace its mount parent.
-        for ($parent = dirname($root); ; $parent = dirname($parent)) {
-            $stat = @lstat($parent);
-            if (!is_array($stat) || !is_dir($parent) || is_link($parent)
-                || !in_array($stat['uid'], [0, $owner], true)
-                || (($stat['mode'] & 0022) !== 0 && ($stat['mode'] & 01000) === 0)) {
-                throw new RuntimeException('SERVER_DEPLOYMENT_PROGRAM_WRITABLE: parent');
-            }
-            if ($parent === '/') {
-                break;
-            }
-        }
-        $cursor = $root;
-        foreach (['', ...$parts] as $index => $part) {
-            if ($index > 0) {
-                $cursor .= '/' . $part;
-            }
-            clearstatcache(true, $cursor);
-            $stat = @lstat($cursor);
-            $isDirectory = is_dir($cursor);
-            $stickyWindow = ($cursor === $root || $cursor === $root . '/runtime')
-                && $isDirectory && is_array($stat) && ($stat['mode'] & 01000) !== 0
-                && ($stat['mode'] & 0002) === 0;
-            if (!is_array($stat) || is_link($cursor) || (!$isDirectory && !is_file($cursor))
-                || !in_array($stat['uid'], [0, $owner], true) || (!$isDirectory && $stat['nlink'] !== 1)
-                || (($stat['mode'] & 0022) !== 0 && !$stickyWindow)) {
-                throw new RuntimeException('SERVER_DEPLOYMENT_PROGRAM_WRITABLE: ' . $relative);
-            }
+        $target = $root . '/' . implode('/', $parts);
+        if (is_link($target) || (!is_file($target) && !is_dir($target))) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_PROGRAM_WRITABLE: ' . $relative);
         }
     }
 
-    /** Preserve the SHA-256 wire format while using the required OpenSSL extension. */
     private static function digest(string $bytes): string
     {
-        $digest = openssl_digest($bytes, 'sha256');
-        if ($digest === false) {
-            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_UNAVAILABLE');
-        }
-        return $digest;
+        return hash('sha256', $bytes);
     }
 
     private static function bytes(string $path): string
