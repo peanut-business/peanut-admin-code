@@ -322,18 +322,28 @@ final class AdminApplicationService
     /** @return list<array<string,mixed>> */
     private function rows(TenantContext $context, array $params): array
     {
+        $rawRows = $this->directory->rows($params);
+        $avatarRefs = [];
+        foreach ($rawRows as $row) {
+            $ref = trim((string) ($row['avatar_uri'] ?? ''));
+            if ($ref !== '') {
+                $avatarRefs[] = $ref;
+            }
+        }
+        $avatarUrls = $avatarRefs === [] ? [] : $this->files->getFileUrls($avatarRefs);
         $rows = [];
-        foreach ($this->directory->rows($params) as $row) {
+        foreach ($rawRows as $row) {
             $roleIds = $row['role_ids'] === null || $row['role_ids'] === ''
                 ? []
                 : array_map('intval', explode(',', (string) $row['role_ids']));
+            $avatarUri = trim((string) ($row['avatar_uri'] ?? ''));
             $rows[] = [
                 'id' => (int) $row['id'],
                 'account' => (string) $row['username'],
                 'username' => (string) $row['username'],
                 'name' => (string) ($row['display_name'] ?: $row['username']),
                 'nickname' => (string) ($row['display_name'] ?: $row['username']),
-                'avatar' => $this->files->getFileUrl((string) ($row['avatar_uri'] ?? '')),
+                'avatar' => $avatarUri === '' ? '' : ($avatarUrls[$avatarUri] ?? ''),
                 'avatar_uri' => (string) ($row['avatar_uri'] ?? ''),
                 'root' => (int) $row['root'],
                 'disable' => $row['status'] === 'active' ? 0 : 1,
