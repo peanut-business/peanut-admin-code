@@ -62,7 +62,7 @@ seed 与受控迁移维护的资源选择使用独立进程输入，不从普通
 | 用途 | 入口与实际消费者 | 交付 |
 | --- | --- | --- |
 | 应用开发环境 | `project-env`、`project-composer`、`run-with-environment-file`；原生安装/开发/构建调用 | 保留；不包含本机host或依赖目录 |
-| 本地Core联调 | `core-dev`、`local-core-composer`、`local-core-web`、`local-core-links.mjs`；应用开发者显式选择Core | 保留；不隐式冻结发行 |
+| 本地Core联调 | `core-dev`、`local-core-composer`、`local-core-web`；应用开发者显式选择Core | 保留；不隐式冻结发行 |
 | 原生产品生成物 | `generate-api-contracts.php`、`module-frontend-entries.mjs`、`release-dependency-locks.mjs`、`sync-brand-assets.mjs`；API、模块、锁和品牌生成入口 | 保留 |
 | 安装/升级/部署 | `scaffold-doctor`、`scaffold-upgrade`与`scaffold-runtime/`、`deploy-update.sh`；应用生命周期入口 | 保留 |
 | 运维数据保护 | `ops-backup-worker`、`ops-restore-worker`；APP登记的备份/隔离恢复与生成后的`environment-guard.php` | 保留产品所需guard；剥离资格及私有lease工具 |
