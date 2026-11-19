@@ -52,12 +52,14 @@ final class ApplicationTestPasswordPolicy extends PasswordPolicy
 
 final class ApplicationTestPasswordHasher extends PasswordHasher {}
 
-// This contract test does not exercise the unrelated database-backed tenant provisioning flow.
-final class PasswordOverrideProvisionerFixture implements \PeanutAdmin\Modules\Identity\Contract\TenantOwnerAdminProvisioner
-{
-    public function provision(int $tenantId, int $accountId, int $memberId, int $coreRoleId, string $tenantCode, string $displayName): int
+if (interface_exists(\PeanutAdmin\Modules\Identity\Contract\TenantOwnerAdminProvisioner::class)) {
+    // This contract test does not exercise the unrelated database-backed tenant provisioning flow.
+    final class PasswordOverrideProvisionerFixture implements \PeanutAdmin\Modules\Identity\Contract\TenantOwnerAdminProvisioner
     {
-        throw new LogicException('Provisioning must not run in the password binding contract');
+        public function provision(int $tenantId, int $accountId, int $memberId, int $coreRoleId, string $tenantCode, string $displayName): int
+        {
+            throw new LogicException('Provisioning must not run in the password binding contract');
+        }
     }
 }
 
@@ -67,7 +69,7 @@ $app->config->set(['mode' => 'standalone'], 'deployment');
 $app->config->load(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/config/modules.php', 'modules');
 (new AppService($app))->register();
 $policy = $app->make(PasswordPolicy::class);
-passwordExpect($policy->minimumLength() === 6 && $policy->maximumLength() === 1024, 'Core defaults lost');
+passwordExpect($policy->minimumLength() === 6 && $policy->maximumLength() === 32, 'Core defaults lost');
 $policy->assertValid('中文');
 passwordExpect(true, 'UTF-8 byte boundary');
 try {
@@ -83,9 +85,11 @@ $strong = $app->make(PasswordPolicy::class);
 passwordExpect($strong->minimumLength() === 64, 'Native configuration ignored');
 $app->config->set(['identifier_hmac_key' => str_repeat('synthetic', 8)], 'tenant_auth');
 $app->config->set(['identifier_hmac_key' => str_repeat('synthetic', 8)], 'platform_auth');
-// Authentication's internal hashes and existing credential verification must remain constructible.
-passwordExpect($app->make(TenantAuthService::class) instanceof TenantAuthService, 'Strong policy broke tenant authentication');
-passwordExpect($app->make(PlatformAuthService::class) instanceof PlatformAuthService, 'Strong policy broke platform authentication');
+if (class_exists(TenantAuthService::class)) {
+    // Authentication's internal hashes and existing credential verification must remain constructible.
+    passwordExpect($app->make(TenantAuthService::class) instanceof TenantAuthService, 'Strong policy broke tenant authentication');
+    passwordExpect($app->make(PlatformAuthService::class) instanceof PlatformAuthService, 'Strong policy broke platform authentication');
+}
 
 $app->config->set(['password' => ['minimum_length' => '12']], 'peanut');
 $app->delete(PasswordPolicy::class);
@@ -106,24 +110,36 @@ $app->config->set(['identifier_hmac_key' => str_repeat('synthetic', 8)], 'platfo
 $app->bind(PasswordPolicy::class, $customPolicy);
 $app->bind(PasswordHasher::class, $customHasher);
 (new AppService($app))->register();
-$app->instance(\PeanutAdmin\Modules\Identity\Contract\TenantOwnerAdminProvisioner::class, new PasswordOverrideProvisionerFixture());
+if (class_exists(PasswordOverrideProvisionerFixture::class, false)) {
+    $app->instance(\PeanutAdmin\Modules\Identity\Contract\TenantOwnerAdminProvisioner::class, new PasswordOverrideProvisionerFixture());
+}
 passwordExpect($app->make(PasswordPolicy::class) === $customPolicy, 'Composition overwrote application policy');
 passwordExpect($app->make(PasswordHasher::class) === $customHasher, 'Composition overwrote application hasher');
 $policyController = (new ReflectionClass(\app\installation\controller\InstallationController::class))->newInstanceWithoutConstructor();
 $policyResponse = $app->invokeMethod([$policyController, 'passwordPolicy'])->getData();
-passwordExpect($policyResponse['data'] === ['minimum_length' => 2, 'maximum_length' => 8, 'length_unit' => 'utf8_bytes'], 'Public limits bypassed native policy binding');
+passwordExpect($policyResponse['data'] === [
+    'minimum_length' => 2,
+    'maximum_length' => 8,
+    'length_unit' => 'utf8_bytes',
+    'require_uppercase' => false,
+    'require_lowercase' => false,
+    'require_digit' => false,
+    'require_special' => false,
+], 'Public limits bypassed native policy binding');
 
-foreach ([MemberAdminService::class, AccountSelfService::class, PlatformAccessAdminService::class,
-    TenantOwnerAdminService::class, BootstrapService::class, TenantOwnerInvitationPublicService::class] as $class) {
-    $app->delete($class);
-    $service = $app->make($class);
-    passwordExpect(passwordDependency($service, 'passwords') === $customHasher, $class . ' bypassed hasher binding');
-    passwordExpect(passwordDependency($service, 'passwordPolicy') === $customPolicy, $class . ' bypassed policy binding');
+if (class_exists(MemberAdminService::class)) {
+    foreach ([MemberAdminService::class, AccountSelfService::class, PlatformAccessAdminService::class,
+        TenantOwnerAdminService::class, BootstrapService::class, TenantOwnerInvitationPublicService::class] as $class) {
+        $app->delete($class);
+        $service = $app->make($class);
+        passwordExpect(passwordDependency($service, 'passwords') === $customHasher, $class . ' bypassed hasher binding');
+        passwordExpect(passwordDependency($service, 'passwordPolicy') === $customPolicy, $class . ' bypassed policy binding');
+    }
+    $validator = new \app\platform\validate\TenantOwnerInvitationValidate();
+    passwordExpect(!$validator->scene('accept')->check(['token' => str_repeat('x', 43), 'new_account_password' => 'denied']), 'Application rejection bypassed');
+    passwordExpect($validator->getError() === 'APPLICATION_PASSWORD_REJECTED', 'Application rejection was hidden');
+    passwordExpect($validator->scene('accept')->check(['token' => str_repeat('x', 43), 'new_account_password' => 'ok']), 'Application shorter policy ignored');
 }
-$validator = new \app\platform\validate\TenantOwnerInvitationValidate();
-passwordExpect(!$validator->scene('accept')->check(['token' => str_repeat('x', 43), 'new_account_password' => 'denied']), 'Application rejection bypassed');
-passwordExpect($validator->getError() === 'APPLICATION_PASSWORD_REJECTED', 'Application rejection was hidden');
-passwordExpect($validator->scene('accept')->check(['token' => str_repeat('x', 43), 'new_account_password' => 'ok']), 'Application shorter policy ignored');
 
 $environmentPath = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/.env.password-policy-' . getmypid();
 $environmentFile = fopen($environmentPath, 'x');

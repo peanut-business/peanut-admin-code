@@ -63,6 +63,9 @@ final class HostCompositionContractsTest extends TestCase
 
     public function testExactReviewedCompositionTypesArePublishedNotTheirStores(): void
     {
+        if (!interface_exists(TaskWorkerDefinition::class)) {
+            self::markTestSkipped('Module packages are not installed in the neutral host.');
+        }
         foreach (['task' => TaskWorkerDefinitionRegistry::class, 'ops' => PlatformPermissionChecker::class] as $module => $type) {
             $manifest = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/' . $module . '/module.json'), true, 512, JSON_THROW_ON_ERROR);
             self::assertContains($type, $manifest['contracts']['exports']);
@@ -72,6 +75,9 @@ final class HostCompositionContractsTest extends TestCase
 
     public function testRegistryPreservesExactRegisteredInstanceWithoutExecutingOrAuthorizingIt(): void
     {
+        if (!interface_exists(TaskWorkerDefinition::class)) {
+            self::markTestSkipped('Task module is not installed in the neutral host.');
+        }
         $app = $this->app();
         $worker = $this->worker('fixture.alpha', 'fixture.alpha.records', 'handler.alpha');
         $app->instance(CompositionFixtureWorker::class, $worker);
@@ -81,6 +87,9 @@ final class HostCompositionContractsTest extends TestCase
 
     public function testDuplicateDefinitionAndOwnerMismatchStillReject(): void
     {
+        if (!interface_exists(TaskWorkerDefinition::class)) {
+            self::markTestSkipped('Task module is not installed in the neutral host.');
+        }
         $row = ['module_key' => 'fixture.alpha','definition' => CompositionFixtureWorker::class];
         try {
             new TaskWorkerDefinitionRegistry([$row,$row]);
@@ -97,6 +106,9 @@ final class HostCompositionContractsTest extends TestCase
 
     public function testAuthorizationAndHandlerKeysCannotCollide(): void
     {
+        if (!interface_exists(TaskWorkerDefinition::class)) {
+            self::markTestSkipped('Task module is not installed in the neutral host.');
+        }
         foreach ([['fixture.shared','fixture.shared','handler.alpha','handler.beta'],['fixture.alpha','fixture.beta','handler.shared','handler.shared']] as [$firstResource,$secondResource,$firstHandler,$secondHandler]) {
             $app = $this->app();
             $first = $this->worker('fixture.alpha', $firstResource, $firstHandler);
@@ -120,6 +132,9 @@ final class HostCompositionContractsTest extends TestCase
 
     public function testEmptyHandlerSetCannotLookLikeWorkingRegistration(): void
     {
+        if (!interface_exists(TaskWorkerDefinition::class)) {
+            self::markTestSkipped('Task module is not installed in the neutral host.');
+        }
         $app = $this->app();
         $app->instance(CompositionFixtureWorker::class, new CompositionFixtureWorker('fixture.alpha', 'fixture.alpha', []));
         $this->expectException(ModuleException::class);
@@ -129,6 +144,9 @@ final class HostCompositionContractsTest extends TestCase
 
     public function testProviderReadPermissionComesFromPublicCapabilityAndDenyPrecedesContributors(): void
     {
+        if (!interface_exists(PlatformPermissionChecker::class)) {
+            self::markTestSkipped('Ops module is not installed in the neutral host.');
+        }
         self::assertSame('platform.ops.read', OpsStatusService::READ_PERMISSION);
         $context = \PeanutAdmin\Kernel\Context\PlatformContext::fromValidatedSession(new \PeanutAdmin\Kernel\Auth\ValidatedPlatformSession(11, 'fixture-session', 21, 31, 'platform-web', new DateTimeImmutable('2031-01-01T00:00:00Z')), 'fixture-request');
         $permissions = $this->createMock(PlatformPermissionChecker::class);
@@ -155,32 +173,34 @@ final class HostCompositionContractsTest extends TestCase
     }
 }
 
-class CompositionFixtureWorker implements TaskWorkerDefinition
-{
-    public function __construct(private string $owner, private string $resource, private array $handlers) {}
-    public function ownerModuleKey(): string
+if (interface_exists(TaskWorkerDefinition::class)) {
+    class CompositionFixtureWorker implements TaskWorkerDefinition
     {
-        return $this->owner;
+        public function __construct(private string $owner, private string $resource, private array $handlers) {}
+        public function ownerModuleKey(): string
+        {
+            return $this->owner;
+        }
+        public function resourceKey(): string
+        {
+            return $this->resource;
+        }
+        public function operation(): string
+        {
+            return 'read';
+        }
+        public function handlers(): array
+        {
+            return $this->handlers;
+        }
+        public function reauthorize(VerifiedJobEnvelope $envelope): AuthorizedOperationContext
+        {
+            throw new LogicException('Fixture reauthorization must not run.');
+        }
     }
-    public function resourceKey(): string
-    {
-        return $this->resource;
-    }
-    public function operation(): string
-    {
-        return 'read';
-    }
-    public function handlers(): array
-    {
-        return $this->handlers;
-    }
-    public function reauthorize(VerifiedJobEnvelope $envelope): AuthorizedOperationContext
-    {
-        throw new LogicException('Fixture reauthorization must not run.');
-    }
-}
 
-final class CompositionFixtureSecondWorker extends CompositionFixtureWorker {}
+    final class CompositionFixtureSecondWorker extends CompositionFixtureWorker {}
+}
 
 final class CompositionFixtureModuleProvider extends \think\Service implements ModuleProvider
 {

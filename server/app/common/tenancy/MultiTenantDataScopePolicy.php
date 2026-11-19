@@ -18,7 +18,7 @@ final readonly class MultiTenantDataScopePolicy implements DataScopePolicy
         if (!is_string($table) || $table === '') {
             throw new \LogicException('TENANT_MODEL_ROOT_TABLE_REQUIRED');
         }
-        $aliases = $query->getOptions('alias');
+        $aliases = $query->getOption('alias');
         $prefix = is_array($aliases) && isset($aliases[$table]) && is_string($aliases[$table]) && $aliases[$table] !== ''
             ? $aliases[$table]
             : $table;

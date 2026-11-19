@@ -12,16 +12,14 @@ use PeanutAdmin\DataPermission\Decision\AuthorizationDecision;
 use PeanutAdmin\DataPermission\Policy\EffectivePolicySet;
 use PeanutAdmin\DataPermission\Provider\DepartmentHierarchyProvider;
 use PeanutAdmin\DataPermission\Provider\ProviderColumnMap;
-use PeanutAdmin\DataPermission\Provider\ResourceCreatePolicyProvider;
-use PeanutAdmin\DataPermission\Provider\ResourceQueryPolicyProvider;
-use PeanutAdmin\DataPermission\Provider\ResourceTargetPolicyProvider;
+use PeanutAdmin\DataPermission\Provider\ResourcePolicyProvider;
 use PeanutAdmin\DataPermission\Provider\StandardResourcePolicyProvider;
 use PeanutAdmin\DataPermission\Provider\TargetSetMembershipProvider;
 use PeanutAdmin\DataPermission\Target\TypedResourceTargetCollection;
 use PeanutAdmin\Fixtures\WorkflowBusiness\Package;
 
 /** Business column mapping only; all policy semantics use the existing Core provider. */
-final readonly class WorkflowBusinessPolicyProvider implements ResourceQueryPolicyProvider, ResourceTargetPolicyProvider, ResourceCreatePolicyProvider
+final readonly class WorkflowBusinessPolicyProvider implements ResourcePolicyProvider
 {
     private StandardResourcePolicyProvider $native;
 
