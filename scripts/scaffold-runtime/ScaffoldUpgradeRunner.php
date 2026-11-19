@@ -1105,25 +1105,13 @@ final class ScaffoldUpgradeRunner
             // instance into either current Edition implicitly.
             return;
         }
-        $expectedBootstrap = [
-            'kind' => 'real-default-tenant',
-            'code' => 'default',
-            'tenant_identity' => 'required',
-            'rbac' => 'required',
-            'execution_context' => 'PeanutAdmin\\Kernel\\Context\\TenantSystemContext',
-            'module_lifecycle' => 'required',
-        ];
         if (!in_array($name, ['standalone', 'multi-tenant'], true)
             || !is_array($applicationEdition) || ($applicationEdition['name'] ?? null) !== $name
             || !is_array($fromEdition) || ($fromEdition['name'] ?? null) !== $name
             || !is_array($toEdition) || ($toEdition['name'] ?? null) !== $name
             || ($toEdition['deployment_mode'] ?? null) !== $name
-            || ($toEdition['module_profile'] ?? null) !== 'official-default'
-            || ($toEdition['tenant_bootstrap'] ?? null) !== $expectedBootstrap
-            || (isset($applicationEdition['tenant_bootstrap'])
-                && $applicationEdition['tenant_bootstrap'] !== $expectedBootstrap)
-            || (isset($fromEdition['tenant_bootstrap'])
-                && $fromEdition['tenant_bootstrap'] !== $expectedBootstrap)) {
+            || !is_string($toEdition['module_profile'] ?? null) || ($toEdition['module_profile'] ?? '') === ''
+            || !is_array($toEdition['tenant_bootstrap'] ?? null)) {
             throw new RuntimeException('SCAFFOLD_EDITION_CHAIN_INVALID');
         }
     }
@@ -1269,10 +1257,10 @@ final class ScaffoldUpgradeRunner
                 continue;
             }
             if ($after === null) {
-                // These Module sources and their consumed host export adapter moved to the independent Module application.
-                // A template removal cannot consent to deleting an application's development source.
-                if (preg_match('#^server/app/modules/peanut/(?:chart|chart_examples|article|member|payment|oauth|document|rich_text|collaboration|workflow|import_export|notification|entitlement_quota|artifact_revision)/#D', $path) === 1
-                    || preg_match('#^(?:(?:web|platform|uniapp)/src/modules|pc/modules)/peanut-(?:chart|chart-examples|article|member|payment|oauth|document|rich-text|collaboration|workflow|import-export|notification|entitlement-quota|artifact-revision)/#D', $path) === 1
+                // Module sources belong to their module packages/applications rather than the neutral scaffold template.
+                // A template removal must never silently delete module source directories.
+                if (str_starts_with($path, 'server/app/modules/')
+                    || preg_match('#^(?:(?:web|platform|uniapp)/src/modules|pc/modules)/#D', $path) === 1
                     || $path === 'server/app/common/infrastructure/export/OperationLogExportProvider.php') {
                     $actions[] = $this->action($path, $before ?? [], 'conflict', 'module_source_ownership_transition_required', true, $current, null);
                     continue;

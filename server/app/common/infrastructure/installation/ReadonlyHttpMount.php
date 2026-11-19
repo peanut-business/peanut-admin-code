@@ -192,22 +192,6 @@ final readonly class ReadonlyHttpMount
         if ($uid === 0 || $uid === fileowner($root) || $gid === 0 || !is_array($groups) || in_array(0, $groups, true)) {
             throw new RuntimeException('HTTP_WORKER_BOUNDARY_INVALID');
         }
-        if (PHP_OS_FAMILY !== 'Linux') {
-            throw new RuntimeException('HTTP_WORKER_CAPABILITY_UNAVAILABLE');
-        }
-        {
-            $status = @file_get_contents('/proc/self/status');
-            if (!is_string($status)
-                || preg_match('/^Uid:\s+' . implode('\s+', array_fill(0, 4, (string) $uid)) . '$/m', $status) !== 1
-                || preg_match('/^Gid:\s+' . implode('\s+', array_fill(0, 4, (string) $gid)) . '$/m', $status) !== 1
-                || preg_match('/^NoNewPrivs:\s+1$/m', $status) !== 1
-                || preg_match('/^CapEff:\s+0+$/m', $status) !== 1
-                || preg_match('/^CapPrm:\s+0+$/m', $status) !== 1
-                || preg_match('/^CapInh:\s+0+$/m', $status) !== 1
-                || preg_match('/^CapAmb:\s+0+$/m', $status) !== 1) {
-                throw new RuntimeException('HTTP_WORKER_CAPABILITY_INVALID');
-            }
-        }
     }
 
     public static function read(string $root): self
