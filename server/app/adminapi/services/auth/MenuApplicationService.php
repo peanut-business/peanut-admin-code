@@ -17,6 +17,9 @@ class MenuApplicationService
 {
     public const CUSTOM_ID_START = 1_000_000_000;
 
+    /** @var list<array<string,mixed>>|null */
+    private ?array $recordsCache = null;
+
     public function __construct(
         private readonly AdminAuthorizationService $authorization,
         private readonly MenuPermissionUsageQuery $permissionUsage,
@@ -31,6 +34,9 @@ class MenuApplicationService
     /** @return list<array<string,mixed>> */
     public function records(): array
     {
+        if ($this->recordsCache !== null) {
+            return $this->recordsCache;
+        }
         $rows = SystemMenu::whereNotIn('perms', InstanceControlPlanePolicy::tenantAdminPermissions())
             ->whereNotIn('paths', InstanceControlPlanePolicy::tenantAdminPaths())->select()->toArray();
         $byKey = array_column($rows, null, 'menu_key');
@@ -64,7 +70,7 @@ class MenuApplicationService
         }
         $rows = array_values($byKey);
         usort($rows, static fn(array $a, array $b): int => [-$a['sort'], $a['menu_key']] <=> [-$b['sort'], $b['menu_key']]);
-        return $rows;
+        return $this->recordsCache = $rows;
     }
 
     public function getAll(): array
@@ -95,6 +101,7 @@ class MenuApplicationService
     public function add(array $params): bool
     {
         return (bool) Db::transaction(function () use ($params): bool {
+            $this->recordsCache = null;
             $parent = $this->assertParent($params['parent_key'] ?? null);
             $this->validateBinding($params);
             $this->validateActionIdentities($params);
@@ -171,6 +178,7 @@ class MenuApplicationService
             } else {
                 $this->catalog->updatePresentation($key, [...$params, 'instance_permission_id' => $permissionId]);
             }
+            $this->recordsCache = null;
             return true;
         });
     }

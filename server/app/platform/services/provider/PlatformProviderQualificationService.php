@@ -63,22 +63,24 @@ final class PlatformProviderQualificationService
             }
         }
         $subjects = array_values($subjects);
-        $rows = $this->evidenceFor($subjects);
+        usort($subjects, function (ProviderQualificationSubject $left, ProviderQualificationSubject $right): int {
+            $leftScope = 'scope_' . hash_hmac('sha256', $left->internalKey(), $this->scopeDigestKey);
+            $rightScope = 'scope_' . hash_hmac('sha256', $right->internalKey(), $this->scopeDigestKey);
+            return [$left->category, $left->providerKey, $leftScope] <=> [$right->category, $right->providerKey, $rightScope];
+        });
+        $total = count($subjects);
+        $pageSubjects = array_slice($subjects, ($page - 1) * $pageSize, $pageSize);
+        $rows = $this->evidenceFor($pageSubjects);
         $now = ($this->clock)();
         $providers = array_map(
             fn(ProviderQualificationSubject $subject): array => $this->project($subject, $rows, $now),
-            $subjects,
+            $pageSubjects,
         );
-        usort($providers, static fn(array $left, array $right): int => [
-            $left['category'], $left['provider_key'], $left['scope']['key'],
-        ] <=> [
-            $right['category'], $right['provider_key'], $right['scope']['key'],
-        ]);
         return [
             'schema_version' => 1,
             'generated_at' => $now->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z'),
-            'providers' => array_slice($providers, ($page - 1) * $pageSize, $pageSize),
-            'page' => $page, 'page_size' => $pageSize, 'total' => count($providers),
+            'providers' => $providers,
+            'page' => $page, 'page_size' => $pageSize, 'total' => $total,
         ];
     }
 

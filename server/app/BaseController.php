@@ -58,6 +58,12 @@ abstract class BaseController
     /** @var list<string> */
     private array $controllerDependencyResolutionStack = [];
 
+    /** @var array<class-string, array<string, class-string<object>|null>> */
+    private static array $controllerDependencyMapCache = [];
+
+    /** @var array<class-string, bool> */
+    private static array $controllerDependencyInstantiableCache = [];
+
     /** @var array<string,Model> Model 只在当前 Controller 操作内复用，不进入 App 容器共享实例。 */
     private array $controllerModelInstances = [];
 
@@ -256,97 +262,40 @@ abstract class BaseController
             return null;
         }
 
-        $declarationName = $name . 'Class';
-        $declarations = [];
-        for ($class = new ReflectionClass($this); $class !== false; $class = $class->getParentClass()) {
-            if (!$class->hasProperty($declarationName)) {
-                continue;
-            }
-            $property = $class->getProperty($declarationName);
-            if ($property->getDeclaringClass()->getName() === $class->getName()) {
-                $declarations[] = $property;
-            }
+        $className = static::class;
+        if (!array_key_exists($className, self::$controllerDependencyMapCache)) {
+            self::$controllerDependencyMapCache[$className] = $this->scanControllerDependencies();
         }
-        if ($declarations === []) {
+        $dependencyClass = self::$controllerDependencyMapCache[$className][$name] ?? null;
+        if ($dependencyClass === null) {
             return null;
         }
 
-        if (in_array($name, self::RESERVED_READONLY_PROPERTIES, true)) {
-            throw new LogicException(sprintf(
-                'Reserved controller property cannot be declared: %s::$%s.',
-                static::class,
-                $name,
-            ));
-        }
-        if ((new ReflectionClass($this))->hasProperty($name)) {
-            throw new LogicException(sprintf(
-                'Controller dependency conflicts with a real property: %s::$%s.',
-                static::class,
-                $name,
-            ));
-        }
+        $this->assertControllerDependencyResolvable($dependencyClass);
 
-        foreach ($declarations as $property) {
-            $type = $property->getType();
-            if (!$property->isProtected()
-                || $property->isStatic()
-                || !$type instanceof ReflectionNamedType
-                || $type->allowsNull()
-                || !$type->isBuiltin()
-                || $type->getName() !== 'string'
-            ) {
-                throw new LogicException(sprintf(
-                    'Controller dependency declaration must be a non-static protected string: %s::$%s.',
-                    $property->getDeclaringClass()->getName(),
-                    $declarationName,
-                ));
-            }
-            $defaults = $property->getDeclaringClass()->getDefaultProperties();
-            $declared = $defaults[$declarationName] ?? null;
-            if (!is_string($declared) || trim($declared) === '') {
-                throw new LogicException(sprintf(
-                    'Controller dependency declaration must have a source default: %s::$%s.',
-                    $property->getDeclaringClass()->getName(),
-                    $declarationName,
-                ));
-            }
-        }
-
-        $selected = $declarations[0];
-        $dependencyClass = ltrim((string) ($selected->getDeclaringClass()
-            ->getDefaultProperties()[$declarationName] ?? ''), '\\');
-        if (!class_exists($dependencyClass) && !interface_exists($dependencyClass)) {
-            throw new LogicException(sprintf(
-                'Controller dependency class does not exist: %s::$%s => %s.',
-                static::class,
-                $declarationName,
-                $dependencyClass,
-            ));
-        }
-        if (interface_exists($dependencyClass)) {
-            if (!$this->app->has($dependencyClass)) {
-                throw new LogicException(sprintf(
-                    'Controller dependency interface is not bound in the current App: %s.',
-                    $dependencyClass,
-                ));
-            }
-        } elseif (!(new ReflectionClass($dependencyClass))->isInstantiable()
-            && !$this->app->has($dependencyClass)) {
-            throw new LogicException(sprintf(
-                'Controller dependency class is not instantiable: %s.',
-                $dependencyClass,
-            ));
-        }
-
-        /** @var class-string<object> $dependencyClass */
         return $dependencyClass;
     }
 
     /** Controller 建立时即拒绝隐藏的保留名、冲突或错误继承声明。 */
     private function assertControllerDependencyDeclarations(): void
     {
-        $names = [];
-        for ($class = new ReflectionClass($this); $class !== false; $class = $class->getParentClass()) {
+        $className = static::class;
+        if (!array_key_exists($className, self::$controllerDependencyMapCache)) {
+            self::$controllerDependencyMapCache[$className] = $this->scanControllerDependencies();
+        }
+        foreach (self::$controllerDependencyMapCache[$className] as $dependencyClass) {
+            if ($dependencyClass !== null) {
+                $this->assertControllerDependencyResolvable($dependencyClass);
+            }
+        }
+    }
+
+    /** @return array<string, class-string<object>> */
+    private function scanControllerDependencies(): array
+    {
+        $reflection = new ReflectionClass($this);
+        $declarationsByName = [];
+        for ($class = $reflection; $class !== false; $class = $class->getParentClass()) {
             foreach ($class->getProperties() as $property) {
                 if ($property->getDeclaringClass()->getName() !== $class->getName()
                     || !str_ends_with($property->getName(), 'Class')) {
@@ -354,12 +303,90 @@ abstract class BaseController
                 }
                 $name = substr($property->getName(), 0, -5);
                 if ($name !== '') {
-                    $names[$name] = true;
+                    $declarationsByName[$name][] = $property;
                 }
             }
         }
-        foreach (array_keys($names) as $name) {
-            $this->declaredControllerDependency($name);
+
+        $resolved = [];
+        foreach ($declarationsByName as $name => $declarations) {
+            $declarationName = $name . 'Class';
+            if (in_array($name, self::RESERVED_READONLY_PROPERTIES, true)) {
+                throw new LogicException(sprintf(
+                    'Reserved controller property cannot be declared: %s::$%s.',
+                    static::class,
+                    $name,
+                ));
+            }
+            if ($reflection->hasProperty($name)) {
+                throw new LogicException(sprintf(
+                    'Controller dependency conflicts with a real property: %s::$%s.',
+                    static::class,
+                    $name,
+                ));
+            }
+            foreach ($declarations as $property) {
+                $type = $property->getType();
+                if (!$property->isProtected()
+                    || $property->isStatic()
+                    || !$type instanceof ReflectionNamedType
+                    || $type->allowsNull()
+                    || !$type->isBuiltin()
+                    || $type->getName() !== 'string'
+                ) {
+                    throw new LogicException(sprintf(
+                        'Controller dependency declaration must be a non-static protected string: %s::$%s.',
+                        $property->getDeclaringClass()->getName(),
+                        $declarationName,
+                    ));
+                }
+                $defaults = $property->getDeclaringClass()->getDefaultProperties();
+                $declared = $defaults[$declarationName] ?? null;
+                if (!is_string($declared) || trim($declared) === '') {
+                    throw new LogicException(sprintf(
+                        'Controller dependency declaration must have a source default: %s::$%s.',
+                        $property->getDeclaringClass()->getName(),
+                        $declarationName,
+                    ));
+                }
+            }
+            $selected = $declarations[0];
+            $dependencyClass = ltrim((string) ($selected->getDeclaringClass()
+                ->getDefaultProperties()[$declarationName] ?? ''), '\\');
+            if (!class_exists($dependencyClass) && !interface_exists($dependencyClass)) {
+                throw new LogicException(sprintf(
+                    'Controller dependency class does not exist: %s::$%s => %s.',
+                    static::class,
+                    $declarationName,
+                    $dependencyClass,
+                ));
+            }
+            /** @var class-string<object> $dependencyClass */
+            $resolved[$name] = $dependencyClass;
+        }
+
+        return $resolved;
+    }
+
+    /** @param class-string<object> $dependencyClass */
+    private function assertControllerDependencyResolvable(string $dependencyClass): void
+    {
+        if (interface_exists($dependencyClass)) {
+            if (!$this->app->has($dependencyClass)) {
+                throw new LogicException(sprintf(
+                    'Controller dependency interface is not bound in the current App: %s.',
+                    $dependencyClass,
+                ));
+            }
+            return;
+        }
+        $instantiable = self::$controllerDependencyInstantiableCache[$dependencyClass]
+            ??= (new ReflectionClass($dependencyClass))->isInstantiable();
+        if (!$instantiable && !$this->app->has($dependencyClass)) {
+            throw new LogicException(sprintf(
+                'Controller dependency class is not instantiable: %s.',
+                $dependencyClass,
+            ));
         }
     }
 
@@ -373,7 +400,9 @@ abstract class BaseController
             || is_a($dependencyClass, BaseQuery::class, true)) {
             // Validator 与 Query 都是可变对象，每次读取从干净状态开始。
             $object = $this->app->make($dependencyClass, [], true);
-        } elseif (interface_exists($dependencyClass) || !(new ReflectionClass($dependencyClass))->isInstantiable()) {
+        } elseif (interface_exists($dependencyClass)
+            || !(self::$controllerDependencyInstantiableCache[$dependencyClass]
+                ??= (new ReflectionClass($dependencyClass))->isInstantiable())) {
             $object = $this->app->get($dependencyClass);
         } else {
             $object = $this->app->make($dependencyClass);

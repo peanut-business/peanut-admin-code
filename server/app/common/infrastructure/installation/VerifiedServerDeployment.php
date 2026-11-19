@@ -30,20 +30,41 @@ final readonly class VerifiedServerDeployment
         $started = class_exists(RequestTrace::class, false) ? RequestTrace::beginDeploymentTiming() : null;
         try {
             $root = rtrim($app->getRootPath(), '/');
-            if (!is_file($root . '/runtime/upgrade/.traffic-ready')) {
+            $readyPath = $root . '/runtime/upgrade/.traffic-ready';
+            $pointerPath = $root . self::DIRECTORY . '/current.json';
+            $readyStat = @stat($readyPath);
+            if ($readyStat === false) {
                 throw new RuntimeException('SERVER_DEPLOYMENT_TRAFFIC_CLOSED');
+            }
+            $pointerStat = @stat($pointerPath);
+            $snapshotKey = $pointerStat === false
+                ? null
+                : implode(':', [
+                    $root,
+                    (string) ($readyStat['ino'] ?? 0),
+                    (string) ($readyStat['mtime'] ?? 0),
+                    (string) ($readyStat['size'] ?? 0),
+                    (string) ($pointerStat['ino'] ?? 0),
+                    (string) ($pointerStat['mtime'] ?? 0),
+                    (string) ($pointerStat['size'] ?? 0),
+                ]);
+            if (PHP_SAPI !== 'cli' && $snapshotKey !== null) {
+                $cached = self::processSnapshot($snapshotKey);
+                if ($cached !== null) {
+                    return $cached;
+                }
             }
             $httpMount = ReadonlyHttpMount::active($root) ? ReadonlyHttpMount::read($root) : null;
             if ($httpMount === null) {
                 ReadonlyHttpMount::assertUnprivilegedWorker($root);
             }
             self::assertProtectedPath($root, 'runtime/upgrade/.traffic-ready', $httpMount);
-            if (self::bytes($root . '/runtime/upgrade/.traffic-ready') !== "peanut.server-traffic-ready.v1\n") {
+            if (self::bytes($readyPath) !== "peanut.server-traffic-ready.v1\n") {
                 throw new RuntimeException('SERVER_DEPLOYMENT_TRAFFIC_CLOSED');
             }
             self::assertProtectedPath($root, 'runtime/upgrade/verified-deployment/current.json', $httpMount);
             $inputs = $httpMount?->admissionInputs();
-            $pointer = self::json($inputs !== null ? $inputs['pointer'] : self::bytes($root . self::DIRECTORY . '/current.json'));
+            $pointer = self::json($inputs !== null ? $inputs['pointer'] : self::bytes($pointerPath));
             if (($pointer['format'] ?? null) !== self::FORMAT
                 || !is_string($pointer['key'] ?? null)
                 || preg_match('/^[a-f0-9]{64}$/D', $pointer['key']) !== 1
@@ -62,12 +83,28 @@ final readonly class VerifiedServerDeployment
                 || !is_array($record['identity'] ?? null) || !is_array($record['registry'] ?? null)) {
                 throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_MISMATCH');
             }
-            return new self($root, $record, $httpMount);
+            $deployment = new self($root, $record, $httpMount);
+            if (PHP_SAPI !== 'cli' && $snapshotKey !== null) {
+                self::processSnapshot($snapshotKey, $deployment);
+            }
+            return $deployment;
         } finally {
             if ($started !== null) {
                 RequestTrace::finishDeploymentReadTiming($started);
             }
         }
+    }
+
+    private static function processSnapshot(string $key, ?self $store = null): ?self
+    {
+        static $cachedKey = null;
+        static $cachedDeployment = null;
+        if ($store !== null) {
+            $cachedKey = $key;
+            $cachedDeployment = $store;
+            return $store;
+        }
+        return $cachedKey === $key && $cachedDeployment instanceof self ? $cachedDeployment : null;
     }
 
     /** Called by the native startup owner before granting traffic. */
