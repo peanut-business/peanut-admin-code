@@ -12,12 +12,9 @@ use think\response\Json;
 
 final class ReadinessController extends BaseAdminController
 {
-    protected readonly FirstRunReadinessHost $readiness;
-
-    public function __construct(App $app, ?FirstRunReadinessHost $readiness = null)
+    public function __construct(App $app, protected readonly FirstRunReadinessHost $readiness)
     {
         parent::__construct($app);
-        $this->readiness = $readiness ?? $app->make(FirstRunReadinessHost::class);
     }
     public function checklist(): Json
     {

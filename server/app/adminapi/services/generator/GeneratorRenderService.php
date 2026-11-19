@@ -575,7 +575,6 @@ final class {{entity}}Controller extends BaseAdminController
 {
     use CrudTrait;
 
-    protected readonly {{entity}}Service $crud;
     protected const CRUD_VALIDATE = {{entity}}Validate::class;
     protected const CRUD_VALIDATE_LISTS = true;
 {{softDeleteDeclaration}}    protected const CRUD_PRIMARY_KEY = '{{primary}}';
@@ -583,10 +582,9 @@ final class {{entity}}Controller extends BaseAdminController
     protected const CRUD_INPUT_FIELDS = {{inputFields}};
     protected const CRUD_WRITABLE_FIELDS = {{writableFields}};
 
-    public function __construct(App $app, ?{{entity}}Service $crud = null)
+    public function __construct(App $app, protected readonly {{entity}}Service $crud)
     {
         parent::__construct($app);
-        $this->crud = $crud ?? $app->make({{entity}}Service::class);
     }
 
     protected function resolveCrudContext(): TenantContext

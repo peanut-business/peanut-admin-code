@@ -17,12 +17,9 @@ use think\response\Json;
  */
 final class PlatformOpsController extends BasePlatformController
 {
-    protected readonly PlatformOpsApplicationService $operations;
-
-    public function __construct(App $app, ?PlatformOpsApplicationService $operations = null)
+    public function __construct(App $app, protected readonly PlatformOpsApplicationService $operations)
     {
         parent::__construct($app);
-        $this->operations = $operations ?? $app->make(PlatformOpsApplicationService::class);
     }
     public function status(): Json
     {

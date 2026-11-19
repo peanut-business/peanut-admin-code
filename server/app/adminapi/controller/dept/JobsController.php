@@ -18,12 +18,9 @@ class JobsController extends BaseAdminController
 
     protected const CRUD_STATUS_FIELD = 'status';
 
-    protected readonly JobsApplicationService $jobs;
-
-    public function __construct(App $app, ?JobsApplicationService $jobs = null)
+    public function __construct(App $app, protected readonly JobsApplicationService $jobs)
     {
         parent::__construct($app);
-        $this->jobs = $jobs ?? $app->make(JobsApplicationService::class);
     }
     protected function resolveCrudContext(): TenantContext
     {

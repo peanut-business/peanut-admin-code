@@ -18,12 +18,9 @@ class DeptController extends BaseAdminController
 
     protected const CRUD_STATUS_FIELD = 'status';
 
-    protected readonly DeptApplicationService $departments;
-
-    public function __construct(App $app, ?DeptApplicationService $departments = null)
+    public function __construct(App $app, protected readonly DeptApplicationService $departments)
     {
         parent::__construct($app);
-        $this->departments = $departments ?? $app->make(DeptApplicationService::class);
     }
     protected function resolveCrudContext(): TenantContext
     {

@@ -12,12 +12,9 @@ use app\adminapi\validate\decoration\DecorationTabbarValidate;
 
 class DecorationTabbarController extends BaseAdminController
 {
-    protected readonly DecorationTabbarApplicationService $decorationTabbars;
-
-    public function __construct(App $app, ?DecorationTabbarApplicationService $decorationTabbars = null)
+    public function __construct(App $app, protected readonly DecorationTabbarApplicationService $decorationTabbars)
     {
         parent::__construct($app);
-        $this->decorationTabbars = $decorationTabbars ?? $app->make(DecorationTabbarApplicationService::class);
     }
     public function detail()
     {

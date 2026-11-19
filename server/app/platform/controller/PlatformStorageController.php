@@ -11,12 +11,9 @@ use app\platform\context\PlatformOperatorContext;
 
 final class PlatformStorageController extends BasePlatformController
 {
-    protected readonly StorageConfiguration $storage;
-
-    public function __construct(App $app, ?StorageConfiguration $storage = null)
+    public function __construct(App $app, protected readonly StorageConfiguration $storage)
     {
         parent::__construct($app);
-        $this->storage = $storage ?? $app->make(StorageConfiguration::class);
     }
     public function snapshot()
     {

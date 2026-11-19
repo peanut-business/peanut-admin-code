@@ -11,12 +11,9 @@ use app\adminapi\services\setting\HotSearchApplicationService;
 
 class HotSearchController extends BaseAdminController
 {
-    protected readonly HotSearchApplicationService $hotSearch;
-
-    public function __construct(App $app, ?HotSearchApplicationService $hotSearch = null)
+    public function __construct(App $app, protected readonly HotSearchApplicationService $hotSearch)
     {
         parent::__construct($app);
-        $this->hotSearch = $hotSearch ?? $app->make(HotSearchApplicationService::class);
     }
     public function getConfig()
     {

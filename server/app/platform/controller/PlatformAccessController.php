@@ -13,12 +13,9 @@ use PeanutAdmin\Modules\Identity\Platform\Application\PlatformAccessAdminService
 
 final class PlatformAccessController extends BasePlatformController
 {
-    protected readonly PlatformAccessAdminService $platformAccess;
-
-    public function __construct(App $app, ?PlatformAccessAdminService $platformAccess = null)
+    public function __construct(App $app, protected readonly PlatformAccessAdminService $platformAccess)
     {
         parent::__construct($app);
-        $this->platformAccess = $platformAccess ?? $app->make(PlatformAccessAdminService::class);
     }
     public function createOperator()
     {

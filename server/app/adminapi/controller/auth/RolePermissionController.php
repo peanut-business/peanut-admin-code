@@ -13,12 +13,9 @@ use PeanutAdmin\Modules\Identity\Authorization\Application\RoleAdminService;
 
 final class RolePermissionController extends BaseAdminController
 {
-    protected readonly RoleAdminService $roles;
-
-    public function __construct(App $app, ?RoleAdminService $roles = null)
+    public function __construct(App $app, protected readonly RoleAdminService $roles)
     {
         parent::__construct($app);
-        $this->roles = $roles ?? $app->make(RoleAdminService::class);
     }
     public function detail()
     {

@@ -13,12 +13,9 @@ use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 
 final class PlatformControlPlaneQueryController extends BasePlatformController
 {
-    protected readonly PlatformControlPlaneQueryService $queries;
-
-    public function __construct(App $app, ?PlatformControlPlaneQueryService $queries = null)
+    public function __construct(App $app, protected readonly PlatformControlPlaneQueryService $queries)
     {
         parent::__construct($app);
-        $this->queries = $queries ?? $app->make(PlatformControlPlaneQueryService::class);
     }
     public function operators()
     {

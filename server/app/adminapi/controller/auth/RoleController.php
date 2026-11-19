@@ -11,12 +11,9 @@ use app\adminapi\services\auth\RoleApplicationService;
 
 class RoleController extends BaseAdminController
 {
-    protected readonly RoleApplicationService $roles;
-
-    public function __construct(App $app, ?RoleApplicationService $roles = null)
+    public function __construct(App $app, protected readonly RoleApplicationService $roles)
     {
         parent::__construct($app);
-        $this->roles = $roles ?? $app->make(RoleApplicationService::class);
     }
     public function lists()
     {

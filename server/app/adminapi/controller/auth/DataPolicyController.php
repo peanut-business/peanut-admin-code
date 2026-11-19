@@ -15,14 +15,12 @@ use PeanutAdmin\Modules\Identity\DataPermission\Application\DataPolicyAdminServi
 
 final class DataPolicyController extends BaseAdminController
 {
-    protected readonly DataPolicyAdminService $policies;
-    protected readonly ResourceOperationCatalog $catalog;
-
-    public function __construct(App $app, ?DataPolicyAdminService $policies = null, ?ResourceOperationCatalog $catalog = null)
-    {
+    public function __construct(
+        App $app,
+        protected readonly DataPolicyAdminService $policies,
+        protected readonly ResourceOperationCatalog $catalog,
+    ) {
         parent::__construct($app);
-        $this->policies = $policies ?? $app->make(DataPolicyAdminService::class);
-        $this->catalog = $catalog ?? $app->make(ResourceOperationCatalog::class);
     }
     public function detail()
     {

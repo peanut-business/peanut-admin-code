@@ -15,12 +15,9 @@ use think\response\Json;
 
 class MenuController extends BaseAdminController
 {
-    protected readonly MenuApplicationService $menus;
-
-    public function __construct(App $app, ?MenuApplicationService $menus = null)
+    public function __construct(App $app, protected readonly MenuApplicationService $menus)
     {
         parent::__construct($app);
-        $this->menus = $menus ?? $app->make(MenuApplicationService::class);
     }
     public function route()
     {

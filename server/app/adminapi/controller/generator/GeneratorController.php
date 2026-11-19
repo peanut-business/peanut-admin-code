@@ -16,12 +16,9 @@ use think\response\Json;
 
 class GeneratorController extends BaseAdminController
 {
-    protected readonly GeneratorService $generator;
-
-    public function __construct(App $app, ?GeneratorService $generator = null)
+    public function __construct(App $app, protected readonly GeneratorService $generator)
     {
         parent::__construct($app);
-        $this->generator = $generator ?? $app->make(GeneratorService::class);
     }
     public function sourceTables()
     {

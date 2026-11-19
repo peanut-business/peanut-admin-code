@@ -11,12 +11,9 @@ use app\platform\validate\TenantEntryBindingValidate;
 
 final class PlatformTenantEntryBindingController extends BasePlatformController
 {
-    protected readonly TenantEntryBindingAdminService $entryBindings;
-
-    public function __construct(App $app, ?TenantEntryBindingAdminService $entryBindings = null)
+    public function __construct(App $app, protected readonly TenantEntryBindingAdminService $entryBindings)
     {
         parent::__construct($app);
-        $this->entryBindings = $entryBindings ?? $app->make(TenantEntryBindingAdminService::class);
     }
     public function lists()
     {

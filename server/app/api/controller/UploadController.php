@@ -17,12 +17,9 @@ use app\common\exception\BusinessException;
  */
 class UploadController extends BaseApiController
 {
-    protected readonly FileUploads $uploads;
-
-    public function __construct(App $app, ?FileUploads $uploads = null)
+    public function __construct(App $app, protected readonly FileUploads $uploads)
     {
         parent::__construct($app);
-        $this->uploads = $uploads ?? $app->make(FileUploads::class);
     }
     public function image()
     {

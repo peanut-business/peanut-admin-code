@@ -10,12 +10,9 @@ use app\platform\services\developer\DeveloperCenterCatalogService;
 
 final class PlatformDeveloperCenterController extends BasePlatformController
 {
-    protected readonly DeveloperCenterCatalogService $developerCatalog;
-
-    public function __construct(App $app, ?DeveloperCenterCatalogService $developerCatalog = null)
+    public function __construct(App $app, protected readonly DeveloperCenterCatalogService $developerCatalog)
     {
         parent::__construct($app);
-        $this->developerCatalog = $developerCatalog ?? $app->make(DeveloperCenterCatalogService::class);
     }
     public function catalog()
     {

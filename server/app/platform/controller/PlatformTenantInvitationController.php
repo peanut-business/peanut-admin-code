@@ -14,12 +14,9 @@ use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 
 final class PlatformTenantInvitationController extends BasePlatformController
 {
-    protected readonly TenantOwnerInvitationAdminService $invitations;
-
-    public function __construct(App $app, ?TenantOwnerInvitationAdminService $invitations = null)
+    public function __construct(App $app, protected readonly TenantOwnerInvitationAdminService $invitations)
     {
         parent::__construct($app);
-        $this->invitations = $invitations ?? $app->make(TenantOwnerInvitationAdminService::class);
     }
     public function provision()
     {

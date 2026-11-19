@@ -11,12 +11,9 @@ use PeanutAdmin\Modules\File\Contract\FileStorage;
 
 final class StorageController extends BaseApiController
 {
-    protected readonly FileStorage $storage;
-
-    public function __construct(App $app, ?FileStorage $storage = null)
+    public function __construct(App $app, protected readonly FileStorage $storage)
     {
         parent::__construct($app);
-        $this->storage = $storage ?? $app->make(FileStorage::class);
     }
     public function delivery()
     {

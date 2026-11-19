@@ -10,12 +10,9 @@ use PeanutAdmin\Modules\Identity\Platform\Application\PlanLicenseAdminService;
 
 final class PlanLicenseController extends BasePlatformController
 {
-    protected readonly PlanLicenseAdminService $plans;
-
-    public function __construct(App $app, ?PlanLicenseAdminService $plans = null)
+    public function __construct(App $app, protected readonly PlanLicenseAdminService $plans)
     {
         parent::__construct($app);
-        $this->plans = $plans ?? $app->make(PlanLicenseAdminService::class);
     }
     public function lists()
     {

@@ -12,12 +12,9 @@ use app\common\exception\BusinessException;
 
 class DecorationController extends BaseApiController
 {
-    protected readonly DecorationReadService $decoration;
-
-    public function __construct(App $app, ?DecorationReadService $decoration = null)
+    public function __construct(App $app, protected readonly DecorationReadService $decoration)
     {
         parent::__construct($app);
-        $this->decoration = $decoration ?? $app->make(DecorationReadService::class);
     }
     public function mobilePage()
     {

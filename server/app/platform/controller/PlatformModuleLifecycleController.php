@@ -15,14 +15,12 @@ use app\platform\exception\module\ModulePackageException;
 
 final class PlatformModuleLifecycleController extends BasePlatformController
 {
-    protected readonly PlatformModuleRuntimeService $moduleRuntime;
-    protected readonly OfficialModuleReleaseService $officialReleases;
-
-    public function __construct(App $app, ?PlatformModuleRuntimeService $moduleRuntime = null, ?OfficialModuleReleaseService $officialReleases = null)
-    {
+    public function __construct(
+        App $app,
+        protected readonly PlatformModuleRuntimeService $moduleRuntime,
+        protected readonly OfficialModuleReleaseService $officialReleases,
+    ) {
         parent::__construct($app);
-        $this->moduleRuntime = $moduleRuntime ?? $app->make(PlatformModuleRuntimeService::class);
-        $this->officialReleases = $officialReleases ?? $app->make(OfficialModuleReleaseService::class);
     }
     public function updates()
     {

@@ -10,12 +10,9 @@ use app\api\services\SearchApplicationService;
 
 class SearchController extends BaseApiController
 {
-    protected readonly SearchApplicationService $search;
-
-    public function __construct(App $app, ?SearchApplicationService $search = null)
+    public function __construct(App $app, protected readonly SearchApplicationService $search)
     {
         parent::__construct($app);
-        $this->search = $search ?? $app->make(SearchApplicationService::class);
     }
     /** 热门搜索 */
     public function hotLists()

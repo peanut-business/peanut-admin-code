@@ -21,8 +21,6 @@ use think\facade\Config;
 
 class ConfigController extends BaseAdminController
 {
-    private readonly ConfigApplicationService $configuration;
-
     public function __construct(
         App $app,
         private readonly ApplicationHostPolicy $hosts,
@@ -31,10 +29,9 @@ class ConfigController extends BaseAdminController
         private readonly TenantIdentityQuery $tenants,
         private readonly DemoAccountPolicy $demoAccounts,
         private readonly ExecutionContextStore $contexts,
-        ?ConfigApplicationService $configuration = null,
+        private readonly ConfigApplicationService $configuration,
     ) {
         parent::__construct($app);
-        $this->configuration = $configuration ?? $app->make(ConfigApplicationService::class);
     }
 
     public function brand()

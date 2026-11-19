@@ -19,12 +19,9 @@ use think\response\Json;
  */
 class SystemController extends BaseAdminController
 {
-    protected readonly SystemApplicationService $system;
-
-    public function __construct(App $app, ?SystemApplicationService $system = null)
+    public function __construct(App $app, protected readonly SystemApplicationService $system)
     {
         parent::__construct($app);
-        $this->system = $system ?? $app->make(SystemApplicationService::class);
     }
     /** 系统环境信息 */
     public function info()

@@ -13,12 +13,9 @@ use app\common\enum\decoration\DecorationEnum;
 
 class DecorationPageController extends BaseAdminController
 {
-    protected readonly DecorationPageApplicationService $decorationPages;
-
-    public function __construct(App $app, ?DecorationPageApplicationService $decorationPages = null)
+    public function __construct(App $app, protected readonly DecorationPageApplicationService $decorationPages)
     {
         parent::__construct($app);
-        $this->decorationPages = $decorationPages ?? $app->make(DecorationPageApplicationService::class);
     }
     public function mobileLists()
     {

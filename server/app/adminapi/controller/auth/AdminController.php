@@ -13,12 +13,9 @@ use app\adminapi\validate\auth\EditSelfValidate;
 
 class AdminController extends BaseAdminController
 {
-    protected readonly AdminApplicationService $admins;
-
-    public function __construct(App $app, ?AdminApplicationService $admins = null)
+    public function __construct(App $app, protected readonly AdminApplicationService $admins)
     {
         parent::__construct($app);
-        $this->admins = $admins ?? $app->make(AdminApplicationService::class);
     }
     public function lists()
     {

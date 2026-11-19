@@ -15,16 +15,13 @@ use think\facade\Db;
 
 final class PermissionApiController extends BasePlatformController
 {
-    protected readonly ApiPermissionCatalog $catalog;
-    protected readonly AuditService $audit;
-    protected readonly MenuAdministrationService $menus;
-
-    public function __construct(App $app, ?ApiPermissionCatalog $catalog = null, ?AuditService $audit = null, ?MenuAdministrationService $menus = null)
-    {
+    public function __construct(
+        App $app,
+        protected readonly ApiPermissionCatalog $catalog,
+        protected readonly AuditService $audit,
+        protected readonly MenuAdministrationService $menus,
+    ) {
         parent::__construct($app);
-        $this->catalog = $catalog ?? $app->make(ApiPermissionCatalog::class);
-        $this->audit = $audit ?? $app->make(AuditService::class);
-        $this->menus = $menus ?? $app->make(MenuAdministrationService::class);
     }
     public function menus()
     {

@@ -14,12 +14,9 @@ use app\common\http\SessionRefreshCookie;
 
 final class PlatformSessionController extends BasePlatformController
 {
-    protected readonly PlatformOperatorSessionService $sessions;
-
-    public function __construct(App $app, ?PlatformOperatorSessionService $sessions = null)
+    public function __construct(App $app, protected readonly PlatformOperatorSessionService $sessions)
     {
         parent::__construct($app);
-        $this->sessions = $sessions ?? $app->make(PlatformOperatorSessionService::class);
     }
     public function login()
     {

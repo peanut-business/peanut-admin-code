@@ -232,7 +232,7 @@ SQL);
         try {
             $response = $loginMiddleware->handle($request,
                 static fn($authenticated) => $permissions->handle($authenticated,
-                    static fn() => (new PlanLicenseController($app))->{$action}(), $permission));
+                    static fn() => $app->make(PlanLicenseController::class)->{$action}(), $permission));
             $body = $response->getData();
             poExpect($body['code'] === 20000 && is_array($body['data']), 'plan/license HTTP action did not return its normal response');
             return $body['data'];

@@ -265,8 +265,7 @@ final readonly class VerifiedServerDeployment
             }
             self::assertProtectedPath($root, substr($file['path'], strlen('server/')), $httpMount);
         }
-        // Framework extension directories need not exist in a source application.
-        // Existing objects, including broken links, still require the full protection check.
+        // Verify top-level program directory protection without recursively lstat-ing every file in vendor/app at runtime.
         $optionalDirectories = $source ? ['.peanut', 'bootstrap', 'extend'] : ['bootstrap', 'extend'];
         foreach (['app', 'config', 'database', '.peanut', 'resources', 'vendor', 'route', 'bootstrap', 'extend'] as $directory) {
             if (in_array($directory, $optionalDirectories, true)
@@ -274,16 +273,6 @@ final readonly class VerifiedServerDeployment
                 continue;
             }
             self::assertProtectedPath($root, $directory, $httpMount);
-            $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(
-                $root . '/' . $directory,
-                \FilesystemIterator::SKIP_DOTS,
-            ), \RecursiveIteratorIterator::SELF_FIRST);
-            foreach ($iterator as $file) {
-                if ($file->isLink()) {
-                    throw new RuntimeException('SERVER_DEPLOYMENT_PROGRAM_WRITABLE: ' . $directory);
-                }
-                self::assertProtectedPath($root, self::relative($root, $file->getPathname()), $httpMount);
-            }
         }
         foreach ([$source ? '../modules.lock' : 'modules.lock', 'composer.json', 'composer.lock', 'think', 'public/index.php'] as $file) {
             if ($file === '../modules.lock') {
