@@ -56,9 +56,11 @@
       :row-key="rowKey"
       :show-summary="showSummary"
       :tree-props="treeProps"
+      :default-expand-all="defaultExpandAll"
       :size="tableDensity"
       :height="fixedHeader ? tableHeight ?? '60vh' : undefined"
       @selection-change="onSelectionChange"
+      @expand-change="onExpandChange"
       @sort-change="$emit('sortChange', $event)"
     >
       <el-table-column
@@ -143,6 +145,7 @@
     showSummary?: boolean;
     paginationDisabled?: boolean;
     treeProps?: { children?: string; hasChildren?: string };
+    defaultExpandAll?: boolean;
     views?: readonly { id: string; label: string }[];
     fields?: Field[];
     columnStorageKey?: string;
@@ -160,6 +163,7 @@
     (event: 'edited', value: TRow): void;
     (event: 'pageChange' | 'sizeChange', value: number): void;
     (event: 'selectionChange', value: TRow[]): void;
+    (event: 'expandChange', row: TRow, expanded: TRow[] | boolean): void;
     (
       event: 'sortChange',
       value: { prop: string; order: 'ascending' | 'descending' | null }
@@ -259,6 +263,8 @@
   const tableData = computed(() => [...props.data]);
   const searchExpanded = ref(true);
   const selection = ref<TRow[]>([]);
+  const onExpandChange = (row: TRow, expanded: TRow[] | boolean) =>
+    emit('expandChange', row, expanded);
   const onSelectionChange = (value: TRow[]) => {
     selection.value = value;
     emit('selectionChange', value);
