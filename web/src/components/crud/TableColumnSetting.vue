@@ -16,7 +16,7 @@
           >
           <el-select
             v-model="column.fixed"
-            :ariaLabel="'固定位置'"
+            v-bind="{ ariaLabel: '固定位置' }"
             style="width: 100px"
           >
             <el-option label="不固定" :value="false" />
@@ -27,12 +27,16 @@
             v-model="column.width"
             :min="1"
             :controls="false"
-            :ariaLabel="'列宽'"
+            v-bind="{ ariaLabel: '列宽' }"
             style="width: 75px"
           />
         </div>
       </div>
-      <el-select v-model="density" placeholder="密度" :ariaLabel="'密度'">
+      <el-select
+        v-model="density"
+        placeholder="密度"
+        v-bind="{ ariaLabel: '密度' }"
+      >
         <el-option label="默认" value="default" />
         <el-option label="宽松" value="large" />
         <el-option label="紧凑" value="small" />

@@ -20,6 +20,7 @@
 
 <script setup lang="ts">
   import { computed, ref } from 'vue';
+  import printContent from './printContent';
 
   const props = defineProps<{
     modelValue: boolean;
@@ -46,12 +47,7 @@
   defineEmits<{ (event: 'update:modelValue', value: boolean): void }>();
   const content = ref<HTMLElement>();
   const print = () => {
-    if (!content.value) return;
-    const popup = window.open('', '_blank');
-    if (!popup) return;
-    popup.document.title = document.title;
-    popup.document.body.append(content.value.cloneNode(true));
-    popup.print();
+    if (content.value) printContent(content.value);
   };
 </script>
 

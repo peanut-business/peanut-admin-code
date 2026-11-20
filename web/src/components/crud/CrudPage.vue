@@ -17,7 +17,7 @@
       <el-select
         v-if="views"
         placeholder="常用视图"
-        :ariaLabel="'常用视图'"
+        v-bind="{ ariaLabel: '常用视图' }"
         @change="$emit('applyView', $event)"
       >
         <el-option
@@ -31,7 +31,7 @@
         <el-input
           v-model="viewName"
           placeholder="视图名称"
-          :ariaLabel="'视图名称'"
+          v-bind="{ ariaLabel: '视图名称' }"
           style="width: 150px"
         />
         <el-button :disabled="!viewName.trim()" @click="saveView"
