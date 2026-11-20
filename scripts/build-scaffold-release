@@ -360,7 +360,8 @@ function releaseLockPackage(string $lockPath): array
     throw new RuntimeException('SCAFFOLD_RELEASE_CORE_LOCK_MISSING');
 }
 
-function releaseLockRows(string $lockPath): string
+/** @return array<string,array<string,mixed>> */
+function releaseLockRows(string $lockPath): array
 {
     $lock = releaseReadJson($lockPath);
     $rows = [];
@@ -368,8 +369,29 @@ function releaseLockRows(string $lockPath): string
         if (!is_array($package) || ($package['name'] ?? null) === 'peanut-admin/core') {
             continue;
         }
-        $rows[] = implode("\0", [
-            (string) ($package['name'] ?? ''),
+        $rows[(string) ($package['name'] ?? '')] = array_intersect_key($package, array_flip(['version', 'source', 'dist']));
+    }
+    ksort($rows, SORT_STRING);
+    return $rows;
+}
+
+/** Existing third-party identities remain fixed; Composer may add new transitive packages. */
+function releaseAssertThirdPartyUnchanged(array $before, array $after): void
+{
+    foreach ($before as $name => $package) {
+        if (!array_key_exists($name, $after) || $after[$name] !== $package) {
+            throw new RuntimeException('SCAFFOLD_RELEASE_THIRD_PARTY_LOCK_CHANGED');
+        }
+    }
+}
+
+/** Digest the complete final third-party lock using the established receipt format. */
+function releaseLockDigest(array $rows): string
+{
+    $lines = [];
+    foreach ($rows as $name => $package) {
+        $lines[] = implode("\0", [
+            $name,
             (string) ($package['version'] ?? ''),
             (string) ($package['source']['type'] ?? ''),
             (string) ($package['source']['url'] ?? ''),
@@ -380,8 +402,8 @@ function releaseLockRows(string $lockPath): string
             (string) ($package['dist']['shasum'] ?? ''),
         ]);
     }
-    sort($rows, SORT_STRING);
-    return hash('sha256', implode("\n", $rows));
+    sort($lines, SORT_STRING);
+    return hash('sha256', implode("\n", $lines));
 }
 
 function releaseProjectCore(string $application, array $core, string $temporary, array $manifest): string
@@ -431,9 +453,7 @@ function releaseProjectCore(string $application, array $core, string $temporary,
         'COMPOSER_CACHE_DIR' => getenv('COMPOSER_CACHE_DIR') ?: $temporary . '/composer-cache',
     ]);
     $lockAfter = releaseLockRows($application . '/server/composer.lock');
-    if (!hash_equals($lockBefore, $lockAfter)) {
-        throw new RuntimeException('SCAFFOLD_RELEASE_THIRD_PARTY_LOCK_CHANGED');
-    }
+    releaseAssertThirdPartyUnchanged($lockBefore, $lockAfter);
     $lockedCore = releaseLockPackage($application . '/server/composer.lock');
     $local = $core['local'] ?? false;
     if (($lockedCore['version'] ?? null) !== $version
@@ -444,7 +464,7 @@ function releaseProjectCore(string $application, array $core, string $temporary,
         || ($lockedCore['dist']['shasum'] ?? null) !== $core['archive_sha1']) {
         throw new RuntimeException('SCAFFOLD_RELEASE_CORE_LOCK_IDENTITY_INVALID');
     }
-    return $lockAfter;
+    return releaseLockDigest($lockAfter);
 }
 
 function releaseProjectWeb(string $application, array $core, string $receipt, string $toolRoot): array

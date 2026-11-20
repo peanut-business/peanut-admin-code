@@ -151,6 +151,8 @@ CI 的 `scaffold-release.yml` 可显式选 `publish=false, pack_only=true` 并�
 
 再从所选形态的真实 `scaffold-manifest.json` 生成 APP：现有 `create-app` 使用 `--source-channel=development --source-commit=<同一固定Code提交> --source-tree=<对应tree> --scaffold-manifest=<候选清单绝对路径> --profile=full --workflow=full` 及正常产品名称、slug、package、target、edition 参数。候选受管程序和固定归档直接取自该产物，复用安全路径读取、文件摘要、品牌 token 与 Composer content-hash 渲染；五个 app-owned 初始默认仍由同一固定生成器生成。严格核固定来源、inventory、形态、完整受管集合及七包摘要，不接受候选新增路径抢占 app-owned、excluded 或未知文件。品牌相关 Plugin/API 元数据按最终 APP 字节由既有生成器重建，记录真实 baseline 和所消费候选清单摘要。`generation_source` 保留 development/null，`scaffold_candidate.formal_release_eligible=false`，不把未公开候选标成已发布版本。APP 的 Composer/npm/pnpm 依赖通过自身携带的 packages 相对路径与原生锁安装；不得依赖维护者 Core checkout、私有 Project 或临时外部 file 路径。候选生成、APP 自有依赖安装与实际首装分别记录结果，生成源码不等于运行或资格通过。
 
+PHP Core 由 Composer 原生局部更新时，可新增该 Core 所需的传递依赖；原锁中每个第三方包的版本、source 和 dist 必须保持不变且不能移除。回执记录更新后完整第三方集合的摘要，`--check` 使用相同合同。
+
 只替换 PHP Core 时，直接把 `freeze-core-release --php-only` 的 `release-core-inputs.json` 传给 `--internal-core-inputs`。候选携带 PHP ZIP，六个 Web Core 包沿用 Code 源的已发行版本、Git 来源及 registry 锁。`build-scaffold-release --check` 使用同一 Code 源和原构建选项，从输出目录的 `scaffold-build-inputs.json` 读取原始冻结回执，并核对输出中的归档，无需再传 `--internal-core-inputs`。
 
 内部组合转正式组合时，先选取适用的已发行Core，或按独立授权发行所需Core，核公开渠道各自精确版本、内容/摘要与来源，再收敛正式依赖、原生锁和派生结果；输入变化仅使对应证据失效。固定最终 S 后，按当前正式消费者合同完成必要一次模板生产及资格，再由 tag 发布消费原件，不在发布阶段重做上述准备。不因脚手架升版重复发行未变化的Core；main/tag、正式发布及生产授权保持独立，内部候选不代替正式资格。
