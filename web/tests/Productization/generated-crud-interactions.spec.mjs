@@ -25,6 +25,11 @@ vi.mock('@/hooks/permission', () => ({
     return policy.allow;
   },
 }));
+// The directive uses the host router singleton. Tab behavior uses the actual
+// memory router installed on the mounted page below.
+vi.mock('@/router', () => ({
+  default: { currentRoute: { value: { path: '/records' } } },
+}));
 const example = process.env.PEANUT_CRUD_CASE;
 if (
   !['string-plain', 'string-recycle', 'int-plain', 'int-recycle'].includes(
