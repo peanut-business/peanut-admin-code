@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.4",
+    "template_version": "5.1.18-rc.5",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -10924,7 +10924,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c3e832d9e789bfa3413e87bd93a2f56b6d9bce750fa0e2920daa32c847a8cdba"
+            "source_sha256": "0a974cc7c206f00e4475dc5f944f7e32b1dd97f3a58a2718b1faaa916dbe7bd7"
         },
         {
             "path": "server/generated/openapi.json",
@@ -10938,7 +10938,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "07ca51bd8a1adb2ecb28cdb74d5970e0b9b849ab686e3f7951cc7995f3b642f7"
+            "source_sha256": "523568da960ca3887dd396dec546f557742508e7d5887c4aff258272a51fcc88"
         },
         {
             "path": "server/module",
@@ -16997,7 +16997,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4ce8f31f5fe8535ff28128249861b722137312f46ee16821db3bf394ebc690bf"
+            "source_sha256": "7d808a5dfd2ce58984b204a76359baa995428855c429aa38b95ae128ed8e1743"
         },
         {
             "path": "web/src/hooks/useCrudTab.ts",
@@ -18677,7 +18677,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5e673164408184ddf7e572166bad1c9a37cbc3d2db15ec2eeb175b509c7a63cb"
+            "source_sha256": "9d8b3fdcb33054b629db795f4b8bfcc9162c22b81fafdb87988002f026cbe713"
         },
         {
             "path": "web/tests/Productization/instance-tool-build-boundary.test.mjs",
