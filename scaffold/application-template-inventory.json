@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.3",
+    "template_version": "5.1.18-rc.4",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -933,7 +933,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "13b19ec8a1c05b889f29b2072aa3eb388ffe54ad92928db74b303b9147b3117d"
+            "source_sha256": "3bfa277f0b94c15701f96cf7c569636533822f07dc8bd96c50dd97987998d17c"
         },
         {
             "path": "docs/development/ui-guidelines.md",
@@ -4453,7 +4453,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0ba89a118d062ce4911c0834e46a62df4bfad91ff68744cd8eef6c85d70625b9"
+            "source_sha256": "4211002cf987b1999e9f6a3547a051cd338210549cc8b30859d42e42c0723be6"
         },
         {
             "path": "server/app/adminapi/services/generator/GeneratorArchiveService.php",
@@ -4481,7 +4481,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "aa65361df558aaaf306ef7bde837b4f8337eef4038086957c6ccdde38fb6ac16"
+            "source_sha256": "4ed285954a77088437382d1fab9dfee5e4a5bf42899b9a21278e05a9303582f0"
         },
         {
             "path": "server/app/adminapi/services/generator/GeneratorService.php",
@@ -6261,7 +6261,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3c3f546fd65db4eb307657934ee5656e7e5ba9fdbb40c9c68d878b8db783738d"
+            "source_sha256": "d872c1a353a44d7453165a39e699524d4a0b5479a65d191ca6bbfdcf56300562"
         },
         {
             "path": "server/app/common/http/HostApiProblemRenderer.php",
@@ -6303,7 +6303,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "98fbd47a2cd813ca4af0461c1aca92e8ee81db2bac8db6d0dc3f35f3ac699a21"
+            "source_sha256": "548f5807b437e05989cb803c14e553487c2d6c06a79dea195ee4827e2a1f0be5"
         },
         {
             "path": "server/app/common/http/RequestTrace.php",
@@ -7537,7 +7537,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c3e97dad39d77c1006f51c1da7a90a1a5a5377a15b7dc7310a681dff4827a1ac"
+            "source_sha256": "b5223781b4572a76b825cf8ea57cf93976d0ef5ada9663c4d0ee0d9da6de53cc"
+        },
+        {
+            "path": "server/app/common/validate/CrudValidationException.php",
+            "target": "server/app/common/validate/CrudValidationException.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f18e70e2c04877e9c9fbcb5ce79906d95bda1651fddaf455fee13010e10b939e"
         },
         {
             "path": "server/app/common/validate/InputValidator.php",
@@ -7565,7 +7579,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "86f6c1f1c425802a5f66cafd049674a4509a9cba390382bd8547657ebfb03099"
+            "source_sha256": "e31cc6b8b691f4b2cb687f46c43f7cc00826ba6df36dfa8436bef83b119288a5"
         },
         {
             "path": "server/app/common/validate/PageSizeRule.php",
@@ -16338,7 +16352,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "da9c0b988f9f17494b83ae474f4c9b5f3a177b31c0a896c78cb53801a56ed12c"
+            "source_sha256": "3cc9c4b9a1e86f9745286d16ff90bab7a0bea296457096d88acdfca6411133f5"
         },
         {
             "path": "web/src/api/system/log.ts",
@@ -16790,6 +16804,20 @@
             "adapter_kind": "application-provider"
         },
         {
+            "path": "web/src/directive/globals.d.ts",
+            "target": "web/src/directive/globals.d.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "6236c66c0cd609865995baf44c347c8926d5e768572df0febdd676be6f5f6dfd"
+        },
+        {
             "path": "web/src/directive/index.ts",
             "target": "web/src/directive/index.ts",
             "classification": "managed",
@@ -16956,6 +16984,48 @@
                 "full"
             ],
             "source_sha256": "d7cba0ae26304cb15bb322e185ff2c519312c59fc9062928724e389233be90d5"
+        },
+        {
+            "path": "web/src/hooks/useCrudModal.ts",
+            "target": "web/src/hooks/useCrudModal.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "4ce8f31f5fe8535ff28128249861b722137312f46ee16821db3bf394ebc690bf"
+        },
+        {
+            "path": "web/src/hooks/useCrudTab.ts",
+            "target": "web/src/hooks/useCrudTab.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "21f7c32303d86a0d15358e4df4d586ad120c84478bcea30200e533792b2402af"
+        },
+        {
+            "path": "web/src/hooks/useCrudTable.ts",
+            "target": "web/src/hooks/useCrudTable.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "aab6eec4b8ea5bac7889befbe35861308bf45a883c394c2fd2ce1d01744797cf"
         },
         {
             "path": "web/src/hooks/user.ts",
@@ -18229,7 +18299,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0b07bb93ffcd3a52295f261e7122af5e938745946d5f794fe3ddaf3ef88326d0"
+            "source_sha256": "f5110637031600ff3e426a39775c082c9909d1fc29e38feb7960b7a3da84e964"
         },
         {
             "path": "web/src/views/system/jobs/locale/en-US.ts",
@@ -18593,7 +18663,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "10a6b187f8e6cee21b8c65f6feb5fec80fcd6fe87779cbdaaed9c4f622ea93f8"
+            "source_sha256": "0983cd09fe66b1da160c294870042f052f1eadb080a135e4ee18957a6b85bbae"
         },
         {
             "path": "web/tests/Productization/generated-crud-interactions.spec.mjs",
@@ -18607,7 +18677,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ec9eaed9fc164f8db41a4fab607b68668f8f2fba9f7afdb551954ba57eb4e096"
+            "source_sha256": "5e673164408184ddf7e572166bad1c9a37cbc3d2db15ec2eeb175b509c7a63cb"
         },
         {
             "path": "web/tests/Productization/instance-tool-build-boundary.test.mjs",
