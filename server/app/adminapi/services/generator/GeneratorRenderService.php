@@ -128,6 +128,7 @@ final class GeneratorRenderService
             $primary,
         );
         $tree = self::treeConfig($storedConfig, $columns, $templateType);
+        $capabilities = self::capabilities($storedConfig['capabilities'] ?? [], $columns, $primary, $softDelete['field']);
         $relations = self::relations($table['relations'] ?? [], $module, $edition, $root);
         $projection = self::projection($columns, $primary, $tree, $softDelete['field']);
         $backend = $module['backendRelative'];
@@ -152,6 +153,7 @@ final class GeneratorRenderService
             'primaryLength' => (int) $primary['length'],
             'primaryRule' => self::primaryRule($primary, $primaryType),
             'tree' => $tree,
+            'capabilities' => $capabilities,
             'relations' => $relations,
             'owner' => $owner,
             'edition' => $edition,
@@ -395,6 +397,23 @@ final class GeneratorRenderService
         return ['enabled' => true, 'field' => $field];
     }
 
+    private static function capabilities(mixed $input, array $columns, array $primary, string $softDeleteField): array
+    {
+        if (!is_array($input) || array_diff(array_keys($input), ['batchDelete', 'batchUpdateStatus', 'statusField']) !== []) {
+            throw new RuntimeException('批量能力配置无效');
+        }
+        $delete = $input['batchDelete'] ?? false;
+        $status = $input['batchUpdateStatus'] ?? false;
+        $field = $input['statusField'] ?? '';
+        $column = is_string($field) ? (array_column($columns, null, 'name')[$field] ?? null) : null;
+        if (!is_bool($delete) || !is_bool($status) || !is_string($field)
+            || ($status && (!is_array($column) || $column['type'] !== 'int' || !$column['update'] || !self::publicColumn($field, $softDeleteField)
+                || in_array($field, [$primary['name'], 'tenant_id', 'delete_time', $softDeleteField], true)))) {
+            throw new RuntimeException('批量状态能力必须声明有效整数状态字段');
+        }
+        return ['batchDelete' => $delete, 'batchUpdateStatus' => $status, 'statusField' => $status ? $field : ''];
+    }
+
     /** @param list<array<string,mixed>> $columns */
     private static function treeConfig(mixed $rawTree, array $columns, string $templateType): array
     {
@@ -554,6 +573,8 @@ PHP, $c + compact('softImport', 'softBody', 'schema') + ['relationMethods' => $r
 
     private static function renderController(array $c): string
     {
+        $enabledActions = array_filter(array_intersect_key($c['capabilities'], array_flip(['batchDelete', 'batchUpdateStatus'])));
+        $actionDeclaration = $enabledActions === [] ? '' : '    protected const CRUD_ACTIONS = ' . var_export($enabledActions, true) . ";\n";
         $softDeleteDeclaration = $c['softDelete'] ? "    protected const CRUD_SOFT_DELETE = true;\n" : '';
         return self::replace(<<<'PHP'
 <?php
@@ -574,7 +595,7 @@ final class {{entity}}Controller extends BaseAdminController
 
     protected const CRUD_VALIDATE = {{entity}}Validate::class;
     protected const CRUD_VALIDATE_LISTS = true;
-{{softDeleteDeclaration}}    protected const CRUD_PRIMARY_KEY = '{{primary}}';
+{{actionDeclaration}}{{softDeleteDeclaration}}    protected const CRUD_PRIMARY_KEY = '{{primary}}';
     protected const CRUD_PRIMARY_KEY_TYPE = '{{primaryType}}';
     protected const CRUD_INPUT_FIELDS = {{inputFields}};
     protected const CRUD_WRITABLE_FIELDS = {{writableFields}};
@@ -589,7 +610,7 @@ final class {{entity}}Controller extends BaseAdminController
         return $this->tenantAdminContext();
     }
 }
-PHP, $c + self::controllerFieldPolicies($c) + compact('softDeleteDeclaration'));
+PHP, $c + self::controllerFieldPolicies($c) + compact('softDeleteDeclaration', 'actionDeclaration'));
     }
 
     private static function renderService(array $c): string
@@ -612,24 +633,21 @@ PHP, $c + self::controllerFieldPolicies($c) + compact('softDeleteDeclaration'));
             array_filter($c['relations'], static fn(array $relation): bool => $relation['summaryFields'] !== []),
         ));
         $withCode = $relationNames === [] ? '' : '->with(' . var_export($relationNames, true) . ')';
-        $detailLookup = "        \$model = {$c['entity']}::where('{$c['primary']}', \$id){$withCode}->findOrEmpty();\n"
-            . "        if (\$model->isEmpty()) {\n"
-            . "            throw BusinessException::notFound('{$c['errorPrefix']}_NOT_FOUND', '{$c['title']}不存在');\n"
-            . "        }\n"
-            . "        return \$this->project(\$model, self::DETAIL_FIELDS);";
         if ($c['tree'] !== []) {
             $listBody = "        \$rows = \$query->field(self::LIST_FIELDS){$withCode}->order(['{$c['primary']}' => 'desc'])->limit(2000)->select()\n"
                 . "            ->map(fn(\$item): array => \$this->project(\$item, self::LIST_FIELDS))->toArray();\n"
                 . "        return linear_to_tree(\$rows, 'children', '{$c['primary']}', '{$c['tree']['parent']}');";
-            $childGuard = "            if ({$c['entity']}::where('{$c['tree']['parent']}', \$id)->count() > 0) {\n"
-                . "                throw BusinessException::conflict('{$c['errorPrefix']}_HAS_CHILDREN', '请先删除下级节点');\n            }\n";
         } else {
             $listBody = "        \$page = PaginationInput::from(\$params)->result(\$query->field(self::LIST_FIELDS){$withCode}->order(['{$c['primary']}' => 'desc']));\n"
                 . "        return \$page->map(fn(\$item): array => \$this->project(\$item, self::LIST_FIELDS));";
-            $childGuard = '';
         }
         $softImport = $c['softDelete'] ? "\nuse think\\db\\exception\\PDOException;" : '';
+        $baseService = $c['tree'] !== [] ? 'AbstractTreeCrudService' : 'AbstractCrudService';
+        $parentField = $c['tree'] !== [] ? "    protected function parentField(): string { return '{$c['tree']['parent']}'; }\n    protected function structureQuery(TenantContext \$context): BaseQuery { return {$c['entity']}::where('tenant_id', \$context->tenantId); }\n" : '';
         $softMethods = self::renderSoftDeleteService($c, $queryCode, $listBody);
+        $withStatement = $relationNames === [] ? '' : '        $query->with(' . var_export($relationNames, true) . ");\n";
+        $statusField = $c['capabilities']['batchUpdateStatus'] ? "    protected function statusField(): ?string { return '{$c['capabilities']['statusField']}'; }\n" : '';
+        $treeError = $c['tree'] === [] ? '' : "    protected function buildTree(array \$rows): array { return linear_to_tree(\$rows, 'children', '{$c['primary']}', '{$c['tree']['parent']}'); }\n    protected function treeHasChildrenError(): BusinessException\n    {\n        return BusinessException::conflict('{$c['errorPrefix']}_HAS_CHILDREN', '请先删除下级节点');\n    }\n\n";
         return self::replace(<<<'PHP'
 <?php
 declare(strict_types=1);
@@ -642,13 +660,15 @@ use app\common\exception\BusinessException;
 use app\common\execution\CurrentExecutionContext;
 use app\common\http\PageResult;
 use app\common\support\PaginationInput;
+use app\common\services\{{baseService}};
 use {{namespace}}Model\{{entity}};
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use think\facade\Db;
+use think\db\BaseQuery;
 use think\Model;
 {{softImport}}
 
-class {{entity}}Service
+class {{entity}}Service extends {{baseService}}
 {
     private const INSERT_FIELDS = {{insertFields}};
     private const UPDATE_FIELDS = {{updateFields}};
@@ -661,78 +681,48 @@ class {{entity}}Service
         private readonly AdminAuthorizationQuery $authorization,
     ) {}
 
-    public function lists(TenantContext $context, array $params): array|PageResult
+    protected function primaryKey(): string { return '{{primary}}'; }
+    protected function listFields(): array { return self::LIST_FIELDS; }
+    protected function detailFields(): array { return self::DETAIL_FIELDS; }
+    protected function insertFields(): array { return self::INSERT_FIELDS; }
+    protected function updateFields(): array { return self::UPDATE_FIELDS; }
+{{parentField}}{{statusField}}    protected function query(TenantContext $context): BaseQuery
     {
-        $this->assertPermission($context, '{{permissionPrefix}}.list');
-        $query = {{entity}}::where([]);
-{{queryCode}}{{listBody}}
+        return {{entity}}::where('tenant_id', $context->tenantId);
     }
 
-    public function detail(TenantContext $context, int|string $id): array
+    protected function newModel(TenantContext $context): Model
     {
-        $this->assertPermission($context, '{{permissionPrefix}}.detail');
-{{detailLookup}}
+        return new {{entity}}();
     }
 
-    public function add(TenantContext $context, array $params): bool
+    protected function configureListQuery(TenantContext $context, BaseQuery $query, array $params): void
     {
-        $this->assertPermission($context, '{{permissionPrefix}}.add');
-        $model = new {{entity}}();
-        if ($model->save(array_intersect_key($params, array_flip(self::INSERT_FIELDS))) === false) {
-            throw BusinessException::invalid('{{errorPrefix}}_SAVE_FAILED', '保存失败，请稍后重试');
-        }
-        return true;
+{{queryCode}}{{withStatement}}    }
+
+    protected function configureDetailQuery(TenantContext $context, BaseQuery $query): void
+    {
+{{withStatement}}    }
+
+    protected function resourceError(string $operation): BusinessException
+    {
+        return match ($operation) {
+            'notFound' => BusinessException::notFound('{{errorPrefix}}_NOT_FOUND', '{{title}}不存在'),
+            'delete' => BusinessException::invalid('{{errorPrefix}}_DELETE_FAILED', '删除失败，请稍后重试'),
+            'statusUnsupported' => BusinessException::invalid('{{errorPrefix}}_STATUS_UNSUPPORTED', '该资源未声明统一状态字段'),
+            default => BusinessException::invalid('{{errorPrefix}}_SAVE_FAILED', '保存失败，请稍后重试'),
+        };
     }
 
-    public function edit(TenantContext $context, array $params): bool
-    {
-        $this->assertPermission($context, '{{permissionPrefix}}.edit');
-        $this->mutate($params['{{primary}}'], function ({{entity}} $model) use ($params): void {
-            if ($model->save(array_intersect_key($params, array_flip(self::UPDATE_FIELDS))) === false) {
-                throw BusinessException::invalid('{{errorPrefix}}_SAVE_FAILED', '保存失败，请稍后重试');
-            }
-        });
-        return true;
-    }
-
-    public function delete(TenantContext $context, int|string $id): bool
-    {
-        $this->assertPermission($context, '{{permissionPrefix}}.delete');
-        $this->mutate($id, function ({{entity}} $model) use ($id): void {
-{{childGuard}}            if ($model->delete() === false) {
-                throw BusinessException::invalid('{{errorPrefix}}_DELETE_FAILED', '删除失败，请稍后重试');
-            }
-        });
-        return true;
-    }
-
-{{softMethods}}
+{{treeError}}{{softMethods}}
 
     public function updateStatus(TenantContext $context, int|string $id, int $status): bool
     {
-        throw BusinessException::invalid('{{errorPrefix}}_STATUS_UNSUPPORTED', '该资源未声明统一状态字段');
-    }
-
-    private function mutate(int|string $id, callable $callback): void
-    {
-        Db::transaction(function () use ($id, $callback): void {
-            $callback($this->find($id, true));
-        });
-    }
-
-    private function find(int|string $id, bool $lock = false): {{entity}}
-    {
-        $query = {{entity}}::where('{{primary}}', $id);
-        if ($lock) $query->lock(true);
-        $model = $query->findOrEmpty();
-        if ($model->isEmpty()) {
-            throw BusinessException::notFound('{{errorPrefix}}_NOT_FOUND', '{{title}}不存在');
-        }
-        return $model;
+        throw $this->resourceError('statusUnsupported');
     }
 
     /** 公开输出只取声明字段；关联只返回明确摘要。 */
-    private function project(Model|array $record, array $fields): array
+    protected function project(Model|array $record, array $fields): array
     {
         $data = $record instanceof Model ? $record->toArray() : $record;
         $result = array_intersect_key($data, array_flip($fields));
@@ -747,8 +737,9 @@ class {{entity}}Service
     }
 
     /** 非 HTTP 调用也必须复核当前可信身份和固定动作权限。 */
-    private function assertPermission(TenantContext $context, string $permission): void
+    protected function assertPermission(TenantContext $context, string $permission): void
     {
+        if (!str_contains($permission, '.')) $permission = '{{permissionPrefix}}.' . $permission;
         try {
             $current = $this->executionContext->tenantAdmin();
             $actor = AdminPrincipal::fromArray($this->executionContext->tenantAdminPrincipal());
@@ -768,13 +759,16 @@ class {{entity}}Service
 PHP, $c + $policies + [
             'queryCode' => $queryCode,
             'listBody' => $listBody,
-            'childGuard' => $childGuard,
             'listFieldsExport' => var_export($c['listFields'], true),
             'detailFieldsExport' => var_export($c['detailFields'], true),
             'relationSummaries' => var_export(array_column($c['relations'], 'summaryFields', 'name'), true),
-            'detailLookup' => $detailLookup,
             'softImport' => $softImport,
             'softMethods' => $softMethods,
+            'baseService' => $baseService,
+            'parentField' => $parentField,
+            'withStatement' => $withStatement,
+            'treeError' => $treeError,
+            'statusField' => $statusField,
         ]);
     }
 
@@ -980,7 +974,8 @@ PHP, $c + compact(
                 $messages[$column['name'] . '.require'] = $column['comment'] . '不能为空';
             }
         }
-        if ($c['softDelete']) {
+        $hasBatch = $c['capabilities']['batchDelete'] || $c['capabilities']['batchUpdateStatus'];
+        if ($c['softDelete'] || $hasBatch) {
             $rules['ids'] = 'array|checkIds';
         }
         $listRemovals = '';
@@ -1003,7 +998,7 @@ PHP, $c + compact(
             : "            if ((!is_string(\$id) && !is_int(\$id)) || trim((string)\$id) === ''"
                 . ($c['primaryLength'] > 0 ? " || mb_strlen(trim((string)\$id)) > {$c['primaryLength']}" : '')
                 . ") return '操作对象主键格式错误';";
-        $softSceneMethods = $c['softDelete'] ? self::replace(<<<'PHP'
+        $softSceneMethods = ($c['softDelete'] || $hasBatch) ? self::replace(<<<'PHP'
 
     public function sceneRecycle(): self
     {
@@ -1044,6 +1039,18 @@ PHP, $c + [
             'idCheck' => $idCheck,
             'primaryBatchRule' => preg_replace('/^require\|/', '', $c['primaryRule']) ?? $c['primaryRule'],
         ]) : '';
+        $batchScenes = '';
+        if ($c['capabilities']['batchDelete']) {
+            $batchScenes .= "    public function sceneBatchDelete(): self { return \$this->only(['ids'])->replace('ids', 'require|array|checkIds'); }\n";
+        }
+        if ($c['capabilities']['batchUpdateStatus']) {
+            $rules['status'] = 'require|checkStatus';
+            $statusColumn = array_column($c['columns'], null, 'name')[$c['capabilities']['statusField']];
+            $allowedStatus = $statusColumn['enum'];
+            $statusCheck = $allowedStatus === [] ? 'is_int($value)' : 'is_int($value) && in_array((string) $value, ' . var_export(array_map('strval', $allowedStatus), true) . ', true)';
+            $batchScenes .= "    public function sceneBatchUpdateStatus(): self { return \$this->only(['ids', 'status'])->replace('ids', 'require|array|checkIds'); }\n"
+                . "    protected function checkStatus(mixed \$value): bool|string { return (" . $statusCheck . ") ?: '状态值无效'; }\n";
+        }
         return self::replace(<<<'PHP'
 <?php
 declare(strict_types=1);
@@ -1072,7 +1079,7 @@ final class {{entity}}Validate extends ListsValidate
     {
         return $this->only({{listFields}}){{listRemovals}};
     }
-{{softSceneMethods}}}
+{{softSceneMethods}}{{batchScenes}}}
 PHP, array_merge($c, $policies, [
             'rules' => var_export($rules, true),
             'messages' => var_export($messages, true),
@@ -1080,6 +1087,7 @@ PHP, array_merge($c, $policies, [
             'listRemovals' => $listRemovals,
             'softScenes' => $softScenes,
             'softSceneMethods' => $softSceneMethods,
+            'batchScenes' => $batchScenes,
         ]));
     }
 
@@ -1114,6 +1122,15 @@ export function purge{{entity}}(ids: {{primaryTsType}}[], signal?: AbortSignal) 
   return axios.post<{{entity}}BatchResult>('/adminapi/{{permissionPrefix}}.purge', { ids }, { signal });
 }
 TS, $c) : '';
+        $batchFunctions = '';
+        foreach (['batchDelete', 'batchUpdateStatus'] as $action) {
+            if (!$c['capabilities'][$action]) continue;
+            $statusArg = $action === 'batchUpdateStatus' ? ', status: number' : '';
+            $statusBody = $action === 'batchUpdateStatus' ? ', status' : '';
+            $batchFunctions .= "\nexport function {$action}{$c['entity']}(ids: {$c['primaryTsType']}[]{$statusArg}) {\n"
+                . "  return axios.post('/adminapi/{$c['permissionPrefix']}.{$action}', { ids{$statusBody} });\n}\n";
+        }
+        $listResultType = $c['tree'] === [] ? "export interface {$c['entity']}ListResult {\n  lists: {$c['entity']}ListRecord[];\n  count: number;\n  pageNo: number;\n  pageSize: number;\n}" : "export type {$c['entity']}ListResult = {$c['entity']}ListRecord[];";
         return self::replace(<<<'TS'
 import axios from 'axios';
 
@@ -1129,12 +1146,7 @@ export interface {{entity}}CreateInput {
 export interface {{entity}}UpdateInput {
 {{updateTypeFields}}}
 
-export interface {{entity}}ListResult {
-  lists: {{entity}}ListRecord[];
-  count: number;
-  pageNo: number;
-  pageSize: number;
-}
+{{listResultType}}
 
 export interface {{entity}}ListParams {
 {{listParamFields}}}
@@ -1159,7 +1171,7 @@ export function edit{{entity}}(data: {{entity}}UpdateInput) {
 export function delete{{entity}}({{primary}}: {{primaryTsType}}) {
   return axios.post('/adminapi/{{permissionPrefix}}.delete', { {{primary}} });
 }
-{{softFunctions}}
+{{softFunctions}}{{batchFunctions}}
 TS, $c + [
             'listTypeFields' => self::typescriptFields($c, $c['listFields']),
             'detailTypeFields' => self::typescriptFields($c, $c['detailFields']),
@@ -1168,6 +1180,8 @@ TS, $c + [
             'listParamFields' => self::typescriptQueryFields($c, $policies['listFieldsArray']),
             'softTypes' => $softTypes,
             'softFunctions' => $softFunctions,
+            'batchFunctions' => $batchFunctions,
+            'listResultType' => $listResultType,
         ]);
     }
 
@@ -1214,7 +1228,7 @@ VUE, $c) : '';
         $apiImports = $c['softDelete']
             ? "get{$c['entity']}List, get{$c['entity']}RecycleList, restore{$c['entity']}, purge{$c['entity']}, type {$c['entity']}ListRecord"
             : "get{$c['entity']}List, type {$c['entity']}ListRecord";
-        $uiImports = 'ElAlert, ElButton, ElCard, ElPagination, ElTable, ElTableColumn, vLoading'
+        $uiImports = 'ElAlert, ElButton, ElCard, ElTableColumn'
             . ($c['softDelete'] ? ', ElMessage, ElPopconfirm' : '');
         $softImports = $c['softDelete'] ? <<<'TS'
   import { useAsyncAction } from '@peanut-admin/vue';
@@ -1227,7 +1241,7 @@ TS : '';
         $fetchCall = $c['softDelete']
             ? "(filters.recycle ? get{$c['entity']}RecycleList : get{$c['entity']}List)"
             : "get{$c['entity']}List";
-        $disabledPagination = $c['softDelete'] ? ' :disabled="actionLoading"' : '';
+        $disabledPagination = $c['softDelete'] ? ' :pagination-disabled="actionLoading"' : '';
         $softHandlers = $c['softDelete'] ? self::replace(<<<'TS'
 
   const showRecycle = computed(() => searchForm.value.recycle);
@@ -1270,35 +1284,63 @@ TS : '';
     await fetchData(pagination.page);
   };
 TS, $c) : '';
+        $batchEnabled = $c['capabilities']['batchDelete'] || $c['capabilities']['batchUpdateStatus'];
+        $batchSlot = '';
+        $batchHandlers = '';
+        if ($batchEnabled) {
+            $apiImports .= $c['capabilities']['batchDelete'] ? ", batchDelete{$c['entity']}" : '';
+            $apiImports .= $c['capabilities']['batchUpdateStatus'] ? ", batchUpdateStatus{$c['entity']}" : '';
+            $uiImports .= $c['softDelete'] ? '' : ', ElPopconfirm';
+            $uiImports .= $c['capabilities']['batchUpdateStatus'] ? ', ElInputNumber' : '';
+            $deleteButton = $c['capabilities']['batchDelete'] ? "        <ElPopconfirm title=\"确定删除所选记录？\" @confirm=\"handleBatchDelete(selection)\">\n          <template #reference><ElButton v-permission=\"['{$c['permissionPrefix']}.batchDelete']\" :disabled=\"batchLoading\">批量删除</ElButton></template>\n        </ElPopconfirm>\n" : '';
+            $statusButton = $c['capabilities']['batchUpdateStatus'] ? "        <ElInputNumber v-model=\"batchStatus\" :precision=\"0\" :disabled=\"batchLoading\" />\n        <ElButton v-permission=\"['{$c['permissionPrefix']}.batchUpdateStatus']\" :disabled=\"batchLoading || batchStatus === undefined\" @click=\"handleBatchStatus(selection)\">批量修改状态</ElButton>\n" : '';
+            $selectionColumn = $c['softDelete'] ? '<ElTableColumn v-if="!showRecycle" type="selection" />' : '<ElTableColumn type="selection" />';
+            $condition = $c['softDelete'] ? ' v-if="!showRecycle"' : '';
+            $batchSlot = "      <template #batch=\"{ selection }\"><div{$condition}>\n{$deleteButton}{$statusButton}      </div></template>\n";
+            $batchHandlers = "  const batchLoading = ref(false);\n  const batchError = ref('');\n";
+            if ($c['capabilities']['batchUpdateStatus']) $batchHandlers .= "  const batchStatus = ref<number | undefined>(0);\n";
+            $batchHandlers .= "  const runBatch = async (operation: () => Promise<unknown>) => {\n    if (batchLoading.value) return;\n    batchLoading.value = true;\n    batchError.value = '';\n    try { await operation(); await fetchData(pagination.page); }\n    catch { batchError.value = '批量操作失败，请重试'; }\n    finally { batchLoading.value = false; }\n  };\n";
+            if ($c['capabilities']['batchDelete']) $batchHandlers .= "  const handleBatchDelete = (selection: {$c['entity']}ListRecord[]) => runBatch(() => batchDelete{$c['entity']}(selection.map(row => row.{$c['primary']})));\n";
+            if ($c['capabilities']['batchUpdateStatus']) $batchHandlers .= "  const handleBatchStatus = (selection: {$c['entity']}ListRecord[]) => {\n    const status = batchStatus.value;\n    if (status !== undefined) void runBatch(() => batchUpdateStatus{$c['entity']}(selection.map(row => row.{$c['primary']}), status));\n  };\n";
+        } else {
+            $selectionColumn = '';
+        }
+        $listResult = $c['tree'] === []
+            ? 'return { items: response.data.lists, total: response.data.count, page, pageSize };'
+            : 'return { items: response.data, total: response.data.length, page, pageSize };';
         return self::replace(<<<'VUE'
 <template>
   <ElCard class="general-card" header="{{title}}">
-{{recycleToggle}}    <ElAlert v-if="error" :title="error" type="error" :closable="false" />
+{{recycleToggle}}{{batchErrorAlert}}    <ElAlert v-if="error" :title="error" type="error" :closable="false" />
     <ElButton v-if="error" :disabled="loading" @click="fetchData(pagination.page)">重新加载</ElButton>
-    <ElTable v-loading="loading" row-key="{{primary}}" :data="records">
-      <ElTableColumn
-        v-for="column in columns"
-        :key="column.prop"
-        :prop="column.prop"
-        :label="column.label"
-      />
-{{actionSlot}}      <template #empty>
+    <CrudPage
+      :loading="loading"
+      :data="records"
+      :pagination="pagination"
+      row-key="{{primary}}"{{disabledPagination}}
+      @page-change="fetchData"
+      @size-change="handleSizeChange"
+    >
+{{batchSlot}}      <template #columns>
+        {{selectionColumn}}
+        <ElTableColumn
+          v-for="column in columns"
+          :key="column.prop"
+          :prop="column.prop"
+          :label="column.label"
+        />
+{{actionSlot}}      </template>
+      <template #empty>
         <span role="status">{{ loading ? '正在加载…' : error ? '加载失败' : '暂无数据' }}</span>
       </template>
-    </ElTable>
-    <ElPagination
-      :current-page="pagination.page"
-      :page-size="pagination.pageSize"
-      :total="pagination.total"{{disabledPagination}}
-      layout="total, prev, pager, next"
-      @current-change="fetchData"
-    />
+    </CrudPage>
   </ElCard>
 </template>
 
 <script setup lang="ts">
-  import { computed } from 'vue';
+  import { computed{{refImport}} } from 'vue';
   import { {{uiImports}} } from 'element-plus';
+  import CrudPage from '@/components/crud/CrudPage.vue';
   import useCrudTable from '@/hooks/useCrudTable';
 {{softImports}}  import { {{apiImports}} } from './api';
 
@@ -1313,13 +1355,17 @@ TS, $c) : '';
     initialPageSize: 15,
     load: async ({ page, pageSize, signal{{filterParameter}} }) => {
       const response = await {{fetchCall}}({ page_no: page, page_size: pageSize }, signal);
-      return { items: response.data.lists, total: response.data.count, page, pageSize };
+      {{listResult}}
     },
     errorMessage: () => '列表加载失败，请重试',
   });
   const { data, pagination, loading, error, fetchList: fetchData{{filterProperty}} } = list;
   const records = computed(() => [...data.value]);
-{{softHandlers}}  void fetchData();
+  const handleSizeChange = (size: number) => {
+    pagination.pageSize = size;
+    void fetchData(1);
+  };
+{{softHandlers}}{{batchHandlers}}  void fetchData();
 </script>
 VUE, $c + compact(
             'recycleToggle',
@@ -1333,8 +1379,14 @@ VUE, $c + compact(
             'fetchCall',
             'disabledPagination',
             'softHandlers',
+            'batchSlot',
+            'batchHandlers',
+            'selectionColumn',
         ) + [
             'tableColumns' => $columns,
+            'listResult' => $listResult,
+            'refImport' => $batchEnabled ? ', ref' : '',
+            'batchErrorAlert' => $batchEnabled ? "    <ElAlert v-if=\"batchError\" :title=\"batchError\" type=\"error\" :closable=\"false\" />\n" : '',
             'filterProperty' => $c['softDelete'] ? ', searchForm' : '',
         ]);
     }
@@ -1378,6 +1430,10 @@ TS, $c);
     Route::post('{{permissionPrefix}}.restore', [{{entity}}Controller::class, 'restore'])->option(['peanut_permission' => '{{permissionPrefix}}.restore']);
     Route::post('{{permissionPrefix}}.purge', [{{entity}}Controller::class, 'purge'])->option(['peanut_permission' => '{{permissionPrefix}}.purge']);
 PHP, $c) : '';
+        $batchRoutes = '';
+        foreach (['batchDelete', 'batchUpdateStatus'] as $action) {
+            if ($c['capabilities'][$action]) $batchRoutes .= "    Route::post('{$c['permissionPrefix']}.{$action}', [{$c['entity']}Controller::class, '{$action}'])->option(['peanut_permission' => '{$c['permissionPrefix']}.{$action}']);\n";
+        }
         return self::replace(<<<'PHP'
 <?php
 declare(strict_types=1);
@@ -1397,13 +1453,13 @@ Route::group(function (): void {
     Route::post('{{permissionPrefix}}.add', [{{entity}}Controller::class, 'add'])->option(['peanut_permission' => '{{permissionPrefix}}.add']);
     Route::post('{{permissionPrefix}}.edit', [{{entity}}Controller::class, 'edit'])->option(['peanut_permission' => '{{permissionPrefix}}.edit']);
     Route::post('{{permissionPrefix}}.delete', [{{entity}}Controller::class, 'delete'])->option(['peanut_permission' => '{{permissionPrefix}}.delete']);
-{{softRoutes}}})->middleware([
+{{softRoutes}}{{batchRoutes}}})->middleware([
     LoginMiddleware::class,
     [OfficialModuleMiddleware::class, ['{{moduleKey}}', 'http.admin']],
     AuthMiddleware::class,
     OperationLogMiddleware::class,
 ]);
-PHP, $c + compact('softRoutes'));
+PHP, $c + compact('softRoutes', 'batchRoutes'));
     }
 
     private static function renderOpenApiFragment(array $c): string
@@ -1568,6 +1624,19 @@ PHP, $c + compact('softRoutes'));
             $prefix . 'delete' => $operation('delete', 'post', $c['entity'] . 'MutationSuccess', body: $c['entity'] . 'DeleteRequest', errors: [$c['errorPrefix'] . '_NOT_FOUND', $c['errorPrefix'] . '_DELETE_FAILED']),
         ];
 
+        foreach (['batchDelete', 'batchUpdateStatus'] as $action) {
+            if (!$c['capabilities'][$action]) continue;
+            $schema = $c['entity'] . ucfirst($action) . 'Request';
+            $properties = ['ids' => ['type' => 'array', 'minItems' => 1, 'maxItems' => 100, 'uniqueItems' => true, 'items' => $schemaRef($c['entity'] . 'PrimaryKey')]];
+            $required = ['ids'];
+            if ($action === 'batchUpdateStatus') {
+                $properties['status'] = ['type' => 'integer'];
+                $required[] = 'status';
+            }
+            $schemas[$schema] = ['type' => 'object', 'additionalProperties' => false, 'required' => $required, 'properties' => $properties];
+            $paths[$prefix . $action] = $operation($action, 'post', $c['entity'] . 'MutationSuccess', body: $schema);
+        }
+
         if ($c['softDelete']) {
             $schemas[$c['entity'] . 'BatchRequest'] = [
                 'type' => 'object', 'additionalProperties' => false,
@@ -1654,6 +1723,8 @@ PHP, $c + compact('softRoutes'));
                 'purge' => ['action', 'critical', '永久删除'],
             ];
         }
+        if ($c['capabilities']['batchDelete']) $actions['batchDelete'] = ['action', 'critical', '批量删除'];
+        if ($c['capabilities']['batchUpdateStatus']) $actions['batchUpdateStatus'] = ['action', 'sensitive', '批量修改状态'];
         foreach ($actions as $action => [$type, $risk, $verb]) {
             $key = $c['permissionPrefix'] . '.' . $action;
             if (in_array($key, $existing, true)) {
@@ -1761,6 +1832,8 @@ PHP, $c + compact('softRoutes'));
                 'purge' => [$c['primary'], 'ids'],
             ];
         }
+        if ($c['capabilities']['batchDelete']) $input['batchDelete'] = ['ids' => true];
+        if ($c['capabilities']['batchUpdateStatus']) $input['batchUpdateStatus'] = ['ids' => true, 'status'];
         return [
             'inputFields' => var_export($input, true),
             'writableFields' => var_export(['add' => $fields['insertFieldsArray'], 'edit' => $fields['updateFieldsArray']], true),

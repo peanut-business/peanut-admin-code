@@ -51,10 +51,14 @@ final class GeneratorDeclaredCrudTemplateTest extends TestCase
         self::assertStringContainsString('CRUD_WRITABLE_FIELDS', $controller);
 
         $service = $byPath[$backend . '/src/Service/GeneratedNoteService.php']['content'];
+        self::assertStringContainsString('extends AbstractCrudService', $service);
+        self::assertStringContainsString('protected function query(TenantContext $context): BaseQuery', $service);
+        self::assertStringContainsString("where('tenant_id', \$context->tenantId)", $service);
+        self::assertStringContainsString('protected function configureListQuery(', $service);
+        self::assertStringContainsString('protected function configureDetailQuery(', $service);
         self::assertStringContainsString('private const LIST_FIELDS', $service);
         self::assertStringContainsString('private const DETAIL_FIELDS', $service);
         self::assertStringContainsString('array_intersect_key($data, array_flip($fields))', $service);
-        self::assertStringContainsString("=== false", $service);
         self::assertStringContainsString("GENERATED_NOTE_SAVE_FAILED", $service);
         self::assertStringContainsString("GENERATED_NOTE_DELETE_FAILED", $service);
         self::assertStringNotContainsString("'tenant_id',\n", self::constantBlock($service, 'LIST_FIELDS'));
@@ -212,6 +216,51 @@ final class GeneratorDeclaredCrudTemplateTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('不允许跨模块 ORM 关联；请使用目标模块公开 query 合同');
         GeneratorRenderService::render($definition, $this->fixtureApplication->root);
+    }
+
+    public function testExplicitBatchCapabilitiesGenerateMatchingRoutesPermissionsAndValidation(): void
+    {
+        $definition = self::definition();
+        $definition['entity_name'] = 'BatchGeneratedNote';
+        $definition['columns'][] = ['column_name' => 'state', 'php_type' => 'int', 'column_type' => 'int', 'is_update' => true];
+        $definition['tree_config'] = ['capabilities' => ['batchDelete' => true, 'batchUpdateStatus' => true, 'statusField' => 'state']];
+        $files = array_column(GeneratorRenderService::render($definition, $this->fixtureApplication->root), 'content', 'path');
+        $base = 'server/app/modules/fixture/delivery_record';
+        $controller = $files[$base . '/src/Controller/BatchGeneratedNoteController.php'];
+        $route = $files[$base . '/route/generated/batch-generated-note.php'];
+        $permissions = json_decode($files[$base . '/resources/permissions.json'], true, 64, JSON_THROW_ON_ERROR);
+        $openApi = self::evaluatePhp($files[$base . '/api/metadata/generated/batch-generated-note.php']);
+        $view = $files['web/src/modules/fixture-delivery-record/generated/batch-generated-note/index.vue'];
+        foreach (['batchDelete', 'batchUpdateStatus'] as $action) {
+            self::assertStringContainsString("'$action' => true", $controller);
+            self::assertStringContainsString("batch-generated-note.$action", $route);
+            self::assertContains('fixture.delivery-record.batch-generated-note.' . $action, array_column($permissions, 'key'));
+            self::assertArrayHasKey('/adminapi/fixture.delivery-record.batch-generated-note.' . $action, $openApi['paths']);
+            self::assertStringContainsString("batch-generated-note.$action", $view);
+        }
+        self::assertStringContainsString("statusField(): ?string { return 'state'; }", $files[$base . '/src/Service/BatchGeneratedNoteService.php']);
+        self::evaluatePhp($files[$base . '/src/Validation/BatchGeneratedNoteValidate.php']);
+        $class = \PeanutAdmin\Fixtures\DeliveryRecord\Validation\BatchGeneratedNoteValidate::class;
+        self::assertTrue((new $class())->scene('batchDelete')->check(['ids' => ['a', 'b']]));
+        self::assertFalse((new $class())->scene('batchDelete')->check(['ids' => []]));
+        self::assertTrue((new $class())->scene('batchUpdateStatus')->check(['ids' => ['a'], 'status' => 0]));
+        self::assertFalse((new $class())->scene('batchUpdateStatus')->check(['ids' => ['a'], 'status' => 'bad']));
+    }
+
+    public function testTreeDeclarationRetainsCustomParentAndScopedDeleteContract(): void
+    {
+        $definition = self::definition();
+        $definition['template_type'] = 'tree';
+        $definition['tree_config'] = ['parent_field' => 'parent_uuid', 'label_field' => 'title'];
+        $definition['columns'][] = [
+            'column_name' => 'parent_uuid', 'php_type' => 'string', 'column_type' => 'varchar(36)',
+            'is_insert' => true, 'is_update' => true, 'is_lists' => true,
+        ];
+        $files = array_column(GeneratorRenderService::render($definition, $this->fixtureApplication->root), 'content', 'path');
+        $service = $files['server/app/modules/fixture/delivery_record/src/Service/GeneratedNoteService.php'];
+        self::assertStringContainsString('extends AbstractTreeCrudService', $service);
+        self::assertStringContainsString("parentField(): string { return 'parent_uuid'; }", $service);
+        self::assertStringContainsString('GENERATED_NOTE_HAS_CHILDREN', $service);
     }
 
     public function testDefaultIntegerIdContractRemainsExplicit(): void

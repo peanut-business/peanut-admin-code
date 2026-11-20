@@ -47,7 +47,7 @@ final class GeneratorElementPlusViewTest extends TestCase
         self::assertStringNotContainsString('@arco-design', $view);
         self::assertDoesNotMatchRegularExpression('/<\/?a-/', $view);
         self::assertStringNotContainsString('TableColumnData', $view);
-        foreach (['ElCard', 'ElTable', 'ElTableColumn', 'ElPagination', 'ElAlert', 'ElButton'] as $component) {
+        foreach (['ElCard', 'CrudPage', 'ElTableColumn', 'ElAlert', 'ElButton'] as $component) {
             self::assertStringContainsString('<' . $component, $view);
         }
         self::assertStringContainsString("from 'element-plus'", $view);
@@ -55,11 +55,9 @@ final class GeneratorElementPlusViewTest extends TestCase
         self::assertStringContainsString(':data="records"', $view);
         self::assertStringContainsString(':prop="column.prop"', $view);
         self::assertStringContainsString(':label="column.label"', $view);
-        self::assertStringContainsString(':current-page="pagination.page"', $view);
-        self::assertStringContainsString(':total="pagination.total"', $view);
-        self::assertStringContainsString('@current-change="fetchData"', $view);
-        self::assertStringNotContainsString(':pagination=', $view);
-        self::assertStringNotContainsString('@page-change=', $view);
+        self::assertStringContainsString(':pagination="pagination"', $view);
+        self::assertStringContainsString('@page-change="fetchData"', $view);
+        self::assertStringContainsString('@size-change="handleSizeChange"', $view);
         self::assertStringContainsString('initialPageSize: 15', $view);
         self::assertStringContainsString('page_no: page, page_size: pageSize', $view);
         self::assertStringContainsString('page_size: pageSize }, signal)', $view);
@@ -110,7 +108,7 @@ final class GeneratorElementPlusViewTest extends TestCase
         $view = $files['web/src/modules/fixture-delivery-record/generated/' . $resource . '/index.vue'];
         self::assertStringContainsString("from '@/hooks/useCrudTable'", $view);
         self::assertStringContainsString('useCrudTable<', $view);
-        self::assertStringContainsString('v-loading="loading"', $view);
+        self::assertStringContainsString(':loading="loading"', $view);
         self::assertStringContainsString('v-if="error"', $view);
         self::assertStringContainsString('<template #empty>', $view);
         self::assertStringNotContainsString(' as any', $view);
