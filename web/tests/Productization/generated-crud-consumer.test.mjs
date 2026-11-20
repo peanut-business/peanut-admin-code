@@ -136,6 +136,7 @@ for (const relative of [
   'web/tsconfig.json',
   'web/src/main.ts',
   'web/src/env.d.ts',
+  'web/src/directive/globals.d.ts',
   'web/src/hooks/useCrudTable.ts',
   'web/src/hooks/useCrudModal.ts',
   'web/src/hooks/useCrudTab.ts',
@@ -446,7 +447,12 @@ test('real generated Vue/API files pass native strict vue-tsc with actual compon
       paths: { '@/*': [path.join(webRoot, 'src/*')], ...corePaths },
     },
     vueCompilerOptions: { strictTemplates: true },
-    files: [...files, path.join(webRoot, 'src/env.d.ts'), globalTypes],
+    files: [
+      ...files,
+      path.join(webRoot, 'src/env.d.ts'),
+      path.join(webRoot, 'src/directive/globals.d.ts'),
+      globalTypes,
+    ],
     include: [],
     exclude: [],
   };
