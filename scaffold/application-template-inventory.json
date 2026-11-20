@@ -4481,7 +4481,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4ed285954a77088437382d1fab9dfee5e4a5bf42899b9a21278e05a9303582f0"
+            "source_sha256": "dd0d4fb5a541aff159ed768da162c81c7e9ed94da21c90ea68443b1a6cf248aa"
         },
         {
             "path": "server/app/adminapi/services/generator/GeneratorService.php",
@@ -4495,7 +4495,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1ef3931c433b47503dfd247f6ed8f4da266f0a2121f1581b0b5d53ad7d03249c"
+            "source_sha256": "cfff2c08c12c1f0318a60cb38456f18d97b080a483a81f107114c3f7adf205d1"
         },
         {
             "path": "server/app/adminapi/services/log/OperationLogApplicationService.php",
@@ -6261,7 +6261,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d872c1a353a44d7453165a39e699524d4a0b5479a65d191ca6bbfdcf56300562"
+            "source_sha256": "c837fd3c7ad025161645b71fc0db89c006482840fc6664a442034df7a7013fe6"
         },
         {
             "path": "server/app/common/http/HostApiProblemRenderer.php",
@@ -6317,7 +6317,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "442b6142a9a0db8605217fff7b6eb06ab2f39b8b083ffb2ffe69b058586454d6"
+            "source_sha256": "093bce32af0cf3ab868b4abc5a751b596632bfa77cd340303edbd3e5c0327f96"
         },
         {
             "path": "server/app/common/http/SessionRefreshCookie.php",
@@ -6362,6 +6362,34 @@
             "source_sha256": "e6bc83627269700dcde30654ea59c8fa930b4bc077521e8dce74dbdfa01c694c"
         },
         {
+            "path": "server/app/common/http/middleware/RequestGuardMiddleware.php",
+            "target": "server/app/common/http/middleware/RequestGuardMiddleware.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "b4368bfd361bed5bc602b6bbb4cc88cd73c0599a8c29e424befba1ef62cc8121"
+        },
+        {
+            "path": "server/app/common/http/middleware/TraceIdMiddleware.php",
+            "target": "server/app/common/http/middleware/TraceIdMiddleware.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "b1180904c4cf39dfda1c6e7a74d3a8fa2e253809634073d0271da6e08803d6cb"
+        },
+        {
             "path": "server/app/common/infrastructure/audit/OperationLogProjection.php",
             "target": "server/app/common/infrastructure/audit/OperationLogProjection.php",
             "classification": "managed",
@@ -6388,6 +6416,20 @@
                 "full"
             ],
             "source_sha256": "32b0dfdcb9c7ab55bca931fd46b4d5de501c00bea1a5dcaccdc66b36e0c5d950"
+        },
+        {
+            "path": "server/app/common/infrastructure/concurrency/ThinkCacheLimiterStorage.php",
+            "target": "server/app/common/infrastructure/concurrency/ThinkCacheLimiterStorage.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "cd23367178e0259d3dd4fab102e4c1a39d3d074528251dde4366c81b4f68e293"
         },
         {
             "path": "server/app/common/infrastructure/http/GuzzleOutboundHttpTransport.php",
@@ -7133,6 +7175,48 @@
             "adapter_kind": "framework-adapter"
         },
         {
+            "path": "server/app/common/services/AbstractCrudService.php",
+            "target": "server/app/common/services/AbstractCrudService.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e9a479d07aa946198c87426a84f20c50afc86770d9dcbb5645ec7c21003864f5"
+        },
+        {
+            "path": "server/app/common/services/AbstractTreeCrudService.php",
+            "target": "server/app/common/services/AbstractTreeCrudService.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "89603c11046936af7cedf476c4d30f0ac0b1bb4827f6b9d06a9833b6969d53bb"
+        },
+        {
+            "path": "server/app/common/services/BatchProjectionHelper.php",
+            "target": "server/app/common/services/BatchProjectionHelper.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "419c62831e6f28bb2160273cb4759d9637f0767a2925080768b1c2e0d802ef17"
+        },
+        {
             "path": "server/app/common/services/CrontabCommandService.php",
             "target": "server/app/common/services/CrontabCommandService.php",
             "classification": "managed",
@@ -7175,6 +7259,20 @@
             "source_sha256": "121fe9a348bbf5fad8e7e6de923c5f3c1b870a8561e1d7a7ab8c374f2a313b57"
         },
         {
+            "path": "server/app/common/services/RequestGuardService.php",
+            "target": "server/app/common/services/RequestGuardService.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "bab501be96d83cb03b11e9f57986ca77675da19ff330244411a2af4f9d350e65"
+        },
+        {
             "path": "server/app/common/services/RichTextResourceService.php",
             "target": "server/app/common/services/RichTextResourceService.php",
             "classification": "managed",
@@ -7189,6 +7287,20 @@
             "source_sha256": "77a27000e7034b72a41ca48c3af9397a8e207071ca65f6954d90863f3303770c"
         },
         {
+            "path": "server/app/common/services/SpreadsheetTransferService.php",
+            "target": "server/app/common/services/SpreadsheetTransferService.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e798a201fe510f353718cd5c463f574265f5332bb5f13cddfbf31254517308de"
+        },
+        {
             "path": "server/app/common/services/XlsxExportService.php",
             "target": "server/app/common/services/XlsxExportService.php",
             "classification": "managed",
@@ -7200,7 +7312,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5380be9fd18504fe417c571e63535ed0bf4f07015ccad1ae5287f1030879da05"
+            "source_sha256": "3c86b3fbb139efd36312441c298cff23b6f98c7fe617fc7880c82218b86ac216"
         },
         {
             "path": "server/app/common/services/audit/AuditContractHost.php",
@@ -7537,7 +7649,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b5223781b4572a76b825cf8ea57cf93976d0ef5ada9663c4d0ee0d9da6de53cc"
+            "source_sha256": "27c7c61a84feb47b274bcf9bf80c8bb4845dce10925c7bf3b947f26907eec55a"
         },
         {
             "path": "server/app/common/validate/CrudValidationException.php",
@@ -7943,7 +8055,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c17de52e824c939bec94799b56446d4e107a4644d76b96dc66a40ebd8f2e813a"
+            "source_sha256": "face14402540f87776f4285e27fbbbec2eea5560dfbeea04af28e65b4755a1c9"
         },
         {
             "path": "server/app/platform/composition/module/ModuleDefinitionRegistryFactory.php",
@@ -9400,6 +9512,20 @@
                 "full"
             ],
             "source_sha256": "a0a55bf076f8b3b3301c5b234e0db5c25d777b7ce14827863e0240938d82c292"
+        },
+        {
+            "path": "server/config/request_guard.php",
+            "target": "server/config/request_guard.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f3319a29635477ffd13b9751194b8c9e4bedc7fab4d8c267ce452b99f08ebc60"
         },
         {
             "path": "server/config/route.php",
@@ -13605,6 +13731,19 @@
             ]
         },
         {
+            "path": "server/tests/Unit/CrudProjectionTest.php",
+            "target": "server/tests/Unit/CrudProjectionTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Unit/CrudTraitInputContractTest.php",
             "target": "server/tests/Unit/CrudTraitInputContractTest.php",
             "classification": "excluded",
@@ -14359,6 +14498,45 @@
             ]
         },
         {
+            "path": "server/tests/Unit/RequestGuardMiddlewareTest.php",
+            "target": "server/tests/Unit/RequestGuardMiddlewareTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/RequestGuardServiceTest.php",
+            "target": "server/tests/Unit/RequestGuardServiceTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/ScaffoldBackendContractTest.php",
+            "target": "server/tests/Unit/ScaffoldBackendContractTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Unit/SessionRefreshCookieTest.php",
             "target": "server/tests/Unit/SessionRefreshCookieTest.php",
             "classification": "excluded",
@@ -14387,6 +14565,19 @@
         {
             "path": "server/tests/Unit/SettingsDictionaryInputBoundaryTest.php",
             "target": "server/tests/Unit/SettingsDictionaryInputBoundaryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/SpreadsheetTransferServiceTest.php",
+            "target": "server/tests/Unit/SpreadsheetTransferServiceTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -14491,6 +14682,19 @@
         {
             "path": "server/tests/Unit/TenantSettingsTransferBoundaryTest.php",
             "target": "server/tests/Unit/TenantSettingsTransferBoundaryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/TraceIdMiddlewareTest.php",
+            "target": "server/tests/Unit/TraceIdMiddlewareTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -15946,7 +16150,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dd38d01c277e3483cb105bbaab04399c5106d66b33148447d250e855f79e7792"
+            "source_sha256": "bf1cfcc5612c7cf1023830ccb5665e325679d5a6dc92154c60ff862f536269e0"
         },
         {
             "path": "web/pnpm-lock.yaml",
@@ -15960,7 +16164,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eb55b0a02d0a59da8289aa6c8c9c6cdb779f55d086549140da045dbc6f6db9b5"
+            "source_sha256": "0007ca4041cfa262cdeab2ec29e26434586f63f584f656f25aab4a42e251da15"
         },
         {
             "path": "web/pnpm-workspace.yaml",
@@ -16551,6 +16755,216 @@
             "source_sha256": "8e86f6875d715568f4ba1cfb077480488109d1e2f91af35a367d0fae9907e5b8"
         },
         {
+            "path": "web/src/components/crud/CrudDetailDrawer.vue",
+            "target": "web/src/components/crud/CrudDetailDrawer.vue",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "82869c7c6e45f37dc7e76f42698363b9ea5b729e0af893465805d8c4a71b69f4"
+        },
+        {
+            "path": "web/src/components/crud/CrudImportExport.vue",
+            "target": "web/src/components/crud/CrudImportExport.vue",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f639f8fce8f3d0c9c8ac7efe3125c5074f633208e99fc676985cf85680034c43"
+        },
+        {
+            "path": "web/src/components/crud/CrudPage.vue",
+            "target": "web/src/components/crud/CrudPage.vue",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "8280fd862547dd434b7d92cee67a170db4341fa1cd86aa20806e7c7476c31b9c"
+        },
+        {
+            "path": "web/src/components/crud/CrudRecycleDrawer.vue",
+            "target": "web/src/components/crud/CrudRecycleDrawer.vue",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9c811b4565dc6dae13f47ca0c93e767a9192a5dc2c9a60fa90c69fda2c805faa"
+        },
+        {
+            "path": "web/src/components/crud/DeptTreeSelect.vue",
+            "target": "web/src/components/crud/DeptTreeSelect.vue",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "1323d28c9b4eed0dcd0359ddce6d96d2bc970c275f298b482b6b694fa30df0b8"
+        },
+        {
+            "path": "web/src/components/crud/DictSelect.vue",
+            "target": "web/src/components/crud/DictSelect.vue",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "38f96508e0c6a48b7db5d4a8c15330bf0fe117ad4a91b95f2f6bc71b1202d60b"
+        },
+        {
+            "path": "web/src/components/crud/DictTag.vue",
+            "target": "web/src/components/crud/DictTag.vue",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "6f4b4d6d666db5abce83d39c1b03e1dc30aec4cf62145f178623dae2bde704e7"
+        },
+        {
+            "path": "web/src/components/crud/DynamicFormList.vue",
+            "target": "web/src/components/crud/DynamicFormList.vue",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "a8842386e145ce2e690b7341df42f3f620253f20ce70f1548150f51fdd0e5db0"
+        },
+        {
+            "path": "web/src/components/crud/ImageCropperModal.vue",
+            "target": "web/src/components/crud/ImageCropperModal.vue",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "19ec3e9edede94fafe7e7d795acc3efd16e05e085ea5cd4ac647e754f1cd48c9"
+        },
+        {
+            "path": "web/src/components/crud/ImageLightbox.vue",
+            "target": "web/src/components/crud/ImageLightbox.vue",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9f56bdbd32e2fddf69fdada01229469cb0657ea70b1706953fbd59d3427b2cfd"
+        },
+        {
+            "path": "web/src/components/crud/PrintPreview.vue",
+            "target": "web/src/components/crud/PrintPreview.vue",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ef5b7a0f891dc06f12172f8c62d934775bfabf646616363a4d866ceb178952c5"
+        },
+        {
+            "path": "web/src/components/crud/RemoteSelect.vue",
+            "target": "web/src/components/crud/RemoteSelect.vue",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "a0454056e1368eb62a934141f5e657bd258bf92212bda44297506ab49645367f"
+        },
+        {
+            "path": "web/src/components/crud/SafeRichText.vue",
+            "target": "web/src/components/crud/SafeRichText.vue",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "530b1c4ac9ca23a929a4266ac0a8c1d884028772bbba853c914303974d6f2625"
+        },
+        {
+            "path": "web/src/components/crud/TableColumnSetting.vue",
+            "target": "web/src/components/crud/TableColumnSetting.vue",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "35f5888e9d2ffaa0dc2b71b48ed7d3461cba8701f2a69dd44f32e86aa7a80b54"
+        },
+        {
+            "path": "web/src/components/crud/UserPicker.vue",
+            "target": "web/src/components/crud/UserPicker.vue",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ac31e2398a07bb68a36d528ecdcb38874a150dfbcc6576756035e4551cfc8ec7"
+        },
+        {
             "path": "web/src/components/file-picker/index.vue",
             "target": "web/src/components/file-picker/index.vue",
             "classification": "managed",
@@ -16702,7 +17116,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "71d1a49b4f23e342dd31c159ce46189fa0ebfe494aec42a942264a746c9680f4"
+            "source_sha256": "25184067855388ac66f11f24e0c6beacad2e4abfd3661a04741bfed2ee8a784a"
         },
         {
             "path": "web/src/components/tab-bar/index.vue",
@@ -16997,7 +17411,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7d808a5dfd2ce58984b204a76359baa995428855c429aa38b95ae128ed8e1743"
+            "source_sha256": "197cfddefa03501f8259655b4012dabf5dd342ba133bc17fed63f3473e8fad32"
         },
         {
             "path": "web/src/hooks/useCrudTab.ts",
@@ -17025,7 +17439,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "aab6eec4b8ea5bac7889befbe35861308bf45a883c394c2fd2ce1d01744797cf"
+            "source_sha256": "ff9e53310bbc1846de83316a145b7baa1386c3b2ad5d166cd3651a91f74ebb82"
         },
         {
             "path": "web/src/hooks/user.ts",
@@ -17067,7 +17481,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a4024d6638a16204d1c3251d8133dce77f283390230c776615bc41167418e4b4"
+            "source_sha256": "17a8f419013594b48f656e232b1cd011764f2e10d148e558df59771651ba29c4"
         },
         {
             "path": "web/src/layout/page-layout.vue",
@@ -18299,7 +18713,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f5110637031600ff3e426a39775c082c9909d1fc29e38feb7960b7a3da84e964"
+            "source_sha256": "1e64f4df3724c682747d3c7ce46f989d103bdeaab9e83f73a9b8d70f9283d92e"
         },
         {
             "path": "web/src/views/system/jobs/locale/en-US.ts",
@@ -18552,6 +18966,34 @@
                 "full"
             ],
             "source_sha256": "71cc8a9402d7d5b86f09574b53b92e027baee1f5b53e0e2a3276a8954ac1045a"
+        },
+        {
+            "path": "web/tests/Crud/CrudImportExport.spec.ts",
+            "target": "web/tests/Crud/CrudImportExport.spec.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "cfc3cc9376621972d6325730afe73558436247413302cb87c813b57c528c6d0e"
+        },
+        {
+            "path": "web/tests/Crud/CrudPage.spec.ts",
+            "target": "web/tests/Crud/CrudPage.spec.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "cc2e9953bf50710c050d34d0a0424c414c8ebc226af1d869ee09dcbe06ed19c5"
         },
         {
             "path": "web/tests/Modules/PeanutWorkflow/editor-state.test.mjs",
@@ -18934,7 +19376,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8ef33d6d648ddf67f1618b9c75179c03f494e2fbf9982317a527ff9559f4ce70"
+            "source_sha256": "078b8bbd1eafe4a4f26537c537a76a4e26c34ca5b2d6f5a8cd49dc0ab1ae8219"
         }
     ]
 }
