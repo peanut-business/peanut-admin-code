@@ -39,7 +39,11 @@ export default function useCrudModal<
   const action = useAsyncAction(errorMessage);
   let opening = 0;
   let optionRequest:
-    | { controller: AbortController; promise: Promise<TOptions> }
+    | {
+        record: TRecord | undefined;
+        controller: AbortController;
+        promise: Promise<TOptions>;
+      }
     | undefined;
 
   const discardOptions = () => {
@@ -97,7 +101,11 @@ export default function useCrudModal<
     action.cancel();
     opening += 1;
     const key = opening;
-    if (mode.value !== nextMode) discardOptions();
+    if (
+      mode.value !== nextMode ||
+      (optionRequest && !Object.is(optionRequest.record, record))
+    )
+      discardOptions();
     mode.value = nextMode;
     form.value =
       nextMode === 'create'
@@ -114,7 +122,7 @@ export default function useCrudModal<
     try {
       if (!request) {
         const controller = new AbortController();
-        request = { controller, promise: load(controller.signal) };
+        request = { record, controller, promise: load(controller.signal) };
         optionRequest = request;
       }
       const result = await request.promise;
