@@ -1127,8 +1127,8 @@ TS, $c) : '';
             if (!$c['capabilities'][$action]) continue;
             $statusArg = $action === 'batchUpdateStatus' ? ', status: number' : '';
             $statusBody = $action === 'batchUpdateStatus' ? ', status' : '';
-            $batchFunctions .= "\nexport function {$action}{$c['entity']}(ids: {$c['primaryTsType']}[]{$statusArg}) {\n"
-                . "  return axios.post('/adminapi/{$c['permissionPrefix']}.{$action}', { ids{$statusBody} });\n}\n";
+            $batchFunctions .= "\nexport function {$action}{$c['entity']}(ids: {$c['primaryTsType']}[]{$statusArg}, signal?: AbortSignal) {\n"
+                . "  return axios.post('/adminapi/{$c['permissionPrefix']}.{$action}', { ids{$statusBody} }, { signal });\n}\n";
         }
         $listResultType = $c['tree'] === [] ? "export interface {$c['entity']}ListResult {\n  lists: {$c['entity']}ListRecord[];\n  count: number;\n  pageNo: number;\n  pageSize: number;\n}" : "export type {$c['entity']}ListResult = {$c['entity']}ListRecord[];";
         return self::replace(<<<'TS'
@@ -1156,24 +1156,24 @@ export function get{{entity}}List(params: {{entity}}ListParams = {}, signal?: Ab
   return axios.get<{{entity}}ListResult>('/adminapi/{{permissionPrefix}}.list', { params, signal });
 }
 
-export function get{{entity}}Detail({{primary}}: {{primaryTsType}}) {
-  return axios.get<{{entity}}Detail>('/adminapi/{{permissionPrefix}}.detail', { params: { {{primary}} } });
+export function get{{entity}}Detail({{primary}}: {{primaryTsType}}, signal?: AbortSignal) {
+  return axios.get<{{entity}}Detail>('/adminapi/{{permissionPrefix}}.detail', { params: { {{primary}} }, signal });
 }
 
-export function add{{entity}}(data: {{entity}}CreateInput) {
-  return axios.post('/adminapi/{{permissionPrefix}}.add', data);
+export function add{{entity}}(data: {{entity}}CreateInput, signal?: AbortSignal) {
+  return axios.post('/adminapi/{{permissionPrefix}}.add', data, { signal });
 }
 
-export function edit{{entity}}(data: {{entity}}UpdateInput) {
-  return axios.post('/adminapi/{{permissionPrefix}}.edit', data);
+export function edit{{entity}}(data: {{entity}}UpdateInput, signal?: AbortSignal) {
+  return axios.post('/adminapi/{{permissionPrefix}}.edit', data, { signal });
 }
 
-export function delete{{entity}}({{primary}}: {{primaryTsType}}) {
-  return axios.post('/adminapi/{{permissionPrefix}}.delete', { {{primary}} });
+export function delete{{entity}}({{primary}}: {{primaryTsType}}, signal?: AbortSignal) {
+  return axios.post('/adminapi/{{permissionPrefix}}.delete', { {{primary}} }, { signal });
 }
 {{softFunctions}}{{batchFunctions}}
 TS, $c + [
-            'listTypeFields' => self::typescriptFields($c, $c['listFields']),
+            'listTypeFields' => self::typescriptFields($c, $c['listFields']) . ($c['tree'] !== [] ? "  children?: {$c['entity']}ListRecord[];\n" : ''),
             'detailTypeFields' => self::typescriptFields($c, $c['detailFields']),
             'createTypeFields' => self::typescriptFields($c, $policies['insertFieldsArray'], false),
             'updateTypeFields' => self::typescriptFields($c, [$c['primary'], ...$policies['updateFieldsArray']], false),
@@ -1185,8 +1185,90 @@ TS, $c + [
         ]);
     }
 
+    /** Builds ordinary form controls only from the generated request whitelist. */
+    private static function viewCrudControls(array $c): array
+    {
+        $policies = self::fieldPolicies($c);
+        $writable = array_values(array_unique([...$policies['insertFieldsArray'], ...$policies['updateFieldsArray']]));
+        $queryFields = array_values(array_diff($policies['listFieldsArray'], ['page_no', 'page_size']));
+        $columns = array_column($c['columns'], null, 'name');
+        $formDefaults = $editDefaults = $formItems = $detailItems = $parsers = $createFields = $updateFields = $searchItems = $filterDefaults = $filterFields = $filterParams = '';
+        foreach ($c['detailFields'] as $name) {
+            $label = htmlspecialchars($columns[$name]['comment'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $detailItems .= "        <ElDescriptionsItem label=\"{$label}\">{{ detailRecord?.{$name} }}</ElDescriptionsItem>\n";
+        }
+        foreach (array_values(array_unique([...$writable, ...$queryFields])) as $name) {
+            $column = $columns[$name];
+            $type = $column['tsType'];
+            $label = htmlspecialchars($column['comment'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $enum = $column['enum'];
+            if ($enum !== []) {
+                $cases = '';
+                foreach ($enum as $value) {
+                    $literal = json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+                    $cases .= "      case {$literal}: return {$literal};\n";
+                }
+                $parser = "  const parse_{$name} = (value: string): {$type} => {\n    switch (value) {\n{$cases}      default: throw new Error('{$label}值无效');\n    }\n  };\n";
+                $input = '<ElSelect v-model="{{binding}}" clearable><ElOption v-for="option in {{options}}" :key="option" :label="option" :value="option" /></ElSelect>';
+                $input = str_replace('{{options}}', htmlspecialchars(json_encode($enum, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8'), $input);
+            } elseif (in_array($column['type'], ['array', 'json'], true)) {
+                $parser = "  const parse_{$name} = (value: string): {$type} => {\n    const parsed: unknown = JSON.parse(value);\n    if (typeof parsed !== 'object' || parsed === null) throw new Error('{$label}必须是 JSON 对象或数组');\n    if (Array.isArray(parsed)) return parsed;\n    return Object.fromEntries(Object.entries(parsed));\n  };\n";
+                $input = '<ElInput v-model="{{binding}}" type="textarea" />';
+            } elseif ($type === 'number') {
+                $integer = in_array($column['type'], ['tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint'], true);
+                $check = $integer ? '!Number.isSafeInteger(result)' : '!Number.isFinite(result)';
+                $parser = "  const parse_{$name} = (value: string): number => {\n    const result = Number(value);\n    if (value.trim() === '' || {$check}) throw new Error('{$label}必须是有效数字');\n    return result;\n  };\n";
+                $input = '<ElInput v-model="{{binding}}" type="number" />';
+            } else {
+                $parser = '';
+                $input = '<ElInput v-model="{{binding}}" />';
+            }
+            $parsers .= $parser;
+            if (in_array($name, $writable, true)) {
+                $default = "''";
+                $formDefaults .= "      {$name}: {$default},\n";
+                $public = self::publicColumn($name, $c['softDeleteField']);
+                $editDefaults .= $public && in_array($name, $c['detailFields'], true)
+                    ? (in_array($column['type'], ['array', 'json'], true)
+                        ? "      {$name}: record.{$name} == null ? {$default} : JSON.stringify(record.{$name}),\n"
+                        : "      {$name}: record.{$name} == null ? {$default} : String(record.{$name}),\n")
+                    : "      {$name}: {$default},\n";
+                $mode = [];
+                if ($column['insert']) $mode[] = "mode === 'create'";
+                if ($column['update']) $mode[] = "mode === 'edit'";
+                $binding = str_replace('{{binding}}', "form.{$name}", $input);
+                if (!$public && $column['type'] === 'string' && $enum === []) {
+                    $binding = '<ElInput v-model="form.' . $name . '" type="password" show-password />';
+                }
+                $required = $column['required'] && $column['insert'] ? ' :rules="mode === \'create\' ? [{ required: true, message: \'请填写' . $label . '\' }] : []"' : '';
+                $formItems .= "        <ElFormItem v-if=\"" . implode(' || ', $mode) . "\" label=\"{$label}\" prop=\"{$name}\"{$required}>{$binding}</ElFormItem>\n";
+                $value = $parser === '' ? "form.{$name}" : "parse_{$name}(form.{$name})";
+                if ($column['insert']) {
+                    $createFields .= !$column['required']
+                        ? "        ...(form.{$name} === '' ? {} : { {$name}: {$value} }),\n"
+                        : "        {$name}: {$value},\n";
+                }
+                if ($column['update']) {
+                    $updateFields .= (!$public || $type === 'number' || $enum !== [] || in_array($column['type'], ['array', 'json'], true))
+                        ? "        ...(form.{$name} === '' ? {} : { {$name}: {$value} }),\n"
+                        : "        {$name}: {$value},\n";
+                }
+            }
+            if (in_array($name, $queryFields, true)) {
+                $filterDefaults .= "{$name}: '', ";
+                $filterFields .= "{$name}: string; ";
+                $binding = str_replace('{{binding}}', "searchForm.{$name}", $input);
+                $searchItems .= "        <ElFormItem label=\"{$label}\">{$binding}</ElFormItem>\n";
+                $value = $parser === '' ? "filters.{$name}" : "parse_{$name}(filters.{$name})";
+                $filterParams .= "        ...(filters.{$name} === '' ? {} : { {$name}: {$value} }),\n";
+            }
+        }
+        return compact('formDefaults', 'editDefaults', 'formItems', 'detailItems', 'parsers', 'createFields', 'updateFields', 'searchItems', 'filterDefaults', 'filterFields', 'filterParams');
+    }
+
     private static function renderView(array $c): string
     {
+        $controls = self::viewCrudControls($c);
         $visible = array_values(array_filter($c['columns'], static fn(array $column): bool => in_array($column['name'], $c['listFields'], true)));
         $columns = '';
         foreach (array_slice($visible, 0, 8) as $column) {
@@ -1228,16 +1310,14 @@ VUE, $c) : '';
         $apiImports = $c['softDelete']
             ? "get{$c['entity']}List, get{$c['entity']}RecycleList, restore{$c['entity']}, purge{$c['entity']}, type {$c['entity']}ListRecord"
             : "get{$c['entity']}List, type {$c['entity']}ListRecord";
-        $uiImports = 'ElAlert, ElButton, ElCard, ElTableColumn'
-            . ($c['softDelete'] ? ', ElMessage, ElPopconfirm' : '');
-        $softImports = $c['softDelete'] ? <<<'TS'
-  import { useAsyncAction } from '@peanut-admin/vue';
-  import useCrudTab from '@/hooks/useCrudTab';
-
-TS : '';
-        $filterType = $c['softDelete'] ? '{ recycle: boolean }' : 'Record<string, never>';
-        $initialFilters = $c['softDelete'] ? '{ recycle: false }' : '{}';
-        $filterParameter = $c['softDelete'] ? ', filters' : '';
+        $apiImports .= ", get{$c['entity']}Detail, add{$c['entity']}, edit{$c['entity']}, delete{$c['entity']}, type {$c['entity']}Detail, type {$c['entity']}CreateInput, type {$c['entity']}UpdateInput";
+        $uiImports = 'ElAlert, ElButton, ElCard, ElTableColumn, ElPopconfirm, ElDialog, ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElDescriptions, ElDescriptionsItem'
+            . ($c['softDelete'] ? ', ElMessage' : '');
+        $softImports = '';
+        $hasSearch = $controls['filterFields'] !== '';
+        $filterType = '{ ' . $controls['filterFields'] . ($c['softDelete'] ? 'recycle: boolean; ' : '') . '}';
+        $initialFilters = '{ ' . $controls['filterDefaults'] . ($c['softDelete'] ? 'recycle: false' : '') . '}';
+        $filterParameter = ($c['softDelete'] || $hasSearch) ? ', filters' : '';
         $fetchCall = $c['softDelete']
             ? "(filters.recycle ? get{$c['entity']}RecycleList : get{$c['entity']}List)"
             : "get{$c['entity']}List";
@@ -1249,22 +1329,16 @@ TS : '';
   const current = useCrudTab(action.cancel);
   const { loading: actionLoading, error: actionError } = action;
   const toggleRecycle = () => {
-    if (actionLoading.value || !current.value) return;
+    if (actionLoading.value || !current.value || !can('recycle.list')) return;
     action.cancel();
+    detailAction.cancel();
+    visible.value = false;
     list.clear();
     searchForm.value.recycle = !showRecycle.value;
     void fetchData(1);
   };
-  // Element Plus exposes a generic row slot; validate only the key used by this action.
-  const readPrimaryKey = (record: unknown): {{primaryTsType}} => {
-    if (typeof record !== 'object' || record === null || Array.isArray(record)
-      || !('{{primary}}' in record) || typeof record.{{primary}} !== '{{primaryTsType}}') {
-      throw new Error('GENERATED_ROW_PRIMARY_KEY_INVALID');
-    }
-    return record.{{primary}};
-  };
   const handleRestore = async (record: unknown) => {
-    if (!current.value) return;
+    if (!current.value || !can('restore')) return;
     const result = await action.run(async ({ signal }) => {
       const response = await restore{{entity}}([readPrimaryKey(record)], signal);
       if (!Array.isArray(response.data.failed) || response.data.failed.length !== 0) throw new Error('RESTORE_INCOMPLETE');
@@ -1274,7 +1348,7 @@ TS : '';
     await fetchData(pagination.page);
   };
   const handlePurge = async (record: unknown) => {
-    if (!current.value) return;
+    if (!current.value || !can('purge')) return;
     const result = await action.run(async ({ signal }) => {
       const response = await purge{{entity}}([readPrimaryKey(record)], signal);
       if (!Array.isArray(response.data.failed) || response.data.failed.length !== 0) throw new Error('PURGE_INCOMPLETE');
@@ -1290,21 +1364,27 @@ TS, $c) : '';
         if ($batchEnabled) {
             $apiImports .= $c['capabilities']['batchDelete'] ? ", batchDelete{$c['entity']}" : '';
             $apiImports .= $c['capabilities']['batchUpdateStatus'] ? ", batchUpdateStatus{$c['entity']}" : '';
-            $uiImports .= $c['softDelete'] ? '' : ', ElPopconfirm';
             $uiImports .= $c['capabilities']['batchUpdateStatus'] ? ', ElInputNumber' : '';
-            $deleteButton = $c['capabilities']['batchDelete'] ? "        <ElPopconfirm title=\"确定删除所选记录？\" @confirm=\"handleBatchDelete(selection)\">\n          <template #reference><ElButton v-permission=\"['{$c['permissionPrefix']}.batchDelete']\" :disabled=\"batchLoading\">批量删除</ElButton></template>\n        </ElPopconfirm>\n" : '';
-            $statusButton = $c['capabilities']['batchUpdateStatus'] ? "        <ElInputNumber v-model=\"batchStatus\" :precision=\"0\" :disabled=\"batchLoading\" />\n        <ElButton v-permission=\"['{$c['permissionPrefix']}.batchUpdateStatus']\" :disabled=\"batchLoading || batchStatus === undefined\" @click=\"handleBatchStatus(selection)\">批量修改状态</ElButton>\n" : '';
+            $deleteButton = $c['capabilities']['batchDelete'] ? "        <ElPopconfirm title=\"确定删除所选记录？\" @confirm=\"handleBatchDelete(selection)\">\n          <template #reference><ElButton v-permission=\"['{$c['permissionPrefix']}.batchDelete']\" :disabled=\"batchLoading || selection.length > 100\">批量删除</ElButton></template>\n        </ElPopconfirm>\n" : '';
+            $statusButton = $c['capabilities']['batchUpdateStatus'] ? "        <ElInputNumber v-model=\"batchStatus\" :precision=\"0\" :disabled=\"batchLoading\" />\n        <ElButton v-permission=\"['{$c['permissionPrefix']}.batchUpdateStatus']\" :disabled=\"batchLoading || batchStatus === undefined || selection.length > 100\" @click=\"handleBatchStatus(selection)\">批量修改状态</ElButton>\n" : '';
             $selectionColumn = $c['softDelete'] ? '<ElTableColumn v-if="!showRecycle" type="selection" />' : '<ElTableColumn type="selection" />';
             $condition = $c['softDelete'] ? ' v-if="!showRecycle"' : '';
             $batchSlot = "      <template #batch=\"{ selection }\"><div{$condition}>\n{$deleteButton}{$statusButton}      </div></template>\n";
-            $batchHandlers = "  const batchLoading = ref(false);\n  const batchError = ref('');\n";
+            $batchHandlers = "  const batchAction = useAsyncAction(() => '批量操作失败，请重试');\n  const batchCurrent = useCrudTab(batchAction.cancel);\n  const { loading: batchLoading, error: batchError } = batchAction;\n";
             if ($c['capabilities']['batchUpdateStatus']) $batchHandlers .= "  const batchStatus = ref<number | undefined>(0);\n";
-            $batchHandlers .= "  const runBatch = async (operation: () => Promise<unknown>) => {\n    if (batchLoading.value) return;\n    batchLoading.value = true;\n    batchError.value = '';\n    try { await operation(); await fetchData(pagination.page); }\n    catch { batchError.value = '批量操作失败，请重试'; }\n    finally { batchLoading.value = false; }\n  };\n";
-            if ($c['capabilities']['batchDelete']) $batchHandlers .= "  const handleBatchDelete = (selection: {$c['entity']}ListRecord[]) => runBatch(() => batchDelete{$c['entity']}(selection.map(row => row.{$c['primary']})));\n";
-            if ($c['capabilities']['batchUpdateStatus']) $batchHandlers .= "  const handleBatchStatus = (selection: {$c['entity']}ListRecord[]) => {\n    const status = batchStatus.value;\n    if (status !== undefined) void runBatch(() => batchUpdateStatus{$c['entity']}(selection.map(row => row.{$c['primary']}), status));\n  };\n";
+            $activeBatch = $c['softDelete'] ? '!showRecycle.value && ' : '';
+            $batchHandlers .= "  const validBatchSelection = (selection: {$c['entity']}ListRecord[]) => {$activeBatch}selection.length > 0 && selection.length <= 100\n    && selection.every(row => findRecord(data.value, row.{$c['primary']}) !== undefined);\n";
+            $batchHandlers .= "  const runBatch = async (permission: string, operation: (signal: AbortSignal) => Promise<unknown>) => {\n    if (!batchCurrent.value || batchLoading.value || !can(permission)) return;\n    const result = await batchAction.run(async ({ signal }) => operation(signal));\n    if (result.status === 'completed' && batchCurrent.value && can(permission)) await fetchData(pagination.page);\n  };\n";
+            if ($c['capabilities']['batchDelete']) $batchHandlers .= "  const handleBatchDelete = (selection: {$c['entity']}ListRecord[]) => {\n    if (!validBatchSelection(selection)) return;\n    void runBatch('batchDelete', signal => batchDelete{$c['entity']}(selection.map(row => row.{$c['primary']}), signal));\n  };\n";
+            if ($c['capabilities']['batchUpdateStatus']) $batchHandlers .= "  const handleBatchStatus = (selection: {$c['entity']}ListRecord[]) => {\n    const status = batchStatus.value;\n    if (validBatchSelection(selection) && status !== undefined) void runBatch('batchUpdateStatus', signal => batchUpdateStatus{$c['entity']}(selection.map(row => row.{$c['primary']}), status, signal));\n  };\n";
         } else {
             $selectionColumn = '';
         }
+        $findRecord = $c['tree'] === []
+            ? "    return rows.find(item => item.{$c['primary']} === id);"
+            : "    for (const item of rows) {\n      if (item.{$c['primary']} === id) return item;\n      const child = findRecord(item.children ?? [], id);\n      if (child) return child;\n    }\n    return undefined;";
+        $searchSlot = $hasSearch ? "      <template #search><ElForm inline>\n{$controls['searchItems']}      </ElForm></template>\n" : '';
+        $normalOnly = $c['softDelete'] ? ' v-if="!showRecycle"' : '';
         $listResult = $c['tree'] === []
             ? 'return { items: response.data.lists, total: response.data.count, page, pageSize };'
             : 'return { items: response.data, total: response.data.length, page, pageSize };';
@@ -1320,7 +1400,10 @@ TS, $c) : '';
       row-key="{{primary}}"{{disabledPagination}}
       @page-change="fetchData"
       @size-change="handleSizeChange"
+      @search="handleSearch"
+      @reset="handleReset"
     >
+{{searchSlot}}      <template #toolbar><ElButton{{normalOnly}} v-permission="['{{permissionPrefix}}.add']" type="primary" @click="openCreate">新建</ElButton></template>
 {{batchSlot}}      <template #columns>
         {{selectionColumn}}
         <ElTableColumn
@@ -1329,18 +1412,44 @@ TS, $c) : '';
           :prop="column.prop"
           :label="column.label"
         />
+        <ElTableColumn{{normalOnly}} label="操作" :width="220">
+          <template #default="{ row }">
+            <ElButton v-permission="['{{permissionPrefix}}.detail']" link @click="openDetail(row, 'view')">详情</ElButton>
+            <ElButton v-permission="['{{permissionPrefix}}.edit']" link @click="openDetail(row, 'edit')">编辑</ElButton>
+            <ElPopconfirm title="确定删除该记录？" @confirm="deleteRow(row)">
+              <template #reference><ElButton v-permission="['{{permissionPrefix}}.delete']" link type="danger">删除</ElButton></template>
+            </ElPopconfirm>
+          </template>
+        </ElTableColumn>
 {{actionSlot}}      </template>
       <template #empty>
         <span role="status">{{ loading ? '正在加载…' : error ? '加载失败' : '暂无数据' }}</span>
       </template>
     </CrudPage>
+    <ElAlert v-if="detailError || deleteError" :title="detailError || deleteError || undefined" type="error" :closable="false" />
+    <ElDialog v-model="visible" :title="mode === 'create' ? '新建' : mode === 'edit' ? '编辑' : '详情'">
+      <ElAlert v-if="submitError" :title="submitError" type="error" :closable="false" />
+      <ElDescriptions v-if="mode === 'view'" :column="1" border>
+{{detailItems}}      </ElDescriptions>
+      <ElForm v-else ref="formRef" :model="form" label-width="120px">
+{{formItems}}      </ElForm>
+      <template #footer>
+        <ElButton @click="visible = false">关闭</ElButton>
+        <ElButton v-if="mode !== 'view'" type="primary" :loading="submitLoading" @click="submit">保存</ElButton>
+      </template>
+    </ElDialog>
   </ElCard>
 </template>
 
 <script setup lang="ts">
-  import { computed{{refImport}} } from 'vue';
+  import { computed, ref, watch } from 'vue';
   import { {{uiImports}} } from 'element-plus';
+  import { useRoute } from 'vue-router';
+  import { useAsyncAction } from '@peanut-admin/vue';
+  import { hasPermission } from '@/hooks/permission';
   import CrudPage from '@/components/crud/CrudPage.vue';
+  import useCrudModal from '@/hooks/useCrudModal';
+  import useCrudTab from '@/hooks/useCrudTab';
   import useCrudTable from '@/hooks/useCrudTable';
 {{softImports}}  import { {{apiImports}} } from './api';
 
@@ -1354,20 +1463,93 @@ TS, $c) : '';
     initialFilters: {{initialFilters}},
     initialPageSize: 15,
     load: async ({ page, pageSize, signal{{filterParameter}} }) => {
-      const response = await {{fetchCall}}({ page_no: page, page_size: pageSize }, signal);
+      const response = await {{fetchCall}}({ page_no: page, page_size: pageSize,
+{{filterParams}}      }, signal);
       {{listResult}}
     },
     errorMessage: () => '列表加载失败，请重试',
+    deleteRecord: async (record, signal) => {
+      if (!can('delete')) throw new Error('无权删除');
+      await delete{{entity}}(record.{{primary}}, signal);
+    },
   });
-  const { data, pagination, loading, error, fetchList: fetchData{{filterProperty}} } = list;
+  const { data, pagination, loading, error, deleteError, fetchList: fetchData, searchForm, handleSearch, handleReset, handleDelete } = list;
   const records = computed(() => [...data.value]);
   const handleSizeChange = (size: number) => {
     pagination.pageSize = size;
     void fetchData(1);
   };
+  // Element Plus exposes a generic row slot; validate only the key used by this action.
+  const readPrimaryKey = (record: unknown): {{primaryTsType}} => {
+    if (typeof record !== 'object' || record === null || Array.isArray(record)
+      || !('{{primary}}' in record) || typeof record.{{primary}} !== '{{primaryTsType}}') {
+      throw new Error('GENERATED_ROW_PRIMARY_KEY_INVALID');
+    }
+    return record.{{primary}};
+  };
+  const route = useRoute();
+  const can = (action: string) => hasPermission(`{{permissionPrefix}}.${action}`, route.path);
+  const detailAction = useAsyncAction(() => '详情加载失败，请重试');
+  const { error: detailError } = detailAction;
+  const pageCurrent = useCrudTab(detailAction.cancel);
+  const detailRecord = ref<{{entity}}Detail>();
+  const detailMode = ref<'edit' | 'view'>('view');
+  watch(() => [can('detail'), can('edit')], ([detail, edit]) => {
+    if (!detail || (detailMode.value === 'edit' && !edit)) detailAction.cancel();
+  });
+  const activeId = ref<{{primaryTsType}}>();
+{{parsers}}  const modal = useCrudModal({
+    canOpen: (nextMode) => can(nextMode === 'create' ? 'add' : nextMode === 'edit' ? 'edit' : 'detail')
+      && (nextMode === 'create' || can('detail')),
+    createForm: () => ({
+{{formDefaults}}    }),
+    editForm: (record: {{entity}}Detail) => ({
+{{editDefaults}}    }),
+    save: async (form, nextMode, signal) => {
+      if (!can(nextMode === 'create' ? 'add' : 'edit')) throw new Error('无权执行该操作');
+      if (nextMode === 'create') {
+        const input: {{entity}}CreateInput = {
+{{createFields}}        };
+        await add{{entity}}(input, signal);
+      } else {
+        if (activeId.value === undefined) throw new Error('未选择操作对象');
+        const input: {{entity}}UpdateInput = {
+          {{primary}}: activeId.value,
+{{updateFields}}        };
+        await edit{{entity}}(input, signal);
+      }
+    },
+    onSaved: () => fetchData(pagination.page).then(() => undefined),
+    errorMessage: () => '保存失败，请检查输入后重试',
+  });
+  const { visible, mode, form, formRef, submit, submitError, submitLoading } = modal;
+  const openCreate = () => {
+    if (!pageCurrent.value || !can('add')) return;
+    detailAction.cancel();
+    void modal.create();
+  };
+  const openDetail = async (row: unknown, nextMode: 'edit' | 'view') => {
+    if (!pageCurrent.value || !can('detail') || (nextMode === 'edit' && !can('edit'))) return;
+    const id = readPrimaryKey(row);
+    detailMode.value = nextMode;
+    const result = await detailAction.run(async ({ signal }) => (await get{{entity}}Detail(id, signal)).data);
+    if (result.status !== 'completed' || !pageCurrent.value || !can('detail') || (nextMode === 'edit' && !can('edit'))) return;
+    activeId.value = id;
+    detailRecord.value = result.data;
+    if (nextMode === 'edit') await modal.edit(result.data);
+    else await modal.view(result.data);
+  };
+  const findRecord = (rows: readonly {{entity}}ListRecord[], id: {{primaryTsType}}): {{entity}}ListRecord | undefined => {
+{{findRecord}}
+  };
+  const deleteRow = (row: unknown) => {
+    if (!pageCurrent.value || !can('delete')) return;
+    const record = findRecord(data.value, readPrimaryKey(row));
+    if (record) void handleDelete(record);
+  };
 {{softHandlers}}{{batchHandlers}}  void fetchData();
 </script>
-VUE, $c + compact(
+VUE, $c + $controls + compact(
             'recycleToggle',
             'actionSlot',
             'apiImports',
@@ -1379,15 +1561,16 @@ VUE, $c + compact(
             'fetchCall',
             'disabledPagination',
             'softHandlers',
+            'searchSlot',
+            'normalOnly',
+            'findRecord',
             'batchSlot',
             'batchHandlers',
             'selectionColumn',
         ) + [
             'tableColumns' => $columns,
             'listResult' => $listResult,
-            'refImport' => $batchEnabled ? ', ref' : '',
             'batchErrorAlert' => $batchEnabled ? "    <ElAlert v-if=\"batchError\" :title=\"batchError\" type=\"error\" :closable=\"false\" />\n" : '',
-            'filterProperty' => $c['softDelete'] ? ', searchForm' : '',
         ]);
     }
 

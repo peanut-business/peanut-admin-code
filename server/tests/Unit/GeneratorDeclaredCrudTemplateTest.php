@@ -275,7 +275,7 @@ final class GeneratorDeclaredCrudTemplateTest extends TestCase
         $controller = $files['server/app/modules/fixture/delivery_record/src/Controller/GeneratedIntegerNoteController.php'];
         self::assertStringContainsString("CRUD_PRIMARY_KEY = 'id'", $controller);
         self::assertStringContainsString("CRUD_PRIMARY_KEY_TYPE = 'int'", $controller);
-        self::assertStringContainsString('getGeneratedIntegerNoteDetail(id: number)', $files['web/src/modules/fixture-delivery-record/generated/generated-integer-note/api.ts']);
+        self::assertStringContainsString('getGeneratedIntegerNoteDetail(id: number, signal?: AbortSignal)', $files['web/src/modules/fixture-delivery-record/generated/generated-integer-note/api.ts']);
     }
 
     /** @return array<string,mixed> */

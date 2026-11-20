@@ -60,7 +60,14 @@ final class GeneratorElementPlusViewTest extends TestCase
         self::assertStringContainsString('@size-change="handleSizeChange"', $view);
         self::assertStringContainsString('initialPageSize: 15', $view);
         self::assertStringContainsString('page_no: page, page_size: pageSize', $view);
-        self::assertStringContainsString('page_size: pageSize }, signal)', $view);
+        self::assertStringContainsString('}, signal)', $view);
+        self::assertStringContainsString('searchForm.title', $view);
+        self::assertStringContainsString('useCrudModal(', $view);
+        self::assertStringContainsString("!can('detail')", $view);
+        self::assertStringContainsString('detailAction.cancel()', $view);
+        self::assertStringContainsString('handleDelete(record)', $view);
+        self::assertStringContainsString("v-permission=\"['fixture.delivery-record.{$resource}.add']\"", $view);
+        self::assertStringContainsString("v-permission=\"['fixture.delivery-record.{$resource}.delete']\"", $view);
         self::assertStringContainsString('total: response.data.count', $view);
         self::assertStringContainsString('items: response.data.lists', $view);
     }
@@ -71,16 +78,18 @@ final class GeneratorElementPlusViewTest extends TestCase
         $files = array_column(GeneratorRenderService::render($input, $this->fixtureApplication->root), 'content', 'path');
         $prefix = 'web/src/modules/fixture-delivery-record/generated/' . $resource . '/';
         $view = $files[$prefix . 'index.vue'];
-        foreach (['api_secret', 'tenant_id', 'removed_at', 'delete_time'] as $hidden) {
+        foreach (['tenant_id', 'removed_at', 'delete_time'] as $hidden) {
             self::assertStringNotContainsString($hidden, $view);
         }
+        self::assertStringNotContainsString('record.api_secret', $view);
+        self::assertStringContainsString("...(form.api_secret === '' ? {}", $view);
+        self::assertStringContainsString('v-model="form.api_secret" type="password"', $view);
         self::assertStringContainsString('type ' . $entity . 'ListRecord', $view);
         self::assertStringContainsString("'/adminapi/fixture.delivery-record.{$resource}.list'", $files[$prefix . 'api.ts']);
         self::assertStringContainsString("'/generated/{$resource}'", $files[$prefix . 'contribution.ts']);
         if (!$recycle) {
             self::assertStringNotContainsString('recycle.list', $view);
             self::assertStringNotContainsString('handleRestore', $view);
-            self::assertStringNotContainsString('ElPopconfirm', $view);
             return;
         }
         foreach (['recycle.list', 'restore', 'purge'] as $permission) {
