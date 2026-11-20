@@ -2,8 +2,12 @@
   <section class="crud-page">
     <div v-if="$slots.search" class="crud-page__search">
       <div v-show="searchExpanded"><slot name="search" /></div>
-      <el-button @click="$emit('search')">查询</el-button>
-      <el-button @click="$emit('reset')">重置</el-button>
+      <el-button v-if="!hideSearchActions" @click="$emit('search')"
+        >查询</el-button
+      >
+      <el-button v-if="!hideSearchActions" @click="$emit('reset')"
+        >重置</el-button
+      >
       <el-button text @click="searchExpanded = !searchExpanded">
         {{ searchExpanded ? '收起' : '展开' }}
       </el-button>
@@ -36,6 +40,9 @@
       </template>
       <TableColumnSetting
         v-if="fields && columnStorageKey"
+        :key="`${columnStorageKey}:${fields
+          .map((field) => field.label)
+          .join('|')}`"
         :schema="fields"
         :storage-key="columnStorageKey"
         @change="onColumnsChange"
@@ -52,9 +59,11 @@
     </div>
     <el-table
       v-loading="loading"
+      :class="tableClass"
       :data="tableData"
       :row-key="rowKey"
       :show-summary="showSummary"
+      :border="border"
       :tree-props="treeProps"
       :default-expand-all="defaultExpandAll"
       :size="tableDensity"
@@ -116,7 +125,7 @@
       :page-size="pagination.pageSize"
       :total="pagination.total"
       :disabled="paginationDisabled"
-      layout="total, sizes, prev, pager, next, jumper"
+      :layout="paginationLayout ?? 'total, sizes, prev, pager, next, jumper'"
       @current-change="$emit('pageChange', $event)"
       @size-change="$emit('sizeChange', $event)"
     />
@@ -143,6 +152,10 @@
     pagination: { page: number; pageSize: number; total: number };
     rowKey?: string;
     showSummary?: boolean;
+    border?: boolean;
+    tableClass?: string;
+    hideSearchActions?: boolean;
+    paginationLayout?: string;
     paginationDisabled?: boolean;
     treeProps?: { children?: string; hasChildren?: string };
     defaultExpandAll?: boolean;
