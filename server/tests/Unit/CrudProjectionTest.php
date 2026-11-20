@@ -26,9 +26,14 @@ final class CrudProjectionTest extends TestCase
             protected function updateFields(): array { return []; }
             protected function maskedFields(): array { return ['phone' => 'phone']; }
             protected function richTextFields(): array { return ['body']; }
+            protected function versionField(): ?string { return 'revision'; }
             public function masked(TenantContext $context, array $row): array { return $this->maskRow($context, $row); }
         };
         self::assertSame('138****5678', $service->masked($context, ['phone' => '13812345678'])['phone']);
+        $model = $this->getMockBuilder(Model::class)->disableOriginalConstructor()->onlyMethods(['getAttr'])->getMock();
+        $model->method('getAttr')->with('revision')->willReturn(3);
+        $status = new ReflectionMethod(AbstractCrudService::class, 'statusValues');
+        self::assertSame(['enabled' => 1, 'revision' => 4], $status->invoke($service, $model, 'enabled', 1));
         $sanitize = new ReflectionMethod(AbstractCrudService::class, 'sanitizeInput');
         self::assertSame('<p>ok</p>', $sanitize->invoke($service, ['body' => '<p>ok</p><script>bad()</script>'])['body']);
         self::assertSame(['x' => ['before' => 1, 'after' => 2]], (new FieldDiffCalculator())->calculate(['x' => 1], ['x' => 2]));

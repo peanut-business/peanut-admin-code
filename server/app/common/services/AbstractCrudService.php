@@ -169,7 +169,8 @@ abstract class AbstractCrudService
             throw $this->resourceError('statusUnsupported');
         }
         return Db::transaction(function () use ($context, $id, $status, $field): bool {
-            if ($this->find($context, $id, true)->save([$field => $status]) === false) {
+            $model = $this->find($context, $id, true);
+            if ($model->save($this->statusValues($model, $field, $status)) === false) {
                 throw $this->resourceError('save');
             }
             return true;
@@ -201,12 +202,20 @@ abstract class AbstractCrudService
         if ((!is_int($status) && !is_string($status)) || filter_var($status, FILTER_VALIDATE_INT) === false) throw new \InvalidArgumentException('状态值错误');
         return Db::transaction(function () use ($context, $ids, $field, $status): bool {
             foreach ($this->findBatch($context, $ids) as $model) {
-                if ($model->save([$field => (int) $status]) === false) {
+                if ($model->save($this->statusValues($model, $field, (int) $status)) === false) {
                     throw $this->resourceError('save');
                 }
             }
             return true;
         });
+    }
+
+    private function statusValues(Model $model, string $field, int $status): array
+    {
+        $values = [$field => $status];
+        $version = $this->versionField();
+        if ($version !== null) $values[$version] = (int) $model->getAttr($version) + 1;
+        return $values;
     }
 
     private function findBatch(TenantContext $context, array $ids): iterable
