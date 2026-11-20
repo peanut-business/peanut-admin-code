@@ -37,6 +37,7 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "2.3.2",
+    "@peanut-admin/client": "5.1.2",
     "@peanut-admin/ui-vue": "5.1.2",
     "@peanut-admin/vue": "5.1.2",
     "@vueuse/core": "^9.3.0",
@@ -52,9 +53,9 @@
     "query-string": "^8.0.3",
     "sortablejs": "^1.15.0",
     "vue": "^3.3.0",
+    "vue-cropper": "^1.1.4",
     "vue-i18n": "^9.2.2",
-    "vue-router": "^4.0.14",
-    "@peanut-admin/client": "5.1.2"
+    "vue-router": "^4.0.14"
   },
   "devDependencies": {
     "@commitlint/cli": "^17.1.2",
