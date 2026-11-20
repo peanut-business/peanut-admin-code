@@ -6,14 +6,17 @@
         <div
           v-for="column in columns"
           :key="column.key"
-          :data-key="column.key"
           class="column-settings__row"
         >
           <span class="column-settings__handle" aria-label="拖动排序">⋮⋮</span>
-          <el-checkbox v-model="column.visible">{{ column.label }}</el-checkbox>
+          <el-checkbox
+            :model-value="column.visible"
+            @update:model-value="column.visible = $event === true"
+            >{{ column.label }}</el-checkbox
+          >
           <el-select
             v-model="column.fixed"
-            aria-label="固定位置"
+            :ariaLabel="'固定位置'"
             style="width: 100px"
           >
             <el-option label="不固定" :value="false" />
@@ -24,17 +27,21 @@
             v-model="column.width"
             :min="1"
             :controls="false"
-            aria-label="列宽"
+            :ariaLabel="'列宽'"
             style="width: 75px"
           />
         </div>
       </div>
-      <el-select v-model="density" placeholder="密度" aria-label="密度">
+      <el-select v-model="density" placeholder="密度" :ariaLabel="'密度'">
         <el-option label="默认" value="default" />
         <el-option label="宽松" value="large" />
         <el-option label="紧凑" value="small" />
       </el-select>
-      <el-checkbox v-model="fixedHeader">固定表头</el-checkbox>
+      <el-checkbox
+        :model-value="fixedHeader"
+        @update:model-value="fixedHeader = $event === true"
+        >固定表头</el-checkbox
+      >
       <el-button text @click="reset">恢复默认</el-button>
     </div>
   </el-popover>

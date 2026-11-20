@@ -17,7 +17,7 @@
       <el-select
         v-if="views"
         placeholder="常用视图"
-        aria-label="常用视图"
+        :ariaLabel="'常用视图'"
         @change="$emit('applyView', $event)"
       >
         <el-option
@@ -31,7 +31,7 @@
         <el-input
           v-model="viewName"
           placeholder="视图名称"
-          aria-label="视图名称"
+          :ariaLabel="'视图名称'"
           style="width: 150px"
         />
         <el-button :disabled="!viewName.trim()" @click="saveView"
@@ -70,7 +70,7 @@
       :height="fixedHeader ? tableHeight ?? '60vh' : undefined"
       @selection-change="onSelectionChange"
       @expand-change="onExpandChange"
-      @sort-change="$emit('sortChange', $event)"
+      @sort-change="onSortChange"
     >
       <el-table-column
         v-for="field in displayedFields"
@@ -134,6 +134,7 @@
 
 <script setup lang="ts" generic="TRow extends object">
   import { computed, ref, shallowRef, watch } from 'vue';
+  import { ElLoadingDirective as vLoading } from 'element-plus';
   import useCrudTab from '@/hooks/useCrudTab';
   import TableColumnSetting from './TableColumnSetting.vue';
 
@@ -276,6 +277,16 @@
   const tableData = computed(() => [...props.data]);
   const searchExpanded = ref(true);
   const selection = ref<TRow[]>([]);
+  const onSortChange = (value: {
+    prop: string | null;
+    order: string | null;
+  }) => {
+    const order =
+      value.order === 'ascending' || value.order === 'descending'
+        ? value.order
+        : null;
+    emit('sortChange', { prop: value.prop ?? '', order });
+  };
   const onExpandChange = (row: TRow, expanded: TRow[] | boolean) =>
     emit('expandChange', row, expanded);
   const onSelectionChange = (value: TRow[]) => {
