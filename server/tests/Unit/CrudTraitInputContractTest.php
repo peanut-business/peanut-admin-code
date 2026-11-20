@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace tests\Unit\CrudTraitInput;
 
 use app\BaseController;
+use app\common\exception\BusinessException;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
+use app\common\http\ApiProblemMapper;
+use app\common\http\PageResult;
 use app\common\traits\CrudTrait;
 use app\common\validate\InputValidator;
 use PHPUnit\Framework\TestCase;
@@ -91,6 +94,76 @@ final class CrudTraitInputContractTest extends TestCase
         $this->expectException(ValidateException::class);
         $this->expectExceptionMessage('请求包含未声明字段：settings.undeclared');
         $controller->add();
+    }
+
+    public function testCrudValidationMapsToHttp422WithoutChangingTheErrorEnvelope(): void
+    {
+        try {
+            $this->controller((new Request())->withPost(['title' => '']))->add();
+            self::fail('The controller accepted an empty title.');
+        } catch (ValidateException $exception) {
+            $problem = (new ApiProblemMapper())->map($exception);
+            self::assertSame(422, $problem?->httpStatus);
+            self::assertSame(40000, $problem->apiCode());
+            self::assertSame($exception->getMessage(), $problem->getMessage());
+            self::assertNull($problem->data());
+        }
+        self::assertSame([], $this->service->lastAdd);
+    }
+
+    public function testPersistenceFailureEscapesTheRequestValidationBoundary(): void
+    {
+        $this->service->addFailure = new \PDOException('Database unavailable.');
+        $controller = $this->controller((new Request())->withPost(['title' => 'valid']));
+
+        try {
+            $controller->add();
+            self::fail('The controller swallowed the persistence error.');
+        } catch (\PDOException $exception) {
+            self::assertSame($this->service->addFailure, $exception);
+            self::assertNull((new ApiProblemMapper())->map($exception));
+        }
+    }
+
+    public function testListAssemblyReceivesTheWholePageAndKeepsThePageEnvelope(): void
+    {
+        $this->service->listResult = new PageResult(
+            [['uuid' => 'note-A'], ['uuid' => 'note-B']],
+            8,
+            2,
+            2,
+            ['hasMore' => true],
+        );
+        $controller = $this->controller(new Request());
+
+        self::assertSame([
+            'lists' => [['uuid' => 'note-A', 'context' => 'trusted-context'], ['uuid' => 'note-B', 'context' => 'trusted-context']],
+            'count' => 8,
+            'pageNo' => 2,
+            'pageSize' => 2,
+            'hasMore' => true,
+        ], $controller->lists()->getData()['data']);
+        self::assertSame([['uuid' => 'note-A'], ['uuid' => 'note-B']], $controller->assembledRows);
+
+        $this->service->listResult = ['url' => '/export.xlsx'];
+        $controller->assembledRows = [];
+        self::assertSame($this->service->listResult, $controller->lists()->getData()['data']);
+        self::assertSame([], $controller->assembledRows);
+    }
+
+    public function testDetailAssemblyKeepsTheEmptyDetailNotFoundContract(): void
+    {
+        $controller = $this->controller((new Request())->withGet(['uuid' => 'note-A']));
+        self::assertSame(['uuid' => 'note-A', 'context' => 'trusted-context'], $controller->detail()->getData()['data']);
+
+        $this->service->missingDetail = true;
+        try {
+            $controller->detail();
+            self::fail('The controller assembled a missing detail.');
+        } catch (BusinessException $exception) {
+            self::assertSame(404, $exception->httpStatus);
+            self::assertSame('ADMIN_RESOURCE_NOT_FOUND', $exception->errorCode);
+        }
     }
 
     public function testDeclaredInputRequiresAnExplicitWritablePolicyForMutation(): void
@@ -258,6 +331,8 @@ final class ContractController extends BaseController
 {
     use CrudTrait;
 
+    public array $assembledRows = [];
+
     protected const CRUD_VALIDATE = ContractValidate::class;
     protected const CRUD_PRIMARY_KEY = 'uuid';
     protected const CRUD_PRIMARY_KEY_TYPE = 'string';
@@ -298,6 +373,17 @@ final class ContractController extends BaseController
         return $this->service;
     }
 
+    protected function assembleListItems(mixed $context, array $items): array
+    {
+        $this->assembledRows = $items;
+        return array_map(static fn(array $item): array => $item + ['context' => $context], $items);
+    }
+
+    protected function assembleDetail(mixed $context, array $record): array
+    {
+        return $record + ['context' => $context];
+    }
+
     protected function beforeAdd(array &$params, mixed $context): void
     {
         if ($context !== 'trusted-context') {
@@ -314,9 +400,20 @@ final class RecordingCrudService
     public int|string|null $lastDetail = null;
     public array $lastStatus = [];
     public array $lastRestore = [];
+    public ?\PDOException $addFailure = null;
+    public PageResult|array $listResult = [];
+    public bool $missingDetail = false;
+
+    public function lists(mixed $context, array $params): PageResult|array
+    {
+        return $this->listResult;
+    }
 
     public function add(mixed $context, array $params): bool
     {
+        if ($this->addFailure !== null) {
+            throw $this->addFailure;
+        }
         $this->lastAdd = $params;
         return true;
     }
@@ -330,7 +427,7 @@ final class RecordingCrudService
     public function detail(mixed $context, int|string $id): array
     {
         $this->lastDetail = $id;
-        return ['uuid' => $id];
+        return $this->missingDetail ? [] : ['uuid' => $id];
     }
 
     public function updateStatus(mixed $context, int|string $id, int $state): bool

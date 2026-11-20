@@ -334,7 +334,7 @@ final class GeneratorRenderService
     private static function primaryRule(array $primary, string $type): string
     {
         return $type === 'int'
-            ? 'require|integer|gt:0'
+            ? 'require|positiveInteger'
             : 'require|string' . ($primary['length'] > 0 ? '|max:' . $primary['length'] : '');
     }
 
@@ -554,7 +554,6 @@ PHP, $c + compact('softImport', 'softBody', 'schema') + ['relationMethods' => $r
 
     private static function renderController(array $c): string
     {
-        $listResponse = $c['tree'] === [] ? 'return $this->dataLists($result);' : 'return $this->data($result);';
         $softDeleteDeclaration = $c['softDelete'] ? "    protected const CRUD_SOFT_DELETE = true;\n" : '';
         return self::replace(<<<'PHP'
 <?php
@@ -563,13 +562,11 @@ declare(strict_types=1);
 namespace {{namespace}}Controller;
 
 use app\adminapi\controller\BaseAdminController;
-use app\common\http\PageResult;
 use app\common\traits\CrudTrait;
 use {{namespace}}Service\{{entity}}Service;
 use {{namespace}}Validation\{{entity}}Validate;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use think\App;
-use think\response\Json;
 
 final class {{entity}}Controller extends BaseAdminController
 {
@@ -591,13 +588,8 @@ final class {{entity}}Controller extends BaseAdminController
     {
         return $this->tenantAdminContext();
     }
-
-    protected function renderLists(PageResult|array $result): Json
-    {
-        {{listResponse}}
-    }
 }
-PHP, $c + self::controllerFieldPolicies($c) + compact('listResponse', 'softDeleteDeclaration'));
+PHP, $c + self::controllerFieldPolicies($c) + compact('softDeleteDeclaration'));
     }
 
     private static function renderService(array $c): string
@@ -976,7 +968,7 @@ PHP, $c + compact(
                 $parts[] = 'require';
             }
             if ($column['rule'] !== '') {
-                $parts[] = $column['rule'];
+                $parts = [...$parts, ...explode('|', $column['rule'])];
             }
             if ($parts !== []) {
                 $parts = array_values(array_unique($parts));
@@ -988,8 +980,6 @@ PHP, $c + compact(
                 $messages[$column['name'] . '.require'] = $column['comment'] . '不能为空';
             }
         }
-        $rules['page_no'] = 'integer|gt:0';
-        $rules['page_size'] = 'integer|gt:0|elt:100';
         if ($c['softDelete']) {
             $rules['ids'] = 'array|checkIds';
         }
@@ -1009,7 +999,7 @@ PHP, $c + compact(
                 . "        'purge' => ['{$c['primary']}', 'ids'],\n"
             : '';
         $idCheck = $c['primaryType'] === 'int'
-            ? "            if (filter_var(\$id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) === false) return '操作对象主键格式错误';"
+            ? "            if (!\$this->positiveInteger(\$id)) return '操作对象主键格式错误';"
             : "            if ((!is_string(\$id) && !is_int(\$id)) || trim((string)\$id) === ''"
                 . ($c['primaryLength'] > 0 ? " || mb_strlen(trim((string)\$id)) > {$c['primaryLength']}" : '')
                 . ") return '操作对象主键格式错误';";
@@ -1060,11 +1050,15 @@ declare(strict_types=1);
 
 namespace {{namespace}}Validation;
 
-use think\Validate;
+use app\common\validate\ListsValidate;
 
-final class {{entity}}Validate extends Validate
+final class {{entity}}Validate extends ListsValidate
 {
-    protected $rule = {{rules}};
+    protected $rule = [
+        ...{{rules}},
+        'page_no' => self::PAGE_NUMBER_RULE,
+        'page_size' => self::BOUNDED_PAGE_SIZE_RULE,
+    ];
     protected $message = {{messages}};
     protected $scene = [
         'add' => {{insertFields}},
@@ -1541,6 +1535,7 @@ PHP, $c + compact('softRoutes'));
                     '403' => ['description' => '无权执行该操作'],
                     '404' => ['description' => '对象不存在'],
                     '409' => ['description' => '状态、唯一性或关联冲突'],
+                    '422' => ['description' => '请求参数校验失败'],
                 ],
                 'x-peanut-permission' => $c['permissionPrefix'] . '.' . $action,
                 'x-peanut-errors' => array_values(array_unique([
@@ -1916,7 +1911,7 @@ PHP, $c + compact('softRoutes'));
     private static function validationRule(string $type, int $length): string
     {
         if (in_array($type, ['tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint'], true)) {
-            return 'integer';
+            return 'integer|filter:int';
         }
         if (in_array($type, ['decimal', 'float', 'double'], true)) {
             return 'float';
@@ -1924,6 +1919,6 @@ PHP, $c + compact('softRoutes'));
         if ($type === 'array' || $type === 'json') {
             return 'array';
         }
-        return $length > 0 ? 'max:' . $length : 'string';
+        return $length > 0 ? 'string|max:' . $length : 'string';
     }
 }

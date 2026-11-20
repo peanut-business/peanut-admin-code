@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace tests\Unit;
 
 use app\adminapi\services\generator\GeneratorRenderService;
+use app\common\validate\ListsValidate;
 use Tests\Support\GeneratorFixtureApplication;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -95,7 +96,9 @@ final class GeneratorDeclaredCrudTemplateTest extends TestCase
         $openApi = self::evaluatePhp(
             $byPath[$backend . '/api/metadata/generated/generated-note.php']['content'],
         );
+        self::assertIsArray($openApi);
         $detailOperation = $openApi['paths']['/adminapi/fixture.delivery-record.generated-note.detail']['get'];
+        self::assertArrayHasKey(422, $detailOperation['responses']);
         self::assertSame(
             '#/components/schemas/GeneratedNotePrimaryKey',
             $detailOperation['parameters'][0]['schema']['$ref'],
@@ -106,6 +109,40 @@ final class GeneratorDeclaredCrudTemplateTest extends TestCase
         );
         self::assertArrayNotHasKey('tenant_id', $openApi['components']['schemas']['GeneratedNoteDetail']['properties']);
         self::assertArrayNotHasKey('api_secret', $openApi['components']['schemas']['GeneratedNoteDetail']['properties']);
+    }
+
+    public function testRenderedValidatorSharesPaginationRulesAndRejectsMalformedScalarInput(): void
+    {
+        $definition = self::definition();
+        $definition['entity_name'] = 'ValidatedNote';
+        $definition['columns'][0] = [
+            'column_name' => 'id', 'php_type' => 'int', 'is_pk' => true, 'is_required' => true, 'is_lists' => true,
+        ];
+        $definition['columns'][] = [
+            'column_name' => 'state', 'php_type' => 'int', 'is_insert' => true, 'is_query' => true,
+            'column_type' => "enum('0','1')",
+        ];
+        $files = array_column(GeneratorRenderService::render($definition, $this->fixtureApplication->root), 'content', 'path');
+        self::evaluatePhp($files['server/app/modules/fixture/delivery_record/src/Validation/ValidatedNoteValidate.php']);
+
+        $class = \PeanutAdmin\Fixtures\DeliveryRecord\Validation\ValidatedNoteValidate::class;
+        self::assertInstanceOf(ListsValidate::class, new $class());
+        self::assertTrue((new $class())->scene('lists')->check(['page_no' => '2', 'page_size' => '100', 'state' => '1']));
+        foreach ([
+            ['page_no' => '1.5'],
+            ['page_no' => '1e2'],
+            ['page_no' => true],
+            ['page_size' => '101'],
+            ['page_size' => [15]],
+            ['title' => ['malformed']],
+            ['state' => '0.5'],
+            ['state' => '2'],
+        ] as $params) {
+            self::assertFalse((new $class())->scene('lists')->check($params));
+        }
+
+        self::assertTrue((new $class())->scene('edit')->check(['id' => '42', 'title' => 'valid']));
+        self::assertFalse((new $class())->scene('edit')->check(['id' => '4.2', 'title' => 'valid']));
     }
 
     public function testUnregisteredModuleAndUnsupportedCompositePrimaryKeyFailClosed(): void
@@ -226,15 +263,13 @@ final class GeneratorDeclaredCrudTemplateTest extends TestCase
         return (string) ($matches[1] ?? '');
     }
 
-    private static function evaluatePhp(string $source): array
+    private static function evaluatePhp(string $source): mixed
     {
-        $path = tempnam(sys_get_temp_dir(), 'peanut-generator-openapi-');
+        $path = tempnam(sys_get_temp_dir(), 'peanut-generator-php-');
         self::assertIsString($path);
         self::assertNotFalse(file_put_contents($path, $source));
         try {
-            $value = require $path;
-            self::assertIsArray($value);
-            return $value;
+            return require $path;
         } finally {
             unlink($path);
         }
