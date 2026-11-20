@@ -16794,7 +16794,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8280fd862547dd434b7d92cee67a170db4341fa1cd86aa20806e7c7476c31b9c"
+            "source_sha256": "c5cc82d9957843a10fc377544f7790dfac686bab337469e088ef0cc52b5e0e13"
         },
         {
             "path": "web/src/components/crud/CrudRecycleDrawer.vue",
@@ -16948,7 +16948,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "35f5888e9d2ffaa0dc2b71b48ed7d3461cba8701f2a69dd44f32e86aa7a80b54"
+            "source_sha256": "63ddda12acaca492c432f1019a88d0730a056d9289a8881c57f690ac2c1075f4"
         },
         {
             "path": "web/src/components/crud/UserPicker.vue",
@@ -19105,7 +19105,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0983cd09fe66b1da160c294870042f052f1eadb080a135e4ee18957a6b85bbae"
+            "source_sha256": "f2cb4e4807549e2c8e9be8ff6e2dd0f61a3f18b632a443bc8ff7559f6fe8bc11"
         },
         {
             "path": "web/tests/Productization/generated-crud-interactions.spec.mjs",
@@ -19119,7 +19119,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9d8b3fdcb33054b629db795f4b8bfcc9162c22b81fafdb87988002f026cbe713"
+            "source_sha256": "77a4634c7d5eed4955dc8bddfd7be03b909e063af9dd40f3800dfc6e1303c78d"
         },
         {
             "path": "web/tests/Productization/instance-tool-build-boundary.test.mjs",
