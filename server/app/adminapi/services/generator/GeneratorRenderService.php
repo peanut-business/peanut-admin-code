@@ -1098,20 +1098,20 @@ export interface {{entity}}BatchResult {
 TS, $c) : '';
         $softFunctions = $c['softDelete'] ? self::replace(<<<'TS'
 
-export function get{{entity}}RecycleList(params: {{entity}}ListParams = {}) {
-  return axios.get<{{entity}}ListResult>('/adminapi/{{permissionPrefix}}.recycle.list', { params });
+export function get{{entity}}RecycleList(params: {{entity}}ListParams = {}, signal?: AbortSignal) {
+  return axios.get<{{entity}}ListResult>('/adminapi/{{permissionPrefix}}.recycle.list', { params, signal });
 }
 
 export function get{{entity}}RecycleDetail({{primary}}: {{primaryTsType}}) {
   return axios.get<{{entity}}Detail>('/adminapi/{{permissionPrefix}}.recycle.detail', { params: { {{primary}} } });
 }
 
-export function restore{{entity}}(ids: {{primaryTsType}}[]) {
-  return axios.post<{{entity}}BatchResult>('/adminapi/{{permissionPrefix}}.restore', { ids });
+export function restore{{entity}}(ids: {{primaryTsType}}[], signal?: AbortSignal) {
+  return axios.post<{{entity}}BatchResult>('/adminapi/{{permissionPrefix}}.restore', { ids }, { signal });
 }
 
-export function purge{{entity}}(ids: {{primaryTsType}}[]) {
-  return axios.post<{{entity}}BatchResult>('/adminapi/{{permissionPrefix}}.purge', { ids });
+export function purge{{entity}}(ids: {{primaryTsType}}[], signal?: AbortSignal) {
+  return axios.post<{{entity}}BatchResult>('/adminapi/{{permissionPrefix}}.purge', { ids }, { signal });
 }
 TS, $c) : '';
         return self::replace(<<<'TS'
@@ -1140,8 +1140,8 @@ export interface {{entity}}ListParams {
 {{listParamFields}}}
 {{softTypes}}
 
-export function get{{entity}}List(params: {{entity}}ListParams = {}) {
-  return axios.get<{{entity}}ListResult>('/adminapi/{{permissionPrefix}}.list', { params });
+export function get{{entity}}List(params: {{entity}}ListParams = {}, signal?: AbortSignal) {
+  return axios.get<{{entity}}ListResult>('/adminapi/{{permissionPrefix}}.list', { params, signal });
 }
 
 export function get{{entity}}Detail({{primary}}: {{primaryTsType}}) {
@@ -1216,7 +1216,11 @@ VUE, $c) : '';
             : "get{$c['entity']}List, type {$c['entity']}ListRecord";
         $uiImports = 'ElAlert, ElButton, ElCard, ElPagination, ElTable, ElTableColumn, vLoading'
             . ($c['softDelete'] ? ', ElMessage, ElPopconfirm' : '');
-        $asyncImports = $c['softDelete'] ? 'useAsyncList, useAsyncAction' : 'useAsyncList';
+        $softImports = $c['softDelete'] ? <<<'TS'
+  import { useAsyncAction } from '@peanut-admin/vue';
+  import useCrudTab from '@/hooks/useCrudTab';
+
+TS : '';
         $filterType = $c['softDelete'] ? '{ recycle: boolean }' : 'Record<string, never>';
         $initialFilters = $c['softDelete'] ? '{ recycle: false }' : '{}';
         $filterParameter = $c['softDelete'] ? ', filters' : '';
@@ -1226,14 +1230,15 @@ VUE, $c) : '';
         $disabledPagination = $c['softDelete'] ? ' :disabled="actionLoading"' : '';
         $softHandlers = $c['softDelete'] ? self::replace(<<<'TS'
 
-  const showRecycle = computed(() => list.filters.value.recycle);
+  const showRecycle = computed(() => searchForm.value.recycle);
   const action = useAsyncAction(() => '操作失败，请重试');
+  const current = useCrudTab(action.cancel);
   const { loading: actionLoading, error: actionError } = action;
   const toggleRecycle = () => {
-    if (actionLoading.value) return;
+    if (actionLoading.value || !current.value) return;
     action.cancel();
     list.clear();
-    list.filters.value.recycle = !showRecycle.value;
+    searchForm.value.recycle = !showRecycle.value;
     void fetchData(1);
   };
   // Element Plus exposes a generic row slot; validate only the key used by this action.
@@ -1245,8 +1250,9 @@ VUE, $c) : '';
     return record.{{primary}};
   };
   const handleRestore = async (record: unknown) => {
-    const result = await action.run(async () => {
-      const response = await restore{{entity}}([readPrimaryKey(record)]);
+    if (!current.value) return;
+    const result = await action.run(async ({ signal }) => {
+      const response = await restore{{entity}}([readPrimaryKey(record)], signal);
       if (!Array.isArray(response.data.failed) || response.data.failed.length !== 0) throw new Error('RESTORE_INCOMPLETE');
     });
     if (result.status !== 'completed') return;
@@ -1254,8 +1260,9 @@ VUE, $c) : '';
     await fetchData(pagination.page);
   };
   const handlePurge = async (record: unknown) => {
-    const result = await action.run(async () => {
-      const response = await purge{{entity}}([readPrimaryKey(record)]);
+    if (!current.value) return;
+    const result = await action.run(async ({ signal }) => {
+      const response = await purge{{entity}}([readPrimaryKey(record)], signal);
       if (!Array.isArray(response.data.failed) || response.data.failed.length !== 0) throw new Error('PURGE_INCOMPLETE');
     });
     if (result.status !== 'completed') return;
@@ -1292,8 +1299,8 @@ TS, $c) : '';
 <script setup lang="ts">
   import { computed } from 'vue';
   import { {{uiImports}} } from 'element-plus';
-  import { {{asyncImports}} } from '@peanut-admin/vue';
-  import { {{apiImports}} } from './api';
+  import useCrudTable from '@/hooks/useCrudTable';
+{{softImports}}  import { {{apiImports}} } from './api';
 
   interface ListColumn {
     label: string;
@@ -1301,18 +1308,17 @@ TS, $c) : '';
   }
   const columns: ListColumn[] = [
 {{tableColumns}}  ];
-  // The public composable isolates late requests and disposes its scope; no page-local request engine.
-  const list = useAsyncList<{{entity}}ListRecord, {{filterType}}>({
+  const list = useCrudTable<{{entity}}ListRecord, {{filterType}}>({
     initialFilters: {{initialFilters}},
     initialPageSize: 15,
-    load: async ({ page, pageSize{{filterParameter}} }) => {
-      const response = await {{fetchCall}}({ page_no: page, page_size: pageSize });
+    load: async ({ page, pageSize, signal{{filterParameter}} }) => {
+      const response = await {{fetchCall}}({ page_no: page, page_size: pageSize }, signal);
       return { items: response.data.lists, total: response.data.count, page, pageSize };
     },
     errorMessage: () => '列表加载失败，请重试',
   });
-  const { items, pagination, loading, error, load: fetchData } = list;
-  const records = computed(() => [...items.value]);
+  const { data, pagination, loading, error, fetchList: fetchData{{filterProperty}} } = list;
+  const records = computed(() => [...data.value]);
 {{softHandlers}}  void fetchData();
 </script>
 VUE, $c + compact(
@@ -1320,14 +1326,17 @@ VUE, $c + compact(
             'actionSlot',
             'apiImports',
             'uiImports',
-            'asyncImports',
+            'softImports',
             'filterType',
             'initialFilters',
             'filterParameter',
             'fetchCall',
             'disabledPagination',
             'softHandlers',
-        ) + ['tableColumns' => $columns]);
+        ) + [
+            'tableColumns' => $columns,
+            'filterProperty' => $c['softDelete'] ? ', searchForm' : '',
+        ]);
     }
 
     private static function renderFrontendContribution(array $c): string

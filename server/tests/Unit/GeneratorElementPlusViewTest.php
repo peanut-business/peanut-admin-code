@@ -62,6 +62,7 @@ final class GeneratorElementPlusViewTest extends TestCase
         self::assertStringNotContainsString('@page-change=', $view);
         self::assertStringContainsString('initialPageSize: 15', $view);
         self::assertStringContainsString('page_no: page, page_size: pageSize', $view);
+        self::assertStringContainsString('page_size: pageSize }, signal)', $view);
         self::assertStringContainsString('total: response.data.count', $view);
         self::assertStringContainsString('items: response.data.lists', $view);
     }
@@ -91,8 +92,8 @@ final class GeneratorElementPlusViewTest extends TestCase
         self::assertStringContainsString('<template #reference>', $view);
         self::assertStringContainsString('@confirm="handlePurge(row)"', $view);
         self::assertStringNotContainsString('@ok=', $view);
-        self::assertStringContainsString("restore{$entity}([readPrimaryKey(record)])", $view);
-        self::assertStringContainsString("purge{$entity}([readPrimaryKey(record)])", $view);
+        self::assertStringContainsString("restore{$entity}([readPrimaryKey(record)], signal)", $view);
+        self::assertStringContainsString("purge{$entity}([readPrimaryKey(record)], signal)", $view);
         $primaryType = $primary === 'uuid' ? 'string' : 'number';
         self::assertStringContainsString('readPrimaryKey = (record: unknown): ' . $primaryType, $view);
         self::assertStringContainsString("typeof record.{$primary} !== '{$primaryType}'", $view);
@@ -107,8 +108,8 @@ final class GeneratorElementPlusViewTest extends TestCase
     {
         $files = array_column(GeneratorRenderService::render($input, $this->fixtureApplication->root), 'content', 'path');
         $view = $files['web/src/modules/fixture-delivery-record/generated/' . $resource . '/index.vue'];
-        self::assertStringContainsString("from '@peanut-admin/vue'", $view);
-        self::assertStringContainsString('useAsyncList<', $view);
+        self::assertStringContainsString("from '@/hooks/useCrudTable'", $view);
+        self::assertStringContainsString('useCrudTable<', $view);
         self::assertStringContainsString('v-loading="loading"', $view);
         self::assertStringContainsString('v-if="error"', $view);
         self::assertStringContainsString('<template #empty>', $view);
