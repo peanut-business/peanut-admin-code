@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.5",
+    "template_version": "5.1.18-rc.6",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -8839,7 +8839,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4b4513acf66dc2a0098a7528af45dd829e7c9f9bd03fbaa6859f081a64ffc4a4"
+            "source_sha256": "925cfe5013be6013262be4bdad065f6955915b4672e14a7e8dc22d90ab92d66a"
         },
         {
             "path": "server/app/platform/services/module/ModulePackageAdoptionService.php",
@@ -11050,7 +11050,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0a974cc7c206f00e4475dc5f944f7e32b1dd97f3a58a2718b1faaa916dbe7bd7"
+            "source_sha256": "bde34a506d5f929f7d12c26bbe3a87638549ef21f5899a1429db5b2426889940"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11064,7 +11064,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "523568da960ca3887dd396dec546f557742508e7d5887c4aff258272a51fcc88"
+            "source_sha256": "b4c7161a57d0632c6cf5342f59756896275cd5b8b22353755488bc373f5c0aba"
         },
         {
             "path": "server/module",
@@ -16766,7 +16766,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "82869c7c6e45f37dc7e76f42698363b9ea5b729e0af893465805d8c4a71b69f4"
+            "source_sha256": "27ff637facbf59e1e5a634874ea798cd7fb3ac4a448be515324dd5fc0d5e9f94"
         },
         {
             "path": "web/src/components/crud/CrudImportExport.vue",
@@ -16794,7 +16794,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c5cc82d9957843a10fc377544f7790dfac686bab337469e088ef0cc52b5e0e13"
+            "source_sha256": "b47c3cb53bcb88ddda64a52da2052c255c83d5d3a7d659350ca20d5c4eec30e9"
         },
         {
             "path": "web/src/components/crud/CrudRecycleDrawer.vue",
@@ -16906,7 +16906,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ef5b7a0f891dc06f12172f8c62d934775bfabf646616363a4d866ceb178952c5"
+            "source_sha256": "564abe281f2fc5899efdbdf20af6f2822337607b762c7b234968054de09c7ccf"
         },
         {
             "path": "web/src/components/crud/RemoteSelect.vue",
@@ -16948,7 +16948,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "63ddda12acaca492c432f1019a88d0730a056d9289a8881c57f690ac2c1075f4"
+            "source_sha256": "ebfefedde8db92faec7703b8f275e9f0f33ecc39574097a79f7595200d24677a"
         },
         {
             "path": "web/src/components/crud/UserPicker.vue",
@@ -16963,6 +16963,20 @@
                 "full"
             ],
             "source_sha256": "ac31e2398a07bb68a36d528ecdcb38874a150dfbcc6576756035e4551cfc8ec7"
+        },
+        {
+            "path": "web/src/components/crud/printContent.ts",
+            "target": "web/src/components/crud/printContent.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "23257f33ac2147aa06e3cf5c310eeffe683bfaf6de8b5b04b33a8ab5c8ad1e8a"
         },
         {
             "path": "web/src/components/file-picker/index.vue",
@@ -18994,6 +19008,20 @@
                 "full"
             ],
             "source_sha256": "cc2e9953bf50710c050d34d0a0424c414c8ebc226af1d869ee09dcbe06ed19c5"
+        },
+        {
+            "path": "web/tests/Crud/printContent.spec.ts",
+            "target": "web/tests/Crud/printContent.spec.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2cafaa8ad37f1942d67c2bc906a3ce0fb6cdacffcfa27b1fc425aaf73557a830"
         },
         {
             "path": "web/tests/Modules/PeanutWorkflow/editor-state.test.mjs",
