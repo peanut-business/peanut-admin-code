@@ -6,11 +6,17 @@ interface BrowserSession {
 /** The active identity and bearer must change in one observable storage write. */
 export function readBrowserSession(
   key: string,
-  legacyTokenKey: string
+  legacyTokenKey: string,
+  legacyIdentityKey?: string
 ): BrowserSession {
   const value = localStorage.getItem(key);
   if (!value?.startsWith('{')) {
-    return { identity: value, token: localStorage.getItem(legacyTokenKey) };
+    return {
+      identity: legacyIdentityKey
+        ? localStorage.getItem(legacyIdentityKey)
+        : value,
+      token: localStorage.getItem(legacyTokenKey),
+    };
   }
   try {
     const state = JSON.parse(value) as BrowserSession;

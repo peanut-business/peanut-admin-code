@@ -27,10 +27,11 @@ test('web only picks up bearer rotations within the identity it loaded', async (
   localStorage.setItem('token', 'access-a');
   const auth = await import('../../src/utils/auth.ts');
   const initial = auth.getSessionSnapshot();
-  localStorage.setItem('token', 'access-a-rotated');
+  auth.setToken('access-a-rotated', 'session-refreshed');
   assert.deepEqual(auth.getSessionSnapshot(), { generation: initial.generation, token: 'access-a-rotated' });
-  localStorage.setItem('peanut-admin-session', 'tenant-b');
-  localStorage.setItem('token', 'access-b');
+  assert.equal(localStorage.getItem(auth.SESSION_KEY), 'tenant-a');
+  assert.equal(localStorage.getItem('token'), null);
+  localStorage.setItem('peanut-admin-session-state', JSON.stringify({ identity: 'tenant-b', token: 'access-b' }));
   const stale = auth.getSessionSnapshot();
   assert.equal(stale.token, null);
   assert.throws(() => auth.assertSessionGeneration(stale.generation), /session has changed/);

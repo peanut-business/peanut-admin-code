@@ -6,12 +6,14 @@ import {
 } from './session-storage';
 
 const TOKEN_KEY = 'token';
+// Modules use this identity-only stamp in durable draft and recovery keys.
 const SESSION_KEY = 'peanut-admin-session';
+const SESSION_STATE_KEY = 'peanut-admin-session-state';
+const readSession = () =>
+  readBrowserSession(SESSION_STATE_KEY, TOKEN_KEY, SESSION_KEY);
 let sessionGeneration = 0;
 let acceptedIdentity =
-  typeof window === 'undefined'
-    ? null
-    : readBrowserSession(SESSION_KEY, TOKEN_KEY).identity;
+  typeof window === 'undefined' ? null : readSession().identity;
 let remoteIdentityChanged = false;
 
 // Switch to @peanut-admin/client after the locked release exports this helper.
@@ -21,7 +23,7 @@ const sessionSync = createSessionSync('admin', ({ type }) => {
 import.meta.hot?.dispose(sessionSync.dispose);
 
 const getToken = () => {
-  const { identity, token } = readBrowserSession(SESSION_KEY, TOKEN_KEY);
+  const { identity, token } = readSession();
   if (identity !== acceptedIdentity) {
     if (!remoteIdentityChanged) sessionGeneration += 1;
     remoteIdentityChanged = true;
@@ -48,8 +50,9 @@ const commit = (token: string | null, type: SessionSyncType) => {
   const identity = transitionsIdentity
     ? newBrowserSessionIdentity()
     : acceptedIdentity;
-  writeBrowserSession(SESSION_KEY, TOKEN_KEY, { identity, token });
-  if (transitionsIdentity) {
+  writeBrowserSession(SESSION_STATE_KEY, TOKEN_KEY, { identity, token });
+  if (identity !== null && transitionsIdentity) {
+    localStorage.setItem(SESSION_KEY, identity);
     acceptedIdentity = identity;
     sessionGeneration += 1;
   }
@@ -61,6 +64,7 @@ const setToken = (token: string, type: Exclude<SessionSyncType, 'logout'>) =>
 const clearToken = () => commit(null, 'logout');
 
 export {
+  SESSION_KEY,
   assertSessionGeneration,
   isLogin,
   getToken,

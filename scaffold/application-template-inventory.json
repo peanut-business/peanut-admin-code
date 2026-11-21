@@ -1953,7 +1953,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2791889c4276ed2ae49d24a265fab83cc68bf410536d8ccc22f20b84f2d4f99c"
+            "source_sha256": "4fd8d45024207114d2949f090c7832cf5d4d3e0396732cbca45730b30630c7fa"
         },
         {
             "path": "platform/src/core/session-sync.ts",
@@ -18278,7 +18278,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9d1496351609d4853925e6cc4211e9f68db5ffa4f993ca9810573dbd42998706"
+            "source_sha256": "ee2738004b213cbe568206d75ddb1bed4fca902e998885713dfc40858c0b21ff"
         },
         {
             "path": "web/src/utils/env.ts",
@@ -18404,7 +18404,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2791889c4276ed2ae49d24a265fab83cc68bf410536d8ccc22f20b84f2d4f99c"
+            "source_sha256": "4fd8d45024207114d2949f090c7832cf5d4d3e0396732cbca45730b30630c7fa"
         },
         {
             "path": "web/src/utils/session-sync.ts",
@@ -19523,7 +19523,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f68f8a29c6bf4e645537e7ce9676b6dceb75d9e9e9996eef74f4fc2b865691c0"
+            "source_sha256": "de4aa9c4acb4f677f336c5d7146df43435def70b52a7c20bb538cc7d1288a394"
         },
         {
             "path": "web/tests/Productization/vite-allowed-hosts.test.mjs",
