@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.9",
+    "template_version": "5.1.18-rc.10",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -919,7 +919,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b3c8c11b24803ad9907cd8241ad57b925ef7866e48be0d58eb5018c96dc6d509"
+            "source_sha256": "5e27ab22b96ac670bba6e5f4ba6a48aa82190a6206993d1c67c28f01028ba35c"
         },
         {
             "path": "docs/development/standard.md",
@@ -7340,7 +7340,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "83664226176595b27cc7b24390c7ae8fac34bce4c49f1b300b6e7ca137a9ea70"
+            "source_sha256": "c4477250b50c9253e7c95e20f52b31d97b5cf684687ce23a38e9c5687d55e853"
         },
         {
             "path": "server/app/common/services/authorization/EndpointPermissionGrant.php",
