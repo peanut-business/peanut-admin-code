@@ -6,10 +6,15 @@ declare(strict_types=1);
 $applicationRoot = getenv('PEANUT_TEST_APPLICATION_ROOT');
 $server = $applicationRoot !== false && $applicationRoot !== '' ? $applicationRoot . '/server' : dirname(__DIR__, 2);
 if ($applicationRoot !== false && $applicationRoot !== '') {
-    // Test tools and fixture helpers belong to Code; application classes must
-    // resolve exclusively through the selected consumer's Composer loader.
+    // Runtime classes resolve through the consumer. Only the template authoring
+    // entry points are provided by Code when they are missing from the consumer.
     $testLoader = require dirname(__DIR__, 2) . '/vendor/autoload.php';
     $testLoader->setPsr4('app\\', []);
+    $templateSource = dirname(__DIR__, 2) . '/app/common/infrastructure/scaffold';
+    $testLoader->addClassMap([
+        \app\common\infrastructure\scaffold\ApplicationCreator::class => $templateSource . '/ApplicationCreator.php',
+        \app\common\infrastructure\scaffold\EditionProjector::class => $templateSource . '/EditionProjector.php',
+    ]);
 }
 require_once $server . '/vendor/autoload.php';
 if ($applicationRoot !== false && $applicationRoot !== '') {

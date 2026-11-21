@@ -83,7 +83,7 @@ final class IdentityCatalogBoundaryTest extends TestCase
         ];
         self::assertSame($permissions, $this->authorization->revisionRows());
         self::assertSame($menus, $this->menus->revisionRows());
-        $expected = ['pa_permission' => $permissions, 'api_permissions' => ['endpoints' => [], 'bindings' => []], 'pa_system_menu' => $menus, 'pa_setting_definition' => [], 'pa_reference_code_set' => []];
+        $expected = ['pa_permission' => $permissions, 'api_permissions' => ['endpoints' => [], 'bindings' => []], 'pa_system_menu' => $menus, 'pa_setting_definition' => []];
         self::assertSame(hash('sha256', json_encode($expected, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)), $this->host->catalogRevision());
     }
 

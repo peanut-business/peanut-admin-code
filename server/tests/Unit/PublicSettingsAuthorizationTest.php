@@ -16,10 +16,6 @@ use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionRegistry;
 use PeanutAdmin\Modules\Settings\Application\SettingAdminService;
 use PeanutAdmin\Modules\Settings\Application\SettingResolver;
 use PeanutAdmin\Modules\Settings\Service\SettingsHttpApplicationService;
-use PeanutAdmin\Modules\ReferenceCodes\Versioned\Definition\ReferenceCodeSetRegistry;
-use PeanutAdmin\Modules\ReferenceCodes\Versioned\Application\ReferenceCodeQuery;
-use PeanutAdmin\Modules\ReferenceCodes\Versioned\Application\ReferenceCodeAdminService;
-use PeanutAdmin\Modules\ReferenceCodes\Service\ReferenceCodesHttpApplicationService;
 use PHPUnit\Framework\TestCase;
 
 /** 直接调用真实公开用例，确认认证/权限在读取定义及事务前执行；不冒充数据库测试。 */
@@ -49,7 +45,7 @@ final class PublicSettingsAuthorizationTest extends TestCase
         $tenant = $this->tenant();
         $seen = [];
         $auth = $this->createMock(AdminAuthorizationQuery::class);
-        $auth->expects(self::exactly(9))->method('decide')->willReturnCallback(
+        $auth->expects(self::exactly(3))->method('decide')->willReturnCallback(
             function ($actual, $actor, string $permission) use ($tenant, &$seen): PermissionDecision {
                 self::assertSame($tenant, $actual);
                 self::assertSame(501, $actor->id);
@@ -64,8 +60,6 @@ final class PublicSettingsAuthorizationTest extends TestCase
         });
         self::assertSame([
             'peanut.settings.read', 'peanut.settings.manage', 'peanut.settings.manage',
-            'peanut.reference-codes.read', 'peanut.reference-codes.read', 'peanut.reference-codes.read',
-            'peanut.reference-codes.manage', 'peanut.reference-codes.manage', 'peanut.reference-codes.manage',
         ], $seen);
         self::assertTrue($contexts->isEmpty());
     }
@@ -94,28 +88,22 @@ final class PublicSettingsAuthorizationTest extends TestCase
             self::assertSame('peanut.settings.read', $permission);
             return PermissionDecision::allow($permission);
         });
-        [$settings] = $this->services($contexts, $auth);
+        $settings = $this->service($contexts, $auth);
         $result = $contexts->run(new AdminExecutionContext($tenant, 'test.settings', $this->principal()), fn() => $settings->list($tenant));
         self::assertSame(['items' => []], $result);
     }
 
     private function operations(ExecutionContextStore $contexts, AdminAuthorizationQuery $auth, TenantContext $tenant): array
     {
-        [$settings, $reference] = $this->services($contexts, $auth);
+        $settings = $this->service($contexts, $auth);
         return [
             fn() => $settings->list($tenant),
             fn() => $settings->replace($tenant, 'official.settings', 'example', 'value', null, '*', 'test-key'),
             fn() => $settings->unset($tenant, 'official.settings', 'example', 'etag', 'test-key'),
-            fn() => $reference->sets($tenant),
-            fn() => $reference->list($tenant, 'official.reference-codes', 'example', []),
-            fn() => $reference->get($tenant, 'official.reference-codes', 'example', 'a', null),
-            fn() => $reference->create($tenant, 'official.reference-codes', 'example', [], 'test-key', '*'),
-            fn() => $reference->replace($tenant, 'official.reference-codes', 'example', 'a', [], 'test-key', 'etag'),
-            fn() => $reference->retire($tenant, 'official.reference-codes', 'example', 'a', 'test-key', 'etag'),
         ];
     }
 
-    private function services(ExecutionContextStore $contexts, AdminAuthorizationQuery $auth): array
+    private function service(ExecutionContextStore $contexts, AdminAuthorizationQuery $auth): SettingsHttpApplicationService
     {
         $empty = static fn(string $class): object => (new ReflectionClass($class))->newInstanceWithoutConstructor();
         $idempotency = $this->createMock(IdempotentCommandExecutor::class);
@@ -123,10 +111,7 @@ final class PublicSettingsAuthorizationTest extends TestCase
         $modules = $this->createMock(ModuleRuntimeRepository::class);
         $modules->expects(self::never())->method('tenantModule');
         $current = new CurrentExecutionContext($contexts);
-        return [
-            new SettingsHttpApplicationService(new SettingDefinitionRegistry(), $empty(SettingAdminService::class), $empty(SettingResolver::class), $idempotency, $modules, $current, $auth),
-            new ReferenceCodesHttpApplicationService(new ReferenceCodeSetRegistry(), $empty(ReferenceCodeQuery::class), $empty(ReferenceCodeAdminService::class), $idempotency, $modules, $current, $auth),
-        ];
+        return new SettingsHttpApplicationService(new SettingDefinitionRegistry(), $empty(SettingAdminService::class), $empty(SettingResolver::class), $idempotency, $modules, $current, $auth);
     }
 
     private function denied(callable $operation): void
@@ -136,7 +121,7 @@ final class PublicSettingsAuthorizationTest extends TestCase
             self::fail('Public operation accepted an unauthorised actor.');
         } catch (BusinessException $error) {
             self::assertSame(403, $error->httpStatus);
-            self::assertContains($error->errorCode, ['SETTING_PERMISSION_DENIED', 'REFERENCE_CODE_PERMISSION_DENIED']);
+            self::assertSame('SETTING_PERMISSION_DENIED', $error->errorCode);
         }
     }
 

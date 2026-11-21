@@ -102,9 +102,11 @@ final class TenantModuleStateBoundaryTest extends TestCase
     {
         self::assertSame(['fixture.always', 'fixture.current', 'fixture.foundation'], $this->queries->activeModuleKeys(1));
         $this->database->exec("UPDATE pa_tenant_license SET expires_at='2000-01-02' WHERE tenant_id=1");
+        app()->delete(\PeanutAdmin\Modules\Identity\Module\TenantEntitlementService::class);
         self::assertSame(['fixture.foundation'], $this->queries->activeModuleKeys(1));
         self::assertSame(['fixture.foreign', 'fixture.foundation'], $this->queries->activeModuleKeys(2));
         $this->database->exec("UPDATE pa_tenant_license SET expires_at=NULL,effective_at='2099-01-01' WHERE tenant_id=1");
+        app()->delete(\PeanutAdmin\Modules\Identity\Module\TenantEntitlementService::class);
         self::assertSame(['fixture.foundation'], $this->queries->activeModuleKeys(1));
         self::assertSame('disabled', $this->queries->stateRows(1)[0]['status']);
         self::assertSame([], $this->queries->stateRows(0));
@@ -252,7 +254,7 @@ final class TenantModuleStateBoundaryTest extends TestCase
     }
 }
 
-/** The production clock spelling is recorded before substituting the sole unsupported SQLite function token. */
+/** The production clock spelling is recorded before substituting the unsupported SQLite syntax. */
 final class TenantModuleStateFixtureConnection extends \think\db\connector\Sqlite
 {
     public array $observedSql = [];
@@ -270,6 +272,6 @@ final class TenantModuleStateFixtureConnection extends \think\db\connector\Sqlit
     public function getPDOStatement(string $sql, array $bind = [], bool $master = false, bool $procedure = false): PDOStatement
     {
         $this->observedSql[] = $sql;
-        return parent::getPDOStatement(str_replace('CURRENT_TIMESTAMP(3)', 'qualification_clock(3)', $sql), $bind, $master, $procedure);
+        return parent::getPDOStatement(str_replace('CURRENT_TIMESTAMP(3)', 'qualification_clock(3)', \ThinkPhpTestConnection::sqliteBinaryModuleKey($sql)), $bind, $master, $procedure);
     }
 }

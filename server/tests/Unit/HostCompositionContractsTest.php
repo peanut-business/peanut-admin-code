@@ -142,7 +142,7 @@ final class HostCompositionContractsTest extends TestCase
         (new TaskWorkerDefinitionRegistry([['module_key' => 'fixture.alpha','definition' => CompositionFixtureWorker::class]]))->resolve($app);
     }
 
-    public function testProviderReadPermissionComesFromPublicCapabilityAndDenyPrecedesContributors(): void
+    public function testOpsReadPermissionComesFromPublicCapabilityAndDenyPrecedesProvider(): void
     {
         if (!interface_exists(PlatformPermissionChecker::class)) {
             self::markTestSkipped('Ops module is not installed in the neutral host.');
@@ -151,12 +151,12 @@ final class HostCompositionContractsTest extends TestCase
         $context = \PeanutAdmin\Kernel\Context\PlatformContext::fromValidatedSession(new \PeanutAdmin\Kernel\Auth\ValidatedPlatformSession(11, 'fixture-session', 21, 31, 'platform-web', new DateTimeImmutable('2031-01-01T00:00:00Z')), 'fixture-request');
         $permissions = $this->createMock(PlatformPermissionChecker::class);
         $permissions->expects(self::once())->method('allows')->with($context, 'platform.ops.read')->willReturn(false);
-        $contributor = $this->createMock(\app\platform\contract\provider\ProviderQualificationContributor::class);
-        $contributor->expects(self::never())->method('subjects');
-        $service = new \app\platform\services\provider\PlatformProviderQualificationService($permissions, [$contributor], str_repeat('x', 32));
+        $provider = $this->createMock(\PeanutAdmin\Modules\Ops\Domain\Status\RuntimeStatusProvider::class);
+        $provider->expects(self::never())->method('snapshot');
+        $service = new OpsStatusService($permissions, $provider);
         $this->expectException(OpsConsoleException::class);
         $this->expectExceptionMessage('OPS_PERMISSION_DENIED');
-        $service->snapshot($context);
+        $service->read($context);
     }
 
     private function worker(string $owner, string $resource, string $handlerKey): CompositionFixtureWorker

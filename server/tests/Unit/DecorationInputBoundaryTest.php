@@ -123,6 +123,7 @@ final class DecorationInputBoundaryTest extends TestCase
         $url = 'https://assets.example/authorized-image';
         $files = $this->createMock(FileReferences::class);
         $files->method('getFileUrl')->with($key)->willReturn($url);
+        $files->method('getFileUrls')->with([$key])->willReturn([$key => $url]);
         $files->expects(self::once())->method('setTenantFileUrl')->with($context, $key)->willReturn($key);
         $schema = new DecorationSchemaService(new ProductAssetReferenceService($files, 'https://app.example'));
         $read = new DecorationReadService($schema);

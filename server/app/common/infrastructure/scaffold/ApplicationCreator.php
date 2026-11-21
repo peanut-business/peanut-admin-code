@@ -14,18 +14,26 @@ use app\platform\infrastructure\module\ModuleArtifactWriter;
 use app\platform\infrastructure\module\ModuleLockResolver;
 use RuntimeException;
 
-require_once dirname(__DIR__, 2) . '/value/scaffold/VersionContract.php';
-require_once dirname(__DIR__, 2) . '/value/scaffold/EditionProfile.php';
-require_once dirname(__DIR__, 2) . '/value/scaffold/ScaffoldManifest.php';
-require_once dirname(__DIR__, 5) . '/scripts/scaffold-runtime/ScaffoldSourceIdentity.php';
-require_once dirname(__DIR__, 2) . '/validation/scaffold/ScaffoldPathGuard.php';
-require_once __DIR__ . '/EditionProjector.php';
-require_once dirname(__DIR__, 3) . '/platform/exception/module/ModuleArtifactToolException.php';
-require_once dirname(__DIR__, 3) . '/platform/value/module/ModuleFrontendLayout.php';
-require_once dirname(__DIR__, 3) . '/platform/infrastructure/module/ModuleArtifactWriter.php';
-require_once dirname(__DIR__, 3) . '/platform/exception/module/ModuleLifecycleException.php';
-require_once dirname(__DIR__, 3) . '/platform/value/module/ModuleDescriptor.php';
-require_once dirname(__DIR__, 3) . '/platform/infrastructure/module/ModuleLockResolver.php';
+// The native source entry also runs before Composer is available.
+foreach ([
+    VersionContract::class => dirname(__DIR__, 2) . '/value/scaffold/VersionContract.php',
+    EditionProfile::class => dirname(__DIR__, 2) . '/value/scaffold/EditionProfile.php',
+    ScaffoldManifest::class => dirname(__DIR__, 2) . '/value/scaffold/ScaffoldManifest.php',
+    ScaffoldSourceIdentity::class => dirname(__DIR__, 5) . '/scripts/scaffold-runtime/ScaffoldSourceIdentity.php',
+    ScaffoldPathGuard::class => dirname(__DIR__, 2) . '/validation/scaffold/ScaffoldPathGuard.php',
+    EditionProjector::class => __DIR__ . '/EditionProjector.php',
+    \app\platform\exception\module\ModuleArtifactToolException::class => dirname(__DIR__, 3) . '/platform/exception/module/ModuleArtifactToolException.php',
+    \app\platform\value\module\ModuleFrontendLayout::class => dirname(__DIR__, 3) . '/platform/value/module/ModuleFrontendLayout.php',
+    ModuleArtifactWriter::class => dirname(__DIR__, 3) . '/platform/infrastructure/module/ModuleArtifactWriter.php',
+    \app\platform\exception\module\ModuleLifecycleException::class => dirname(__DIR__, 3) . '/platform/exception/module/ModuleLifecycleException.php',
+    \app\platform\value\module\ModuleDescriptor::class => dirname(__DIR__, 3) . '/platform/value/module/ModuleDescriptor.php',
+    ModuleLockResolver::class => dirname(__DIR__, 3) . '/platform/infrastructure/module/ModuleLockResolver.php',
+] as $dependency => $source) {
+    if (!class_exists($dependency)) {
+        require_once $source;
+    }
+}
+unset($dependency, $source);
 
 final class ApplicationCreator
 {

@@ -20,7 +20,9 @@ final class PublicDevelopmentInventoryPolicyTest extends TestCase
 
     public static function setUpBeforeClass(): void
     {
-        require_once dirname(__DIR__, 3) . '/scripts/scaffold-runtime/ScaffoldSourceIdentity.php';
+        if (!class_exists(ScaffoldSourceIdentity::class, false)) {
+            require_once dirname(__DIR__, 3) . '/scripts/scaffold-runtime/ScaffoldSourceIdentity.php';
+        }
         $file = dirname(__DIR__, 3) . '/scripts/build-application-template-inventory';
         $nodes = (new ParserFactory())->createForHostVersion()->parse((string) file_get_contents($file));
         $functions = array_values(array_filter(

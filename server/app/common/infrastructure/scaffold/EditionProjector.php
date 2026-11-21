@@ -7,7 +7,9 @@ namespace app\common\infrastructure\scaffold;
 use app\common\value\scaffold\EditionProfile;
 use RuntimeException;
 
-require_once dirname(__DIR__, 4) . '/database/InitialInstallationSource.php';
+if (!class_exists(\InitialInstallationSource::class, false)) {
+    require_once dirname(__DIR__, 4) . '/database/InitialInstallationSource.php';
+}
 
 final class EditionProjector
 {

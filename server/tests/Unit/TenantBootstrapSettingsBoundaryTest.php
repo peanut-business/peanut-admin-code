@@ -103,9 +103,8 @@ final class TenantBootstrapSettingsBoundaryTest extends TestCase
         self::assertSame(['revision' => 7, 'document' => ['name' => 'Existing tenant name']], $stored['101:website']);
         self::assertSame([1, 2], $stored['202:login']['document']['login_way']);
         self::assertSame(['status' => 0], $stored['101:hot-search']['document']);
-        foreach (['customer_service_setting', 'decorate_tabbar_setting'] as $table) {
-            self::assertSame([101, 202], array_map('intval', $this->database->query('SELECT tenant_id FROM pa_' . $table . ' ORDER BY tenant_id')->fetchAll(PDO::FETCH_COLUMN)));
-        }
+        self::assertSame([101, 202], array_map('intval', $this->database->query('SELECT tenant_id FROM pa_decorate_tabbar_setting ORDER BY tenant_id')->fetchAll(PDO::FETCH_COLUMN)));
+        self::assertSame(0, (int) $this->database->query('SELECT COUNT(*) FROM pa_customer_service_setting')->fetchColumn());
         // Optional business defaults are outside the required-module bootstrap.
         self::assertSame(0, (int) $this->database->query('SELECT COUNT(*) FROM pa_transaction_setting')->fetchColumn());
         self::assertTrue($this->contexts->isEmpty());

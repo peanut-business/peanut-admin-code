@@ -11286,7 +11286,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f27f4c7c636cf2a42a8d0c10b616d7e20f304880c2ef1025a7ef099e680f4602"
+            "source_sha256": "951b9ef2f2eba23db57341a6931be5a9faaa79805b2c90e354c295f9c3e5741c"
         },
         {
             "path": "server/phpstan/bootstrap.php",
