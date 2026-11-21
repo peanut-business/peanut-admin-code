@@ -11050,7 +11050,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3beaf6290bfbd1767b800d344db2fa5d9a9db86ff22c0d933971c69690449149"
+            "source_sha256": "4ed48efba30baad70b459af973222cf920a41f5ef27245b73ac5065f4a213d17"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11064,7 +11064,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3b5bf02876cd97d955d857b71bcd9a5b00a4fe1680da9c4258535e6a49977c93"
+            "source_sha256": "66fcb5c8b2a748638b6184e2fe8546cd6864adc21433fcbac0a129c600a79135"
         },
         {
             "path": "server/module",
