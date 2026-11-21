@@ -333,6 +333,12 @@ function resolveLocal(file, specifier) {
       return exactFile(path.join(outputRoot, relative));
     const host = path.join(root, relative);
     if (existsSync(host) && statSync(host).isFile()) return exactFile(host);
+    // A merged contribution also retains the pre-existing fixture route.
+    const fixtureModule = 'web/src/modules/fixture-delivery-record/';
+    if (file === fixtureModule + 'contribution.ts' && relative.startsWith(fixtureModule)) {
+      const fixture = path.join(webRoot, 'tests/fixtures/modules/fixture-delivery-record', relative.slice(fixtureModule.length));
+      if (existsSync(fixture) && statSync(fixture).isFile()) return exactFile(fixture);
+    }
   }
   assert.fail(`Missing generated consumer import: ${file} -> ${specifier}`);
 }
@@ -390,6 +396,9 @@ test('actual generated template components exist in the installed and registered
     const { descriptor } = sfc.parse(read(path.join(outputRoot, file)), {
       filename: file,
     });
+    assert.match(descriptor.template.content, /:fields="columns"/);
+    assert.match(descriptor.template.content, /column-storage-key="peanut:crud:[^"]+:columns"/);
+    assert.match(descriptor.template.content, /:audit-history="detailRecord\?\.audit_history"/);
     const compiledScript = sfc.compileScript(descriptor, {
       id: 'crud-consumer',
     });

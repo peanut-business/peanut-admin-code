@@ -113,6 +113,13 @@ final class GeneratorDeclaredCrudTemplateTest extends TestCase
         );
         self::assertArrayNotHasKey('tenant_id', $openApi['components']['schemas']['GeneratedNoteDetail']['properties']);
         self::assertArrayNotHasKey('api_secret', $openApi['components']['schemas']['GeneratedNoteDetail']['properties']);
+        $detail = $openApi['components']['schemas']['GeneratedNoteDetail'];
+        self::assertFalse($detail['additionalProperties']);
+        self::assertNotContains('audit_history', $detail['required']);
+        self::assertSame(['id', 'occurred_at', 'before', 'after'], $detail['properties']['audit_history']['items']['required']);
+        self::assertStringContainsString("function diffFields(): array { return array (", $service);
+        self::assertMatchesRegularExpression("/diffFields\(\).*?'owner_uuid'.*?'title'.*?'body'.*?;/s", $service);
+        self::assertDoesNotMatchRegularExpression("/diffFields\(\)[^;]*'api_secret'/s", $service);
     }
 
     public function testRenderedValidatorSharesPaginationRulesAndRejectsMalformedScalarInput(): void

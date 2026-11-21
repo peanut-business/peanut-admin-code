@@ -47,14 +47,15 @@ final class GeneratorElementPlusViewTest extends TestCase
         self::assertStringNotContainsString('@arco-design', $view);
         self::assertDoesNotMatchRegularExpression('/<\/?a-/', $view);
         self::assertStringNotContainsString('TableColumnData', $view);
-        foreach (['ElCard', 'CrudPage', 'ElTableColumn', 'ElAlert', 'ElButton'] as $component) {
+        foreach (['ElCard', 'CrudPage', 'CrudDetailDrawer', 'ElTableColumn', 'ElAlert', 'ElButton'] as $component) {
             self::assertStringContainsString('<' . $component, $view);
         }
         self::assertStringContainsString("from 'element-plus'", $view);
         self::assertStringContainsString('row-key="' . $primary . '"', $view);
         self::assertStringContainsString(':data="records"', $view);
-        self::assertStringContainsString(':prop="column.prop"', $view);
-        self::assertStringContainsString(':label="column.label"', $view);
+        self::assertStringContainsString(':fields="columns"', $view);
+        self::assertStringContainsString('column-storage-key="peanut:crud:fixture.delivery-record.' . $resource . ':columns"', $view);
+        self::assertStringContainsString(':audit-history="detailRecord?.audit_history"', $view);
         self::assertStringContainsString(':pagination="pagination"', $view);
         self::assertStringContainsString('@page-change="fetchData"', $view);
         self::assertStringContainsString('@size-change="handleSizeChange"', $view);

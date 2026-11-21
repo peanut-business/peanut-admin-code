@@ -15,6 +15,7 @@ import ElementPlus, {
 } from 'element-plus';
 import Page from 'generated:crud-view';
 import permission from '../../src/directive/permission/index';
+import TableColumnSetting from '../../src/components/crud/TableColumnSetting.vue';
 import useCrudModal from '../../src/hooks/useCrudModal';
 import useCrudTable from '../../src/hooks/useCrudTable';
 
@@ -156,6 +157,9 @@ describe(`native generated ${example}`, () => {
     expect(wrapper.findComponent(ElTable).props('rowKey')).toBe(primary);
     expect(wrapper.text()).toContain('current row');
     expect(wrapper.text()).toContain('标题');
+    expect(wrapper.findComponent(TableColumnSetting).props('storageKey')).toBe(
+      `peanut:crud:${prefix}:columns`
+    );
     expect(wrapper.text()).not.toContain('api_secret');
     expect(pending[0].config.url).toBe(`/adminapi/${prefix}.list`);
     expect(pending[0].config.params).toEqual({ page_no: 1, page_size: 15 });
@@ -169,6 +173,30 @@ describe(`native generated ${example}`, () => {
     await drain();
     expect(wrapper.text()).toContain('page two');
     expect(pagination.props('currentPage')).toBe(2);
+  });
+
+  it('renders the generated detail audit history from the response', async () => {
+    const wrapper = await loaded();
+    await button(wrapper, '详情').trigger('click');
+    await drain();
+    expect(pending[1].config.url).toBe(`/adminapi/${prefix}.detail`);
+    pending[1].resolve({
+      ...row('after title'),
+      audit_history: [{
+        id: 'event-1',
+        occurred_at: '2026-11-21 01:00:00',
+        before: { title: 'previous title' },
+        after: { title: 'after title' },
+      }],
+    });
+    await drain();
+    const history = wrapper.get('.detail-history');
+    expect(history.text()).toContain('2026-11-21 01:00:00 UTC');
+    const toggle = history.get('[role="button"][aria-expanded]');
+    await toggle.trigger('click');
+    expect(toggle.attributes('aria-expanded')).toBe('true');
+    expect(history.text()).toContain('previous title');
+    expect(history.text()).toContain('after title');
   });
 
   it('renders loading, failure, retry and successful empty results distinctly', async () => {

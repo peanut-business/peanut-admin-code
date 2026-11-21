@@ -612,7 +612,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2f41e0bae0dd728e00449da5491026f682e64e1bb983842d5b4fc3aea09a45d5"
+            "source_sha256": "415e8c5ac002b82c08d0adf99dfa78fbf2ad14248fa149fe631cb45766215e91"
         },
         {
             "path": "docs/architecture/default-delivery-and-ownership.md",
@@ -3933,7 +3933,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bda5b1e1af22e6fc2abc8bf869dd6b463cf1ef4bb79d140d71e96e2b1cc798b2"
+            "source_sha256": "6ba4739c5c875ac36f735e72e1681be277b9d64677da96c887a11e172b701d4e"
         },
         {
             "path": "server/app/BaseController.php",
@@ -4619,7 +4619,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dd0d4fb5a541aff159ed768da162c81c7e9ed94da21c90ea68443b1a6cf248aa"
+            "source_sha256": "cb78bfa1070485be833386441eec22b36730b3e24ba4c97f45fe8b664731b51d"
         },
         {
             "path": "server/app/adminapi/services/generator/GeneratorService.php",
@@ -6893,7 +6893,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e10177367aba468601b8f0b01328fc13cb676572cb3dae28b306c1a73fbd920c"
+            "source_sha256": "4f501ef618affbaac19361a77527a23ce73f42d04fa1f0baf3b0478f334b88ac"
         },
         {
             "path": "server/app/common/infrastructure/scaffold/ApplicationCreator.php",
@@ -9285,7 +9285,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e5cb7e5b503332f74b0b3b28596090ce9b43ce314b30043852a8c8fca193365c"
+            "source_sha256": "563a91f00f24b5f41478213f9ffb75e07f93ca2510e921d3b1cc4da20be80af0"
         },
         {
             "path": "server/composer.json",
@@ -9607,7 +9607,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d57a8fdd9b07ca4110c8db674733c4edd6d4d7339c99ff574902c517c1bd8256"
+            "source_sha256": "aa802b6d3ac3e7cc4a014972a96654838263a8552b40f92161a903867167eef0"
         },
         {
             "path": "server/config/platform_auth.php",
@@ -11244,7 +11244,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "12a496941b83b879f87bf2d3e750a658e12fbde2db7d0fb86e73c21067f40b08"
+            "source_sha256": "e111b6bf5f5f427fe402743e2b6e5cc6213af5b45b8bf0e6af55b7caf1bf9848"
         },
         {
             "path": "server/phpstan/bootstrap.php",
@@ -16987,7 +16987,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7c3b93ef41f8b54859193d815ecdae05bba3c708bba39ab13c891a5502394a5d"
+            "source_sha256": "e61831d061c59f6f0e2bfa379f612869f58e22b11b1ac3df160f0dcb748fad86"
         },
         {
             "path": "web/src/components/crud/CrudRecycleDrawer.vue",
@@ -19396,7 +19396,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f2cb4e4807549e2c8e9be8ff6e2dd0f61a3f18b632a443bc8ff7559f6fe8bc11"
+            "source_sha256": "09eb916b696939b40e088ffad278326e50d4b4aaa006418ae0aa4478b546164a"
         },
         {
             "path": "web/tests/Productization/generated-crud-interactions.spec.mjs",
@@ -19410,7 +19410,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "77a4634c7d5eed4955dc8bddfd7be03b909e063af9dd40f3800dfc6e1303c78d"
+            "source_sha256": "8164905137f6fa1a616db45d00efdca49fe9a1057b67e23318ef2813d67082eb"
         },
         {
             "path": "web/tests/Productization/instance-tool-build-boundary.test.mjs",

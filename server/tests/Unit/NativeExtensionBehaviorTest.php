@@ -61,6 +61,23 @@ final class NativeExtensionBehaviorTest extends TestCase
         rmdir(dirname($this->root));
     }
 
+    public function testInvalidApplicationBindingsFailBeforeModuleRegistration(): void
+    {
+        $this->app->config->set(['bindings' => [\PeanutAdmin\Kernel\Auth\Clock::class => \stdClass::class]], 'peanut');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('PEANUT_BINDING_INVALID');
+        (new \app\AppService($this->app))->register();
+    }
+
+    public function testInvalidConfiguredServicesFailClosed(): void
+    {
+        require_once $this->app->getThinkPath() . 'helper.php';
+        $this->app->config->set(['services' => [\stdClass::class]], 'peanut');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('PEANUT_SERVICE_INVALID');
+        require dirname(__DIR__, 2) . '/app/service.php';
+    }
+
     public function testRealAppInitializationOrdersRegisterAppInitAndBoot(): void
     {
         $provider = $this->provider();
