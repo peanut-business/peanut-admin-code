@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)"
+
+echo "==> [1/4] web type:check (pnpm)"
+(cd "$ROOT_DIR/web" && pnpm run type:check)
+
+echo "==> [2/4] platform type:check + build (npm)"
+(cd "$ROOT_DIR/platform" && npm run build)
+
+echo "==> [3/4] pc typecheck (npm)"
+(cd "$ROOT_DIR/pc" && npm run typecheck)
+
+echo "==> [4/4] uniapp type-check (npm)"
+(cd "$ROOT_DIR/uniapp" && npm run type-check)
+
+echo "All 4 frontend clients passed."
