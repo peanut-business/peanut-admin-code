@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.7",
+    "template_version": "5.1.18-rc.8",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -4831,7 +4831,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "65997c769e8fd2198905bbbee591c2df3f3c051de01cf63778f71b4ae99bb681"
+            "source_sha256": "c3054f7fb6b9553502656681aadcc164e7b916cfa31fd0a913b554ca3812a967"
         },
         {
             "path": "server/app/api/metadata/application/shared.php",
@@ -5223,7 +5223,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "09ced7ccc1352b465f4f216c49e7c2a7c6f4b427af1188b1e93fe594b14bf77c"
+            "source_sha256": "9ea6d998057425274e192fe663107881eb7eb0fb652f7fd8c0b898c86563f344"
         },
         {
             "path": "server/app/command/ModuleReleaseComposition.php",
@@ -8279,7 +8279,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "be0c08caac243975f8590dfc8b749372ef869057c8da18d396c7ed5109060116"
+            "source_sha256": "7bdc69757a7b8ac14a541a92eb044172cbb20799be6fdffe5445b5863f643f56"
         },
         {
             "path": "server/app/platform/controller/PlatformTenantInvitationController.php",
@@ -8979,7 +8979,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e4acdcff031fff547966b6b7775f6238106bb62ba6478668d353770b2c50570c"
+            "source_sha256": "ba9ded7faf6030c7fc0b687a90d2365602c1146f08f88a77f30c735b6d1d5965"
         },
         {
             "path": "server/app/platform/validate/TenantOwnerInvitationValidate.php",
@@ -11050,7 +11050,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "184cb522cab4b1bd685126ef38ef620619464d091cb7077aa2721e628a061f19"
+            "source_sha256": "4989c984ada8b89ac5923d1e7bee3511e19053afc96951da1104d3830b254756"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11064,7 +11064,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3c322ff066b8da0bf751524e93a15a8cc257b2700a4349ef820f6c59b1f91148"
+            "source_sha256": "78cd1ac17754420739bf392ceee92b2ef2c1b54de257955cf43c63b8315e29cb"
         },
         {
             "path": "server/module",
@@ -18310,6 +18310,20 @@
             "source_sha256": "17cae86af85f385fba5eac3f1befd43c974b2f5d0522496e46f90878a7f3e6fd"
         },
         {
+            "path": "web/src/views/decoration/article-options.ts",
+            "target": "web/src/views/decoration/article-options.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "109fc686fb622832340a67b2c628e92577032431078f0dae216774fadafcd81f"
+        },
+        {
             "path": "web/src/views/decoration/mobile/index.vue",
             "target": "web/src/views/decoration/mobile/index.vue",
             "classification": "managed",
@@ -18321,7 +18335,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b1b750113448ea8b1a6dae6d3cbf285da4cb83b2cfa5d62ef2aaf752a84e9254"
+            "source_sha256": "3d560e6da1e129e99600cc14889fb062c14994f4f8d628f3950fb560dfb7cbd4"
         },
         {
             "path": "web/src/views/decoration/pc/index.vue",
@@ -18335,7 +18349,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a28214635327d04602a5b87eadfbf407b5008a7855df57e168302dae9382364e"
+            "source_sha256": "57ab3c8d490f521acd0e4486a72018229c82886380282546ed773107ff8f05d4"
         },
         {
             "path": "web/src/views/decoration/tabbar/index.vue",
@@ -18349,7 +18363,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e737f86d74123c89de5b4d84e86e6c757e77b71629ab2ad582c046c87c9bc4dd"
+            "source_sha256": "f84aae9bd8a068a165b6e6327ab758bb420d59e2f4c56e1cf86c18d6bbb04a51"
         },
         {
             "path": "web/src/views/dev-tools/code/index.vue",

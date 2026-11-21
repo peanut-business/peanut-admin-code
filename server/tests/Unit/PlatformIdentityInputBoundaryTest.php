@@ -14,6 +14,7 @@ use app\platform\validate\PlatformAccessValidate;
 use app\platform\validate\PlatformTenantLifecycleValidate;
 use app\platform\validate\TenantEntryBindingValidate;
 use app\platform\validate\TenantOwnerInvitationValidate;
+use app\common\http\ApiProblem;
 use PeanutAdmin\Kernel\Auth\ValidatedPlatformSession;
 use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
@@ -53,6 +54,12 @@ final class PlatformIdentityInputBoundaryTest extends TestCase
         (new ReflectionProperty(app\BaseController::class,'app'))->setValue($controller,$this->app);
         (new ReflectionProperty(app\BaseController::class,'request'))->setValue($controller,(new think\Request())->withGet($input)->withPost($input));
         (new ReflectionProperty(BasePlatformController::class,'platformContext'))->setValue($controller,$this->platform);
+        if ($type === PlatformControlPlaneQueryController::class) {
+            (new ReflectionProperty($type, 'queries'))->setValue($controller, $this->app->make(app\platform\query\PlatformControlPlaneQueryService::class));
+        }
+        if ($type === PlanLicenseController::class) {
+            (new ReflectionProperty($type, 'plans'))->setValue($controller, $this->app->make(PlanLicenseAdminService::class));
+        }
         $controller->$action();
     }
 
@@ -78,10 +85,36 @@ final class PlatformIdentityInputBoundaryTest extends TestCase
         foreach ($cases as [$type,$action,$field,$base]) {
             foreach (['602.9','6.02e2','602junk',true,false,1.5,0,[602],'9223372036854775808'] as $value) {
                 try { $this->call($type,$action,array_replace($base,[$field=>$value])); self::fail('A malformed platform identity reached the business layer.'); }
-                catch(ValidateException|AdminAccessException) { self::assertTrue(true); }
+                catch(ApiProblem $error) {
+                    self::assertSame(PlatformTenantEntryBindingController::class, $type);
+                    self::assertContains($action, ['enable', 'disable']);
+                    self::assertSame('TENANT_ENTRY_INPUT_INVALID', $error->errorCode);
+                    self::assertSame(422, $error->httpStatus);
+                }
+                catch(ValidateException|AdminAccessException) {
+                    self::assertFalse($type === PlatformTenantEntryBindingController::class && in_array($action, ['enable', 'disable'], true));
+                }
             }
         }
         self::assertSame(0,$this->databaseAttempts);
+    }
+
+    public function testTenantEntryChangeReasonLengthBoundary(): void
+    {
+        foreach ([
+            ['enable', ['tenant_id'=>602, 'host'=>'tenant.example.test', 'client_key'=>'admin-web']],
+            ['disable', ['binding_id'=>602]],
+        ] as [$scene, $input]) {
+            self::assertTrue((new TenantEntryBindingValidate())->scene($scene)->check($input + ['change_reason'=>str_repeat('a', 96)]));
+            try {
+                $this->call(PlatformTenantEntryBindingController::class, $scene, $input + ['change_reason'=>str_repeat('a', 97)]);
+                self::fail('An overlong change reason reached the business layer.');
+            } catch (ApiProblem $error) {
+                self::assertSame('TENANT_ENTRY_INPUT_INVALID', $error->errorCode);
+                self::assertSame(422, $error->httpStatus);
+            }
+        }
+        self::assertSame(0, $this->databaseAttempts);
     }
 
     public function testOperatorRoleListsRejectInvalidElementsButKeepExplicitEmptyRevocation(): void

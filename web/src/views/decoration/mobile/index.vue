@@ -63,7 +63,7 @@
                         class="preview-user"
                       >
                         <span class="preview-avatar">P</span>
-                        <span>欢迎使用 Peanut Admin</span>
+                        <span>欢迎使用 {{ brandStore.website.shop_name }}</span>
                       </div>
                       <div
                         v-else-if="component.name === 'news'"
@@ -432,6 +432,7 @@
                       <ItemEditor
                         :items="items(component)"
                         :article-options="articleOptions"
+                        :article-option-label="articleOptionLabel"
                         :preview="images.preview"
                         :show-enabled="true"
                         :max="100"
@@ -502,6 +503,7 @@
                       <ItemEditor
                         :items="items(component)"
                         :article-options="articleOptions"
+                        :article-option-label="articleOptionLabel"
                         :preview="images.preview"
                         :show-enabled="component.name !== 'banner'"
                         :show-background="component.name === 'banner'"
@@ -547,11 +549,11 @@
   import { ElMessage } from 'element-plus';
   import FilePicker from '@/components/file-picker/index.vue';
   import usePublicImageReferences from '@/hooks/public-image-references';
+  import { useBrandStore } from '@/store';
   import type { FileRecord } from '@/api/file-provider';
   import {
     getMobileDecorationLists,
     getMobileDecorationDetail,
-    getDecorationArticleOptions,
     saveMobileDecoration,
     type DecorationComponent as MutableComponent,
     type DecorationContent as MutableContent,
@@ -559,6 +561,7 @@
     type DecorationItem,
     type DecorationPage,
   } from '@/api/decoration';
+  import useDecorationArticleOptions from '../article-options';
 
   interface ThemeValue {
     themeColorId: number;
@@ -581,6 +584,7 @@
         type: Array as PropType<DecorationArticleOption[]>,
         default: () => [],
       },
+      articleOptionLabel: { type: String, required: true },
       showEnabled: { type: Boolean, default: false },
       showBackground: { type: Boolean, default: false },
       max: { type: Number, default: 5 },
@@ -601,7 +605,7 @@
           <el-input v-model="item.name" placeholder="名称" />
               <el-select v-model="item.link.target_type" style="width: 130px" @change="ensureQuery(item)">
             <el-option label="站内页面" value="shop" />
-            <el-option :label="articleOptions.length ? '文章' : '文章（暂无可选项）'" value="article" :disabled="articleOptions.length === 0" />
+            <el-option :label="articleOptionLabel" value="article" :disabled="articleOptions.length === 0" />
             <el-option label="自定义链接" value="custom" />
             <el-option label="小程序" value="mini_program" />
               </el-select>
@@ -650,7 +654,9 @@
   const styleOptions = binaryOptions;
   const loading = ref(false);
   const submitLoading = ref(false);
-  const articleOptions = ref<DecorationArticleOption[]>([]);
+  const brandStore = useBrandStore();
+  const { articleOptions, articleOptionLabel, loadArticleOptions } =
+    useDecorationArticleOptions();
   const images = usePublicImageReferences();
   const activeType = ref(1);
   const page = reactive<DecorationPage>({
@@ -742,29 +748,30 @@
       : {};
   };
 
+  let loadRequestId = 0;
   const loadPageByType = async (type: number) => {
+    loadRequestId += 1;
+    const requestId = loadRequestId;
     activeType.value = type;
     loading.value = true;
     try {
       const { data: list } = await getMobileDecorationLists();
+      if (requestId !== loadRequestId) return;
       const summary = list.find((item) => item.type === type) || list[0];
       if (!summary) {
         page.id = 0;
         return;
       }
       const { data } = await getMobileDecorationDetail(summary.id);
+      if (requestId !== loadRequestId) return;
       Object.assign(page, data);
       images.replace(data.resource_urls);
       ensureQueries();
       if (type === 5 && !Array.isArray(data.data))
         Object.assign(theme, data.data);
     } finally {
-      loading.value = false;
+      if (requestId === loadRequestId) loading.value = false;
     }
-  };
-  const loadArticleOptions = async () => {
-    const { data } = await getDecorationArticleOptions();
-    articleOptions.value = data;
   };
   loadPageByType(activeType.value);
   loadArticleOptions();
