@@ -229,6 +229,9 @@ classify() {
     uniapp/*)
       mark uniapp
       ;;
+    scripts/consumers/thin-scaffold-check.php)
+      mark create_app
+      ;;
     scaffold/*|scripts/create-app|scripts/build-application-template-inventory|scripts/build-scaffold-release)
       mark server web platform pc uniapp create_app docs integration
       ;;
