@@ -250,7 +250,10 @@ final class CoreTenantModuleAdminBridge
         if ($tenantId < 1 || $permission === '') {
             return false;
         }
-        if (!in_array($permission, $this->entitlements->permissionKeys($tenantId), true)) {
+        $read = TenantAuthService::authenticatedRead();
+        $projection = $read !== null && $read['context']->tenantId === $tenantId
+            ? $this->entitlements->permissionProjection($tenantId) : null;
+        if (!in_array($permission, $projection['permissions'] ?? $this->entitlements->permissionKeys($tenantId), true)) {
             return false;
         }
         $state = $this->identityAuthorization->permissionStates([$permission])[$permission] ?? null;
@@ -267,7 +270,10 @@ final class CoreTenantModuleAdminBridge
         if (!is_string($owner) || $owner === '') {
             return false;
         }
-        if (!in_array($owner, $this->entitlements->moduleKeys($tenantId), true)) {
+        // An inactive license projects no modules; moduleKeys still includes installed foundations.
+        $modules = ($projection['modules'] ?? []) !== []
+            ? $projection['modules'] : $this->entitlements->moduleKeys($tenantId);
+        if (!in_array($owner, $modules, true)) {
             return false;
         }
         $this->moduleGovernance->registry()->requireInstalled($owner, false);

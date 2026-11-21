@@ -5,8 +5,10 @@
     size="60%"
     @update:model-value="$emit('update:modelValue', $event)"
   >
-    <div class="detail-actions"><el-button @click="print">打印</el-button></div>
-    <div ref="content">
+    <div class="detail-actions">
+      <el-button @click="previewVisible = true">打印</el-button>
+    </div>
+    <div>
       <slot />
       <el-table v-if="changes.length" :data="changes">
         <el-table-column prop="field" label="字段" />
@@ -16,11 +18,20 @@
       <slot name="diff" />
     </div>
   </el-drawer>
+  <PrintPreview v-if="previewVisible" v-model="previewVisible">
+    <slot />
+    <el-table v-if="changes.length" :data="changes">
+      <el-table-column prop="field" label="字段" />
+      <el-table-column prop="before" label="修改前" />
+      <el-table-column prop="after" label="修改后" />
+    </el-table>
+    <slot name="diff" />
+  </PrintPreview>
 </template>
 
 <script setup lang="ts">
-  import { computed, ref } from 'vue';
-  import printContent from './printContent';
+  import { computed, ref, watch } from 'vue';
+  import PrintPreview from './PrintPreview.vue';
 
   const props = defineProps<{
     modelValue: boolean;
@@ -45,10 +56,10 @@
       .filter((item) => item.before !== item.after);
   });
   defineEmits<{ (event: 'update:modelValue', value: boolean): void }>();
-  const content = ref<HTMLElement>();
-  const print = () => {
-    if (content.value) printContent(content.value);
-  };
+  const previewVisible = ref(false);
+  watch(() => props.modelValue, (visible) => {
+    if (!visible) previewVisible.value = false;
+  });
 </script>
 
 <style scoped>

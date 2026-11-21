@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.6",
+    "template_version": "5.1.18-rc.7",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -6415,7 +6415,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "32b0dfdcb9c7ab55bca931fd46b4d5de501c00bea1a5dcaccdc66b36e0c5d950"
+            "source_sha256": "dfa2e19c8f7e5437f192f8af382711aaffaf601ac98671363537f84451eabd6d"
         },
         {
             "path": "server/app/common/infrastructure/concurrency/ThinkCacheLimiterStorage.php",
@@ -11050,7 +11050,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bde34a506d5f929f7d12c26bbe3a87638549ef21f5899a1429db5b2426889940"
+            "source_sha256": "184cb522cab4b1bd685126ef38ef620619464d091cb7077aa2721e628a061f19"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11064,7 +11064,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b4c7161a57d0632c6cf5342f59756896275cd5b8b22353755488bc373f5c0aba"
+            "source_sha256": "3c322ff066b8da0bf751524e93a15a8cc257b2700a4349ef820f6c59b1f91148"
         },
         {
             "path": "server/module",
@@ -16766,7 +16766,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "27ff637facbf59e1e5a634874ea798cd7fb3ac4a448be515324dd5fc0d5e9f94"
+            "source_sha256": "68cda30696c7b31088d6c275a99b7384043883369e770441fca6cf818ced39d7"
         },
         {
             "path": "web/src/components/crud/CrudImportExport.vue",
@@ -16808,7 +16808,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9c811b4565dc6dae13f47ca0c93e767a9192a5dc2c9a60fa90c69fda2c805faa"
+            "source_sha256": "f3aeeaa5bea9c25c381a45b66102497136b371e53f2b95cc707e7d3874bfdb16"
         },
         {
             "path": "web/src/components/crud/DeptTreeSelect.vue",

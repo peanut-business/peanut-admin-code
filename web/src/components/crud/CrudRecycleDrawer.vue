@@ -13,6 +13,14 @@
             @click="restore(row)"
             >恢复</el-button
           >
+          <el-button
+            v-if="canPurge"
+            link
+            type="danger"
+            :disabled="loading"
+            @click="purge(row)"
+            >永久删除</el-button
+          >
         </template>
       </el-table-column>
     </el-table>
@@ -29,12 +37,15 @@
 
 <script setup lang="ts" generic="TRow extends object">
   import { ref, shallowRef, watch } from 'vue';
+  import { ElMessageBox } from 'element-plus';
   import useCrudTab from '@/hooks/useCrudTab';
 
   const props = defineProps<{
     modelValue: boolean;
     canList: boolean;
     canRestore: boolean;
+    canPurge?: boolean;
+    purge?: (row: TRow, signal: AbortSignal) => Promise<unknown>;
     list: (
       page: number,
       pageSize: number,
@@ -45,6 +56,7 @@
   const emit = defineEmits<{
     (event: 'update:modelValue', value: boolean): void;
     (event: 'restored'): void;
+    (event: 'purged'): void;
   }>();
   const visible = ref(props.modelValue);
   const rows = shallowRef<TRow[]>([]);
@@ -105,6 +117,50 @@
       }
     });
   };
+  const purge = async (row: TRow) => {
+    if (
+      !props.canPurge ||
+      !props.purge ||
+      !props.canList ||
+      !visible.value ||
+      !current.value ||
+      loading.value
+    )
+      return;
+    try {
+      await ElMessageBox.confirm(
+        '永久删除后无法恢复，确定删除这条记录吗？',
+        '确认永久删除',
+        {
+          type: 'warning',
+          confirmButtonText: '永久删除',
+          cancelButtonText: '取消',
+        }
+      );
+    } catch {
+      return;
+    }
+    if (
+      !props.canPurge ||
+      !props.purge ||
+      !props.canList ||
+      !visible.value ||
+      !current.value ||
+      loading.value
+    )
+      return;
+    const purgeAction = props.purge;
+    run(async (signal) => {
+      await purgeAction(row, signal);
+      if (signal.aborted) return;
+      emit('purged');
+      const result = await props.list(page.value, pageSize, signal);
+      if (!signal.aborted) {
+        rows.value = result.items;
+        total.value = result.total;
+      }
+    });
+  };
   watch(
     () => props.modelValue,
     (value) => {
@@ -115,6 +171,12 @@
   );
   watch(
     () => props.canRestore,
+    (allowed) => {
+      if (!allowed) cancel();
+    }
+  );
+  watch(
+    () => props.canPurge,
     (allowed) => {
       if (!allowed) cancel();
     }
