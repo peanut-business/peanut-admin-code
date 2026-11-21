@@ -207,6 +207,9 @@ classify() {
     server/tests/Support/IdentityMysqlFixture.php|server/tests/Support/RegisteredMysqlTestResource.php|scripts/tests/run-registered-mysql-tests|resources/project-resources.json|scripts/project-resource-registry)
       mark server integration
       ;;
+    server/phpstan/*|server/phpstan.neon|scripts/phpstan-tenant-guard)
+      mark server
+      ;;
     server/tests/*|server/app/*|server/config/*|server/database/*|server/bootstrap/*|server/public/*|server/think|scripts/run-php-test|scripts/check-admin-api-permissions.php|scripts/check-test-integrity|scripts/check-thinkphp-architecture)
       mark server
       ;;

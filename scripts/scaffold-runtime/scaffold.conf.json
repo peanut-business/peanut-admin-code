@@ -237,6 +237,8 @@
         "scripts/package-scaffold-template.py",
         "scripts/check-test-integrity",
         "scripts/check-release-consistency",
+        "scripts/check-shared-host",
+        "scripts/shared-host-files.txt",
         "scripts/generate-release-legal.mjs",
         "scripts/publish-github-release",
         "scripts/release-template-artifacts.mjs",

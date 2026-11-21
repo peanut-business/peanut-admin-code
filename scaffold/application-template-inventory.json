@@ -1911,7 +1911,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0529998c5f8a1a90844d4b274ca28a2a1ea901f0146337e115e425230605e058"
+            "source_sha256": "336abcccb150b0130c191bd5fe0d84c44d0e934a2eb170eadaa3f7a2df5d0555"
         },
         {
             "path": "platform/src/core/presentation.ts",
@@ -1939,7 +1939,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e55d7ce3827b0575576cf892dbfca3a7cef879ea4c856cb6a9009a60fbdec277"
+            "source_sha256": "7720ec2e08ac0d3419c1cee016bd048819f5e344c0055f6068ea375c32edb9e1"
         },
         {
             "path": "platform/src/core/session-storage.ts",
@@ -1953,7 +1953,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4fd8d45024207114d2949f090c7832cf5d4d3e0396732cbca45730b30630c7fa"
+            "source_sha256": "481cca91d01a96d0653bafa40ea4b12f412888dc38afa532e38ecfd377ee6ee7"
         },
         {
             "path": "platform/src/core/session-sync.ts",
@@ -1967,7 +1967,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "56732e56aae2974419301db08b19e3df3d115ba97493527696f238cd93847b27"
+            "source_sha256": "5065820a28a1596f43e157c9ca324b16ec7b03155d6edb9b0bda0bcdcb0e6992"
         },
         {
             "path": "platform/src/main.ts",
@@ -2065,7 +2065,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "07f5bd169edbbb4d4a24ec4ca2b9a3b330e1f8259ecf940b7d1a43fca943221c"
+            "source_sha256": "93757269b39b931ad41156786e2be204132fd5696c1d19a05ff2e792240de2e0"
         },
         {
             "path": "platform/vite.config.ts",
@@ -2301,16 +2301,15 @@
         {
             "path": "scripts/check-shared-host",
             "target": "scripts/check-shared-host",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "7b08c03fbd0be73d7b8acd07df4fb717f58405b82b3fac64025ec2667886d2a7"
+            ]
         },
         {
             "path": "scripts/check-source-layout.php",
@@ -3027,7 +3026,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "14501a7eaf59be6badca53dd23d4828b7e3fa77851b950682da310bfde1fa626"
+            "source_sha256": "c04a01aafe2a975f0c0f8454ff9aeca28db1ddc35cfd7cd863c462b954fbfe2e"
         },
         {
             "path": "scripts/scaffold-upgrade",
@@ -3060,16 +3059,15 @@
         {
             "path": "scripts/shared-host-files.txt",
             "target": "scripts/shared-host-files.txt",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "a8277e25dfc1484d89c65c9285c233d2994e32990243e1ec04b77d9a55812b62"
+            ]
         },
         {
             "path": "scripts/sync-brand-assets.mjs",
@@ -18362,7 +18360,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0529998c5f8a1a90844d4b274ca28a2a1ea901f0146337e115e425230605e058"
+            "source_sha256": "336abcccb150b0130c191bd5fe0d84c44d0e934a2eb170eadaa3f7a2df5d0555"
         },
         {
             "path": "web/src/utils/request-trace.ts",
@@ -18376,7 +18374,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e55d7ce3827b0575576cf892dbfca3a7cef879ea4c856cb6a9009a60fbdec277"
+            "source_sha256": "7720ec2e08ac0d3419c1cee016bd048819f5e344c0055f6068ea375c32edb9e1"
         },
         {
             "path": "web/src/utils/route-listener.ts",
@@ -18404,7 +18402,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4fd8d45024207114d2949f090c7832cf5d4d3e0396732cbca45730b30630c7fa"
+            "source_sha256": "481cca91d01a96d0653bafa40ea4b12f412888dc38afa532e38ecfd377ee6ee7"
         },
         {
             "path": "web/src/utils/session-sync.ts",
@@ -18418,7 +18416,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "56732e56aae2974419301db08b19e3df3d115ba97493527696f238cd93847b27"
+            "source_sha256": "5065820a28a1596f43e157c9ca324b16ec7b03155d6edb9b0bda0bcdcb0e6992"
         },
         {
             "path": "web/src/views/app-setting/hot-search/index.vue",
@@ -19356,7 +19354,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "07e2db438b92782b9ca77af59fbe167faaca8e098965f256a5af6a22ba41a7c8"
+            "source_sha256": "afd728a567fcb7727ba55656ff0d194bd79f9f303c668089f7c2f929d81c22ea"
         },
         {
             "path": "web/tests/Productization/department-parent-options.test.ts",
@@ -19523,7 +19521,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "de4aa9c4acb4f677f336c5d7146df43435def70b52a7c20bb538cc7d1288a394"
+            "source_sha256": "8bbfd991fe2879716fc6932755a97e60f579f88e3bf1ae8409d5f2b8ff5738a7"
         },
         {
             "path": "web/tests/Productization/vite-allowed-hosts.test.mjs",

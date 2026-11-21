@@ -180,7 +180,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3.24'
-          tools: composer:2.10.2
+          tools: composer:2.10.2, phpstan:2.3.7
           coverage: none
 
       - name: Set up pnpm
@@ -239,6 +239,9 @@ jobs:
         run: |
           ../scripts/project-composer prepare
           ../scripts/project-composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Check tenant query rules
+        run: ./scripts/phpstan-tenant-guard
 
       - name: Install locked UniApp generator dependencies
         working-directory: uniapp
