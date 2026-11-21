@@ -1,0 +1,16 @@
+includes:
+    - phpstan-baseline.neon
+
+parameters:
+    level: 5
+    scanFiles:
+        - phpstan/stubs/optional-module-contracts.php
+    paths:
+        - app
+    reportUnmatchedIgnoredErrors: false
+
+services:
+    -
+        class: PeanutAdmin\PHPStan\Rules\TenantRawQueryRule
+        tags:
+            - phpstan.rules.rule
