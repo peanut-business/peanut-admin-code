@@ -480,16 +480,15 @@
         {
             "path": "deploy/legacy-env-migrate",
             "target": "deploy/legacy-env-migrate",
-            "classification": "managed",
-            "owner": "scaffold",
+            "classification": "excluded",
+            "owner": "template-source-only",
             "transform": "copy",
             "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "73670b1d912c8134c93f50769678b4e825580aa5a40d68ebe4b3a3b3cccd21b8"
+            ]
         },
         {
             "path": "deploy/local-stack.env.example",
@@ -570,7 +569,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ebcb77baf1edc367c6484f91b3005c0a717ded74dc1539cb4ff083567dfd67ab"
+            "source_sha256": "feec521a4a35e4f1f7d61089de5ab44c15b3405e3bc9b01058aa62f64f46faa4"
         },
         {
             "path": "docs/architecture/cli-and-recipes.md",
@@ -738,7 +737,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "04e7b380456bbc8669865c787dda0df622d18eaf27616a9221ab387e3db74cbf"
+            "source_sha256": "aafbbe0cebecafb15255ea1f5896978f68c05c56368e2f76a8a7cc2f05ac3db5"
         },
         {
             "path": "docs/architecture/service-bindings.md",
@@ -849,7 +848,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9013debdb1b421ffd34af15ceeff3321966a12ab2a4a327f2154c1a25e36df7d"
+            "source_sha256": "b23bb51749b8aa5ec820e2b0ec2bec483fd25ca724371578deefd5a3600e83e9"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -933,7 +932,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3bfa277f0b94c15701f96cf7c569636533822f07dc8bd96c50dd97987998d17c"
+            "source_sha256": "1e62336a242c24efc46bece0794f7cc6446d99e99989d2e603a087095f860179"
         },
         {
             "path": "docs/development/ui-guidelines.md",
@@ -3026,7 +3025,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c04a01aafe2a975f0c0f8454ff9aeca28db1ddc35cfd7cd863c462b954fbfe2e"
+            "source_sha256": "02fd403dd7db69f8a8b85834572b8ce2df4899b18612cc2355521f1a39a7efce"
         },
         {
             "path": "scripts/scaffold-upgrade",
@@ -7520,7 +7519,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c4477250b50c9253e7c95e20f52b31d97b5cf684687ce23a38e9c5687d55e853"
+            "source_sha256": "ac74f8a786038314f495da6c9f58185efc4a94b7260bddc83d52b735c2b9ffd8"
         },
         {
             "path": "server/app/common/services/authorization/EndpointPermissionGrant.php",
@@ -8697,7 +8696,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b7a0d0eebc57a6dd6d4c20462a2a2a476f7058c6140d35f3cc60b908dc81c65d"
+            "source_sha256": "46e4f80a1d0c2d533dded1de8b3bd16751406fffdf933e6b41f36606205c622b"
         },
         {
             "path": "server/app/platform/infrastructure/module/ModuleCatalogApplier.php",
@@ -8739,7 +8738,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "08a52ef7b8ef9dcb4ee203f894044e205f93b47b48d54d88004d94e52c2968e0"
+            "source_sha256": "623fcf61d5ccebe16dba20f3a43eb08b583baf7f0060fd6c323a5b17a7a4c1cd"
         },
         {
             "path": "server/app/platform/infrastructure/module/ModulePackageInstaller.php",

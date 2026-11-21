@@ -28,6 +28,6 @@
 
 模块 `backend.seeds` 使用既有 canonical `database/seeds` 目录和 ThinkPHP 原生 Seeder。沿官方全局类名合同，Seeder 使用含模块前缀的唯一 PascalCase 类名。正式安装在结构确认后、目录登记和激活前执行；已激活的模块、升级和目录重同步不会重跑初始种子。不新增 seed 账本；失败发生在种子提交后时，沿原失败安装入口恢复，模块种子必须幂等且保留现有值，不能清业务数据或覆盖实例配置。后续必要数据变化仍新增原生 Migration，不靠重跑初始种子升级。Task 的定时计划初始为空；Host `generator:cleanup` 未登记为租户定时执行命令，不自动预置其计划。种子只提供该模块自有的必需中性默认，不创建租户、成员、角色授权、许可证或样例业务。
 
-旧数据库 baseline 清单、kernel-migrations、覆盖版本账本、schema:application 和历史 partial continuation 已删除。保留旧现场及冻结证据不代表现行程序能续跑它们，也不授权清空数据。源码升级三方 baseline、安装身份和业务幂等是独立合同，继续保留。
+迁移历史以原生账本为准。源码升级三方 baseline、安装身份和业务幂等各自独立。符合特定初装失败条件的既有开发实例使用[冻结安装现场恢复](retained-installation-recovery.md)。
 
 本次静态/入口检查不能证明真实 MySQL 安装、回滚或生产更新通过；实际运行、测试和发行资格按各自授权记录。

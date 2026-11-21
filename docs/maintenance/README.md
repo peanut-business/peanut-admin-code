@@ -4,6 +4,8 @@
 
 - [发行生产者与既有包技术合同](release-producers.md)：模板、固定Core、冻结候选和产品Git交付边界；不作为产品Git交付的额外日常步骤。
 - [迁移协议](migration-protocols.md)：官方迁移、种子、动态安装身份及模块结构交付。
+- [环境转换工具](release-producers.md#数据库维护输入)：旧环境转换由源码仓保留的 `deploy/legacy-env-migrate` 提供，新应用使用现行环境示例。
+- [冻结安装现场恢复](retained-installation-recovery.md)和[本地身份凭据维护](identity-credentials.md)。
 - [Core发行](../development/core-release.md)：维护者说明，不随APP交付。
 
 内部需求取舍、执行计划、实际资源和历史回执归维护者Project；公众不需该仓即可开发、安装和升级APP。普通使用从docs/public/README.md进入，尚未实现的目标不能写成现有能力。
