@@ -184,7 +184,7 @@ classify() {
       mark server create_app integration
       ;;
     web/package.json|web/pnpm-lock.yaml)
-      mark web create_app
+      mark server web create_app
       ;;
     platform/package.json|platform/package-lock.json)
       mark platform create_app

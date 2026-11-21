@@ -612,7 +612,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "70c6196ad77e3cf607b3beadffc0e6b75eeb9343bd69b2d0b6c9be27b4d5e0dc"
+            "source_sha256": "2f41e0bae0dd728e00449da5491026f682e64e1bb983842d5b4fc3aea09a45d5"
         },
         {
             "path": "docs/architecture/default-delivery-and-ownership.md",
@@ -668,7 +668,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eb13ccbe4011179a504bbca8607f5f6b2751b6a71201b7f7301894e334695183"
+            "source_sha256": "0bd0a16a8542aac20af9acaa953658a514feb9a9fc5e3d530cbdc1510bb3664d"
         },
         {
             "path": "docs/architecture/framework-extension-and-lifecycle.md",
@@ -891,7 +891,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "387b8f62f8730676e53d3339b3008407a8f252280ba75154bdfbc1de639df883"
+            "source_sha256": "bea18df4bf36d8cf3a19a73e8dc4a03425597a605fcc6b7e82ecce84bff49fdc"
         },
         {
             "path": "docs/development/project-toolchain.md",
@@ -1054,7 +1054,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1a33439f38b5c2e951a6c3ad33eebd716dd6fb58ce8e5ff8bf2e0eaf31fd45c2"
+            "source_sha256": "b1e7e40cc02d2569f326f59c152277a62390188fc37f06bc07b0391ef7c9db0e"
         },
         {
             "path": "docs/public/application-release.md",
@@ -1942,6 +1942,34 @@
             "source_sha256": "42ceb8be16d88cc1a60649080538da43beac468d54164744fe49977d996ac7e4"
         },
         {
+            "path": "platform/src/stubs/modules/peanut-ops/contribution.d.ts",
+            "target": "platform/src/stubs/modules/peanut-ops/contribution.d.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ce3ce8355a9a1b4b4f3546ea31919b39ed42ba7502d22637ff97e43d2ad7fde1"
+        },
+        {
+            "path": "platform/src/stubs/modules/peanut-ops/runtime/src/runtime.d.ts",
+            "target": "platform/src/stubs/modules/peanut-ops/runtime/src/runtime.d.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "033701dbc25c3274923b3b02b8e6f0db00255ff722c1ba94871e5c73acbe633e"
+        },
+        {
             "path": "platform/src/style.css",
             "target": "platform/src/style.css",
             "classification": "managed",
@@ -1981,7 +2009,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c58a716308068801b429f5a3f78b10eff4be83f6bea6520e275d3f9f03f22aa7"
+            "source_sha256": "07f5bd169edbbb4d4a24ec4ca2b9a3b330e1f8259ecf940b7d1a43fca943221c"
         },
         {
             "path": "platform/vite.config.ts",
@@ -1995,7 +2023,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d764cc30aded7b90978849ddb25aecea7dffe3e9715db693e0c33549dd01df04"
+            "source_sha256": "a0e773f07aab319b4dc8c108808b7cdb1a06f071b2464ac734e71ea777cb64db"
         },
         {
             "path": "release-versions.json",
@@ -2186,7 +2214,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c8e9ca3623382664ea808b84245303c68a87144324801cda098f6e12b26b4318"
+            "source_sha256": "0a096fc1d91a2d671cbe0c244a658fedb981f10c7d428761a016b6682e3e87fe"
         },
         {
             "path": "scripts/check-public-docs",
@@ -2441,6 +2469,20 @@
             ]
         },
         {
+            "path": "scripts/frontend-check",
+            "target": "scripts/frontend-check",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "5ff4c795266dc139dc8f9c05ec72da72eddc41f71efa57de96759fbbf91b4cea"
+        },
+        {
             "path": "scripts/generate-api-contracts.php",
             "target": "scripts/generate-api-contracts.php",
             "classification": "managed",
@@ -2588,6 +2630,20 @@
                 "standard",
                 "full"
             ]
+        },
+        {
+            "path": "scripts/phpstan-tenant-guard",
+            "target": "scripts/phpstan-tenant-guard",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "512dfd9a088e1c12d4632c26c9ae7e7e6afb77a46e448358ad1b66c038c2dfd6"
         },
         {
             "path": "scripts/prepare-product-release-candidate",
@@ -4229,7 +4285,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9e3f3e10dfbef170211445bb37f4d079acabf3a97adb77ad0eb8894ab9c30986"
+            "source_sha256": "4b5f089b9aa8855a93d546c5ade1938558ba17c9234ca9d384688e96c97a6374"
         },
         {
             "path": "server/app/adminapi/middleware.php",
@@ -7186,7 +7242,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e9a479d07aa946198c87426a84f20c50afc86770d9dcbb5645ec7c21003864f5"
+            "source_sha256": "2c5b6d529fb072dc4ffd26ffc84ce3ab67f9a269c9fadf441ff41c1a2f0d3156"
         },
         {
             "path": "server/app/common/services/AbstractTreeCrudService.php",
@@ -7326,7 +7382,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7fcb05e51d5dde421719ffb21977722783f506c75799851063e48e2dfcf461ca"
+            "source_sha256": "7a64655f645bfe408f4a2652aad62405f64f6e092fbfe0b28104438542572472"
         },
         {
             "path": "server/app/common/services/authorization/AdminAuthorizationService.php",
@@ -11081,6 +11137,48 @@
             "source_sha256": "c93bf8bf54f2ea49e63d00df97ef0465569116a0a9d61578abdcbd0e3824acb2"
         },
         {
+            "path": "server/phpstan.neon",
+            "target": "server/phpstan.neon",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "842b62c3ea03e73cd147fe647f64647bddf1bb3603447220e3c77c34e5c186d2"
+        },
+        {
+            "path": "server/phpstan/Rules/TenantRawQueryRule.php",
+            "target": "server/phpstan/Rules/TenantRawQueryRule.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "12a496941b83b879f87bf2d3e750a658e12fbde2db7d0fb86e73c21067f40b08"
+        },
+        {
+            "path": "server/phpstan/bootstrap.php",
+            "target": "server/phpstan/bootstrap.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "5d07637fb26a869030237b7310139a4b5136887426cf3389448c39f16eedc927"
+        },
+        {
             "path": "server/public/.htaccess",
             "target": "server/public/.htaccess",
             "classification": "managed",
@@ -13720,6 +13818,19 @@
         {
             "path": "server/tests/Unit/ControllerUseCasesAuthorizationTest.php",
             "target": "server/tests/Unit/ControllerUseCasesAuthorizationTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/CrudFieldAuditTest.php",
+            "target": "server/tests/Unit/CrudFieldAuditTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -16766,7 +16877,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "68cda30696c7b31088d6c275a99b7384043883369e770441fca6cf818ced39d7"
+            "source_sha256": "393dc561cd6344368f9dad5a06c22fd8ecc516dc940afc670b75d015811312d7"
         },
         {
             "path": "web/src/components/crud/CrudImportExport.vue",
@@ -16794,7 +16905,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b47c3cb53bcb88ddda64a52da2052c255c83d5d3a7d659350ca20d5c4eec30e9"
+            "source_sha256": "7c3b93ef41f8b54859193d815ecdae05bba3c708bba39ab13c891a5502394a5d"
         },
         {
             "path": "web/src/components/crud/CrudRecycleDrawer.vue",
@@ -16906,7 +17017,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "564abe281f2fc5899efdbdf20af6f2822337607b762c7b234968054de09c7ccf"
+            "source_sha256": "3ef59be8bca9b84ee7d8221aa7f0de531be6f0fe8f67ec8c63b6a329e5280937"
         },
         {
             "path": "web/src/components/crud/RemoteSelect.vue",
@@ -16948,7 +17059,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ebfefedde8db92faec7703b8f275e9f0f33ecc39574097a79f7595200d24677a"
+            "source_sha256": "779c989a56c8f047a33423a1d52b134eb03299a3d044e0daef9e53ae8467c21c"
         },
         {
             "path": "web/src/components/crud/UserPicker.vue",
@@ -16976,7 +17087,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "23257f33ac2147aa06e3cf5c310eeffe683bfaf6de8b5b04b33a8ab5c8ad1e8a"
+            "source_sha256": "b88586ce30517bfb49750d3a585e64eec3e664cd67e86a5569eb60b6f9c7ee49"
         },
         {
             "path": "web/src/components/file-picker/index.vue",

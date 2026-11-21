@@ -135,7 +135,6 @@
       "current_implementation": [
         "server/app/common/services/authorization/AdminAuthorizationService.php",
         "server/app/common/infrastructure/authorization/CoreTenantModuleAdminBridge.php",
-        "server/app/common/runtime/authorization/RoleAdministrationRuntime.php",
         "server/app/common/services/org/AdminDirectoryQuery.php",
         "server/app/adminapi/services/auth/MenuApplicationService.php"
       ],
@@ -219,7 +218,6 @@
         "把系统参考码改成 Tenant 可写数据"
       ],
       "current_implementation": [
-        "server/app/common/runtime/dict/DictionaryRuntime.php",
         "server/app/common/infrastructure/dict/ThinkPhpTenantDictionaryProvider.php",
         "server/app/common/infrastructure/dict/ThinkPhpSystemDictionaryProvider.php"
       ],

@@ -248,6 +248,9 @@ jobs:
         working-directory: web
         run: pnpm install --frozen-lockfile --ignore-scripts --package-import-method=copy
 
+      - name: Reject OpenAPI and TypeScript contract drift
+        run: ./scripts/check-openapi
+
       - &prepare-module-consumer
         name: Prepare the selected native Module consumer
         shell: bash
