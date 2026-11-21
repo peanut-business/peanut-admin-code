@@ -29,6 +29,9 @@ final class IdentityAuditProjectionTest extends TestCase
 
     protected function setUp(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\Audit\AuditService::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $temporaryRoot = $root . '/.local/tmp/identity-audit-projection-tests';
         if (!is_dir($temporaryRoot) && !mkdir($temporaryRoot, 0700, true) && !is_dir($temporaryRoot)) {

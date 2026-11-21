@@ -17,6 +17,9 @@ final class TaskJobJsonHydrationTest extends TestCase
 
     protected function setUp(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Task\Job\Persistence\TaskJobStore::class)) {
+            self::markTestSkipped('Requires official module Task.');
+        }
         $reflection = new ReflectionClass(TaskJobStore::class);
         $this->store = $reflection->newInstanceWithoutConstructor();
         $this->payload = $reflection->getMethod('payload');

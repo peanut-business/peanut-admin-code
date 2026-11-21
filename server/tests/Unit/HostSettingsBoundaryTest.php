@@ -42,6 +42,9 @@ final class HostSettingsBoundaryTest extends TestCase
 
     public function testNativeContainerUsesTheSelectedPublicImplementation(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Settings\ModuleProvider::class)) {
+            self::markTestSkipped('Requires official module Settings.');
+        }
         $bindings = (new ModuleProvider())->bindings();
         self::assertSame(TenantApplicationSettingService::class, $bindings[TenantApplicationSettings::class]);
         $settings = $this->createStub(TenantApplicationSettings::class);
@@ -60,6 +63,9 @@ final class HostSettingsBoundaryTest extends TestCase
 
     public function testLoginSettingsPreserveReadAndWritePayloads(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Settings\Contract\TenantApplicationSettings::class)) {
+            self::markTestSkipped('Requires official module Settings.');
+        }
         $context = $this->tenant();
         $settings = $this->createMock(TenantApplicationSettings::class);
         $settings->expects(self::once())->method('login')->with($context)->willReturn([
@@ -79,6 +85,9 @@ final class HostSettingsBoundaryTest extends TestCase
 
     public function testPublicSettingsFailureIsNotSwallowed(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Settings\Contract\TenantApplicationSettings::class)) {
+            self::markTestSkipped('Requires official module Settings.');
+        }
         $settings = $this->createMock(TenantApplicationSettings::class);
         $settings->expects(self::once())->method('replaceStatistics')->with($this->tenant(), ['clarity_code' => 'fixture'])->willThrowException(new DomainException('SETTING_PERMISSION_DENIED'));
         $this->expectException(DomainException::class);

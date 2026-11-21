@@ -43,6 +43,9 @@ final class PlatformDirectoryBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\Contract\PlatformDirectoryQueries::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $parent = $root . '/.local/tmp/platform-directory-tests';
         if (!is_dir($parent) && !mkdir($parent, 0700, true) && !is_dir($parent)) {

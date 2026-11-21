@@ -17,6 +17,9 @@ final class FileTaskInputBoundaryTest extends TestCase
     #[\PHPUnit\Framework\Attributes\PreserveGlobalState(false)]
     public function testStableReferencesRejectUnavailableObjectsAsInvalidInput(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\File\Service\Storage\StorageService::class)) {
+            self::markTestSkipped('Requires official module File.');
+        }
         $app = new \think\App();
         $database = new \PDO('sqlite::memory:', null, null, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]);
         \ThinkPhpTestConnection::fromPdo($database);
@@ -60,6 +63,9 @@ final class FileTaskInputBoundaryTest extends TestCase
 
     public function testMaterialIdsPreserveValidIdentifiersAndRejectCoercion(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\File\Service\FileAdministrationService::class)) {
+            self::markTestSkipped('Requires official module File.');
+        }
         $type = new ReflectionClass(FileAdministrationService::class);
         $service = $type->newInstanceWithoutConstructor();
         $normalize = $type->getMethod('normalizeIds');
@@ -76,6 +82,9 @@ final class FileTaskInputBoundaryTest extends TestCase
 
     public function testSchedulesOnlyAcceptCommandsThatTheWorkerCanExecute(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Task\Validation\CrontabValidate::class)) {
+            self::markTestSkipped('Requires official module Task.');
+        }
         $commands = new CrontabCommandService(
             ['refund:reconcile' => \stdClass::class, 'module:compile' => \stdClass::class],
             ['refund:reconcile' => 'peanut.payment'],
@@ -106,6 +115,9 @@ final class FileTaskInputBoundaryTest extends TestCase
     #[\PHPUnit\Framework\Attributes\PreserveGlobalState(false)]
     public function testScheduledCommandExitCodeIsNotDiscarded(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $app = new \think\App();
         $config = new \think\Config();
         $config->set(['signing_key' => str_repeat('x', 32)], 'async');

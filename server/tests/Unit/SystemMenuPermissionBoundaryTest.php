@@ -40,6 +40,9 @@ final class SystemMenuPermissionBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
+        if (!interface_exists(TenantMemberDirectory::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $temporary = $root . '/.local/tmp/system-menu-permission-tests';
         if (!is_dir($temporary) && !mkdir($temporary, 0700, true) && !is_dir($temporary)) {
@@ -53,8 +56,7 @@ final class SystemMenuPermissionBoundaryTest extends TestCase
         $this->database->sqliteCreateFunction('UTC_TIMESTAMP', static fn(int $precision): string => '2031-01-01 00:00:00.000', 1);
         $this->database->exec(<<<'SQL'
             CREATE TABLE pa_permission (id INTEGER PRIMARY KEY, "key" TEXT COLLATE NOCASE UNIQUE, module_key TEXT, status TEXT);
-            CREATE TABLE pa_system_menu (id INTEGER PRIMARY KEY, perms TEXT, is_disable INTEGER, menu_key TEXT);
-            CREATE TABLE pa_system_menu (id INTEGER PRIMARY KEY, "key" TEXT, scope TEXT, sort_order INTEGER, required_permission_id INTEGER);
+            CREATE TABLE pa_system_menu (id INTEGER PRIMARY KEY, perms TEXT, is_disable INTEGER, menu_key TEXT, "key" TEXT, scope TEXT, sort_order INTEGER, required_permission_id INTEGER);
             CREATE TABLE pa_tenant_module (tenant_id INTEGER, module_key TEXT, status TEXT, effective_at TEXT, expires_at TEXT);
             CREATE TABLE pa_plan (id INTEGER PRIMARY KEY, code TEXT, name TEXT, revision INTEGER);
             CREATE TABLE pa_tenant_license (id INTEGER PRIMARY KEY, tenant_id INTEGER, plan_id INTEGER, status TEXT, effective_at TEXT, expires_at TEXT, revision INTEGER);

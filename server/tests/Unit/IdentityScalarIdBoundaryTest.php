@@ -42,10 +42,9 @@ final class IdentityScalarIdBoundaryTest extends TestCase
 
     private function call(string $type,string $action,array $params): void
     {
-        $controller = (new ReflectionClass($type))->newInstanceWithoutConstructor();
-        $request = (new think\Request())->withGet($params)->withPost($params);
-        (new ReflectionProperty(app\BaseController::class,'app'))->setValue($controller,$this->app);
-        (new ReflectionProperty(app\BaseController::class,'request'))->setValue($controller,$request);
+        $dependency = $type === RoleController::class ? RoleApplicationService::class : DeptApplicationService::class;
+        $this->app->instance(think\Request::class, (new think\Request())->withGet($params)->withPost($params));
+        $controller = new $type($this->app, $this->app->make($dependency));
         $this->contexts->run(new AdminExecutionContext($this->actor,'identity.scalar.test',[
             'id'=>601,'tenant_id'=>101,'account_id'=>501,'authorization_revision'=>1,
         ]),fn()=>$controller->$action());

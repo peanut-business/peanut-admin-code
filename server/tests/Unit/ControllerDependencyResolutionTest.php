@@ -6,7 +6,6 @@ namespace tests\Unit\ControllerDependencyResolution;
 
 require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/topthink/framework/src/helper.php';
 
-use app\BaseController;
 use app\common\execution\AdminExecutionContext;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
@@ -21,7 +20,7 @@ use think\App;
 use think\Container;
 use think\Request;
 
-/** 真实 CrudTrait Controller 的 xxClass 只读属性与当前 App 绑定回归；不连接数据库。 */
+/** 真实 CrudTrait Controller 的构造注入与当前 App 绑定回归；不连接数据库。 */
 final class ControllerDependencyResolutionTest extends TestCase
 {
     private Container $previousContainer;
@@ -47,6 +46,9 @@ final class ControllerDependencyResolutionTest extends TestCase
 
     public function testRealCrudControllerUsesTheCurrentAppsReplaceableServiceBinding(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\ReferenceCodes\Service\DictTypeApplicationService::class)) {
+            self::markTestSkipped('Requires official module ReferenceCodes.');
+        }
         $first = $this->createMock(DictTypeApplicationService::class);
         $first->expects(self::once())->method('lists')->with(
             self::isInstanceOf(TenantContext::class),
@@ -63,23 +65,14 @@ final class ControllerDependencyResolutionTest extends TestCase
         );
         $this->app->instance(DictTypeApplicationService::class, $first);
 
-        $constructor = (new \ReflectionClass(DictTypeController::class))->getConstructor();
-        self::assertSame(BaseController::class, $constructor?->getDeclaringClass()->getName());
-        self::assertSame([App::class], array_map(
-            static fn(\ReflectionParameter $parameter): ?string => $parameter->getType()?->getName(),
-            $constructor?->getParameters() ?? [],
-        ));
-        $declaration = (new \ReflectionClass(DictTypeController::class))->getProperty('dictionaryTypesClass');
-        self::assertTrue($declaration->isProtected());
-        self::assertFalse($declaration->isStatic());
-        self::assertSame('string', $declaration->getType()?->getName());
-        self::assertSame(DictTypeApplicationService::class, $declaration->getDefaultValue());
+        $declaration = new \ReflectionProperty(DictTypeController::class, 'dictionaryTypes');
+        self::assertTrue($declaration->isReadOnly());
+        self::assertSame(DictTypeApplicationService::class, $declaration->getType()?->getName());
 
         $responses = $this->contexts->run($this->adminContext(), function () use ($second): array {
-            $controller = new DictTypeController($this->app);
-            $firstResponse = $controller->lists();
+            $firstResponse = $this->app->make(DictTypeController::class, [], true)->lists();
             $this->app->instance(DictTypeApplicationService::class, $second);
-            $secondResponse = $controller->lists();
+            $secondResponse = $this->app->make(DictTypeController::class, [], true)->lists();
             return [$firstResponse->getData(), $secondResponse->getData()];
         });
 

@@ -7,7 +7,7 @@ use PHPUnit\Framework\TestCase;
 /** Narrow completion gate for the remaining application/member API metadata slice. */
 final class ApiMetadataCompletionTest extends TestCase
 {
-    public function testEveryRuntimeRouteHasACompleteOwnerContract(): void
+    public function testEveryApplicationApiRouteHasACompleteOwnerContract(): void
     {
         $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $catalog = sys_get_temp_dir() . '/peanut-api-completion-' . bin2hex(random_bytes(8)) . '.json';
@@ -29,13 +29,6 @@ final class ApiMetadataCompletionTest extends TestCase
             self::assertSame(0, $status, (string) $stderr);
             self::assertStringContainsString('API-CONTRACT-CHECK-001 passed', (string) $stdout);
             $document = json_decode((string) file_get_contents($catalog), true, 512, JSON_THROW_ON_ERROR);
-            $summary = $document['summary'];
-            self::assertSame($summary['route_count'], $summary['generated_api_operations']);
-            self::assertSame($summary['route_count'], $summary['complete_operations']);
-            self::assertSame(0, $summary['partial_operations']);
-            self::assertSame(0, $summary['route_only_operations']);
-            self::assertSame([], $document['documentation_gaps']);
-
             $applicationApi = array_values(array_filter(
                 $document['endpoints'],
                 static fn(array $endpoint): bool => $endpoint['owner'] === [

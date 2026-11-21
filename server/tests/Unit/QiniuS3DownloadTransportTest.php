@@ -41,6 +41,9 @@ final class QiniuS3DownloadTransportTest extends TestCase
 
     public function testRealAwsS3SignerReplacesNativeTokenWithoutChangingDownloadSemantics(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\File\Infrastructure\Storage\QiniuS3DownloadTransport::class)) {
+            self::markTestSkipped('Requires official module File.');
+        }
         $transport = $this->capture();
         $request = ['method' => 'GET', 'url' => self::ORIGIN . '/tenants/v1/1/material/file/file_a.txt?e=2000000000&token=native-only',
             'sink' => '/not-opened-by-offline-transport', 'connectTimeout' => 5, 'timeout' => 15, 'retrySafe' => true];
@@ -61,6 +64,9 @@ final class QiniuS3DownloadTransportTest extends TestCase
 
     public function testKodoMutationProtocolPassesThroughWithoutAwsCredentials(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\File\Infrastructure\Storage\QiniuS3DownloadTransport::class)) {
+            self::markTestSkipped('Requires official module File.');
+        }
         $transport = $this->capture();
         $request = ['method' => 'POST', 'url' => 'https://rs.qiniuapi.com/delete/opaque-entry',
             'headers' => ['Authorization' => 'QBox synthetic-only'], 'timeout' => 30];
@@ -86,12 +92,18 @@ final class QiniuS3DownloadTransportTest extends TestCase
     #[DataProvider('invalidConfigurations')]
     public function testInvalidEndpointIdentityCannotConstructASigner(string $domain, string $bucket, string $region): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\File\Infrastructure\Storage\QiniuS3DownloadTransport::class)) {
+            self::markTestSkipped('Requires official module File.');
+        }
         $this->expectException(\InvalidArgumentException::class);
         $this->signer($this->capture(), $domain, $bucket, $region);
     }
 
     public function testS3EdgeCannotSignAnUpload(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\File\Infrastructure\Storage\QiniuS3DownloadTransport::class)) {
+            self::markTestSkipped('Requires official module File.');
+        }
         $transport = $this->capture();
         try {
             $this->signer($transport)->request(['method' => 'PUT', 'url' => self::ORIGIN . '/object?e=1&token=native', 'sink' => '/unused']);
@@ -122,6 +134,9 @@ final class QiniuS3DownloadTransportTest extends TestCase
 
     public function testOriginQualificationUsesSeparateCompleteOriginAndCdnObservations(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\File\Infrastructure\Storage\QiniuVisibilityOrigin::class)) {
+            self::markTestSkipped('Requires official module File.');
+        }
         $origin = $this->origin([['private' => 0, 'versioning' => false, 'region' => 'z1'], [], ['domains' => [], 'marker' => '']], $capture);
         $facts = $origin->observe();
         self::assertFalse($facts['versioning']);
@@ -157,6 +172,9 @@ final class QiniuS3DownloadTransportTest extends TestCase
     #[DataProvider('unqualifiedOrigins')]
     public function testUnknownVersionOrExposureCannotQualify(array $payloads): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\File\Infrastructure\Storage\QiniuVisibilityOrigin::class)) {
+            self::markTestSkipped('Requires official module File.');
+        }
         $this->expectException(BusinessException::class);
         $this->origin($payloads)->observe();
     }

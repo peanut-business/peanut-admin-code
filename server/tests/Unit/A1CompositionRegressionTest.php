@@ -31,6 +31,9 @@ final class A1CompositionRegressionTest extends TestCase
 {
     public function testTaskRuntimeBuildsItsPublisherUsingTheRelocatedRegistry(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Task\Infrastructure\Runtime\ThinkPhpTaskJobRuntime::class)) {
+            self::markTestSkipped('Requires official module Task.');
+        }
         $contexts = new ExecutionContextStore();
         $current = new CurrentExecutionContext($contexts);
         $modules = $this->createStub(ModuleRuntimeRepository::class);
@@ -55,6 +58,9 @@ final class A1CompositionRegressionTest extends TestCase
 
     public function testWebhookDispatchUsesCoreSafetyContractsAndRequestWithoutNetwork(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Integration\Webhook\WebhookDelivery::class)) {
+            self::markTestSkipped('Requires official module Integration.');
+        }
         $now = new DateTimeImmutable('2026-09-21T00:00:00Z');
         $body = '{"fixture":true}';
         $delivery = new WebhookDelivery(

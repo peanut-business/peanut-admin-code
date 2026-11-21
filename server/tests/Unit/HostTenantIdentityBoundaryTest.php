@@ -29,6 +29,9 @@ final class HostTenantIdentityBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         require_once $root . '/server/vendor/topthink/framework/src/helper.php';
         $this->app = new App($root . '/.local/tmp/host-tenant-identity/' . bin2hex(random_bytes(6)));

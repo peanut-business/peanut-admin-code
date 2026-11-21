@@ -54,6 +54,8 @@ final class GeneratorElementPlusViewTest extends TestCase
         self::assertStringContainsString('row-key="' . $primary . '"', $view);
         self::assertStringContainsString(':data="records"', $view);
         self::assertStringContainsString(':fields="columns"', $view);
+        self::assertStringContainsString(':saved-views="savedViews"', $view);
+        self::assertStringContainsString(':can-edit="canEditRow" :save-edit="saveRowEdit"', $view);
         self::assertStringContainsString('column-storage-key="peanut:crud:fixture.delivery-record.' . $resource . ':columns"', $view);
         self::assertStringContainsString(':audit-history="detailRecord?.audit_history"', $view);
         self::assertStringContainsString(':pagination="pagination"', $view);

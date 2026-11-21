@@ -35,6 +35,9 @@ final class InstanceSafetyBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Ops\Contract\InstanceSafetyQueries::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $temporary = $root . '/.local/tmp/instance-safety-tests';
         if (!is_dir($temporary) && !mkdir($temporary, 0700, true) && !is_dir($temporary)) {

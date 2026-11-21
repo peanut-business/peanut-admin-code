@@ -25,6 +25,13 @@ use PHPUnit\Framework\TestCase;
 /** 直接调用真实公开用例，确认认证/权限在读取定义及事务前执行；不冒充数据库测试。 */
 final class PublicSettingsAuthorizationTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        if (!class_exists(\PeanutAdmin\Modules\Settings\Service\SettingsHttpApplicationService::class)) {
+            self::markTestSkipped('Requires official module Settings.');
+        }
+    }
+
     public function testEveryPublicOperationRejectsMissingExecutionBeforePersistence(): void
     {
         $contexts = new ExecutionContextStore();

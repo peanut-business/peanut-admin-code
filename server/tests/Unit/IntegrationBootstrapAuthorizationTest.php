@@ -40,6 +40,9 @@ final class IntegrationBootstrapAuthorizationTest extends TestCase
 
     protected function setUp(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $temporaryRoot = $root . '/.local/tmp/integration-bootstrap-authorization-tests';
         if (!is_dir($temporaryRoot) && !mkdir($temporaryRoot, 0700, true) && !is_dir($temporaryRoot)) {

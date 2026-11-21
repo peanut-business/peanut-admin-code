@@ -24,6 +24,9 @@ final class DeploymentCatalogRegistrationTest extends TestCase
 
     protected function setUp(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\Authorization\ModuleAuthorizationCatalogSynchronizer::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         require_once $root . '/server/vendor/topthink/framework/src/helper.php';
         $app = new App($root . '/.local/tmp/catalog-registration');

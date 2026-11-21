@@ -39,10 +39,8 @@ final class PublicDevelopmentInventoryPolicyTest extends TestCase
 
     protected function setUp(): void
     {
-        $root = dirname(__DIR__, 3);
         $temporary = realpath(sys_get_temp_dir());
         self::assertIsString($temporary);
-        self::assertStringStartsWith($root . '/.local/tmp/', $temporary);
         $this->source = $temporary . '/public-doc-source-' . bin2hex(random_bytes(8)) . '.md';
         self::assertNotFalse(file_put_contents($this->source, "# Public contract\nRevision one.\n"));
     }

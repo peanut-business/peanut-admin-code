@@ -31,6 +31,9 @@ final class PlatformIdentityInputBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\Platform\Application\PlanLicenseAdminService::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $root = dirname(__DIR__,3);
         require_once $root.'/server/vendor/topthink/framework/src/helper.php';
         $this->app = new think\App($root.'/.local/tmp/platform-identity-input');

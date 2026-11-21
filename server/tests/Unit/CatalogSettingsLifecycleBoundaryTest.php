@@ -22,6 +22,9 @@ final class CatalogSettingsLifecycleBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Settings\Service\SettingCatalogService::class)) {
+            self::markTestSkipped('Requires official module Settings.');
+        }
         $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         require_once $root . '/server/vendor/topthink/framework/src/helper.php';
         new App($root . '/.local/tmp/catalog-settings-lifecycle/' . bin2hex(random_bytes(6)));

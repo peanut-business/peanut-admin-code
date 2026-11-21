@@ -114,6 +114,13 @@ final class A1MutableModuleRuntimeRepository implements ModuleRuntimeRepository
 
 final class A1WorkerAuthorizationLifecycleTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        if (!class_exists(\PeanutAdmin\Modules\Task\Job\Execution\JobClaim::class)) {
+            self::markTestSkipped('Requires official module Task.');
+        }
+    }
+
     public function testAuthorizationRevocationStopsNextBatchWhileLeaseRemainsOwned(): void
     {
         [$authorization, $fence] = $this->authorizationFence();

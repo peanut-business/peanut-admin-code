@@ -36,6 +36,9 @@ final class IntegrationTenantBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $temporary = $root . '/.local/tmp/integration-tenant-boundary-tests';
         if (!is_dir($temporary) && !mkdir($temporary, 0700, true) && !is_dir($temporary)) {

@@ -15,6 +15,13 @@ use think\App;
 #[PreserveGlobalState(false)]
 final class TenantBootstrapAuthorizationTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        if (!class_exists(\PeanutAdmin\Modules\Settings\Service\SettingCatalogService::class)) {
+            self::markTestSkipped('Requires official module Settings.');
+        }
+    }
+
     public function testNativeModuleCatalogFixtureConstructsTheCurrentDependencies(): void
     {
         $root = dirname(__DIR__, 3);

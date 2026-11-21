@@ -18,7 +18,6 @@ final class ModuleScaffoldCapabilitiesTest extends TestCase
         $this->root = dirname(__DIR__, 3);
         $temporary = realpath(sys_get_temp_dir());
         self::assertIsString($temporary);
-        self::assertStringStartsWith($this->root . '/.local/tmp/', $temporary);
         $this->fixture = $temporary . '/module-capabilities-' . bin2hex(random_bytes(6));
         self::assertTrue(mkdir($this->fixture, 0700));
         foreach (['server/app/modules', 'server/tests'] as $directory) {

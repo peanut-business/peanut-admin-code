@@ -18,6 +18,9 @@ final class HostModuleFacadeTest extends TestCase
 {
     public function testPublishedFacadesDoNotExposeTheirPersistenceCollaborators(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Settings\Contract\WebsiteConfigStore::class)) {
+            self::markTestSkipped('Requires official module Settings.');
+        }
         foreach (['settings' => WebsiteConfigService::class] as $module => $facade) {
             $manifest = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/' . $module . '/module.json'), true, 512, JSON_THROW_ON_ERROR);
             self::assertContains($facade, $manifest['contracts']['exports']);
@@ -29,6 +32,9 @@ final class HostModuleFacadeTest extends TestCase
 
     public function testDefaultsAreFixedPublicValuesAndDoNotRequirePersistence(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Settings\Service\WebsiteConfigService::class)) {
+            self::markTestSkipped('Requires official module Settings.');
+        }
         $defaults = WebsiteConfigService::defaults();
         self::assertSame(BrandDefaults::website(), $defaults);
         self::assertSame(WebsiteConfigService::fields(), array_keys([...$defaults, ...BrandDefaults::sidebarFooter()]));
@@ -43,6 +49,9 @@ final class HostModuleFacadeTest extends TestCase
 
     public function testNativeContainerResolvesTheExistingFacade(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\File\Contract\FileReferences::class)) {
+            self::markTestSkipped('Requires official module File.');
+        }
         $app = new App(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server'));
         $app->instance(FileReferences::class, $this->createStub(FileReferences::class));
         self::assertInstanceOf(WebsiteConfigService::class, $app->make(WebsiteConfigService::class));
@@ -50,6 +59,9 @@ final class HostModuleFacadeTest extends TestCase
 
     public function testReadPreservesTenantSelectionAndImageMapping(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Settings\Contract\WebsiteConfigStore::class)) {
+            self::markTestSkipped('Requires official module Settings.');
+        }
         $source = file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/settings/src/Infrastructure/TenantSettingWebsiteStore.php');
         self::assertStringContainsString('$this->context,', $source);
         self::assertStringContainsString("'website'", $source);
@@ -71,6 +83,9 @@ final class HostModuleFacadeTest extends TestCase
 
     public function testSaveKeepsTenantScopedFileMappingAndOneCompleteWrite(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Settings\Contract\WebsiteConfigStore::class)) {
+            self::markTestSkipped('Requires official module Settings.');
+        }
         $source = file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/settings/src/Service/WebsiteConfigService.php');
         self::assertStringContainsString('$this->files->setTenantFileUrl($context, $value)', $source);
         $store = $this->createMock(WebsiteConfigStore::class);
@@ -86,6 +101,9 @@ final class HostModuleFacadeTest extends TestCase
 
     public function testInvalidWebsiteInputAndStorageFailureRemainFailures(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Settings\Contract\WebsiteConfigStore::class)) {
+            self::markTestSkipped('Requires official module Settings.');
+        }
         $store = $this->createMock(WebsiteConfigStore::class);
         $store->expects(self::once())->method('replaceAtomically')->willThrowException(new DomainException('FIXTURE_STORAGE_FAILURE'));
         $service = new WebsiteValues($store, static fn(string $path): string => $path, static fn(string $path): string => $path, [...BrandDefaults::website(), ...BrandDefaults::sidebarFooter()]);

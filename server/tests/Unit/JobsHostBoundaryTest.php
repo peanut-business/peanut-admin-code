@@ -66,6 +66,9 @@ final class JobsHostBoundaryTest extends TestCase
 
     public function testCrudPreservesTenantOwnershipAndCanonicalStatus(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\Persistence\Model\MemberJob::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $this->runAs($this->alpha,function(): void {
             self::assertTrue($this->jobs->add($this->alpha,['name'=>' New ','code'=>' new ','sort'=>2,'remark'=>'note','status'=>'0']));
             $id = (int)$this->pdo->lastInsertId();
@@ -103,6 +106,9 @@ final class JobsHostBoundaryTest extends TestCase
 
     public function testAssignedJobsCannotBeArchivedAndDisablingPreservesAssignments(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\Persistence\Model\MemberJob::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $this->runAs($this->alpha,function(): void {
             $this->jobs->updateStatus($this->alpha,1,0);
             self::assertSame([], $this->jobs->all($this->alpha));
@@ -131,6 +137,9 @@ final class JobsHostBoundaryTest extends TestCase
 
     public function testRegisteredJobAndAuditMenusTargetTheirActualClientPages(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         foreach (['read','create','update','archive'] as $operation) { self::assertContains('core.job.'.$operation,CorePermissionCatalog::TENANT); }
         $menus = array_column(CoreMenuCatalog::definitions(),null,'key');
         self::assertSame('/system/jobs',$menus['core.job.list']->routePath);

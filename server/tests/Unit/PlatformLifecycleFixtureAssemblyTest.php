@@ -32,6 +32,9 @@ final class PlatformLifecycleFixtureAssemblyTest extends TestCase
 
     public function testImportedTypesResolveToTheActualCurrentSource(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Task\Service\TaskBootstrapService::class)) {
+            self::markTestSkipped('Requires official module Task.');
+        }
         $count = 0;
         foreach ($this->nodes() as $node) {
             if (!$node instanceof Node\Stmt\Use_ || $node->type !== Node\Stmt\Use_::TYPE_NORMAL) {
@@ -48,6 +51,9 @@ final class PlatformLifecycleFixtureAssemblyTest extends TestCase
 
     public function testEveryNamedConstructorSuppliesItsRequiredArguments(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $traverser = new NodeTraverser();
         $traverser->addVisitor(new NameResolver());
         $nodes = $traverser->traverse($this->nodes());
@@ -80,6 +86,9 @@ final class PlatformLifecycleFixtureAssemblyTest extends TestCase
 
     public function testRealRetainedFactoryConstructsTheCurrentTypedDependenciesWithoutProvisioning(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         require_once $root . '/server/vendor/topthink/framework/src/helper.php';
         $app = new App($root . '/.local/tmp/platform-lifecycle-fixture');

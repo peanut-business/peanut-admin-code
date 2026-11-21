@@ -40,6 +40,9 @@ final class DepartmentHostStatusBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         require_once $root . '/server/vendor/topthink/framework/src/helper.php';
         new App($root . '/.local/tmp/department-host-status');

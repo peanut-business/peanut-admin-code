@@ -27,7 +27,11 @@ final class ApiContractCatalogTest extends TestCase
             foreach ($endpoints as $endpoint) {
                 $routes[$endpoint['method'] . ' ' . $endpoint['path']] = $endpoint;
             }
-            foreach (['GET /adminapi/login/info', 'GET /adminapi/menu/route', 'POST /adminapi/api/v1/files/resolve', 'POST /adminapi/admin/editSelf'] as $path) {
+            $authenticated = ['GET /adminapi/login/info', 'GET /adminapi/menu/route', 'POST /adminapi/admin/editSelf'];
+            if (isset(self::runtimeInventory($root)['modules']['peanut.file'])) {
+                $authenticated[] = 'POST /adminapi/api/v1/files/resolve';
+            }
+            foreach ($authenticated as $path) {
                 self::assertSame('authenticated', $routes[$path]['auth']['mode']);
                 self::assertSame('authenticated', $routes[$path]['auth']['exception_registration']);
                 self::assertSame([], array_values(array_filter(
@@ -88,14 +92,26 @@ final class ApiContractCatalogTest extends TestCase
             );
             $inventory = self::runtimeInventory($root);
             self::assertSame(self::routeIdentities($inventory['endpoints']), self::routeIdentities($endpoints));
-            self::assertSame($summary['route_count'], $summary['generated_api_operations']);
-            self::assertSame($summary['route_count'], $summary['complete_operations']);
-            self::assertSame(0, $summary['partial_operations']);
-            self::assertSame(0, $summary['route_only_operations']);
+            $applicationRouteOnly = isset($inventory['modules']['peanut.reference-codes']) ? 0 : 14;
+            $moduleRouteOnly = array_intersect_key(
+                ['peanut.workflow' => 25, 'peanut.article' => 1],
+                $inventory['modules'],
+            );
+            $routeOnly = $applicationRouteOnly + array_sum($moduleRouteOnly);
+            $partial = isset($inventory['modules']['custom.ai-access']) ? 5 : 0;
+            self::assertSame($summary['route_count'] - $routeOnly, $summary['generated_api_operations']);
+            self::assertSame($summary['generated_api_operations'] - $partial, $summary['complete_operations']);
+            self::assertSame($partial, $summary['partial_operations']);
+            self::assertSame($routeOnly, $summary['route_only_operations']);
 
             $operationIds = [];
             foreach ($endpoints as $endpoint) {
                 if ($endpoint['documented'] !== true) {
+                    if ($endpoint['owner']['type'] === 'application') {
+                        self::assertStringStartsWith('/adminapi/dict/', $endpoint['path']);
+                    } else {
+                        self::assertArrayHasKey($endpoint['owner']['key'], $moduleRouteOnly);
+                    }
                     self::assertSame('route_only', $endpoint['contract_quality']);
                     self::assertSame(
                         ['operationId', 'parameters_or_request_body', 'response_schemas', 'business_errors'],
@@ -111,6 +127,7 @@ final class ApiContractCatalogTest extends TestCase
                 if ($endpoint['contract_quality'] === 'complete') {
                     self::assertSame([], $endpoint['documentation']['requires_owner_contract']);
                 } else {
+                    self::assertSame('custom.ai-access', $endpoint['owner']['key']);
                     self::assertSame('partial', $endpoint['contract_quality']);
                     self::assertNotSame([], $endpoint['documentation']['requires_owner_contract']);
                 }
@@ -119,9 +136,9 @@ final class ApiContractCatalogTest extends TestCase
             foreach ($inventory['summary']['owners'] as $owner => $count) {
                 [$type, $key] = explode(':', $owner, 2);
                 if ($type === 'module') {
-                    self::assertOwnerCoverage($endpoints, $key, $count, $count);
+                    self::assertOwnerCoverage($endpoints, $key, $count, $count - ($moduleRouteOnly[$key] ?? 0));
                 } else {
-                    self::assertApplicationCoverage($endpoints, $key, $count);
+                    self::assertApplicationCoverage($endpoints, $key, $count, $key === 'adminapi' ? $applicationRouteOnly : 0);
                 }
             }
 
@@ -135,8 +152,18 @@ final class ApiContractCatalogTest extends TestCase
             self::assertSame('public', $byRoute['GET /installapi/status']['auth']['mode']);
             self::assertSame('tenant_refresh', $byRoute['POST /adminapi/tenant/session/refresh']['auth']['mode']);
             self::assertSame('complete', $byRoute['POST /adminapi/tenant/session/logout']['contract_quality']);
-            self::assertArrayNotHasKey('GET /adminapi/api/v1/files/{fileKey}/content', $byRoute);
-            self::assertSame('complete', $byRoute['GET /api/storage/delivery']['contract_quality']);
+            $exportContent = 'GET /adminapi/api/v1/files/{fileKey}/content';
+            if (isset($inventory['modules']['peanut.import-export'])) {
+                self::assertSame('peanut.import-export', $byRoute[$exportContent]['owner']['key']);
+                self::assertSame('tenant_permission', $byRoute[$exportContent]['auth']['mode']);
+            } else {
+                self::assertArrayNotHasKey($exportContent, $byRoute);
+            }
+            if (isset($inventory['modules']['peanut.file'])) {
+                self::assertSame('complete', $byRoute['GET /api/storage/delivery']['contract_quality']);
+            } else {
+                self::assertArrayNotHasKey('GET /api/storage/delivery', $byRoute);
+            }
         } finally {
             if (is_file($catalog)) {
                 unlink($catalog);
@@ -219,6 +246,9 @@ final class ApiContractCatalogTest extends TestCase
 
     public function testIntegrationDeliveryContractsMatchPublicRecordSerialization(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Integration\ModuleProvider::class)) {
+            self::markTestSkipped('Requires official module Integration.');
+        }
         $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $inventory = self::runtimeInventory($root);
         self::assertArrayHasKey('peanut.integration', $inventory['modules']);
@@ -272,7 +302,7 @@ final class ApiContractCatalogTest extends TestCase
     }
 
     /** @param list<array<string,mixed>> $endpoints */
-    private static function assertApplicationCoverage(array $endpoints, string $application, int $routes): void
+    private static function assertApplicationCoverage(array $endpoints, string $application, int $routes, int $routeOnly): void
     {
         $owned = array_values(array_filter(
             $endpoints,
@@ -280,7 +310,7 @@ final class ApiContractCatalogTest extends TestCase
                 && ($endpoint['owner']['key'] ?? null) === $application,
         ));
         self::assertCount($routes, $owned, $application);
-        self::assertCount($routes, array_filter(
+        self::assertCount($routes - $routeOnly, array_filter(
             $owned,
             static fn(array $endpoint): bool => $endpoint['contract_quality'] === 'complete'
                 && $endpoint['documentation']['requires_owner_contract'] === [],

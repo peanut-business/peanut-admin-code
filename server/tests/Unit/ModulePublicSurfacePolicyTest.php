@@ -52,6 +52,9 @@ final class ModulePublicSurfacePolicyTest extends TestCase
 
     public function testAllCurrentModuleManifestsUseThePolicy(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\ModuleProvider::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $manifests = glob($root . '/server/app/modules/*/*/module.json');
         self::assertNotEmpty($manifests);

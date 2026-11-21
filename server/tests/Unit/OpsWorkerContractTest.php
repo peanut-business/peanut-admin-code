@@ -30,6 +30,9 @@ final class OpsWorkerContractTest extends TestCase
     #[DataProvider('workers')]
     public function testOnlyWorkerPortIsPublicAndNativeBindingKeepsTheImplementation(string $command, string $port, string $implementation, string $name, string $prefix): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Ops\ModuleProvider::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         $module = new \PeanutAdmin\Modules\Ops\ModuleProvider();
         self::assertSame($implementation, $module->bindings()[$port] ?? null);
         self::assertTrue(is_subclass_of($implementation, $port));
@@ -50,6 +53,9 @@ final class OpsWorkerContractTest extends TestCase
     #[DataProvider('workers')]
     public function testClaimUsesInjectedPortAndRestoresActualExecutionContext(string $type, string $port, string $implementation, string $name, string $prefix): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Ops\Contract\UpgradeTaskExecution::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         $contexts = new ExecutionContextStore();
         $worker = $this->createMock($port);
         $worker->expects(self::once())->method('claim')->willReturnCallback(function () use ($contexts): ?array {
@@ -71,6 +77,9 @@ final class OpsWorkerContractTest extends TestCase
     #[DataProvider('guardedWorkers')]
     public function testGuardedClaimRejectsAnotherDatabaseBeforeInvokingWorker(string $type, string $port, string $implementation, string $name, string $prefix): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Ops\Contract\RestoreTaskExecution::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         $worker = $this->createMock($port);
         $worker->expects(self::never())->method('claim');
         [$exit, $payload] = $this->withDatabaseIdentity(fn(): array =>
@@ -82,6 +91,9 @@ final class OpsWorkerContractTest extends TestCase
     #[DataProvider('workers')]
     public function testHeartbeatKeepsTaskKeyRevisionAndResult(string $type, string $port, string $implementation, string $name, string $prefix): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Ops\Contract\UpgradeTaskExecution::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         $key = 'job_' . str_repeat('a', 32);
         $worker = $this->createMock($port);
         $worker->expects(self::once())->method('heartbeat')->with($key, 7)->willReturn(['task_key' => $key, 'status' => 'running', 'revision' => 7]);
@@ -93,6 +105,9 @@ final class OpsWorkerContractTest extends TestCase
     #[DataProvider('workers')]
     public function testInvalidRevisionDoesNotReachWorker(string $type, string $port, string $implementation, string $name, string $prefix): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Ops\Contract\UpgradeTaskExecution::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         $worker = $this->createMock($port);
         $worker->expects(self::never())->method('heartbeat');
         [$exit, $payload] = $this->runCommand($type, $port, $worker, ['heartbeat', '--task-key=job_' . str_repeat('a', 32), '--revision=0'], new ExecutionContextStore(), $name);
@@ -104,6 +119,9 @@ final class OpsWorkerContractTest extends TestCase
     #[DataProvider('workers')]
     public function testFailureCodeAndRedactionRemainStable(string $type, string $port, string $implementation, string $name, string $prefix): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Ops\Contract\UpgradeTaskExecution::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         $key = 'job_' . str_repeat('a', 32);
         $worker = $this->createMock($port);
         $worker->expects(self::once())->method('fail')->with($key, 3, $prefix . '_WORKER_FAILED')->willReturn(['status' => 'dead']);
@@ -137,6 +155,9 @@ final class OpsWorkerContractTest extends TestCase
     #[DataProvider('workers')]
     public function testUnknownActionDoesNotInvokeAnyWorkerMethod(string $type, string $port, string $implementation, string $name, string $prefix): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Ops\Contract\UpgradeTaskExecution::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         $worker = $this->createMock($port);
         foreach ((new ReflectionClass($port))->getMethods() as $method) {
             $worker->expects(self::never())->method($method->name);
@@ -149,6 +170,9 @@ final class OpsWorkerContractTest extends TestCase
 
     public function testModuleAndUpgradeSpecificTransitionsKeepTheirExactInputs(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Ops\Contract\ModuleTaskExecution::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         foreach (['module', 'upgrade'] as $kind) {
             [$type, $port, $implementation, $name] = self::workers()[$kind];
             foreach ($kind === 'module' ? ['advance','execute','succeed'] : ['advance','succeed'] as $action) {
@@ -164,6 +188,9 @@ final class OpsWorkerContractTest extends TestCase
 
     public function testNativeContainerInjectsThePublicWorkerAndSharedContext(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Ops\Contract\BackupTaskExecution::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         [$type, $port, $implementation, $name] = self::workers()['backup'];
         $app = new App((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp/ops-worker-injection');
         $contexts = new ExecutionContextStore();

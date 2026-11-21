@@ -13,6 +13,9 @@ final class DeployedModuleRegistryTest extends TestCase
 {
     protected function setUp(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\ModuleProvider::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $app = new \think\App((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp/deployed-module-registry');
         $app->config->set(['mode' => 'multi-tenant'], 'deployment');
     }

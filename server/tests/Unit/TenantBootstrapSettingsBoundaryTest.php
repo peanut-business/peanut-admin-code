@@ -53,6 +53,9 @@ final class TenantBootstrapSettingsBoundaryTest extends TestCase
 
     public function testConstructorAndNativeContainerUseTheTwoExistingPublicPorts(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Task\Contract\TaskBootstrapCommands::class)) {
+            self::markTestSkipped('Requires official module Task.');
+        }
         $constructor = (new ReflectionClass(ApplicationTenantBootstrapService::class))->getConstructor();
         $types = [];
         foreach ($constructor->getParameters() as $parameter) {
@@ -77,6 +80,9 @@ final class TenantBootstrapSettingsBoundaryTest extends TestCase
 
     public function testRealHelperPreservesExistingSettingsAndIsIdempotentPerTenant(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Settings\Contract\TenantSettingsQuery::class)) {
+            self::markTestSkipped('Requires official module Settings.');
+        }
         $stored = ['101:website' => ['revision' => 7, 'document' => ['name' => 'Existing tenant name']]];
         $query = $this->createMock(TenantSettingsQuery::class);
         $query->expects(self::exactly(24))->method('get')->willReturnCallback(static function ($context, string $namespace, array $defaults = []) use (&$stored): TenantSettingSnapshot {
@@ -107,6 +113,9 @@ final class TenantBootstrapSettingsBoundaryTest extends TestCase
 
     public function testSettingFailurePropagatesBeforeHostDefaultsAreWritten(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Settings\Contract\TenantSettingsQuery::class)) {
+            self::markTestSkipped('Requires official module Settings.');
+        }
         $query = $this->createMock(TenantSettingsQuery::class);
         $query->expects(self::once())->method('get')->willReturn(new TenantSettingSnapshot(101, 'website', [], 0, 0, 0));
         $commands = $this->createMock(TenantSettingsCommands::class);
@@ -125,6 +134,9 @@ final class TenantBootstrapSettingsBoundaryTest extends TestCase
 
     public function testPageCommandPreviewsCompletesAndPreservesExistingPagesAndOtherTenant(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $this->database->exec(<<<'SQL'
             INSERT INTO pa_decorate_page VALUES (7,101,5,'custom theme','{"themeColor1":"custom"}','[]',123,456);
             INSERT INTO pa_decorate_page VALUES (8,202,1,'other home','["keep"]','[]',321,654);
@@ -150,6 +162,9 @@ final class TenantBootstrapSettingsBoundaryTest extends TestCase
 
     public function testEmptyTenantGetsOriginalThemeAndPageDefaults(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         self::assertSame(5, $this->pageCommand(['--tenant-id=101'])['inserted']);
         $theme = json_decode($this->database->query('SELECT data FROM pa_decorate_page WHERE type=5')->fetchColumn(), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame('#A74BFD', $theme['themeColor1']);
@@ -158,6 +173,9 @@ final class TenantBootstrapSettingsBoundaryTest extends TestCase
 
     public function testPageCommandRejectsInvalidTenantTypesAndNestedContextWithoutWrites(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         foreach ([[], ['--tenant-id=0'], ['--tenant-id=999'], ['--tenant-id=303'], ['--tenant-id=101', '--types=6'], ['--tenant-id=101', '--types=']] as $arguments) {
             try {
                 $this->pageCommand($arguments);
@@ -182,6 +200,9 @@ final class TenantBootstrapSettingsBoundaryTest extends TestCase
 
     public function testPageCompletionRollsBackAllInsertsOnFailure(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $this->database->exec("CREATE TRIGGER refuse_page BEFORE INSERT ON pa_decorate_page WHEN NEW.type=4 BEGIN SELECT RAISE(ABORT, 'fixture page denied'); END");
         try {
             $this->pageCommand(['--tenant-id=101']);

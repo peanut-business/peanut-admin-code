@@ -3332,6 +3332,8 @@ export interface components {
                 action_key: string;
                 permission_key: string;
             }[];
+            tenantId: string;
+            accountId: string;
             tenantName: string;
             website: components["schemas"]["WebsiteConfig"];
             canSwitchTenant: boolean;

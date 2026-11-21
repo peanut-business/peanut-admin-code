@@ -16,6 +16,9 @@ final class OpsModuleRequestContractTest extends TestCase
 {
     public function testPortIsBoundWithoutPublishingInternalExecutionOrStorage(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Ops\ModuleProvider::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         self::assertSame(DeploymentModuleRequestService::class, (new \PeanutAdmin\Modules\Ops\ModuleProvider())->bindings()[DeploymentModuleRequests::class] ?? null);
         self::assertTrue(is_subclass_of(DeploymentModuleRequestService::class, DeploymentModuleRequests::class));
         self::assertSame(['preview','prepare'], array_map(static fn(ReflectionMethod $method): string => $method->name, (new ReflectionClass(DeploymentModuleRequests::class))->getMethods()));
@@ -26,6 +29,9 @@ final class OpsModuleRequestContractTest extends TestCase
 
     public function testPreviewTrimsArgumentsAndUsesNullForOmittedOptionals(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Ops\Contract\DeploymentModuleRequests::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         $port = $this->createMock(DeploymentModuleRequests::class);
         $port->expects(self::once())->method('preview')->with('worker.id', 'target.id', 'retire', 'fixture.alpha', null, null)->willReturn(['operation' => 'retire', 'plan_digest' => str_repeat('a', 64)]);
         $port->expects(self::never())->method('prepare');
@@ -36,6 +42,9 @@ final class OpsModuleRequestContractTest extends TestCase
 
     public function testPreparationPassesExactDigestAndOptionalIdentitiesWithoutAuthorizingThem(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Ops\Contract\DeploymentModuleRequests::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         $digest = str_repeat('b', 64);
         $port = $this->createMock(DeploymentModuleRequests::class);
         $port->expects(self::once())->method('prepare')->with('worker.id', 'target.id', 'purge', 'fixture.alpha', str_repeat('a', 64), 'fixture-key', $digest)->willReturn(['request_key' => 'modreq_' . str_repeat('c', 32)]);
@@ -47,6 +56,9 @@ final class OpsModuleRequestContractTest extends TestCase
 
     public function testBlankPreparationDigestIsNotInvented(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Ops\Contract\DeploymentModuleRequests::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         $port = $this->createMock(DeploymentModuleRequests::class);
         $port->expects(self::once())->method('prepare')->with('', '', '', '', null, null, null)->willThrowException(new RuntimeException('OPS_MODULE_CONFIRM_PLAN_REQUIRED'));
         [$exit,$output] = $this->invoke($port, ['prepare']);
@@ -56,6 +68,9 @@ final class OpsModuleRequestContractTest extends TestCase
 
     public function testUnknownActionAndMissingDependencyNeverFallBackToConstructingTheService(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Ops\Contract\DeploymentModuleRequests::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         $port = $this->createMock(DeploymentModuleRequests::class);
         $port->expects(self::never())->method('preview');
         $port->expects(self::never())->method('prepare');
@@ -73,6 +88,9 @@ final class OpsModuleRequestContractTest extends TestCase
 
     public function testStableFailureCodesSurviveAndOtherFailureDetailsAreRedacted(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Ops\Contract\DeploymentModuleRequests::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         foreach (['MODULE_CATALOG_EXTERNAL_PERMISSION_REFERENCE','PLUGIN_NOT_INSTALLED','PACKAGE_SIGNATURE_INVALID','OPS_MODULE_PREFLIGHT_BLOCKED','fixture://private/detail'] as $message) {
             $port = $this->createMock(DeploymentModuleRequests::class);
             $port->expects(self::once())->method('preview')->willThrowException(new RuntimeException($message));

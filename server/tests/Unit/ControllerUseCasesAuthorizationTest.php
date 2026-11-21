@@ -31,6 +31,9 @@ final class ControllerUseCasesAuthorizationTest extends TestCase
 {
     public function testIntegrationAdminUseCaseAuthorizesThenUsesTenantRepositoryBoundary(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Integration\Application\MachineIdentity::class)) {
+            self::markTestSkipped('Requires official module Integration.');
+        }
         $tenant = $this->tenant();
         $actor = $this->actor();
         $machine = new MachineIdentity(
@@ -66,6 +69,9 @@ final class ControllerUseCasesAuthorizationTest extends TestCase
 
     public function testTaskExpressionUseCaseKeepsPermissionInsideService(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Task\Service\TaskAdminApplicationService::class)) {
+            self::markTestSkipped('Requires official module Task.');
+        }
         $tenant = $this->tenant();
         $actor = $this->actor();
         $store = new ExecutionContextStore();
@@ -87,6 +93,9 @@ final class ControllerUseCasesAuthorizationTest extends TestCase
 
     public function testIntegrationRejectsCrossTenantActorBeforeRepositoryCall(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Integration\Contract\IntegrationSecurityRepository::class)) {
+            self::markTestSkipped('Requires official module Integration.');
+        }
         $tenant = $this->tenant();
         $actor = $this->actor(12);
         $authorization = $this->createMock(AdminAuthorizationQuery::class);

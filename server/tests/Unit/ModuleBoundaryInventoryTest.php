@@ -188,6 +188,9 @@ final class ModuleBoundaryInventoryTest extends TestCase
 
     public function testIdentityDeclaresItsNativeCatalogTablesWithoutExportingPersistence(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\ModuleProvider::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $manifest = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         foreach ([
             \PeanutAdmin\Modules\Identity\Module\Model\ModuleInstallation::class => 'pa_module_installation',

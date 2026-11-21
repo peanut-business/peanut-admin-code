@@ -48,6 +48,9 @@ final class OwnerInvitationBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\Audit\AuditService::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         require_once ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/vendor/topthink/framework/src/helper.php';
         $app = new App((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/.local/tmp/owner-invitation-' . bin2hex(random_bytes(6)));
         $app->config->set(['default' => 'file', 'stores' => ['file' => ['type' => 'File', 'path' => $app->getRuntimePath() . 'cache/']]], 'cache');

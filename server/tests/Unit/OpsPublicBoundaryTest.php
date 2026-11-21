@@ -28,6 +28,9 @@ final class OpsPublicBoundaryTest extends TestCase
 {
     public function testExistingHostApiAndReturnedValuesAreDeclaredButStorageIsNot(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Ops\ModuleProvider::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         $manifest = json_decode(file_get_contents(((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server') . '/app/modules/peanut/ops/module.json'), true, 512, JSON_THROW_ON_ERROR);
         $exports = $manifest['contracts']['exports'];
         foreach ([OpsConsoleException::class, TenantDiagnosticAttributes::class,
@@ -45,6 +48,9 @@ final class OpsPublicBoundaryTest extends TestCase
 
     public function testStatusPermissionIsCheckedBeforeTheProviderRuns(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Ops\Domain\Application\PlatformPermissionChecker::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         $context = $this->context();
         $permissions = $this->createMock(PlatformPermissionChecker::class);
         $permissions->expects(self::once())->method('allows')->with($context, Package::READ_PERMISSION)->willReturn(false);
@@ -57,6 +63,9 @@ final class OpsPublicBoundaryTest extends TestCase
 
     public function testTaskPermissionIsCheckedBeforeDispatch(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Ops\Domain\Application\PlatformPermissionChecker::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         $context = $this->context();
         $permissions = $this->createMock(PlatformPermissionChecker::class);
         $permissions->expects(self::once())->method('allows')->with($context, Package::BACKUP_PERMISSION)->willReturn(false);
@@ -71,6 +80,9 @@ final class OpsPublicBoundaryTest extends TestCase
 
     public function testPublishedDescriptorContainsOnlyLogicalRegistrationValues(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Ops\Infrastructure\PairedBackupProvider::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         $provider = new PairedBackupProvider();
         self::assertInstanceOf(BackupRestoreProvider::class, $provider);
         self::assertSame('peanut.paired-db-files', $provider->key());
@@ -85,11 +97,17 @@ final class OpsPublicBoundaryTest extends TestCase
 
     public function testUnknownTenantDiagnosticsDoNotInventAnIdentity(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Ops\Domain\Logs\TenantDiagnosticAttributes::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         self::assertSame(['scope' => 'unavailable', 'tenant_id' => null, 'request_id' => ''], TenantDiagnosticAttributes::fromTenantContext(null));
     }
 
     public function testPublicExceptionKeepsStableStatusAndSafeHttpMapping(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Ops\Domain\Application\OpsConsoleException::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         $problem = (new ApiProblemMapper())->map(OpsConsoleException::denied());
         self::assertNotNull($problem);
         self::assertSame(403, $problem->httpStatus);
@@ -99,6 +117,9 @@ final class OpsPublicBoundaryTest extends TestCase
 
     public function testMaintenanceValueRetainsItsPublicShapeAndRejectsEmptyDuration(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Ops\Domain\Maintenance\MaintenanceWindow::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         $value = new MaintenanceWindow('maintenance_' . str_repeat('a', 32), 'scheduled', 'fixture.maintenance', '2031-01-01T00:00:00.000Z', '2031-01-01T00:01:00.000Z', 1);
         self::assertSame(['maintenance_key', 'state', 'reason_key', 'starts_at', 'ends_at', 'revision'], array_keys($value->toPublicArray()));
         $this->expectException(InvalidArgumentException::class);
@@ -107,6 +128,9 @@ final class OpsPublicBoundaryTest extends TestCase
 
     public function testTaskValueExcludesExecutionPayloadAndRejectsInvalidAttempts(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Ops\Domain\Task\OpsTask::class)) {
+            self::markTestSkipped('Requires official module Ops.');
+        }
         $value = new OpsTask('job_' . str_repeat('b', 32), Package::BACKUP_TASK_TYPE, 'queued', 0, 1, 1, null, '2031-01-01T00:00:00.000Z', '2031-01-01T00:00:00.000Z', '2031-01-01T00:00:00.000Z', null);
         self::assertArrayNotHasKey('payload', $value->toPublicArray());
         self::assertArrayNotHasKey('credentials', $value->toPublicArray());

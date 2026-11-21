@@ -28,6 +28,9 @@ final class TenantSettingsTransferBoundaryTest extends TestCase
 
     protected function setUp(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Settings\ModuleProvider::class)) {
+            self::markTestSkipped('Requires official module Settings.');
+        }
         $root = (getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3));
         $temporaryRoot = $root . '/.local/tmp/tenant-settings-transfer-tests';
         if (!is_dir($temporaryRoot) && !mkdir($temporaryRoot, 0700, true) && !is_dir($temporaryRoot)) {

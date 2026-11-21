@@ -89,6 +89,9 @@ final class SessionRefreshCookieTest extends TestCase
 
     public function testPlatformMissingBearerOrAnotherSelectorsCookieFailsBeforePersistence(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Identity\Auth\PlatformAuthRepository::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $base = PlatformRefreshCookie::NAME;
         $cookies = [SessionRefreshCookie::name($base, 'pa_pat_other') => 'pa_prt_other', $base => 'pa_prt_legacy'];
         $repository = $this->createMock(PlatformAuthRepository::class);
@@ -153,6 +156,9 @@ final class SessionRefreshCookieTest extends TestCase
 
     public function testTenantEndpointUsesItsRealClientAndStructuredNativeCookieMutations(): void
     {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\Auth\TenantAuthService::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $auth = new TenantAuthService($this->createStub(TenantAuthRepository::class), new PasswordHasher(), new SystemClock(), new TokenIssuer(), str_repeat('t', 32));
         $endpoint = new TenantAuthEndpoint($auth);
         $old = $endpoint->refreshCookieName('pa_tat_old');
@@ -176,6 +182,9 @@ final class SessionRefreshCookieTest extends TestCase
 
     public function testTenantExpectedAccessAndOriginChecksStillRejectBeforePersistence(): void
     {
+        if (!interface_exists(\PeanutAdmin\Modules\Identity\Auth\TenantAuthRepository::class)) {
+            self::markTestSkipped('Requires official module Identity.');
+        }
         $repository = $this->createMock(TenantAuthRepository::class);
         $repository->expects(self::never())->method('sessionByTokenHash');
         $endpoint = new TenantAuthEndpoint(new TenantAuthService($repository, new PasswordHasher(), new SystemClock(), new TokenIssuer(), str_repeat('t', 32)));

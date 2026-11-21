@@ -25,7 +25,7 @@ final class ModuleAuthoringBootstrapTest extends TestCase
         $this->removeTree($this->fixtureRoot);
     }
 
-    public function testRealDispatchRepairsStaleArtifactsWithoutOpeningRuntimeBootstrap(): void
+    public function testRealDispatchRejectsInvalidAuthoringInputsAndProtectsOrdinaryBootstrap(): void
     {
         $development = $this->environment('development', true);
         $production = $this->environment('production', true);
@@ -76,7 +76,14 @@ final class ModuleAuthoringBootstrapTest extends TestCase
         $staleLock = $this->runThink(['module:lock', '--check'], $development);
         self::assertSame(1, $staleLock['status']);
         self::assertStringContainsString('modules.lock is not canonical', $staleLock['output']);
+    }
 
+    public function testNativeSourceAuthoringRepairsStaleArtifactsWithTheShippedGraph(): void
+    {
+        if (!class_exists(\PeanutAdmin\Modules\Identity\ModuleProvider::class)) {
+            self::markTestSkipped('Requires official module Identity and its installation graph.');
+        }
+        $development = $this->environment('development', true);
         $make = $this->runThink([
             'module:make',
             'acme.authoring',
@@ -199,7 +206,7 @@ PHP);
     /** @param list<string> $arguments @return array{status:int,output:string} */
     private function runPhp(array $arguments, string $environment, string $input = ''): array
     {
-        $nativeEnvironment = ['PATH' => (string) getenv('PATH')];
+        $nativeEnvironment = ['PATH' => (string) getenv('PATH'), 'PHP_ENV_NAME' => substr(basename($environment), 5)];
         foreach (parse_ini_file($environment, false, INI_SCANNER_RAW) as $key => $value) {
             $nativeEnvironment['PHP_' . $key] = $value;
         }
