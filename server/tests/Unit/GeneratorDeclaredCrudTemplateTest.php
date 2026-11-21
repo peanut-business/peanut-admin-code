@@ -44,6 +44,11 @@ final class GeneratorDeclaredCrudTemplateTest extends TestCase
         self::assertArrayHasKey($backend . '/route/generated/generated-note.php', $byPath);
         self::assertArrayHasKey($backend . '/api/metadata/generated/generated-note.php', $byPath);
 
+        self::assertStringContainsString(
+            "protected \$table = 'pa_fixture_generated_note';",
+            $byPath[$backend . '/src/Model/GeneratedNote.php']['content'],
+        );
+
         $controller = $byPath[$backend . '/src/Controller/GeneratedNoteController.php']['content'];
         self::assertStringContainsString('namespace PeanutAdmin\\Fixtures\\DeliveryRecord\\Controller;', $controller);
         self::assertStringContainsString("CRUD_PRIMARY_KEY = 'uuid'", $controller);
@@ -286,6 +291,90 @@ final class GeneratorDeclaredCrudTemplateTest extends TestCase
     }
 
     /** @return array<string,mixed> */
+    public function testGenerationRejectsATableOwnedByAnotherModule(): void
+    {
+        $root = $this->fixtureApplication->root;
+        $foreign = $root . '/server/app/modules/fixture/other';
+        mkdir($foreign, 0775, true);
+        file_put_contents($foreign . '/module.json', json_encode([
+            'key' => 'fixture.other',
+            'database' => ['owned_tables' => ['pa_fixture_generated_note']],
+        ], JSON_THROW_ON_ERROR));
+
+        $this->expectExceptionMessage('数据表已由其他模块拥有：pa_fixture_generated_note（fixture.other）');
+        GeneratorRenderService::render(self::definition(), $root);
+    }
+
+    public function testGenerationRejectsCoreReservedTable(): void
+    {
+        $definition = array_replace(self::definition(), ['table_name' => 'pa_tenant_idempotency_record']);
+        $this->expectExceptionMessage('数据表由 Core 保留：pa_tenant_idempotency_record');
+        GeneratorRenderService::render($definition, $this->fixtureApplication->root);
+    }
+
+    public function testGenerationRejectsRetiredTableInTargetModule(): void
+    {
+        $root = $this->fixtureApplication->root;
+        $path = $root . '/server/app/modules/fixture/delivery_record/module.json';
+        $manifest = json_decode(file_get_contents($path), true, 64, JSON_THROW_ON_ERROR);
+        $manifest['database']['retired_tables'] = ['pa_fixture_generated_note'];
+        file_put_contents($path, json_encode($manifest, JSON_THROW_ON_ERROR));
+
+        $this->expectExceptionMessage('数据表已退役：pa_fixture_generated_note（fixture.delivery-record）');
+        GeneratorRenderService::render(self::definition(), $root);
+    }
+
+    public function testSeveralGeneratedResourcesKeepAllOpenApiPaths(): void
+    {
+        $root = $this->fixtureApplication->root;
+        $metadata = $root . '/server/app/modules/fixture/delivery_record/api/metadata';
+        foreach (['GeneratedNote', 'SecondNote', 'ThirdNote'] as $index => $entity) {
+            $definition = array_replace(self::definition(), [
+                'entity_name' => $entity,
+                'table_name' => 'pa_fixture_note_' . $index,
+            ]);
+            foreach (GeneratorRenderService::render($definition, $root) as $file) {
+                $target = $root . '/' . $file['path'];
+                if (!is_dir(dirname($target))) {
+                    mkdir(dirname($target), 0775, true);
+                }
+                self::assertNotFalse(file_put_contents($target, $file['content']));
+            }
+        }
+
+        $contract = require $metadata . '/openapi.php';
+        foreach (['generated-note', 'second-note', 'third-note'] as $resource) {
+            self::assertArrayHasKey('/adminapi/fixture.delivery-record.' . $resource . '.list', $contract['paths']);
+        }
+    }
+
+    public function testSourceModuleConsumerContractSurvivesGeneratedOpenApiMerge(): void
+    {
+        $root = $this->fixtureApplication->root;
+        $directory = 'server/app/modules/fixture/delivery_record/api/metadata';
+        mkdir($root . '/' . $directory, 0775, true);
+        file_put_contents($root . '/' . $directory . '/openapi.php', <<<'PHP'
+<?php
+$authored = ['paths' => ['/authored' => []]];
+return array_replace_recursive($authored, require __DIR__ . '/consumer.php');
+PHP);
+        file_put_contents($root . '/' . $directory . '/consumer.php', '<?php return ["paths" => ["/consumer" => []]];');
+
+        foreach (GeneratorRenderService::render(self::definition(), $root) as $file) {
+            if (str_starts_with($file['path'], $directory . '/')) {
+                $target = $root . '/' . $file['path'];
+                if (!is_dir(dirname($target))) {
+                    mkdir(dirname($target), 0775, true);
+                }
+                self::assertNotFalse(file_put_contents($target, $file['content']));
+            }
+        }
+        $contract = require $root . '/' . $directory . '/openapi.php';
+        foreach (['/authored', '/consumer', '/adminapi/fixture.delivery-record.generated-note.list'] as $path) {
+            self::assertArrayHasKey($path, $contract['paths']);
+        }
+    }
+
     public static function definition(): array
     {
         return [
