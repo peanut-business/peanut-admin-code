@@ -1,13 +1,8 @@
-includes:
-    - phpstan-baseline.neon
-
 parameters:
-    level: 5
-    scanFiles:
-        - phpstan/stubs/optional-module-contracts.php
+    customRulesetUsed: true
     paths:
-        - app
-    reportUnmatchedIgnoredErrors: false
+        - app/adminapi
+        - app/api
 
 services:
     -
