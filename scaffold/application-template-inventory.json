@@ -1054,7 +1054,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b1e7e40cc02d2569f326f59c152277a62390188fc37f06bc07b0391ef7c9db0e"
+            "source_sha256": "1edc82bfc3f751915b7f87d77c943d8c552d40b78b1a05a601b0beef40354048"
         },
         {
             "path": "docs/public/application-release.md",
@@ -1771,7 +1771,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "94f194530dc9c85988e8f5f1bb2fef4d06f5fa4d3e4c1f5ab70a8c144ee2e386"
+            "source_sha256": "53444701d68706c21f62f2e6a3518e1daa736e516fafcd553af130351ac04d48"
         },
         {
             "path": "platform/src/api/tenant-license.ts",
@@ -1900,6 +1900,20 @@
             "source_sha256": "6772ed9d9f3296cc447037a230e518415bf1c72227b851f415fa40df1a9d320e"
         },
         {
+            "path": "platform/src/core/platform-session.ts",
+            "target": "platform/src/core/platform-session.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0529998c5f8a1a90844d4b274ca28a2a1ea901f0146337e115e425230605e058"
+        },
+        {
             "path": "platform/src/core/presentation.ts",
             "target": "platform/src/core/presentation.ts",
             "classification": "managed",
@@ -1912,6 +1926,48 @@
                 "full"
             ],
             "source_sha256": "e866a732114d3e6f18d0fe96a2b6fac2c0b25340389255c58e495f89b4e38b9f"
+        },
+        {
+            "path": "platform/src/core/request-trace.ts",
+            "target": "platform/src/core/request-trace.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e55d7ce3827b0575576cf892dbfca3a7cef879ea4c856cb6a9009a60fbdec277"
+        },
+        {
+            "path": "platform/src/core/session-storage.ts",
+            "target": "platform/src/core/session-storage.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2791889c4276ed2ae49d24a265fab83cc68bf410536d8ccc22f20b84f2d4f99c"
+        },
+        {
+            "path": "platform/src/core/session-sync.ts",
+            "target": "platform/src/core/session-sync.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "56732e56aae2974419301db08b19e3df3d115ba97493527696f238cd93847b27"
         },
         {
             "path": "platform/src/main.ts",
@@ -2241,6 +2297,20 @@
                 "standard",
                 "full"
             ]
+        },
+        {
+            "path": "scripts/check-shared-host",
+            "target": "scripts/check-shared-host",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "7b08c03fbd0be73d7b8acd07df4fb717f58405b82b3fac64025ec2667886d2a7"
         },
         {
             "path": "scripts/check-source-layout.php",
@@ -2986,6 +3056,20 @@
                 "full"
             ],
             "source_sha256": "a5d3eb5febb7d32c74652aa5d785f7bb9e1303cc0fd9749a3da770073c6658ca"
+        },
+        {
+            "path": "scripts/shared-host-files.txt",
+            "target": "scripts/shared-host-files.txt",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "a8277e25dfc1484d89c65c9285c233d2994e32990243e1ec04b77d9a55812b62"
         },
         {
             "path": "scripts/sync-brand-assets.mjs",
@@ -3879,7 +3963,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3eb4f28f2c09de20caa546629a0426d9e91dfb90765bd885e451832bd5dfc609"
+            "source_sha256": "27ff399537d607b76f5efd3eba2378ecebae894f499fd92fbdd001a72884f02d"
         },
         {
             "path": "server/app/Request.php",
@@ -4915,7 +4999,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ae6bec487569bd5cdb1ffda54ab4276964a509a56b2b4212c877913e9d3918a1"
+            "source_sha256": "4b32dc63eecc657718ac1b02f2c9e12134fa76bfbddc87261db55e130f4a2488"
         },
         {
             "path": "server/app/api/middleware.php",
@@ -6331,7 +6415,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a39a5085405f8cc11f888d2968b47cfe3114dbecdc2dfd17e6e99a2ace179fbc"
+            "source_sha256": "61db965b06c2abcfb5285f8b343865e70323a52e79bfbedc8635df510b6764d5"
         },
         {
             "path": "server/app/common/http/JsonResponseFactory.php",
@@ -6373,7 +6457,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "093bce32af0cf3ab868b4abc5a751b596632bfa77cd340303edbd3e5c0327f96"
+            "source_sha256": "f5ac4d7023592eec41722028f11571b3a20a9382211fcae59e36dc809b8e4559"
         },
         {
             "path": "server/app/common/http/SessionRefreshCookie.php",
@@ -6443,7 +6527,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b1180904c4cf39dfda1c6e7a74d3a8fa2e253809634073d0271da6e08803d6cb"
+            "source_sha256": "a7a9e1060a095623be70f9c15c282acb658fc4582e48fbb37b667a937f195d9f"
         },
         {
             "path": "server/app/common/infrastructure/audit/OperationLogProjection.php",
@@ -11106,7 +11190,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4ed48efba30baad70b459af973222cf920a41f5ef27245b73ac5065f4a213d17"
+            "source_sha256": "b07116de361a1dc6e5d956f121fc445c87b8c57b886c92cd6003f3f2f515fcb5"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11120,7 +11204,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "66fcb5c8b2a748638b6184e2fe8546cd6864adc21433fcbac0a129c600a79135"
+            "source_sha256": "9da63bfc25405447867fecacfd781f07c387cee7845d299a9c368d515059b74e"
         },
         {
             "path": "server/module",
@@ -16485,7 +16569,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b22f1ec0e18ec2e70dbb5a042779e864091afa1ce4ce8313feb07a91c32af96f"
+            "source_sha256": "800517b6932a4132b033628154418e8aa4761e3928bf10ee328ab557a09b83d0"
         },
         {
             "path": "web/src/api/file-provider.ts",
@@ -16527,7 +16611,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a8169b2c8237f5b3848ef9934db93ae51b6a99fb022af951eb51564a99094d17"
+            "source_sha256": "1b2b6df265c7b6f6defbebfc462f340b70241564d5397169746d34fed3822c07"
         },
         {
             "path": "web/src/api/password-policy.ts",
@@ -16751,7 +16835,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "23a2fc08f7c031d47beeedee235b7a11d336a5ab251aad6b1022ad1b30d13900"
+            "source_sha256": "b857fda5dec27f7c1a15cefb7e9d20fefcb6b3a1635669574cf83fbae70d6c7c"
         },
         {
             "path": "web/src/api/tenant-session-refresh.ts",
@@ -16765,7 +16849,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7495c413ab971b7705d4682b7ac64bdf3d0b315adc7599355639bdd0f297f86a"
+            "source_sha256": "bf04ddce82829f4871bf5c6542349223d747c45834bbab8201f04ea2e0a2e3f7"
         },
         {
             "path": "web/src/api/tenant-session.ts",
@@ -16779,7 +16863,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d82089278b41cf8f5c7c6eb4de736bfee25ab8032a4012320e9791b6971c775a"
+            "source_sha256": "4fbc621eca52ff6bf66a2be0ab6ff1c967f0cfb002827e4ce190c9f767d6bbb4"
         },
         {
             "path": "web/src/api/user.ts",
@@ -17227,7 +17311,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7c07bd84fe155007566b80b60f995c241e7af41ba798981562e8ca122b5e12d2"
+            "source_sha256": "6b32f83c4b1fcda1ec4f939cf5f29038e7f8adb2d9a0336147f2430dcdeb17e1"
         },
         {
             "path": "web/src/components/tab-bar/TabBarMenu.vue",
@@ -17438,7 +17522,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a5ee1ba94b2be86cead757dd114ab89282bedc4bd684cac4ffcb1224c8e6344b"
+            "source_sha256": "7b826a5894b7dff7f67437ce3845176185c40cac519b2c493b654cea1aca516e"
         },
         {
             "path": "web/src/hooks/loading.ts",
@@ -17732,7 +17816,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fd70ce33273e810ff9a85b912db895199ef9ae7a0d7a4e0d1d85cab28f2ceed2"
+            "source_sha256": "041e20239ba90f6f1dbdf943e2a8566e1ac5282ea4f5f09d9d40d5f637572e20"
         },
         {
             "path": "web/src/module-contributions.ts",
@@ -18138,7 +18222,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6c932899f07290248d985c3ceff963edd1e2730336f7b6a66ca810910b16fbcf"
+            "source_sha256": "2a2642ca610d080913a8a9a268d0aa3bb929c9651bf78c210909c62972376042"
         },
         {
             "path": "web/src/store/modules/user/types.ts",
@@ -18194,7 +18278,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b80a74ea9bc084d68e5aa43ffec203f27cd8fd4ee2f16c1543652eada24df5c6"
+            "source_sha256": "9d1496351609d4853925e6cc4211e9f68db5ffa4f993ca9810573dbd42998706"
         },
         {
             "path": "web/src/utils/env.ts",
@@ -18267,6 +18351,34 @@
             "source_sha256": "b17729132927f0c456e47087bdadd1e8120342908ce4bf4fb11778aa409b5db8"
         },
         {
+            "path": "web/src/utils/platform-session.ts",
+            "target": "web/src/utils/platform-session.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0529998c5f8a1a90844d4b274ca28a2a1ea901f0146337e115e425230605e058"
+        },
+        {
+            "path": "web/src/utils/request-trace.ts",
+            "target": "web/src/utils/request-trace.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e55d7ce3827b0575576cf892dbfca3a7cef879ea4c856cb6a9009a60fbdec277"
+        },
+        {
             "path": "web/src/utils/route-listener.ts",
             "target": "web/src/utils/route-listener.ts",
             "classification": "managed",
@@ -18279,6 +18391,34 @@
                 "full"
             ],
             "source_sha256": "0a22bffb7ee6874e36369119eecd2a8483e74d62a9661529b17738b213f0585d"
+        },
+        {
+            "path": "web/src/utils/session-storage.ts",
+            "target": "web/src/utils/session-storage.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2791889c4276ed2ae49d24a265fab83cc68bf410536d8ccc22f20b84f2d4f99c"
+        },
+        {
+            "path": "web/src/utils/session-sync.ts",
+            "target": "web/src/utils/session-sync.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "56732e56aae2974419301db08b19e3df3d115ba97493527696f238cd93847b27"
         },
         {
             "path": "web/src/views/app-setting/hot-search/index.vue",
@@ -19216,7 +19356,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ee5861a6f4a0454bca52d20e15dbf1eb22c534078527d2c22ee93ac3bdd23dcc"
+            "source_sha256": "07e2db438b92782b9ca77af59fbe167faaca8e098965f256a5af6a22ba41a7c8"
         },
         {
             "path": "web/tests/Productization/department-parent-options.test.ts",
@@ -19356,6 +19496,34 @@
                 "full"
             ],
             "source_sha256": "af513e48070ba7f757107e98ae4dd5ddf5c97b07957d368b0ce27e9bc5a9590b"
+        },
+        {
+            "path": "web/tests/Productization/request-trace.test.mjs",
+            "target": "web/tests/Productization/request-trace.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "269c9f1f15319b8673a9027463ce9c997f432deeca0eb292a5aabe57f72a7997"
+        },
+        {
+            "path": "web/tests/Productization/session-sync.test.mjs",
+            "target": "web/tests/Productization/session-sync.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f68f8a29c6bf4e645537e7ce9676b6dceb75d9e9e9996eef74f4fc2b865691c0"
         },
         {
             "path": "web/tests/Productization/vite-allowed-hosts.test.mjs",
