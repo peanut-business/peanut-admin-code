@@ -827,9 +827,12 @@ try {
     require $source . ($modernCreator
         ? '/server/app/common/value/scaffold/ScaffoldManifest.php'
         : '/server/app/common/service/scaffold/ScaffoldManifest.php');
-    require $source . ($modernCreator
+    // The loaded source may define temporary variables in its file scope.
+    (static function (string $creatorFile): void {
+        require $creatorFile;
+    })($source . ($modernCreator
         ? '/server/app/common/infrastructure/scaffold/ApplicationCreator.php'
-        : '/server/app/common/service/scaffold/ApplicationCreator.php');
+        : '/server/app/common/service/scaffold/ApplicationCreator.php'));
     $application = $temporary . '/application';
     $edition = $options['edition'] ?? null;
     $creatorClass = $modernCreator
