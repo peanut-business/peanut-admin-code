@@ -887,11 +887,16 @@ try {
     // Host installation creates only Host-owned tables; selected Modules
     // install their own initial migrations before Host dependent tables.
     foreach (['pa_config', 'pa_generator_table', 'pa_operation_log',
-        'pa_provider_qualification_evidence', 'pa_tenant_idempotency_record',
-        'pa_customer_service_setting'] as $hostTable) {
+        'pa_tenant_idempotency_record'] as $hostTable) {
         createApplicationExpect(
             str_contains($generatedSchema, 'CREATE TABLE `' . $hostTable . '`'),
             'generated Host initial schema is missing: ' . $hostTable,
+        );
+    }
+    foreach (['pa_provider_qualification_evidence', 'pa_customer_service_setting'] as $retiredTable) {
+        createApplicationExpect(
+            !str_contains($generatedSchema, 'CREATE TABLE `' . $retiredTable . '`'),
+            'retired table entered Host initial schema: ' . $retiredTable,
         );
     }
     foreach (['pa_tenant_setting', 'pa_tenant_entry_binding', 'pa_tenant_owner_invitation',
