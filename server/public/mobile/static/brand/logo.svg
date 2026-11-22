@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Peanut Admin</title>
+  <defs>
+    <linearGradient id="surface" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#0F3F9D"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#surface)"/>
+  <path d="M19 18h15.5C43.1 18 49 23.2 49 31s-5.9 13-14.5 13H29v6H19V18Zm10 8v10h5.2c3.2 0 5-1.8 5-5s-1.8-5-5-5H29Z" fill="#fff"/>
+  <circle cx="47.5" cy="47.5" r="5.5" fill="#34D399"/>
+</svg>
