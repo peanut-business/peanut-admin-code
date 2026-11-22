@@ -547,9 +547,8 @@ function releaseProjectWeb(string $application, array $core, string $receipt, st
     releaseWriteJson($application . '/release-versions.json', $versions);
     // These are native lock generation operations, not hand-edited lock data.
     // Lifecycle hooks are disabled; none may install the APP or touch a database.
-    releaseRun(['pnpm', '--dir', $application . '/web', 'install', '--lockfile-only', '--ignore-scripts'], $application, ['HUSKY' => '0']);
-    foreach (['platform', 'pc', 'uniapp'] as $client) {
-        releaseRun(['npm', '--prefix', $application . '/' . $client, 'install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'], $application, ['HUSKY' => '0']);
+    foreach (['web', 'platform', 'pc', 'uniapp'] as $client) {
+        releaseRun(['pnpm', '--dir', $application . '/' . $client, 'install', '--lockfile-only', '--ignore-scripts'], $application, ['HUSKY' => '0']);
     }
     $after = json_decode(releaseRun(['node', $lockTool, $application, '--third-party-only', '--tool-root=' . $toolRoot]), true, 512, JSON_THROW_ON_ERROR);
     if ($before !== $after) {
@@ -642,7 +641,7 @@ function releaseProjectScaffold(string $application, array $core, string $tempor
     $allowed[$core['archive_relative']] = true;
     foreach (['web', 'platform', 'pc', 'uniapp'] as $client) {
         $allowed[$client . '/package.json'] = true;
-        $allowed[$client . '/' . ($client === 'web' ? 'pnpm-lock.yaml' : 'package-lock.json')] = true;
+        $allowed[$client . '/pnpm-lock.yaml'] = true;
     }
     $changes = [];
     $managed = [];

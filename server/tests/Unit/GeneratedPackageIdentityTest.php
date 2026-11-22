@@ -24,25 +24,22 @@ final class GeneratedPackageIdentityTest extends TestCase
         }
     }
 
-    public function testEveryNpmLockChangesOnlyApplicationIdentityAndVersion(): void
+    public function testMigratedPnpmLocksRetainTheirExactDependencyBytes(): void
     {
         foreach (['platform', 'pc', 'uniapp'] as $client) {
-            $source = $this->read($client . '/package-lock.json');
-            $before = json_decode($source, true, 512, JSON_THROW_ON_ERROR);
-            $after = json_decode($this->transform($source, $client . '/package-lock.json'), true, 512, JSON_THROW_ON_ERROR);
-            self::assertSame('acme-console-' . $client, $after['name']);
-            self::assertSame('0.1.0', $after['version']);
-            self::assertSame('0.1.0', $after['packages']['']['version']);
-            self::assertSame($before['packages']['']['dependencies'], $after['packages']['']['dependencies']);
-            unset($before['packages'][''], $after['packages']['']);
-            self::assertSame($before['packages'], $after['packages']);
+            $path = $client . '/pnpm-lock.yaml';
+            $source = $this->read($path);
+            self::assertNotSame('', $source);
+            self::assertSame($source, $this->transform($source, $path));
         }
     }
 
     public function testPnpmLockRetainsItsExactDependencyBytes(): void
     {
-        $source = $this->read('web/pnpm-lock.yaml');
-        self::assertSame($source, $this->transform($source, 'web/pnpm-lock.yaml'));
+        $path = 'web/pnpm-lock.yaml';
+        $source = $this->read($path);
+        self::assertNotSame('', $source);
+        self::assertSame($source, $this->transform($source, $path));
     }
 
     private function transform(string $source, string $path): string

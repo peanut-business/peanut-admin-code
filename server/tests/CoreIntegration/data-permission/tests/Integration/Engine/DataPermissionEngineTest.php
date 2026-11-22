@@ -33,9 +33,6 @@ use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer
 use PeanutAdmin\Modules\Identity\Authorization\ThinkPhpTenantAuthorizationRepository;
 use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
 use PeanutAdmin\Kernel\Authorization\Persistence\PermissionDefinition;
-use PeanutAdmin\Kernel\Authorization\Persistence\ProtectedResourceDefinition;
-use PeanutAdmin\Kernel\Authorization\Persistence\ResourceOperationDefinition;
-use PeanutAdmin\Kernel\Authorization\Persistence\TargetTypeDefinition;
 use PeanutAdmin\Kernel\Authorization\TenantAuthorizationEvaluator;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
 use think\db\PDOConnection;
@@ -57,13 +54,23 @@ final class DataPermissionEngineTest extends DatabaseTestCase
     private int $otherMemberId;
     private int $roleA;
     private int $roleB;
-    private int $resourceId;
-    private int $targetTypeId;
     private int $readPermissionId;
     private int $updatePermissionId;
 
-    /** @var array<string, int> */
-    private array $conditionIds = [];
+    private const CONDITIONS = [
+        'core.tenant_all' => null,
+        'core.self' => null,
+        'core.own_department' => null,
+        'core.department_tree' => null,
+        'core.specified_departments' => 'core.department',
+        'core.specified_objects' => 'example.project',
+    ];
+
+    /** @var list<object> */
+    private array $operations = [];
+    /** @var array<int,list<string>> */
+    private array $targetSets = [];
+    private ThinkPhpTargetSetMembershipProvider $targetMembership;
 
     private ThinkPhpAuthorizationCatalogRepository $authorizationCatalog;
     private DataPermissionEngine $engine;
@@ -79,6 +86,7 @@ final class DataPermissionEngineTest extends DatabaseTestCase
         $this->seedKernel();
         $this->seedBusinessFixtures();
         $this->connection = ThinkPhpTestConnection::fromPdo($this->database);
+        $this->targetMembership = new ThinkPhpTargetSetMembershipProvider();
         $this->engine = $this->engine();
     }
 
@@ -89,30 +97,31 @@ final class DataPermissionEngineTest extends DatabaseTestCase
             'core.self' => [null, [1]],
             'core.own_department' => [null, [1]],
             'core.department_tree' => [null, [1, 2]],
-            'core.specified_departments' => [$this->targetSet('core.department', ['3']), [3]],
-            'core.specified_objects' => [$this->targetSet('example.project', ['102']), [2]],
+            'core.specified_departments' => [$this->targetSet(['3']), [3]],
+            'core.specified_objects' => [$this->targetSet(['102']), [2]],
         ];
 
         foreach ($cases as $conditionKey => [$targetSetId, $expectedIds]) {
             $operation = 'scope-' . str_replace(['core.', '_'], ['', '-'], $conditionKey);
-            $operationId = $this->operation($operation, 'rule_filtered', 'many_readable', $this->readPermissionId);
-            $this->policy($this->roleA, $operationId, [[[$conditionKey, $targetSetId]]]);
+            $this->operation($operation, 'rule_filtered', 'many_readable', $this->readPermissionId);
+            $policyId = $this->policy($this->roleA, [[[$conditionKey, $targetSetId]]]);
 
             self::assertSame($expectedIds, $this->authorizedIds($operation), $conditionKey);
+            $this->database->exec("DELETE FROM pa_data_permission WHERE id = {$policyId}");
         }
     }
 
     public function testConditionsUseAndWhileGroupsAndRolesUseOr(): void
     {
-        $operationId = $this->operation('combined', 'rule_filtered', 'many_readable', $this->readPermissionId);
-        $projectA = $this->targetSet('example.project', ['101']);
-        $projectB = $this->targetSet('example.project', ['102']);
-        $siblingDepartment = $this->targetSet('core.department', ['3']);
-        $this->policy($this->roleA, $operationId, [
+        $this->operation('combined', 'rule_filtered', 'many_readable', $this->readPermissionId);
+        $projectA = $this->targetSet(['101']);
+        $projectB = $this->targetSet(['102']);
+        $siblingDepartment = $this->targetSet(['3']);
+        $this->policy($this->roleA, [
             [['core.self', null], ['core.specified_objects', $projectA]],
             [['core.specified_departments', $siblingDepartment]],
         ]);
-        $this->policy($this->roleB, $operationId, [
+        $this->policy($this->roleB, [
             [['core.specified_objects', $projectB]],
         ]);
 
@@ -121,10 +130,10 @@ final class DataPermissionEngineTest extends DatabaseTestCase
 
     public function testNoPolicyUnknownOperationAndMissingFunctionalPermissionFailClosed(): void
     {
-        $operationId = $this->operation('no-policy', 'rule_filtered', 'many_readable', $this->readPermissionId);
+        $this->operation('no-policy', 'rule_filtered', 'many_readable', $this->readPermissionId);
         self::assertSame([], $this->authorizedIds('no-policy'));
 
-        $expiredPolicy = $this->policy($this->roleA, $operationId, [[['core.tenant_all', null]]]);
+        $expiredPolicy = $this->policy($this->roleA, [[['core.tenant_all', null]]]);
         $this->database->exec(<<<SQL
 UPDATE pa_data_permission
 SET valid_until = '2020-01-01 00:00:00.000', revision = revision + 1
@@ -148,40 +157,28 @@ SQL);
 
     public function testPolicyRevisionMakesCachedCompiledScopeUnreachable(): void
     {
-        $operationId = $this->operation('cache-revision', 'rule_filtered', 'many_readable', $this->readPermissionId);
-        $projectA = $this->targetSet('example.project', ['101']);
-        $policyId = $this->policy($this->roleA, $operationId, [[['core.specified_objects', $projectA]]]);
+        $this->operation('cache-revision', 'rule_filtered', 'many_readable', $this->readPermissionId);
+        $projectA = $this->targetSet(['101']);
+        $policyId = $this->policy($this->roleA, [[['core.specified_objects', $projectA]]]);
         self::assertSame([1], $this->authorizedIds('cache-revision'));
 
-        $projectB = $this->targetSet('example.project', ['102']);
-        $groupId = $this->insert('pa_data_permission_group', [
-            'tenant_id' => $this->alphaTenant,
-            'data_permission_policy_id' => $policyId,
-            'name' => 'Added after cache',
-            'sort_order' => 2,
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-        $this->insert('pa_data_permission_condition', [
-            'tenant_id' => $this->alphaTenant,
-            'data_permission_group_id' => $groupId,
-            'condition_definition_id' => $this->conditionIds['core.specified_objects'],
-            'target_set_id' => $projectB,
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-        $this->database->exec(<<<SQL
-UPDATE pa_data_permission SET revision = revision + 1 WHERE id = {$policyId}
-SQL);
+        $projectB = $this->targetSet(['102']);
+        $changed = $this->database->prepare(
+            'UPDATE pa_data_permission SET condition_groups_json = ?, revision = revision + 1 WHERE id = ?',
+        );
+        $changed->execute([$this->conditionGroups([
+            [['core.specified_objects', $projectA]],
+            [['core.specified_objects', $projectB]],
+        ]), $policyId]);
 
         self::assertSame([1, 2], $this->authorizedIds('cache-revision'));
     }
 
     public function testExplicitTargetsValidateCardinalityTypeTenantAndPolicy(): void
     {
-        $operationId = $this->operation('update', 'explicit_targets', 'one_required', $this->updatePermissionId);
-        $projectA = $this->targetSet('example.project', ['101']);
-        $this->policy($this->roleA, $operationId, [[['core.specified_objects', $projectA]]]);
+        $this->operation('update', 'explicit_targets', 'one_required', $this->updatePermissionId);
+        $projectA = $this->targetSet(['101']);
+        $this->policy($this->roleA, [[['core.specified_objects', $projectA]]]);
 
         $allowed = $this->engine->decideTargets(
             $this->context,
@@ -242,10 +239,10 @@ SQL);
 
         foreach ([10, 500, 5000] as $size) {
             $operation = 'target-size-' . $size;
-            $operationId = $this->operation($operation, 'rule_filtered', 'many_readable', $this->readPermissionId);
+            $this->operation($operation, 'rule_filtered', 'many_readable', $this->readPermissionId);
             $targetIds = array_map('strval', range(1, $size));
-            $targetSetId = $this->targetSet('example.project', $targetIds);
-            $this->policy($this->roleA, $operationId, [[[
+            $targetSetId = $this->targetSet($targetIds);
+            $policyId = $this->policy($this->roleA, [[[
                 'core.specified_objects',
                 $targetSetId,
             ]]]);
@@ -265,12 +262,13 @@ SQL);
                 self::assertStringContainsString('pa_data_permission_target', $compiledSql);
                 self::assertStringNotContainsString('JSON_TABLE(', $compiledSql);
                 self::assertLessThan(10, $bindCount);
-                self::assertTrue((new ThinkPhpTargetSetMembershipProvider())->containsAll(
+                self::assertTrue($this->targetMembership->containsAll(
                     $this->alphaTenant,
                     $targetSetId,
                     $targetIds,
                 ));
             }
+            $this->database->exec("DELETE FROM pa_data_permission WHERE id = {$policyId}");
         }
     }
 
@@ -329,27 +327,6 @@ SQL);
             'sensitive',
             '1.0.0',
         ));
-        $this->resourceId = $this->authorizationCatalog->syncProtectedResource(new ProtectedResourceDefinition(
-            'example.work-item',
-            'example',
-            'Work item',
-            'business_target_owned',
-            'example.work-item.standard',
-            '1.0.0',
-            str_repeat('a', 64),
-        ));
-        $this->targetTypeId = $this->authorizationCatalog->syncTargetType(new TargetTypeDefinition(
-            'example.project',
-            'example',
-            'Project',
-            'example.project.resolver',
-            'example.project.catalog',
-            'decimal',
-            '1.0.0',
-            str_repeat('b', 64),
-        ));
-        $this->conditionDefinitions();
-
         $this->alphaTenant = $this->tenant('alpha');
         $this->betaTenant = $this->tenant('beta');
         $this->department($this->alphaTenant, 1, null, 'root');
@@ -407,7 +384,7 @@ SQL);
                 ['example.project' => new ColumnReference('work_item.project_id')],
             ),
             new ThinkPhpDepartmentHierarchyProvider(),
-            new ThinkPhpTargetSetMembershipProvider(),
+            $this->targetMembership,
             new ConditionProviderRegistry(),
         );
         $providers = new ResourceProviderRegistry();
@@ -417,9 +394,27 @@ SQL);
         $resolvers = new TargetResolverRegistry();
         $resolvers->register('example.project.resolver', new ProjectTargetResolver($this->database));
 
+        $manifest = \PeanutAdmin\Kernel\Module\ManifestDocument::fromObject('/fixtures/example', (object) [
+            'key' => 'example',
+            'catalog' => (object) [
+                'target_types' => [(object) [
+                    'key' => 'example.project',
+                    'resolver' => 'example.project.resolver',
+                    'catalog_provider' => 'example.project.catalog',
+                ]],
+                'protected_resources' => [(object) [
+                    'key' => 'example.work-item',
+                    'provider' => 'example.work-item.standard',
+                    'ownership' => 'business_target_owned',
+                    'operations' => $this->operations,
+                ]],
+            ],
+        ]);
+        $registry = new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([$manifest], [], [], [], 'engine-fixture');
+        $catalog = new ThinkPhpResourceOperationCatalog($registry, $this->fixtureEntitlements(['example']));
         return new DataPermissionEngine(
-            new ThinkPhpResourceOperationCatalog($this->fixtureEntitlements(['example'])),
-            new ThinkPhpPolicyRepository(),
+            $catalog,
+            new ThinkPhpPolicyRepository($catalog, $this->targetMembership),
             new TenantAuthorizationEvaluator(
                 $this->fixtureAuthorizationRepository(['example']),
             ),
@@ -435,105 +430,75 @@ SQL);
         string $accessMode,
         string $cardinality,
         int $permissionId,
-    ): int {
-        $operationId = $this->authorizationCatalog->syncResourceOperation(new ResourceOperationDefinition(
-            'example.work-item',
-            $operation,
-            $accessMode,
-            $cardinality,
-            'all',
-            'deny_and_write',
-            hash('sha256', $operation),
-        ));
-        $this->authorizationCatalog->bindOperationPermission($operationId, $permissionId);
-        if ($cardinality !== 'none') {
-            $this->authorizationCatalog->bindOperationTargetType(
-                $operationId,
-                $this->targetTypeId,
-                'primary',
-                'explicit',
-                $permissionId,
-            );
+    ): void {
+        $permissionKey = $permissionId === $this->updatePermissionId
+            ? 'example.work-item.update' : 'example.work-item.read';
+        $conditions = [];
+        foreach (self::CONDITIONS as $key => $targetResourceKey) {
+            $conditions[] = (object) ['key' => $key, 'selector_resource_key' => $targetResourceKey];
         }
-        foreach ($this->conditionIds as $key => $definitionId) {
-            $this->insert('pa_resource_operation_condition', [
-                'resource_operation_id' => $operationId,
-                'condition_definition_id' => $definitionId,
-                'selector_resource_key' => $key === 'core.specified_objects' ? 'example.project' : null,
-            ]);
-        }
-
-        return $operationId;
+        $this->operations[] = (object) [
+            'key' => $operation,
+            'access_mode' => $accessMode,
+            'target_cardinality' => $cardinality,
+            'permission_match' => 'all',
+            'permissions' => [$permissionKey],
+            'target_types' => [(object) [
+                'target_role' => 'primary',
+                'target_resource_key' => 'example.project',
+                'input_mode' => 'explicit',
+                'policy_selection_permission' => $permissionKey,
+            ]],
+            'conditions' => $conditions,
+        ];
+        $this->engine = $this->engine();
     }
 
-    /**
-     * @param list<list<array{string, int|null}>> $groups
-     */
-    private function policy(int $roleId, int $operationId, array $groups): int
+    /** @param list<list<array{string,int|null}>> $groups */
+    private function policy(int $roleId, array $groups): int
     {
-        $policyId = $this->insert('pa_data_permission', [
+        return $this->insert('pa_data_permission', [
             'tenant_id' => $this->alphaTenant,
             'role_id' => $roleId,
-            'protected_resource_id' => $this->resourceId,
-            'resource_operation_id' => $operationId,
+            'resource_key' => 'example.work-item',
+            'scope_type' => 'rules',
+            'condition_groups_json' => $this->conditionGroups($groups),
             'status' => 'active',
             'created_by_member_id' => $this->memberId,
             'updated_by_member_id' => $this->memberId,
             'created_at' => self::NOW,
             'updated_at' => self::NOW,
         ]);
-        foreach ($groups as $index => $conditions) {
-            $groupId = $this->insert('pa_data_permission_group', [
-                'tenant_id' => $this->alphaTenant,
-                'data_permission_policy_id' => $policyId,
-                'name' => 'Group ' . ($index + 1),
-                'sort_order' => $index,
-                'created_at' => self::NOW,
-                'updated_at' => self::NOW,
-            ]);
-            foreach ($conditions as [$conditionKey, $targetSetId]) {
-                $this->insert('pa_data_permission_condition', [
-                    'tenant_id' => $this->alphaTenant,
-                    'data_permission_group_id' => $groupId,
-                    'condition_definition_id' => $this->conditionIds[$conditionKey],
-                    'target_set_id' => $targetSetId,
-                    'created_at' => self::NOW,
-                    'updated_at' => self::NOW,
-                ]);
-            }
-        }
+    }
 
-        return $policyId;
+    /** @param list<list<array{string,int|null}>> $groups */
+    private function conditionGroups(array $groups): string
+    {
+        $normalized = [];
+        $conditionId = 0;
+        foreach ($groups as $index => $group) {
+            $conditions = [];
+            foreach ($group as [$key, $targetSetId]) {
+                $conditions[] = [
+                    'id' => ++$conditionId,
+                    'key' => $key,
+                    'target_set_id' => $targetSetId,
+                    'target_resource_key' => self::CONDITIONS[$key],
+                    'target_ids' => $this->targetSets[$targetSetId] ?? [],
+                ];
+            }
+            $normalized[] = ['id' => $index + 1, 'conditions' => $conditions];
+        }
+        return json_encode($normalized, JSON_THROW_ON_ERROR);
     }
 
     /** @param list<string> $targetIds */
-    private function targetSet(string $resourceKey, array $targetIds): int
+    private function targetSet(array $targetIds): int
     {
-        $targetSetId = $this->insert('pa_data_permission_target_set', [
-            'tenant_id' => $this->alphaTenant,
-            'name' => $resourceKey . '-' . count($targetIds) . '-' . bin2hex(random_bytes(4)),
-            'target_mode' => $resourceKey === 'core.department' ? 'department' : 'resource',
-            'target_resource_key' => $resourceKey,
-            'created_by_member_id' => $this->memberId,
-            'updated_by_member_id' => $this->memberId,
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-        $statement = $this->database->prepare(<<<'SQL'
-INSERT INTO pa_data_permission_target (tenant_id, target_set_id, target_id, added_by_member_id, added_at)
-VALUES (:tenant_id, :target_set_id, :target_id, :member_id, :added_at)
-SQL);
-        foreach ($targetIds as $targetId) {
-            $statement->execute([
-                'tenant_id' => $this->alphaTenant,
-                'target_set_id' => $targetSetId,
-                'target_id' => $targetId,
-                'member_id' => $this->memberId,
-                'added_at' => self::NOW,
-            ]);
-        }
+        $id = count($this->targetSets) + 1;
+        $this->targetSets[$id] = $targetIds;
 
-        return $targetSetId;
+        return $id;
     }
 
     /** @return list<int> */
@@ -549,27 +514,13 @@ SQL);
         $query = new Query($this->connection);
         $query->table('test_work_item');
         $query->alias('work_item');
-        (new ThinkPhpQueryConstraintApplier(new \PeanutAdmin\Modules\Identity\access\Infrastructure\ThinkPhpTargetSetConstraintApplier()))->apply($query, $this->engine->queryConstraint(
+        (new ThinkPhpQueryConstraintApplier(new \PeanutAdmin\Modules\Identity\access\Infrastructure\ThinkPhpTargetSetConstraintApplier($this->targetMembership)))->apply($query, $this->engine->queryConstraint(
             $this->context,
             'example.work-item',
             $operation,
         ));
 
         return $query;
-    }
-
-    private function conditionDefinitions(): void
-    {
-        foreach ([
-            'core.tenant_all',
-            'core.self',
-            'core.own_department',
-            'core.department_tree',
-            'core.specified_departments',
-            'core.specified_objects',
-        ] as $key) {
-            $this->conditionIds[$key] = $this->authorizationCatalog->dataConditionId($key);
-        }
     }
 
     private function tenant(string $code): int

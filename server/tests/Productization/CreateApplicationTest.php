@@ -546,9 +546,16 @@ try {
     ) === 1, 'admin builder stage is missing');
     $adminBuild = $adminBuildMatch[1];
     $compilePosition = strpos($adminBuild, 'pnpm exec vite build');
-    foreach (['COPY web/package.json web/pnpm-lock.yaml ./', 'pnpm install --frozen-lockfile',
-        'COPY modules.lock /build/modules.lock', 'COPY web/ ./',
-        'pnpm exec vue-tsc --noEmit', 'VITE_DEPLOYMENT_MODE=multi-tenant'] as $requiredInput) {
+    $installPosition = strpos($adminBuild, 'pnpm install --frozen-lockfile');
+    foreach (['COPY modules.lock /build/modules.lock', 'COPY web/ ./'] as $installInput) {
+        $copyPosition = strpos($adminBuild, $installInput);
+        createApplicationExpect(
+            is_int($copyPosition) && is_int($installPosition) && $copyPosition < $installPosition,
+            'admin dependency inputs must be copied before the frozen install: ' . $installInput,
+        );
+    }
+    foreach (['pnpm install --frozen-lockfile', 'pnpm exec vue-tsc --noEmit',
+        'VITE_DEPLOYMENT_MODE=multi-tenant'] as $requiredInput) {
         $inputPosition = strpos($adminBuild, $requiredInput);
         createApplicationExpect(
             is_int($inputPosition) && is_int($compilePosition) && $inputPosition < $compilePosition,
@@ -734,8 +741,8 @@ try {
     $coreWebPackages = $sourceVersionContract['core_web']['packages'] ?? null;
     createApplicationExpect(is_array($coreWebPackages), 'source Core Web package identities must be declared');
     $clientCorePackages = [
-        'web' => ['@peanut-admin/ui-vue', '@peanut-admin/vue'],
-        'platform' => ['@peanut-admin/ui-vue', '@peanut-admin/vue'],
+        'web' => ['@peanut-admin/client', '@peanut-admin/ui-vue', '@peanut-admin/vue'],
+        'platform' => ['@peanut-admin/client', '@peanut-admin/ui-vue', '@peanut-admin/vue'],
         'pc' => ['@peanut-admin/client', '@peanut-admin/nuxt'],
         'uniapp' => ['@peanut-admin/client', '@peanut-admin/uniapp'],
     ];
@@ -743,34 +750,18 @@ try {
         $package = json_decode((string) file_get_contents($first . "/{$client}/package.json"), true, 512, JSON_THROW_ON_ERROR);
         createApplicationExpect(($package['version'] ?? null) === '0.1.0', "{$client} root package must use application.version");
         foreach ($packageNames as $packageName) {
-            $expected = $coreWebPackages[$packageName]['version'] ?? null;
-            createApplicationExpect(is_string($expected) && $expected !== '', "{$packageName} public version identity is unavailable");
+            $identity = $coreWebPackages[$packageName];
+            $expected = isset($identity['archive']) ? 'file:../' . $identity['archive'] : $identity['version'];
+            $lockText = (string) file_get_contents($first . "/{$client}/pnpm-lock.yaml");
+            createApplicationExpect(str_contains($lockText, "specifier: {$expected}"), "{$client} lock importer must select {$expected}");
+            createApplicationExpect(str_contains($lockText, "'{$packageName}@{$expected}':"), "{$client} lock must contain {$packageName}");
+            $integrity = isset($identity['archive'])
+                ? 'sha512-' . base64_encode(hash_file('sha512', $first . '/' . $identity['archive'], true))
+                : $identity['integrity'];
+            createApplicationExpect(str_contains($lockText, $integrity), "{$client} lock must preserve {$packageName} integrity");
             createApplicationExpect(
                 ($package['dependencies'][$packageName] ?? null) === $expected,
                 "{$client} dependency {$packageName} must remain {$expected}",
-            );
-        }
-    }
-    foreach (['platform', 'pc', 'uniapp'] as $client) {
-        $lock = json_decode((string) file_get_contents($first . "/{$client}/package-lock.json"), true, 512, JSON_THROW_ON_ERROR);
-        createApplicationExpect(
-            ($lock['version'] ?? null) === '0.1.0' && ($lock['packages']['']['version'] ?? null) === '0.1.0',
-            "{$client} root lock metadata must use application.version",
-        );
-        foreach ($clientCorePackages[$client] as $packageName) {
-            $coreWebIdentity = $coreWebPackages[$packageName];
-            $expected = $coreWebIdentity['version'];
-            createApplicationExpect(
-                ($lock['packages']['']['dependencies'][$packageName] ?? null) === $expected,
-                "{$client} lock dependency {$packageName} must remain {$expected}",
-            );
-            $locked = $lock['packages']['node_modules/' . $packageName] ?? null;
-            createApplicationExpect(
-                is_array($locked)
-                    && ($locked['version'] ?? null) === $expected
-                    && ($locked['resolved'] ?? null) === ($coreWebIdentity['resolved'] ?? null)
-                    && ($locked['integrity'] ?? null) === ($coreWebIdentity['integrity'] ?? null),
-                "{$client} installed lock identity {$packageName} must preserve the public version, tarball and SRI",
             );
         }
     }

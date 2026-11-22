@@ -19,11 +19,15 @@ final class A1EditionDockerProjectionTest extends TestCase
     {
         $docker = $this->read('deploy/docker/production.Dockerfile');
         self::assertStringContainsString('FROM node:22.23.2-bookworm-slim AS client-base', $docker);
-        self::assertStringContainsString("require('./package.json').packageManager", $docker);
+        self::assertStringContainsString('RUN corepack enable', $docker);
         $web = json_decode($this->read('web/package.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertMatchesRegularExpression('/^pnpm@[0-9]+\\.[0-9]+\\.[0-9]+$/D', $web['packageManager']);
+        foreach (['platform', 'pc', 'uniapp'] as $client) {
+            $manifest = json_decode($this->read($client . '/package.json'), true, 512, JSON_THROW_ON_ERROR);
+            self::assertSame($web['packageManager'], $manifest['packageManager'], $client);
+        }
         $firstInstall = $this->position($docker, 'pnpm install --frozen-lockfile');
-        self::assertLessThan($firstInstall, $this->position($docker, 'COPY web/package.json web/pnpm-lock.yaml ./'));
+        self::assertLessThan($firstInstall, $this->position($docker, 'COPY web/ ./'));
         self::assertLessThan($firstInstall, $this->position($docker, 'RUN --mount=type=bind,source=.,target=/build-context,readonly'));
         self::assertStringNotContainsString('COPY packages/', $docker);
         $versions = json_decode($this->read('release-versions.json'), true, 512, JSON_THROW_ON_ERROR);

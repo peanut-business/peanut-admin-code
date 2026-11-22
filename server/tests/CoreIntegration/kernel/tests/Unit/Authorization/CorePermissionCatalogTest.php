@@ -97,7 +97,6 @@ final class CorePermissionCatalogTest extends TestCase
                 $keys[] = $definition->key;
                 return count($keys);
             });
-        $catalog->expects(self::exactly(6))->method('syncDataCondition')->willReturn(1);
         (new CorePermissionCatalogSynchronizer($catalog))->synchronize();
         self::assertSame([...CorePermissionCatalog::TENANT, ...CorePermissionCatalog::PLATFORM], $keys);
     }

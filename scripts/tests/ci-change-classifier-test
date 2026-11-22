@@ -50,6 +50,12 @@ expect "$lock" 'server=true'
 expect "$lock" 'create_app=true'
 expect "$lock" 'integration=true'
 
+for quality_entry in server/phpstan-quality.neon scripts/phpstan-quality; do
+  quality="$(classify phpstan-quality "$quality_entry")"
+  expect "$quality" 'server=true'
+  expect "$quality" 'integration=false'
+done
+
 module_frontend="$(classify module-frontend web/src/modules/official-sample/contribution.ts)"
 expect "$module_frontend" 'web=true'
 expect "$module_frontend" 'create_app=true'

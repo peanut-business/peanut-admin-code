@@ -183,16 +183,16 @@ classify() {
     server/composer.json|server/composer.lock)
       mark server create_app integration
       ;;
-    web/package.json|web/pnpm-lock.yaml)
+    web/package.json|web/pnpm-lock.yaml|web/pnpm-workspace.yaml)
       mark server web create_app
       ;;
-    platform/package.json|platform/package-lock.json)
+    platform/package.json|platform/pnpm-lock.yaml|platform/pnpm-workspace.yaml)
       mark platform create_app
       ;;
-    pc/package.json|pc/package-lock.json)
+    pc/package.json|pc/pnpm-lock.yaml|pc/pnpm-workspace.yaml)
       mark pc create_app
       ;;
-    uniapp/package.json|uniapp/package-lock.json)
+    uniapp/package.json|uniapp/pnpm-lock.yaml|uniapp/pnpm-workspace.yaml)
       mark uniapp create_app
       ;;
     packages/*)
@@ -207,10 +207,10 @@ classify() {
     server/tests/Support/IdentityMysqlFixture.php|server/tests/Support/RegisteredMysqlTestResource.php|scripts/tests/run-registered-mysql-tests|resources/project-resources.json|scripts/project-resource-registry)
       mark server integration
       ;;
-    server/phpstan/*|server/phpstan.neon|scripts/phpstan-tenant-guard)
+    server/phpstan/*|server/phpstan.neon|server/phpstan-quality.neon|scripts/phpstan-tenant-guard|scripts/phpstan-quality)
       mark server
       ;;
-    server/tests/*|server/app/*|server/config/*|server/database/*|server/bootstrap/*|server/public/*|server/think|scripts/run-php-test|scripts/check-admin-api-permissions.php|scripts/check-test-integrity|scripts/check-thinkphp-architecture)
+    server/tests/*|server/app/*|server/config/*|server/database/*|server/bootstrap/*|server/public/*|server/think|scripts/run-php-test|scripts/check-admin-api-permissions.php|scripts/check-test-integrity)
       mark server
       ;;
     plugins/*|modules.lock)

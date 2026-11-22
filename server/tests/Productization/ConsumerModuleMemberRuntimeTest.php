@@ -363,7 +363,6 @@ try {
         ),
         new RegisteredAdminPermissionPolicy(),
         new AdminDirectoryQuery($current),
-        $tenantAuthorization,
         new EndpointPermissionGrant(new think\Request()),
         $current,
     );

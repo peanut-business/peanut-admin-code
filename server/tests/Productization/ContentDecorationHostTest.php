@@ -16,8 +16,8 @@ function expectContentDecoration(bool $condition, string $message): void
 $serverRoot = ((getenv('PEANUT_TEST_APPLICATION_ROOT') ?: dirname(__DIR__, 3)) . '/server');
 $repositoryRoot = dirname($serverRoot);
 $storage = (new ReflectionClass(\PeanutAdmin\Modules\File\Service\Storage\StorageService::class))->newInstanceWithoutConstructor();
-$fileService = new \PeanutAdmin\Modules\File\Service\FileService($storage, 'https://app.example');
-$assets = new ProductAssetReferenceService($fileService, 'https://app.example');
+$fileService = new \PeanutAdmin\Modules\File\Service\FileService($storage);
+$assets = new ProductAssetReferenceService($fileService);
 $context = new \PeanutAdmin\Kernel\Context\TenantSystemContext(11, 'decoration-test', 'preview', 'fixture');
 expectContentDecoration($assets->forStorage('') === '' && $assets->forRead('') === '', 'empty reference must stay empty');
 try {

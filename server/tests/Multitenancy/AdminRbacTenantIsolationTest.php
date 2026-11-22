@@ -80,7 +80,7 @@ try {
         new ThinkPhpTenantAuthorizationRepository($entitlements, $queries), $menus, $queries,
         new MenuAdministrationService(), $entitlements);
     $authorization = new AdminAuthorizationService($bridge, new RegisteredAdminPermissionPolicy(),
-        $directory, $queries, new EndpointPermissionGrant(new think\Request()), $current);
+        $directory, new EndpointPermissionGrant(new think\Request()), $current);
 
     $now = '2020-01-01 00:00:00.000';
     $pdo->exec(<<<SQL

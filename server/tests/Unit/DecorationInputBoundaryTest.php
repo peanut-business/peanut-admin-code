@@ -125,7 +125,7 @@ final class DecorationInputBoundaryTest extends TestCase
         $files->method('getFileUrl')->with($key)->willReturn($url);
         $files->method('getFileUrls')->with([$key])->willReturn([$key => $url]);
         $files->expects(self::once())->method('setTenantFileUrl')->with($context, $key)->willReturn($key);
-        $schema = new DecorationSchemaService(new ProductAssetReferenceService($files, 'https://app.example'));
+        $schema = new DecorationSchemaService(new ProductAssetReferenceService($files));
         $read = new DecorationReadService($schema);
         $stored = ['id' => 1, 'type' => 4, 'name' => 'PC', 'data' => json_encode([['image' => $key]], JSON_THROW_ON_ERROR), 'meta' => '[]'];
         $editor = $read->formatPage($stored, forEdit: true);

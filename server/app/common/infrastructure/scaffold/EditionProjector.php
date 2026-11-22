@@ -16,7 +16,6 @@ final class EditionProjector
     /** The template owns Host sources; CLI adopts the composition from a release. */
     public function modules(string $stage, array $files, string $sourceServerRoot): array
     {
-        $selected = [];
         // The thin template preserves Host SQL and its foreign keys. The
         // installer validates those edges against the modules actually adopted.
         $database = \InitialInstallationSource::projectTemplate($sourceServerRoot);
@@ -32,7 +31,7 @@ final class EditionProjector
                 $module = $match[1];
             }
             $absolute = $stage . '/' . $path;
-            if ($module !== null && !in_array('peanut.' . $module, $selected, true)) {
+            if ($module !== null) {
                 if (!unlink($absolute)) {
                     throw new RuntimeException('CREATE_APP_MODULE_REMOVE_FAILED: ' . $path);
                 }
@@ -45,8 +44,7 @@ final class EditionProjector
             if ($path === 'server/composer.json') {
                 $composer = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
                 foreach ($composer['autoload']['psr-4'] as $namespace => $directory) {
-                    if (is_string($directory) && preg_match('#^app/modules/peanut/([^/]+)/#', $directory, $match) === 1
-                        && !in_array('peanut.' . str_replace('_', '-', $match[1]), $selected, true)) {
+                    if (is_string($directory) && str_starts_with($directory, 'app/modules/peanut/')) {
                         unset($composer['autoload']['psr-4'][$namespace]);
                     }
                 }
@@ -70,19 +68,13 @@ final class EditionProjector
     {
         foreach ($files as $index => $file) {
             $path = $file['path'];
-            if ($path !== 'web/pnpm-workspace.yaml'
-                && !in_array($path, ['platform/package.json', 'pc/package.json', 'uniapp/package.json'], true)) {
+            if (preg_match('#^(web|platform|pc|uniapp)/pnpm-workspace\.yaml$#D', $path, $match) !== 1) {
                 continue;
             }
             $absolute = $stage . '/' . $path;
             $content = (string) file_get_contents($absolute);
-            if ($path === 'web/pnpm-workspace.yaml') {
-                $projected = "packages:\n  - src/modules/*\n";
-            } else {
-                $package = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
-                $package['workspaces'] = [($path === 'pc/package.json' ? 'modules/' : 'src/modules/') . '*'];
-                $projected = self::json($package);
-            }
+            $modules = $match[1] === 'pc' ? 'modules/*' : 'src/modules/*';
+            $projected = "packages:\n  - {$modules}\n";
             if ($content !== $projected) {
                 $this->writeFile($absolute, $projected, $file['mode']);
                 $file['sha256'] = hash('sha256', $projected);
@@ -298,7 +290,7 @@ final class EditionProjector
                 'CREATE_APP_EDITION_DOCKER_ADMIN_BUILD_SOURCE_INVALID',
             );
             $content = preg_replace(
-                '/\nFROM client-base AS platform-builder\n.*?\nRUN npm run build\n/s',
+                '/\nFROM client-base AS platform-builder\n.*?\nRUN pnpm run build\n/s',
                 '',
                 $content,
                 1,

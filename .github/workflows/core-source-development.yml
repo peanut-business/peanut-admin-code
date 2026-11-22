@@ -61,7 +61,7 @@ jobs:
         run: |
           ./scripts/project-composer prepare
           pnpm --dir web install --frozen-lockfile --ignore-scripts
-          for client in platform pc uniapp; do npm --prefix "$client" ci --ignore-scripts; done
+          for client in platform pc uniapp; do pnpm --dir "$client" install --frozen-lockfile --ignore-scripts; done
       - name: Activate and verify both local Core sources
         working-directory: code
         run: |
@@ -71,7 +71,7 @@ jobs:
           trap 'rm -f -- "$env_file"' EXIT
           ./scripts/core-dev install --php-core-dir "$GITHUB_WORKSPACE/core-php" --web-core-dir "$GITHUB_WORKSPACE/core-web" --backend-env "$env_file"
           ./scripts/core-dev status --php-core-dir "$GITHUB_WORKSPACE/core-php" --web-core-dir "$GITHUB_WORKSPACE/core-web"
-          git diff --exit-code -- server/composer.json server/composer.lock web/package.json web/pnpm-lock.yaml platform/package.json platform/package-lock.json pc/package.json pc/package-lock.json uniapp/package.json uniapp/package-lock.json
+          git diff --exit-code -- server/composer.json server/composer.lock web/package.json web/pnpm-lock.yaml platform/package.json platform/pnpm-lock.yaml pc/package.json pc/pnpm-lock.yaml uniapp/package.json uniapp/pnpm-lock.yaml
       - name: Save exact public source snapshot for mechanical follow-up
         if: always()
         run: git -C code archive --format=tar.gz --output="$RUNNER_TEMP/peanut-code-source.tar.gz" HEAD

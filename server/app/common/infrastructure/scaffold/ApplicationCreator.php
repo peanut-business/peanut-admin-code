@@ -112,14 +112,14 @@ final class ApplicationCreator
         if ($generationIdentity !== $actualIdentity) {
             throw new RuntimeException('CREATE_APP_SOURCE_IDENTITY_MISMATCH');
         }
-        $originRepository = ($generationIdentity['kind'] ?? 'git') === 'git' ? $this->originRepository() : null;
+        $originRepository = $generationIdentity['kind'] === 'git' ? $this->originRepository() : null;
         $declaredProvenance = $this->sourceProvenance;
         if ($declaredProvenance !== null && ($declaredProvenance['repository'] ?? null) === null) {
             $declaredProvenance['repository'] = $originRepository;
         }
         $provenance = $this->validateSourceProvenance($declaredProvenance ?? [
             'repository' => $originRepository,
-            'requested_ref' => ($generationIdentity['kind'] ?? 'git') === 'local'
+            'requested_ref' => $generationIdentity['kind'] === 'local'
                 ? 'local:' . $generationIdentity['snapshot_sha256'] : $generationIdentity['commit'],
             'channel' => 'development',
             'release_version' => null,
@@ -178,7 +178,7 @@ final class ApplicationCreator
                 }
                 $source = $this->sourcePath((string) $entry['path']);
                 $actualSourceDigest = self::sourceDigest($source, (string) $entry['path'], (string) $entry['transform']);
-                if (!is_string($actualSourceDigest) || !hash_equals((string) $entry['source_sha256'], $actualSourceDigest)) {
+                if (!hash_equals((string) $entry['source_sha256'], $actualSourceDigest)) {
                     throw new RuntimeException('CREATE_APP_SOURCE_DIGEST_MISMATCH: ' . $entry['path']);
                 }
                 $content = file_get_contents($source);
@@ -235,7 +235,7 @@ final class ApplicationCreator
                 ? [
                     'version' => $inventory['template_version'],
                     'inventory_sha256' => $inventoryDigest,
-                    ...(($generationIdentity['kind'] ?? 'git') === 'git'
+                    ...($generationIdentity['kind'] === 'git'
                         ? ['source_identity' => ['kind' => 'git', 'commit' => $generationIdentity['commit'], 'tree' => $generationIdentity['tree']],
                             'source_commit' => $generationIdentity['commit'], 'source_tree' => $generationIdentity['tree']]
                         : ['source_identity' => $generationIdentity]),
@@ -413,7 +413,7 @@ final class ApplicationCreator
     }
 
     /** Fixed internal packages are selected explicitly; this never grants a published identity.
-     * @param array{commit:string,tree:string} $identity
+     * @param array{kind:'git',commit:string,tree:string}|array{kind:'local',snapshot_sha256:string} $identity
      * @return array<string,string> archive path => SHA-256
      */
     private function candidateArchives(ScaffoldManifest $adoption, array $identity, string $inventoryDigest, string $profile, string $workflow): array
@@ -615,7 +615,7 @@ final class ApplicationCreator
                 throw new RuntimeException('CREATE_APP_ADOPTION_MANAGED_SET_MISMATCH: ' . $path);
             }
             if (($artifact['mode'] ?? null) !== ($generated['mode'] ?? null)
-                || ($artifact['classification'] ?? null) !== ($generated['classification'] ?? null)) {
+                || $artifact['classification'] !== $generated['classification']) {
                 throw new RuntimeException('CREATE_APP_ADOPTION_FILE_METADATA_MISMATCH: ' . $path);
             }
             $generatedPath = ScaffoldPathGuard::existingFileWithin(
@@ -841,7 +841,7 @@ final class ApplicationCreator
             throw new RuntimeException('CREATE_APP_TARGET_PATH_INVALID');
         }
         $cursor = DIRECTORY_SEPARATOR;
-        foreach (array_filter(explode(DIRECTORY_SEPARATOR, $target), 'strlen') as $segment) {
+        foreach (array_filter(explode(DIRECTORY_SEPARATOR, $target), static fn(string $line): bool => $line !== '') as $segment) {
             $cursor = rtrim($cursor, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $segment;
             if (is_link($cursor)) {
                 throw new RuntimeException('CREATE_APP_TARGET_SYMLINK_REJECTED');
@@ -1025,9 +1025,6 @@ final class ApplicationCreator
             if (array_key_exists('name', $document)) {
                 $document['name'] = $applicationName;
             }
-            if (isset($document['packages']['']) && array_key_exists('name', $document['packages'][''])) {
-                $document['packages']['']['name'] = $applicationName;
-            }
         }
         if (in_array($path, ['web/package.json', 'platform/package.json', 'pc/package.json',
             'uniapp/package.json', 'docs-site/package.json'], true) && array_key_exists('version', $document)) {
@@ -1044,15 +1041,6 @@ final class ApplicationCreator
                     static fn(string $entry): bool => !str_starts_with($entry, 'tests/'),
                 ));
             }
-        }
-        if (in_array($path, ['platform/package-lock.json', 'pc/package-lock.json', 'uniapp/package-lock.json'], true)) {
-            if (!array_key_exists('version', $document)
-                || !is_array($document['packages'][''] ?? null)
-                || !array_key_exists('version', $document['packages'][''])) {
-                throw new RuntimeException('CREATE_APP_PACKAGE_LOCK_ROOT_INVALID: ' . $path);
-            }
-            $document['version'] = $parameters['APPLICATION_VERSION'];
-            $document['packages']['']['version'] = $parameters['APPLICATION_VERSION'];
         }
         return json_encode(
             $document,
@@ -1241,7 +1229,6 @@ final class ApplicationCreator
         return json_encode($registry, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
     }
 
-    /** @param array<string,string> $parameters */
     private function readme(): string
     {
         return "# {{PRODUCT_NAME}}\n\nApplication identity: `{{PACKAGE_IDENTITY}}` (`{{SLUG}}`).\n\n"
@@ -1249,7 +1236,6 @@ final class ApplicationCreator
             . "Before connecting a database or starting a service, register the environment resources in `resources/project-resources.json`. A fresh install requires explicit `ADMIN_INITIAL_PASSWORD`; no shared default password is supplied.\n";
     }
 
-    /** @param array<string,string> $parameters */
     private function license(): string
     {
         return "{{PRODUCT_NAME}}\n\nCopyright holder: application owner. All rights reserved.\n\n"
@@ -1336,7 +1322,7 @@ final class ApplicationCreator
             $rewritten[$path] = true;
         }
         $lock = $writer->writeLock();
-        if (($lock['path'] ?? null) !== 'modules.lock') {
+        if ($lock['path'] !== 'modules.lock') {
             throw new RuntimeException('CREATE_APP_PLUGIN_LOCK_PATH_MISMATCH');
         }
         $rewritten['modules.lock'] = true;
@@ -1345,6 +1331,7 @@ final class ApplicationCreator
             throw new RuntimeException('CREATE_APP_PLUGIN_LOCK_SET_MISMATCH');
         }
 
+        $declaredFiles = [];
         foreach ($files as &$file) {
             $path = (string) ($file['path'] ?? '');
             if (!isset($rewritten[$path])) {
@@ -1356,11 +1343,12 @@ final class ApplicationCreator
                 throw new RuntimeException('CREATE_APP_PLUGIN_ARTIFACT_WRITE_MISMATCH: ' . $path);
             }
             $file['sha256'] = hash('sha256', $content);
-            unset($rewritten[$path]);
+            $declaredFiles[$path] = true;
         }
         unset($file);
-        if ($rewritten !== []) {
-            throw new RuntimeException('CREATE_APP_PLUGIN_ARTIFACT_UNDECLARED: ' . implode(',', array_keys($rewritten)));
+        $undeclared = array_diff_key($rewritten, $declaredFiles);
+        if ($undeclared !== []) {
+            throw new RuntimeException('CREATE_APP_PLUGIN_ARTIFACT_UNDECLARED: ' . implode(',', array_keys($undeclared)));
         }
         return $files;
     }
@@ -1658,7 +1646,7 @@ JS;
     }
 
     /**
-     * @param array{commit:string,tree:string} $generationIdentity
+     * @param array{kind:'git',commit:string,tree:string}|array{kind:'local',snapshot_sha256:string} $generationIdentity
      * @param array{repository:?string,requested_ref:string,channel:string,release_version:?string} $sourceProvenance
      * @param array{version:string,inventory_sha256:string,source_commit:string,source_tree:string} $templateIdentity
      * @param array<string,string> $parameters
@@ -1719,13 +1707,13 @@ JS;
             'requested_ref' => $sourceProvenance['requested_ref'],
             'channel' => $sourceProvenance['channel'],
             'release_version' => $sourceProvenance['release_version'],
-            'source_identity' => ($generationIdentity['kind'] ?? 'git') === 'git'
+            'source_identity' => $generationIdentity['kind'] === 'git'
                 ? ['kind' => 'git', 'commit' => $generationIdentity['commit'], 'tree' => $generationIdentity['tree']]
                 : $generationIdentity,
             'inventory_sha256' => $inventoryDigest,
             'edition_profile_sha256' => $editionProfile->sourceSha256,
         ];
-        if (($generationIdentity['kind'] ?? 'git') === 'git') {
+        if ($generationIdentity['kind'] === 'git') {
             $generationSource['commit'] = $generationIdentity['commit'];
             $generationSource['tree'] = $generationIdentity['tree'];
         }

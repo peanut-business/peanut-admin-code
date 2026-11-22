@@ -70,7 +70,6 @@ final class ProvisionedOwnerBoundaryTest extends TestCase
             $this->createStub(TenantSettingsCommands::class),
             (new ReflectionClass(ExternalIntegrationBootstrapCommands::class))->newInstanceWithoutConstructor(),
             $app->make(DbManager::class),
-            new CompiledModuleRegistry([], [], [], [], 'provisioned-owner-boundary'),
             new \app\common\services\decoration\DecorationPageDefaultsService($app->make(DbManager::class)),
         );
         $this->host = new CoreTenantOwnerAdminProvisioner($bootstrap, $this->directory);

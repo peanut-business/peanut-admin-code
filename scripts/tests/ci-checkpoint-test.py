@@ -407,7 +407,7 @@ process.stdout.write(String(cases.length + 1));
         self.assertNotIn("validation != 'deferred'", text)
         self.assertEqual(text.count("if: needs.changes.outputs.validation == 'required' &&"), 8)
         self.assertEqual(text.count('path: ${{ env.COMPOSER_CACHE_DIR }}/files'), 2)
-        self.assertNotIn('working-directory: platform\n        run: npm run type:check', text)
+        self.assertNotIn('working-directory: platform\n        run: pnpm run type:check', text)
 
     def test_core_workflow_preserves_source_and_frozen_consumer_jobs(self):
         text = (ROOT/'.github/workflows/core-source-development.yml').read_text()
@@ -429,12 +429,12 @@ process.stdout.write(String(cases.length + 1));
         step = workflow.split('      - &prepare-module-consumer\n', 1)[1].split(
             '      - name: Run daily server gates\n', 1
         )[0]
-        self.assertIn('readlink -f "$(command -v npm)"', step)
+        self.assertNotIn('readlink -f "$(command -v npm)"', step)
         self.assertIn('pnpm/bin/pnpm.cjs', step)
-        self.assertIn('node "$npm_cli" --version >/dev/null', step)
+        self.assertNotIn('node "$npm_cli" --version >/dev/null', step)
         self.assertIn('node "$pnpm_cli" --version >/dev/null', step)
         self.assertLess(step.index('node "$pnpm_cli" --version'), step.index('gh release download'))
-        self.assertIn('commands["npm"]=[tools["node"],os.environ["PEANUT_CI_NPM_CLI"]]', step)
+        self.assertNotIn('commands["npm"]', step)
         self.assertIn('commands["pnpm"]=[tools["node"],os.environ["PEANUT_CI_PNPM_CLI"]]', step)
         self.assertNotIn('commands.update({name:[tools["node"],tools[name]]', step)
 
@@ -465,8 +465,8 @@ process.stdout.write(String(cases.length + 1));
         )
         self.assertIn('pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy', section)
         self.assertLess(section.index('      - *prepare-module-consumer'), section.index('name: Reconcile adopted Platform workspace and install dependencies'))
-        self.assertIn('npm install --include=dev --strict-peer-deps --ignore-scripts --no-audit --no-fund', section)
-        self.assertNotIn('run: npm ci', section)
+        self.assertIn('pnpm install --prod=false --no-frozen-lockfile --strict-peer-dependencies --ignore-scripts', section)
+        self.assertNotIn('cache: npm', section)
         self.assertLess(section.index('name: Reconcile adopted Platform workspace and install dependencies'), section.index('name: Build the adopted Module consumer'))
 
 

@@ -15,7 +15,7 @@ services:
   web:
     image: node:22.22.0-bookworm-slim
     working_dir: /workspace/web
-    command: ["sh", "-c", "set -e; test -x node_modules/.bin/vite || (corepack enable && corepack prepare pnpm@9.15.6 --activate && pnpm install --frozen-lockfile); exec npm run dev -- --host 0.0.0.0 --port 5173"]
+    command: ["sh", "-c", "set -e; corepack enable; test -x node_modules/.bin/vite || (corepack enable && corepack prepare pnpm@9.15.6 --activate && pnpm install --frozen-lockfile); exec pnpm run dev --host 0.0.0.0 --port 5173"]
     environment:
       <<: *node-environment
       CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}
@@ -31,7 +31,7 @@ services:
   platform:
     image: node:22.22.0-bookworm-slim
     working_dir: /workspace/platform
-    command: ["sh", "-c", "set -e; test -x node_modules/.bin/vite || npm ci; exec npm run dev -- --host 0.0.0.0 --port 5177"]
+    command: ["sh", "-c", "set -e; corepack enable; test -x node_modules/.bin/vite || (corepack enable && pnpm install --frozen-lockfile); exec pnpm run dev --host 0.0.0.0 --port 5177"]
     environment:
       <<: *node-environment
       CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}
@@ -45,7 +45,7 @@ services:
   pc:
     image: node:22.22.0-bookworm-slim
     working_dir: /workspace/pc
-    command: ["sh", "-c", "set -e; test -x node_modules/.bin/nuxt || npm ci; exec node node_modules/nuxt/bin/nuxt.mjs dev --port 3100 --host 0.0.0.0"]
+    command: ["sh", "-c", "set -e; corepack enable; test -x node_modules/.bin/nuxt || (corepack enable && pnpm install --frozen-lockfile); exec pnpm run dev --port 3100 --host 0.0.0.0"]
     environment:
       <<: *node-environment
       CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}
@@ -61,7 +61,7 @@ services:
   mobile:
     image: node:22.22.0-bookworm-slim
     working_dir: /workspace/uniapp
-    command: ["sh", "-c", "set -e; test -x node_modules/.bin/uni || npm ci; exec node node_modules/@dcloudio/vite-plugin-uni/bin/uni.js --host 0.0.0.0 --port 5174"]
+    command: ["sh", "-c", "set -e; corepack enable; test -x node_modules/.bin/uni || (corepack enable && pnpm install --frozen-lockfile); exec pnpm run dev:h5 --host 0.0.0.0 --port 5174"]
     environment:
       <<: *node-environment
       CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}

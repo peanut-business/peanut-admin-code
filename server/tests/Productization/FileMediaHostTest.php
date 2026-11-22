@@ -15,7 +15,7 @@ namespace {
 
     require_once $serverRoot . '/vendor/autoload.php';
     $storage = (new ReflectionClass(\PeanutAdmin\Modules\File\Service\Storage\StorageService::class))->newInstanceWithoutConstructor();
-    $fileService = new \PeanutAdmin\Modules\File\Service\FileService($storage, 'https://admin.example.test');
+    $fileService = new \PeanutAdmin\Modules\File\Service\FileService($storage);
     expectFileMedia($fileService->getFileUrl('https://cdn.example.test/a.png') === '',
         'an external URL must not be served as a public File object');
 

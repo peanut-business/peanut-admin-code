@@ -36,9 +36,7 @@ for (const path of [
   'server/tests/fixtures/example/module.json',
   'web/node_modules/example/package.json',
   'web/.nuxt/tsconfig.json',
-  'resources/architecture/tpq-issue-register.json',
   'server/composer.lock',
-  'web/package-lock.json',
   'web/src/generated/api.json',
   'output/module.json',
 ]) {

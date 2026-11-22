@@ -129,20 +129,33 @@ jobs:
       - name: Install the tool's locked dependencies
         working-directory: server
         run: composer install --no-interaction --no-progress --prefer-dist --no-scripts
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22.23.2'
-          cache: npm
-          cache-dependency-path: uniapp/package-lock.json
-      - name: Install locked UniApp generator dependencies
-        working-directory: uniapp
-        run: npm ci --ignore-scripts
-      - name: Set up pnpm for the installed API generator
+      - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
           version: '9.15.6'
           run_install: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.2'
+          cache: pnpm
+          cache-dependency-path: uniapp/pnpm-lock.yaml
+      - name: Check out official Module types for the composed host analysis
+        uses: actions/checkout@v4
+        with:
+          repository: peanut-opensource/peanut-module-code
+          ref: dev
+          path: .local/official-module-source
+          persist-credentials: false
+
+      - name: Check PHP types and unused private code
+        env:
+          PEANUT_PHPSTAN_MODULE_ROOT: ${{ github.workspace }}/.local/official-module-source
+        run: ./scripts/phpstan-quality
+
+      - name: Install locked UniApp generator dependencies
+        working-directory: uniapp
+        run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Install locked Web API generator dependencies
         run: pnpm --dir web install --frozen-lockfile --ignore-scripts --package-import-method=copy
       - name: Verify source inventory after locked dependencies
@@ -245,7 +258,7 @@ jobs:
 
       - name: Install locked UniApp generator dependencies
         working-directory: uniapp
-        run: npm ci --ignore-scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Install locked Web API generator dependencies
         working-directory: web
@@ -261,17 +274,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
-          # npm/pnpm in PATH may be POSIX shims. project-env requires the
+          # pnpm in PATH may be a POSIX shim. project-env requires the
           # JavaScript CLI files after the same registered Node interpreter.
-          npm_cli="$(readlink -f "$(command -v npm)")"
           pnpm_cli="$(readlink -f "$(dirname "$(command -v pnpm)")/../pnpm/bin/pnpm.cjs")"
-          [[ -f "$npm_cli" && -f "$pnpm_cli" ]] || {
+          [[ -f "$pnpm_cli" ]] || {
             echo 'CI_MODULE_CONSUMER_JS_CLI_MISSING' >&2
             exit 1
           }
-          node "$npm_cli" --version >/dev/null
           node "$pnpm_cli" --version >/dev/null
-          export PEANUT_CI_NPM_CLI="$npm_cli" PEANUT_CI_PNPM_CLI="$pnpm_cli"
+          export PEANUT_CI_PNPM_CLI="$pnpm_cli"
           consumer="$RUNNER_TEMP/peanut-ci-module-host-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           packages="$RUNNER_TEMP/peanut-ci-official-modules"
           mkdir -p "$packages"
@@ -310,13 +321,12 @@ jobs:
           "$consumer/scripts/project-composer" prepare
           python3 - "$consumer" <<'PY'
           import json, os, pathlib, shutil, sys
-          app=pathlib.Path(sys.argv[1]); tools={name:str(pathlib.Path(shutil.which(name)).resolve()) for name in ("php","node","npm","pnpm","python3")}
+          app=pathlib.Path(sys.argv[1]); tools={name:str(pathlib.Path(shutil.which(name)).resolve()) for name in ("php","node","pnpm","python3")}
           commands={name:[tools[name]] for name in ("php","node","python3")}
-          commands["npm"]=[tools["node"],os.environ["PEANUT_CI_NPM_CLI"]]
           commands["pnpm"]=[tools["node"],os.environ["PEANUT_CI_PNPM_CLI"]]
           commands["composer"]=[tools["php"],str(app/".local/toolchain/composer-2.10.2.phar")]
           host={"schema_version":1,"commands":commands,"extra_path":[p for p in os.environ["PATH"].split(os.pathsep) if pathlib.Path(p).is_dir()],
-            "caches":{name:str(app/".local/toolchain/cache"/name) for name in ("npm","pnpm","composer")},"watch_paths":["tools/toolchain.json"]}
+            "caches":{name:str(app/".local/toolchain/cache"/name) for name in ("pnpm","composer")},"watch_paths":["tools/toolchain.json"]}
           for path in host["caches"].values(): pathlib.Path(path).mkdir(parents=True, exist_ok=True)
           (app/".local/toolchain/host.json").write_text(json.dumps(host))
           PY
@@ -550,18 +560,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9.15.6'
+          run_install: false
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22.23.2'
-          cache: npm
-          cache-dependency-path: platform/package-lock.json
+          cache: pnpm
+          cache-dependency-path: platform/pnpm-lock.yaml
       - *consumer-php
-      - name: Set up pnpm for the consumer API tools
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.15.6
-          run_install: false
       - *prepare-static-backend
       - *install-host-tools
       # Native create-app generates SDK types using Code's locked Web generator.
@@ -571,11 +581,11 @@ jobs:
       - *prepare-module-consumer
       - name: Reconcile adopted Platform workspace and install dependencies
         working-directory: ${{ env.PEANUT_CI_APPLICATION_ROOT }}/platform
-        run: npm install --include=dev --strict-peer-deps --ignore-scripts --no-audit --no-fund
+        run: pnpm install --prod=false --no-frozen-lockfile --strict-peer-dependencies --ignore-scripts
       # The native build script already runs vue-tsc before Vite.
       - name: Build the adopted Module consumer
         working-directory: ${{ env.PEANUT_CI_APPLICATION_ROOT }}/platform
-        run: npm run build
+        run: pnpm run build
 
   pc:
     name: PC
@@ -586,21 +596,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9.15.6'
+          run_install: false
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22.23.2'
-          cache: npm
-          cache-dependency-path: pc/package-lock.json
+          cache: pnpm
+          cache-dependency-path: pc/pnpm-lock.yaml
       - name: Install dependencies
         working-directory: pc
-        run: npm ci
+        run: pnpm install --frozen-lockfile
       - name: Typecheck
         working-directory: pc
-        run: npm run typecheck
+        run: pnpm run type:check
       - name: Build the server-rendered website
         working-directory: pc
-        run: npm run build
+        run: pnpm run build
 
   uniapp:
     name: UniApp
@@ -611,24 +626,29 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9.15.6'
+          run_install: false
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22.23.2'
-          cache: npm
-          cache-dependency-path: uniapp/package-lock.json
+          cache: pnpm
+          cache-dependency-path: uniapp/pnpm-lock.yaml
       - name: Install dependencies
         working-directory: uniapp
-        run: npm ci
+        run: pnpm install --frozen-lockfile
       - name: Typecheck
         working-directory: uniapp
-        run: npm run type-check
+        run: pnpm run type:check
       - name: Build H5
         working-directory: uniapp
-        run: npm run build:h5
+        run: pnpm run build:h5
       - name: Build the supported WeChat client
         working-directory: uniapp
-        run: npm run build:mp-weixin
+        run: pnpm run build:mp-weixin
 
   docs:
     name: Public docs

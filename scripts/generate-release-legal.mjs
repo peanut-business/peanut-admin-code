@@ -8,20 +8,19 @@ import { fileURLToPath } from 'node:url';
 import { lockedYamlParser } from './release-dependency-locks.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
-const rootDir = resolve(scriptDir, '..');
+const sourceDir = resolve(scriptDir, '..');
+const applicationArgument = process.argv.slice(2).find((argument) => argument.startsWith('--application-root='));
+const application = applicationArgument !== undefined;
+const rootDir = application ? resolve(applicationArgument.slice('--application-root='.length)) : sourceDir;
 const checkOnly = process.argv.includes('--check');
 
 const readJson = (relativePath) =>
   JSON.parse(readFileSync(resolve(rootDir, relativePath), 'utf8'));
-const parseYaml = lockedYamlParser(rootDir);
+const parseYaml = lockedYamlParser(sourceDir);
 const composerLockCount = (relativePath) => {
   const lock = readJson(relativePath);
   return lock.packages.length + lock['packages-dev'].length;
 };
-const npmLockCount = (relativePath) =>
-  Object.entries(readJson(relativePath).packages).filter(
-    ([packagePath, pkg]) => packagePath && pkg.version
-  ).length;
 const pnpmLockCount = (relativePath) =>
   Object.keys(
     parseYaml(readFileSync(resolve(rootDir, relativePath), 'utf8')).packages
@@ -29,9 +28,9 @@ const pnpmLockCount = (relativePath) =>
 const expectedCounts = {
   'composer': composerLockCount('server/composer.lock'),
   'web': pnpmLockCount('web/pnpm-lock.yaml'),
-  'platform': npmLockCount('platform/package-lock.json'),
-  'pc': npmLockCount('pc/package-lock.json'),
-  'uniapp': npmLockCount('uniapp/package-lock.json'),
+  'platform': pnpmLockCount('platform/pnpm-lock.yaml'),
+  'pc': pnpmLockCount('pc/pnpm-lock.yaml'),
+  'uniapp': pnpmLockCount('uniapp/pnpm-lock.yaml'),
   'quality-composer': composerLockCount('tools/quality/composer.lock'),
   'quality-js': pnpmLockCount('tools/quality/pnpm-lock.yaml'),
 };
@@ -39,7 +38,7 @@ const versionContract = readJson('release-versions.json');
 const releaseMetadata = readJson('RELEASE_METADATA.json');
 const currentVersionContract = [2, 3].includes(versionContract.schema_version);
 const releaseVersion = currentVersionContract
-  ? versionContract.source_product_version
+  ? versionContract.instance_version ?? versionContract.source_product_version
   : versionContract.product_release;
 const metadataVersion =
   [2, 3].includes(releaseMetadata.schema_version) &&
@@ -50,9 +49,10 @@ const metadataVersion =
 if (
   metadataVersion !== releaseVersion ||
   (currentVersionContract &&
-    (releaseMetadata.source_product_version !== releaseVersion ||
-      releaseMetadata.instance_version !== null)) ||
-  releaseMetadata.expected_tag !== `v${releaseVersion}`
+    (releaseMetadata.source_product_version !== versionContract.source_product_version ||
+      releaseMetadata.instance_version !== versionContract.instance_version)) ||
+  (application ? typeof releaseMetadata.application_identity !== 'string'
+    : releaseMetadata.expected_tag !== `v${releaseVersion}`)
 ) {
   throw new Error(
     `RELEASE_METADATA version contract mismatch: expected ${releaseVersion}`
@@ -60,6 +60,13 @@ if (
 }
 const releaseTag = releaseMetadata.expected_tag;
 const releaseDate = releaseMetadata.release_date;
+const applicationProduct = application ? releaseMetadata.product : 'Peanut Admin';
+const applicationRepository = application ? releaseMetadata.source_repository : 'peanut-business/peanut-admin-code';
+if (application && (!/^[A-Za-z\d_.-]+\/[A-Za-z\d_.-]+$/.test(applicationRepository ?? '') ||
+    typeof applicationProduct !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(releaseDate ?? ''))) {
+  throw new Error('application SBOM requires product, source_repository and release_date in RELEASE_METADATA.json');
+}
+const repositoryUrl = `https://github.com/${applicationRepository}`;
 if (versionContract.schema_version !== 3 || versionContract.protocol !== 'peanut.release-versions.v3') {
   throw new Error('RELEASE_LEGAL_VERSION_CONTRACT_UNSUPPORTED: expected peanut.release-versions.v3');
 }
@@ -179,6 +186,141 @@ const lockedLicenseDeclarations = new Map([
   ['strip-ansi@7.2.0', 'MIT'],
   ['tslib@2.8.1', '0BSD'],
   ['wrap-ansi@8.1.0', 'MIT'],
+  ['@esbuild/aix-ppc64@0.28.1', 'MIT'],
+  ['@esbuild/android-arm64@0.28.1', 'MIT'],
+  ['@esbuild/android-arm@0.28.1', 'MIT'],
+  ['@esbuild/android-x64@0.28.1', 'MIT'],
+  ['@esbuild/darwin-arm64@0.25.12', 'MIT'],
+  ['@esbuild/darwin-arm64@0.28.1', 'MIT'],
+  ['@esbuild/darwin-x64@0.28.1', 'MIT'],
+  ['@esbuild/freebsd-arm64@0.28.1', 'MIT'],
+  ['@esbuild/freebsd-x64@0.28.1', 'MIT'],
+  ['@esbuild/linux-arm64@0.28.1', 'MIT'],
+  ['@esbuild/linux-arm@0.28.1', 'MIT'],
+  ['@esbuild/linux-ia32@0.28.1', 'MIT'],
+  ['@esbuild/linux-loong64@0.28.1', 'MIT'],
+  ['@esbuild/linux-mips64el@0.28.1', 'MIT'],
+  ['@esbuild/linux-ppc64@0.28.1', 'MIT'],
+  ['@esbuild/linux-riscv64@0.28.1', 'MIT'],
+  ['@esbuild/linux-s390x@0.28.1', 'MIT'],
+  ['@esbuild/linux-x64@0.28.1', 'MIT'],
+  ['@esbuild/netbsd-arm64@0.28.1', 'MIT'],
+  ['@esbuild/netbsd-x64@0.28.1', 'MIT'],
+  ['@esbuild/openbsd-arm64@0.28.1', 'MIT'],
+  ['@esbuild/openbsd-x64@0.28.1', 'MIT'],
+  ['@esbuild/openharmony-arm64@0.28.1', 'MIT'],
+  ['@esbuild/sunos-x64@0.28.1', 'MIT'],
+  ['@esbuild/win32-arm64@0.28.1', 'MIT'],
+  ['@esbuild/win32-ia32@0.28.1', 'MIT'],
+  ['@esbuild/win32-x64@0.28.1', 'MIT'],
+  ['@oxc-minify/binding-android-arm-eabi@0.143.0', 'MIT'],
+  ['@oxc-minify/binding-android-arm64@0.143.0', 'MIT'],
+  ['@oxc-minify/binding-darwin-arm64@0.143.0', 'MIT'],
+  ['@oxc-minify/binding-darwin-x64@0.143.0', 'MIT'],
+  ['@oxc-minify/binding-freebsd-x64@0.143.0', 'MIT'],
+  ['@oxc-minify/binding-linux-arm-gnueabihf@0.143.0', 'MIT'],
+  ['@oxc-minify/binding-linux-arm-musleabihf@0.143.0', 'MIT'],
+  ['@oxc-minify/binding-linux-arm64-gnu@0.143.0', 'MIT'],
+  ['@oxc-minify/binding-linux-arm64-musl@0.143.0', 'MIT'],
+  ['@oxc-minify/binding-linux-ppc64-gnu@0.143.0', 'MIT'],
+  ['@oxc-minify/binding-linux-riscv64-gnu@0.143.0', 'MIT'],
+  ['@oxc-minify/binding-linux-riscv64-musl@0.143.0', 'MIT'],
+  ['@oxc-minify/binding-linux-s390x-gnu@0.143.0', 'MIT'],
+  ['@oxc-minify/binding-linux-x64-gnu@0.143.0', 'MIT'],
+  ['@oxc-minify/binding-linux-x64-musl@0.143.0', 'MIT'],
+  ['@oxc-minify/binding-openharmony-arm64@0.143.0', 'MIT'],
+  ['@oxc-minify/binding-win32-arm64-msvc@0.143.0', 'MIT'],
+  ['@oxc-minify/binding-win32-ia32-msvc@0.143.0', 'MIT'],
+  ['@oxc-minify/binding-win32-x64-msvc@0.143.0', 'MIT'],
+  ['@oxc-parser/binding-android-arm-eabi@0.143.0', 'MIT'],
+  ['@oxc-parser/binding-android-arm64@0.143.0', 'MIT'],
+  ['@oxc-parser/binding-darwin-arm64@0.143.0', 'MIT'],
+  ['@oxc-parser/binding-darwin-x64@0.143.0', 'MIT'],
+  ['@oxc-parser/binding-freebsd-x64@0.143.0', 'MIT'],
+  ['@oxc-parser/binding-linux-arm-gnueabihf@0.143.0', 'MIT'],
+  ['@oxc-parser/binding-linux-arm-musleabihf@0.143.0', 'MIT'],
+  ['@oxc-parser/binding-linux-arm64-gnu@0.143.0', 'MIT'],
+  ['@oxc-parser/binding-linux-arm64-musl@0.143.0', 'MIT'],
+  ['@oxc-parser/binding-linux-ppc64-gnu@0.143.0', 'MIT'],
+  ['@oxc-parser/binding-linux-riscv64-gnu@0.143.0', 'MIT'],
+  ['@oxc-parser/binding-linux-riscv64-musl@0.143.0', 'MIT'],
+  ['@oxc-parser/binding-linux-s390x-gnu@0.143.0', 'MIT'],
+  ['@oxc-parser/binding-linux-x64-gnu@0.143.0', 'MIT'],
+  ['@oxc-parser/binding-linux-x64-musl@0.143.0', 'MIT'],
+  ['@oxc-parser/binding-openharmony-arm64@0.143.0', 'MIT'],
+  ['@oxc-parser/binding-win32-arm64-msvc@0.143.0', 'MIT'],
+  ['@oxc-parser/binding-win32-ia32-msvc@0.143.0', 'MIT'],
+  ['@oxc-parser/binding-win32-x64-msvc@0.143.0', 'MIT'],
+  ['@oxc-transform/binding-android-arm-eabi@0.143.0', 'MIT'],
+  ['@oxc-transform/binding-android-arm64@0.143.0', 'MIT'],
+  ['@oxc-transform/binding-darwin-arm64@0.143.0', 'MIT'],
+  ['@oxc-transform/binding-darwin-x64@0.143.0', 'MIT'],
+  ['@oxc-transform/binding-freebsd-x64@0.143.0', 'MIT'],
+  ['@oxc-transform/binding-linux-arm-gnueabihf@0.143.0', 'MIT'],
+  ['@oxc-transform/binding-linux-arm-musleabihf@0.143.0', 'MIT'],
+  ['@oxc-transform/binding-linux-arm64-gnu@0.143.0', 'MIT'],
+  ['@oxc-transform/binding-linux-arm64-musl@0.143.0', 'MIT'],
+  ['@oxc-transform/binding-linux-ppc64-gnu@0.143.0', 'MIT'],
+  ['@oxc-transform/binding-linux-riscv64-gnu@0.143.0', 'MIT'],
+  ['@oxc-transform/binding-linux-riscv64-musl@0.143.0', 'MIT'],
+  ['@oxc-transform/binding-linux-s390x-gnu@0.143.0', 'MIT'],
+  ['@oxc-transform/binding-linux-x64-gnu@0.143.0', 'MIT'],
+  ['@oxc-transform/binding-linux-x64-musl@0.143.0', 'MIT'],
+  ['@oxc-transform/binding-openharmony-arm64@0.143.0', 'MIT'],
+  ['@oxc-transform/binding-win32-arm64-msvc@0.143.0', 'MIT'],
+  ['@oxc-transform/binding-win32-ia32-msvc@0.143.0', 'MIT'],
+  ['@oxc-transform/binding-win32-x64-msvc@0.143.0', 'MIT'],
+  ['@rollup/rollup-android-arm-eabi@4.62.3', 'MIT'],
+  ['@rollup/rollup-android-arm-eabi@4.62.4', 'MIT'],
+  ['@rollup/rollup-android-arm64@4.62.3', 'MIT'],
+  ['@rollup/rollup-android-arm64@4.62.4', 'MIT'],
+  ['@rollup/rollup-darwin-arm64@4.62.3', 'MIT'],
+  ['@rollup/rollup-darwin-arm64@4.62.4', 'MIT'],
+  ['@rollup/rollup-darwin-x64@4.62.3', 'MIT'],
+  ['@rollup/rollup-darwin-x64@4.62.4', 'MIT'],
+  ['@rollup/rollup-freebsd-arm64@4.62.3', 'MIT'],
+  ['@rollup/rollup-freebsd-arm64@4.62.4', 'MIT'],
+  ['@rollup/rollup-freebsd-x64@4.62.3', 'MIT'],
+  ['@rollup/rollup-freebsd-x64@4.62.4', 'MIT'],
+  ['@rollup/rollup-linux-arm-gnueabihf@4.62.3', 'MIT'],
+  ['@rollup/rollup-linux-arm-gnueabihf@4.62.4', 'MIT'],
+  ['@rollup/rollup-linux-arm-musleabihf@4.62.3', 'MIT'],
+  ['@rollup/rollup-linux-arm-musleabihf@4.62.4', 'MIT'],
+  ['@rollup/rollup-linux-arm64-gnu@4.62.3', 'MIT'],
+  ['@rollup/rollup-linux-arm64-gnu@4.62.4', 'MIT'],
+  ['@rollup/rollup-linux-arm64-musl@4.62.3', 'MIT'],
+  ['@rollup/rollup-linux-arm64-musl@4.62.4', 'MIT'],
+  ['@rollup/rollup-linux-loong64-gnu@4.62.3', 'MIT'],
+  ['@rollup/rollup-linux-loong64-gnu@4.62.4', 'MIT'],
+  ['@rollup/rollup-linux-loong64-musl@4.62.3', 'MIT'],
+  ['@rollup/rollup-linux-loong64-musl@4.62.4', 'MIT'],
+  ['@rollup/rollup-linux-ppc64-gnu@4.62.3', 'MIT'],
+  ['@rollup/rollup-linux-ppc64-gnu@4.62.4', 'MIT'],
+  ['@rollup/rollup-linux-ppc64-musl@4.62.3', 'MIT'],
+  ['@rollup/rollup-linux-ppc64-musl@4.62.4', 'MIT'],
+  ['@rollup/rollup-linux-riscv64-gnu@4.62.3', 'MIT'],
+  ['@rollup/rollup-linux-riscv64-gnu@4.62.4', 'MIT'],
+  ['@rollup/rollup-linux-riscv64-musl@4.62.3', 'MIT'],
+  ['@rollup/rollup-linux-riscv64-musl@4.62.4', 'MIT'],
+  ['@rollup/rollup-linux-s390x-gnu@4.62.3', 'MIT'],
+  ['@rollup/rollup-linux-s390x-gnu@4.62.4', 'MIT'],
+  ['@rollup/rollup-linux-x64-gnu@4.62.3', 'MIT'],
+  ['@rollup/rollup-linux-x64-gnu@4.62.4', 'MIT'],
+  ['@rollup/rollup-linux-x64-musl@4.62.3', 'MIT'],
+  ['@rollup/rollup-linux-x64-musl@4.62.4', 'MIT'],
+  ['@rollup/rollup-openbsd-x64@4.62.3', 'MIT'],
+  ['@rollup/rollup-openbsd-x64@4.62.4', 'MIT'],
+  ['@rollup/rollup-openharmony-arm64@4.62.3', 'MIT'],
+  ['@rollup/rollup-openharmony-arm64@4.62.4', 'MIT'],
+  ['@rollup/rollup-win32-arm64-msvc@4.62.3', 'MIT'],
+  ['@rollup/rollup-win32-arm64-msvc@4.62.4', 'MIT'],
+  ['@rollup/rollup-win32-ia32-msvc@4.62.3', 'MIT'],
+  ['@rollup/rollup-win32-ia32-msvc@4.62.4', 'MIT'],
+  ['@rollup/rollup-win32-x64-gnu@4.62.3', 'MIT'],
+  ['@rollup/rollup-win32-x64-gnu@4.62.4', 'MIT'],
+  ['@rollup/rollup-win32-x64-msvc@4.62.3', 'MIT'],
+  ['@rollup/rollup-win32-x64-msvc@4.62.4', 'MIT'],
+  ['fsevents@2.3.3', 'MIT'],
 ]);
 
 const normalizeLicense = (license, name, version) => {
@@ -271,45 +413,12 @@ return [
     license: Array.isArray(pkg.license)
       ? pkg.license.join(' AND ')
       : pkg.license,
-    source: pkg.source?.url || pkg.dist?.url,
+    source: pkg.source?.url || (pkg.dist?.type === 'path' ? undefined : pkg.dist?.url),
     scope: developmentOnly ? 'development-tool-input' : scope,
   })
 );
 };
 const composerPackages = readComposerLock('composer', 'server/composer.lock');
-
-const npmNameFromPath = (packagePath) => {
-  const marker = 'node_modules/';
-  const offset = packagePath.lastIndexOf(marker);
-  const relative = packagePath.slice(offset + marker.length);
-  const parts = relative.split('/');
-  return parts[0].startsWith('@') ? `${parts[0]}/${parts[1]}` : parts[0];
-};
-
-const readNpmLock = (ecosystem, relativePath) => {
-  const lock = readJson(relativePath);
-  return Object.entries(lock.packages)
-    .filter(([packagePath, pkg]) => packagePath && pkg.version)
-    .map(([packagePath, pkg]) => {
-      const name = npmNameFromPath(packagePath);
-      return makePackage({
-        ecosystem,
-        name,
-        version: pkg.version,
-        location: packagePath,
-        license: pkg.license,
-        source: pkg.resolved,
-        scope: pkg.dev ? 'development-or-build' : 'static-build-input',
-      });
-    });
-};
-
-const yamlUnquote = (value) => {
-  if (value.startsWith("'") && value.endsWith("'")) {
-    return value.slice(1, -1).replace(/''/g, "'");
-  }
-  return value;
-};
 
 const readPnpmLicenses = (relativeDir) => {
   const cwd = resolve(rootDir, relativeDir);
@@ -357,34 +466,31 @@ const readPnpmLock = (ecosystem, relativeDir) => {
     resolve(rootDir, relativeDir, 'pnpm-lock.yaml'),
     'utf8'
   );
-  const packageBlock = lockText
-    .split('\npackages:\n', 2)[1]
-    ?.split('\nsnapshots:\n', 1)[0];
-  if (!packageBlock)
+  const packages = parseYaml(lockText).packages;
+  if (!packages)
     throw new Error(
       `packages block not found in ${relativeDir}/pnpm-lock.yaml`
     );
   const licenseMap = readPnpmLicenses(relativeDir);
-  const specs = packageBlock
-    .split('\n')
-    .map((line) => line.match(/^  ([^ ].+):$/)?.[1])
-    .filter(Boolean)
-    .map(yamlUnquote);
-  return specs.map((spec) => {
-    const separator = spec.lastIndexOf('@');
+  return Object.entries(packages).map(([spec, locked]) => {
+    const separator = spec.indexOf('@', 1);
     if (separator <= 0)
       throw new Error(`unsupported pnpm package key: ${spec}`);
     const name = spec.slice(0, separator);
-    const version = spec.slice(separator + 1);
+    const locator = spec.slice(separator + 1);
+    const core = versionContract.core_web.packages[name];
+    if (locator.startsWith('file:') && (!core?.archive || !locator.endsWith(`/${core.archive}`))) {
+      throw new Error(`undeclared pnpm file dependency: ${spec}`);
+    }
+    const version = locator.startsWith('file:') ? core.version : locator;
     return makePackage({
       ecosystem,
       name,
       version,
       location: spec,
       license: licenseMap.get(`${name}@${version}`),
-      source: `https://registry.npmjs.org/${encodeURIComponent(
-        name
-      )}/${encodeURIComponent(version)}`,
+      source: locator.startsWith('file:') ? undefined :
+        (locked.resolution?.tarball || `https://registry.npmjs.org/${encodeURIComponent(name)}/${encodeURIComponent(version)}`),
       scope:
         ecosystem === 'quality-js'
           ? 'development-tool-input'
@@ -396,9 +502,9 @@ const readPnpmLock = (ecosystem, relativeDir) => {
 const allPackages = [
   ...composerPackages,
   ...readPnpmLock('web', 'web'),
-  ...readNpmLock('platform', 'platform/package-lock.json'),
-  ...readNpmLock('pc', 'pc/package-lock.json'),
-  ...readNpmLock('uniapp', 'uniapp/package-lock.json'),
+  ...readPnpmLock('platform', 'platform'),
+  ...readPnpmLock('pc', 'pc'),
+  ...readPnpmLock('uniapp', 'uniapp'),
   ...readComposerLock('quality-composer', 'tools/quality/composer.lock', true),
   ...readPnpmLock('quality-js', 'tools/quality'),
 ].sort(
@@ -431,10 +537,10 @@ if (unresolved.length > 0) {
 }
 
 const rootPackage = {
-  name: 'Peanut Admin',
+  name: applicationProduct,
   SPDXID: 'SPDXRef-Package-Peanut-Admin',
   versionInfo: releaseVersion,
-  downloadLocation: 'https://github.com/peanut-business/peanut-admin-code',
+  downloadLocation: repositoryUrl,
   filesAnalyzed: false,
   licenseConcluded: 'Apache-2.0',
   licenseDeclared: 'Apache-2.0',
@@ -444,7 +550,7 @@ const rootPackage = {
     {
       referenceCategory: 'PACKAGE-MANAGER',
       referenceType: 'purl',
-      referenceLocator: `pkg:github/peanut-business/peanut-admin-code@${releaseVersion}`,
+      referenceLocator: `pkg:github/${applicationRepository}@${releaseVersion}`,
     },
   ],
 };
@@ -454,8 +560,8 @@ const sbom = {
   spdxVersion: 'SPDX-2.3',
   dataLicense: 'CC0-1.0',
   SPDXID: 'SPDXRef-DOCUMENT',
-  name: `Peanut Admin ${releaseVersion} release dependency SBOM`,
-  documentNamespace: `https://github.com/peanut-business/peanut-admin-code/releases/tag/${releaseTag}/sbom`,
+  name: `${applicationProduct} ${releaseVersion} dependency SBOM`,
+  documentNamespace: application ? `${repositoryUrl}/sbom/${releaseVersion}` : `${repositoryUrl}/releases/tag/${releaseTag}/sbom`,
   creationInfo: {
     created: `${releaseDate}T00:00:00Z`,
     creators: [
@@ -594,10 +700,11 @@ The SPDX identifiers above resolve through https://spdx.org/licenses/. Exact pac
 
 const outputs = new Map([
   ['RELEASE_SBOM.spdx.json', `${JSON.stringify(sbom, null, 2)}\n`],
-  ['THIRD_PARTY_NOTICES.md', notices],
+  ...(application ? [] : [['THIRD_PARTY_NOTICES.md', notices]]),
 ]);
 
 let different = false;
+releaseMetadata.legal_files ??= {};
 for (const [relativePath, content] of outputs) {
   const outputPath = resolve(rootDir, relativePath);
   if (checkOnly) {

@@ -32,13 +32,6 @@ final class KernelMigrationTest extends DatabaseTestCase
         'pa_platform_session',
         'pa_platform_session_token',
         'pa_auth_security_event',
-        'pa_protected_resource',
-        'pa_target_type',
-        'pa_resource_operation',
-        'pa_resource_operation_target_type',
-        'pa_resource_operation_permission',
-        'pa_data_condition_definition',
-        'pa_resource_operation_condition',
         'pa_module_installation',
         'pa_module_migration',
         'pa_system_menu',
@@ -84,6 +77,13 @@ final class KernelMigrationTest extends DatabaseTestCase
             self::assertTrue($this->tableExists($table), "Missing migrated table {$table}");
         }
         self::assertFalse($this->tableExists('pa_tenant_module'));
+        self::assertFalse($this->tableExists('pa_protected_resource'));
+        self::assertFalse($this->tableExists('pa_resource_operation'));
+        self::assertFalse($this->tableExists('pa_resource_operation_permission'));
+        self::assertFalse($this->tableExists('pa_resource_operation_target_type'));
+        self::assertFalse($this->tableExists('pa_resource_operation_condition'));
+        self::assertFalse($this->tableExists('pa_target_type'));
+        self::assertFalse($this->tableExists('pa_data_condition_definition'));
 
         $challengeClient = $this
             ->query("SHOW COLUMNS FROM `pa_login_challenge` WHERE Field = 'client_key'")

@@ -29,7 +29,13 @@ foreach (['web/src/modules', 'platform/src/modules', 'pc/modules', 'uniapp/src/m
 $lock = $json('modules.lock');
 $expect($lock === ['schema_version' => 1, 'modules' => []], 'Fresh host inherited an author Module lock');
 $composer = $json('server/composer.json');
-$expect(!isset($composer['repositories']), 'Fresh host inherited Module path repositories');
+foreach ($composer['repositories'] ?? [] as $repository) {
+    $expect(($repository['type'] ?? null) === 'package'
+        && ($repository['package']['name'] ?? null) === 'peanut-admin/core'
+        && ($repository['package']['dist']['type'] ?? null) === 'zip'
+        && str_starts_with((string) ($repository['package']['dist']['url'] ?? ''), '../packages/core-php/'),
+        'Fresh host inherited a repository other than the frozen Core archive');
+}
 $expect(array_keys($composer['autoload']['psr-4']) === ['app\\'], 'Fresh host inherited Module autoload mappings');
 $locked = $json('server/composer.lock');
 foreach ($locked['packages'] as $package) {
@@ -39,6 +45,10 @@ foreach ($locked['packages'] as $package) {
 $expect($locked['packages-dev'] === [], 'Bootstrap lock contains author/test development dependencies');
 foreach (['peanut-admin/core', 'composer/semver', 'opis/json-schema', 'topthink/think-migration'] as $package) {
     $expect(in_array($package, array_column($locked['packages'], 'name'), true), 'Missing native bootstrap dependency: ' . $package);
+}
+foreach (['qiniu/php-sdk', 'aliyuncs/oss-sdk-php', 'qcloud/cos-sdk-v5', 'aws/aws-sdk-php', 'firebase/php-jwt', 'dragonmantank/cron-expression'] as $package) {
+    $expect(!in_array($package, array_column($locked['packages'], 'name'), true), 'Module SDK is in the bootstrap lock: ' . $package);
+    $expect(!file_exists($root . '/server/vendor/' . $package), 'Module SDK is installed in the thin host: ' . $package);
 }
 $composition = $json('server/config/module_composition.json');
 $expect($composition['mandatory'] !== [] && $composition['default'] === [] && $composition['optional'] === [], 'Composition roots were discarded');

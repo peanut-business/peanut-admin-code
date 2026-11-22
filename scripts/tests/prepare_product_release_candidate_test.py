@@ -119,36 +119,6 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
             "@peanut-admin/uniapp": "uniapp",
             "@peanut-admin/testing": "testing",
         }
-        for client, names in candidate.CLIENT_CORE_PACKAGES.items():
-            if client == "web":
-                continue
-            self.write_json(
-                f"{client}/package-lock.json",
-                {
-                    "lockfileVersion": 3,
-                    "packages": {
-                        "": {"dependencies": {name: "4.0.0-rc.4" for name in names}},
-                        **{
-                            f"node_modules/{name}": {
-                                "version": "4.0.0-rc.4",
-                                "resolved": f"https://registry.npmjs.org/{name.replace('/', '%2f')}/-/{versions[name]}-4.0.0-rc.4.tgz",
-                                "integrity": sri(name),
-                            }
-                            for name in names
-                        },
-                    },
-                },
-            )
-        pnpm_packages = "\n".join(
-            f"  '{name}@4.0.0-rc.4':\n"
-            f"    resolution: {{integrity: '{sri(name)}'}}"
-            for name in candidate.CLIENT_CORE_PACKAGES['web']
-        )
-        importer = "".join(
-            f"      '{name}':\n        specifier: 4.0.0-rc.4\n        version: 4.0.0-rc.4\n"
-            for name in candidate.CLIENT_CORE_PACKAGES['web']
-        )
-        (self.root / "web/pnpm-lock.yaml").write_text("importers:\n  .:\n    dependencies:\n" + importer + "packages:\n" + pnpm_packages + "\n", encoding="utf-8")
         self.registry = {
             name: {
                 "version": "4.0.0-rc.4",
@@ -161,12 +131,19 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
         }
         candidate.npm_registry_package = lambda name, version: self.registry[name]
         for client, names in candidate.CLIENT_CORE_PACKAGES.items():
-            if client == "web":
-                continue
-            lock = candidate.read_json(self.root / client / "package-lock.json")
-            for name in names:
-                lock["packages"][f"node_modules/{name}"]["resolved"] = self.registry[name]["resolved"]
-            self.write_json(f"{client}/package-lock.json", lock)
+            path = self.root / client / "pnpm-lock.yaml"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            importer = "".join(
+                f"      '{name}':\n        specifier: 4.0.0-rc.4\n        version: 4.0.0-rc.4\n"
+                for name in names
+            )
+            packages = "".join(
+                f"  '{name}@4.0.0-rc.4':\n"
+                f"    resolution: {{integrity: '{sri(name)}', tarball: '{self.registry[name]['resolved']}'}}\n"
+                for name in names
+            )
+            path.write_text("importers:\n  .:\n    dependencies:\n" + importer + "packages:\n" + packages,
+                            encoding="utf-8")
 
     def write_web_evidence(self, mutate=None) -> tuple[Path, str]:
         self.evidence_counter += 1
@@ -274,9 +251,8 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
         registry = candidate.read_web_package_evidence(
             path, evidence_sha, "4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c"
         )
-        lock = candidate.read_json(self.root / "platform/package-lock.json")
-        lock["packages"]["node_modules/@peanut-admin/vue"]["integrity"] = sri("different")
-        self.write_json("platform/package-lock.json", lock)
+        lock = self.root / "platform/pnpm-lock.yaml"
+        lock.write_text(lock.read_text().replace(sri("@peanut-admin/vue"), sri("different")))
         with self.assertRaisesRegex(SystemExit, "native locks disagree"):
             candidate.read_core_web(
                 "4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c", registry
@@ -321,9 +297,8 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
 
     def test_rejects_native_lock_disagreement(self) -> None:
         self.write_native_locks()
-        lock = json.loads((self.root / "platform/package-lock.json").read_text(encoding="utf-8"))
-        lock["packages"]["node_modules/@peanut-admin/vue"]["integrity"] = sri("different")
-        self.write_json("platform/package-lock.json", lock)
+        lock = self.root / "platform/pnpm-lock.yaml"
+        lock.write_text(lock.read_text().replace(sri("@peanut-admin/vue"), sri("different")))
         with self.assertRaisesRegex(SystemExit, "native locks disagree with npm registry"):
             candidate.read_core_web("4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c")
 
@@ -559,10 +534,10 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
 
     def test_rejects_fake_registry_host_and_stale_importer(self) -> None:
         self.write_native_locks()
-        lock = candidate.read_json(self.root / "pc/package-lock.json")
-        lock["packages"]["node_modules/@peanut-admin/client"]["resolved"] = "https://registry.npmjs.org.evil.test/client.tgz"
-        self.write_json("pc/package-lock.json", lock)
-        with self.assertRaisesRegex(SystemExit, "registry tarball"):
+        lock = self.root / "pc/pnpm-lock.yaml"
+        lock.write_text(lock.read_text().replace(self.registry["@peanut-admin/client"]["resolved"],
+                                                 "https://registry.npmjs.org.evil.test/client.tgz"))
+        with self.assertRaisesRegex(SystemExit, "tarball is not a registry URL"):
             candidate.read_core_web("4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c")
         self.write_native_locks()
         target = self.root / "web/pnpm-lock.yaml"
@@ -572,7 +547,10 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
 
     def test_pnpm_without_tarball_uses_registry_url(self) -> None:
         self.write_native_locks()
-        observed = candidate.pnpm_lock_package("@peanut-admin/vue", "4.0.0-rc.4")
+        target = self.root / "web/pnpm-lock.yaml"
+        original = ", tarball: '" + self.registry["@peanut-admin/vue"]["resolved"] + "'"
+        target.write_text(target.read_text().replace(original, "", 1))
+        observed = candidate.pnpm_lock_package("web", "@peanut-admin/vue", "4.0.0-rc.4")
         self.assertNotIn("resolved", observed)
         result = candidate.read_core_web("4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c")
         self.assertEqual(result["packages"]["@peanut-admin/vue"]["resolved"],
@@ -589,7 +567,8 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
                 original = f"integrity: '{sri('@peanut-admin/vue')}'"
                 text = target.read_text()
                 if replacement.startswith("tarball"):
-                    text = text.replace(original, original + ", " + replacement, 1)
+                    tarball = "tarball: '" + self.registry["@peanut-admin/vue"]["resolved"] + "'"
+                    text = text.replace(tarball, replacement, 1)
                 else:
                     text = text.replace(original, replacement, 1)
                 target.write_text(text)
@@ -756,15 +735,15 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
                 calls.append('composer')
                 write('server/vendor/autoload.php', '<?php // fixture')
                 write('server/vendor/composer/installed.json', '{}')
-            elif args[0] == 'pnpm':
+            elif args[0] == 'pnpm' and Path(args[2]).name == 'web':
                 calls.append('web-install')
                 if fail_web[0]:
                     fail_web[0] = False
                     raise SystemExit('fixture web dependency installation failed')
                 write('web/node_modules/.modules.yaml', 'fixture: true')
-            elif args[0] == 'npm':
+            elif args[0] == 'pnpm' and Path(args[2]).name == 'uniapp':
                 calls.append('uniapp-install')
-                write('uniapp/node_modules/.package-lock.json', '{}')
+                write('uniapp/node_modules/.modules.yaml', 'fixture: true')
             elif str(args[1]).endswith('/generate-api-contracts.php'):
                 calls.append('api')
                 write('server/generated/api-catalog.json', '{}')

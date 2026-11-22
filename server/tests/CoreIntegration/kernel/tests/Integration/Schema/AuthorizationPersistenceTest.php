@@ -8,9 +8,6 @@ use DomainException;
 use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
 use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationRevisionRepository;
 use PeanutAdmin\Kernel\Authorization\Persistence\PermissionDefinition;
-use PeanutAdmin\Kernel\Authorization\Persistence\ProtectedResourceDefinition;
-use PeanutAdmin\Kernel\Authorization\Persistence\ResourceOperationDefinition;
-use PeanutAdmin\Kernel\Authorization\Persistence\TargetTypeDefinition;
 
 require_once __DIR__ . '/DatabaseTestCase.php';
 
@@ -24,7 +21,7 @@ final class AuthorizationPersistenceTest extends DatabaseTestCase
         $this->runner->migrate();
     }
 
-    public function testCatalogSynchronizesExplicitRelationsWithoutChangingOwners(): void
+    public function testCatalogSynchronizesPermissionsWithoutChangingOwners(): void
     {
         $catalog = new ThinkPhpAuthorizationCatalogRepository();
         $permissionId = $catalog->syncPermission(new PermissionDefinition(
@@ -35,48 +32,9 @@ final class AuthorizationPersistenceTest extends DatabaseTestCase
             'normal',
             '1.0.0',
         ));
-        $resourceId = $catalog->syncProtectedResource(new ProtectedResourceDefinition(
-            'example.work-item',
-            'example',
-            'Work Item',
-            'business_target_owned',
-            'example.work-item.provider',
-            '1.0.0',
-            str_repeat('a', 64),
-        ));
-        $targetTypeId = $catalog->syncTargetType(new TargetTypeDefinition(
-            'example.project',
-            'example',
-            'Project',
-            'example.project.resolver',
-            'example.project.catalog',
-            'string',
-            '1.0.0',
-            str_repeat('b', 64),
-        ));
-        $operationId = $catalog->syncResourceOperation(new ResourceOperationDefinition(
-            'example.work-item',
-            'list',
-            'rule_filtered',
-            'many_readable',
-            'all',
-            'deny_and_write',
-            str_repeat('c', 64),
-        ));
-        $catalog->bindOperationPermission($operationId, $permissionId);
-        $catalog->bindOperationTargetType(
-            $operationId,
-            $targetTypeId,
-            'primary',
-            'explicit',
-            $permissionId,
-        );
-
-        self::assertSame(1, $resourceId);
-        self::assertSame(1, (int) $this->query(
-            'SELECT COUNT(*) FROM pa_resource_operation_permission',
-        )->fetchColumn());
+        self::assertSame($permissionId, $catalog->permissionId('example.work-item.read'));
         self::assertSame(64, strlen($catalog->registryRevision()));
+        self::assertFalse($this->query("SHOW TABLES LIKE 'pa_resource_operation'")->fetchColumn());
 
         $this->expectException(DomainException::class);
         $catalog->syncPermission(new PermissionDefinition(

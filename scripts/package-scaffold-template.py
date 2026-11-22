@@ -426,8 +426,8 @@ def main():
     source = tooling_source.parent
     input_paths = ['release-versions.json', 'scaffold/application-template-inventory.json',
                    'server/composer.json', 'server/composer.lock', 'web/package.json', 'web/pnpm-lock.yaml',
-                   'platform/package.json', 'platform/package-lock.json', 'pc/package.json', 'pc/package-lock.json',
-                   'uniapp/package.json', 'uniapp/package-lock.json',
+                   'platform/package.json', 'platform/pnpm-lock.yaml', 'pc/package.json', 'pc/pnpm-lock.yaml',
+                   'uniapp/package.json', 'uniapp/pnpm-lock.yaml',
                    'tools/toolchain.json', 'scripts/project-composer', 'scripts/build-scaffold-release',
                    'scripts/package-scaffold-template.py', 'scripts/generate-api-contracts.php']
     inputs = {name: digest((source / name).read_bytes()) for name in input_paths}

@@ -37,79 +37,27 @@ final class DataPermissionSchemaTest extends DatabaseTestCase
             self::assertSame('Module data is retained. This initial schema migration cannot be rolled back.', $exception->getMessage());
         }
         self::assertTrue($this->tableExists('pa_data_permission'));
-        self::assertTrue($this->tableExists('pa_data_permission_target'));
+        self::assertFalse($this->tableExists('pa_data_permission_target'));
         self::assertTrue($this->tableExists('pa_tenant'));
     }
 
-    public function testGeneratedKeysAndTenantForeignKeysRejectAmbiguousPolicies(): void
+    public function testUniqueKeysAndTenantForeignKeysRejectAmbiguousPolicies(): void
     {
         [$alpha, $alphaMember, $alphaRole] = $this->tenantFixture('alpha');
         [$beta, $betaMember, $betaRole] = $this->tenantFixture('beta');
-        [$resource, $operation, $conditionDefinition] = $this->registryFixture();
+        $resource = 'example.work-item';
 
-        $this->assertDatabaseRejects(fn() => $this->policy(
-            $alpha,
-            $betaRole,
-            $resource,
-            $operation,
-            $alphaMember,
-        ));
-        $policy = $this->policy($alpha, $alphaRole, $resource, $operation, $alphaMember);
-        $group = $this->insert('pa_data_permission_group', [
-            'tenant_id' => $alpha,
-            'data_permission_policy_id' => $policy,
-            'name' => 'default',
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-        $targetSet = $this->targetSet($alpha, $alphaMember, 'example.project');
-        $betaTargetSet = $this->targetSet($beta, $betaMember, 'example.project');
-
-        $this->insert('pa_data_permission_condition', [
-            'tenant_id' => $alpha,
-            'data_permission_group_id' => $group,
-            'condition_definition_id' => $conditionDefinition,
-            'target_set_id' => null,
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-        $this->assertDatabaseRejects(fn() => $this->insert('pa_data_permission_condition', [
-            'tenant_id' => $alpha,
-            'data_permission_group_id' => $group,
-            'condition_definition_id' => $conditionDefinition,
-            'target_set_id' => null,
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]));
-        $this->assertDatabaseRejects(fn() => $this->insert('pa_data_permission_condition', [
-            'tenant_id' => $alpha,
-            'data_permission_group_id' => $group,
-            'condition_definition_id' => $conditionDefinition,
-            'target_set_id' => $betaTargetSet,
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]));
-
-        $this->insert('pa_data_permission_target', [
-            'tenant_id' => $alpha,
-            'target_set_id' => $targetSet,
-            'target_id' => 'project-a',
-            'added_by_member_id' => $alphaMember,
-            'added_at' => self::NOW,
-        ]);
-        $this->assertDatabaseRejects(fn() => $this->insert('pa_data_permission_target', [
-            'tenant_id' => $alpha,
-            'target_set_id' => $targetSet,
-            'target_id' => 'project-a',
-            'added_by_member_id' => $alphaMember,
-            'added_at' => self::NOW,
-        ]));
+        $this->assertDatabaseRejects(fn() => $this->policy($alpha, $betaRole, $resource, $alphaMember));
+        $this->assertDatabaseRejects(fn() => $this->policy($alpha, $alphaRole, $resource, $betaMember));
+        $this->policy($alpha, $alphaRole, $resource, $alphaMember);
+        $this->assertDatabaseRejects(fn() => $this->policy($alpha, $alphaRole, $resource, $alphaMember));
+        $this->policy($beta, $betaRole, $resource, $betaMember);
+        self::assertSame(2, (int) $this->query('SELECT COUNT(*) FROM pa_data_permission')->fetchColumn());
 
         $this->assertDatabaseRejects(fn() => $this->insert('pa_data_permission', [
             'tenant_id' => $beta,
             'role_id' => $betaRole,
-            'protected_resource_id' => $resource,
-            'resource_operation_id' => $operation,
+            'resource_key' => 'example.invalid-validity',
             'valid_from' => '2026-08-01 00:00:00.000',
             'valid_until' => '2026-07-01 00:00:00.000',
             'created_by_member_id' => $betaMember,
@@ -119,26 +67,22 @@ final class DataPermissionSchemaTest extends DatabaseTestCase
         ]));
     }
 
-    public function testRegistryRejectsUnknownTargetTypesAndNullableDuplicates(): void
+    public function testPolicyJsonAndRetiredRegistryStorageStaySeparated(): void
     {
-        [$resource, $operation, $conditionDefinition] = $this->registryFixture();
-        $this->assertDatabaseRejects(fn() => $this->insert('pa_resource_operation_target_type', [
-            'resource_operation_id' => $operation,
-            'target_type_id' => 999_999,
+        [$tenant, $member, $role] = $this->tenantFixture('canonical');
+        $this->assertDatabaseRejects(fn() => $this->insert('pa_data_permission', [
+            'tenant_id' => $tenant,
+            'role_id' => $role,
+            'resource_key' => 'example.work-item',
+            'scope_type' => 'rules',
+            'condition_groups_json' => 'invalid-json',
+            'created_by_member_id' => $member,
+            'updated_by_member_id' => $member,
+            'created_at' => self::NOW,
+            'updated_at' => self::NOW,
         ]));
-
-        $this->insert('pa_resource_operation_condition', [
-            'resource_operation_id' => $operation,
-            'condition_definition_id' => $conditionDefinition,
-            'selector_resource_key' => null,
-        ]);
-        $this->assertDatabaseRejects(fn() => $this->insert('pa_resource_operation_condition', [
-            'resource_operation_id' => $operation,
-            'condition_definition_id' => $conditionDefinition,
-            'selector_resource_key' => null,
-        ]));
-
-        self::assertSame(1, $resource);
+        self::assertFalse($this->tableExists('pa_resource_operation_target_type'));
+        self::assertFalse($this->tableExists('pa_resource_operation_condition'));
     }
 
     /** @return array{int, int, int} */
@@ -175,69 +119,12 @@ final class DataPermissionSchemaTest extends DatabaseTestCase
         return [$tenant, $member, $role];
     }
 
-    /** @return array{int, int, int} */
-    private function registryFixture(): array
+    private function policy(int $tenantId, int $roleId, string $resourceKey, int $memberId): int
     {
-        $resource = $this->insert('pa_protected_resource', [
-            'key' => 'example.work-item',
-            'module_key' => 'example',
-            'name' => 'Work Item',
-            'ownership' => 'business_target_owned',
-            'provider_key' => 'example.work-item.provider',
-            'manifest_version' => '1.0.0',
-            'manifest_digest' => str_repeat('a', 64),
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-        $operation = $this->insert('pa_resource_operation', [
-            'protected_resource_id' => $resource,
-            'operation' => 'list',
-            'access_mode' => 'rule_filtered',
-            'target_cardinality' => 'many_readable',
-            'manifest_digest' => str_repeat('b', 64),
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-        $condition = $this->insert('pa_data_condition_definition', [
-            'key' => 'core.self',
-            'module_key' => 'core',
-            'category' => 'self',
-            'target_mode' => 'none',
-            'manifest_version' => '1.0.0',
-            'manifest_digest' => str_repeat('c', 64),
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-
-        return [$resource, $operation, $condition];
-    }
-
-    private function policy(
-        int $tenantId,
-        int $roleId,
-        int $resourceId,
-        int $operationId,
-        int $memberId,
-    ): int {
         return $this->insert('pa_data_permission', [
             'tenant_id' => $tenantId,
             'role_id' => $roleId,
-            'protected_resource_id' => $resourceId,
-            'resource_operation_id' => $operationId,
-            'created_by_member_id' => $memberId,
-            'updated_by_member_id' => $memberId,
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-    }
-
-    private function targetSet(int $tenantId, int $memberId, string $resourceKey): int
-    {
-        return $this->insert('pa_data_permission_target_set', [
-            'tenant_id' => $tenantId,
-            'name' => 'projects-' . $tenantId,
-            'target_mode' => 'resource',
-            'target_resource_key' => $resourceKey,
+            'resource_key' => $resourceKey,
             'created_by_member_id' => $memberId,
             'updated_by_member_id' => $memberId,
             'created_at' => self::NOW,

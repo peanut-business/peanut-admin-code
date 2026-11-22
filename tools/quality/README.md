@@ -84,9 +84,9 @@ php tools/quality/vendor/bin/php-cs-fixer fix --config=tools/quality/php-cs-fixe
 Platform 的可选治理生产源码进入默认严格类型检查；只将 Vitest 测试交给专用测试入口，不再排除整个可选运行时。下面三个入口分别验证生产源码真实覆盖、测试代码类型和行为：
 
 ```sh
-npm --prefix platform run type:check:governance
-npm --prefix platform run type:check:governance-tests
-npm --prefix platform run test:governance
+pnpm --dir platform run type:check:governance
+pnpm --dir platform run type:check:governance-tests
+pnpm --dir platform run test:governance
 ```
 
 生产类型入口同时核对真实配置包含公开入口、查询/目录/审计源码及生成 API 类型；没有文件或重新排除源码必须失败。Vitest 不允许空测试成功，原有 origin/audience、刷新隔离、防非幂等重放、权限/模块可见性、修订及审计脱敏断言保留。
@@ -147,14 +147,6 @@ node tools/quality/node_modules/vitest/vitest.mjs run --config web/vitest.option
 检查器自身的正反例见 `server/tests/Unit/ModuleBoundaryInventoryTest.php`，其中源文本包含副作用也不得被执行，别名不能隐藏私有类型，同一行多处违规分别计数，租户条件不使私表变成公开能力。`scripts/check-test-integrity` 另核测试是否有真实失败路径。旧TPQ历史问题队列的闭合状态不适用于当前迁移；以上检查只证明各自范围，不替代其他仍有效的框架行为、安全测试或人工代码审阅。
 
 增加 `--include-host` 时，同一检查器还读取 `server/composer.json` 的原生 `app\\` 映射，覆盖宿主 PHP；不将模块迁移脚本算作宿主源码，也不重复扫描模块。应用组合根 `server/app/AppService.php` 的类型装配单独计数，但组合根不因此获得任意私表访问豁免；其他宿主发现的未公开类型和私表访问仍须逐项审阅，不能把原模块-only结果称为宿主已经覆盖。检查器保持语法树只读、不执行扫描源码；缺失映射或越出宿主目录不能空集合通过。
-
-旧 TPQ 的模型路径按当前 `server/composer.json` 最长 PSR-4 前缀解析，核精确大小写、路径边界和重复映射；已公开的业务类以 `module.json` 声明识别，不仅凭 `Service` 目录名判为内部。对应正反例执行 `python3 scripts/tests/thinkphp-source-resolution-test.py`。这些修复不自动补齐历史模型/表登记，也不更新旧问题清单的验收状态；CLI 的登记失败与纯规则/框架行为通过须分别记录。
-
-模型发现包含模块 `Model/` 下的嵌套目录；所有者自己的表访问只按当前 Composer 解析得到的精确源文件识别，不按命名空间拼接猜测路径。缺失映射不授予例外，歧义映射仍失败。执行 `python3 scripts/tests/thinkphp-ownership-registration-test.py` 验证嵌套发现、原生映射、自身与其他消费者的区别，以及登记失败时不扫描、不刷新历史问题状态。该测试只使用本工作树临时文件，不执行被扫描的 PHP 或访问数据库。
-
-`python3 scripts/check-thinkphp-architecture --json` 在归属登记不一致时返回 `status=registration_failed`、具体 `registration_errors` 和退出码2；此时 `finding_count=null` 表示源码规则扫描尚未执行，不表示零问题。默认文本模式继续输出 `REGISTRATION_ERROR`。修正已迁移类的登记位置不自动批准新增模型的数据范围、补全所有表或关闭历史问题，现行缺项须按对应源与安全合同逐项核实。
-
-固定源码归属检查使用 `python3 scripts/check-thinkphp-architecture --ownership-only --source-ref=<已推送的完整提交SHA> --json`，在当前检查器工作树的登记上核对该提交的原始源码；只读取模型、模块、Schema和Composer声明，不读取或刷新历史问题/例外。快照必须与Git树和原始blob一致，不能用移动分支名、export-ignore或替换对象隐去源码。退出2表示配置或登记未闭合，`business_scan=not_run`、`finding_count=null` 不是业务零问题；受限模型字面量和PHP Schema解析不证明运行授权或真实数据库。对应回归为 `python3 scripts/tests/thinkphp-current-ownership-test.py`；既有历史流程及产品资格分别处理。
 
 ## PC 原生 SSR HTTP 隔离
 
@@ -226,7 +218,7 @@ node --test uniapp/tests/Productization/h5-browser.test.mjs
 
 ## 非 H5 原生编译产物
 
-微信小程序使用现有 `npm run build:mp-weixin`，App服务/视图使用 `npm run build:custom -- app`；在不同任务目录中编译，不覆盖H5或重装未变化依赖。先核 `peanut-uniapp-native-build-qualification` 的实际工具/来源和本轮工作树租约，使用自有TMPDIR；不启动开发者工具GUI、登录账号、连接设备或上传包。`node --test uniapp/tests/Productization/native-build-output.test.mjs` 要求明确 `NATIVE_SOURCE_ROOT`、`NATIVE_MP_WEIXIN_OUTPUT`、`NATIVE_APP_OUTPUT` 和两产物的 `NATIVE_MP_WEIXIN_SHA256` / `NATIVE_APP_SHA256`。摘要按排序路径、完整stat.mode和原文件字节递归计算。验证真实小程序页面/WXML/WXSS、App路由JSON/服务/视图清单及文件边界；不执行产物代码，也不将构建成功称为真机、权限、网络或后端认证通过。
+微信小程序使用现有 `pnpm run build:mp-weixin`，App服务/视图使用 `pnpm run build:custom -- app`；在不同任务目录中编译，不覆盖H5或重装未变化依赖。先核 `peanut-uniapp-native-build-qualification` 的实际工具/来源和本轮工作树租约，使用自有TMPDIR；不启动开发者工具GUI、登录账号、连接设备或上传包。`node --test uniapp/tests/Productization/native-build-output.test.mjs` 要求明确 `NATIVE_SOURCE_ROOT`、`NATIVE_MP_WEIXIN_OUTPUT`、`NATIVE_APP_OUTPUT` 和两产物的 `NATIVE_MP_WEIXIN_SHA256` / `NATIVE_APP_SHA256`。摘要按排序路径、完整stat.mode和原文件字节递归计算。验证真实小程序页面/WXML/WXSS、App路由JSON/服务/视图清单及文件边界；不执行产物代码，也不将构建成功称为真机、权限、网络或后端认证通过。
 
 ## 浏览器资产交付边界
 

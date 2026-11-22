@@ -34,6 +34,8 @@ use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer
 use PeanutAdmin\Modules\Identity\Authorization\ThinkPhpTenantAuthorizationRepository;
 use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
 use PeanutAdmin\Kernel\Authorization\TenantAuthorizationEvaluator;
+use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
+use PeanutAdmin\Kernel\Module\ManifestDocument;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
 use think\db\PDOConnection;
 use think\db\Query;
@@ -56,6 +58,9 @@ final class EffectiveAccessPreviewServiceTest extends DatabaseTestCase
     private ThinkPhpTenantAuthorizationRepository $authorization;
     private ThinkPhpResourceOperationCatalog $catalog;
     private ThinkPhpPolicyRepository $policies;
+    private ThinkPhpTargetSetMembershipProvider $targetMembership;
+    /** @var list<ManifestDocument> */
+    private array $catalogManifests = [];
     private PDOConnection $connection;
 
     protected function setUp(): void
@@ -95,10 +100,10 @@ SQL);
 
         $this->seedOperations();
         $this->seedConditionalPolicies();
-        $this->authorization = $this->fixtureAuthorizationRepository(['preview.unavailable']);
+        $this->authorization = $this->fixtureAuthorizationRepository(['preview.active', 'preview.unavailable']);
         $this->connection = ThinkPhpTestConnection::fromPdo($this->database);
-        $this->catalog = new ThinkPhpResourceOperationCatalog($this->fixtureEntitlements(['preview.unavailable']));
-        $this->policies = new ThinkPhpPolicyRepository();
+        $this->targetMembership = new ThinkPhpTargetSetMembershipProvider();
+        $this->loadCatalog('initial');
         $this->actor = TenantContext::fromValidatedSession(new ValidatedTenantSession(
             1,
             '01J00000000000000000000000',
@@ -312,13 +317,9 @@ SQL)->fetchColumn();
         self::assertSame(2, (int) $this->query('SELECT COUNT(*) FROM pa_tenant_audit_event')->fetchColumn());
 
         $catalogRevision = $this->catalog->registryRevision();
-        $this->database->exec(<<<'SQL'
-        UPDATE pa_module_installation
-        SET status = 'maintenance', revision = revision + 1
-        WHERE module_key = 'preview.unavailable'
-        SQL);
+        $this->loadCatalog('replacement');
         self::assertNotSame($catalogRevision, $this->catalog->registryRevision());
-        $afterInstallationChange = $service->preview(
+        $afterInstallationChange = $this->service()->preview(
             $this->actor,
             $this->subjectMemberId,
             new PageRequest(1, 2),
@@ -398,7 +399,7 @@ SQL)->fetchColumn();
                 ['preview.project' => new ColumnReference('preview_record.project_id')],
             ),
             new ThinkPhpDepartmentHierarchyProvider(),
-            new ThinkPhpTargetSetMembershipProvider(),
+            $this->targetMembership,
             new ConditionProviderRegistry(),
         );
         $providers = new ResourceProviderRegistry();
@@ -423,7 +424,7 @@ SQL)->fetchColumn();
         $query = new Query($this->connection);
         $query->name('preview_record');
         $query->alias('preview_record');
-        (new ThinkPhpQueryConstraintApplier(new \PeanutAdmin\Modules\Identity\access\Infrastructure\ThinkPhpTargetSetConstraintApplier()))->apply(
+        (new ThinkPhpQueryConstraintApplier(new \PeanutAdmin\Modules\Identity\access\Infrastructure\ThinkPhpTargetSetConstraintApplier($this->targetMembership)))->apply(
             $query,
             $engine->queryConstraint($subject, $resourceKey, 'inspect'),
         );
@@ -455,164 +456,87 @@ SQL)->fetchColumn();
             ['preview.i-global-targeted', 'global_reference', 'global_reference_read', 'one_required', 'all', ['core.member.read']],
             ['preview.j-unbound', 'tenant_owned', 'rule_filtered', 'none', 'all', []],
         ];
-        foreach ($definitions as [$resourceKey, $ownership, $accessMode, $cardinality, $match, $permissions]) {
-            $resourceId = $this->insert('pa_protected_resource', [
-                'key' => $resourceKey,
-                'module_key' => 'core',
-                'name' => $resourceKey,
-                'ownership' => $ownership,
-                'provider_key' => 'hidden.provider',
+        foreach (['preview.active', 'preview.unavailable'] as $moduleKey) {
+            $this->insert('pa_module_installation', [
+                'module_key' => $moduleKey,
+                'installed_version' => '1.0.0',
+                'manifest_schema_version' => 1,
+                'manifest_digest' => hash('sha256', $moduleKey),
                 'status' => 'active',
-                'manifest_version' => '1.0.0',
-                'manifest_digest' => hash('sha256', $resourceKey),
+                'installed_at' => self::NOW,
+                'activated_at' => self::NOW,
                 'created_at' => self::NOW,
                 'updated_at' => self::NOW,
             ]);
-            $operationId = $this->insert('pa_resource_operation', [
-                'protected_resource_id' => $resourceId,
-                'operation' => 'inspect',
-                'access_mode' => $accessMode,
-                'target_cardinality' => $cardinality,
-                'permission_match' => $match,
-                'audit_level' => 'deny',
-                'status' => 'active',
-                'manifest_digest' => hash('sha256', $resourceKey . ':inspect'),
-                'created_at' => self::NOW,
-                'updated_at' => self::NOW,
-            ]);
-            foreach ($permissions as $sortOrder => $permissionKey) {
-                $this->insert('pa_resource_operation_permission', [
-                    'resource_operation_id' => $operationId,
-                    'permission_id' => $this->permissionId($permissionKey),
-                    'sort_order' => $sortOrder,
-                ]);
-            }
         }
+        $this->licenseTenantModules($this->tenantId, ['preview.active'], 'active');
+        $unavailable = [['preview.z-unavailable', 'tenant_owned', 'rule_filtered', 'none', 'all', ['core.member.read']]];
+        foreach (['preview.active' => $definitions, 'preview.unavailable' => $unavailable] as $moduleKey => $resources) {
+            $catalog = [];
+            foreach ($resources as [$resourceKey, $ownership, $accessMode, $cardinality, $match, $permissions]) {
+                $conditions = $resourceKey === 'preview.g-conditional' ? [
+                    (object) ['key' => 'core.specified_objects', 'selector_resource_key' => 'preview.project'],
+                    (object) ['key' => 'core.self'],
+                ] : [];
+                $catalog[] = (object) [
+                    'key' => $resourceKey,
+                    'ownership' => $ownership,
+                    'provider' => 'hidden.provider',
+                    'operations' => [(object) [
+                        'key' => 'inspect',
+                        'access_mode' => $accessMode,
+                        'target_cardinality' => $cardinality,
+                        'permission_match' => $match,
+                        'permissions' => $permissions,
+                        'target_types' => [],
+                        'conditions' => $conditions,
+                    ]],
+                ];
+            }
+            $this->catalogManifests[] = ManifestDocument::fromObject('/fixtures/' . $moduleKey, (object) [
+                'key' => $moduleKey,
+                'tenant' => (object) ['enableable' => true],
+                'catalog' => (object) ['protected_resources' => $catalog],
+            ]);
+        }
+    }
 
-        $this->insert('pa_module_installation', [
-            'module_key' => 'preview.unavailable',
-            'installed_version' => '1.0.0',
-            'manifest_schema_version' => 1,
-            'manifest_digest' => hash('sha256', 'preview.unavailable'),
-            'status' => 'active',
-            'installed_at' => self::NOW,
-            'activated_at' => self::NOW,
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-        $this->licenseTenantModules($this->tenantId, ['preview.unavailable'], 'suspended');
-        $resourceId = $this->insert('pa_protected_resource', [
-            'key' => 'preview.z-unavailable',
-            'module_key' => 'preview.unavailable',
-            'name' => 'Unavailable',
-            'ownership' => 'tenant_owned',
-            'provider_key' => 'hidden.provider',
-            'status' => 'active',
-            'manifest_version' => '1.0.0',
-            'manifest_digest' => hash('sha256', 'preview.z-unavailable'),
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-        $operationId = $this->insert('pa_resource_operation', [
-            'protected_resource_id' => $resourceId,
-            'operation' => 'inspect',
-            'access_mode' => 'rule_filtered',
-            'target_cardinality' => 'none',
-            'permission_match' => 'all',
-            'audit_level' => 'deny',
-            'status' => 'active',
-            'manifest_digest' => hash('sha256', 'preview.z-unavailable:inspect'),
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-        $this->insert('pa_resource_operation_permission', [
-            'resource_operation_id' => $operationId,
-            'permission_id' => $this->permissionId('core.member.read'),
-            'sort_order' => 0,
-        ]);
+    private function loadCatalog(string $revision): void
+    {
+        $registry = new CompiledModuleRegistry($this->catalogManifests, [], [], [], $revision);
+        $this->catalog = new ThinkPhpResourceOperationCatalog(
+            $registry,
+            $this->fixtureEntitlements(['preview.active', 'preview.unavailable']),
+        );
+        $this->policies = new ThinkPhpPolicyRepository($this->catalog, $this->targetMembership);
     }
 
     private function seedConditionalPolicies(): void
     {
-        $operation = $this->operation('preview.g-conditional');
-        $specified = $this->conditionId('core.specified_objects');
-        $self = $this->conditionId('core.self');
-        $this->insert('pa_resource_operation_condition', [
-            'resource_operation_id' => $operation['operation_id'],
-            'condition_definition_id' => $specified,
-            'selector_resource_key' => 'preview.project',
-            'status' => 'active',
-        ]);
-        $this->insert('pa_resource_operation_condition', [
-            'resource_operation_id' => $operation['operation_id'],
-            'condition_definition_id' => $self,
-            'selector_resource_key' => null,
-            'status' => 'active',
-        ]);
-
-        $policyA = $this->policy($this->roleA, $operation);
-        $groupA = $this->group($policyA, 'Selected projects', 0);
-        $targetSet = $this->insert('pa_data_permission_target_set', [
-            'tenant_id' => $this->tenantId,
-            'name' => 'Large project set',
-            'target_mode' => 'resource',
-            'target_resource_key' => 'preview.project',
-            'status' => 'active',
-            'created_by_member_id' => $this->actorMemberId,
-            'updated_by_member_id' => $this->actorMemberId,
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-        for ($target = 1; $target <= 501; $target++) {
-            $this->insert('pa_data_permission_target', [
-                'tenant_id' => $this->tenantId,
-                'target_set_id' => $targetSet,
-                'target_id' => (string) $target,
-                'status' => 'active',
-                'added_by_member_id' => $this->actorMemberId,
-                'added_at' => self::NOW,
-            ]);
-        }
-        $this->condition($groupA, $specified, $targetSet);
-
-        $policyB = $this->policy($this->roleB, $operation);
-        $groupB = $this->group($policyB, 'Self', 1);
-        $this->condition($groupB, $self, null);
+        $specified = [
+            'id' => 1, 'key' => 'core.specified_objects', 'target_set_id' => 1,
+            'target_resource_key' => 'preview.project', 'target_ids' => array_map('strval', range(1, 501)),
+        ];
+        $self = ['id' => 2, 'key' => 'core.self', 'target_set_id' => null, 'target_resource_key' => null, 'target_ids' => []];
+        $this->policy($this->roleA, [['id' => 1, 'conditions' => [$specified]]]);
+        $this->policy($this->roleB, [['id' => 2, 'conditions' => [$self]]]);
 
         foreach ([
-            ['tenant.preview-future', 'active', '2099-01-01 00:00:00.000', null, 'active'],
-            ['tenant.preview-expired', 'active', null, '2020-01-01 00:00:00.000', 'active'],
-            ['tenant.preview-policy-disabled', 'disabled', null, null, 'active'],
-            ['tenant.preview-group-disabled', 'active', null, null, 'disabled'],
-        ] as [$key, $policyStatus, $validFrom, $validUntil, $groupStatus]) {
+            ['tenant.preview-future', 'active', '2099-01-01 00:00:00.000', null, true],
+            ['tenant.preview-expired', 'active', null, '2020-01-01 00:00:00.000', true],
+            ['tenant.preview-policy-disabled', 'disabled', null, null, true],
+            ['tenant.preview-group-disabled', 'active', null, null, false],
+        ] as [$key, $status, $from, $until, $groupActive]) {
             $roleId = $this->role($key, $key);
             $this->assignRole($roleId);
-            $policyId = $this->policy($roleId, $operation, $policyStatus, $validFrom, $validUntil);
-            $groupId = $this->group($policyId, $key, 2, $groupStatus);
-            $this->condition($groupId, $self, null);
+            $this->policy($roleId, $groupActive ? [['id' => 3, 'conditions' => [$self]]] : [], $status, $from, $until);
         }
     }
 
-    /** @return array{resource_id: int, operation_id: int} */
-    private function operation(string $resourceKey): array
-    {
-        $statement = $this->database->prepare(<<<'SQL'
-SELECT resource.id AS resource_id, operation_row.id AS operation_id
-FROM pa_protected_resource resource
-JOIN pa_resource_operation operation_row ON operation_row.protected_resource_id = resource.id
-WHERE resource.`key` = :resource_key AND operation_row.operation = 'inspect'
-SQL);
-        $statement->execute(['resource_key' => $resourceKey]);
-        $row = $statement->fetch(PDO::FETCH_ASSOC);
-        self::assertIsArray($row);
-
-        return ['resource_id' => (int) $row['resource_id'], 'operation_id' => (int) $row['operation_id']];
-    }
-
-    /** @param array{resource_id: int, operation_id: int} $operation */
+    /** @param list<array{id:int,conditions:list<array<string,mixed>>}> $groups */
     private function policy(
         int $roleId,
-        array $operation,
+        array $groups,
         string $status = 'active',
         ?string $validFrom = null,
         ?string $validUntil = null,
@@ -620,42 +544,15 @@ SQL);
         return $this->insert('pa_data_permission', [
             'tenant_id' => $this->tenantId,
             'role_id' => $roleId,
-            'protected_resource_id' => $operation['resource_id'],
-            'resource_operation_id' => $operation['operation_id'],
+            'resource_key' => 'preview.g-conditional',
+            'scope_type' => 'rules',
+            'condition_groups_json' => json_encode($groups, JSON_THROW_ON_ERROR),
             'status' => $status,
             'valid_from' => $validFrom,
             'valid_until' => $validUntil,
             'reason' => null,
             'created_by_member_id' => $this->actorMemberId,
             'updated_by_member_id' => $this->actorMemberId,
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-    }
-
-    private function group(int $policyId, string $name, int $sortOrder, string $status = 'active'): int
-    {
-        return $this->insert('pa_data_permission_group', [
-            'tenant_id' => $this->tenantId,
-            'data_permission_policy_id' => $policyId,
-            'name' => $name,
-            'match_mode' => 'all',
-            'sort_order' => $sortOrder,
-            'status' => $status,
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-    }
-
-    private function condition(int $groupId, int $definitionId, ?int $targetSetId): void
-    {
-        $this->insert('pa_data_permission_condition', [
-            'tenant_id' => $this->tenantId,
-            'data_permission_group_id' => $groupId,
-            'condition_definition_id' => $definitionId,
-            'target_set_id' => $targetSetId,
-            'config_json' => null,
-            'status' => 'active',
             'created_at' => self::NOW,
             'updated_at' => self::NOW,
         ]);
@@ -736,13 +633,7 @@ SQL);
         return (int) $statement->fetchColumn();
     }
 
-    private function conditionId(string $key): int
-    {
-        $statement = $this->database->prepare('SELECT id FROM pa_data_condition_definition WHERE `key` = :key');
-        $statement->execute(['key' => $key]);
 
-        return (int) $statement->fetchColumn();
-    }
 }
 
 final class PreviewClock implements Clock

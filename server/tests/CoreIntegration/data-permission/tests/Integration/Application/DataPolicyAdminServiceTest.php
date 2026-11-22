@@ -18,7 +18,11 @@ use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer;
 use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
-use PeanutAdmin\Kernel\Module\ModuleException;
+use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
+use PeanutAdmin\Kernel\Module\ManifestDocument;
+use PeanutAdmin\Kernel\Authorization\TenantAuthorizationEvaluator;
+use PeanutAdmin\Modules\Identity\DataPermission\Catalog\ThinkPhpResourceOperationCatalog;
+use PeanutAdmin\DataPermission\Exception\DataAuthorizationException;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
 
 require_once dirname(__DIR__, 4) . '/kernel/tests/Integration/Schema/DatabaseTestCase.php';
@@ -44,13 +48,26 @@ final class DataPolicyAdminServiceTest extends DatabaseTestCase
         $accountId = $this->account();
         $memberId = $this->member($tenantId, $accountId);
         $this->roleId = $this->role($tenantId, 'tenant.reviewer');
-        $this->catalog($tenantId);
+        $this->insert('pa_member_role', [
+            'tenant_id' => $tenantId, 'tenant_member_id' => $memberId,
+            'role_id' => $this->roleId, 'assigned_at' => self::NOW,
+        ]);
+        $permissionCatalog = new ThinkPhpAuthorizationCatalogRepository();
+        foreach (['core.role.read', 'core.role.data-policy.manage'] as $permission) {
+            $this->insert('pa_role_permission', [
+                'tenant_id' => $tenantId, 'role_id' => $this->roleId,
+                'permission_id' => $permissionCatalog->permissionId($permission), 'granted_at' => self::NOW,
+            ]);
+        }
+        $catalog = $this->catalog($tenantId);
         $registry = new TargetResolverRegistry();
         $registry->register('test.project-resolver', new TestProjectResolver());
         $this->service = new DataPolicyAdminService(
+            $catalog,
             $registry,
             new AuditService(),
-        $this->fixtureEntitlements(['example.work-item', 'example.target']));
+            new TenantAuthorizationEvaluator($this->fixtureAuthorizationRepository(['example.work-item', 'example.target'])),
+        );
         $this->context = TenantContext::fromValidatedSession(
             new ValidatedTenantSession(
                 1,
@@ -153,7 +170,9 @@ final class DataPolicyAdminServiceTest extends DatabaseTestCase
             $policy['groups'][0]['conditions'][0]['target_set']['targets'],
             'target_id',
         ));
-        self::assertSame(1, (int) $this->query('SELECT COUNT(*) FROM pa_data_permission_target')->fetchColumn());
+        self::assertSame('9002', $this->query(
+            "SELECT JSON_UNQUOTE(JSON_EXTRACT(condition_groups_json, '$[0].conditions[0].target_ids[0]')) FROM pa_data_permission",
+        )->fetchColumn());
         self::assertSame(2, (int) $this->query('SELECT COUNT(*) FROM pa_tenant_audit_event')->fetchColumn());
         self::assertSame(3, (int) $this->query(
             'SELECT authorization_revision FROM pa_role WHERE id = ' . $this->roleId,
@@ -169,7 +188,7 @@ final class DataPolicyAdminServiceTest extends DatabaseTestCase
                     'name' => 'Unknown',
                     'conditions' => [['condition_key' => 'core.unknown']],
                 ]],
-            ], 'DATA_POLICY_CONDITION_INVALID'],
+            ], 'DATA_POLICY_INPUT_INVALID'],
             [[
                 'status' => 'active',
                 'groups' => [[
@@ -179,7 +198,7 @@ final class DataPolicyAdminServiceTest extends DatabaseTestCase
                         'config' => ['sql' => '1=1'],
                     ]],
                 ]],
-            ], 'DATA_POLICY_CONFIG_INVALID'],
+            ], 'DATA_POLICY_INPUT_INVALID'],
             [[
                 'status' => 'active',
                 'groups' => [[
@@ -209,7 +228,7 @@ final class DataPolicyAdminServiceTest extends DatabaseTestCase
         self::assertSame(0, (int) $this->query('SELECT COUNT(*) FROM pa_tenant_audit_event')->fetchColumn());
     }
 
-    private function catalog(int $tenantId): void
+    private function catalog(int $tenantId): ThinkPhpResourceOperationCatalog
     {
         $this->insert('pa_module_installation', [
             'module_key' => 'example.work-item',
@@ -236,64 +255,38 @@ final class DataPolicyAdminServiceTest extends DatabaseTestCase
         foreach (['example.work-item', 'example.target'] as $moduleKey) {
             $this->licenseTenantModules($tenantId, [$moduleKey], 'active');
         }
-        $resourceId = $this->insert('pa_protected_resource', [
+        $resources = ManifestDocument::fromObject('/fixtures/work-item', (object) [
             'key' => 'example.work-item',
-            'module_key' => 'example.work-item',
-            'name' => 'Work Item',
-            'ownership' => 'business_target_owned',
-            'provider_key' => 'test.work-item-provider',
-            'status' => 'active',
-            'manifest_version' => '1.0.0',
-            'manifest_digest' => hash('sha256', 'work-item-resource'),
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
+            'catalog' => (object) ['protected_resources' => [(object) [
+                'key' => 'example.work-item',
+                'provider' => 'test.work-item-provider',
+                'ownership' => 'business_target_owned',
+                'operations' => [(object) [
+                    'key' => 'list', 'access_mode' => 'rule_filtered',
+                    'target_cardinality' => 'many_readable', 'permission_match' => 'all',
+                    'permissions' => ['core.role.read'],
+                    'target_types' => [(object) [
+                        'target_role' => 'primary', 'target_resource_key' => 'example.project',
+                        'input_mode' => 'explicit', 'policy_selection_permission' => 'core.role.read',
+                    ]],
+                    'conditions' => [
+                        (object) ['key' => 'core.tenant_all'],
+                        (object) ['key' => 'core.specified_objects', 'selector_resource_key' => 'example.project'],
+                    ],
+                ]],
+            ]]],
         ]);
-        $operationId = $this->insert('pa_resource_operation', [
-            'protected_resource_id' => $resourceId,
-            'operation' => 'list',
-            'access_mode' => 'rule_filtered',
-            'target_cardinality' => 'many_readable',
-            'permission_match' => 'all',
-            'audit_level' => 'deny',
-            'status' => 'active',
-            'manifest_digest' => hash('sha256', 'work-item-list'),
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
+        $targets = ManifestDocument::fromObject('/fixtures/project', (object) [
+            'key' => 'example.target',
+            'catalog' => (object) ['target_types' => [(object) [
+                'key' => 'example.project', 'name' => 'Project', 'resolver' => 'test.project-resolver',
+                'catalog_provider' => 'test.project-catalog', 'id_format' => 'decimal',
+            ]]],
         ]);
-        $targetTypeId = $this->insert('pa_target_type', [
-            'key' => 'example.project',
-            'module_key' => 'example.target',
-            'name' => 'Project',
-            'resolver_key' => 'test.project-resolver',
-            'catalog_provider_key' => 'test.project-catalog',
-            'id_format' => 'decimal',
-            'status' => 'active',
-            'manifest_version' => '1.0.0',
-            'manifest_digest' => hash('sha256', 'project-target'),
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-        $this->insert('pa_resource_operation_target_type', [
-            'resource_operation_id' => $operationId,
-            'target_type_id' => $targetTypeId,
-            'target_role' => 'primary',
-            'input_mode' => 'explicit',
-            'status' => 'active',
-        ]);
-        foreach ([
-            ['core.tenant_all', null],
-            ['core.specified_objects', 'example.project'],
-        ] as [$conditionKey, $selector]) {
-            $conditionId = (int) $this->query(
-                "SELECT id FROM pa_data_condition_definition WHERE `key` = '{$conditionKey}'",
-            )->fetchColumn();
-            $this->insert('pa_resource_operation_condition', [
-                'resource_operation_id' => $operationId,
-                'condition_definition_id' => $conditionId,
-                'selector_resource_key' => $selector,
-                'status' => 'active',
-            ]);
-        }
+        return new ThinkPhpResourceOperationCatalog(
+            new CompiledModuleRegistry([$resources, $targets], [], [], [], 'policy-fixture'),
+            $this->fixtureEntitlements(['example.work-item', 'example.target']),
+        );
     }
 
     private function tenant(): int
@@ -365,7 +358,7 @@ final class TestProjectResolver implements ResourceTargetResolver
     {
         if ($targets->targetResourceKey !== 'example.project'
             || array_diff($targets->targetIds, ['9001', '9002']) !== []) {
-            throw new ModuleException('AUTHZ_TARGET_NOT_FOUND', 'Project target was not found.');
+            throw new DataAuthorizationException('AUTHZ_TARGET_NOT_FOUND', 'Project target was not found.');
         }
 
         return new ResolvedResourceTargets(new TypedResourceTargetCollection([$targets]));

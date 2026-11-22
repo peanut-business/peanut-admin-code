@@ -24,9 +24,6 @@ use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer
 use PeanutAdmin\Modules\Identity\Authorization\ThinkPhpTenantAuthorizationRepository;
 use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
 use PeanutAdmin\Kernel\Authorization\Persistence\PermissionDefinition;
-use PeanutAdmin\Kernel\Authorization\Persistence\ProtectedResourceDefinition;
-use PeanutAdmin\Kernel\Authorization\Persistence\ResourceOperationDefinition;
-use PeanutAdmin\Kernel\Authorization\Persistence\TargetTypeDefinition;
 use PeanutAdmin\Kernel\Authorization\TenantAuthorizationEvaluator;
 use RuntimeException;
 use think\db\PDOConnection;
@@ -37,6 +34,7 @@ final class AuthorizationAcceptanceFixture
     private const NOW = '2026-07-16 12:00:00.000';
 
     private ThinkPhpAuthorizationCatalogRepository $catalog;
+    private ThinkPhpTargetSetMembershipProvider $targetMembership;
     private int $alphaTenant;
     private int $betaTenant;
     private int $accountId;
@@ -44,19 +42,12 @@ final class AuthorizationAcceptanceFixture
     private int $betaMember;
     private int $readerRole;
     private int $writerRole;
-    private int $resourceId;
-    private int $referenceResourceId;
-    private int $unregisteredReferenceResourceId;
-    private int $projectTargetType;
 
     /** @var array<string, int> */
     private array $permissions = [];
 
-    /** @var array<string, int> */
+    /** @var array<string,list<object>> */
     private array $operations = [];
-
-    /** @var array<string, int> */
-    private array $conditionIds = [];
 
     /** @var array<string, int> */
     private array $policyIds = [];
@@ -73,6 +64,7 @@ final class AuthorizationAcceptanceFixture
 
     private function build(): AuthorizationAcceptanceEnvironment
     {
+        $this->targetMembership = new ThinkPhpTargetSetMembershipProvider();
         $this->createTables();
         $this->seedCatalog();
         $this->seedPrincipals();
@@ -87,7 +79,7 @@ final class AuthorizationAcceptanceFixture
             $engine,
             $alphaContext,
             $betaContext,
-            new ResourceProviderContractHarness($engine, $alphaContext, $trace, constraints: new \PeanutAdmin\DataPermission\Constraint\ThinkPhpQueryConstraintApplier(new \PeanutAdmin\Modules\Identity\access\Infrastructure\ThinkPhpTargetSetConstraintApplier())),
+            new ResourceProviderContractHarness($engine, $alphaContext, $trace, constraints: new \PeanutAdmin\DataPermission\Constraint\ThinkPhpQueryConstraintApplier(new \PeanutAdmin\Modules\Identity\access\Infrastructure\ThinkPhpTargetSetConstraintApplier($this->targetMembership))),
             $trace,
             $this->accountId,
             $this->alphaTenant,
@@ -194,56 +186,6 @@ SQL,
                 '1.0.0',
             ));
         }
-        $this->resourceId = $this->catalog->syncProtectedResource(new ProtectedResourceDefinition(
-            'fixture.record',
-            'fixture',
-            'Fixture record',
-            'business_target_owned',
-            'fixture.record.standard',
-            '1.0.0',
-            str_repeat('a', 64),
-        ));
-        $this->referenceResourceId = $this->catalog->syncProtectedResource(new ProtectedResourceDefinition(
-            'fixture.reference',
-            'fixture',
-            'Fixture reference',
-            'shared_master',
-            'fixture.reference.standard',
-            '1.0.0',
-            str_repeat('b', 64),
-        ));
-        $this->unregisteredReferenceResourceId = $this->catalog->syncProtectedResource(new ProtectedResourceDefinition(
-            'fixture.reference-unregistered',
-            'fixture',
-            'Unregistered reference',
-            'shared_master',
-            'fixture.reference.standard',
-            '1.0.0',
-            str_repeat('c', 64),
-        ));
-        $this->projectTargetType = $this->catalog->syncTargetType(new TargetTypeDefinition(
-            'fixture.project',
-            'fixture',
-            'Project',
-            'fixture.project.resolver',
-            'fixture.project.catalog',
-            'string',
-            '1.0.0',
-            str_repeat('d', 64),
-        ));
-        $this->catalog->syncTargetType(new TargetTypeDefinition(
-            'fixture.queue',
-            'fixture',
-            'Queue',
-            'fixture.queue.resolver',
-            'fixture.queue.catalog',
-            'string',
-            '1.0.0',
-            str_repeat('e', 64),
-        ));
-        $this->conditionIds['core.tenant_all'] = $this->catalog->dataConditionId('core.tenant_all');
-        $this->conditionIds['core.specified_objects'] = $this->catalog->dataConditionId('core.specified_objects');
-
         foreach ([
             'list' => ['rule_filtered', 'many_readable', 'fixture.record.read'],
             'detail' => ['explicit_targets', 'one_required', 'fixture.record.read'],
@@ -258,42 +200,34 @@ SQL,
             'bulk-write' => ['explicit_targets', 'bulk_write', 'fixture.record.batch'],
             'policy-publish' => ['explicit_targets', 'policy_publish', 'fixture.record.update'],
         ] as $operation => [$mode, $cardinality, $permission]) {
-            $this->operations[$operation] = $this->operation(
-                $this->resourceId,
+            $this->operation(
                 'fixture.record',
                 $operation,
                 $mode,
                 $cardinality,
-                $this->permissions[$permission],
-                true,
+                $permission,
             );
         }
-        $this->operations['reference-list'] = $this->operation(
-            $this->referenceResourceId,
+        $this->operation(
             'fixture.reference',
             'list',
             'rule_filtered',
             'many_readable',
-            $this->permissions['fixture.reference.read'],
-            true,
+            'fixture.reference.read',
         );
-        $this->operations['reference-use'] = $this->operation(
-            $this->referenceResourceId,
+        $this->operation(
             'fixture.reference',
             'use',
             'explicit_targets',
             'one_required',
-            $this->permissions['fixture.reference.use'],
-            true,
+            'fixture.reference.use',
         );
-        $this->operations['unregistered-reference-list'] = $this->operation(
-            $this->unregisteredReferenceResourceId,
+        $this->operation(
             'fixture.reference-unregistered',
             'list',
             'rule_filtered',
             'many_readable',
-            $this->permissions['fixture.reference.read'],
-            true,
+            'fixture.reference.read',
         );
     }
 
@@ -416,38 +350,20 @@ SQL,
 
     private function seedPolicies(): void
     {
-        $readTargets = $this->targetSet(['A', 'B']);
-        $writeTargets = $this->targetSet(['A']);
+        $readId = $this->policy($this->readerRole, 'fixture.record', 'core.specified_objects', ['A', 'B']);
+        $writeId = $this->policy($this->writerRole, 'fixture.record', 'core.specified_objects', ['A']);
         foreach (['list', 'detail', 'export', 'job', 'aggregate'] as $operation) {
-            $this->policyIds[$operation] = $this->policy(
-                $this->readerRole,
-                $this->resourceId,
-                $this->operations[$operation],
-                'core.specified_objects',
-                $readTargets,
-            );
+            $this->policyIds[$operation] = $readId;
         }
         foreach (['create', 'update', 'delete', 'batch', 'import', 'bulk-write', 'policy-publish'] as $operation) {
-            $this->policyIds[$operation] = $this->policy(
-                $this->writerRole,
-                $this->resourceId,
-                $this->operations[$operation],
-                'core.specified_objects',
-                $writeTargets,
-            );
+            $this->policyIds[$operation] = $writeId;
         }
-        foreach (['reference-list', 'reference-use', 'unregistered-reference-list'] as $operation) {
-            $resourceId = $operation === 'unregistered-reference-list'
-                ? $this->unregisteredReferenceResourceId
-                : $this->referenceResourceId;
-            $this->policyIds[$operation] = $this->policy(
-                $this->readerRole,
-                $resourceId,
-                $this->operations[$operation],
-                'core.tenant_all',
-                null,
-            );
-        }
+        $referenceId = $this->policy($this->readerRole, 'fixture.reference', 'core.tenant_all', []);
+        $this->policyIds['reference-list'] = $referenceId;
+        $this->policyIds['reference-use'] = $referenceId;
+        $this->policyIds['unregistered-reference-list'] = $this->policy(
+            $this->readerRole, 'fixture.reference-unregistered', 'core.tenant_all', [],
+        );
     }
 
     private function engine(): DataPermissionEngine
@@ -461,7 +377,7 @@ SQL,
                 ['fixture.project' => new ColumnReference('record.project_id')],
             ),
             new ThinkPhpDepartmentHierarchyProvider(),
-            new ThinkPhpTargetSetMembershipProvider(),
+            $this->targetMembership,
             new ConditionProviderRegistry(),
         );
         $referenceProvider = new StandardResourcePolicyProvider(
@@ -472,7 +388,7 @@ SQL,
                 ['fixture.project' => new ColumnReference('reference.owner_project_id')],
             ),
             new ThinkPhpDepartmentHierarchyProvider(),
-            new ThinkPhpTargetSetMembershipProvider(),
+            $this->targetMembership,
             new ConditionProviderRegistry(),
         );
         foreach (['fixture.record.standard' => $recordProvider, 'fixture.reference.standard' => $referenceProvider] as $key => $provider) {
@@ -493,9 +409,10 @@ SQL,
         $queries = new \PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationQuery(
             new \PeanutAdmin\Modules\Identity\Membership\Query\ThinkPhpTenantMemberDirectory(), $registry,
         );
+        $catalog = new ThinkPhpResourceOperationCatalog($registry, $entitlements);
         return new DataPermissionEngine(
-            new ThinkPhpResourceOperationCatalog($entitlements),
-            new ThinkPhpPolicyRepository(),
+            $catalog,
+            new ThinkPhpPolicyRepository($catalog, $this->targetMembership),
             new TenantAuthorizationEvaluator(
                 new ThinkPhpTenantAuthorizationRepository($entitlements, $queries),
             ),
@@ -507,104 +424,51 @@ SQL,
     }
 
     private function operation(
-        int $resourceId,
         string $resourceKey,
         string $operation,
         string $accessMode,
         string $cardinality,
-        int $permissionId,
-        bool $withProjectTarget,
-    ): int {
-        $operationId = $this->catalog->syncResourceOperation(new ResourceOperationDefinition(
-            $resourceKey,
-            $operation,
-            $accessMode,
-            $cardinality,
-            'all',
-            'deny_and_write',
-            hash('sha256', $resourceKey . ':' . $operation),
-        ));
-        $this->catalog->bindOperationPermission($operationId, $permissionId);
-        if ($withProjectTarget) {
-            $this->catalog->bindOperationTargetType(
-                $operationId,
-                $this->projectTargetType,
-                'primary',
-                'explicit',
-                $this->permissions['fixture.project.select'],
-            );
-        }
-        foreach ($this->conditionIds as $key => $conditionId) {
-            $this->insert('pa_resource_operation_condition', [
-                'resource_operation_id' => $operationId,
-                'condition_definition_id' => $conditionId,
-                'selector_resource_key' => $key === 'core.specified_objects' ? 'fixture.project' : null,
-            ]);
-        }
-
-        return $operationId;
+        string $permission,
+    ): void {
+        $this->operations[$resourceKey][] = (object) [
+            'key' => $operation,
+            'access_mode' => $accessMode,
+            'target_cardinality' => $cardinality,
+            'permission_match' => 'all',
+            'permissions' => [$permission],
+            'target_types' => [(object) [
+                'target_role' => 'primary',
+                'target_resource_key' => 'fixture.project',
+                'input_mode' => 'explicit',
+                'policy_selection_permission' => 'fixture.project.select',
+            ]],
+            'conditions' => [
+                (object) ['key' => 'core.tenant_all'],
+                (object) ['key' => 'core.specified_objects', 'selector_resource_key' => 'fixture.project'],
+            ],
+        ];
     }
 
     /** @param list<string> $targetIds */
-    private function targetSet(array $targetIds): int
+    private function policy(int $roleId, string $resourceKey, string $conditionKey, array $targetIds): int
     {
-        $targetSetId = $this->insert('pa_data_permission_target_set', [
-            'tenant_id' => $this->alphaTenant,
-            'name' => 'Targets ' . implode('-', $targetIds),
-            'target_mode' => 'resource',
-            'target_resource_key' => 'fixture.project',
-            'created_by_member_id' => $this->alphaMember,
-            'updated_by_member_id' => $this->alphaMember,
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-        foreach ($targetIds as $targetId) {
-            $this->insert('pa_data_permission_target', [
-                'tenant_id' => $this->alphaTenant,
-                'target_set_id' => $targetSetId,
-                'target_id' => $targetId,
-                'added_by_member_id' => $this->alphaMember,
-                'added_at' => self::NOW,
-            ]);
-        }
-
-        return $targetSetId;
-    }
-
-    private function policy(
-        int $roleId,
-        int $resourceId,
-        int $operationId,
-        string $conditionKey,
-        ?int $targetSetId,
-    ): int {
-        $policyId = $this->insert('pa_data_permission', [
+        $condition = [
+            'id' => 1, 'key' => $conditionKey,
+            'target_set_id' => $targetIds === [] ? null : 1,
+            'target_resource_key' => $targetIds === [] ? null : 'fixture.project',
+            'target_ids' => $targetIds,
+        ];
+        return $this->insert('pa_data_permission', [
             'tenant_id' => $this->alphaTenant,
             'role_id' => $roleId,
-            'protected_resource_id' => $resourceId,
-            'resource_operation_id' => $operationId,
+            'resource_key' => $resourceKey,
+            'scope_type' => 'rules',
+            'condition_groups_json' => json_encode([['id' => 1, 'conditions' => [$condition]]], JSON_THROW_ON_ERROR),
             'created_by_member_id' => $this->alphaMember,
             'updated_by_member_id' => $this->alphaMember,
             'created_at' => self::NOW,
             'updated_at' => self::NOW,
         ]);
-        $groupId = $this->insert('pa_data_permission_group', [
-            'tenant_id' => $this->alphaTenant,
-            'data_permission_policy_id' => $policyId,
-            'name' => 'Allowed targets',
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-        $this->insert('pa_data_permission_condition', [
-            'tenant_id' => $this->alphaTenant,
-            'data_permission_group_id' => $groupId,
-            'condition_definition_id' => $this->conditionIds[$conditionKey],
-            'target_set_id' => $targetSetId,
-            'created_at' => self::NOW,
-            'updated_at' => self::NOW,
-        ]);
-
-        return $policyId;
     }
 
     private function tenant(string $code): int
@@ -691,6 +555,17 @@ SQL,
         $manifest = \PeanutAdmin\Kernel\Module\ManifestDocument::fromObject('fixtures/fixture', (object) [
             'key' => 'fixture', 'version' => '1.0.0', 'schema_version' => 1,
             'tenant' => (object) ['enableable' => true],
+            'catalog' => (object) [
+                'target_types' => array_map(static fn(string $key): object => (object) [
+                    'key' => $key, 'resolver' => $key . '.resolver', 'catalog_provider' => $key . '.catalog',
+                ], ['fixture.project', 'fixture.queue']),
+                'protected_resources' => array_map(fn(string $key): object => (object) [
+                    'key' => $key,
+                    'provider' => $key === 'fixture.record' ? 'fixture.record.standard' : 'fixture.reference.standard',
+                    'ownership' => $key === 'fixture.record' ? 'business_target_owned' : 'shared_master',
+                    'operations' => $this->operations[$key],
+                ], array_keys($this->operations)),
+            ],
         ]);
         return new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([$manifest], [], [], [], 'acceptance-fixture');
     }

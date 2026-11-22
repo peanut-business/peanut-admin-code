@@ -66,7 +66,7 @@ function fixture() {
   });
   for (const [client, suffixes] of Object.entries({
     web: ['client', 'vue', 'ui-vue'],
-    platform: ['vue', 'ui-vue'],
+    platform: ['client', 'vue', 'ui-vue'],
     pc: ['client', 'nuxt'],
     uniapp: ['client', 'uniapp'],
   })) {
@@ -74,19 +74,19 @@ function fixture() {
       suffixes.map((s) => [`@peanut-admin/${s}`, '8.1.0-rc.2'])
     );
     files.set(`${client}/package.json`, { version: '9.8.7', dependencies });
-    if (client !== 'web')
-      files.set(`${client}/package-lock.json`, {
-        lockfileVersion: 3,
-        packages: {
-          '': { dependencies },
-          ...Object.fromEntries(
-            Object.keys(dependencies).map((name) => [
-              `node_modules/${name}`,
-              { ...versions.core_web.packages[name] },
-            ])
-          ),
-        },
+    if (client !== 'web') {
+      const entries = Object.entries(dependencies);
+      files.set(`${client}/pnpm-lock.yaml`, {
+        lockfileVersion: '9.0',
+        importers: { '.': { dependencies: Object.fromEntries(entries.map(([name, version]) =>
+          [name, { specifier: version, version }])) } },
+        packages: Object.fromEntries(entries.map(([name, version]) =>
+          [`${name}@${version}`, { resolution: {
+            integrity: versions.core_web.packages[name].integrity,
+            tarball: versions.core_web.packages[name].resolved,
+          } }])),
       });
+    }
   }
   const names = [
     '@peanut-admin/client',
@@ -125,7 +125,7 @@ test('fixed v3 native locks work without a local Core tgz', () => {
   const f = fixture(),
     result = f.run();
   assert.equal(result.mode, 'registry');
-  assert.equal(result.checked.length, 9);
+  assert.equal(result.checked.length, 10);
   assert.equal(result.published, false);
 });
 test('Composer lock source identity cannot drift', () => {
@@ -135,19 +135,24 @@ test('Composer lock source identity cannot drift', () => {
   );
   assert.throws(f.run, /Composer/);
 });
-test('npm exact version, source and integrity must all agree', () => {
-  for (const key of ['version', 'resolved', 'integrity']) {
+test('PC pnpm package version, source and integrity must all agree', () => {
+  for (const key of ['version', 'tarball', 'integrity']) {
     const f = fixture();
-    f.files.get('pc/package-lock.json').packages[
-      'node_modules/@peanut-admin/client'
-    ][key] = 'different';
-    assert.throws(f.run, /npm resolution/);
+    const packages = f.files.get('pc/pnpm-lock.yaml').packages;
+    const name = '@peanut-admin/client@8.1.0-rc.2';
+    if (key === 'version') {
+      packages['@peanut-admin/client@8.1.0-rc.3'] = packages[name];
+      delete packages[name];
+    } else {
+      packages[name].resolution[key] = 'different';
+    }
+    assert.throws(f.run, /pnpm resolution/);
   }
 });
-test('npm root manifest and lock importer cannot disagree', () => {
+test('PC pnpm root manifest and lock importer cannot disagree', () => {
   const f = fixture();
-  f.files.get('pc/package-lock.json').packages[''].dependencies = {};
-  assert.throws(f.run, /npm importer/);
+  f.files.get('pc/pnpm-lock.yaml').importers['.'].dependencies = {};
+  assert.throws(f.run, /pnpm importer/);
 });
 test('pnpm YAML importer identity is checked with the locked parser', () => {
   const f = fixture();
@@ -271,16 +276,16 @@ test('existing static checker reads native V3 metadata and preserves not-ready s
     const result = JSON.parse(r.stdout);
     assert.equal(result.dependency_identity.mode, 'registry');
     assert.equal(result.product_release_ready, false);
-    const lock = f.files.get('pc/package-lock.json');
-    lock.packages['node_modules/@peanut-admin/client'].integrity = 'different';
-    writeFileSync(join(app, 'pc/package-lock.json'), JSON.stringify(lock));
+    const lock = f.files.get('pc/pnpm-lock.yaml');
+    lock.packages['@peanut-admin/client@8.1.0-rc.2'].resolution.integrity = 'different';
+    writeFileSync(join(app, 'pc/pnpm-lock.yaml'), JSON.stringify(lock));
     r = spawnSync(process.execPath, command, {
       cwd: app,
       encoding: 'utf8',
       timeout: 10000,
     });
     assert.equal(r.status, 1);
-    assert.match(r.stderr, /npm resolution/);
+    assert.match(r.stderr, /pnpm resolution/);
   } finally {
     rmSync(temporary, { recursive: true, force: true });
   }
@@ -511,27 +516,19 @@ test('development linked Core remains allowed without claiming independent insta
         return { integrity: `sha512-${createHash('sha512').update(readFileSync(join(app, i.archive))).digest('base64')}`,
           tarball: `file:../${i.archive}` };
       };
-      if (client === 'web') {
-        write('web/pnpm-lock.yaml', {
-          lockfileVersion: '9.0',
-          importers: { '.': { dependencies: Object.fromEntries(entries.map(([name, specifier]) =>
-            [name, { specifier, version: specifier }])) } },
-          packages: Object.fromEntries(entries.map(([name, specifier]) =>
-            [`${name}@${specifier}`, { resolution: resolution(name) }])),
-        });
-      } else {
-        write(`${client}/package-lock.json`, { lockfileVersion: 3,
-          packages: { '': { dependencies: manifest.dependencies },
-            ...Object.fromEntries(entries.map(([name, specifier]) => [`node_modules/${name}`,
-              { version: versions.core_web.packages[name].version, resolved: specifier,
-                integrity: resolution(name).integrity }])) } });
-      }
+      write(`${client}/pnpm-lock.yaml`, {
+        lockfileVersion: '9.0',
+        importers: { '.': { dependencies: Object.fromEntries(entries.map(([name, specifier]) =>
+          [name, { specifier, version: specifier }])) } },
+        packages: Object.fromEntries(entries.map(([name, specifier]) =>
+          [`${name}@${specifier}`, { resolution: resolution(name) }])),
+      });
     }
     const diagnosed = doctor();
     assert.equal(diagnosed.status, 0, diagnosed.stderr);
-    const badLock = JSON.parse(readFileSync(join(app, 'platform/package-lock.json')));
-    badLock.packages['node_modules/@peanut-admin/vue'].resolved = 'file:../wrong.tgz';
-    write('platform/package-lock.json', badLock);
+    const badLock = JSON.parse(readFileSync(join(app, 'platform/pnpm-lock.yaml')));
+    badLock.packages[`@peanut-admin/vue@file:../${versions.core_web.packages['@peanut-admin/vue'].archive}`].resolution.tarball = 'file:../wrong.tgz';
+    write('platform/pnpm-lock.yaml', badLock);
     assert.notEqual(doctor().status, 0, 'doctor accepted a drifted archive lock');
   }));
 

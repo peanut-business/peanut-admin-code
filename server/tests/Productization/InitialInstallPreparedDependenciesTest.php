@@ -22,7 +22,7 @@ $keys = array_column($lock['modules'], 'key');
 if ($keys === [] || count($keys) !== count(array_unique($keys))) {
     throw new RuntimeException('INITIAL_INSTALL_SELECTED_MODULES_INVALID');
 }
-$files = ['server/composer.json', 'server/composer.lock', 'web/pnpm-lock.yaml', 'platform/package-lock.json'];
+$files = ['server/composer.json', 'server/composer.lock', 'web/pnpm-lock.yaml', 'platform/pnpm-lock.yaml'];
 $before = [];
 foreach ($files as $file) {
     $path = $root . '/' . $file;

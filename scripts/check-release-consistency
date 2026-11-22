@@ -161,7 +161,7 @@ if (options.staticOnly && !options.templateArtifacts && !options.releaseEvidence
   try {
     const mode = dependencyMode(versions)
     dependencyIdentity = verifyDependencyLocks(versions, path => readFileSync(path),
-      mode === 'registry' ? lockedYamlParser(toolRoot) : undefined)
+      lockedYamlParser(toolRoot), false, mode === 'archive')
   } catch (error) { developmentFailures.push(error.message) }
   if (![2, 3].includes(metadata.schema_version) || metadata.protocol !== `peanut.release-metadata.v${metadata.schema_version}`
     || !strictSemver.test(baseline) || metadata.instance_version !== null
@@ -262,13 +262,10 @@ try {
     declaredCoreWeb = declaredClientCoreVersions.web
     const composerLock = JSON.parse(show('server/composer.lock'))
     lockedCoreVersions.composer = composerLock?.packages?.find((pkg) => pkg?.name === 'peanut-admin/core')?.version ?? ''
-    const webCoreLock = show('web/pnpm-lock.yaml').match(/      '@peanut-admin\/admin':\n        specifier: ([^\n]+)\n        version: ([^\n(]+)/)
-    lockedCoreVersions.webSpecifier = webCoreLock?.[1] ?? ''
-    lockedCoreVersions.web = webCoreLock?.[2] ?? ''
-    for (const client of ['platform', 'pc', 'uniapp']) {
-      const packageLock = JSON.parse(show(`${client}/package-lock.json`))
-      lockedCoreVersions[client] = packageLock?.packages?.['node_modules/@peanut-admin/admin']?.version ?? ''
-      lockedCoreVersions[`${client}Specifier`] = packageLock?.packages?.['']?.dependencies?.['@peanut-admin/admin'] ?? ''
+    for (const client of ['web', 'platform', 'pc', 'uniapp']) {
+      const coreLock = show(`${client}/pnpm-lock.yaml`).match(/      '@peanut-admin\/admin':\n        specifier: ([^\n]+)\n        version: ([^\n(]+)/)
+      lockedCoreVersions[`${client}Specifier`] = coreLock?.[1] ?? ''
+      lockedCoreVersions[client] = coreLock?.[2] ?? ''
     }
   }
 } catch (error) {

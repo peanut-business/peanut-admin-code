@@ -100,7 +100,7 @@ final class DepartmentHostStatusBoundaryTest extends TestCase
             in_array($uri, [...$registered], true) && in_array($uri, [...$granted], true));
         $this->owner = new DepartmentAdminService(new AuditService());
         $this->host = new DeptApplicationService($this->owner, $current, new AdminAuthorizationService(
-            $bridge, $policy, new AdminDirectoryQuery($current), $identity,
+            $bridge, $policy, new AdminDirectoryQuery($current),
             new \app\common\services\authorization\EndpointPermissionGrant(new \think\Request()),
             $current,
         ));

@@ -96,7 +96,7 @@ final class MemberHostActionPermissionTest extends TestCase
             new \PeanutAdmin\Modules\Identity\Menu\MenuAdministrationService(),
             new \PeanutAdmin\Modules\Identity\Module\TenantEntitlementService(new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([],[],[],[],'fixture-member')),
         );
-        $authorization = new AdminAuthorizationService($bridge, new \app\common\policy\permission\RegisteredAdminPermissionPolicy(), $directory, $identity,
+        $authorization = new AdminAuthorizationService($bridge, new \app\common\policy\permission\RegisteredAdminPermissionPolicy(), $directory,
             new \app\common\services\authorization\EndpointPermissionGrant(new \think\Request()), $current);
         $this->members = new MemberAdminService(new AuditService($current), new \PeanutAdmin\Kernel\Identity\PasswordHasher(), new \PeanutAdmin\Kernel\Identity\PasswordPolicy());
         $selfService = (new ReflectionClass(\PeanutAdmin\Modules\Identity\Identity\SelfService\AccountSelfService::class))->newInstanceWithoutConstructor();

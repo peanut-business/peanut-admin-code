@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Prepare a product release candidate from public registry Core packages.
 
-The script intentionally derives Composer/npm identities from native manifests
+The script intentionally derives Composer and pnpm lock identities from native manifests
 and lockfiles after running the package managers. Loose tarball/SRI strings are
 not accepted. A coordinator-bound, read-only Web Core package evidence file may
 supply the same registry metadata when direct npm metadata reads are unavailable;
-native npm/pnpm lock generation and lock-vs-registry verification still run.
+native pnpm lock generation and lock-vs-registry verification still run.
 """
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ LEGAL_FILES = (
 )
 CLIENT_CORE_PACKAGES = {
     "web": ("@peanut-admin/client", "@peanut-admin/vue", "@peanut-admin/ui-vue"),
-    "platform": ("@peanut-admin/vue", "@peanut-admin/ui-vue"),
+    "platform": ("@peanut-admin/client", "@peanut-admin/vue", "@peanut-admin/ui-vue"),
     "pc": ("@peanut-admin/client", "@peanut-admin/nuxt"),
     "uniapp": ("@peanut-admin/client", "@peanut-admin/uniapp"),
 }
@@ -148,7 +148,7 @@ def composer_command() -> list[str]:
 def npm_command() -> str:
     npm = shutil.which("npm")
     if not npm:
-        fail("npm is required to create native package-lock files")
+        fail("npm is required to query registry metadata and verify registry provenance")
     return npm
 
 
@@ -199,21 +199,18 @@ def run_native_lock_updates(dry_run: bool) -> None:
         ],
         dry_run=dry_run,
     )
-    npm = "npm" if dry_run else npm_command()
-    for client in ("platform", "pc", "uniapp"):
-        run([npm, "install", "--package-lock-only", "--ignore-scripts"], cwd=ROOT / client, dry_run=dry_run)
-    run(
-        [
-            "pnpm" if dry_run else corepack_command(),
-            "--dir",
-            "web",
-            "install",
-            "--lockfile-only",
-            "--ignore-scripts",
-            "--frozen-lockfile=false",
-        ],
-        dry_run=dry_run,
-    )
+    for client in ("web", "platform", "pc", "uniapp"):
+        run(
+            [
+                "pnpm" if dry_run else corepack_command(),
+                "install",
+                "--lockfile-only",
+                "--ignore-scripts",
+                "--no-frozen-lockfile",
+            ],
+            cwd=ROOT / client,
+            dry_run=dry_run,
+        )
 
 
 def read_core_php(expected_version: str, expected_reference: str) -> dict[str, str]:
@@ -239,23 +236,6 @@ def read_core_php(expected_version: str, expected_reference: str) -> dict[str, s
     }
 
 
-def npm_lock_package(client: str, name: str, expected_version: str) -> dict[str, str]:
-    lock = read_json(ROOT / client / "package-lock.json")
-    if lock.get("packages", {}).get("", {}).get("dependencies", {}).get(name) != expected_version:
-        fail(f"{client}/package-lock.json root does not pin {name}")
-    package = lock.get("packages", {}).get(f"node_modules/{name}")
-    if not isinstance(package, dict):
-        fail(f"{client}/package-lock.json is missing {name}")
-    if package.get("version") != expected_version:
-        fail(f"{client}/package-lock.json resolved {name} to {package.get('version')}")
-    resolved = package.get("resolved")
-    integrity = package.get("integrity")
-    if not registry_tarball(resolved):
-        fail(f"{client}/package-lock.json did not record registry tarball for {name}")
-    validate_integrity(integrity, f"{client}:{name}")
-    return {"version": expected_version, "resolved": resolved, "integrity": integrity}
-
-
 def validate_integrity(value: Any, label: str) -> None:
     if not isinstance(value, str) or not value.startswith("sha512-"):
         fail(f"{label} integrity must be sha512 SRI")
@@ -274,11 +254,11 @@ def registry_tarball(value: Any) -> bool:
     return parsed.scheme == "https" and parsed.hostname == "registry.npmjs.org" and parsed.port is None and parsed.path.endswith(".tgz") and not parsed.username and not parsed.password
 
 
-def pnpm_lock_package(name: str, expected_version: str) -> dict[str, str]:
-    text = (ROOT / "web/pnpm-lock.yaml").read_text(encoding="utf-8")
+def pnpm_lock_package(client: str, name: str, expected_version: str) -> dict[str, str]:
+    text = (ROOT / client / "pnpm-lock.yaml").read_text(encoding="utf-8")
     importer = text.split("\npackages:\n", 1)[0]
     if not re.search(r"^      '" + re.escape(name) + r"':\n        specifier: " + re.escape(expected_version) + r"$", importer, re.M):
-        fail(f"web/pnpm-lock.yaml importer does not pin {name}")
+        fail(f"{client}/pnpm-lock.yaml importer does not pin {name}")
     escaped = re.escape(f"  '{name}@{expected_version}':")
     match = re.search(
         escaped
@@ -286,7 +266,7 @@ def pnpm_lock_package(name: str, expected_version: str) -> dict[str, str]:
         text,
     )
     if not match:
-        fail(f"web/pnpm-lock.yaml is missing {name}@{expected_version}")
+        fail(f"{client}/pnpm-lock.yaml is missing {name}@{expected_version}")
     fields: dict[str, str] = {}
     for part in match.group(1).split(","):
         if ":" not in part:
@@ -294,12 +274,12 @@ def pnpm_lock_package(name: str, expected_version: str) -> dict[str, str]:
         key, value = part.split(":", 1)
         fields[key.strip()] = value.strip().strip("'\"")
     integrity = fields.get("integrity")
-    validate_integrity(integrity, f"web:{name}")
+    validate_integrity(integrity, f"{client}:{name}")
     result = {"version": expected_version, "integrity": integrity}
     if "tarball" in fields:
         tarball = fields["tarball"]
         if not registry_tarball(tarball):
-            fail(f"web:{name} tarball is not a registry URL")
+            fail(f"{client}:{name} tarball is not a registry URL")
         result["resolved"] = tarball
     return result
 
@@ -545,9 +525,7 @@ def read_core_web(expected_version: str, expected_reference: str,
             if name not in names:
                 continue
             observations.append(
-                pnpm_lock_package(name, expected_version)
-                if client == "web"
-                else npm_lock_package(client, name, expected_version)
+                pnpm_lock_package(client, name, expected_version)
             )
         registry = (registry_packages[name] if registry_packages is not None
                     else npm_registry_package(name, expected_version))
@@ -727,8 +705,8 @@ def prepare_core_snapshot(root: Path, resolution_path: Path) -> dict[str, Any]:
         update_release_metadata(scaffold_version, core_php, core_web)
         return {"status": "prepared", "core_php": core_php, "core_web": core_web,
                 "lockfiles": {relative: sha256(ROOT / relative) for relative in (
-                    "server/composer.lock", "web/pnpm-lock.yaml", "platform/package-lock.json",
-                    "pc/package-lock.json", "uniapp/package-lock.json")}}
+                    "server/composer.lock", "web/pnpm-lock.yaml", "platform/pnpm-lock.yaml",
+                    "pc/pnpm-lock.yaml", "uniapp/pnpm-lock.yaml")}}
     except BaseException:
         for relative, original in originals.items():
             target = ROOT / relative
@@ -839,8 +817,8 @@ def prepare_local_core_snapshot(root: Path, core_inputs_path: Path, tool_root: P
     return {"status": "prepared", "core_php": php, "core_web": web,
             "archives": sorted(archive_paths),
             "lockfiles": {relative: sha256(ROOT / relative) for relative in (
-                "server/composer.lock", "web/pnpm-lock.yaml", "platform/package-lock.json",
-                "pc/package-lock.json", "uniapp/package-lock.json")}}
+                "server/composer.lock", "web/pnpm-lock.yaml", "platform/pnpm-lock.yaml",
+                "pc/pnpm-lock.yaml", "uniapp/pnpm-lock.yaml")}}
 
 
 def update_release_versions(product_version: str, core_php: dict[str, str], core_web: dict[str, Any]) -> None:
@@ -861,6 +839,7 @@ def update_release_versions(product_version: str, core_php: dict[str, str], core
 
 def update_release_metadata(product_version: str, core_php: dict[str, str], core_web: dict[str, Any]) -> None:
     channel = "prerelease" if "-" in product_version.split("+", 1)[0] else "stable"
+    locked_artifacts = any("archive" in package for package in core_web["packages"].values())
     data = read_json(ROOT / "RELEASE_METADATA.json")
     data["schema_version"] = 3
     data["protocol"] = "peanut.release-metadata.v3"
@@ -872,9 +851,9 @@ def update_release_metadata(product_version: str, core_php: dict[str, str], core
     data["lockfiles"] = {
         "server/composer.lock": sha256(ROOT / "server/composer.lock"),
         "web/pnpm-lock.yaml": sha256(ROOT / "web/pnpm-lock.yaml"),
-        "platform/package-lock.json": sha256(ROOT / "platform/package-lock.json"),
-        "pc/package-lock.json": sha256(ROOT / "pc/package-lock.json"),
-        "uniapp/package-lock.json": sha256(ROOT / "uniapp/package-lock.json"),
+        "platform/pnpm-lock.yaml": sha256(ROOT / "platform/pnpm-lock.yaml"),
+        "pc/pnpm-lock.yaml": sha256(ROOT / "pc/pnpm-lock.yaml"),
+        "uniapp/pnpm-lock.yaml": sha256(ROOT / "uniapp/pnpm-lock.yaml"),
     }
     data["legal_files"] = {
         relative: required_release_file_sha256(relative)
@@ -895,7 +874,11 @@ def update_release_metadata(product_version: str, core_php: dict[str, str], core
             "cleanup_residual_count": None,
             "scaffold_version": product_version,
             "application_initial_version": read_json(ROOT / "release-versions.json")["generated_instance_default"],
-            "evidence": f"Product {channel} candidate identity is prepared from public Core registry locks; qualification remains pending.",
+            "evidence": (
+                f"Product {channel} development identity uses frozen Core archives; qualification remains pending."
+                if locked_artifacts else
+                f"Product {channel} candidate identity is prepared from public Core registry locks; qualification remains pending."
+            ),
             "release_delta": RELEASE_DELTA,
         }
     )
@@ -904,8 +887,8 @@ def update_release_metadata(product_version: str, core_php: dict[str, str], core
 
 PREPARED_FILES = (
     "server/composer.json", "server/composer.lock", "web/package.json", "web/pnpm-lock.yaml",
-    "platform/package.json", "platform/package-lock.json", "pc/package.json", "pc/package-lock.json",
-    "uniapp/package.json", "uniapp/package-lock.json", "release-versions.json", "RELEASE_METADATA.json",
+    "platform/package.json", "platform/pnpm-lock.yaml", "pc/package.json", "pc/pnpm-lock.yaml",
+    "uniapp/package.json", "uniapp/pnpm-lock.yaml", "release-versions.json", "RELEASE_METADATA.json",
 )
 DERIVED_RELEASE_FILES = (
     "RELEASE_SBOM.spdx.json",
@@ -1206,8 +1189,8 @@ def prepare_release_workspace(workspace: Path, output_root: Path, local_core: li
          '--no-interaction', '--no-progress', '--prefer-dist']), [snapshot_root / 'server/vendor/autoload.php', snapshot_root / 'server/vendor/composer/installed.json'])
     step('web-lock-install', lambda: run(['pnpm', '--dir', str(snapshot_root / 'web'), 'install', '--frozen-lockfile', '--ignore-scripts']),
          [snapshot_root / 'web/node_modules/.modules.yaml'])
-    step('uniapp-lock-install', lambda: run([npm_command(), 'ci', '--prefix', str(snapshot_root / 'uniapp'), '--ignore-scripts']),
-         [snapshot_root / 'uniapp/node_modules/.package-lock.json'])
+    step('uniapp-lock-install', lambda: run(['pnpm', '--dir', str(snapshot_root / 'uniapp'), 'install', '--frozen-lockfile', '--ignore-scripts']),
+         [snapshot_root / 'uniapp/node_modules/.modules.yaml'])
     step('api-generation', lambda: run(['php', str(snapshot_root / 'scripts/generate-api-contracts.php')]))
     step('template-inventory', lambda: run(['php', str(snapshot_root / 'scripts/build-application-template-inventory'), '--local']))
 

@@ -33,9 +33,12 @@ function inventoryGitFiles(string $root): array
         }
         $files = array_intersect($files, explode("\0", $stdout));
     }
+    $lockedArchives = array_column($GLOBALS['versions']->coreWebIdentity()['packages'], 'archive');
+    if ($lockedArchives !== []) {
+        $lockedArchives[] = 'packages/core-php/peanut-admin-core-' . $GLOBALS['versions']->corePhpPackage()['resolved_version'] . '.zip';
+    }
     $files = array_values(array_filter($files, static fn(string $path): bool => !ScaffoldConfiguration::matches($path, $GLOBALS['configuration']['inventory_omissions'])
-        // Core release archives are produced outside the Code source tree.
-        && !str_starts_with($path, 'packages/')
+        && (!str_starts_with($path, 'packages/') || in_array($path, $lockedArchives, true))
         && (file_exists($root . '/' . $path) || is_link($root . '/' . $path))));
     sort($files, SORT_STRING);
     return $files;
