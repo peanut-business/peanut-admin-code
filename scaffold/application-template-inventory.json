@@ -52,7 +52,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bb3b7ec9258c7fccefe791d8adb0ff59e538fa36d82870a271a85ba0fcd1c3fe"
+            "source_sha256": "a61920199d87fe79dc844377091b14c1ae6836def2f8a776f92f685febfeb14b"
         },
         {
             "path": ".gitattributes",
@@ -381,6 +381,20 @@
             ]
         },
         {
+            "path": "deploy/docker-compose.source-collaboration.yml",
+            "target": "deploy/docker-compose.source-collaboration.yml",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0c83e20bf70ac0c5ae4484fbd04305c10bbef464ec176491bb3279265c56058c"
+        },
+        {
             "path": "deploy/docker/nginx-select-admin.sh",
             "target": "deploy/docker/nginx-select-admin.sh",
             "classification": "managed",
@@ -517,6 +531,20 @@
             ]
         },
         {
+            "path": "deploy/nginx/nginx.source-collaboration.conf.template",
+            "target": "deploy/nginx/nginx.source-collaboration.conf.template",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "a2c153d92246242aa1f9866ff122f92e2d32544f1b4d931f59be940f33a60601"
+        },
+        {
             "path": "deploy/nginx/peanut-admin-ssr.conf",
             "target": "deploy/nginx/peanut-admin-ssr.conf",
             "classification": "managed",
@@ -543,6 +571,34 @@
                 "full"
             ],
             "source_sha256": "1ca8b6383b8567ac57b521aa534a0fae4dea0d1a2183a130bb9cf6ada7b473d5"
+        },
+        {
+            "path": "deploy/remote-development.env.example",
+            "target": "deploy/remote-development.env.example",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "5ef5ddc8991ac8e4115c97a87e3c05c890f9332ad1af47316ab940c2f0f29b14"
+        },
+        {
+            "path": "deploy/source-collaboration.env.example",
+            "target": "deploy/source-collaboration.env.example",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0f5dde9ad73aa164e1835f48b1d2de73d5dcaaa3b8cf05ef9ee1c6258ac09937"
         },
         {
             "path": "deploy/tests/deploy-release-candidate-contract.sh",
@@ -1248,7 +1304,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e88126283a188e10652dbcadf5bee073540db809911ff1cf7b6d21d689ddbd27"
+            "source_sha256": "9e9d09560b8944e4a539f69a9bc9ec4eececb911b8357767fc536edec60be085"
         },
         {
             "path": "pc/.gitignore",
@@ -1769,7 +1825,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9cc5ed127b9588474983b8faff82ddcc283e92c86c6f2af7204bdbf5fbb519b9"
+            "source_sha256": "60fc0bbd4617e2193aee6fd5bb33704e01167a9679a033e52f64438683b85dd5"
         },
         {
             "path": "platform/.gitignore",
@@ -2282,7 +2338,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "779b64a5b6e6a574730c81e58a703b03c76c0d6abfc968a09057bc7c7d775c83"
+            "source_sha256": "82e3a6c96c2d5fb64f9c204f881f509938972eea98965c2ff3980e3c27999468"
         },
         {
             "path": "scripts/check-module-boundaries.php",
@@ -3720,7 +3776,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0416dbdefa1fe5505a310685bfb7e98398756dbc203fcdf708972509b531a5c5"
+            "source_sha256": "006022f68a72351ed3ec09f0a74338ea0b2a81a1911ac2ee8b0b218792af146e"
         },
         {
             "path": "server/.gitignore",
@@ -9841,7 +9897,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "785abafde88ad531403f6ff72dad8994bc8d55863a07dec24d553b1fa1cf426a"
+            "source_sha256": "8076fdfcbf12b4050e2871ff088507ebf352d7d3b200ca6e7a523b2b8f3f6afa"
         },
         {
             "path": "server/docker/COLLABORATION.md",
@@ -9855,7 +9911,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fc75b70ce020a7746776a763cc79cf53ce015364e0e961360cfe3301522bb347"
+            "source_sha256": "0cf11edc244f62a7caf67cef320e84a29898f8fadc2a8a61e1b6ada3e095f8b1"
         },
         {
             "path": "server/docker/Dockerfile",
@@ -9942,20 +9998,6 @@
             "source_sha256": "8757d79e43028ec8c417dd706f6c60062dbfcf8bdf93c3cc2a08ed212f45d7fc"
         },
         {
-            "path": "server/docker/compose.source-collaboration.yaml",
-            "target": "server/docker/compose.source-collaboration.yaml",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "5a606e3114632d75ff60ab2592a930248013f81132e3ef0d84ce9e49c02c204b"
-        },
-        {
             "path": "server/docker/compose.yaml",
             "target": "server/docker/compose.yaml",
             "classification": "managed",
@@ -10038,20 +10080,6 @@
                 "full"
             ],
             "source_sha256": "6c738062df06cea5f01211a80422b311edc7775d0387aee5c6e5eb23a14cec92"
-        },
-        {
-            "path": "server/docker/conf/nginx.source-collaboration.conf.template",
-            "target": "server/docker/conf/nginx.source-collaboration.conf.template",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "a2c153d92246242aa1f9866ff122f92e2d32544f1b4d931f59be940f33a60601"
         },
         {
             "path": "server/docker/conf/php-fpm.conf",
@@ -15368,7 +15396,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "705f39262e7bad5db50505ba4930f83ad68625353ef3992d2d7e147a2ff55abd"
+            "source_sha256": "9e8a9be97d131e574c428bb4e6341a9ae2fad6f78e8409983925f81fda4e579d"
         },
         {
             "path": "uniapp/.gitignore",
@@ -16071,7 +16099,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "03ec107d2139b0f6fd2d94c32207a91f7d8ad3b68840773d7d34c3ecfc59544c"
+            "source_sha256": "0b6405b096c1f5ac051bf0c2d8d6555069f427675e9229a45ee690fc21980a89"
         },
         {
             "path": "web/.eslintignore",
