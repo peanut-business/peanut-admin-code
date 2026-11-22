@@ -750,14 +750,14 @@ try {
         $package = json_decode((string) file_get_contents($first . "/{$client}/package.json"), true, 512, JSON_THROW_ON_ERROR);
         createApplicationExpect(($package['version'] ?? null) === '0.1.0', "{$client} root package must use application.version");
         foreach ($packageNames as $packageName) {
-            $identity = $coreWebPackages[$packageName];
-            $expected = isset($identity['archive']) ? 'file:../' . $identity['archive'] : $identity['version'];
+            $packageIdentity = $coreWebPackages[$packageName];
+            $expected = isset($packageIdentity['archive']) ? 'file:../' . $packageIdentity['archive'] : $packageIdentity['version'];
             $lockText = (string) file_get_contents($first . "/{$client}/pnpm-lock.yaml");
             createApplicationExpect(str_contains($lockText, "specifier: {$expected}"), "{$client} lock importer must select {$expected}");
             createApplicationExpect(str_contains($lockText, "'{$packageName}@{$expected}':"), "{$client} lock must contain {$packageName}");
-            $integrity = isset($identity['archive'])
-                ? 'sha512-' . base64_encode(hash_file('sha512', $first . '/' . $identity['archive'], true))
-                : $identity['integrity'];
+            $integrity = isset($packageIdentity['archive'])
+                ? 'sha512-' . base64_encode(hash_file('sha512', $first . '/' . $packageIdentity['archive'], true))
+                : $packageIdentity['integrity'];
             createApplicationExpect(str_contains($lockText, $integrity), "{$client} lock must preserve {$packageName} integrity");
             createApplicationExpect(
                 ($package['dependencies'][$packageName] ?? null) === $expected,
