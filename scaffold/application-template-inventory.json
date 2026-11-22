@@ -184,7 +184,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81676aa62d53993fad4c9ae39ea8f3593111966a8756eab801d2c12f69e14b7f"
+            "source_sha256": "9a02cd3b59a100c835aa63aeb5fdca9ce087d09011f79a638fe9da813e20ac0f"
         },
         {
             "path": ".prettierrc.cjs",
@@ -1123,7 +1123,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5c0ef9087a0b345ee1f47a8eddbd77a247840e061c97ef44df1b357686620d3e"
+            "source_sha256": "1d15e72b76cb874577babef23785a9f35803780980eb1ccef8245c07d0ecf7cf"
         },
         {
             "path": "docs/public/installation.md",
@@ -1421,7 +1421,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8fb2112a801a1d394d121c932fdd551602e85c693386d53f337b7a220fa29e76"
+            "source_sha256": "24086a8dcbabe782f7fae5d878b5445c1186e525caff42a14de1440b2361b6f1"
         },
         {
             "path": "pc/package.json",
@@ -1434,7 +1434,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a69b9788c6c1b293609bae97660a14c0e824bb6d6fcbfcb050a9be6feabcff9e"
+            "source_sha256": "a98f0d0023a79044e20ab33e4ef973ff8cb2c5bba36ffedc85de69fe7ed9c677"
         },
         {
             "path": "pc/pages/about.vue",
@@ -2577,7 +2577,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "59e0570b010e322c091d7f27bd84c89904316f62754455d99823ffb3c770cba0"
+            "source_sha256": "cffa7ba22b1c90ae8f84afb439c988c859b7f7f99ee8c5de6ac3a2156c9a2014"
         },
         {
             "path": "scripts/export-release-database",
@@ -7166,7 +7166,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a6e50cae67f5c87d7a08a414fbb102ca3b684c9f59ab57b6ce804189ea4a7e41"
+            "source_sha256": "0db6010d5b71b981d1f36dda0584f8ceea5bf7d21ecbbc836e2448df88831c5c"
         },
         {
             "path": "server/app/common/module/ModuleMigrationRun.php",
@@ -16085,7 +16085,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1f221f1bfc1c84d73cba17a6e996e69bd087ea5c2d3d804544c00e2e7a4011da"
+            "source_sha256": "b42136ecf1bf631de65fa9e0fa9a917157609ed6b84e5c6d3516d4cb2ad19461"
         },
         {
             "path": "web/.env.example",

@@ -16,6 +16,7 @@
     "dev": "nuxt dev",
     "build": "nuxt build",
     "generate": "nuxt generate",
+    "generate:release": "NUXT_PC_RENDER_MODE=spa PEANUT_PC_RELEASE_STATIC=1 nuxt generate",
     "preview": "nuxt preview",
     "type:check": "nuxt typecheck"
   },

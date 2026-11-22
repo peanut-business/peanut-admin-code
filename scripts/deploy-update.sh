@@ -59,11 +59,26 @@ try {
 }
 PHP
     check_php_lock before-prepare
-    static_target admin
+    static_dirs=(admin)
+    extra_clients=()
     if [[ "$clients" == admin,platform ]]; then
-      static_target platform
+      static_dirs+=(platform)
     fi
-    NODE_ENV=production VITE_API_BASE_URL='' php -d zend.exception_ignore_args=1 <<'PHP'
+    if $prepare_release; then
+      if [[ -f pc/package.json ]]; then
+        extra_clients+=(pc)
+        static_dirs+=(pc)
+      fi
+      if [[ -f uniapp/package.json ]]; then
+        extra_clients+=(uniapp)
+        static_dirs+=(mobile)
+      fi
+    fi
+    for destination in "${static_dirs[@]}"; do
+      static_target "$destination"
+    done
+    NODE_ENV=production VITE_API_BASE_URL='' VITE_APP_BASE_URL='' NUXT_PUBLIC_API_BASE='' \
+      PEANUT_RELEASE_EXTRA_CLIENTS="$(IFS=,; printf '%s' "${extra_clients[*]:-}")" php -d zend.exception_ignore_args=1 <<'PHP'
 <?php
 try {
     require 'server/vendor/autoload.php';
@@ -74,9 +89,11 @@ try {
     require_once 'server/vendor/topthink/framework/src/helper.php';
     $application->config->set(require 'server/config/deployment.php', 'deployment');
     $clients = $application->config->get('deployment.mode') === 'multi-tenant' ? ['web', 'platform'] : ['web'];
+    $extraClients = array_filter(explode(',', (string) getenv('PEANUT_RELEASE_EXTRA_CLIENTS')));
     $result = (new app\common\module\Dependencies(getcwd() . '/server'))->prepareRelease(
         new app\platform\infrastructure\module\ModuleLockResolver(getcwd() . '/server', '../modules.lock'),
-        $clients,
+        [...$clients, ...$extraClients],
+        publicRelease: $extraClients !== [],
     );
     foreach ($result['operations'] as $operation) {
         echo $operation['output'];
@@ -99,8 +116,8 @@ PHP
       printf '[deploy-update] Prepared %s %s for first installation.\n' "$declared_version" "$edition"
       return
     fi
-    printf '[deploy-update] Prepared %s %s static files; review and commit server/public/admin' "$declared_version" "$edition"
-    [[ "$clients" != admin,platform ]] || printf ' and server/public/platform'
+    printf '[deploy-update] Prepared %s %s static files; review and commit' "$declared_version" "$edition"
+    printf ' server/public/%s' "${static_dirs[@]}"
     printf ' with the product source before main/tag review.\n'
     return
   fi
