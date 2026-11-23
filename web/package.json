@@ -52,7 +52,7 @@
     "sortablejs": "^1.15.0",
     "vue": "^3.3.0",
     "vue-cropper": "^1.1.4",
-    "vue-i18n": "^9.2.2",
+    "vue-i18n": "11.4.14",
     "vue-router": "^4.0.14"
   },
   "devDependencies": {
@@ -90,7 +90,7 @@
     "stylelint-config-standard": "^29.0.0",
     "stylelint-order": "^5.0.0",
     "typescript": "5.9.3",
-    "vite": "6.4.3",
+    "vite": "6.4.4",
     "vite-plugin-compression": "^0.5.1",
     "vite-plugin-eslint": "^1.8.1",
     "vite-svg-loader": "^3.6.0",
