@@ -9,7 +9,12 @@
     <p>角色动作权限不自动授予数据范围。组内条件同时满足，多个组取并集。</p>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <div v-loading="loading">
+      <el-empty
+        v-if="!loading && !error && total === 0"
+        description="当前应用暂无可配置的数据权限"
+      />
       <el-select
+        v-if="total > 0"
         v-model="selected"
         placeholder="选择资源操作"
         style="width: 100%"
@@ -24,6 +29,7 @@
         />
       </el-select>
       <el-pagination
+        v-if="total > 0"
         :disabled="saving || loading"
         :current-page="page"
         :page-size="20"

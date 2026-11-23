@@ -8,11 +8,11 @@
         },
         {
             "path": "release-versions.json",
-            "sha256": "dffcd1c1a56510acb648644152d1379038d6b293197eface3b5b2f534ff0b165"
+            "sha256": "7615cefa87a4db3041336f916d751d52cf96b5e65f8e373900680b7934b29941"
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
-            "sha256": "29c2537c7530bf453ff2152ce364b3a85549c4bd0fed8d9a8550ce6f26d79ef0"
+            "sha256": "50413161ef3628db777e60ca99f89c8b432a672de7b7e07570b85f0973370ccd"
         },
         {
             "path": "server/app/api/metadata/application/common.php",
