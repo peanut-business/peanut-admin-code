@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.10",
+    "template_version": "5.1.18-rc.11",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -282,7 +282,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eae786a3f663d9d1fbf794c294bf35a853d4592aa0379a364b19c4ce4661442b"
+            "source_sha256": "2b23b5556d9a550cf35d672693b4582782f13c7926a63068f7decf55148c200d"
         },
         {
             "path": "THIRD_PARTY_NOTICES.md",
@@ -296,7 +296,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d2abc0e2297b57193c936e7795e1e68aea8442f14566f5fbb9d4fed471afd077"
+            "source_sha256": "9bcabe53a146f17f4fcd994d061364d84e4573177940fbc123bf3e17705a3fcc"
         },
         {
             "path": "compose.yaml",
@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "87070fa2a50853a84fb73aef38aa6b62603185a00ae4f5f1835684a2b882728e"
+            "source_sha256": "ba617e165e18bad2d644748569c42986cd560f25779d732070724af2a07abe68"
         },
         {
             "path": "docs/development/menu-navigation.md",
@@ -960,7 +960,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bcd7d747299f6c48fc4f7ffa54c6d89015fd8e40c57d45488e51100c0c0daf80"
+            "source_sha256": "7fbdef1697f18112faa4ef6c611dbe2eb9249ff8a823fa46490f5c43eda48d27"
         },
         {
             "path": "docs/development/request-cache-contract.md",
@@ -988,7 +988,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ad3a2ced1fc2614222b4600a8aff825aa6369dc9f0e9a80ff86e9033f04802a5"
+            "source_sha256": "c7c041f8c8923cf5ce8b9a35cf7e2defacb2d40d70a281bf6694209213798a76"
         },
         {
             "path": "docs/development/ui-guidelines.md",
@@ -1002,7 +1002,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f6ec7db5109ff63f7beee648d765fc309ae2b595bcd82c003b70b0b2816c4d64"
+            "source_sha256": "b6050f05528bb99adb3d9443a938deb708efb07bb52d7528462d14356fcfc3ad"
         },
         {
             "path": "docs/maintenance/README.md",
@@ -1151,7 +1151,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0fe4706993b6b35182b4508fedaadb735c41f835c1be8d4609908504d102b2db"
+            "source_sha256": "cf1ad9f2bb25eb8a102c62f1a9b2558349138049ec0c38f3b21f4a4dca200880"
         },
         {
             "path": "docs/public/release-channels.md",
@@ -1434,7 +1434,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a98f0d0023a79044e20ab33e4ef973ff8cb2c5bba36ffedc85de69fe7ed9c677"
+            "source_sha256": "2cb9cbbbfb486cc7bd39ec9a42ac61821cd5aa36bd929bf08abbe87686a9da5b"
         },
         {
             "path": "pc/pages/about.vue",
@@ -1867,7 +1867,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fb4487870934a6a5d78ac1a20f74214e1f59b193d3a4dbd9f9196cf143e84f98"
+            "source_sha256": "0633d3f3c38bd708e5264957fc564b455cc379101c5ca4c2073e0c34d68a16dd"
         },
         {
             "path": "platform/pnpm-lock.yaml",
@@ -1951,7 +1951,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "edb56d990b82909d45a1c0ae0e10db0e8bfd0ffd447ef3c881db6d69be807985"
+            "source_sha256": "8f140fd4798fd9ec51beb889b4836b384b56917e776f3f3bdae3c086b059262d"
         },
         {
             "path": "platform/src/api/tenant-license.ts",
@@ -1979,7 +1979,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "89e01a3e5f98c49051cf9a6c6650004be14393fc07779d4c745bdecc262cdc2c"
+            "source_sha256": "508e0feaa2b1e110e30c8bfafeeba60baf6b30ac8e2c30ffd1a49c794d3c08f6"
         },
         {
             "path": "platform/src/components/PermissionBundlesPanel.vue",
@@ -2577,7 +2577,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cffa7ba22b1c90ae8f84afb439c988c859b7f7f99ee8c5de6ac3a2156c9a2014"
+            "source_sha256": "a1d553d459fe5af55ff0ea17443fbf6c2d72e49379b6861879f47cd9b3565309"
         },
         {
             "path": "scripts/export-release-database",
@@ -2686,7 +2686,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e6931ba4a3b0b3a89c0e2c5d69f4124beebc7c579688ed3d05e972b35075d64c"
+            "source_sha256": "2bf61ffda70bcd19aff03e01c65292eae18f51028ea22db461e7d6293d2d86c6"
         },
         {
             "path": "scripts/module-frontend-entries.mjs",
@@ -2714,7 +2714,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c4e4d26185ac031db6064756e89104b9be8c6a6482053461d41351974238ec16"
+            "source_sha256": "fc17ce89c133a0fda38a8ac4f2bb89dadbd47abc28465542a92f262e7f9596e9"
         },
         {
             "path": "scripts/ops-module-worker",
@@ -2741,7 +2741,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a3132b3d839f17e8868010ff92a2221d684abfc16ef4ae4a3c80dbf9ad6d09d2"
+            "source_sha256": "e78a9565fe6e491b8d052c89a140dccf48d90e635f351b64c0067271e2c8a153"
+        },
+        {
+            "path": "scripts/ops-storage-archives.sh",
+            "target": "scripts/ops-storage-archives.sh",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "bce1e2bb9bd365495ece337d547c096a33d480712dd453d1f99154cc9a9219c6"
         },
         {
             "path": "scripts/ops-upgrade-worker",
@@ -3479,6 +3493,19 @@
             ]
         },
         {
+            "path": "scripts/tests/ops-storage-archives-test.sh",
+            "target": "scripts/tests/ops-storage-archives-test.sh",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "scripts/tests/pc-rendering-policy-test.mjs",
             "target": "scripts/tests/pc-rendering-policy-test.mjs",
             "classification": "excluded",
@@ -3790,7 +3817,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2f75f0dbc1a39ee553d20b921dbdeebfb9e7855dddfb5037ec652273d8a12023"
+            "source_sha256": "aba5dc5c75639e5a69cd85be88452795f53a8914f0781063ec893a403e5f6b34"
         },
         {
             "path": "server/.travis.yml",
@@ -4896,7 +4923,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8fe9567724c9c22d59bb221c35f72b7737a42c1e58f430c61ead456b4ba4a66a"
+            "source_sha256": "d73aae19c40c59bf86bdb8ee71efe2e746cb91d5f7ef6884ff4a38bb45ca770e"
         },
         {
             "path": "server/app/api/metadata/application/shared.php",
@@ -7868,7 +7895,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dc72cc12ee421e46d2e52da44bfd8cd03e37b8bbd1634d728a23bcd204fbb988"
+            "source_sha256": "ac1682ab6f561bea22f2035109780b13b136f75fa5fc34484cd5153da52afe26"
         },
         {
             "path": "server/app/common/validation/scaffold/ScaffoldPathGuard.php",
@@ -8302,7 +8329,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6f13f2bccc581974f104cb7693aaf9be694a62180ed8b2010ab4550030b76652"
+            "source_sha256": "5e8b61c84fbc6fe875c8c7b67fdcd9601f35f3296b0a8d41d74da96a06e92609"
         },
         {
             "path": "server/app/platform/controller/PlatformOpsController.php",
@@ -8960,7 +8987,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a140649d9225fa0fba6751a301121dc92798c4dffc4909c2a92098d1ffbfd850"
+            "source_sha256": "b4ee385008989e2da62d32cc9a9b004a4c327eae5c59e4a130e0b2701257731e"
         },
         {
             "path": "server/app/platform/services/module/ModulePackageArchiveService.php",
@@ -9016,7 +9043,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cfbe2c73ffc09c662342c237c2aabfd98de5ce11979ca343211aa8f08c518d7a"
+            "source_sha256": "c921b7d4d71b90123db87937c40a8ece2f008ac2695eb8b6b1b460f953f1b9ae"
         },
         {
             "path": "server/app/platform/services/module/PlatformModuleRuntimeService.php",
@@ -9184,7 +9211,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5302c05de7c3ea9e9adafc347d4c3cdb915d0a7fa1924136d375e3534546359b"
+            "source_sha256": "3176b84a61332e34ecf0dcb7e713a41546000f815ea37f4d5d2f6fbdc6a7b86a"
         },
         {
             "path": "server/app/platform/value/ops/PlatformUpgradeTarget.php",
@@ -9212,7 +9239,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a8245518cc8154fddb8f31b49c51d9f7ffbe0017aa8a9f4f8a1935c59cc8b1bd"
+            "source_sha256": "dd28e7f53f080f172124c0f03bb13b59570493b1be79bc482c1b8debaaf4f3b7"
         },
         {
             "path": "server/app/platform/value/provider/ProviderQualificationSubject.php",
@@ -10152,6 +10179,20 @@
             "source_sha256": "2a1d666353b21c42694b227bf325d8d4c2e3c25216979afa1e0ddc208395c8bc"
         },
         {
+            "path": "server/docker/scripts/migrate-storage-layout.py",
+            "target": "server/docker/scripts/migrate-storage-layout.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "6ca0ed991df43cf91f0d5c422f497eab4de7191b0f0b053698710924c140b19e"
+        },
+        {
             "path": "server/docker/scripts/php-entrypoint.sh",
             "target": "server/docker/scripts/php-entrypoint.sh",
             "classification": "managed",
@@ -10163,7 +10204,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d03bcfc971abd90252f9fe563b5967bb627ab1eae6735ec0015aed69aeaafa5b"
+            "source_sha256": "c05a4f4645d6732995c8f14a4beaefe384794cee6b1648392907fd8168498e39"
         },
         {
             "path": "server/docker/scripts/prepare-install-permissions.sh",
@@ -10261,7 +10302,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2aba1ec1de4f857af26c69532172ca67ff666349aed237569a458473b30f4c27"
+            "source_sha256": "0f19e1f11e468f7a3b02265933b2bde2608ccd103ce0ad7923e6c62a584a5cbe"
         },
         {
             "path": "server/docker/scripts/stop.sh",
@@ -10303,7 +10344,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "27e93ecec9d7781f497569313d4cd4291703d1ba4f1198f50ca5800c18c0faa4"
+            "source_sha256": "1d330b956b5b8d2ba6cd550a802bfe5596bdaaea14460a323d3a5afe51299ea9"
         },
         {
             "path": "server/docker/tests/test_runtime_configuration.py",
@@ -11101,7 +11142,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fbf858c7c66453665bd504588618f361dc52dd6a06f6bfd778074e2959a2e5db"
+            "source_sha256": "50faf128fe95521e33c7c91db314a90f35b59e6091869a496112c5f5204dd6dc"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11115,7 +11156,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "428a50ce0797a566c9ab8d3022757ea8f3bc5a64c1fa4367a61cfc1f5cf398fa"
+            "source_sha256": "0bde3e86963f47e7ee5841b64c165c3446ea53f68a9a88545b1854292363462e"
         },
         {
             "path": "server/module",
@@ -11563,7 +11604,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "503ca2b5a947d076b1f2742287687d624358ca696034e963d1fb04846735957e"
+            "source_sha256": "b72d321e77b15ffb30af915851c427ff7f378735e23fdb45165fddb508c63e7c"
         },
         {
             "path": "server/resources/scaffold-application/SECURITY.md.stub",
@@ -11647,7 +11688,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7d8f6af4bd4b030fdd067c1930b6d00d1bc95a547d04452acd260644c5085eba"
+            "source_sha256": "b1934f31b70c78d17b673e8978c1d0270c0fca56f13680608b69d22cacfa6a21"
         },
         {
             "path": "server/route/public_api.php",
@@ -14412,6 +14453,19 @@
             ]
         },
         {
+            "path": "server/tests/Unit/OfficialModuleSelectionTest.php",
+            "target": "server/tests/Unit/OfficialModuleSelectionTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Unit/OperationLogRedactionBoundaryTest.php",
             "target": "server/tests/Unit/OperationLogRedactionBoundaryTest.php",
             "classification": "excluded",
@@ -15190,7 +15244,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "29a206ddd6d34cfaaeeef09bff11320a6a84b04a36d00d3cad1c3156911fd5e9"
+            "source_sha256": "47b3475fc0c073987c1052f1396f73028ce74571f20e2ecf21c02dd27b470ddf"
         },
         {
             "path": "server/view/README.md",
@@ -15435,7 +15489,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1513efa73d8fd62b7de55e43f6964f8f284191b2660c7019228e6bac3eae9660"
+            "source_sha256": "8eee787353085f8e19ab15d99c3b020a6dc29758d837281b8642606219e539b0"
         },
         {
             "path": "uniapp/packages/pages/404/404.vue",
@@ -16337,7 +16391,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d56ab5b226d2abe3ca2c0ccb26fe1c06beff858890d2951cdba1241afa8d8f08"
+            "source_sha256": "9d526daeabe2631fb5d0c287cb58b7c9f4ca0dc8d5bf421a7ca105c154a1b76c"
         },
         {
             "path": "web/pnpm-lock.yaml",
@@ -16981,7 +17035,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e61831d061c59f6f0e2bfa379f612869f58e22b11b1ac3df160f0dcb748fad86"
+            "source_sha256": "c4f68e20ef786a4c7096e272f28f5fc02ed64dee1fcda93b67e4928c8ef0f78f"
         },
         {
             "path": "web/src/components/crud/CrudRecycleDrawer.vue",
@@ -17514,7 +17568,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "33611e2c89dbd555f781ae7c62e77d9985bdc53f3260d27361eeecb40767f5e1"
+            "source_sha256": "c86150b19f901f74a7307616649e1a8acfb6c4659b62ff924c057b15b6aa1501"
         },
         {
             "path": "web/src/hooks/loading.ts",
@@ -18928,7 +18982,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1e64f4df3724c682747d3c7ce46f989d103bdeaab9e83f73a9b8d70f9283d92e"
+            "source_sha256": "bd1dbb0e2330b18ad428520bce954b88a782c74bc28a07b3d91a8261579538fe"
         },
         {
             "path": "web/src/views/system/jobs/locale/en-US.ts",
@@ -19208,7 +19262,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cc2e9953bf50710c050d34d0a0424c414c8ebc226af1d869ee09dcbe06ed19c5"
+            "source_sha256": "f0a97efdde5c165543f0f2072dfba39bdae34828116644b27b53e4d848b1df40"
         },
         {
             "path": "web/tests/Crud/printContent.spec.ts",

@@ -244,6 +244,51 @@ final class ApiContractCatalogTest extends TestCase
         );
     }
 
+    public function testOfficialModuleContractsDistinguishSourceDiscoveryPreviewAndSubmission(): void
+    {
+        $platform = require dirname(__DIR__, 3) . '/server/app/api/metadata/application/platform.php';
+        $paths = $platform['paths'];
+        $schemas = $platform['components']['schemas'];
+        $base = '/platformapi/instance-tools/modules/';
+        $updates = $paths[$base . 'updates']['get'];
+
+        self::assertSame('#/components/schemas/PlatformOfficialUpdateSnapshot',
+            $updates['responses']['200']['content']['application/json']['schema']['properties']['data']['$ref']);
+        $snapshot = $schemas['PlatformOfficialUpdateSnapshot'];
+        self::assertContains('catalog', $snapshot['required']);
+        self::assertContains('withdrawal_policy', $snapshot['required']);
+        self::assertSame(['verified-current', 'legacy-index'], $snapshot['properties']['withdrawal_policy']['enum']);
+        self::assertTrue($schemas['PlatformOfficialModuleCatalogEntry']['properties']['source_version']['nullable']);
+
+        [$preview, $submit] = $schemas['PlatformOfficialPackageRequest']['oneOf'];
+        foreach ([$preview, $submit] as $input) {
+            self::assertFalse($input['additionalProperties']);
+            self::assertSame('boolean', $input['properties']['dry_run']['type']);
+            self::assertSame('stable', $input['properties']['channel']['default']);
+            self::assertNotContains('channel', $input['required']);
+            self::assertArrayNotHasKey('operation', $input['properties']);
+            self::assertArrayNotHasKey('path', $input['properties']);
+            self::assertArrayNotHasKey('url', $input['properties']);
+        }
+        self::assertSame([true], $preview['properties']['dry_run']['enum']);
+        self::assertSame([false], $submit['properties']['dry_run']['enum']);
+        self::assertNotContains('confirm_selection_sha256', $preview['required']);
+        self::assertContains('confirm_selection_sha256', $submit['required']);
+        self::assertSame(['dry_run', 'operation', 'plan', 'selection_sha256'], $schemas['PlatformOfficialPackagePreview']['required']);
+        self::assertSame(['install', 'update'], $schemas['PlatformOfficialPackagePreview']['properties']['operation']['enum']);
+        self::assertSame('#/components/schemas/PlatformOpsTask', $schemas['PlatformOfficialPackageResult']['oneOf'][1]['$ref']);
+        foreach (['install', 'update'] as $operation) {
+            $post = $paths[$base . 'official-' . $operation]['post'];
+            self::assertSame($operation . 'OfficialInstanceModule', $post['operationId']);
+            self::assertSame('#/components/schemas/PlatformOfficialPackageRequest', $post['requestBody']['content']['application/json']['schema']['$ref']);
+            self::assertSame('Idempotency-Key', $post['parameters'][0]['name']);
+            self::assertFalse($post['parameters'][0]['required']);
+            foreach (['401', '403', '409', '422', '503'] as $status) {
+                self::assertArrayHasKey($status, $post['responses']);
+            }
+        }
+    }
+
     public function testIntegrationDeliveryContractsMatchPublicRecordSerialization(): void
     {
         if (!class_exists(\PeanutAdmin\Modules\Integration\ModuleProvider::class)) {
