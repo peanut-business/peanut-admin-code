@@ -117,7 +117,7 @@ try {
         $archives[$key] = $path;
     }
     $index = ['schema_version' => 1, 'protocol' => 'peanut.module-release-index.v1',
-        'repository' => 'peanut-opensource/peanut-module-code', 'tag' => 'local-composition-fixture',
+        'repository' => 'peanut-opensource/peanut-module-code', 'tag' => 'v1.0.0-rc.1',
         'commit' => str_repeat('a', 40), 'modules' => array_values($rows)];
     $indexPath = $temporary . '/index.json';
     compositionJson($indexPath, $index);
@@ -166,6 +166,28 @@ try {
         'Source admission must not claim dependency or compile qualification');
     compositionExpect(!file_exists($host . '/.local') && !file_exists($host . '/modules.lock'), 'Planning changed application files');
     compositionExpect($service->compose($request)['plan_sha256'] === $plan['plan_sha256'], 'Plan is not deterministic');
+    $transitive = array_values(array_diff($keys, $expectedRoots))[0];
+    $withdrawnVersion = array_column($index['modules'], 'version', 'key')[$transitive];
+    $withdrawn = [['key' => $transitive, 'version' => $withdrawnVersion, 'reason' => 'Withdrawn dependency']];
+    $policyPlan = $service->compose($request + ['withdrawn' => $withdrawn]);
+    compositionExpect($policyPlan['plan']['status'] === 'blocked'
+        && in_array('MODULE_RELEASE_WITHDRAWN', array_column($policyPlan['plan']['diagnostics'], 'code'), true),
+        'Current policy must block historical transitive candidates');
+    $v3 = array_replace($index, ['schema_version' => 3, 'protocol' => 'peanut.module-release-index.v3',
+        'withdrawn' => $withdrawn]);
+    foreach ($v3['modules'] as &$record) {
+        $record['artifact_tag'] = $index['tag'];
+        $record['source_sha256'] = str_repeat('1', 64);
+    }
+    unset($record);
+    $v3Request = $seal($v3);
+    $v3Plan = $service->compose($v3Request);
+    compositionExpect($v3Plan['plan']['status'] === 'blocked'
+        && in_array('MODULE_RELEASE_WITHDRAWN', array_column($v3Plan['plan']['diagnostics'], 'code'), true),
+        'Pinned v3 policy must block a withdrawn transitive candidate without online access');
+    compositionRejected(fn() => $service->compose($v3Request + ['withdrawn' => []]), 'MODULE_RELEASE_POLICY_REGRESSION');
+    $seal($index);
+    compositionExpect(!file_exists($host . '/modules.lock'), 'Withdrawal check changed the staged source lock');
     $missing = $request;
     $missing['archives'] = [];
     compositionExpect(count($service->compose($missing)['plan']['diagnostics']) >= count($keys), 'Missing TARs were not reported together');

@@ -128,10 +128,60 @@ try {
     $reject(static fn() => $make($mutable, $calls)->package($selection), 'IMMUTABLE_RELEASE_REQUIRED');
     $expect(!is_dir($root . '/.local') && !is_dir($root . '/server'), 'Discovery created an environment or runtime');
 
+    [$legacyDocuments, $oldSelection, $payload] = $fixture(true);
+    $moduleList = 'https://api.github.com/repos/' . $moduleRepo . '/releases?per_page=100&page=1';
+    $oldTag = $oldSelection['catalog_tag'];
+    $oldIndexUrl = 'https://github.com/' . $moduleRepo . '/releases/download/' . $oldTag . '/module-release-index.json';
+    $oldRelease = json_decode($legacyDocuments[$moduleList], true, 512, JSON_THROW_ON_ERROR)[0];
+    $fixed = $release($moduleRepo, 'v1.0.1-rc.1', 8);
+    $fixedUrl = 'https://github.com/' . $moduleRepo . '/releases/download/' . $fixed['tag_name'] . '/';
+    $index = json_decode($legacyDocuments[$oldIndexUrl], true, 512, JSON_THROW_ON_ERROR);
+    $index['schema_version'] = 3;
+    $index['protocol'] = 'peanut.module-release-index.v3';
+    $index['tag'] = $fixed['tag_name'];
+    $index['withdrawn'] = [['key' => 'peanut.file', 'version' => '1.0.1', 'reason' => 'Compatibility fix required']];
+    $index['modules'][0] = array_replace($index['modules'][0], ['version' => '1.0.2', 'asset' => 'peanut.file-1.0.2.tar',
+        'artifact_tag' => $fixed['tag_name']]);
+    $index['modules'][] = array_replace($index['modules'][0], ['key' => 'peanut.task', 'asset' => 'peanut.task-1.0.2.tar',
+        'editions' => ['multi-tenant'], 'dependencies' => [['module_key' => 'peanut.file', 'version' => '^1.0.2']]]);
+    $policyDocuments = static function (array $policyIndex, bool $includePolicy = true) use ($legacyDocuments, $moduleList, $oldRelease, $fixed, $fixedUrl, $payload, $moduleRepo): array {
+        $fix = $fixed;
+        $withPolicy = $legacyDocuments;
+        $json = json_encode($policyIndex, JSON_THROW_ON_ERROR);
+        foreach (['module-release-index.json' => $json, 'peanut.file-1.0.2.tar' => $payload] as $name => $bytes) {
+            if (!$includePolicy && $name === 'module-release-index.json') {
+                continue;
+            }
+            $fix['assets'][] = ['name' => $name, 'browser_download_url' => $fixedUrl . $name,
+                'digest' => 'sha256:' . hash('sha256', $bytes)];
+            $withPolicy[$fixedUrl . $name] = $bytes;
+        }
+        $withPolicy[$moduleList] = json_encode([$oldRelease, $fix], JSON_THROW_ON_ERROR);
+        $withPolicy['https://api.github.com/repos/' . $moduleRepo . '/releases/tags/' . $fix['tag_name']] = json_encode($fix, JSON_THROW_ON_ERROR);
+        return $withPolicy;
+    };
+    $calls = [];
+    $service = $make($policyDocuments($index), $calls);
+    $result = $service->updates('prerelease');
+    $expect($result['withdrawal_policy'] === 'verified-current' && $result['modules'][0]['available_version'] === '1.0.2', 'Fix not found');
+    $expect($result['catalog'][1]['source_version'] === null && $result['catalog'][1]['reason'] === 'EDITION_UNSUPPORTED', 'Undiscovered incompatible module');
+    $expect(!in_array($oldIndexUrl, $calls, true), 'Normal discovery downloaded obsolete indexes');
+    $reject(static fn() => $service->package($oldSelection), 'WITHDRAWN');
+    $fixedSelection = array_replace($oldSelection, ['version' => '1.0.2', 'catalog_tag' => $fixed['tag_name']]);
+    $expect($service->package($fixedSelection)['bytes'] === $payload, 'Verified replacement not available');
+    $expect(!in_array($oldIndexUrl, $calls, true), 'Withdrawn selection reached its historical index');
+    $noPolicy = $index;
+    unset($noPolicy['withdrawn']);
+    $reject(static fn() => $make($policyDocuments($noPolicy), $calls)->package($oldSelection), 'POLICY_INVALID');
+    $reject(static fn() => $make($policyDocuments(array_replace($index, ['withdrawn' => (object) []])), $calls)->updates(), 'POLICY_INVALID');
+    $reject(static fn() => $make($policyDocuments($index, false), $calls)->package($oldSelection), 'ASSET_IDENTITY_INVALID');
+    $expect(json_decode(file_get_contents($root . '/modules.lock'), true, 512, JSON_THROW_ON_ERROR)['modules'][0]['version'] === '1.0.0',
+        'Withdrawals must preserve the source lock');
+
     $code = dirname(__DIR__, 3);
     $routes = (string) file_get_contents($code . '/server/route/platform.php');
     $guard = (string) file_get_contents($code . '/server/app/common/validation/instance/InstanceToolAccessGuard.php');
-    foreach ([['get', 'updates', 'updates', 'read'], ['post', 'official-update', 'officialUpdate', 'update']] as [$method, $suffix, $action, $permission]) {
+    foreach ([['get', 'updates', 'updates', 'read'], ['post', 'official-update', 'officialUpdate', 'update'], ['post', 'official-install', 'officialInstall', 'install']] as [$method, $suffix, $action, $permission]) {
         $pattern = "~Route::{$method}\\('instance-tools/modules/{$suffix}', \\[PlatformModuleLifecycleController::class, '{$action}'\\]\\)\\s*"
             . "->middleware\\(PlatformLoginMiddleware::class\\)\\s*->middleware\\(PlatformPermissionMiddleware::class, 'platform.module.{$permission}'\\)\\s*"
             . "->middleware\\(PlatformInstanceToolMiddleware::class\\);~";

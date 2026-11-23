@@ -36,6 +36,8 @@ $r=json_decode(stream_get_contents(STDIN),true,512,JSON_THROW_ON_ERROR);
 file_put_contents(dirname(__DIR__).'/fixture-native.log',$r['operation'].' '.implode(' ',$r['arguments'])."\\n",FILE_APPEND);
 ''', 'scripts/deploy-update.sh':(source/'scripts/deploy-update.sh').read_text()}.items():
         write(upstream,name,body)
+    storage_helper='server/docker/scripts/migrate-storage-layout.py'
+    write(upstream,storage_helper,(source/storage_helper).read_text())
     old=commit(upstream,'installed version')
     git(base,'clone','-q','--no-local',str(upstream),str(app))
     write(upstream,'server/app/main.php','updated')
@@ -45,6 +47,8 @@ file_put_contents(dirname(__DIR__).'/fixture-native.log',$r['operation'].' '.imp
     private={'server/.env':'original environment','server/public/uploads/customer.bin':'upload',
              'server/private/installation/installed.json':'original installation','customer.php':'downstream custom'}
     for name,body in private.items():write(app,name,body)
+    write(app,'server/public/storage/photos/a.jpg','old public bytes')
+    write(app,'server/private/storage/a.bin','old private bytes')
     pending=app/'.peanut/deploy-update.pending'
     assert 'selected origin branch changed' in deploy(old,1)
     assert git(app,'rev-parse','HEAD')==old and not pending.exists()
@@ -54,6 +58,9 @@ file_put_contents(dirname(__DIR__).'/fixture-native.log',$r['operation'].' '.imp
     write(app,'fixture-interrupt','before migration')
     assert 'simulated native migration interruption' in deploy(new,23)
     assert git(app,'rev-parse','HEAD')==new
+    assert (app/'server/public/storage').readlink()==Path('../storage/public')
+    assert (app/'server/storage/public/photos/a.jpg').read_text()=='old public bytes'
+    assert (app/'server/storage/private/a.bin').read_text()=='old private bytes'
     original=pending.read_bytes()
     assert original.decode().split()==[old,new,'standalone','admin','-','main'] and pending.stat().st_mode & 0o777==0o600
     def protected():return {name:(app/name).read_text() for name in private}

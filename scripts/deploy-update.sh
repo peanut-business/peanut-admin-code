@@ -38,6 +38,9 @@ main() {
   fi
   edition="$(python3 -c 'import json; print(json.load(open(".peanut/application-manifest.json"))["application"]["edition"])')"
   case "$edition" in standalone) clients=admin ;; multi-tenant) clients=admin,platform ;; *) fail 'invalid application Edition' ;; esac
+  if $prepare_first_install; then
+    python3 server/docker/scripts/migrate-storage-layout.py "$ROOT/server"
+  fi
   if $prepare_release || $prepare_first_install; then
     [[ -z "$target" && "$compose_project" == - && "$branch" == main ]] || fail 'release preparation runs on the development/release machine'
     declared_version="$(python3 -c 'import json; print(json.load(open(".peanut/application-manifest.json"))["application"]["version"])')"
@@ -187,7 +190,8 @@ PY
     compose_run stop nginx php
     [[ -z "$(compose_run ps --status running -q nginx php)" ]] || fail 'instance writers are still running'
   fi
-  git merge --ff-only "$new_head"
+  git merge --ff-only --no-overwrite-ignore "$new_head"
+  python3 server/docker/scripts/migrate-storage-layout.py "$ROOT/server"
   if $dependencies_changed; then
     if [[ "$compose_project" == - ]]; then
       composer install --working-dir=server --no-dev --no-scripts --no-plugins --no-interaction --prefer-dist

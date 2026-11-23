@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare a product release candidate from public registry Core packages.
+"""Prepare a product release candidate from fixed Core packages.
 
 The script intentionally derives Composer and pnpm lock identities from native manifests
 and lockfiles after running the package managers. Loose tarball/SRI strings are
@@ -1040,6 +1040,32 @@ def prepare(product_version: str, core_php_version: str, core_php_reference: str
         raise
 
 
+def locked_php_core(root: Path) -> dict[str, Any]:
+    lock_path = root / 'server/composer.lock'
+    records = [item for item in read_json(lock_path).get('packages', [])
+               if item.get('name') == 'peanut-admin/core'] if lock_path.is_file() else []
+    return records[0] if len(records) == 1 else {}
+
+
+def verify_locked_php_archive(root: Path) -> None:
+    core = locked_php_core(root)
+    dist = core.get('dist') or {}
+    url = dist.get('url')
+    if not isinstance(url, str):
+        fail('Composer lock is missing the fixed PHP Core distribution')
+    if url.startswith('https://'):
+        return
+    version = require_semver(str(core.get('version', '')).removeprefix('v'), 'locked PHP Core version')
+    relative = f'packages/core-php/peanut-admin-core-{version}.zip'
+    if dist.get('type') != 'zip' or url != '../' + relative:
+        fail('Composer lock must pin the scaffold-relative PHP Core ZIP')
+    archive = root / relative
+    if archive.is_symlink() or not archive.is_file():
+        fail(f'missing locked PHP Core archive: {relative}')
+    if hashlib.sha1(archive.read_bytes()).hexdigest() != dist.get('shasum'):
+        fail(f'locked PHP Core archive checksum mismatch: {relative}')
+
+
 def prepare_release_workspace(workspace: Path, output_root: Path, local_core: list[Path] | None,
                               php_version: str | None, web_version: str | None, resume: bool = False) -> None:
     """Prepare isolated inputs, retaining successful native stages for explicit continuation."""
@@ -1111,7 +1137,7 @@ def prepare_release_workspace(workspace: Path, output_root: Path, local_core: li
             if os.path.exists(name):
                 os.unlink(name)
 
-    def step(name: str, action: Any, outputs: list[Path] | None = None) -> None:
+    def step(name: str, action: Any, outputs: list[Path] | None = None, *, writes_snapshot: bool = True) -> None:
         previous = state['stages'].get(name)
         if previous and previous.get('status') == 'done':
             for file, expected in previous.get('outputs', {}).items():
@@ -1134,16 +1160,24 @@ def prepare_release_workspace(workspace: Path, output_root: Path, local_core: li
             state['stages'][name] = {'status': 'done', 'outputs': proof}
         except BaseException as error:
             state['stages'][name] = {'status': 'failed', 'error': str(error)}
-            if snapshot_root.is_dir():
+            if writes_snapshot and snapshot_root.is_dir():
                 state['source_sha256'] = source_value(snapshot_root, 'local')['snapshot_sha256']
             persist()
             raise
-        state['source_sha256'] = source_value(snapshot_root, 'local')['snapshot_sha256']
+        if writes_snapshot:
+            state['source_sha256'] = source_value(snapshot_root, 'local')['snapshot_sha256']
         persist()
 
     print('[peanut release] Input snapshot', flush=True)
     step('source-snapshot', lambda: snapshot(source_root, snapshot_root))
     producer = source_root / 'scripts/prepare-product-release-candidate'
+    locked_archives = False
+    if not local_core and php_version is None and web_version is None:
+        versions = read_json(source_root / 'release-versions.json')
+        web_packages = versions.get('core_web', {}).get('packages', {})
+        php_dist = (locked_php_core(source_root).get('dist') or {}).get('url')
+        locked_archives = any(isinstance(package, dict) and 'archive' in package for package in web_packages.values()) \
+            or (isinstance(php_dist, str) and not php_dist.startswith('https://'))
     # Each preparation subcommand retains its own ROOT and native lock contract.
     if local_core:
         print('[peanut release] Core inputs: configured local sources', flush=True)
@@ -1178,6 +1212,9 @@ def prepare_release_workspace(workspace: Path, output_root: Path, local_core: li
              f'--source-identity-helper={helper}', f'--source-identity-php={php_executable}']), [receipt_dir / 'release-core-inputs.json'])
         step('project-local-core', lambda: run([sys.executable, str(producer), f'--prepare-local-core-snapshot={snapshot_root}',
              f'--core-inputs={receipt_dir / "release-core-inputs.json"}', f'--tool-root={snapshot_root}']))
+    elif locked_archives:
+        print('[peanut release] Core inputs: existing locked archives', flush=True)
+        step('locked-php-core-archive', lambda: verify_locked_php_archive(snapshot_root), writes_snapshot=False)
     else:
         print('[peanut release] Core inputs: published fixed releases', flush=True)
         resolution_path = workspace / 'core-resolution.json'
@@ -1189,6 +1226,9 @@ def prepare_release_workspace(workspace: Path, output_root: Path, local_core: li
          '--no-interaction', '--no-progress', '--prefer-dist']), [snapshot_root / 'server/vendor/autoload.php', snapshot_root / 'server/vendor/composer/installed.json'])
     step('web-lock-install', lambda: run(['pnpm', '--dir', str(snapshot_root / 'web'), 'install', '--frozen-lockfile', '--ignore-scripts']),
          [snapshot_root / 'web/node_modules/.modules.yaml'])
+    if locked_archives:
+        step('locked-core-dependencies', lambda: run(['node', str(snapshot_root / 'scripts/release-dependency-locks.mjs'),
+             str(snapshot_root), '--native-locks']), writes_snapshot=False)
     step('uniapp-lock-install', lambda: run(['pnpm', '--dir', str(snapshot_root / 'uniapp'), 'install', '--frozen-lockfile', '--ignore-scripts']),
          [snapshot_root / 'uniapp/node_modules/.modules.yaml'])
     step('api-generation', lambda: run(['php', str(snapshot_root / 'scripts/generate-api-contracts.php')]))

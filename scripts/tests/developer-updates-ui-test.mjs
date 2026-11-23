@@ -107,8 +107,8 @@ function fixture(t, props = {}) {
       calls.push(['discover', channel]);
       return snapshot;
     },
-    previewOfficialModule: async (selection) => {
-      calls.push(['preview', structuredClone(selection)]);
+    previewOfficialModule: async (selection, operation) => {
+      calls.push(['preview', structuredClone(selection), operation]);
       return {
         dry_run: true,
         plan: { source: { version: '1.0.0' }, target: { version: '1.0.1' } },
@@ -228,6 +228,36 @@ test('confirmation cancellation submits nothing; lost-response retry retains sam
   assert.match(applied[0][3], /^official-module-[a-f0-9]{32}$/);
   assert.equal(f.state.packageTask.status, 'queued');
   assert.equal(f.state.officialPreview, null);
+});
+
+test('source-adopted modules remain installable through exact native preview; permission and withdrawal still block', async (t) => {
+  const f = fixture(t, { canInstall: true, canUpdateOfficial: false });
+  const candidate = {
+    key: row.key,
+    version: row.source_version,
+    source_version: row.source_version,
+    sha256: row.sha256,
+    catalog_tag: row.catalog_tag,
+    channel: 'prerelease',
+    availability: 'available',
+    reason: null,
+    editions: ['multi-tenant'],
+    dependencies: [],
+    kernel_constraint: '^5.1.0',
+  };
+  // The lock already contains this source, but the mock runtime has no installation.
+  await f.state.previewCatalog(candidate);
+  assert.equal(f.calls.filter((call) => call[0] === 'preview').length, 1);
+  assert.equal(f.calls.find((call) => call[0] === 'preview')[2], 'install');
+  assert.equal(f.state.officialSelection.version, candidate.version);
+  await f.state.applyOfficial();
+  assert.equal(f.calls.find((call) => call[0] === 'apply')[4], 'install');
+  f.calls.length = 0;
+  await f.state.previewCatalog({ ...candidate, availability: 'withdrawn' });
+  assert.deepEqual(f.calls, []);
+  await f.wrapper.setProps({ canInstall: false, canUpdateOfficial: true });
+  await f.state.previewCatalog(candidate);
+  assert.deepEqual(f.calls, []);
 });
 
 test('changing channel clears the previous upgrade selection and confirmation', async (t) => {

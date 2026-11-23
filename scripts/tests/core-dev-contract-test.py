@@ -42,9 +42,9 @@ class CoreDevelopmentContract(unittest.TestCase):
         for script in ('core-dev', 'local-core-web', 'local-core-composer'):
             shutil.copy2(ROOT / 'scripts' / script, self.code / 'scripts' / script)
 
-    def run_web(self, action='link-status'):
+    def run_web(self, action='link-status', client='web'):
         return subprocess.run(['bash', str(self.code / 'scripts/local-core-web'), action,
-                               '--core-dir', str(self.web), '--client', 'web'],
+                               '--core-dir', str(self.web), '--client', client],
                               text=True, capture_output=True, timeout=30)
 
     def test_source_status_needs_no_old_archive_or_release_version(self):
@@ -52,6 +52,26 @@ class CoreDevelopmentContract(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('mode=local-source', result.stdout)
         self.assertFalse((self.code / 'release-versions.json').exists())
+
+    def test_platform_source_status_checks_direct_client_dependency(self):
+        platform = self.code / 'platform'
+        manifest = platform / 'package.json'
+        modules = platform / 'node_modules/@peanut-admin'
+        modules.mkdir(parents=True)
+        for name in ('vue', 'ui-vue'):
+            (modules / name).symlink_to(self.web / 'packages' / name, target_is_directory=True)
+        manifest.write_text(json.dumps({'dependencies': {}}))
+        result = self.run_web(client='platform')
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+        manifest.write_text(json.dumps({'dependencies': {'@peanut-admin/client': '5.1.0'}}))
+        result = self.run_web(client='platform')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('@peanut-admin/client', result.stderr)
+
+        (modules / 'client').symlink_to(self.web / 'packages/client', target_is_directory=True)
+        result = self.run_web(client='platform')
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_wrong_package_identity_is_rejected(self):
         manifest = self.web / 'packages/vue/package.json'

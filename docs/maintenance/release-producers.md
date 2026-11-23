@@ -75,7 +75,7 @@ seed 与受控迁移维护的资源选择使用独立进程输入，不从普通
 职责按阶段划分：
 
 - 配置：CLI绑定已安装工具、本地Core与输出路径，保存于`.local/toolchain`；Code的`project-env`提供登记环境。
-- 输入准备：CLI 调用 Code 的 `scripts/prepare-product-release-candidate --prepare-release-workspace=<操作目录> --release-output-root=<输出根>`。用户指定 `peanut release --with-local-core` 时，CLI 解析本机选择并计算输入摘要，再通过原生参数 `--with-local-core <PHP绝对目录> <Web绝对目录>` 传递同一对目录。Code 直接复制这两个来源、按原生锁冻结包；不再从 host 或兄弟目录重新选择。未指定本地 Core 时仍由 Code 解析正式 Core。
+- 输入准备：CLI 调用 Code 的 `scripts/prepare-product-release-candidate --prepare-release-workspace=<操作目录> --release-output-root=<输出根>`。用户指定 `peanut release --with-local-core` 时，CLI 解析本机选择并计算输入摘要，再通过原生参数 `--with-local-core <PHP绝对目录> <Web绝对目录>` 传递同一对目录。Code 直接复制这两个来源、按原生锁冻结包；不再从 host 或兄弟目录重新选择。未指定源码或明确 Core 版本时，Code 优先复用快照已声明的固定 PHP ZIP、六个 Web TGZ 及原生锁，并核对既有归档契约；声明的包缺失或损坏即失败，不回退公开包。没有本地归档声明，或用户明确选择公开 Core 版本时，沿公开固定版本解析入口准备。
 - 派生生成：同一Code准备入口在源码副本安装锁定依赖，生成API和inventory。CLI不维护这组内部执行顺序。
 - 封装：CLI调用Code的`scripts/build-scaffold-release`生成两Edition，核对原生来源身份与输出，原子采用最终版本目录。
 

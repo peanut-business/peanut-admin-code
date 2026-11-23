@@ -701,7 +701,56 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
                 self.assertEqual((self.root / "RELEASE_METADATA.json").read_bytes(), before)
 
     def test_resume_workspace_reuses_completed_native_stages_and_rejects_drift(self) -> None:
-        self.write_json('release-versions.json', {'scaffold_template': '1.0.0'})
+        self.check_release_workspace('public')
+
+    def test_locked_core_keeps_original_archives_and_locks_on_resume(self) -> None:
+        self.check_release_workspace('archives')
+
+    def test_locked_php_core_rejects_missing_archive_before_native_install(self) -> None:
+        self.check_release_workspace('missing', 'missing locked PHP Core archive')
+
+    def test_locked_php_core_rejects_corrupt_archive_before_native_install(self) -> None:
+        self.check_release_workspace('corrupt', 'locked PHP Core archive checksum mismatch')
+
+    def test_explicit_public_core_selection_can_replace_locked_archives(self) -> None:
+        self.check_release_workspace('explicit-public')
+
+    def test_explicit_local_core_selection_can_replace_locked_archives(self) -> None:
+        self.check_release_workspace('explicit-local')
+
+    def check_release_workspace(self, mode: str, rejection: str | None = None) -> None:
+        versions = {'scaffold_template': '1.0.0'}
+        retained = {}
+        if mode != 'public':
+            version = '5.1.3-rc.23'
+            php_archive = f'packages/core-php/peanut-admin-core-{version}.zip'
+            retained[php_archive] = b'original PHP Core'
+            versions['core_php'] = {'resolved_version': version}
+            versions['core_web'] = {'packages': {}}
+            for name in candidate.CORE_WEB_PACKAGES:
+                suffix = name.split('/')[-1]
+                archive = f'packages/core-web/peanut-admin-{suffix}-{version}.tgz'
+                retained[archive] = suffix.encode()
+                versions['core_web']['packages'][name] = {
+                    'version': version, 'archive': archive, 'sha256': hashlib.sha256(retained[archive]).hexdigest(),
+                }
+            self.write_json('server/composer.lock', {'packages': [{
+                'name': 'peanut-admin/core', 'version': version, 'dist': {
+                    'url': '../' + php_archive, 'type': 'zip', 'shasum': hashlib.sha1(retained[php_archive]).hexdigest(),
+                },
+            }]})
+            retained['server/composer.lock'] = (self.root / 'server/composer.lock').read_bytes()
+            for client in candidate.CLIENT_CORE_PACKAGES:
+                retained[f'{client}/pnpm-lock.yaml'] = f'# original {client} lock\n'.encode()
+            for relative, contents in retained.items():
+                path = self.root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(contents)
+            if mode == 'missing':
+                (self.root / php_archive).unlink()
+            elif mode == 'corrupt':
+                (self.root / php_archive).write_bytes(b'corrupted PHP Core')
+        self.write_json('release-versions.json', versions)
         self.write_json('server/composer.json', {'name': 'fixture/native'})
         self.write_json('web/package.json', {'name': 'fixture-web'})
         self.write_json('uniapp/package.json', {'name': 'fixture-uniapp'})
@@ -710,7 +759,14 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
         output = self.root.parent / (self.root.name + '-unused-release-output')
         snapshot = workspace / 'source'
         calls = []
-        fail_web = [True]
+        fail_web = [mode != 'explicit-local']
+        php_version = '5.1.2' if mode == 'explicit-public' else None
+        local_core = None
+        if mode == 'explicit-local':
+            local_core = [workspace.parent / 'php-source', workspace.parent / 'web-source']
+            for directory in local_core:
+                directory.mkdir()
+                (directory / 'source.txt').write_text(directory.name)
 
         def files(root):
             return [p for p in sorted(root.rglob('*')) if p.is_file()
@@ -731,6 +787,17 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
         def native(args, **kwargs):
             if any(str(value).startswith('--prepare-core-snapshot=') for value in args):
                 calls.append('core-projection')
+            elif any(str(value).startswith('--prepare-local-core-snapshot=') for value in args):
+                calls.append('local-projection')
+            elif any(str(value).endswith('/freeze-core-release') for value in args):
+                calls.append('freeze-local-core')
+                frozen = Path(next(value.split('=', 1)[1] for value in args if value.startswith('--output=')))
+                frozen.mkdir()
+                (frozen / 'release-core-inputs.json').write_text('{}')
+            elif args[0] == 'node':
+                self.assertEqual(args[1:], [str(snapshot / 'scripts/release-dependency-locks.mjs'),
+                                            str(snapshot), '--native-locks'])
+                calls.append('lock-verification')
             elif args[0] == 'composer':
                 calls.append('composer')
                 write('server/vendor/autoload.php', '<?php // fixture')
@@ -756,25 +823,50 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
         with patch.dict(os.environ), patch.object(candidate.subprocess, 'check_output', side_effect=source_identity), \
                 patch.object(candidate, 'run', side_effect=native), patch.object(candidate, 'npm_command', return_value='npm'), \
                 patch.object(candidate, 'resolve_core_release', return_value={'fixture': True}) as resolve:
+            def prepare(resume=False):
+                candidate.prepare_release_workspace(workspace, output, local_core, php_version, None, resume)
+
+            if rejection:
+                with self.assertRaisesRegex(SystemExit, rejection):
+                    prepare()
+                with self.assertRaisesRegex(SystemExit, rejection):
+                    prepare(True)
+                self.assertEqual(calls, [])
+                resolve.assert_not_called()
+                return
+            if local_core:
+                prepare()
+                self.assertEqual(calls, ['web-install', 'freeze-local-core', 'local-projection', 'composer',
+                                         'web-install', 'uniapp-install', 'api', 'inventory'])
+                resolve.assert_not_called()
+                return
             with self.assertRaisesRegex(SystemExit, 'fixture web'):
-                candidate.prepare_release_workspace(workspace, output, False, None, None)
+                prepare()
             state = json.loads((workspace / 'preparation.json').read_text())
             self.assertEqual(state['stages']['composer-lock-install']['status'], 'done')
             self.assertEqual(state['stages']['web-lock-install']['status'], 'failed')
-            candidate.prepare_release_workspace(workspace, output, False, None, None, True)
-            self.assertEqual(calls, ['core-projection', 'composer', 'web-install', 'web-install', 'uniapp-install', 'api', 'inventory'])
-            resolve.assert_called_once()
+            prepare(True)
+            if mode == 'archives':
+                self.assertEqual(calls, ['composer', 'web-install', 'web-install', 'lock-verification', 'uniapp-install',
+                                         'api', 'inventory'])
+                resolve.assert_not_called()
+                for relative, contents in retained.items():
+                    self.assertEqual((snapshot / relative).read_bytes(), contents, relative)
+            else:
+                self.assertEqual(calls, ['core-projection', 'composer', 'web-install', 'web-install', 'uniapp-install',
+                                         'api', 'inventory'])
+                resolve.assert_called_once_with(php_version, None)
             before = list(calls)
-            candidate.prepare_release_workspace(workspace, output, False, None, None, True)
+            prepare(True)
             self.assertEqual(calls, before)
             write('server/vendor/autoload.php', 'tampered')
             with self.assertRaisesRegex(SystemExit, 'completed preparation output changed: composer-lock-install'):
-                candidate.prepare_release_workspace(workspace, output, False, None, None, True)
+                prepare(True)
             self.assertEqual(calls, before)
             write('server/vendor/autoload.php', '<?php // fixture')
             (self.root / 'changed.php').write_text('<?php return 1;')
             with self.assertRaisesRegex(SystemExit, 'inputs changed'):
-                candidate.prepare_release_workspace(workspace, output, False, None, None, True)
+                prepare(True)
             self.assertEqual(calls, before)
 
     def test_rejects_fixed_candidate_artifacts_and_local_repository_before_writes(self) -> None:

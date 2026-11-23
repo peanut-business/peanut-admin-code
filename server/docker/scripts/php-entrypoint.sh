@@ -24,6 +24,9 @@ done
 if [ ! -e public/storage ] && [ ! -L public/storage ]; then
     ln -s ../storage/public public/storage
 fi
+[ "$(readlink public/storage)" = ../storage/public ] && [ ! -e private/storage ] && [ ! -L private/storage ] || {
+    echo "legacy storage layout requires the host docker/scripts/start.sh migration" >&2; exit 1;
+}
 close_startup_traffic() {
     [ ! -L runtime/upgrade ] || { echo 'startup guard directory is a symlink' >&2; return 1; }
     rm -f runtime/upgrade/.traffic-ready

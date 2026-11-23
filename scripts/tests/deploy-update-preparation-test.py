@@ -23,6 +23,22 @@ with tempfile.TemporaryDirectory(prefix='peanut-prepare-exit-') as name:
     write('server/' + module_root + '/composer.json', '{"name":"fixture/example","version":"1.0.2"}')
     write('server/composer.json', '{"require":{"fixture/example":"1.0.1"}}')
     write('server/vendor/autoload.php', r'''<?php
+namespace think {
+    class App {
+        public $env;
+        public $config;
+        public function __construct($root) {
+            set_exception_handler(function (\Throwable $error) { echo "framework rendered exception\n"; });
+            $this->env = new class { public function get($key, $default) { return $default; } };
+            $this->config = new class {
+                private $deployment;
+                public function set($config, $key) { $this->deployment = $config; }
+                public function get($key) { return $this->deployment['mode']; }
+            };
+        }
+        public function loadEnv($name) {}
+    }
+}
 namespace app\common\value\installation {
     class ApplicationSourceIdentity {
         public static function loadGeneratedApp($root) {
@@ -56,14 +72,8 @@ namespace app\common\module {
     }
 }
 ''')
-    write('server/database/install.php', r'''<?php
-function ensureThinkPhpApplication($root) {
-    set_exception_handler(function (\Throwable $error) { echo "framework rendered exception\n"; });
-    return (object) ['config' => new class {
-        public function get($key) { return 'standalone'; }
-    }];
-}
-''')
+    write('server/vendor/topthink/framework/src/helper.php', '<?php\n')
+    write('server/config/deployment.php', "<?php return ['mode' => 'standalone'];\n")
     write('server/module', '<?php file_put_contents(getenv("PREPARE_COMPILE_MARKER"), "compiled"); echo "{}";\n')
     (root / 'scripts').mkdir()
     shutil.copy2(ROOT / 'scripts/deploy-update.sh', root / 'scripts/deploy-update.sh')

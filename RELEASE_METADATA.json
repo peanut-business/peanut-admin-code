@@ -2,10 +2,10 @@
   "schema_version": 3,
   "protocol": "peanut.release-metadata.v3",
   "product": "Peanut Admin",
-  "source_product_version": "5.1.18-rc.10",
+  "source_product_version": "5.1.18-rc.11",
   "instance_version": null,
-  "expected_tag": "v5.1.18-rc.10",
-  "release_date": "2026-11-22",
+  "expected_tag": "v5.1.18-rc.11",
+  "release_date": "2026-11-23",
   "repository": "https://github.com/peanut-business/peanut-admin-code",
   "license": {
     "type": "Apache-2.0",
@@ -88,7 +88,7 @@
     "RELEASE_SBOM.spdx.json": "eae786a3f663d9d1fbf794c294bf35a853d4592aa0379a364b19c4ce4661442b"
   },
   "technical_qualification": {
-    "phase": "5.1.18-rc.10-prerelease-candidate",
+    "phase": "5.1.18-rc.11-prerelease-candidate",
     "result": "pending",
     "final_candidate_commit": null,
     "final_candidate_tree": null,
@@ -96,10 +96,10 @@
     "groups_passed": 0,
     "summary_sha256": null,
     "cleanup_residual_count": null,
-    "scaffold_version": "5.1.18-rc.10",
+    "scaffold_version": "5.1.18-rc.11",
     "application_initial_version": "0.1.0",
     "evidence": "Product prerelease development identity uses frozen Core archives; qualification remains pending.",
-    "release_delta": "Adopts the published fixed PHP Core and Web Core package identities recorded in public_runtime_dependencies, separates source product identity from customer-owned instance identity, and prepares one-source deterministic Standalone and Multi-tenant scaffold inputs."
+    "release_delta": "Reuses the fixed local PHP Core and Web Core development archives recorded in public_runtime_dependencies; prepares storage-safe template upgrades and paired restore formats, official module discovery/install/withdrawal handling, and shared frontend failure states. Local candidate delivery and consumer runtime acceptance are recorded separately."
   },
   "self_reference_policy": "This file intentionally omits its own commit SHA and archive digest. RELEASE_MANIFEST.json is generated from the immutable tag and carries those values."
 }

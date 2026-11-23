@@ -9,6 +9,7 @@ command -v gzip >/dev/null || die 'gzip is required'
 command -v sha256sum >/dev/null || die 'sha256sum is required'
 
 project_root="$(pwd -P)"
+source "$project_root/scripts/ops-storage-archives.sh"
 [[ -f "$project_root/server/docker/compose.yaml" && -f "$project_root/server/think" ]] || die 'run from an APP mounted deployment root'
 backend_env="$project_root/server/.env"
 [[ -f "$backend_env" && ! -L "$backend_env" && "$(stat -c '%a %h' "$backend_env")" == '600 1' ]] || die 'private backend environment is unsafe'
@@ -194,7 +195,7 @@ failure_code='OPS_BACKUP_DATABASE_FAILED'
   | gzip -9 | sudo -n tee "$backup_dir/database.sql.gz" >/dev/null
 
 failure_code='OPS_BACKUP_FILES_FAILED'
-sudo -n tar --one-file-system --numeric-owner -C "$storage_mount" -czf "$backup_dir/php-storage.tar.gz" .
+pack_public_archive "$project_root/server" "$backup_dir/php-storage.tar.gz"
 sudo -n tar --one-file-system --numeric-owner -C "$private_storage_mount" -czf "$backup_dir/php-private-storage.tar.gz" .
 sudo -n tar --one-file-system --numeric-owner -C "$installation_mount" -czf "$backup_dir/php-installation.tar.gz" .
 completed_at="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
@@ -223,7 +224,7 @@ jq -c -n \
   --argjson files_bytes "$files_bytes" --arg files_sha "$files_sha" \
   --argjson private_files_bytes "$private_files_bytes" --arg private_files_sha "$private_files_sha" \
   --argjson installation_bytes "$installation_bytes" --arg installation_sha "$installation_sha" \
-  '{schema_version:4,backup_reference_key:$backup_reference_key,provider_key:$provider_key,
+  '{schema_version:5,backup_reference_key:$backup_reference_key,provider_key:$provider_key,
     source:{commit:$commit,tree:$tree,release_key:(if $release_key=="" then null else $release_key end)},
     resources:{deployment:$deployment,database:$database,application:$application,backup:$backup},
     runtime:{compose_project:$project,compose_file:"server/docker/compose.yaml",compose_profile:"default",database_name:$dbname,public_storage_directory:"server/storage/public",private_storage_directory:"server/storage/private",installation_directory:"server/private/installation",images:$images},

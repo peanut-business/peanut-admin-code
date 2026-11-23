@@ -1616,6 +1616,9 @@ JS;
                 throw new RuntimeException('CREATE_APP_WRITABLE_DIRECTORY_FAILED: ' . $relativePath);
             }
         }
+        if (!symlink('../storage/public', $stage . '/server/public/storage')) {
+            throw new RuntimeException('CREATE_APP_PUBLIC_STORAGE_LINK_FAILED');
+        }
     }
 
     private function assertNoUnresolvedVariables(string $root): void
