@@ -262,6 +262,10 @@ while IFS= read -r path; do
       select_test server/tests/Unit/PhpTestRunnerTest.php
       behavior_selected=1
       ;;
+    scripts/check-installation-contract.php)
+      select_test server/tests/Productization/InitialInstallComposerMirrorTest.php
+      behavior_selected=1
+      ;;
     scripts/create-app|scripts/build-application-template-inventory|scaffold/*)
       select_test server/tests/Productization/CreateApplicationTest.php
       behavior_selected=1
@@ -327,6 +331,12 @@ while IFS= read -r test_file <&3; do
       run_command "test:${test_file}:source" 1 \
         env -u PEANUT_TEST_APPLICATION_ROOT -u PEANUT_SERVER_ENV_FILE \
         php "$ROOT/scripts/run-php-test" "$test_file"
+      ;;
+    server/tests/Productization/InitialInstallComposerMirrorTest.php)
+      # Run the source contract against a real Composer mirror without preloading an App.
+      run_command "test:${test_file}:consumer-mirror" 1 \
+        env -u PEANUT_TEST_APPLICATION_ROOT -u PEANUT_SERVER_ENV_FILE \
+        php "$ROOT/scripts/run-php-test" "$test_file" -- "$APPLICATION_ROOT"
       ;;
     server/tests/Productization/ModuleSourceCompositionTest.php)
       # The official Module sources are accepted into this prepared consumer;
