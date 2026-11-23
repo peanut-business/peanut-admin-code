@@ -1,8 +1,10 @@
 <template>
   <el-dialog
     :model-value="true"
+    class="pa-page-form-dialog"
     :title="`${role.name} · 数据权限`"
     width="760px"
+    align-center
     :close-on-click-modal="false"
     @close="$emit('close')"
   >
@@ -34,10 +36,11 @@
         :current-page="page"
         :page-size="20"
         :total="total"
+        :pager-count="5"
         layout="prev, pager, next"
         @current-change="loadOperations"
       />
-      <el-space v-if="selected !== null" style="margin: 12px 0">
+      <el-space v-if="selected !== null" wrap style="margin: 12px 0">
         <el-button :disabled="saving || loading" @click="loadPolicy"
           >重新读取</el-button
         >
@@ -49,7 +52,7 @@
         >
         <span v-if="revision !== null">修订 {{ revision }}</span>
       </el-space>
-      <el-form v-if="policy" label-width="90px" :disabled="saving || loading">
+      <el-form v-if="policy" label-position="top" :disabled="saving || loading">
         <el-form-item label="状态"
           ><el-select v-model="policy.status"
             ><el-option value="active" label="启用" /><el-option
@@ -135,7 +138,7 @@
               >移除条件</el-button
             >
           </div>
-          <el-space
+          <el-space wrap
             ><el-button
               :disabled="group.conditions.length >= 20"
               @click="

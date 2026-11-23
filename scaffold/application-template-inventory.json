@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.20",
+    "template_version": "5.1.18-rc.21",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -282,7 +282,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6b25a64b7cb2db092cbf5393fc251eece1f75d0effb1a06b92e0aaa5b50d2440"
+            "source_sha256": "0f559f200094997343a8b7f926b386d87484d6dc43006b3362d568448c7ea66f"
         },
         {
             "path": "THIRD_PARTY_NOTICES.md",
@@ -296,7 +296,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cf96349bd0f5d1f0c589aa75cec364cbed9a0f682ecfa9986dfbb032c6b7fe34"
+            "source_sha256": "454d26e6029422680516bf3c4ad1b90125aa208094e6bca6aafe7495ac6d4636"
         },
         {
             "path": "compose.yaml",
@@ -1434,7 +1434,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "039559f9c8d7898b4d690bbd7b2e0a42319b04fa6581ec8ada38965a59f32f8b"
+            "source_sha256": "ebd1dad5f32e71df6a4c0e21b584fb875908aca574f07a1fb8ece39b4ef9a4a1"
         },
         {
             "path": "pc/pages/about.vue",
@@ -1867,7 +1867,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f7ff02ebfef8c47975ddcab9353b80de967059b8397b901c005be71e51a3125c"
+            "source_sha256": "8e29ea6f32130512b6b6284fbec49793069fae6872eb72222abca3c5adedb498"
         },
         {
             "path": "platform/pnpm-lock.yaml",
@@ -11182,7 +11182,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5289fd67eb3a0ac62a9f31a4f80f3fe075ba745a64a0072ae4804bd12339ba9e"
+            "source_sha256": "1e7cd266ec2bf294909077a84d6217595861473fa8633480fc4b030db611f500"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11196,7 +11196,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "31c3856337d4e410cec0c2f6defdcff9667b31c27f475c6d78d8cc708b51846f"
+            "source_sha256": "64239ce317233ce7f5fa630a22f5d0497ba9f83c3c7d55deeaebe42d567a4ba7"
         },
         {
             "path": "server/module",
@@ -15555,7 +15555,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fefc0d4d012bb2036708ee2cd617f1deb9d2bb7e688dd803be2c64ebb4ef9878"
+            "source_sha256": "b679b000a9742ebf24813bb2b5184247ffbfa810b77ca952562fcbb3f818db5d"
         },
         {
             "path": "uniapp/packages/pages/404/404.vue",
@@ -16457,7 +16457,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "673b5b5a28c07719f9c66115374cf9fbb8ebf484d5ede6227118407262ab6100"
+            "source_sha256": "d23cdb0fc206e6173a2348e09b7574c550ed82f61d37df4c63716895b652f390"
         },
         {
             "path": "web/pnpm-lock.yaml",
@@ -17031,7 +17031,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "88fe64df52a006073599e7deeb631368fe9c22cd5c8c5a62a725265e19eab1aa"
+            "source_sha256": "a37affe3f0cfa50c88b3a44a4dc8b36072d92dfaed7555ed3a86fbd782824b8e"
         },
         {
             "path": "web/src/assets/world.json",
@@ -19216,7 +19216,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e49218535f8e16d821b1be477bcff6c08c5905147b30df9263d340e4bcb3b21b"
+            "source_sha256": "1af9a1d9c95ecaea02bba7a7568cc420e5254e12f804fa97e0424829ede4432b"
         },
         {
             "path": "web/src/views/system/role/index.vue",
@@ -19230,7 +19230,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ce7448e38e589fbbfd1c0c36189a67f9be4b1c07954e6abc88466a677b3ba3a1"
+            "source_sha256": "26b8237b75c3ae05153efa59f069fc61a69712e432a30ee5ff76f7524e3d3c05"
         },
         {
             "path": "web/src/views/system/role/locale/en-US.ts",
