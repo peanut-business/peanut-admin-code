@@ -475,7 +475,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "350ceb0d0a293f22c223a84f21ab5d797448070bf219e54d726c37ca5006fb04"
+            "source_sha256": "ebb3b56639709a64d04c40945161638caf33d8ae2477ce0c1464e5eb6c74fd38"
         },
         {
             "path": "deploy/docker/read-backend-enum.sh",
@@ -1909,7 +1909,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d3a19b04e7292898680a94cf3a20f2e4d8417e1d02f3620d005d841a9b61aa24"
+            "source_sha256": "99f3fbe8a6f82adc3089c29fd25820e47fe337685664d51008c8b8bc8bbb9b84"
         },
         {
             "path": "platform/src/api/password-policy.ts",
@@ -2338,7 +2338,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "82e3a6c96c2d5fb64f9c204f881f509938972eea98965c2ff3980e3c27999468"
+            "source_sha256": "f827d6c182b82ed8a668de0dc0c95cd5514733a84b5dd590d1d17fc025df9b48"
         },
         {
             "path": "scripts/check-module-boundaries.php",
@@ -2714,7 +2714,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3552223586a6eb8e80d148d0e2a865981d816c692a3e7e6ac662c3fbdbd3de65"
+            "source_sha256": "c4e4d26185ac031db6064756e89104b9be8c6a6482053461d41351974238ec16"
         },
         {
             "path": "scripts/ops-module-worker",
@@ -2741,7 +2741,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b2641db4a0e764a9ae637c56ac3470b6afb79712b45e33276eeb39e9ff786c16"
+            "source_sha256": "a3132b3d839f17e8868010ff92a2221d684abfc16ef4ae4a3c80dbf9ad6d09d2"
         },
         {
             "path": "scripts/ops-upgrade-worker",
@@ -3122,7 +3122,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "637a2e8117cae432f77458d357e93d59c379a926f1c45905ceadc5e2468f9146"
+            "source_sha256": "3ef054e5f3cce57bb30ab03f65195692c24ac0aaf8093f862d3e9cd2af7daa3b"
         },
         {
             "path": "scripts/scaffold-upgrade",
@@ -3790,7 +3790,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bce38f89213af577c84cbe0c652a89aa9c1eedf03390147d17999c1dde7a81b8"
+            "source_sha256": "2f75f0dbc1a39ee553d20b921dbdeebfb9e7855dddfb5037ec652273d8a12023"
         },
         {
             "path": "server/.travis.yml",
@@ -4602,7 +4602,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dc831da9c8f8278940f3f451e743edf3fe1288663250955f4613e674996591e7"
+            "source_sha256": "4b4c139a6d98ea7bb31f0a34cb226f765eac97c9bafda11d7e6cbc14221cc2c5"
         },
         {
             "path": "server/app/adminapi/validate/auth/AdminValidate.php",
@@ -7573,7 +7573,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0782108f3a4b4443dc46372e6f0faff75ad6e6dc705f6ebc80b31b837dd484ec"
+            "source_sha256": "40afd00842aa3eb52748bf74c5821b4d622e07ac7ae7ebe2ed0b298a9d9b452a"
         },
         {
             "path": "server/app/common/services/notice/NoticeChannelService.php",
@@ -9184,7 +9184,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "792202e546f61c565ec86ed726daf0f1588651eb8a33bd33d5d8b68f2ad189fc"
+            "source_sha256": "5302c05de7c3ea9e9adafc347d4c3cdb915d0a7fa1924136d375e3534546359b"
         },
         {
             "path": "server/app/platform/value/ops/PlatformUpgradeTarget.php",
@@ -9212,7 +9212,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2517598aaa33eab10a2d3021de8ecec773ffceec68247c5580d4764c93bc5e29"
+            "source_sha256": "a8245518cc8154fddb8f31b49c51d9f7ffbe0017aa8a9f4f8a1935c59cc8b1bd"
         },
         {
             "path": "server/app/platform/value/provider/ProviderQualificationSubject.php",
@@ -9436,7 +9436,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a9a9a22f91a61d517943e28dffb7183ece02391c93cf38cb81574cda5d469318"
+            "source_sha256": "51c57683ad1cbf3f5b576ecea6c32c4fb6d9745bee6d2433fbacef84979753ff"
         },
         {
             "path": "server/config/integration.php",
@@ -10009,7 +10009,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ddedbe34cc550bbe155a187c33decf7a4f9eed89bb9684b6fe2fcc8666128606"
+            "source_sha256": "95e07640d6861c7f5e6de3e841135decfb8d91805156a26fdb56b2546efea3e4"
         },
         {
             "path": "server/docker/conf/crontab",
@@ -10163,7 +10163,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2188b566322a9cc88454b9f078f11fc5af35206056ebc326a4e28ec7c06d34f1"
+            "source_sha256": "d03bcfc971abd90252f9fe563b5967bb627ab1eae6735ec0015aed69aeaafa5b"
         },
         {
             "path": "server/docker/scripts/prepare-install-permissions.sh",
@@ -10177,7 +10177,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6dae37f48832b0e5f95ec78eb472bd3a3886b20d1eb3e5eaff4d44b9c3e909a5"
+            "source_sha256": "c77d60f1505a384ec5a280219d5742f4ec5f6cec02e807a576e5fcd7bfebdafb"
         },
         {
             "path": "server/docker/scripts/prepare-vendor.php",
@@ -10261,7 +10261,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "96510eb32155411eb05992910c5283ba7fb49f2bc4dddd3e40b8e32d4640bf18"
+            "source_sha256": "2aba1ec1de4f857af26c69532172ca67ff666349aed237569a458473b30f4c27"
         },
         {
             "path": "server/docker/scripts/stop.sh",
@@ -10289,7 +10289,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8fe786d55650a2554ca00c9b487ca9dd43b88843bc1b1598c4a1d56b15e5e8aa"
+            "source_sha256": "eaf1ec0ab2cfe48877075f267527a91f50ada5f37b6181315ef5d261e22a7ecd"
         },
         {
             "path": "server/docker/tests/test_first_start_vendor.py",

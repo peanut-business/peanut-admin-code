@@ -51,8 +51,8 @@ final class ApplicationCreator
         'server/runtime/file',
         'server/private/installation',
         'server/private/resources/pending',
-        'server/public/storage',
-        'server/private/storage',
+        'server/storage/public',
+        'server/storage/private',
     ];
 
     /**

@@ -15,8 +15,8 @@ trap 'rm -rf -- "$fixture"' EXIT HUP INT TERM
 app_uid=$(id -u www-data)
 app_gid=$(id -g www-data)
 mkdir -p "$fixture/server/docker/secrets" "$fixture/server/private/installation" \
-    "$fixture/server/private/resources/pending" "$fixture/server/private/storage" \
-    "$fixture/server/runtime/upgrade" "$fixture/server/public/storage"
+    "$fixture/server/private/resources/pending" "$fixture/server/storage/private" \
+    "$fixture/server/runtime/upgrade" "$fixture/server/storage/public"
 for dir in cache log session temp storage generator file; do mkdir -p "$fixture/server/runtime/$dir"; done
 chmod 0700 "$fixture/server/docker/secrets"
 printf 'synthetic-token\n' > "$fixture/server/docker/secrets/install-token"
@@ -35,7 +35,7 @@ PEANUT_TEST_ROOT="$fixture/server" setpriv --reuid="$app_uid" --regid="$app_gid"
     "${PEANUT_TEST_PHP:-php}" "$source_root/server/tests/Support/InstallRuntimeConfigurationUid.php"
 PEANUT_TEST_ROOT="$fixture/server" setpriv --reuid="$app_uid" --regid="$app_gid" --clear-groups sh -ec '
   cd "$PEANUT_TEST_ROOT"
-  (umask 077; printf "ok\n" > private/storage/new-file)
+  (umask 077; printf "ok\n" > storage/private/new-file)
   ! cat docker/.env >/dev/null 2>&1
   ! cat docker/secrets/install-token >/dev/null 2>&1
   ! printf tampered > index.php 2>/dev/null

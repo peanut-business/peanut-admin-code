@@ -293,7 +293,7 @@ try {
     expectOperationTenant(is_array($object) && (int) $object['tenant_id'] === 101
         && $object['access_type'] === 'private' && str_starts_with($object['object_key'], 'tenants/v1/101/export/xlsx/'),
         'Alpha export escaped its private Tenant namespace');
-    $exportedPath = $serverRoot . '/private/storage/' . $object['object_key'];
+    $exportedPath = $serverRoot . '/storage/private/' . $object['object_key'];
     $opened = app(\PeanutAdmin\Modules\File\Service\Storage\StorageService::class)->authorizedDownload(101, $delivery['file_key'], $delivery['token']);
     expectOperationTenant($opened['path'] === $exportedPath, 'Alpha export delivery did not use the scoped file ledger');
     expectOperationTenant(is_file($exportedPath), 'Alpha export file was not created');

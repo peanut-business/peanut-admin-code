@@ -13,7 +13,7 @@ file_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1"; }
 umask 077
 for path in "$SERVER_DIR/public" "$SERVER_DIR/private" "$SERVER_DIR/docker" \
     "$DOCKER_DIR/mysql" "$DOCKER_DIR/secrets" "$SERVER_DIR/runtime" \
-    "$SERVER_DIR/public/storage" "$SERVER_DIR/private/storage" \
+    "$SERVER_DIR/storage" "$SERVER_DIR/storage/public" "$SERVER_DIR/storage/private" \
     "$SERVER_DIR/private/installation" "$SERVER_DIR/private/resources" "$SERVER_DIR/private/maintenance" \
     "$SERVER_DIR/private/resources/pending" "$SERVER_DIR/runtime/cache" "$SERVER_DIR/runtime/log" \
     "$SERVER_DIR/runtime/session" "$SERVER_DIR/runtime/temp" "$SERVER_DIR/runtime/storage" \
@@ -100,11 +100,14 @@ mkdir -p "$SERVER_DIR/runtime"
 
 if [ "$database_source" = bundled ]; then mkdir -p "$DOCKER_DIR/mysql"; fi
 mkdir -p "$DOCKER_DIR/secrets" \
-    "$SERVER_DIR/public/storage" "$SERVER_DIR/private/storage" \
+    "$SERVER_DIR/storage/public" "$SERVER_DIR/storage/private" \
     "$SERVER_DIR/private/installation" "$SERVER_DIR/private/resources" "$SERVER_DIR/private/maintenance" \
     "$SERVER_DIR/private/resources/pending" "$SERVER_DIR/runtime/cache" "$SERVER_DIR/runtime/log" \
     "$SERVER_DIR/runtime/session" "$SERVER_DIR/runtime/temp" "$SERVER_DIR/runtime/storage" \
     "$SERVER_DIR/runtime/generator" "$SERVER_DIR/runtime/file"
+if [ ! -e "$SERVER_DIR/public/storage" ] && [ ! -L "$SERVER_DIR/public/storage" ]; then
+    ln -s ../storage/public "$SERVER_DIR/public/storage"
+fi
 installed="$SERVER_DIR/private/installation/installed.json"
 
 token="$DOCKER_DIR/secrets/install-token"

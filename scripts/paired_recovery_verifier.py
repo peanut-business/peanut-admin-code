@@ -27,9 +27,9 @@ def _build_paired_recovery_verifier() -> dict[str, Any]:
     )
     snapshot_set = set(snapshot_names)
     storage_names = (
-        "public/storage",
+        "storage/public",
         "public/uploads",
-        "private/storage",
+        "storage/private",
         "private/installation",
         "private/collaboration",
         "docker/tls",

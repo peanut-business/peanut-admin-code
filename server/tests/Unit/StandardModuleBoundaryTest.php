@@ -86,7 +86,7 @@ final class StandardModuleBoundaryTest extends TestCase
             CREATE TABLE pa_storage_account (id INTEGER PRIMARY KEY, account_key TEXT, driver TEXT, name TEXT, credential_ciphertext TEXT, credential_key_version INTEGER, status TEXT);
             INSERT INTO pa_storage_account VALUES (1,'local','local','Local',NULL,1,'active');
             CREATE TABLE pa_storage_space (id INTEGER PRIMARY KEY, account_id INTEGER, space_key TEXT, name TEXT, access_type TEXT, bucket TEXT, region TEXT, endpoint TEXT, access_domain TEXT, local_path TEXT, status TEXT);
-            INSERT INTO pa_storage_space VALUES (1,1,'public','Public','public',NULL,NULL,NULL,NULL,'public/storage','active');
+            INSERT INTO pa_storage_space VALUES (1,1,'public','Public','public',NULL,NULL,NULL,NULL,'storage/public','active');
             CREATE TABLE pa_file_object (id INTEGER PRIMARY KEY, file_key TEXT, tenant_id INTEGER, access_type TEXT, storage_space_id INTEGER, object_key TEXT, status TEXT, purpose TEXT);
             INSERT INTO pa_file_object VALUES (1,'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',1,'public',1,'tenants/v1/1/material/image/file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png','ready','material.image');
             SQL);

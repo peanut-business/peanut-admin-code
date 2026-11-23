@@ -177,7 +177,7 @@ namespace {
     foreach ([
         'local' => [
             ['driver' => 'local'],
-            ['local_path' => 'private/storage', 'access_type' => \PeanutAdmin\Modules\File\Infrastructure\Storage\StorageAccess::PRIVATE],
+            ['local_path' => 'storage/private', 'access_type' => \PeanutAdmin\Modules\File\Infrastructure\Storage\StorageAccess::PRIVATE],
             \PeanutAdmin\FileMedia\Storage\Driver\LocalStorageDriver::class,
         ],
         'qiniu' => [

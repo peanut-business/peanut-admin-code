@@ -43,7 +43,7 @@ $fixture = $temporaryRoot . '/peanut-install-preflight-' . bin2hex(random_bytes(
 $temporary = $fixture . '/server';
 foreach (['vendor', 'database/schema', 'database/seeds', 'config', 'runtime/cache', 'runtime/log', 'runtime/session', 'runtime/temp',
     'runtime/storage', 'runtime/generator', 'runtime/file', 'private/installation',
-    'private/resources/pending', 'public/storage', 'private/storage'] as $directory) {
+    'private/resources/pending', 'storage/public', 'storage/private'] as $directory) {
     installerExpect(mkdir($temporary . '/' . $directory, 0775, true), 'unable to create preflight fixture directory');
 }
 foreach (['.git', '.peanut'] as $directory) {

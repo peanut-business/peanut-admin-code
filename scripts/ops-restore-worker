@@ -151,8 +151,8 @@ jq -e \
    and .resources.application == $application and .resources.backup == $backup
    and .runtime.database_name == $dbname and .runtime.compose_project == $project
    and .runtime.compose_file == "server/docker/compose.yaml"
-   and .runtime.public_storage_directory == "server/public"
-   and .runtime.private_storage_directory == "server/private/storage"
+   and .runtime.public_storage_directory == "server/storage/public"
+   and .runtime.private_storage_directory == "server/storage/private"
    and .runtime.installation_directory == "server/private/installation"
    and ([.artifacts[].filename] | sort) == ["database.sql.gz", "php-installation.tar.gz", "php-private-storage.tar.gz", "php-storage.tar.gz"]' \
   "$backup_dir/manifest.json" >/dev/null
@@ -210,8 +210,8 @@ jq -e --arg project "$target_project" '.compose_project == $project and .fallbac
   <<<"$target_runtime_json" >/dev/null || false
 target_container="$target_project-mysql-1"
 target_mysql_directory="$target_root/server/docker/mysql"
-target_storage_directory="$target_root/server/public"
-target_private_storage_directory="$target_root/server/private/storage"
+target_storage_directory="$target_root/server/storage/public"
+target_private_storage_directory="$target_root/server/storage/private"
 target_installation_directory="$target_root/server/private/installation"
 target_network="${target_project}_default"
 
@@ -225,8 +225,8 @@ protected_runtime_identity() {
     sudo -n docker inspect "$container" \
       --format 'container={{.Name}} id={{.Id}} image={{.Image}} status={{.State.Status}} mounts={{json .Mounts}}'
   done
-  for path in "$project_root/server/docker/mysql" "$project_root/server/public/storage" \
-      "$project_root/server/private/storage" "$project_root/server/private/installation"; do
+  for path in "$project_root/server/docker/mysql" "$project_root/server/storage/public" \
+      "$project_root/server/storage/private" "$project_root/server/private/installation"; do
     sudo -n stat -c 'directory=%n inode=%i device=%d mode=%a' "$path"
   done
 }
@@ -404,7 +404,7 @@ evidence_json="$(jq -c -n \
     manifest_sha256:$manifest_sha256,source:{commit:$source_commit,tree:$source_tree},
     target:{deployment_resource_id:$target_deployment,database_resource_id:$target_database_resource,
       runtime_resource_id:$target_runtime_resource,compose_project:$project,database_name:$database,
-      public_storage_directory:"server/public",private_storage_directory:"server/private/storage",
+      public_storage_directory:"server/storage/public",private_storage_directory:"server/storage/private",
       installation_directory:"server/private/installation"},
     verification:{table_count:$table_count,schema_migration_count:$schema_migration_count,
       critical_table_count:$critical_table_count,account_count:$account_count,

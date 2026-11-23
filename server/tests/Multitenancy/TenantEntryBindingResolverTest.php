@@ -92,7 +92,7 @@ INSERT INTO pa_tenant (id,code,status) VALUES
   (202,'beta','active'),
   (303,'paused','suspended');
 INSERT INTO pa_storage_account VALUES (1,'local','local','Local',NULL,1,'active');
-INSERT INTO pa_storage_space VALUES (1,1,'local-public','Local public','public',NULL,NULL,NULL,NULL,'public/storage','active');
+INSERT INTO pa_storage_space VALUES (1,1,'local-public','Local public','public',NULL,NULL,NULL,NULL,'storage/public','active');
 INSERT INTO pa_file_object VALUES (
   1,'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',101,'material.image','public',1,
   'tenants/v1/101/material/image/file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png',

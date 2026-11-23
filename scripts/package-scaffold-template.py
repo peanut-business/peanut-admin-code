@@ -372,7 +372,7 @@ def main():
     for relative in ['server/runtime/cache', 'server/runtime/log', 'server/runtime/session',
                      'server/runtime/temp', 'server/runtime/storage', 'server/runtime/generator',
                      'server/runtime/file', 'server/private/installation', 'server/private/resources/pending',
-                     'server/public/storage', 'server/private/storage']:
+                     'server/storage/public', 'server/storage/private']:
         if not (app / relative).is_dir():
             raise ValueError('TEMPLATE_WRITABLE_DIRECTORY_MISSING')
         directories.append(relative)
