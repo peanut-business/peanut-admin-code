@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.17",
+    "template_version": "5.1.18-rc.18",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -282,7 +282,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5ed9961987f6e244a9bca0b961683f6c4593036f6f21dd6d74a58345666d1527"
+            "source_sha256": "ccee804587568331daefa76ea2a6ce698d3d634e348d570df6cd0e0ab88210b9"
         },
         {
             "path": "THIRD_PARTY_NOTICES.md",
@@ -296,7 +296,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e369ee107260130295063518a3e546ef91d4f7f22ca3fd985f625f1f45969a47"
+            "source_sha256": "260fa39dbd57885c78ba9b43474be917cfeaddd1f75c19d0366fcc9d1607810c"
         },
         {
             "path": "compose.yaml",
@@ -1434,7 +1434,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a5c30ede5f791e061e3a62a24481967ea2e6aea50a6ee4128b3dcec8b04b0d6c"
+            "source_sha256": "cd30c991844e50fb7b1ff1a262869d01dc790faf9961277a6d55d972e7069baa"
         },
         {
             "path": "pc/pages/about.vue",
@@ -1867,7 +1867,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a7ce9912730bff685a8cf7b9e5e7d8f584224305b6bbe6c2f159c0674f717ac9"
+            "source_sha256": "a885c997fe90a2e12649b40edee18ca581c84a0f5099d5bdf465504771dd0c5b"
         },
         {
             "path": "platform/pnpm-lock.yaml",
@@ -5369,7 +5369,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9ea6d998057425274e192fe663107881eb7eb0fb652f7fd8c0b898c86563f344"
+            "source_sha256": "60aaa3acb021b761d60544786e5a2e57f6b796a31f290df9aca47d1eb92d53af"
         },
         {
             "path": "server/app/command/ModuleReleaseComposition.php",
@@ -5874,7 +5874,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4bfa04d54d342984138b08ac3e938d91883887fa8ef1cb16fdb049a129170b3d"
+            "source_sha256": "b80dab44668c251416e6b6b40536804451ade7830bdc60e8f3b1869864212b79"
         },
         {
             "path": "server/app/common/contract/module/ModuleQualification.php",
@@ -7275,7 +7275,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0f6d41152af93f86b37f5a41020a46e36e6dbc6d5751ff89e79101f0fffb43cb"
+            "source_sha256": "e97f55d1a2c0bd75aab784cca62515188fcd7d375213d246d094c004a7e1458e"
         },
         {
             "path": "server/app/common/persistence/AdvisoryLockExecution.php",
@@ -8705,7 +8705,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "27076d2a69dce7d3da0550b95d51c9b03ec4b2cc43cd70793b1f6983f1b8ccc4"
+            "source_sha256": "739c5b922996bbac3fdc898ec24d8af80384209950ea48066431bed104afcbc5"
         },
         {
             "path": "server/app/platform/infrastructure/module/ModuleCatalogMutationRepository.php",
@@ -9013,7 +9013,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "925cfe5013be6013262be4bdad065f6955915b4672e14a7e8dc22d90ab92d66a"
+            "source_sha256": "8ab7f4268e375238adef3ac7c7e3272f4ee9acfb06d2d542450d2f9ccfebb209"
         },
         {
             "path": "server/app/platform/services/module/ModulePackageAdoptionService.php",
@@ -13180,6 +13180,19 @@
             ]
         },
         {
+            "path": "server/tests/Productization/ModuleCatalogOwnerReconcileTest.php",
+            "target": "server/tests/Productization/ModuleCatalogOwnerReconcileTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Productization/ModuleCommandContractTest.php",
             "target": "server/tests/Productization/ModuleCommandContractTest.php",
             "classification": "excluded",
@@ -15542,7 +15555,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7b8975543555682c8de3522cf812d211638c594c691f26c11ade44afbcc78697"
+            "source_sha256": "7d3c10fd37a1145559096084b3c9a808c5cd505320b4ba22347e86abd176fbe7"
         },
         {
             "path": "uniapp/packages/pages/404/404.vue",
@@ -16444,7 +16457,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4872a80208206bc46be58ae589946a792380a814921609bb24500774d254b87b"
+            "source_sha256": "93f6908afd870acf11cc4caa112386575a69d0ff4f415815532993544ecb1ef5"
         },
         {
             "path": "web/pnpm-lock.yaml",

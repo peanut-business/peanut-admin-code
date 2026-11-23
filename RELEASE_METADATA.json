@@ -2,9 +2,9 @@
   "schema_version": 3,
   "protocol": "peanut.release-metadata.v3",
   "product": "Peanut Admin",
-  "source_product_version": "5.1.18-rc.17",
+  "source_product_version": "5.1.18-rc.18",
   "instance_version": null,
-  "expected_tag": "v5.1.18-rc.17",
+  "expected_tag": "v5.1.18-rc.18",
   "release_date": "2026-11-23",
   "repository": "https://github.com/peanut-business/peanut-admin-code",
   "license": {
@@ -84,8 +84,8 @@
   "legal_files": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "NOTICE": "c0680ac5f6eac2bf9106393ada2d3d54b845a50cf14d13bf8e46acb66026609f",
-    "THIRD_PARTY_NOTICES.md": "e369ee107260130295063518a3e546ef91d4f7f22ca3fd985f625f1f45969a47",
-    "RELEASE_SBOM.spdx.json": "5ed9961987f6e244a9bca0b961683f6c4593036f6f21dd6d74a58345666d1527"
+    "THIRD_PARTY_NOTICES.md": "260fa39dbd57885c78ba9b43474be917cfeaddd1f75c19d0366fcc9d1607810c",
+    "RELEASE_SBOM.spdx.json": "ccee804587568331daefa76ea2a6ce698d3d634e348d570df6cd0e0ab88210b9"
   },
   "technical_qualification": {
     "phase": "5.1.18-rc.14-prerelease-candidate",
@@ -99,7 +99,7 @@
     "scaffold_version": "5.1.18-rc.14",
     "application_initial_version": "0.1.0",
     "evidence": "Product prerelease development identity uses frozen Core archives; qualification remains pending.",
-    "release_delta": "Adopts the published fixed PHP Core and Web Core package identities recorded in public_runtime_dependencies, separates source product identity from customer-owned instance identity, and prepares one-source deterministic Standalone and Multi-tenant scaffold inputs."
+    "release_delta": "Uses the fixed local PHP Core and Web Core development archives identified in public_runtime_dependencies, preserves customer-owned instance identity, and prepares deterministic Standalone and Multi-tenant scaffold inputs from one source. Public publication and full qualification remain pending."
   },
   "self_reference_policy": "This file intentionally omits its own commit SHA and archive digest. RELEASE_MANIFEST.json is generated from the immutable tag and carries those values."
 }

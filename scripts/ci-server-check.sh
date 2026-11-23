@@ -254,6 +254,11 @@ while IFS= read -r path; do
       select_test server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php
       behavior_selected=1
       ;;
+    server/app/command/ModuleReconcile.php|server/app/common/module/PackageCheck.php|server/app/common/contract/module/ModuleLifecycleCommands.php|server/app/platform/services/module/ModuleLifecycleService.php|server/app/platform/infrastructure/module/ModuleCatalogApplier.php)
+      select_test server/tests/Productization/ModuleCatalogOwnerReconcileTest.php
+      select_test server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php
+      behavior_selected=1
+      ;;
     server/app/*|server/config/*)
       select_test server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php
       behavior_selected=1
@@ -295,6 +300,7 @@ if [[ "$mode" == '--broad' || "$behavior_selected" -eq 0 ]]; then
     server/tests/Productization/ModuleArtifactContractTest.php \
     server/tests/Productization/ModuleModuleContractTest.php \
     server/tests/Productization/ModuleLifecycleMigrationContractTest.php \
+    server/tests/Productization/ModuleCatalogOwnerReconcileTest.php \
     scripts/tests/template_candidate_stage_test.py; do
     select_test "$test_file"
   done
@@ -332,8 +338,9 @@ while IFS= read -r test_file <&3; do
         env -u PEANUT_TEST_APPLICATION_ROOT -u PEANUT_SERVER_ENV_FILE \
         php "$ROOT/scripts/run-php-test" "$test_file"
       ;;
-    server/tests/Productization/InitialInstallComposerMirrorTest.php)
-      # Run the source contract against a real Composer mirror without preloading an App.
+    server/tests/Productization/InitialInstallComposerMirrorTest.php|\
+    server/tests/Productization/ModuleCatalogOwnerReconcileTest.php)
+      # These prepared-consumer contracts select their own Host code and never load its environment.
       run_command "test:${test_file}:consumer-mirror" 1 \
         env -u PEANUT_TEST_APPLICATION_ROOT -u PEANUT_SERVER_ENV_FILE \
         php "$ROOT/scripts/run-php-test" "$test_file" -- "$APPLICATION_ROOT"
