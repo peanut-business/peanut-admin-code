@@ -19334,7 +19334,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "37b7162ccd931dec6b866238cce5054ed83926d8997096b0cb8d4fd4756d44b6"
+            "source_sha256": "3cbc72ad8f67885690ce7ab4c263ffbca17dbc41228951996a8f91468710840b"
         },
         {
             "path": "web/tests/Productization/generated-crud-interactions.spec.mjs",

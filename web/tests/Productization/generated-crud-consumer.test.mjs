@@ -8,6 +8,7 @@ import {
   readFileSync,
   readdirSync,
   realpathSync,
+  rmSync,
   statSync,
   symlinkSync,
   writeFileSync,
@@ -275,6 +276,10 @@ after(() => {
     path.join(reportDirectory, 'result.json'),
     JSON.stringify(report, null, 2) + '\n'
   );
+  // The test runner sets the final exit code after its suite hooks finish.
+  process.once('exit', (code) => {
+    if (code === 0) rmSync(work, { recursive: true, force: true });
+  });
   console.log(
     `CRUD_CONSUMER_REPORT ${path.join(reportDirectory, 'result.json')}`
   );
