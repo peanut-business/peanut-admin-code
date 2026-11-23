@@ -712,17 +712,28 @@ const notableRows = notablePackages
   )
   .join('\n');
 
-const notices = `# Peanut Admin Third-Party Notices
+const applicationLockRows = application
+  ? Object.entries(expectedCounts).map(([ecosystem, count]) => `| ${ecosystem} | ${count} |`).join('\n')
+  : '';
+const notices = `# ${applicationProduct} Third-Party Notices
 
-Generated for Peanut Admin ${releaseVersion} on ${releaseDate}.
+Generated for ${applicationProduct} ${releaseVersion} on ${releaseDate}.
 
-Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-party components remain governed by their own licenses.
+${application
+  ? `Application source: ${repositoryUrl}. See the application's LICENSE and NOTICE for its own terms and attribution. Third-party components remain governed by their own licenses.`
+  : 'Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-party components remain governed by their own licenses.'}
 
 ## Distribution boundary
 
-- The normative GitHub Release distributes this repository's source. It does not attach prebuilt PHP/Nginx images; the fixed core packages are published separately in their public registries.
+${application ? `- This inventory covers the application source and components resolved in the locks listed below. It does not describe the contents of a particular deployed image or archive.
+- The application Composer lock includes production and development dependencies. The four client locks cover static build inputs. The two quality-tool locks cover development tooling.
+- Exact package versions, licenses and sources for all seven dependency graphs are listed in \`RELEASE_SBOM.spdx.json\` (SPDX 2.3).
+
+| Dependency graph | Lock entries |
+|---|---:|
+${applicationLockRows}` : `- The normative GitHub Release distributes this repository's source. It does not attach prebuilt PHP/Nginx images; the fixed core packages are published separately in their public registries.
 - Production Compose builds static management, PC and H5 assets and installs the ${composerRuntime.length} Composer production packages listed below. No \`node_modules\` directory is copied into the final images.
-- The exhaustive package/version/license/source inventory for the seven locked dependency graphs is \`RELEASE_SBOM.spdx.json\` (SPDX 2.3). The two quality-tool graphs are development inputs, separate from product runtime. Build-only entries are retained there so source-release recipients can reproduce the build and its notices.
+- The exhaustive package/version/license/source inventory for the seven locked dependency graphs is \`RELEASE_SBOM.spdx.json\` (SPDX 2.3). The two quality-tool graphs are development inputs, separate from product runtime. Build-only entries are retained there so source-release recipients can reproduce the build and its notices.`}
 - Each installed dependency may include additional license or notice files. Those files remain authoritative for that dependency and must not be removed from redistributed dependency archives.
 
 ## Material source and framework attributions
@@ -738,10 +749,11 @@ Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-pa
 ## License handling
 
 - MIT, ISC, BSD, 0BSD, MIT-0, Apache-2.0 and Zlib notices are preserved through this file, the SPDX inventory and the upstream package sources recorded there.
-- MPL-2.0 entries are build inputs in the current Nuxt and development-tool lock graphs; no standalone package or modified MPL source is shipped as a release attachment. If a future release distributes those files, it must add the MPL source/notice obligations for that artifact.
+${application ? `- License expressions and attributions in the inventory apply to the locked versions listed there. Preserve applicable attributions and follow upstream license terms for the components included in any redistribution.
+- For components offered under multiple licenses, the SPDX inventory preserves the alternatives declared by the upstream package.` : `- MPL-2.0 entries are build inputs in the current Nuxt and development-tool lock graphs; no standalone package or modified MPL source is shipped as a release attachment. If a future release distributes those files, it must add the MPL source/notice obligations for that artifact.
 - CC0, CC-BY, BlueOak-1.0.0 and Python-2.0 entries are identified below and in the SPDX inventory; attribution-bearing data must keep its upstream credit when redistributed.
 - Compound expressions retain the upstream choice exactly. \`node-forge@1.4.0\` is recorded as \`BSD-3-Clause OR GPL-2.0\`; this release relies on the permissive BSD-3-Clause option and does not claim a GPL grant for Peanut Admin.
-- \`@tybys/wasm-util@0.10.3\` and \`@napi-rs/lzma-linux-x64-gnu@1.5.1\` publish MIT metadata but no separate copyright line or NOTICE in the inspected upstream artifact. Their package/version/source is recorded without inventing an attribution.
+- \`@tybys/wasm-util@0.10.3\` and \`@napi-rs/lzma-linux-x64-gnu@1.5.1\` publish MIT metadata but no separate copyright line or NOTICE in the inspected upstream artifact. Their package/version/source is recorded without inventing an attribution.`}
 
 ## Locked-license summary
 
@@ -751,7 +763,8 @@ ${licenseRows}
 
 ## Composer production packages
 
-These ${composerRuntime.length} packages are installed with \`composer install --no-dev\` in the production PHP image.
+${application ? `The application Composer lock lists ${composerRuntime.length} production packages. Development dependencies are reported separately in the SBOM.`
+  : `These ${composerRuntime.length} packages are installed with \`composer install --no-dev\` in the production PHP image.`}
 
 | Package | Version | License | Source |
 |---|---|---|---|
@@ -772,7 +785,7 @@ The SPDX identifiers above resolve through https://spdx.org/licenses/. Exact pac
 
 const outputs = new Map([
   ['RELEASE_SBOM.spdx.json', `${JSON.stringify(sbom, null, 2)}\n`],
-  ...(application ? [] : [['THIRD_PARTY_NOTICES.md', notices]]),
+  ['THIRD_PARTY_NOTICES.md', notices],
 ]);
 
 let different = false;
