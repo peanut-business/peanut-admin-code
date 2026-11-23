@@ -1,6 +1,6 @@
 # Peanut Admin Third-Party Notices
 
-Generated for Peanut Admin 5.1.18-rc.11 on 2026-11-23.
+Generated for Peanut Admin 5.1.18-rc.12 on 2026-11-23.
 
 Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-party components remain governed by their own licenses.
 
@@ -19,7 +19,7 @@ Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-pa
 | LikeAdmin 1.9.4 | MIT | Used as the documented behavioral parity reference. This notice does not claim the application is a clean-room implementation. Source: https://github.com/likeadmin-likeshop/likeadmin_php |
 | ThinkPHP 8 | Apache-2.0 | Backend framework. Its upstream notice is also retained at `server/LICENSE.txt`. Source: https://github.com/top-think/framework |
 | `peanut-admin/core` | Apache-2.0 | Composer core package locked at 5.1.3-rc.23 (cf56b4adc42f021444e42c1a8be3ec66b06a665d). Source: https://github.com/peanut-business/peanut-admin-core-php |
-| Peanut Admin Core Web | Apache-2.0 | npm core packages locked as @peanut-admin/client@5.1.3-rc.23, @peanut-admin/vue@5.1.3-rc.23, @peanut-admin/ui-vue@5.1.3-rc.23, @peanut-admin/nuxt@5.1.3-rc.23, @peanut-admin/uniapp@5.1.3-rc.23, @peanut-admin/testing@5.1.3-rc.23. Source: https://github.com/peanut-business/peanut-admin-core-web |
+| Peanut Admin Core Web | Apache-2.0 | npm core packages locked as @peanut-admin/client@5.1.3-rc.24, @peanut-admin/vue@5.1.3-rc.24, @peanut-admin/ui-vue@5.1.3-rc.24, @peanut-admin/nuxt@5.1.3-rc.24, @peanut-admin/uniapp@5.1.3-rc.24, @peanut-admin/testing@5.1.3-rc.24. Source: https://github.com/peanut-business/peanut-admin-core-web |
 
 ## License handling
 
@@ -82,7 +82,7 @@ Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-pa
 | web | `CC-BY-4.0` | 1 |
 | web | `CC0-1.0` | 3 |
 | web | `ISC` | 48 |
-| web | `MIT` | 672 |
+| web | `MIT` | 673 |
 | web | `MIT OR Apache-2.0` | 1 |
 | web | `MIT OR CC0-1.0` | 6 |
 | web | `MPL-2.0 OR Apache-2.0` | 1 |

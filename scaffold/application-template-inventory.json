@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.11",
+    "template_version": "5.1.18-rc.12",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -282,7 +282,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2b23b5556d9a550cf35d672693b4582782f13c7926a63068f7decf55148c200d"
+            "source_sha256": "5e2d62d44b772644af4f3ce3aa70b08a29fe90261bb38144427c744c72790d6a"
         },
         {
             "path": "THIRD_PARTY_NOTICES.md",
@@ -296,7 +296,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9bcabe53a146f17f4fcd994d061364d84e4573177940fbc123bf3e17705a3fcc"
+            "source_sha256": "f813c188eb9c02f2bdf3d80513ff3e4016ba87df2ed1ca13a2a78c423e6f8c04"
         },
         {
             "path": "compose.yaml",
@@ -1210,8 +1210,8 @@
             "source_sha256": "38917e0e1cfe9613e1d5261afd98fcb53fbaf73e82705b63f586f67c7be050d4"
         },
         {
-            "path": "packages/core-web/peanut-admin-client-5.1.3-rc.23.tgz",
-            "target": "packages/core-web/peanut-admin-client-5.1.3-rc.23.tgz",
+            "path": "packages/core-web/peanut-admin-client-5.1.3-rc.24.tgz",
+            "target": "packages/core-web/peanut-admin-client-5.1.3-rc.24.tgz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -1221,11 +1221,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "be40f4398c80e84342377ec126bd7ce2572523352917bac3bd56a6b70618478a"
+            "source_sha256": "15f1d94ecea649f4caec7711c886a67b5311a1921256d64bbad89558a74926bc"
         },
         {
-            "path": "packages/core-web/peanut-admin-nuxt-5.1.3-rc.23.tgz",
-            "target": "packages/core-web/peanut-admin-nuxt-5.1.3-rc.23.tgz",
+            "path": "packages/core-web/peanut-admin-nuxt-5.1.3-rc.24.tgz",
+            "target": "packages/core-web/peanut-admin-nuxt-5.1.3-rc.24.tgz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -1235,11 +1235,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5da1cd5d1cc779816e9e84aab1755ff777712b8b83291ec08334f883282d17c8"
+            "source_sha256": "13b5b1c38cafcfe825cc77fae8b22ace2c99a92897bc19bcd40bf38630430c3f"
         },
         {
-            "path": "packages/core-web/peanut-admin-testing-5.1.3-rc.23.tgz",
-            "target": "packages/core-web/peanut-admin-testing-5.1.3-rc.23.tgz",
+            "path": "packages/core-web/peanut-admin-testing-5.1.3-rc.24.tgz",
+            "target": "packages/core-web/peanut-admin-testing-5.1.3-rc.24.tgz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -1249,11 +1249,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "24029fcc010715aa8d617e529b27334cc30b156826a32fd220cf9ebd8b6650af"
+            "source_sha256": "9941166c1a4027eb27bfc7f76530eb9061f38180b6e7ac44fd96d6df1146c875"
         },
         {
-            "path": "packages/core-web/peanut-admin-ui-vue-5.1.3-rc.23.tgz",
-            "target": "packages/core-web/peanut-admin-ui-vue-5.1.3-rc.23.tgz",
+            "path": "packages/core-web/peanut-admin-ui-vue-5.1.3-rc.24.tgz",
+            "target": "packages/core-web/peanut-admin-ui-vue-5.1.3-rc.24.tgz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -1263,11 +1263,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c316d3ebf94ff14c74de1cf717e842d02b6ca258d8a355fadb6a76501f5cea2e"
+            "source_sha256": "dd41fb4d9e7cd7947c361e494c652be84519a558dc53572518b8f1f6e91b8eb7"
         },
         {
-            "path": "packages/core-web/peanut-admin-uniapp-5.1.3-rc.23.tgz",
-            "target": "packages/core-web/peanut-admin-uniapp-5.1.3-rc.23.tgz",
+            "path": "packages/core-web/peanut-admin-uniapp-5.1.3-rc.24.tgz",
+            "target": "packages/core-web/peanut-admin-uniapp-5.1.3-rc.24.tgz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -1277,11 +1277,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4b67e66cc7436c82c0c836bf43c631ee42fc1e2a5aba51635886c0452c06a566"
+            "source_sha256": "03ba651c554fcf054492cdf970bf5c83ac11002d0c6ee78cf5fe1220d0bbcc24"
         },
         {
-            "path": "packages/core-web/peanut-admin-vue-5.1.3-rc.23.tgz",
-            "target": "packages/core-web/peanut-admin-vue-5.1.3-rc.23.tgz",
+            "path": "packages/core-web/peanut-admin-vue-5.1.3-rc.24.tgz",
+            "target": "packages/core-web/peanut-admin-vue-5.1.3-rc.24.tgz",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "copy",
@@ -1291,7 +1291,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "53ef966d2d4d4fb2c526272b520d6d986fd7e9fdf29b067adede24dbe028642e"
+            "source_sha256": "81389dd5a073858e3e570a85b2c3a60f09c56f667d2eef73e844d928bb614803"
         },
         {
             "path": "pc/.env.example",
@@ -1434,7 +1434,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2cb9cbbbfb486cc7bd39ec9a42ac61821cd5aa36bd929bf08abbe87686a9da5b"
+            "source_sha256": "118ba1e2460772331dd0cc836472a2b37c8cb6126d0814da26fb36643e996c42"
         },
         {
             "path": "pc/pages/about.vue",
@@ -1486,7 +1486,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "78b51054a22bf06a233fbe7b1ec75529342769186c53c1be1fd2a0287ff6c466"
+            "source_sha256": "3739c4b0a412ead58fa4a9ef6bdf3dec8d21f24119065d8e2245406d980ddbee"
         },
         {
             "path": "pc/pnpm-workspace.yaml",
@@ -1867,7 +1867,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0633d3f3c38bd708e5264957fc564b455cc379101c5ca4c2073e0c34d68a16dd"
+            "source_sha256": "66dfd14999606366e2cc335286947be9492ab4d8e3817d93d6d3cea20bdbc30f"
         },
         {
             "path": "platform/pnpm-lock.yaml",
@@ -1881,7 +1881,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dad49ca950dce14e32b569e0f689bac9f1d3d06922ac663bc5b0cbd2c56b1638"
+            "source_sha256": "9222c2febd210de98dc22c499f472a1fc2a4ae51333f76c5fac280f88beab227"
         },
         {
             "path": "platform/pnpm-workspace.yaml",
@@ -11142,7 +11142,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "50faf128fe95521e33c7c91db314a90f35b59e6091869a496112c5f5204dd6dc"
+            "source_sha256": "7d56ba7e88ca24a7c6ac9fb66779b8ec44e3264367d3a8595ee651a93b3b8d2b"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11156,7 +11156,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0bde3e86963f47e7ee5841b64c165c3446ea53f68a9a88545b1854292363462e"
+            "source_sha256": "4ce3ee683b365e0d7c2651264d4e76c929bb97f43aef31493383b0445408ce1f"
         },
         {
             "path": "server/module",
@@ -15367,7 +15367,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0493369d59109a3649976dd6ec3b32112fa95afd221970614970e261552fe11d"
+            "source_sha256": "f9d0fcb8dc2d03cca0e5afc41cb47b5e10c5a7e32dae18241eaa24d268fb016e"
         },
         {
             "path": "tools/quality/php-cs-fixer.php",
@@ -15395,7 +15395,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4e02fbc738ad00e216a5caf123fe01f6ec4d0360b94f070dc2e320590e473998"
+            "source_sha256": "3a7d19c2ba8f4df49236af4ab1759f265ad4a5774d905a5e6e865c447dcebcbc"
         },
         {
             "path": "tools/quality/prettier-ignore",
@@ -15489,7 +15489,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8eee787353085f8e19ab15d99c3b020a6dc29758d837281b8642606219e539b0"
+            "source_sha256": "7c334d19051902a6cf8d1a7084e1742edb6813cd7e13c73510ad71de28647905"
         },
         {
             "path": "uniapp/packages/pages/404/404.vue",
@@ -15528,7 +15528,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fe43bc09158652f3ef84b54d46886148fb4046175a104c2b3a4ea93ce0cf46c5"
+            "source_sha256": "b1064a657dfcbf2b9129b436c3274cc0c55d4f73598d1259d1af5f284e3fa835"
         },
         {
             "path": "uniapp/pnpm-workspace.yaml",
@@ -16391,7 +16391,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9d526daeabe2631fb5d0c287cb58b7c9f4ca0dc8d5bf421a7ca105c154a1b76c"
+            "source_sha256": "644a6b9049408a829eb64a1ac9900f55a76f60eabb0648a33fc7955f4ccbbc5a"
         },
         {
             "path": "web/pnpm-lock.yaml",
@@ -16405,7 +16405,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5e3c9bfdabbf43b2532463d855a742cccd5fb2d1218e2ae2dd7e0784496af9f4"
+            "source_sha256": "0320a2971dca4d8ce2f8c72a98adf814238e22b81fcb4adaf60057ea9ad2d268"
         },
         {
             "path": "web/pnpm-workspace.yaml",
@@ -17820,7 +17820,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "34a5f6e90f1f3238fb96e5a6a2f6b4b997dbc073a8ca5e16bea8562257e5c420"
+            "source_sha256": "0dfd5caa821d42e57e5453f47a1431788404374d593567a038b1b96c7012d541"
         },
         {
             "path": "web/src/locale/zh-CN.ts",
