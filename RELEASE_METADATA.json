@@ -2,9 +2,9 @@
   "schema_version": 3,
   "protocol": "peanut.release-metadata.v3",
   "product": "Peanut Admin",
-  "source_product_version": "5.1.18-rc.23",
+  "source_product_version": "5.1.18-rc.24",
   "instance_version": null,
-  "expected_tag": "v5.1.18-rc.23",
+  "expected_tag": "v5.1.18-rc.24",
   "release_date": "2026-11-24",
   "repository": "https://github.com/peanut-business/peanut-admin-code",
   "license": {
@@ -84,11 +84,11 @@
   "legal_files": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "NOTICE": "c0680ac5f6eac2bf9106393ada2d3d54b845a50cf14d13bf8e46acb66026609f",
-    "THIRD_PARTY_NOTICES.md": "64a196d2a136973a2397c8ac173b34a0d835f9e31435e7152ff8dbc8a0c8679a",
-    "RELEASE_SBOM.spdx.json": "c0a1468298eb0f67ec3cc466e7a29c28558e097159aaa49c546af171f684a2bd"
+    "THIRD_PARTY_NOTICES.md": "ce21b5de234802f3ec83010780fb67a690af798d2143d0a0e6f52cc593e9d50d",
+    "RELEASE_SBOM.spdx.json": "88721ec67e0f9e222f2348a35f349835bb443fe6917d98c511d85c33583a5901"
   },
   "technical_qualification": {
-    "phase": "5.1.18-rc.23-prerelease-candidate",
+    "phase": "5.1.18-rc.24-prerelease-candidate",
     "result": "pending",
     "final_candidate_commit": null,
     "final_candidate_tree": null,
@@ -96,7 +96,7 @@
     "groups_passed": 0,
     "summary_sha256": null,
     "cleanup_residual_count": null,
-    "scaffold_version": "5.1.18-rc.23",
+    "scaffold_version": "5.1.18-rc.24",
     "application_initial_version": "0.1.0",
     "evidence": "Product prerelease development identity uses frozen Core archives; qualification remains pending.",
     "release_delta": "Uses the fixed local PHP Core and Web Core development archives identified in public_runtime_dependencies, preserves customer-owned instance identity, and prepares deterministic Standalone and Multi-tenant scaffold inputs from one source. Public publication and full qualification remain pending."
