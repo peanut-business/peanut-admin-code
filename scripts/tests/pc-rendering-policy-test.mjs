@@ -1,23 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  mkdtempSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   createPcRenderingOptions,
   createPcPageRules,
-  pcPublicSsrPages,
   isPcPrivateRoute,
   pcPrivateRouteRoots,
 } from '../../pc/utils/rendering-policy.ts';
-import { readClientEnvironment } from '../client-environment.ts';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 
@@ -137,40 +128,9 @@ test('returned rules do not share mutable objects across routes or config calls'
   );
 });
 
-test('the existing file loader reads mode from the explicitly selected file', () => {
-  const dir = mkdtempSync(resolve(realpathSync(tmpdir()), 'peanut-pc-render-'));
-  const path = resolve(dir, 'client.env');
-  const previous = process.env.PEANUT_CLIENT_ENV_FILE;
-  try {
-    writeFileSync(path, 'NUXT_PC_RENDER_MODE=spa\n');
-    process.env.PEANUT_CLIENT_ENV_FILE = path;
-    assert.equal(readClientEnvironment('/not-used').NUXT_PC_RENDER_MODE, 'spa');
-  } finally {
-    if (previous === undefined) delete process.env.PEANUT_CLIENT_ENV_FILE;
-    else process.env.PEANUT_CLIENT_ENV_FILE = previous;
-    rmSync(dir, { recursive: true });
-  }
-});
-
-test('ambient mode cannot override the selected client environment file', () => {
-  const previous = process.env.NUXT_PC_RENDER_MODE;
-  try {
-    process.env.NUXT_PC_RENDER_MODE = 'spa';
-    assert.throws(
-      () => readClientEnvironment('/not-used'),
-      /CLIENT_ENVIRONMENT_AMBIENT_VALUE_FORBIDDEN:NUXT_PC_RENDER_MODE/
-    );
-  } finally {
-    if (previous === undefined) delete process.env.NUXT_PC_RENDER_MODE;
-    else process.env.NUXT_PC_RENDER_MODE = previous;
-  }
-});
-
-test('both distributed environment templates document and select hybrid', () => {
-  for (const file of ['pc/.env.example', 'pc/.env.production']) {
-    const text = readFileSync(resolve(root, file), 'utf8');
-    assert.match(text, /^NUXT_PC_RENDER_MODE=hybrid$/m);
-  }
+test('the Nuxt environment example documents hybrid as the default mode', () => {
+  const source = readFileSync(resolve(root, 'pc/.env.example'), 'utf8');
+  assert.match(source, /^NUXT_PC_RENDER_MODE=hybrid$/m);
 });
 
 // These remaining assertions inspect wiring, not a real Nuxt/browser render.
@@ -178,7 +138,7 @@ test('Nuxt uses the shared mode policy with the canonical root URL', () => {
   const source = readFileSync(resolve(root, 'pc/nuxt.config.ts'), 'utf8');
   assert.match(
     source,
-    /createPcRenderingOptions\(fileEnv\.NUXT_PC_RENDER_MODE\)/
+    /createPcRenderingOptions\(process\.env\.NUXT_PC_RENDER_MODE\)/
   );
   assert.match(source, /baseURL: '\/'/);
   assert.doesNotMatch(source, /\bssr:\s*true/);
@@ -192,33 +152,22 @@ test('client navigation updates the private-page indexing hint', () => {
   assert.match(source, /name: 'robots', content: 'noindex, nofollow'/);
 });
 
-test('homepage hands data to Nuxt and distinguishes failure/loading from no articles', () => {
-  const source = readFileSync(resolve(root, 'pc/pages/index.vue'), 'utf8');
-  assert.match(source, /await useAsyncData\(/);
-  assert.match(source, /'pc:public-index'/);
-  assert.match(
-    source,
-    /getPcIndex<\{ data: DecorationComponent\[\] \}>\(request\)/
-  );
-  assert.match(source, /indexData\.value\?\.all/);
-  assert.match(source, /v-if="indexPending"/);
-  assert.match(source, /v-else-if="indexError"/);
-  assert.doesNotMatch(source, /const indexData = await getPcIndex/);
-  assert.doesNotMatch(source, /\.catch\(\(\) => null\)/);
-});
-
-const pagesDirectory = '/synthetic/pc/pages';
-const publicPaths = [
-  '/',
-  '/information',
-  '/information/:source()',
-  '/information/detail/:id()',
-  '/about',
+const pcDirectory = '/synthetic/pc';
+const pagesDirectory = `${pcDirectory}/pages`;
+const articlePages = `${pcDirectory}/modules/peanut-article/pages`;
+const publicPages = [
+  { file: `${pagesDirectory}/index.vue`, path: '/' },
+  { file: `${articlePages}/information/index.vue`, path: '/information' },
+  {
+    file: `${articlePages}/information/[source].vue`,
+    path: '/information/:source()',
+  },
+  {
+    file: `${articlePages}/information/detail/[id].vue`,
+    path: '/information/detail/:id()',
+  },
+  { file: `${pagesDirectory}/about.vue`, path: '/about' },
 ];
-const publicPages = pcPublicSsrPages.map((file, index) => ({
-  file: `${pagesDirectory}/${file}`,
-  path: publicPaths[index],
-}));
 test('resolved file routes explicitly register the public pages, with single-segment parameters', () => {
   const rules = createPcPageRules(publicPages, pagesDirectory, true);
   assert.deepEqual(Object.keys(rules), [
@@ -238,6 +187,18 @@ test('resolved file routes explicitly register the public pages, with single-seg
 test('new unregistered pages under public directories and private pages stay CSR', () => {
   const pages = [
     ...publicPages,
+    {
+      file: `${pagesDirectory}/information/index.vue`,
+      path: '/same-name-in-host',
+    },
+    {
+      file: `${articlePages}/information/drafts.vue`,
+      path: '/information/drafts',
+    },
+    {
+      file: `${articlePages}/information/index.vue`,
+      path: '/user/registered-public-file',
+    },
     ...[
       'information/settings.vue',
       'information/detail/orders.vue',
@@ -254,6 +215,9 @@ test('new unregistered pages under public directories and private pages stay CSR
   ];
   const rules = createPcPageRules(pages, pagesDirectory, true);
   for (const path of [
+    '/same-name-in-host',
+    '/information/drafts',
+    '/user/registered-public-file',
     '/information/settings',
     '/information/detail/orders',
     '/login',

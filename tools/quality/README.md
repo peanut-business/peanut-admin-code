@@ -150,39 +150,44 @@ node tools/quality/node_modules/vitest/vitest.mjs run --config web/vitest.option
 
 ## PC 原生 SSR HTTP 隔离
 
-`pc/tests/Productization/ssr-multitenant.test.mjs` 启动明确指定的原生 hybrid Node 构建产物，与独立回环 HTTP 合成上游通信；不修改 Nitro、复制后修改依赖或替换全局 fetch。Node 使用当前工程工具链。先核候选源码、已安装 Core 和 `.output` 身份，再按 `resources/project-resources.json` 领取 `pc-ssr-qualification` 所有者、`pc-ssr-http-qualification` 门槛的独占租约，包含两个登记 listener、其端口、当前 Code worktree 和输出目录。
+`pc/tests/Productization/ssr-multitenant.test.mjs` 启动明确指定的原生 hybrid Node 构建产物，与独立回环 HTTP 合成上游通信；不修改 Nitro、复制后修改依赖或替换全局 fetch。Node 使用当前工程工具链。测试显式读取 `PEANUT_RESOURCE_REGISTRY` 指向的 Project 资源登记，要求唯一匹配 `peanut-pc-ssr-qualification` 和 `peanut-pc-ssr-synthetic-upstream`，并核对登记 owner、loopback host、development-test environment、fallback 与端口。Code 工作树内未分配的资源登记不是本机准入来源。
 
-从 Code 根执行：
+在已采用本模板并包含 Article、Member 等 PC 贡献的开发应用根，按一次 build、固定输入、串行验证执行。Code 薄模板本身只验证安装、类型、构建与渲染策略；以下内容与导航断言需要实际模块组合。
 
 ```sh
-PC_SSR_PROJECT_ROOT="<已核验的原生 hybrid PC 工程绝对路径>" \
-PC_SSR_LEASE_ID="<本轮有效租约>" \
-PC_SSR_EVIDENCE_DIR="$PWD/.local/evidence/<本轮任务空目录>" \
-TMPDIR="$PWD/.local/tmp/<本轮已有任务目录>" \
-node --test pc/tests/Productization/ssr-multitenant.test.mjs
+NUXT_PC_RENDER_MODE=hybrid python3 scripts/project-env --root "$PWD" --tools node,pnpm run -- pnpm --dir pc run build
+
+PEANUT_RESOURCE_REGISTRY="<Project 资源登记的绝对路径>" \
+PC_SSR_PROJECT_ROOT="$PWD/pc" \
+PC_SSR_SOURCE_COMMIT="<当前开发应用 Git HEAD 的完整提交 SHA>" \
+PC_SSR_OUTPUT_SHA256="<原生 pc/.output 的 outputDigest SHA-256>" \
+PC_SSR_EVIDENCE_DIR="$PWD/.local/evidence/<SSR HTTP 本轮空目录>" \
+TMPDIR="$PWD/.local/tmp/<SSR HTTP 本轮目录>" \
+python3 scripts/project-env --tools node run -- node --test pc/tests/Productization/ssr-multitenant.test.mjs
+
+PEANUT_RESOURCE_REGISTRY="<Project 资源登记的绝对路径>" \
+PC_SSR_PROJECT_ROOT="$PWD/pc" \
+PC_SSR_SOURCE_COMMIT="<与上面相同的完整提交 SHA>" \
+PC_SSR_OUTPUT_SHA256="<与上面相同的 outputDigest SHA-256>" \
+PC_BROWSER_PLAYWRIGHT_ROOT="<Project 登记版本的现有 Playwright 包绝对目录>" \
+PC_BROWSER_EVIDENCE_DIR="$PWD/.local/evidence/<浏览器本轮空目录>" \
+TMPDIR="$PWD/.local/tmp/<浏览器本轮目录>" \
+python3 scripts/project-env --tools node run -- node --test pc/tests/Productization/browser-hydration.test.mjs
 ```
+
+先执行一次 `pnpm --dir pc run build`。使用两个测试文件已有 `outputDigest()` 相同树摘要算法，核实 `.output` SHA-256 后将同一值传入两次调用；测试也会校验摘要并在结束时核对产物未变化。两项测试要求完整应用 HEAD 与 `PC_SSR_SOURCE_COMMIT` 一致、`PC_SSR_PROJECT_ROOT` 精确解析为 `$PWD/pc`。两项共用登记的 20491/20492 loopback listener，必须串行运行；先检查端口为空，随后真实 bind 失败会直接失败，不 fallback。每次使用各自新的空证据目录和任务 TMPDIR。浏览器包及 Chromium 必须匹配登记的固定 Playwright 版本；无隐式下载、旧 lease、跳过或正式发行资格声明。
 
 测试检查交替/并发相同文章 ID 的 Host 隔离、私人 Cookie/Authorization 不转发、富文本 SSR 安全输出、私有路由 CSR/禁缓存/禁索引、未信任 Host 拒绝以及 404/服务故障/配置故障的区别。合成上游按已安装 ThinkPHP 的 forwarded-host 优先合同解释域名，不能把网络连接 Host 等同于租户域名；这不证明真实反向代理可信设置已验收。
 
-运行前租约、资源和空端口必须通过；缺构建或前置直接失败，不 skip。结束保留原始上游记录、Node 日志、结果及产物前后摘要，终止本测试自己的进程并关闭上游；调用者随后释放租约。它证明真实 Node SSR HTTP 链和原生产产物不可变，不证明 PHP、数据库、浏览器交互或完整多租户业务。
+缺原生构建、登记资源、提交/产物摘要、临时目录或空端口即失败，不 skip。结束保留原始上游记录、Node 日志、结果及产物前后摘要，只终止本测试创建的进程并关闭上游。它是用户授权的普通开发验证，只证明真实 Node SSR HTTP 链和原生产产物不可变，不证明 PHP、数据库、浏览器交互或完整多租户业务，也不是正式发行资格。
 
 ## PC 原生浏览器接管与匿名导航
 
 `pc/tests/Productization/browser-hydration.test.mjs` 单独补真实 Chromium 的 hydration、双 Host 正文、富文本安全、匿名收藏跳转、非法/缺失文章及上游故障与不存在的区别。复用输入未变且摘要一致的原生 hybrid 产物，不运行已经通过的 SSR HTTP 套件或重新构建。页面 HTML、脚本及 DOM 来自未修改的应用；仅浏览器 API 请求明确路由到内存合成 HTTP 上游，不代表 PHP/MySQL、真实登录、实际反向代理或完整 M5 通过。
 
-领取上述 SSR 所有者/gate 的新独占租约，还须包含 `tooling=peanut-pc-browser-qualification`、本次空证据目录和任务临时目录；不能借其他模块浏览器会话。使用资源登记所列固定 Playwright 版本和已存在的 Chromium，开启浏览器 sandbox、仅创建本任务 profile，不隐式下载、连接日常浏览器或修改系统 DNS。浏览器进程局部映射两个合成 Host 到登记的回环端口，禁止访问其他业务主机。
+浏览器项读取同一显式 Project registry，核对 `peanut-pc-browser-qualification` 的 owner、environment、listener IDs、fallback 与固定 Playwright 版本；对两条 loopback listener 再做空端口预检，使用新浏览器上下文与 sandbox 保护的既有 Chromium。仅创建本轮浏览器上下文与临时 profile，不连接日常浏览器、不隐式下载、不修改系统 DNS；浏览器进程局部映射两个合成 Host 到登记端口，禁止访问其他业务主机。复用上方命令中的 `PC_SSR_PROJECT_ROOT`、`PC_SSR_SOURCE_COMMIT` 与 `PC_SSR_OUTPUT_SHA256`，并设置本轮 `PC_BROWSER_PLAYWRIGHT_ROOT`、空 `PC_BROWSER_EVIDENCE_DIR` 和任务 `TMPDIR` 后，串行执行 `node --test pc/tests/Productization/browser-hydration.test.mjs`。
 
-```sh
-PC_SSR_PROJECT_ROOT="<已核验的原生 hybrid PC 工程绝对路径>" \
-PC_SSR_LEASE_ID="<本轮有效租约>" \
-PC_BROWSER_OUTPUT_SHA256="<同一产物按测试 outputDigest 算法核验的摘要>" \
-PC_BROWSER_PLAYWRIGHT_ROOT="<符合登记版本的已安装 playwright 包绝对目录>" \
-PC_BROWSER_EVIDENCE_DIR="$PWD/.local/evidence/<本轮任务空目录>" \
-TMPDIR="$PWD/.local/tmp/<本轮已有任务目录>" \
-node --test pc/tests/Productization/browser-hydration.test.mjs
-```
-
-缺浏览器、来源摘要、租约或端口条件时失败，不 skip 或改用模拟 DOM。输出包含版本、页面错误/警告、请求、截图和产物前后摘要；测试关闭自己的 Chromium、Node与上游，调用者核对 profile/端口后释放本轮租约。后端身份和数据库验证保持独立状态，不因此重跑未知是否已执行的任务。
+缺浏览器、来源提交/产物摘要、登记资源、空证据目录或端口条件时失败，不 skip 或改用模拟 DOM。输出包含版本、页面错误/警告、请求、截图和产物前后摘要；测试关闭自己的 Chromium、Node 与上游。后端身份和数据库验证保持独立状态，不因此重跑未知是否已执行的任务。
 
 ## UniApp H5 原生浏览器与主题生命周期
 

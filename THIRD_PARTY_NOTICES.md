@@ -1,6 +1,6 @@
 # Peanut Admin Third-Party Notices
 
-Generated for Peanut Admin 5.1.18-rc.12 on 2026-11-23.
+Generated for Peanut Admin 5.1.18-rc.13 on 2026-11-23.
 
 Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-party components remain governed by their own licenses.
 
@@ -36,18 +36,21 @@ Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-pa
 | composer | `Apache-2.0` | 14 |
 | composer | `BSD-3-Clause` | 23 |
 | composer | `MIT` | 28 |
+| pc | `0BSD` | 1 |
 | pc | `Apache-2.0` | 21 |
-| pc | `BlueOak-1.0.0` | 13 |
-| pc | `BSD-2-Clause` | 11 |
-| pc | `BSD-3-Clause` | 9 |
+| pc | `BlueOak-1.0.0` | 12 |
+| pc | `BSD-2-Clause` | 4 |
+| pc | `BSD-3-Clause` | 10 |
 | pc | `BSD-3-Clause OR GPL-2.0` | 1 |
-| pc | `CC-BY-4.0` | 1 |
-| pc | `CC0-1.0` | 3 |
-| pc | `ISC` | 48 |
-| pc | `MIT` | 704 |
+| pc | `CC-BY-4.0` | 2 |
+| pc | `CC0-1.0` | 1 |
+| pc | `ISC` | 41 |
+| pc | `LicenseRef-BSD-ambiguous` | 1 |
+| pc | `MIT` | 691 |
 | pc | `MIT OR Apache-2.0` | 1 |
 | pc | `MIT OR CC0-1.0` | 1 |
 | pc | `MIT-0` | 3 |
+| pc | `MPL-2.0` | 12 |
 | pc | `MPL-2.0 OR Apache-2.0` | 1 |
 | platform | `Apache-2.0` | 4 |
 | platform | `BSD-2-Clause` | 1 |
@@ -137,30 +140,33 @@ The following deduplicated package/version entries are outside the common MIT, A
 
 | Ecosystem | Package | Version | License | Source |
 |---|---|---|---|---|
+| pc | `@isaacs/nonrecursive-glob-match` | `1.1.0` | `BlueOak-1.0.0` | https://registry.npmjs.org/%40isaacs%2Fnonrecursive-glob-match/1.1.0 |
 | pc | `chownr` | `3.0.0` | `BlueOak-1.0.0` | https://registry.npmjs.org/chownr/3.0.0 |
-| pc | `glob` | `13.0.6` | `BlueOak-1.0.0` | https://registry.npmjs.org/glob/13.0.6 |
+| pc | `glob` | `14.0.6` | `BlueOak-1.0.0` | https://registry.npmjs.org/glob/14.0.6 |
 | pc | `isexe` | `4.0.0` | `BlueOak-1.0.0` | https://registry.npmjs.org/isexe/4.0.0 |
 | quality-js | `jackspeak` | `3.4.3` | `BlueOak-1.0.0` | https://registry.npmjs.org/jackspeak/3.4.3 |
 | pc | `lru-cache` | `11.5.2` | `BlueOak-1.0.0` | https://registry.npmjs.org/lru-cache/11.5.2 |
+| pc | `lru-cache` | `11.5.3` | `BlueOak-1.0.0` | https://registry.npmjs.org/lru-cache/11.5.3 |
 | pc | `minimatch` | `10.2.6` | `BlueOak-1.0.0` | https://registry.npmjs.org/minimatch/10.2.6 |
+| pc | `minimatch` | `11.0.9` | `BlueOak-1.0.0` | https://registry.npmjs.org/minimatch/11.0.9 |
 | quality-js | `minipass` | `7.1.3` | `BlueOak-1.0.0` | https://registry.npmjs.org/minipass/7.1.3 |
 | quality-js | `package-json-from-dist` | `1.0.1` | `BlueOak-1.0.0` | https://registry.npmjs.org/package-json-from-dist/1.0.1 |
+| pc | `path-scurry` | `3.0.0` | `BlueOak-1.0.0` | https://registry.npmjs.org/path-scurry/3.0.0 |
 | quality-js | `path-scurry` | `1.11.1` | `BlueOak-1.0.0` | https://registry.npmjs.org/path-scurry/1.11.1 |
-| pc | `path-scurry` | `2.0.2` | `BlueOak-1.0.0` | https://registry.npmjs.org/path-scurry/2.0.2 |
 | web | `sax` | `1.6.1` | `BlueOak-1.0.0` | https://registry.npmjs.org/sax/1.6.1 |
 | pc | `tar` | `7.5.22` | `BlueOak-1.0.0` | https://registry.npmjs.org/tar/7.5.22 |
 | pc | `yallist` | `5.0.0` | `BlueOak-1.0.0` | https://registry.npmjs.org/yallist/5.0.0 |
 | pc | `node-forge` | `1.4.0` | `BSD-3-Clause OR GPL-2.0` | https://registry.npmjs.org/node-forge/1.4.0 |
 | web | `spdx-exceptions` | `2.5.0` | `CC-BY-3.0` | https://registry.npmjs.org/spdx-exceptions/2.5.0 |
 | pc | `caniuse-lite` | `1.0.30001807` | `CC-BY-4.0` | https://registry.npmjs.org/caniuse-lite/1.0.30001807 |
+| pc | `caniuse-lite` | `1.0.30001827` | `CC-BY-4.0` | https://registry.npmjs.org/caniuse-lite/1.0.30001827 |
 | web | `caniuse-lite` | `1.0.30001806` | `CC-BY-4.0` | https://registry.npmjs.org/caniuse-lite/1.0.30001806 |
 | web | `@csstools/selector-specificity` | `2.2.0` | `CC0-1.0` | https://registry.npmjs.org/%40csstools%2Fselector-specificity/2.2.0 |
 | pc | `@speed-highlight/core` | `1.2.23` | `CC0-1.0` | https://registry.npmjs.org/%40speed-highlight%2Fcore/1.2.23 |
-| pc | `mdn-data` | `2.0.28` | `CC0-1.0` | https://registry.npmjs.org/mdn-data/2.0.28 |
-| pc | `mdn-data` | `2.27.1` | `CC0-1.0` | https://registry.npmjs.org/mdn-data/2.27.1 |
 | web | `mdn-data` | `2.0.14` | `CC0-1.0` | https://registry.npmjs.org/mdn-data/2.0.14 |
 | web | `spdx-license-ids` | `3.0.23` | `CC0-1.0` | https://registry.npmjs.org/spdx-license-ids/3.0.23 |
 | uniapp | `string-hash` | `1.1.3` | `CC0-1.0` | https://registry.npmjs.org/string-hash/1.1.3 |
+| pc | `speakingurl` | `14.0.1` | `LicenseRef-BSD-ambiguous` | https://registry.npmjs.org/speakingurl/14.0.1 |
 | uniapp | `pako` | `1.0.11` | `MIT AND Zlib` | https://registry.npmjs.org/pako/1.0.11 |
 | pc | `@cloudflare/kv-asset-handler` | `0.4.2` | `MIT OR Apache-2.0` | https://registry.npmjs.org/%40cloudflare%2Fkv-asset-handler/0.4.2 |
 | web | `JSONStream` | `1.3.5` | `MIT OR Apache-2.0` | https://registry.npmjs.org/JSONStream/1.3.5 |
