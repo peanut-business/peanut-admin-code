@@ -36,6 +36,30 @@ if (($result['status'] ?? null) !== 'dependencies-already-installed' || ($result
     || !isset($result['frontend_adoption']['web'], $result['frontend_adoption']['platform'])) {
     throw new RuntimeException('INITIAL_INSTALL_SELECTED_GRAPH_NOT_PREPARED');
 }
+$contract = dirname(__DIR__, 3) . '/scripts/check-installation-contract.php';
+foreach ([
+    [$root, 0, 'INITIAL-INSTALL-SEED-CONTRACT passed'],
+    [$server, 1, 'INSTALL_SEED_CONTRACT_SOURCE_REQUIRED'],
+] as [$consumer, $expectedExit, $expectedOutput]) {
+    $process = proc_open(
+        [PHP_BINARY, '-d', 'display_errors=0', '-d', 'log_errors=0', '-d', 'zend.exception_ignore_args=1', $contract, $consumer],
+        [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+        $pipes,
+    );
+    if (!is_resource($process)) {
+        throw new RuntimeException('INITIAL_INSTALL_SEED_CONTRACT_PROCESS_FAILED');
+    }
+    fclose($pipes[0]);
+    $stdout = trim(stream_get_contents($pipes[1]));
+    $stderr = trim(stream_get_contents($pipes[2]));
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    if (proc_close($process) !== $expectedExit
+        || ($expectedExit === 0 ? $stdout !== $expectedOutput || $stderr !== '' : $stderr !== $expectedOutput || $stdout !== '')) {
+        throw new RuntimeException('INITIAL_INSTALL_SEED_CONTRACT_RESULT_MISMATCH');
+    }
+}
+
 foreach ($before as $file => $digest) {
     $path = $root . '/' . $file;
     if ($digest !== (is_file($path) ? hash_file('sha256', $path) : null)) {

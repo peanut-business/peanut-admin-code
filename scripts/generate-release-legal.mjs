@@ -62,11 +62,22 @@ const releaseTag = releaseMetadata.expected_tag;
 const releaseDate = releaseMetadata.release_date;
 const applicationProduct = application ? releaseMetadata.product : 'Peanut Admin';
 const applicationRepository = application ? releaseMetadata.source_repository : 'peanut-business/peanut-admin-code';
-if (application && (!/^[A-Za-z\d_.-]+\/[A-Za-z\d_.-]+$/.test(applicationRepository ?? '') ||
-    typeof applicationProduct !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(releaseDate ?? ''))) {
-  throw new Error('application SBOM requires product, source_repository and release_date in RELEASE_METADATA.json');
+const applicationIdentity = application ? releaseMetadata.application_identity : 'peanut-business/peanut-admin-code';
+const validRepository = (value) => typeof value === 'string' && /^[A-Za-z\d_.-]+\/[A-Za-z\d_.-]+$/.test(value);
+const validDate = (value) => {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === value;
+};
+if (application && (typeof applicationProduct !== 'string' || applicationProduct.trim() === '' ||
+    typeof applicationIdentity !== 'string' || !/^[A-Za-z\d_.-]+\/[A-Za-z\d_.-]+$/.test(applicationIdentity) ||
+    (applicationRepository != null && !validRepository(applicationRepository)) ||
+    (releaseDate != null && !validDate(releaseDate)))) {
+  throw new Error('application SBOM requires a valid product and application_identity; provided source_repository/release_date must be valid');
 }
-const repositoryUrl = `https://github.com/${applicationRepository}`;
+const repositoryUrl = applicationRepository == null
+  ? undefined
+  : `https://github.com/${applicationRepository}`;
 if (versionContract.schema_version !== 3 || versionContract.protocol !== 'peanut.release-versions.v3') {
   throw new Error('RELEASE_LEGAL_VERSION_CONTRACT_UNSUPPORTED: expected peanut.release-versions.v3');
 }
@@ -612,7 +623,7 @@ const rootPackage = {
   name: applicationProduct,
   SPDXID: 'SPDXRef-Package-Peanut-Admin',
   versionInfo: releaseVersion,
-  downloadLocation: repositoryUrl,
+  downloadLocation: repositoryUrl || 'NOASSERTION',
   filesAnalyzed: false,
   licenseConcluded: 'Apache-2.0',
   licenseDeclared: 'Apache-2.0',
@@ -622,20 +633,46 @@ const rootPackage = {
     {
       referenceCategory: 'PACKAGE-MANAGER',
       referenceType: 'purl',
-      referenceLocator: `pkg:github/${applicationRepository}@${releaseVersion}`,
+      referenceLocator: applicationRepository
+        ? `pkg:github/${applicationRepository}@${releaseVersion}`
+        : `pkg:generic/${applicationIdentity.split('/').map(encodeURIComponent).join('/')}@${encodeURIComponent(releaseVersion)}`,
     },
   ],
 };
 
 const sbomPackages = allPackages.map(({ _ecosystem, _scope, ...pkg }) => pkg);
+let existingCreated;
+if (application && releaseDate == null && checkOnly) {
+  try {
+    const existing = JSON.parse(readFileSync(resolve(rootDir, 'RELEASE_SBOM.spdx.json'), 'utf8'));
+    const created = existing.creationInfo?.created;
+    if (typeof created === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(created)) {
+      const parsed = new Date(created);
+      const normalized = created.replace(/\.(\d{1,3})Z$/, (_, fraction) => `.${fraction.padEnd(3, '0')}Z`);
+      if (!Number.isNaN(parsed.valueOf()) &&
+          (parsed.toISOString() === normalized || parsed.toISOString().replace('.000Z', 'Z') === normalized)) {
+        existingCreated = created;
+      }
+    }
+  } catch {
+    // Missing or invalid existing SBOM is reported by the normal --check comparison.
+  }
+}
+const sbomCreated = releaseDate != null
+  ? `${releaseDate}T00:00:00Z`
+  : existingCreated || new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
 const sbom = {
   spdxVersion: 'SPDX-2.3',
   dataLicense: 'CC0-1.0',
   SPDXID: 'SPDXRef-DOCUMENT',
   name: `${applicationProduct} ${releaseVersion} dependency SBOM`,
-  documentNamespace: application ? `${repositoryUrl}/sbom/${releaseVersion}` : `${repositoryUrl}/releases/tag/${releaseTag}/sbom`,
+  documentNamespace: application
+    ? (repositoryUrl && releaseDate != null
+      ? `${repositoryUrl}/sbom/${releaseVersion}`
+      : '')
+    : `${repositoryUrl}/releases/tag/${releaseTag}/sbom`,
   creationInfo: {
-    created: `${releaseDate}T00:00:00Z`,
+    created: sbomCreated,
     creators: [
       'Organization: 花生科技',
       'Tool: scripts/generate-release-legal.mjs',
@@ -659,6 +696,11 @@ const sbom = {
     comment: `${pkg._ecosystem}; ${pkg._scope}`,
   })),
 };
+if (application && (repositoryUrl == null || releaseDate == null)) {
+  const { documentNamespace: ignoredNamespace, ...documentContent } = sbom;
+  const documentDigest = createHash('sha256').update(JSON.stringify(documentContent)).digest('hex');
+  sbom.documentNamespace = `https://spdx.org/spdxdocs/${documentDigest}`;
+}
 
 const licenseCounts = new Map();
 for (const pkg of allPackages) {
@@ -717,10 +759,14 @@ const applicationLockRows = application
   : '';
 const notices = `# ${applicationProduct} Third-Party Notices
 
-Generated for ${applicationProduct} ${releaseVersion} on ${releaseDate}.
+${application && releaseDate == null
+  ? `Prepared for ${applicationProduct} ${releaseVersion}; release date not declared.`
+  : `Generated for ${applicationProduct} ${releaseVersion} on ${releaseDate}.`}
 
 ${application
-  ? `Application source: ${repositoryUrl}. See the application's LICENSE and NOTICE for its own terms and attribution. Third-party components remain governed by their own licenses.`
+  ? (repositoryUrl
+    ? `Application source: ${repositoryUrl}. See the application's LICENSE and NOTICE for its own terms and attribution. Third-party components remain governed by their own licenses.`
+    : `Application source repository: not declared (local application source). See the application's LICENSE and NOTICE for its own terms and attribution. Third-party components remain governed by their own licenses.`)
   : 'Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-party components remain governed by their own licenses.'}
 
 ## Distribution boundary

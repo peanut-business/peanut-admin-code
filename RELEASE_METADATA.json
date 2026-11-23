@@ -2,9 +2,9 @@
   "schema_version": 3,
   "protocol": "peanut.release-metadata.v3",
   "product": "Peanut Admin",
-  "source_product_version": "5.1.18-rc.14",
+  "source_product_version": "5.1.18-rc.15",
   "instance_version": null,
-  "expected_tag": "v5.1.18-rc.14",
+  "expected_tag": "v5.1.18-rc.15",
   "release_date": "2026-11-23",
   "repository": "https://github.com/peanut-business/peanut-admin-code",
   "license": {
@@ -84,8 +84,8 @@
   "legal_files": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "NOTICE": "c0680ac5f6eac2bf9106393ada2d3d54b845a50cf14d13bf8e46acb66026609f",
-    "THIRD_PARTY_NOTICES.md": "90793a23bc89721ffa53685accd5022bf4f421e3783871259832aba819717528",
-    "RELEASE_SBOM.spdx.json": "8a426dd15dd53564cddf48ccfebc2d3455bf107cf4b8f92bb5cd1cd7d2937c17"
+    "THIRD_PARTY_NOTICES.md": "b631a04dde885d5149662d7cd7a9f7a09404416618eca99b740bccd3d980ca25",
+    "RELEASE_SBOM.spdx.json": "934101f0b940940d1cbed67a05cba1182bb44475c66ae9b1a9ac85fcdceb5b7b"
   },
   "technical_qualification": {
     "phase": "5.1.18-rc.14-prerelease-candidate",
