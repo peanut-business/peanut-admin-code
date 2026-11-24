@@ -1,3 +1,17 @@
+import {
+  platformOperatorCreate,
+  platformOperatorRolesAssign,
+  platformOperatorRolesReplace,
+  platformOperatorsPage,
+  platformOperatorUpdate,
+  platformPermissionBundleCreate,
+  platformPermissionCatalogRead,
+  platformRoleArchive,
+  platformRoleCreate,
+  platformRolesPage,
+  platformRoleUpdate,
+} from './platform-shell-definitions';
+
 export interface PlatformApiAccess {
   method: string;
   path: string;
@@ -27,26 +41,20 @@ const actionEndpoints: Record<string, readonly [string, string]> = {
     '/platformapi/tenants/invitations',
   ],
   'platform.tenant.license.manage': ['PUT', '/platformapi/tenants/license'],
-  'platform.operator.read': ['GET', '/platformapi/operators'],
-  'platform.operator.create': ['POST', '/platformapi/operators/create'],
-  'platform.operator.update': ['POST', '/platformapi/operators/update'],
-  'platform.operator.role.assign': [
-    'POST',
-    '/platformapi/operators/roles/replace',
-  ],
-  'platform.role.read': ['GET', '/platformapi/roles'],
-  'platform.role.create': ['POST', '/platformapi/roles/create'],
-  'platform.role.update': ['POST', '/platformapi/roles/update'],
-  'platform.role.archive': ['POST', '/platformapi/roles/archive'],
+  'platform.operator.read': platformOperatorsPage.endpoints[0],
+  [platformOperatorCreate.key]: platformOperatorCreate.endpoints[0],
+  [platformOperatorUpdate.key]: platformOperatorUpdate.endpoints[0],
+  [platformOperatorRolesAssign.key]: platformOperatorRolesReplace,
+  'platform.role.read': platformRolesPage.endpoints[0],
+  [platformRoleCreate.key]: platformRoleCreate.endpoints[0],
+  [platformRoleUpdate.key]: platformRoleUpdate.endpoints[0],
+  [platformRoleArchive.key]: platformRoleArchive.endpoints[0],
   'platform.role.permission.assign': [
     'POST',
     '/platformapi/roles/permissions/replace',
   ],
-  'platform.permission.read': ['GET', '/platformapi/permissions'],
-  'platform.permission.bundle.manage': [
-    'POST',
-    '/platformapi/permission/bundles',
-  ],
+  'platform.permission.read': platformPermissionCatalogRead,
+  'platform.permission.bundle.manage': platformPermissionBundleCreate.endpoints[0],
   'platform.permission.api.manage': [
     'PUT',
     '/platformapi/permission/apis/bindings',

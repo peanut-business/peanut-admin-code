@@ -12,9 +12,10 @@ const updates = '/platformapi/instance-tools/modules/updates';
 const refresh = '/platformapi/session/refresh';
 const catalog = '/platformapi/developer-center/catalog';
 const transportModules = await Promise.all(
-  ['tenant-license', 'permission-bundles', 'role-authorization-preview', 'platform'].map(async (name) => {
+  ['platform-shell-definitions', 'tenant-license', 'permission-bundles', 'role-authorization-preview', 'platform'].map(async (name) => {
+    const directory = name === 'platform-shell-definitions' ? 'core' : 'api';
     const filename = fileURLToPath(
-      new URL(`../src/api/${name}.ts`, import.meta.url)
+      new URL(`../src/${directory}/${name}.ts`, import.meta.url)
     );
     const { code } = await transformWithEsbuild(
       readFileSync(filename, 'utf8'),
@@ -67,6 +68,8 @@ function fixture(t, adapter) {
       {
         module,
         require(dependency) {
+          if (dependency === '../core/platform-shell-definitions')
+            return dependencies['./platform-shell-definitions'];
           assert.ok(Object.hasOwn(dependencies, dependency), dependency);
           return dependencies[dependency];
         },

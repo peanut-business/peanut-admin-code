@@ -250,8 +250,8 @@
             <el-card v-if="canApi('GET', '/platformapi/tenants')"
               ><span>租户总数</span><strong>{{ tenantTotal }}</strong></el-card
             >
-            <el-card v-if="canApi('GET', '/platformapi/operators')"
-              ><span>实例平台操作员</span
+            <el-card v-if="canApi(...platformOperatorsPage.endpoints[0])"
+              ><span>{{ platformOperatorsPage.label }}</span
               ><strong>{{ operatorTotal }}</strong></el-card
             >
             <el-card
@@ -1035,14 +1035,14 @@
             </el-table-column>
           </el-table>
         </template>
-        <template v-else-if="view === 'operators'">
+        <template v-else-if="view === platformOperatorsPage.view">
           <div class="toolbar">
             <p>管理平台操作员。角色、状态变更按各自权限执行。</p>
             <el-button
-              v-if="can('platform.operator.create')"
+              v-if="can(platformOperatorCreate.key)"
               type="primary"
               @click="operatorDialog = true"
-              >创建操作员</el-button
+              >{{ platformOperatorCreate.label }}</el-button
             >
           </div>
           <el-table
@@ -1066,51 +1066,48 @@
             <el-table-column label="操作" min-width="300">
               <template #default="{ row }">
                 <el-button
-                  v-if="can('platform.operator.update')"
+                  v-if="can(platformOperatorUpdate.key)"
                   link
                   @click="editOperator(row)"
-                  >编辑</el-button
+                  >{{ platformOperatorUpdate.label }}</el-button
                 >
                 <el-button
-                  v-if="
-                    can('platform.operator.role.assign') &&
-                    can('platform.role.read')
-                  "
+                  v-if="canAssignOperatorRoles()"
                   link
                   type="primary"
                   @click="assignOperatorRoles(row)"
-                  >分配角色</el-button
+                  >{{ platformOperatorRolesAssign.label }}</el-button
                 >
                 <el-button
                   v-if="
                     row.status !== 'active' &&
                     row.status !== 'closed' &&
-                    canApi('POST', '/platformapi/operators/activate')
+                    canApi(...platformOperatorTransitions.activate.endpoints[0])
                   "
                   link
                   type="success"
                   @click="transitionOperator(row, 'activate')"
-                  >启用</el-button
+                  >{{ platformOperatorTransitions.activate.label }}</el-button
                 >
                 <el-button
                   v-if="
                     row.status === 'active' &&
-                    canApi('POST', '/platformapi/operators/suspend')
+                    canApi(...platformOperatorTransitions.suspend.endpoints[0])
                   "
                   link
                   type="warning"
                   @click="transitionOperator(row, 'suspend')"
-                  >暂停</el-button
+                  >{{ platformOperatorTransitions.suspend.label }}</el-button
                 >
                 <el-button
                   v-if="
                     row.status !== 'closed' &&
-                    canApi('POST', '/platformapi/operators/close')
+                    canApi(...platformOperatorTransitions.close.endpoints[0])
                   "
                   link
                   type="danger"
                   @click="transitionOperator(row, 'close')"
-                  >关闭</el-button
+                  >{{ platformOperatorTransitions.close.label }}</el-button
                 >
               </template>
             </el-table-column>
@@ -1123,7 +1120,7 @@
             @current-change="changeOperatorPage"
           />
         </template>
-        <template v-else-if="view === 'roles'">
+        <template v-else-if="view === platformRolesPage.view">
           <div class="toolbar">
             <p>维护平台角色的基本信息。权限分配在独立的角色授权页面进行。</p>
             <el-button
@@ -1132,10 +1129,10 @@
               @click="roleAuthorizationPreviewOpen = true"
             >只读候选预览</el-button>
             <el-button
-              v-if="can('platform.role.create')"
+              v-if="can(platformRoleCreate.key)"
               type="primary"
               @click="roleDialog = true"
-              >创建角色</el-button
+              >{{ platformRoleCreate.label }}</el-button
             >
           </div>
           <el-table
@@ -1165,14 +1162,14 @@
             <el-table-column label="操作" min-width="230">
               <template #default="{ row }">
                 <el-button
-                  v-if="can('platform.role.update')"
+                  v-if="can(platformRoleUpdate.key)"
                   link
                   :disabled="row.status !== 'active'"
                   @click="editRole(row)"
-                  >编辑</el-button
+                  >{{ platformRoleUpdate.label }}</el-button
                 >
                 <el-button
-                  v-if="canView('role-permissions')"
+                  v-if="canView(platformRoleAuthorizationPage.view)"
                   link
                   type="primary"
                   @click="openRolePermissions(row)"
@@ -1180,14 +1177,14 @@
                 >
                 <el-button
                   v-if="
-                    can('platform.role.archive') &&
+                    can(platformRoleArchive.key) &&
                     !row.is_builtin &&
                     row.status === 'active'
                   "
                   link
                   type="danger"
                   @click="archiveRole(row)"
-                  >归档</el-button
+                  >{{ platformRoleArchive.label }}</el-button
                 >
                 <span v-if="row.status === 'archived'" class="muted"
                   >已归档</span
@@ -1203,7 +1200,7 @@
             @current-change="changeRolePage"
           />
         </template>
-        <template v-else-if="view === 'role-permissions'">
+        <template v-else-if="view === platformRoleAuthorizationPage.view">
           <div class="toolbar">
             <el-select
               :model-value="permissionRole?.id"
@@ -1278,20 +1275,20 @@
           </el-card>
         </template>
         <PermissionBundlesPanel
-          v-else-if="view === 'permission-bundles'"
-          key="permission-bundles"
+          v-else-if="view === platformPermissionBundlesPage.view"
+          :key="platformPermissionBundlesPage.view"
           section="bundles"
           :can-api="canApi"
         />
         <PermissionBundlesPanel
-          v-else-if="view === 'permission-apis'"
-          key="permission-apis"
+          v-else-if="view === platformPermissionApisPage.view"
+          :key="platformPermissionApisPage.view"
           section="apis"
           :can-api="canApi"
         />
         <PermissionBundlesPanel
-          v-else-if="view === 'permission-menus'"
-          key="permission-menus"
+          v-else-if="view === platformPermissionMenusPage.view"
+          :key="platformPermissionMenusPage.view"
           section="menus"
           :can-api="canApi"
         />
@@ -1354,12 +1351,7 @@
             :can-update="
               canApi('POST', '/platformapi/instance-tools/modules/update')
             "
-            :can-read-tasks="
-              canApi(
-                'GET',
-                '/platformapi/instance-tools/modules/tasks/{task_key}'
-              )
-            "
+            :can-read-tasks="canApi(...platformModuleTaskRead.endpoints[0])"
         /></template> </el-main
     ></el-container>
   </component>
@@ -1387,11 +1379,11 @@
         ><el-input v-model="roleForm.description" type="textarea"
       /></el-form-item>
       <el-button
-        v-if="can('platform.role.create')"
+        v-if="can(platformRoleCreate.key)"
         native-type="submit"
         type="primary"
         :loading="loading"
-        >创建角色</el-button
+        >{{ platformRoleCreate.label }}</el-button
       >
     </el-form>
   </el-dialog>
@@ -1417,11 +1409,11 @@
           autocomplete="new-password"
       /></el-form-item>
       <el-button
-        v-if="can('platform.operator.create')"
+        v-if="can(platformOperatorCreate.key)"
         native-type="submit"
         type="primary"
         :loading="loading"
-        >创建操作员</el-button
+        >{{ platformOperatorCreate.label }}</el-button
       >
     </el-form>
   </el-dialog>
@@ -1460,7 +1452,7 @@
         ><el-input v-model="operatorRoleReason" type="textarea"
       /></el-form-item>
       <el-button
-        v-if="can('platform.operator.role.assign')"
+        v-if="can(platformOperatorRolesAssign.key)"
         native-type="submit"
         type="primary"
         :loading="loading"
@@ -1595,6 +1587,24 @@
     allowsPlatformApi,
     type PlatformApiAccess,
   } from './core/platform-access';
+  import {
+    organizationAccessNavigation,
+    platformModuleTaskRead,
+    platformOperatorCreate,
+    platformOperatorRolesAssign,
+    platformOperatorsPage,
+    platformOperatorTransitions,
+    platformOperatorUpdate,
+    platformPermissionApisPage,
+    platformPermissionBundlesPage,
+    platformPermissionMenusPage,
+    platformRoleArchive,
+    platformRoleAuthorizationPage,
+    platformRoleCreate,
+    platformRolesPage,
+    platformRoleUpdate,
+    platformViewHash,
+  } from './core/platform-shell-definitions';
   import PlansPanel from './components/PlansPanel.vue';
   import TenantLicensePanel from './components/TenantLicensePanel.vue';
   import {
@@ -1774,8 +1784,13 @@
   });
   const canApi = (method: string, path: string) =>
     allowsPlatformApi(apiAccess.value, method, path);
+  const canAssignOperatorRoles = () =>
+    platformOperatorRolesAssign.endpoints.every(([method, path]) =>
+      canApi(method, path)
+    );
   const canPreviewRoleAuthorization = () =>
-    (view.value === 'roles' || view.value === 'role-permissions') &&
+    (view.value === platformRolesPage.view ||
+      view.value === platformRoleAuthorizationPage.view) &&
     allowsRoleAuthorizationPreview(canApi);
   watch([view, canPreviewRoleAuthorization], () => {
     roleAuthorizationPreviewOpen.value = false;
@@ -1798,7 +1813,10 @@
     diagnostics: 'diagnostics',
     providers: 'providers',
   };
-  const viewRequirements: Record<string, Array<[string, string]>> = {
+  const viewRequirements: Record<
+    string,
+    readonly (readonly [string, string])[]
+  > = {
     'overview': [],
     'tenants': [['GET', '/platformapi/tenants']],
     'owners': [
@@ -1815,15 +1833,12 @@
       ['GET', '/platformapi/tenants/modules'],
     ],
     'plans': [['GET', '/platformapi/plans']],
-    'operators': [['GET', '/platformapi/operators']],
-    'roles': [['GET', '/platformapi/roles']],
-    'role-permissions': [
-      ['GET', '/platformapi/roles'],
-      ['GET', '/platformapi/permissions'],
-    ],
-    'permission-bundles': [['GET', '/platformapi/permission/bundles']],
-    'permission-apis': [['GET', '/platformapi/permission/apis']],
-    'permission-menus': [['GET', '/platformapi/permission/menus']],
+    [platformOperatorsPage.view]: platformOperatorsPage.endpoints,
+    [platformRolesPage.view]: platformRolesPage.endpoints,
+    [platformRoleAuthorizationPage.view]: platformRoleAuthorizationPage.endpoints,
+    [platformPermissionBundlesPage.view]: platformPermissionBundlesPage.endpoints,
+    [platformPermissionApisPage.view]: platformPermissionApisPage.endpoints,
+    [platformPermissionMenusPage.view]: platformPermissionMenusPage.endpoints,
     'ops': [['GET', '/platformapi/v1/ops/status']],
     'maintenance': [['GET', '/platformapi/v1/ops/maintenance']],
     'backups': [['GET', '/platformapi/v1/ops/backups']],
@@ -1856,15 +1871,15 @@
       items: ['tenants', 'owners', 'endpoints', 'modules', 'plans'],
     },
     {
-      key: 'organization-access',
-      title: '组织与权限',
+      key: organizationAccessNavigation.id,
+      title: organizationAccessNavigation.label,
       items: [
-        'operators',
-        'roles',
-        'role-permissions',
-        'permission-bundles',
-        'permission-apis',
-        'permission-menus',
+        platformOperatorsPage.view,
+        platformRolesPage.view,
+        platformRoleAuthorizationPage.view,
+        platformPermissionBundlesPage.view,
+        platformPermissionApisPage.view,
+        platformPermissionMenusPage.view,
       ],
     },
     {
@@ -1901,7 +1916,7 @@
     return (
       (
         {
-          governance: 'role-permissions',
+          governance: platformRoleAuthorizationPage.view,
           storage: 'storage-accounts',
           upgrade: 'upgrades',
         } as Record<string, string>
@@ -1978,7 +1993,7 @@
   });
   const canEditPermissions = computed(
     () =>
-      view.value === 'role-permissions' &&
+      view.value === platformRoleAuthorizationPage.view &&
       !loading.value &&
       !permissionEditingBlockedReason.value
   );
@@ -2105,12 +2120,12 @@
     'storage-accounts': '存储账号',
     'storage-spaces': '存储空间',
     'storage-routes': '上传路由',
-    'operators': '实例平台操作员',
-    'roles': '平台角色',
-    'role-permissions': '角色授权',
-    'permission-bundles': '权限包管理',
-    'permission-apis': 'API 目录与关联',
-    'permission-menus': '菜单与按钮权限',
+    [platformOperatorsPage.view]: platformOperatorsPage.label,
+    [platformRolesPage.view]: platformRolesPage.label,
+    [platformRoleAuthorizationPage.view]: platformRoleAuthorizationPage.label,
+    [platformPermissionBundlesPage.view]: platformPermissionBundlesPage.label,
+    [platformPermissionApisPage.view]: platformPermissionApisPage.label,
+    [platformPermissionMenusPage.view]: platformPermissionMenusPage.label,
     'audit': '平台审计',
   };
   const title = computed(() => labels[view.value]);
@@ -2481,7 +2496,7 @@
                 if (isCurrentRequest()) tenantTotal.value = result.count;
               })
             : Promise.resolve(),
-          canApi('GET', '/platformapi/operators')
+          canApi(...platformOperatorsPage.endpoints[0])
             ? api.operators(1, 1).then((result) => {
                 if (isCurrentRequest()) operatorTotal.value = result.count;
               })
@@ -2533,19 +2548,19 @@
             purposes: [],
             ...result,
           };
-      } else if (requestedView === 'operators') {
+      } else if (requestedView === platformOperatorsPage.view) {
         const result = await api.operators(operatorPage.value);
         if (isCurrentRequest()) {
           operators.value = result.lists;
           operatorTotal.value = result.count;
         }
-      } else if (requestedView === 'roles') {
+      } else if (requestedView === platformRolesPage.view) {
         const result = await api.roles(rolePage.value);
         if (isCurrentRequest()) {
           roles.value = result.lists;
           roleTotal.value = result.count;
         }
-      } else if (requestedView === 'role-permissions') {
+      } else if (requestedView === platformRoleAuthorizationPage.view) {
         const selectedId = permissionRole.value?.id;
         const [roleRows] = await Promise.all([
           readSelectionPages((page) => api.roles(page)),
@@ -2705,7 +2720,7 @@
         if (opsSections[view.value] || opsSections[next]) opsRuntime.dispose();
       }
       view.value = next;
-      const hash = '#/' + next;
+      const hash = platformViewHash(next);
       if (window.location.hash !== hash) window.history.pushState({}, '', hash);
       closeNavigation();
       await loadView();
@@ -3241,7 +3256,7 @@
     }
   }
   async function createOperator() {
-    if (!can('platform.operator.create') || loading.value) return;
+    if (!can(platformOperatorCreate.key) || loading.value) return;
     await run(async () => {
       if (operatorForm.initial_password)
         await validateNewPassword(operatorForm.initial_password);
@@ -3255,7 +3270,7 @@
     }, '平台操作员已创建');
   }
   async function editOperator(item: Operator) {
-    if (!can('platform.operator.update') || loading.value) return;
+    if (!can(platformOperatorUpdate.key) || loading.value) return;
     try {
       const name = await ElMessageBox.prompt(
         '显示名',
@@ -3279,12 +3294,7 @@
     }
   }
   async function assignOperatorRoles(item: Operator) {
-    if (
-      !can('platform.operator.role.assign') ||
-      !can('platform.role.read') ||
-      loading.value
-    )
-      return;
+    if (!canAssignOperatorRoles() || loading.value) return;
     const request = viewRequest;
     loading.value = true;
     error.value = '';
@@ -3319,7 +3329,7 @@
     const item = assigningOperator.value;
     if (
       !item ||
-      !can('platform.operator.role.assign') ||
+      !can(platformOperatorRolesAssign.key) ||
       !operatorRoleReason.value.trim() ||
       loading.value
     )
@@ -3334,17 +3344,15 @@
   }
   async function transitionOperator(
     item: Operator,
-    action: 'activate' | 'suspend' | 'close'
+    action: keyof typeof platformOperatorTransitions
   ) {
-    if (!canApi('POST', '/platformapi/operators/' + action) || loading.value)
-      return;
-    const actionLabel = { activate: '启用', suspend: '暂停', close: '关闭' }[
-      action
-    ];
+    const transition = platformOperatorTransitions[action];
+    const [method, path] = transition.endpoints[0];
+    if (!canApi(method, path) || loading.value) return;
     try {
       const reason = await ElMessageBox.prompt(
         '变更原因',
-        `${actionLabel} ${item.display_name}`,
+        `${transition.label} ${item.display_name}`,
         { inputPattern: /\S+/, inputErrorMessage: '必须填写原因' }
       );
       await run(
@@ -3356,7 +3364,7 @@
     }
   }
   async function createRole() {
-    if (!can('platform.role.create') || loading.value) return;
+    if (!can(platformRoleCreate.key) || loading.value) return;
     await run(async () => {
       await api.createRole({ ...roleForm });
       roleDialog.value = false;
@@ -3365,7 +3373,7 @@
   }
   async function editRole(item: PlatformRole) {
     if (
-      !can('platform.role.update') ||
+      !can(platformRoleUpdate.key) ||
       roles.value.find((role) => role.id === item.id)?.status !== 'active'
     ) {
       error.value = '角色已归档、不可用或缺少编辑权限，不能编辑。';
@@ -3385,7 +3393,7 @@
         inputErrorMessage: '必须填写原因',
       });
       if (
-        !can('platform.role.update') ||
+        !can(platformRoleUpdate.key) ||
         roles.value.find((role) => role.id === item.id)?.status !== 'active'
       ) {
         error.value = '角色状态或编辑权限已变化，请刷新后重试。';
@@ -3401,15 +3409,15 @@
   }
   function choosePermissionRole(id: number) {
     const item = roles.value.find((role) => role.id === id);
-    if (!item || !canView('role-permissions')) return;
+    if (!item || !canView(platformRoleAuthorizationPage.view)) return;
     permissionRole.value = item;
     permissionSelection.value = [...item.permission_keys];
   }
   async function openRolePermissions(item: PlatformRole) {
-    if (!canView('role-permissions')) return;
+    if (!canView(platformRoleAuthorizationPage.view)) return;
     permissionRole.value = item;
     permissionSelection.value = [...item.permission_keys];
-    await selectView('role-permissions');
+    await selectView(platformRoleAuthorizationPage.view);
   }
   async function savePermissions() {
     if (
@@ -3445,7 +3453,7 @@
   }
   async function archiveRole(item: PlatformRole) {
     if (
-      !can('platform.role.archive') ||
+      !can(platformRoleArchive.key) ||
       item.is_builtin ||
       item.status !== 'active' ||
       loading.value

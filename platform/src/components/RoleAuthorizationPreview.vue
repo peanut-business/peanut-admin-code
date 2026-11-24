@@ -20,7 +20,17 @@
               />
             </el-select>
           </el-form-item>
-          <el-form-item label="候选节点">
+          <el-form-item label="候选来源">
+            <el-radio-group v-model="candidateMode">
+              <el-radio value="shell">Platform Shell 正式定义</el-radio>
+              <el-radio value="manual">高级：自定义 JSON</el-radio>
+            </el-radio-group>
+            <p v-if="candidateMode === 'shell'" class="preview-help">
+              当前覆盖「组织与权限」下的页面和已接入的按钮，以及开发者中心的模块操作任务读取。
+              节点关联来自已登记的 Platform API 目录。范围外的现有能力可能显示为移除。
+            </p>
+          </el-form-item>
+          <el-form-item v-if="candidateMode === 'manual'" label="自定义候选节点">
             <el-input
               v-model="candidateText"
               type="textarea"
@@ -32,7 +42,7 @@
               明确空关联填 []。候选只用于比较，不保存角色授权。
             </p>
           </el-form-item>
-          <el-form-item label="查阅可关联的 Platform API ID">
+          <el-form-item v-if="candidateMode === 'manual'" label="查阅可关联的 Platform API ID">
             <el-select
               v-model="lookupApiId"
               filterable
@@ -91,7 +101,8 @@
             >
               <template #default="{ data }">
                 <span class="preview-tree-node">
-                  <span>{{ nodeTypeLabel[data.type as NodeType] }} · {{ data.key }}</span>
+                  <span>{{ nodeTypeLabel[data.type as NodeType] }} · {{ data.label ?? data.key }}</span>
+                  <small v-if="data.source">来源 · {{ data.source }}</small>
                   <small v-if="data.api_ids.length">{{ describeApis(data.api_ids) }}</small>
                   <small v-else>明确空关联</small>
                 </span>
@@ -160,6 +171,7 @@
   import { useAsyncAction } from '@peanut-admin/vue';
   import { api } from '../api/platform';
   import {
+    buildPlatformShellCandidate,
     buildRoleAuthorizationCandidate,
     readCandidateNodes,
     type RoleAuthorizationPreview,
@@ -179,6 +191,7 @@
   const directoryReady = ref(false);
   const operatorId = ref<string>();
   const roleId = ref<string>();
+  const candidateMode = ref<'shell' | 'manual'>('shell');
   const candidateText = ref('');
   const lookupApiId = ref('');
   const selections = ref(new Map<string, string[]>());
@@ -245,9 +258,17 @@
     () => new Map(directory.value.apis.map((item) => [item.id, item.method + ' ' + item.path]))
   );
   const candidate = computed(() => {
-    if (!candidateText.value.trim()) return { data: null, error: '' };
+    if (
+      !directoryReady.value ||
+      (candidateMode.value === 'manual' && !candidateText.value.trim())
+    )
+      return { data: null, error: '' };
     try {
-      return { data: readCandidateNodes(candidateText.value), error: '' };
+      const data =
+        candidateMode.value === 'shell'
+          ? buildPlatformShellCandidate(directory.value.apis)
+          : readCandidateNodes(candidateText.value);
+      return { data, error: '' };
     } catch (error) {
       return { data: null, error: message(error) };
     }
@@ -277,15 +298,20 @@
     { flush: 'sync' }
   );
   watch(
-    candidateText,
+    [candidateMode, candidateText],
     () => {
       selections.value.clear();
+      treeRevision.value += 1;
       invalidate();
     },
     { flush: 'sync' }
   );
   async function loadDirectory() {
     if (!props.canPreview()) return;
+    directoryReady.value = false;
+    selections.value.clear();
+    treeRevision.value += 1;
+    invalidate();
     const outcome = await runDirectory(({ signal }) => props.loadDirectory(signal));
     if (outcome.status === 'completed' && props.canPreview()) {
       directory.value = outcome.data;

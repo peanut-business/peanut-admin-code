@@ -1,4 +1,11 @@
 import type { PermissionApi } from './permission-bundles';
+import {
+  platformOperatorsPage,
+  platformPermissionApisPage,
+  platformRolesPage,
+  platformShellPreviewDefinitions,
+  platformViewHash,
+} from '../core/platform-shell-definitions';
 
 export const roleAuthorizationPreviewPath =
   '/platformapi/roles/permissions/preview';
@@ -8,9 +15,9 @@ export function allowsRoleAuthorizationPreview(
 ): boolean {
   return (
     canApi('POST', roleAuthorizationPreviewPath) &&
-    canApi('GET', '/platformapi/operators') &&
-    canApi('GET', '/platformapi/roles') &&
-    canApi('GET', '/platformapi/permission/apis')
+    canApi(...platformOperatorsPage.endpoints[0]) &&
+    canApi(...platformRolesPage.endpoints[0]) &&
+    canApi(...platformPermissionApisPage.endpoints[0])
   );
 }
 
@@ -22,6 +29,8 @@ interface CandidateNode {
 }
 
 interface CandidateTreeNode extends CandidateNode {
+  label?: string;
+  source?: string;
   disabled: boolean;
   children: CandidateTreeNode[];
 }
@@ -162,6 +171,76 @@ export function readCandidateNodes(source: string) {
   } catch {
     throw new Error('请输入有效的 JSON 节点数组。');
   }
+  return validateCandidateNodes(draft);
+}
+
+export function buildPlatformShellCandidate(apis: readonly PermissionApi[]) {
+  function resolveApi([method, path]: readonly [string, string]): string {
+    const reference = `${method} ${path}`;
+    const matches = apis.filter(
+      (item) => item.method === method && item.path === path
+    );
+    const match = matches[0];
+    if (!match || matches.length !== 1) {
+      const problem = matches.length ? '存在多个目录条目' : 'API 未登记';
+      throw new Error(`正式定义的 API ${reference}：${problem}。`);
+    }
+    if (match.audience !== 'platform')
+      throw new Error(`正式定义的 API ${reference}：受众不是 Platform。`);
+    if (match.status !== 'active')
+      throw new Error(
+        `正式定义的 API ${reference}：目录状态为 ${match.status}，需要有效条目。`
+      );
+    if (match.access_mode !== 'platform_permission')
+      throw new Error(
+        `正式定义的 API ${reference}：授权模式为 ${match.access_mode}，不能作为角色授权项。`
+      );
+    return match.id;
+  }
+  const nodes: CandidateNode[] = platformShellPreviewDefinitions.map(
+    ({ key, parentKey, type, endpoints }) => {
+      if (type !== 'group' && endpoints.length < 1)
+        throw new Error(`正式定义的节点 ${key} 未声明 API 关联。`);
+      return {
+        key,
+        parent_key: parentKey,
+        type,
+        api_ids: endpoints.map(resolveApi),
+      };
+    }
+  );
+  const labels = new Map<string, string>(
+    platformShellPreviewDefinitions.map(({ key, label }) => [key, label])
+  );
+  const presentation = new Map(
+    platformShellPreviewDefinitions.map((definition) => {
+      let source: string;
+      switch (definition.type) {
+        case 'group':
+          source = 'Platform Shell 侧栏分组';
+          break;
+        case 'page':
+          source = 'Platform Shell 页面 ' + platformViewHash(definition.view);
+          break;
+        case 'action':
+          source =
+            '所属页面 · ' +
+            (labels.get(definition.parentKey) ?? definition.parentKey);
+          break;
+        case 'operation':
+          source = definition.source;
+          break;
+      }
+      return [definition.key, { label: definition.label, source }];
+    })
+  );
+  return validateCandidateNodes(nodes, presentation);
+}
+
+function validateCandidateNodes(
+  draft: unknown,
+  presentation?: ReadonlyMap<string, { label: string; source: string }>
+) {
   if (!Array.isArray(draft) || draft.length > 1000)
     throw new Error('候选须为最多 1,000 项的节点数组。');
 
@@ -209,7 +288,12 @@ export function readCandidateNodes(source: string) {
   const tree = new Map<string, CandidateTreeNode>(
     [...nodes].map(([key, node]) => [
       key,
-      { ...node, disabled: node.type === 'group', children: [] },
+      {
+        ...node,
+        ...presentation?.get(key),
+        disabled: node.type === 'group',
+        children: [],
+      },
     ])
   );
   const roots: CandidateTreeNode[] = [];

@@ -18,12 +18,14 @@ const { descriptor, errors } = parse(readFileSync(filename, 'utf8'), {
 assert.deepEqual(errors, []);
 
 const modules = [
+  'platform-shell-definitions',
   'tenant-license',
   'permission-bundles',
   'role-authorization-preview',
   'platform',
 ].map((name) => {
-  const file = fileURLToPath(new URL('../src/api/' + name + '.ts', import.meta.url));
+  const directory = name === 'platform-shell-definitions' ? 'core' : 'api';
+  const file = fileURLToPath(new URL(`../src/${directory}/${name}.ts`, import.meta.url));
   return [name, readFileSync(file, 'utf8'), file];
 });
 modules.push(['preview-panel', compileScript(descriptor, { id: 'g18' }).content, filename]);
@@ -43,6 +45,20 @@ const transpiled = await Promise.all(
 
 const previewPath = '/platformapi/roles/permissions/preview';
 const legacyPath = '/platformapi/roles/permissions/replace';
+const operatorsPath = '/platformapi/operators';
+const createOperatorPath = '/platformapi/operators/create';
+const rolesPath = '/platformapi/roles';
+const createRolePath = '/platformapi/roles/create';
+const moduleTaskPath = '/platformapi/instance-tools/modules/tasks/{task_key}';
+const permissionCatalogPath = '/platformapi/permissions';
+const permissionBundlesPath = '/platformapi/permission/bundles';
+const permissionApisPath = '/platformapi/permission/apis';
+const permissionMenusPath = '/platformapi/permission/menus';
+const updateOperatorPath = '/platformapi/operators/update';
+const replaceOperatorRolesPath = '/platformapi/operators/roles/replace';
+const updateRolePath = '/platformapi/roles/update';
+const archiveRolePath = '/platformapi/roles/archive';
+const operatorTransitions = ['activate', 'suspend', 'close'];
 const apiId = 'a'.repeat(64);
 const group = {
   key: 'platform.candidate',
@@ -75,6 +91,50 @@ const result = {
 };
 
 const plain = (data) => JSON.parse(JSON.stringify(data));
+function nativePlatformApis() {
+  const source = process.env.PEANUT_PLATFORM_PREVIEW_API_CATALOG ||
+    new URL('../../server/generated/api-catalog.json', import.meta.url);
+  const { endpoints } = JSON.parse(readFileSync(source, 'utf8'));
+  return [
+    ['GET', rolesPath],
+    ['POST', createRolePath],
+    ['GET', moduleTaskPath],
+    ['GET', operatorsPath],
+    ['POST', createOperatorPath],
+    ['GET', permissionCatalogPath],
+    ['GET', permissionBundlesPath],
+    ['POST', permissionBundlesPath],
+    ['PUT', permissionBundlesPath],
+    ['GET', permissionApisPath],
+    ['GET', permissionMenusPath],
+    ['POST', updateOperatorPath],
+    ['POST', replaceOperatorRolesPath],
+    ...operatorTransitions.map((action) => ['POST', operatorsPath + '/' + action]),
+    ['POST', updateRolePath],
+    ['POST', archiveRolePath],
+  ]
+    .map(([method, path]) => {
+      const matches = endpoints.filter((row) => row.path === path && row.method === method);
+      assert.equal(matches.length, 1, method + ' ' + path);
+      const [row] = matches;
+      assert.equal(row.application, 'platform');
+      assert.equal(row.audience, 'platform');
+      assert.equal(row.auth.mode, 'platform_permission');
+      assert.equal(row.contract_quality, 'complete');
+      return {
+        id: row.api_id,
+        method,
+        path,
+        audience: row.audience,
+        module_key: row.owner.key,
+        access_mode: row.auth.mode,
+        status: 'active',
+        default_permission_keys: row.default_permission_keys,
+        prerequisite_permission_keys: row.prerequisite_permission_keys,
+      };
+    });
+}
+
 const reply = (config, data, code = 20000, status = 200, msg = '') => ({
   config,
   status,
@@ -115,6 +175,8 @@ function fixture(t, adapter) {
       Error,
       require(dependency) {
         if (dependency === '../api/platform') return dependencies['./platform'];
+        if (dependency === '../core/platform-shell-definitions')
+          return dependencies['./platform-shell-definitions'];
         if (dependency === '../api/role-authorization-preview')
           return dependencies['./role-authorization-preview'];
         assert.ok(Object.hasOwn(dependencies, dependency), dependency);
@@ -134,7 +196,7 @@ function fixture(t, adapter) {
     onSessionChange: platform.onPlatformSessionChange,
     contract,
     revoke: () => { allowed = false; },
-    async mount(useOfficialDirectory = false) {
+    async mount(useOfficialDirectory = false, mode = 'manual') {
       const scope = vue.effectScope();
       const state = scope.run(() =>
         dependencies['./preview-panel'].default.setup({
@@ -160,11 +222,214 @@ function fixture(t, adapter) {
         state.operatorId.value = '1';
         state.roleId.value = '2';
       }
-      state.candidateText.value = JSON.stringify([group, page]);
+      if (mode === 'manual') {
+        state.candidateMode.value = mode;
+        state.candidateText.value = JSON.stringify([group, page]);
+      }
       return state;
     },
   };
 }
+
+test('the default preview projects the real Platform Shell branches and a no-menu operation', async (t) => {
+  const apis = nativePlatformApis();
+  const node = (key, parent_key, type, endpoints = []) => ({
+    key,
+    parent_key,
+    type,
+    api_ids: endpoints.map(([method, path]) => {
+      const api = apis.find((row) => row.method === method && row.path === path);
+      assert.ok(api, method + ' ' + path);
+      return api.id;
+    }).sort(),
+  });
+  const previewCalls = [];
+  const taskKey = 'synthetic/key?x=1';
+  const taskUrl = moduleTaskPath.replace('{task_key}', encodeURIComponent(taskKey));
+  const roleInput = { key: 'platform.synthetic', name: 'Synthetic' };
+  const operatorInput = { email: 'operator@example.test', display_name: 'Synthetic' };
+  const bundleInput = { key: 'platform.synthetic', name: 'Synthetic', audience: 'platform' };
+  const bundleUpdate = {
+    permission_key: bundleInput.key,
+    name: bundleInput.name,
+    status: 'active',
+    expected_revision: 'r1',
+  };
+  const bundle = {
+    ...bundleInput,
+    module_key: 'platform',
+    status: 'active',
+    revision: 'r1',
+    api_ids: [],
+    configured: false,
+    source: 'custom',
+  };
+  const { api, mount } = fixture(t, async (config) => {
+    if (config.method === 'get') {
+      if (config.url === operatorsPath)
+        return reply(config, {
+          count: 1,
+          lists: [{ id: '1', display_name: 'Operator', role_keys: ['editor', 'reviewer'] }],
+        });
+      if (config.url === rolesPath)
+        return reply(config, {
+          count: 2,
+          lists: [
+            { id: '2', key: 'editor', name: 'Editor' },
+            { id: '3', key: 'reviewer', name: 'Reviewer' },
+          ],
+        });
+      if (config.url === taskUrl) return reply(config, { task_key: taskKey });
+      if (config.url === permissionCatalogPath) {
+        assert.deepEqual(plain(config.params), { page: 2, page_size: 20 });
+        return reply(config, { lists: [], count: 0 });
+      }
+      if (config.url === permissionBundlesPath) {
+        assert.deepEqual(plain(config.params), { audience: 'platform', page_no: 2, page_size: 100 });
+        return reply(config, { items: [bundle], total: 1 });
+      }
+      assert.equal(config.url, permissionApisPath);
+      assert.equal(config.params.audience, 'platform');
+      return reply(config, { items: apis, total: apis.length });
+    }
+    if (config.url === permissionBundlesPath) {
+      assert.ok(config.method === 'post' || config.method === 'put');
+      assert.deepEqual(JSON.parse(config.data), config.method === 'post' ? bundleInput : bundleUpdate);
+      return reply(config, bundle);
+    }
+    assert.equal(config.method, 'post');
+    if (config.url === createRolePath) {
+      assert.deepEqual(JSON.parse(config.data), roleInput);
+      return reply(config, null);
+    }
+    if (config.url === createOperatorPath) {
+      assert.deepEqual(JSON.parse(config.data), operatorInput);
+      return reply(config, null);
+    }
+    assert.equal(config.url, previewPath);
+    previewCalls.push(JSON.parse(config.data));
+    return reply(config, result);
+  });
+  const panel = await mount(true, 'shell');
+  assert.equal(panel.candidateMode.value, 'shell');
+  assert.equal(panel.candidateText.value, '');
+  const [groupNode, operation] = panel.candidate.value.data.tree;
+  const [operatorsNode, pageNode, workbench, bundlesPage, apisPage, menusPage] =
+    groupNode.children;
+  const [operatorAction] = operatorsNode.children;
+  const [action] = pageNode.children;
+  assert.equal(groupNode.label, '组织与权限');
+  assert.match(groupNode.source, /侧栏分组/);
+  assert.equal(groupNode.disabled, true);
+  assert.equal(operatorsNode.label, '实例平台操作员');
+  assert.match(operatorsNode.source, /#\/operators$/);
+  assert.equal(operatorAction.label, '创建操作员');
+  assert.match(operatorAction.source, /实例平台操作员$/);
+  assert.equal(pageNode.label, '平台角色');
+  assert.match(pageNode.source, /#\/roles$/);
+  assert.equal(action.label, '创建角色');
+  assert.match(action.source, /平台角色$/);
+  assert.match(workbench.source, /#\/role-permissions$/);
+  assert.equal(workbench.api_ids.length, 2);
+  assert.deepEqual(plain(bundlesPage.children.map((child) => child.label)), ['创建权限包', '编辑']);
+  assert.match(apisPage.source, /#\/permission-apis$/);
+  assert.match(menusPage.source, /#\/permission-menus$/);
+  assert.equal(menusPage.children.length, 0);
+  assert.equal(operation.label, '读取模块操作任务');
+  assert.match(operation.source, /开发者中心.*模块任务回执/);
+  assert.equal(panel.describeApis(operation.api_ids), 'GET ' + moduleTaskPath);
+  assert.equal(previewCalls.length, 0);
+
+  panel.operatorId.value = '1';
+  panel.roleId.value = '2';
+  panel.setRoleSelection([]);
+  await panel.runPreview();
+  assert.deepEqual(previewCalls, [{
+    operator_id: '1',
+    nodes: [
+      node('platform.governance', null, 'group'),
+      node('platform.operator.list', 'platform.governance', 'page', [['GET', operatorsPath]]),
+      node('platform.operator.create', 'platform.operator.list', 'action', [['POST', createOperatorPath]]),
+      node('platform.operator.update', 'platform.operator.list', 'action', [['POST', updateOperatorPath]]),
+      node('platform.operator.role.assign', 'platform.operator.list', 'action', [['GET', rolesPath], ['POST', replaceOperatorRolesPath]]),
+      ...operatorTransitions.map((action) => node(
+        'platform.operator.' + action,
+        'platform.operator.list',
+        'action',
+        [['POST', operatorsPath + '/' + action]]
+      )),
+      node('platform.role.list', 'platform.governance', 'page', [['GET', rolesPath]]),
+      node('platform.role.create', 'platform.role.list', 'action', [['POST', createRolePath]]),
+      node('platform.role.update', 'platform.role.list', 'action', [['POST', updateRolePath]]),
+      node('platform.role.archive', 'platform.role.list', 'action', [['POST', archiveRolePath]]),
+      node('platform.governance.workbench', 'platform.governance', 'page', [['GET', rolesPath], ['GET', permissionCatalogPath]]),
+      node('platform.permission.bundle.list', 'platform.governance', 'page', [['GET', permissionBundlesPath]]),
+      node('platform.permission.bundle.create', 'platform.permission.bundle.list', 'action', [['POST', permissionBundlesPath]]),
+      node('platform.permission.bundle.update', 'platform.permission.bundle.list', 'action', [['PUT', permissionBundlesPath]]),
+      node('platform.permission.api.list', 'platform.governance', 'page', [['GET', permissionApisPath]]),
+      node('platform.permission.menu.list', 'platform.governance', 'page', [['GET', permissionMenusPath]]),
+      node('platform.module.operation-task.read', null, 'operation', [['GET', moduleTaskPath]]),
+    ],
+    role_assignments: [{ role_id: '2', node_keys: [] }],
+  }]);
+  assert.equal(panel.result.value.capability_equal, true);
+  assert.equal(panel.result.value.relation_coverage_complete, false);
+  await api.createRole(roleInput);
+  await api.createOperator(operatorInput);
+  assert.deepEqual(await api.permissions(2, 20), { lists: [], count: 0 });
+  assert.deepEqual(plain(await api.permissionBundles('platform', 2)), { items: [bundle], total: 1 });
+  assert.deepEqual(plain(await api.createPermissionBundle(bundleInput)), bundle);
+  assert.deepEqual(plain(await api.updatePermissionBundle(bundleUpdate)), bundle);
+  assert.deepEqual(await api.moduleOperationTask(taskKey), { task_key: taskKey });
+});
+
+test('existing Platform management actions retain methods, data, and revisions', async (t) => {
+  const calls = [];
+  const { api } = fixture(t, async (config) => {
+    calls.push([config.method, config.url, config.data ? JSON.parse(config.data) : null]);
+    return reply(config, config.url === permissionMenusPath ? { items: [], total: 0 } : null);
+  });
+  const role = { id: 41, revision: 7 };
+  const operator = { id: 43, security_revision: 8 };
+  const roleChange = { role_id: 41, expected_revision: 7, change_reason: 'synthetic' };
+  const operatorChange = { operator_id: 43, expected_revision: 8, change_reason: 'synthetic' };
+  await api.updateRole(role, 'Updated role', 'Description', 'synthetic');
+  await api.archiveRole(role, 'synthetic');
+  await api.updateOperator(operator, 'Display name', 'synthetic');
+  await api.replaceOperatorRoles(operator, [41], 'synthetic');
+  for (const action of operatorTransitions)
+    await api.transitionOperator(action, operator, 'synthetic');
+  await api.permissionMenus();
+  assert.deepEqual(calls, [
+    ['post', updateRolePath, { ...roleChange, name: 'Updated role', description: 'Description' }],
+    ['post', archiveRolePath, roleChange],
+    ['post', updateOperatorPath, { ...operatorChange, display_name: 'Display name' }],
+    ['post', replaceOperatorRolesPath, { ...operatorChange, role_ids: [41] }],
+    ...operatorTransitions.map((action) => ['post', operatorsPath + '/' + action, operatorChange]),
+    ['get', permissionMenusPath, null],
+  ]);
+});
+
+test('formal candidates stop on missing, inactive, incompatible or ambiguous API rows', async (t) => {
+  const apis = nativePlatformApis();
+  const [roles, ...otherApis] = apis;
+  const { contract, mount } = fixture(t, () => assert.fail('unexpected request'));
+  const diagnostics = [
+    [otherApis, /GET \/platformapi\/roles：API 未登记/],
+    [[{ ...roles, status: 'retired' }, ...otherApis], /目录状态为 retired/],
+    [[{ ...roles, audience: 'tenant' }, ...otherApis], /受众不是 Platform/],
+    [[{ ...roles, access_mode: 'platform_bearer' }, ...otherApis], /授权模式为 platform_bearer/],
+    [[...apis, { ...roles, id: apiId }], /存在多个目录条目/],
+  ];
+  for (const [rows, error] of diagnostics)
+    assert.throws(() => contract.buildPlatformShellCandidate(rows), error);
+
+  const panel = await mount(false, 'shell');
+  panel.operatorId.value = '1';
+  assert.match(panel.candidate.value.error, /API 未登记/);
+  assert.equal(panel.candidate.value.data, null);
+  await panel.runPreview();
+});
 
 test('preview access requires the exact POST and all three read endpoints', (t) => {
   const { contract } = fixture(t, () => assert.fail('unexpected request'));
@@ -318,7 +583,7 @@ test('unsafe numeric directory IDs fail before a preview can be sent', async (t)
   await panel.runPreview();
 });
 
-test('operator, candidate, role selection, and closing cancel or ignore stale responses', async (t) => {
+test('operator, candidate, source, role selection, and closing cancel or ignore stale responses', async (t) => {
   let pending;
   const { mount } = fixture(t, (config) => new Promise((resolve) => {
     pending = {
@@ -330,10 +595,12 @@ test('operator, candidate, role selection, and closing cancel or ignore stale re
   const changes = [
     () => { panel.operatorId.value = '4'; },
     () => { panel.candidateText.value = '[]'; },
+    () => { panel.candidateMode.value = 'shell'; },
     () => { panel.setRoleSelection([]); },
     () => { panel.close(); },
   ];
   for (const change of changes) {
+    panel.candidateMode.value = 'manual';
     panel.operatorId.value = '1';
     panel.roleId.value = '2';
     panel.candidateText.value = JSON.stringify([group, page]);

@@ -7,6 +7,24 @@ import {
 } from '@peanut-admin/client';
 import type { PlatformApiAccess } from '../core/platform-access';
 import {
+  platformModuleTaskRead,
+  platformOperatorCreate,
+  platformOperatorRolesReplace,
+  platformOperatorsPage,
+  platformOperatorTransitions,
+  platformOperatorUpdate,
+  platformPermissionApisPage,
+  platformPermissionBundleCreate,
+  platformPermissionBundlesPage,
+  platformPermissionBundleUpdate,
+  platformPermissionCatalogRead,
+  platformPermissionMenusPage,
+  platformRoleArchive,
+  platformRoleCreate,
+  platformRolesPage,
+  platformRoleUpdate,
+} from '../core/platform-shell-definitions';
+import {
   readPlan,
   readPlanPage,
   readPlanModules,
@@ -869,6 +887,13 @@ export function hasPlatformSession(): boolean {
   return !!getPlatformSessionSnapshot().token;
 }
 
+function requestEndpoint(
+  [method, url]: readonly [string, string],
+  config: AxiosRequestConfig = {}
+) {
+  return client.request({ ...config, method, url });
+}
+
 export const api = {
   planModules: async (page = 1) =>
     readPlanModules(
@@ -915,7 +940,9 @@ export const api = {
     ),
   permissionMenus: async () =>
     readPermissionPage(
-      await unwrap<unknown>(client.get('/platformapi/permission/menus')),
+      await unwrap<unknown>(
+        requestEndpoint(platformPermissionMenusPage.endpoints[0])
+      ),
       readPermissionMenuBinding
     ),
   replacePermissionMenuBinding: async (data: {
@@ -936,7 +963,7 @@ export const api = {
   }) =>
     readPermissionBundle(
       await unwrap<unknown>(
-        client.post('/platformapi/permission/bundles', data)
+        requestEndpoint(platformPermissionBundleCreate.endpoints[0], { data })
       )
     ),
   updatePermissionBundle: async (data: {
@@ -946,12 +973,14 @@ export const api = {
     expected_revision: string;
   }) =>
     readPermissionBundle(
-      await unwrap<unknown>(client.put('/platformapi/permission/bundles', data))
+      await unwrap<unknown>(
+        requestEndpoint(platformPermissionBundleUpdate.endpoints[0], { data })
+      )
     ),
   permissionBundles: async (audience: PermissionAudience, page: number) =>
     readPermissionPage(
       await unwrap<unknown>(
-        client.get('/platformapi/permission/bundles', {
+        requestEndpoint(platformPermissionBundlesPage.endpoints[0], {
           params: { audience, page_no: page, page_size: 100 },
         })
       ),
@@ -964,7 +993,7 @@ export const api = {
   ) =>
     readPermissionPage(
       await unwrap<unknown>(
-        client.get('/platformapi/permission/apis', {
+        requestEndpoint(platformPermissionApisPage.endpoints[0], {
           params: { audience, page_no: page, page_size: 100 },
           signal,
         })
@@ -1121,36 +1150,40 @@ export const api = {
     ),
   operators: (page = 1, pageSize = 100, signal?: AbortSignal) =>
     unwrap<Page<Operator>>(
-      client.get('/platformapi/operators', {
+      requestEndpoint(platformOperatorsPage.endpoints[0], {
         params: { page, page_size: pageSize },
         signal,
       })
     ),
   createOperator: (payload: Record<string, string>) =>
-    unwrap(client.post('/platformapi/operators/create', payload)),
+    unwrap(requestEndpoint(platformOperatorCreate.endpoints[0], { data: payload })),
   updateOperator: (
     operator: Operator,
     displayName: string,
     changeReason: string
   ) =>
     unwrap(
-      client.post('/platformapi/operators/update', {
-        operator_id: operator.id,
-        expected_revision: operator.security_revision,
-        display_name: displayName,
-        change_reason: changeReason,
+      requestEndpoint(platformOperatorUpdate.endpoints[0], {
+        data: {
+          operator_id: operator.id,
+          expected_revision: operator.security_revision,
+          display_name: displayName,
+          change_reason: changeReason,
+        },
       })
     ),
   transitionOperator: (
-    action: 'activate' | 'suspend' | 'close',
+    action: keyof typeof platformOperatorTransitions,
     operator: Operator,
     changeReason: string
   ) =>
     unwrap(
-      client.post(`/platformapi/operators/${action}`, {
-        operator_id: operator.id,
-        expected_revision: operator.security_revision,
-        change_reason: changeReason,
+      requestEndpoint(platformOperatorTransitions[action].endpoints[0], {
+        data: {
+          operator_id: operator.id,
+          expected_revision: operator.security_revision,
+          change_reason: changeReason,
+        },
       })
     ),
   replaceOperatorRoles: (
@@ -1159,28 +1192,30 @@ export const api = {
     changeReason: string
   ) =>
     unwrap(
-      client.post('/platformapi/operators/roles/replace', {
-        operator_id: operator.id,
-        role_ids: roleIds,
-        expected_revision: operator.security_revision,
-        change_reason: changeReason,
+      requestEndpoint(platformOperatorRolesReplace, {
+        data: {
+          operator_id: operator.id,
+          role_ids: roleIds,
+          expected_revision: operator.security_revision,
+          change_reason: changeReason,
+        },
       })
     ),
   roles: (page = 1, pageSize = 100, signal?: AbortSignal) =>
     unwrap<Page<PlatformRole>>(
-      client.get('/platformapi/roles', {
+      requestEndpoint(platformRolesPage.endpoints[0], {
         params: { page, page_size: pageSize },
         signal,
       })
     ),
   permissions: (page = 1, pageSize = 100) =>
     unwrap<Page<Permission>>(
-      client.get('/platformapi/permissions', {
+      requestEndpoint(platformPermissionCatalogRead, {
         params: { page, page_size: pageSize },
       })
     ),
   createRole: (payload: Record<string, string>) =>
-    unwrap(client.post('/platformapi/roles/create', payload)),
+    unwrap(requestEndpoint(platformRoleCreate.endpoints[0], { data: payload })),
   updateRole: (
     role: PlatformRole,
     name: string,
@@ -1188,20 +1223,24 @@ export const api = {
     changeReason: string
   ) =>
     unwrap(
-      client.post('/platformapi/roles/update', {
-        role_id: role.id,
-        expected_revision: role.revision,
-        name,
-        description,
-        change_reason: changeReason,
+      requestEndpoint(platformRoleUpdate.endpoints[0], {
+        data: {
+          role_id: role.id,
+          expected_revision: role.revision,
+          name,
+          description,
+          change_reason: changeReason,
+        },
       })
     ),
   archiveRole: (role: PlatformRole, changeReason: string) =>
     unwrap(
-      client.post('/platformapi/roles/archive', {
-        role_id: role.id,
-        expected_revision: role.revision,
-        change_reason: changeReason,
+      requestEndpoint(platformRoleArchive.endpoints[0], {
+        data: {
+          role_id: role.id,
+          expected_revision: role.revision,
+          change_reason: changeReason,
+        },
       })
     ),
   previewRoleAuthorization: async (
@@ -1356,11 +1395,13 @@ export const api = {
     ),
   moduleOperationTask: (taskKey: string) =>
     unwrap<ModuleOperationTask>(
-      client.get(
-        `/platformapi/instance-tools/modules/tasks/${encodeURIComponent(
-          taskKey
-        )}`
-      )
+      client.request({
+        method: platformModuleTaskRead.endpoints[0][0],
+        url: platformModuleTaskRead.endpoints[0][1].replace(
+          '{task_key}',
+          encodeURIComponent(taskKey)
+        ),
+      })
     ),
   async runtimeModules(
     moduleKey = '',
