@@ -26,7 +26,7 @@
               <el-radio value="manual">高级：自定义 JSON</el-radio>
             </el-radio-group>
             <p v-if="candidateMode === 'shell'" class="preview-help">
-              当前覆盖租户与生命周期、组织与权限下的页面和已接入的按钮、运维与审计相关读取，以及开发者中心的模块操作任务读取。
+              候选显示 Platform Shell 授权页面和已接入的操作。概览沿用当前会话入口。
               存储管理仅覆盖已登记的 File 分项读取。节点关联来自已登记的 Platform API 目录。范围外的现有能力可能显示为移除。
             </p>
           </el-form-item>

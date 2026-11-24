@@ -660,12 +660,12 @@
                   @click="showTenant(row)"
                   >{{ platformTenantDetail.label }}</el-button
                 ><el-button
-                  v-if="canView('modules')"
+                  v-if="canView(platformTenantEntitlementsPage.view)"
                   link
                   type="primary"
                   @click="
                     targetTenantId = row.id;
-                    selectView('modules');
+                    selectView(platformTenantEntitlementsPage.view);
                   "
                   >许可证</el-button
                 ><el-button
@@ -707,12 +707,12 @@
             @current-change="changeTenantPage"
           />
         </template>
-        <template v-else-if="view === 'owners'"
+        <template v-else-if="view === platformTenantOwnerInvitationsPage.view"
           ><tenant-picker /><div class="two-col"
             ><el-card
               ><template #header>发起租户所有者邀请</template
               ><el-form
-                v-if="can('platform.tenant.provision-owner')"
+                v-if="canApi(...platformTenantOwnerInvitationActions.create.endpoints[0])"
                 label-position="top"
                 @submit.prevent="sendInvitation"
                 ><el-form-item label="所有者邮箱"
@@ -730,7 +730,7 @@
                   type="primary"
                   :loading="loading"
                   :disabled="!targetTenant"
-                  >发送邀请</el-button
+                  >{{ platformTenantOwnerInvitationActions.create.label }}</el-button
                 ></el-form
               ></el-card
             ><el-card
@@ -771,27 +771,27 @@
                 ><el-button
                   v-if="
                     row.status === 'pending' &&
-                    canApi('POST', '/platformapi/tenants/invitations/resend')
+                    canApi(...platformTenantOwnerInvitationActions.resend.endpoints[0])
                   "
                   link
                   type="primary"
                   @click="resendInvitation(row)"
-                  >重发</el-button
+                  >{{ platformTenantOwnerInvitationActions.resend.label }}</el-button
                 ><el-button
                   v-if="
                     row.status === 'pending' &&
-                    canApi('POST', '/platformapi/tenants/invitations/revoke')
+                    canApi(...platformTenantOwnerInvitationActions.revoke.endpoints[0])
                   "
                   link
                   type="danger"
                   @click="revokeInvitation(row)"
-                  >撤销</el-button
+                  >{{ platformTenantOwnerInvitationActions.revoke.label }}</el-button
                 ></template
               ></el-table-column
             ></el-table
           ></template
         >
-        <template v-else-if="view === 'endpoints'"
+        <template v-else-if="view === platformTenantEntryBindingsPage.view"
           ><tenant-picker /><el-alert
             v-if="!targetTenant"
             title="当前显示全部租户入口；选择租户后可启用绑定。"
@@ -802,7 +802,7 @@
               ><template #header>启用入口绑定</template
               ><el-form
                 v-if="
-                  canApi('POST', '/platformapi/tenant-entry-bindings/enable')
+                  canApi(...platformTenantEntryBindingActions.enable.endpoints[0])
                 "
                 label-position="top"
                 @submit.prevent="enableBinding"
@@ -825,7 +825,7 @@
                   type="primary"
                   :disabled="!targetTenant"
                   :loading="loading"
-                  >启用绑定</el-button
+                  >{{ platformTenantEntryBindingActions.enable.label }}</el-button
                 ></el-form
               ></el-card
             ><el-card
@@ -860,19 +860,19 @@
                 ><el-button
                   v-if="
                     row.status === 'active' &&
-                    canApi('POST', '/platformapi/tenant-entry-bindings/disable')
+                    canApi(...platformTenantEntryBindingActions.disable.endpoints[0])
                   "
                   link
                   type="danger"
                   @click="disableBinding(row)"
-                  >停用</el-button
+                  >{{ platformTenantEntryBindingActions.disable.label }}</el-button
                 ></template
               ></el-table-column
             ></el-table
           ></template
         >
-        <PlansPanel v-else-if="view === 'plans'" :can-api="canApi" />
-        <template v-else-if="view === 'modules'"
+        <PlansPanel v-else-if="view === platformPlansPage.view" :can-api="canApi" />
+        <template v-else-if="view === platformTenantEntitlementsPage.view"
           ><el-alert
             title="模块权益由当前许可证的套餐及有效期派生；实例安装与成员授权分别管理。此表只读。"
             type="info"
@@ -880,10 +880,7 @@
             v-if="targetTenantId"
             :key="targetTenantId"
             :tenant-id="Number(targetTenantId)"
-            :can-manage="
-              can('platform.tenant.license.manage') &&
-              canApi('GET', '/platformapi/plans')
-            "
+            :can-manage="canUseEndpoints(platformTenantLicenseUpdate.endpoints)"
             @saved="loadView" /><el-empty
             v-if="!targetTenant"
             description="请先选择操作目标租户" /><el-table
@@ -1331,26 +1328,11 @@
               layout="prev, pager, next, total"
               @current-change="changeAuditPage" /></template
         ></template>
-        <template v-else-if="view === 'developer'"
+        <template v-else-if="view === platformDeveloperPage.view"
           ><developer-center-page
-            :can-read-updates="
-              canApi('GET', '/platformapi/instance-tools/modules/updates')
-            "
-            :can-update-official="
-              canApi(
-                'POST',
-                '/platformapi/instance-tools/modules/official-update'
-              )
-            "
-            :can-read-runtime="
-              canApi('GET', '/platformapi/instance-tools/modules')
-            "
-            :can-install="
-              canApi('POST', '/platformapi/instance-tools/modules/install')
-            "
-            :can-update="
-              canApi('POST', '/platformapi/instance-tools/modules/update')
-            "
+            v-bind="developerModuleAccess"
+            :can-read-updates="canApi(...platformDeveloperOfficialUpdatesRead.endpoints[0])"
+            :can-read-runtime="canApi(...platformDeveloperRuntimeRead.endpoints[0])"
             :can-read-tasks="canApi(...platformModuleTaskRead.endpoints[0])"
         /></template> </el-main
     ></el-container>
@@ -1585,11 +1567,15 @@
   import {
     allowsPlatformAction,
     allowsPlatformApi,
+    platformDeveloperModuleAccess,
     type PlatformApiAccess,
   } from './core/platform-access';
   import {
     organizationAccessNavigation,
     platformAuditPage,
+    platformDeveloperOfficialUpdatesRead,
+    platformDeveloperPage,
+    platformDeveloperRuntimeRead,
     platformModuleTaskRead,
     platformOperationsNavigation,
     platformOpsBackupsPage,
@@ -1610,6 +1596,7 @@
     platformPermissionApisPage,
     platformPermissionBundlesPage,
     platformPermissionMenusPage,
+    platformPlansPage,
     platformRoleArchive,
     platformRoleAuthorizationPage,
     platformRoleCreate,
@@ -1621,6 +1608,13 @@
     platformTenancyNavigation,
     platformTenantCreate,
     platformTenantDetail,
+    platformTenantEntitlementsPage,
+    platformTenantEntryBindingActions,
+    platformTenantEntryBindingsPage,
+    platformTenantLicenseUpdate,
+    platformTenantOwnerInvitationActions,
+    platformTenantOwnerInvitationsPage,
+    platformTenantOwnerRead,
     platformTenantsPage,
     platformTenantTransitions,
     platformViewHash,
@@ -1804,10 +1798,10 @@
   });
   const canApi = (method: string, path: string) =>
     allowsPlatformApi(apiAccess.value, method, path);
+  const canUseEndpoints = (endpoints: readonly (readonly [string, string])[]) =>
+    endpoints.every(([method, path]) => canApi(method, path));
   const canAssignOperatorRoles = () =>
-    platformOperatorRolesAssign.endpoints.every(([method, path]) =>
-      canApi(method, path)
-    );
+    canUseEndpoints(platformOperatorRolesAssign.endpoints);
   const canPreviewRoleAuthorization = () =>
     (view.value === platformRolesPage.view ||
       view.value === platformRoleAuthorizationPage.view) &&
@@ -1817,6 +1811,9 @@
   });
   const can = (permission: string) =>
     allowsPlatformAction(apiAccess.value, permission);
+  const developerModuleAccess = computed(() =>
+    platformDeveloperModuleAccess(apiAccess.value)
+  );
   const storageSections: Record<string, StorageSection> = {
     [platformStoragePages.accounts.view]: 'accounts',
     [platformStoragePages.spaces.view]: 'spaces',
@@ -1842,20 +1839,10 @@
   > = {
     'overview': [],
     [platformTenantsPage.view]: platformTenantsPage.endpoints,
-    'owners': [
-      platformTenantsPage.endpoints[0],
-      ['GET', '/platformapi/tenants/invitations'],
-    ],
-    'endpoints': [
-      platformTenantsPage.endpoints[0],
-      ['GET', '/platformapi/tenant-entry-bindings'],
-    ],
-    'modules': [
-      platformTenantsPage.endpoints[0],
-      ['GET', '/platformapi/tenants/license'],
-      ['GET', '/platformapi/tenants/modules'],
-    ],
-    'plans': [['GET', '/platformapi/plans']],
+    [platformTenantOwnerInvitationsPage.view]: platformTenantOwnerInvitationsPage.endpoints,
+    [platformTenantEntryBindingsPage.view]: platformTenantEntryBindingsPage.endpoints,
+    [platformTenantEntitlementsPage.view]: platformTenantEntitlementsPage.endpoints,
+    [platformPlansPage.view]: platformPlansPage.endpoints,
     [platformOperatorsPage.view]: platformOperatorsPage.endpoints,
     [platformRolesPage.view]: platformRolesPage.endpoints,
     [platformRoleAuthorizationPage.view]: platformRoleAuthorizationPage.endpoints,
@@ -1866,7 +1853,7 @@
     [platformOpsMaintenancePage.view]: platformOpsMaintenancePage.endpoints,
     [platformOpsBackupsPage.view]: platformOpsBackupsPage.endpoints,
     [platformOpsProvidersPage.view]: platformOpsProvidersPage.endpoints,
-    'developer': [['GET', '/platformapi/developer-center/catalog']],
+    [platformDeveloperPage.view]: platformDeveloperPage.endpoints,
     [platformAuditPage.view]: platformAuditPage.endpoints,
   };
   const canView = (name: string) => {
@@ -1882,14 +1869,20 @@
       );
     return (
       Object.hasOwn(viewRequirements, name) &&
-      viewRequirements[name]!.every(([method, path]) => canApi(method, path))
+      canUseEndpoints(viewRequirements[name]!)
     );
   };
   const navigationGroups = [
     {
       key: platformTenancyNavigation.id,
       title: platformTenancyNavigation.label,
-      items: [platformTenantsPage.view, 'owners', 'endpoints', 'modules', 'plans'],
+      items: [
+        platformTenantsPage.view,
+        platformTenantOwnerInvitationsPage.view,
+        platformTenantEntryBindingsPage.view,
+        platformTenantEntitlementsPage.view,
+        platformPlansPage.view,
+      ],
     },
     {
       key: organizationAccessNavigation.id,
@@ -1918,7 +1911,7 @@
         platformOpsUpgradesPage.view,
         platformOpsDiagnosticsPage.view,
         platformOpsProvidersPage.view,
-        'developer',
+        platformDeveloperPage.view,
         platformAuditPage.view,
       ],
     },
@@ -2133,11 +2126,11 @@
     [platformOpsDiagnosticsPage.view]: platformOpsDiagnosticsPage.label,
     [platformOpsProvidersPage.view]: platformOpsProvidersPage.label,
     [platformTenantsPage.view]: platformTenantsPage.label,
-    'owners': '租户所有者邀请管理',
-    'endpoints': '入口域名与客户端',
-    'modules': '租户许可证与模块权益',
-    'plans': '套餐管理',
-    'developer': '开发者中心',
+    [platformTenantOwnerInvitationsPage.view]: platformTenantOwnerInvitationsPage.label,
+    [platformTenantEntryBindingsPage.view]: platformTenantEntryBindingsPage.label,
+    [platformTenantEntitlementsPage.view]: platformTenantEntitlementsPage.label,
+    [platformPlansPage.view]: platformPlansPage.label,
+    [platformDeveloperPage.view]: platformDeveloperPage.label,
     [platformStoragePages.accounts.view]: platformStoragePages.accounts.label,
     [platformStoragePages.spaces.view]: platformStoragePages.spaces.label,
     [platformStoragePages.routes.view]: platformStoragePages.routes.label,
@@ -2504,7 +2497,7 @@
     }
     loading.value = true;
     error.value = '';
-    if (requestedView === 'endpoints') {
+    if (requestedView === platformTenantEntryBindingsPage.view) {
       bindingLoadState.value = 'loading';
       bindings.value = [];
     } else if (requestedView === platformAuditPage.view) {
@@ -2528,14 +2521,14 @@
         ]);
       } else if (requestedView === platformTenantsPage.view) {
         await loadTenants(isCurrentRequest, false);
-      } else if (requestedView === 'owners') {
+      } else if (requestedView === platformTenantOwnerInvitationsPage.view) {
         await loadTenants(isCurrentRequest);
         if (!isCurrentRequest()) return;
         const tenantId = targetTenantId.value;
         const ownerData = tenantId
           ? await Promise.all([
               api.invitations(tenantId).then((result) => result.lists),
-              canApi('GET', '/platformapi/tenants/owner')
+              canApi(...platformTenantOwnerRead.endpoints[0])
                 ? api.tenantOwner(tenantId)
                 : Promise.resolve(null),
             ])
@@ -2543,7 +2536,7 @@
         if (!isCurrentTenantRequest(tenantId)) return;
         if (ownerData) [invitations.value, owner.value] = ownerData;
         else [invitations.value, owner.value] = [[], null];
-      } else if (requestedView === 'endpoints') {
+      } else if (requestedView === platformTenantEntryBindingsPage.view) {
         await loadTenants(isCurrentRequest);
         if (!isCurrentRequest()) return;
         const tenantId = targetTenantId.value;
@@ -2551,7 +2544,7 @@
         if (!isCurrentTenantRequest(tenantId)) return;
         bindings.value = bindingData;
         bindingLoadState.value = 'ready';
-      } else if (requestedView === 'modules') {
+      } else if (requestedView === platformTenantEntitlementsPage.view) {
         await loadTenants(isCurrentRequest);
         if (!isCurrentRequest()) return;
         const tenantId = targetTenantId.value;
@@ -2615,7 +2608,8 @@
     } catch (cause) {
       if (isCurrentRequest()) {
         error.value = message(cause);
-        if (requestedView === 'endpoints') bindingLoadState.value = 'error';
+        if (requestedView === platformTenantEntryBindingsPage.view)
+          bindingLoadState.value = 'error';
         if (requestedView === platformAuditPage.view)
           auditLoadState.value = 'error';
         if (!hasPlatformSession()) authenticated.value = false;
@@ -2991,7 +2985,7 @@
     }
   }
   async function sendInvitation() {
-    if (!canApi('POST', '/platformapi/tenants/invitations') || loading.value)
+    if (!canApi(...platformTenantOwnerInvitationActions.create.endpoints[0]) || loading.value)
       return;
     if (!targetTenantId.value) return;
     loading.value = true;
@@ -3012,7 +3006,7 @@
   }
   async function resendInvitation(item: Invitation) {
     if (
-      !canApi('POST', '/platformapi/tenants/invitations/resend') ||
+      !canApi(...platformTenantOwnerInvitationActions.resend.endpoints[0]) ||
       loading.value
     )
       return;
@@ -3031,7 +3025,7 @@
   }
   async function revokeInvitation(item: Invitation) {
     if (
-      !canApi('POST', '/platformapi/tenants/invitations/revoke') ||
+      !canApi(...platformTenantOwnerInvitationActions.revoke.endpoints[0]) ||
       loading.value
     )
       return;
@@ -3046,7 +3040,7 @@
   }
   async function enableBinding() {
     if (
-      !canApi('POST', '/platformapi/tenant-entry-bindings/enable') ||
+      !canApi(...platformTenantEntryBindingActions.enable.endpoints[0]) ||
       loading.value
     )
       return;
@@ -3062,7 +3056,7 @@
   }
   async function disableBinding(item: EntryBinding) {
     if (
-      !canApi('POST', '/platformapi/tenant-entry-bindings/disable') ||
+      !canApi(...platformTenantEntryBindingActions.disable.endpoints[0]) ||
       loading.value
     )
       return;

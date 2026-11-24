@@ -1,4 +1,7 @@
 import {
+  platformDeveloperOfficialActions,
+  platformDeveloperPage,
+  platformDeveloperUploadActions,
   platformOperatorCreate,
   platformOperatorRolesAssign,
   platformOperatorRolesReplace,
@@ -8,11 +11,16 @@ import {
   platformOpsOverviewPage,
   platformPermissionBundleCreate,
   platformPermissionCatalogRead,
+  platformPlanActions,
+  platformPlansPage,
   platformRoleArchive,
   platformRoleCreate,
   platformRolesPage,
   platformRoleUpdate,
   platformTenantCreate,
+  platformTenantEntryBindingActions,
+  platformTenantLicenseUpdate,
+  platformTenantOwnerInvitationActions,
   platformTenantsPage,
 } from './platform-shell-definitions';
 
@@ -36,15 +44,9 @@ export function allowsPlatformApi(
 const actionEndpoints: Record<string, readonly [string, string]> = {
   'platform.tenant.read': platformTenantsPage.endpoints[0],
   [platformTenantCreate.key]: platformTenantCreate.endpoints[0],
-  'platform.tenant.update': [
-    'POST',
-    '/platformapi/tenant-entry-bindings/enable',
-  ],
-  'platform.tenant.provision-owner': [
-    'POST',
-    '/platformapi/tenants/invitations',
-  ],
-  'platform.tenant.license.manage': ['PUT', '/platformapi/tenants/license'],
+  'platform.tenant.update': platformTenantEntryBindingActions.enable.endpoints[0],
+  'platform.tenant.provision-owner': platformTenantOwnerInvitationActions.create.endpoints[0],
+  'platform.tenant.license.manage': platformTenantLicenseUpdate.endpoints[0],
   'platform.operator.read': platformOperatorsPage.endpoints[0],
   [platformOperatorCreate.key]: platformOperatorCreate.endpoints[0],
   [platformOperatorUpdate.key]: platformOperatorUpdate.endpoints[0],
@@ -63,9 +65,9 @@ const actionEndpoints: Record<string, readonly [string, string]> = {
     'PUT',
     '/platformapi/permission/apis/bindings',
   ],
-  'platform.plan.read': ['GET', '/platformapi/plans'],
-  'platform.plan.manage': ['PUT', '/platformapi/plans'],
-  'platform.module.read': ['GET', '/platformapi/developer-center/catalog'],
+  'platform.plan.read': platformPlansPage.endpoints[0],
+  'platform.plan.manage': platformPlanActions.update.endpoints[0],
+  'platform.module.read': platformDeveloperPage.endpoints[0],
   'platform.ops.read': platformOpsOverviewPage.endpoints[0],
   'platform.ops.backup.manage': ['POST', '/platformapi/v1/ops/tasks/backup'],
   'platform.ops.restore.manage': ['POST', '/platformapi/v1/ops/tasks/restore'],
@@ -81,4 +83,15 @@ export function allowsPlatformAction(
 ): boolean {
   const endpoint = actionEndpoints[action];
   return !!endpoint && allowsPlatformApi(access, endpoint[0], endpoint[1]);
+}
+
+export function platformDeveloperModuleAccess(
+  access: readonly PlatformApiAccess[]
+) {
+  return {
+    canInstall: allowsPlatformApi(access, ...platformDeveloperUploadActions.install.endpoints[0]),
+    canUpdate: allowsPlatformApi(access, ...platformDeveloperUploadActions.update.endpoints[0]),
+    canInstallOfficial: allowsPlatformApi(access, ...platformDeveloperOfficialActions.install.endpoints[0]),
+    canUpdateOfficial: allowsPlatformApi(access, ...platformDeveloperOfficialActions.update.endpoints[0]),
+  };
 }

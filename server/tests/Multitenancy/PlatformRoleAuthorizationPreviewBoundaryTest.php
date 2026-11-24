@@ -28,6 +28,7 @@ use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Authorization\AuthorizationException;
 use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
 use PeanutAdmin\Kernel\Context\PlatformContext;
+use PeanutAdmin\Kernel\Menu\MenuRegistry;
 use PeanutAdmin\Kernel\Module\ModuleAvailability;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
@@ -221,8 +222,9 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
 
     public function testRegisteredPlatformBranchAndOperationMatchLegacyBindings(): void
     {
+        $this->assertCanonicalPlatformMenuRegistration();
         $candidate = $this->platformSourceCandidate();
-        self::assertCount($this->fileCatalogEndpoints === null ? 38 : 42, $candidate['nodes']);
+        self::assertCount($this->fileCatalogEndpoints === null ? 58 : 62, $candidate['nodes']);
         $fullCandidate = $candidate;
         $before = $this->snapshot();
         $response = $this->call($candidate);
@@ -276,6 +278,29 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             $this->assertIndependentFileReads($fullCandidate, $before);
             self::assertSame(6, $this->continuations);
         }
+    }
+
+    private function assertCanonicalPlatformMenuRegistration(): void
+    {
+        $registry = new MenuRegistry(CoreMenuCatalog::definitions());
+        $available = static fn(string $key): bool => $key === 'platform';
+        $permissionGranted = static fn(string $key): bool => true;
+        $platform = array_column($registry->visible('platform-web', $available, $available, $permissionGranted), 'requiredPermission', 'key');
+        foreach ([
+            'platform.tenant.owner-invitation.list' => 'platform.tenant.provision-owner',
+            'platform.tenant.entry-binding.list' => 'platform.tenant.read',
+            'platform.tenant.entitlements' => 'platform.tenant.read',
+            'platform.plan.list' => 'platform.plan.read',
+            'platform.developer.catalog' => 'platform.module.read',
+        ] as $key => $permission) {
+            self::assertSame($permission, $platform[$key] ?? null, $key);
+        }
+        $tenant = $registry->visible('admin-web', $available, $available, $permissionGranted);
+        self::assertEqualsCanonicalizing([
+            'core.workbench.index', 'core.organization', 'core.member.list',
+            'core.department.list', 'core.role.list', 'core.job.list',
+            'core.operations', 'core.audit.list',
+        ], array_column($tenant, 'key'));
     }
 
     private function assertIndependentFileReads(array $candidate, array $before): void
@@ -339,7 +364,7 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         $candidate = $this->platformSourceCandidate();
         $removed = array_values(array_unique(array_merge(...array_column($candidate['nodes'], 'api_ids'))));
         sort($removed, SORT_STRING);
-        self::assertCount($this->fileCatalogEndpoints === null ? 33 : 36, $removed);
+        self::assertCount($this->fileCatalogEndpoints === null ? 54 : 57, $removed);
         $before = $this->snapshot();
 
         $candidate['role_assignments'][0]['node_keys'] = [];
@@ -387,6 +412,20 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             'tenants.activate' => ['POST', 'tenants/activate', 'platform.tenant.lifecycle'],
             'tenants.suspend' => ['POST', 'tenants/suspend', 'platform.tenant.lifecycle'],
             'tenants.close' => ['POST', 'tenants/close', 'platform.tenant.lifecycle'],
+            'owner.invitations' => ['GET', 'tenants/invitations', 'platform.tenant.provision-owner'],
+            'owner.read' => ['GET', 'tenants/owner', 'platform.tenant.read'],
+            'owner.invite' => ['POST', 'tenants/invitations', 'platform.tenant.provision-owner'],
+            'owner.resend' => ['POST', 'tenants/invitations/resend', 'platform.tenant.provision-owner'],
+            'owner.revoke' => ['POST', 'tenants/invitations/revoke', 'platform.tenant.provision-owner'],
+            'bindings.list' => ['GET', 'tenant-entry-bindings', 'platform.tenant.read'],
+            'bindings.enable' => ['POST', 'tenant-entry-bindings/enable', 'platform.tenant.update'],
+            'bindings.disable' => ['POST', 'tenant-entry-bindings/disable', 'platform.tenant.update'],
+            'tenants.license' => ['GET', 'tenants/license', 'platform.tenant.read'],
+            'tenants.modules' => ['GET', 'tenants/modules', 'platform.tenant.read'],
+            'tenants.license.update' => ['PUT', 'tenants/license', 'platform.tenant.license.manage'],
+            'plans.list' => ['GET', 'plans', 'platform.plan.read'],
+            'plans.create' => ['POST', 'plans', 'platform.plan.manage'],
+            'plans.update' => ['PUT', 'plans', 'platform.plan.manage'],
             'operators.list' => ['GET', 'operators', 'platform.operator.read'],
             'operators.create' => ['POST', 'operators/create', 'platform.operator.create'],
             'operators.update' => ['POST', 'operators/update', 'platform.operator.update'],
@@ -413,6 +452,13 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             'ops.upgrades' => ['GET', 'v1/ops/upgrades', 'platform.ops.read'],
             'ops.logs' => ['GET', 'v1/ops/logs', 'platform.ops.logs.read'],
             'ops.diagnostics' => ['GET', 'v1/ops/diagnostics', 'platform.ops.logs.read'],
+            'developer.catalog' => ['GET', 'developer-center/catalog', 'platform.module.read'],
+            'developer.runtime' => ['GET', 'instance-tools/modules', 'platform.module.read'],
+            'developer.updates' => ['GET', 'instance-tools/modules/updates', 'platform.module.read'],
+            'developer.upload-install' => ['POST', 'instance-tools/modules/install', 'platform.module.install'],
+            'developer.upload-update' => ['POST', 'instance-tools/modules/update', 'platform.module.update'],
+            'developer.official-install' => ['POST', 'instance-tools/modules/official-install', 'platform.module.install'],
+            'developer.official-update' => ['POST', 'instance-tools/modules/official-update', 'platform.module.update'],
             'module.task' => ['GET', 'instance-tools/modules/tasks/{task_key}', 'platform.module.read'],
         ] as $name => [$method, $path, $permission]) {
             $endpoint = $this->installPlatformApi($method, '/platformapi/' . $path, $permission);
@@ -441,7 +487,12 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         $groupKey = 'platform.governance';
         $tenancyKey = 'platform.tenancy';
         $tenantPageKey = 'platform.tenant.list';
+        $ownerPageKey = 'platform.tenant.owner-invitation.list';
+        $bindingsPageKey = 'platform.tenant.entry-binding.list';
+        $entitlementsPageKey = 'platform.tenant.entitlements';
+        $planPageKey = 'platform.plan.list';
         $operationsKey = 'platform.operations';
+        $developerPageKey = 'platform.developer.catalog';
         $upgradesKey = 'platform.upgrade.status';
         $diagnosticsKey = 'platform.ops.diagnostics';
         $operatorPageKey = 'platform.operator.list';
@@ -459,6 +510,19 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             ['platform.tenant.activate', $tenantPageKey, 'action', null, ['tenants.activate']],
             ['platform.tenant.suspend', $tenantPageKey, 'action', null, ['tenants.suspend']],
             ['platform.tenant.close', $tenantPageKey, 'action', null, ['tenants.close']],
+            [$ownerPageKey, $tenancyKey, 'page', '/platform/#/owners', ['tenants.list', 'owner.invitations']],
+            ['platform.tenant.owner.read', $ownerPageKey, 'operation', null, ['owner.read']],
+            ['platform.tenant.owner-invitation.create', $ownerPageKey, 'action', null, ['owner.invite']],
+            ['platform.tenant.owner-invitation.resend', $ownerPageKey, 'action', null, ['owner.resend']],
+            ['platform.tenant.owner-invitation.revoke', $ownerPageKey, 'action', null, ['owner.revoke']],
+            [$bindingsPageKey, $tenancyKey, 'page', '/platform/#/endpoints', ['tenants.list', 'bindings.list']],
+            ['platform.tenant.entry-binding.enable', $bindingsPageKey, 'action', null, ['bindings.enable']],
+            ['platform.tenant.entry-binding.disable', $bindingsPageKey, 'action', null, ['bindings.disable']],
+            [$entitlementsPageKey, $tenancyKey, 'page', '/platform/#/modules', ['tenants.list', 'tenants.license', 'tenants.modules']],
+            ['platform.tenant.license.update', $entitlementsPageKey, 'action', null, ['plans.list', 'tenants.license.update']],
+            [$planPageKey, $tenancyKey, 'page', '/platform/#/plans', ['plans.list']],
+            ['platform.plan.create', $planPageKey, 'action', null, ['developer.runtime', 'bundles.list', 'plans.create']],
+            ['platform.plan.update', $planPageKey, 'action', null, ['developer.runtime', 'bundles.list', 'plans.update']],
             [$groupKey, null, 'group', null, []],
             [$operatorPageKey, $groupKey, 'page', '/platform/#/operators', ['operators.list']],
             ['platform.operator.create', $operatorPageKey, 'action', null, ['operators.create']],
@@ -490,6 +554,13 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             [$diagnosticsKey, $operationsKey, 'page', '/platform/#/diagnostics', []],
             ['platform.ops.logs.read', $diagnosticsKey, 'operation', null, ['ops.logs']],
             ['platform.ops.diagnostics.download', $diagnosticsKey, 'operation', null, ['ops.diagnostics']],
+            [$developerPageKey, $operationsKey, 'page', '/platform/#/developer', ['developer.catalog']],
+            ['platform.developer.runtime.read', $developerPageKey, 'operation', null, ['developer.runtime']],
+            ['platform.developer.official-updates.read', $developerPageKey, 'operation', null, ['developer.updates']],
+            ['platform.developer.module.upload-install', $developerPageKey, 'action', null, ['developer.upload-install']],
+            ['platform.developer.module.upload-update', $developerPageKey, 'action', null, ['developer.upload-update']],
+            ['platform.developer.module.official-install', $developerPageKey, 'action', null, ['developer.official-install']],
+            ['platform.developer.module.official-update', $developerPageKey, 'action', null, ['developer.official-update']],
             ['platform.module.operation-task.read', null, 'operation', null, ['module.task']],
         ] as [$key, $parent, $type, $routePath, $endpoints]) {
             if ($type === 'group' || $type === 'page') {

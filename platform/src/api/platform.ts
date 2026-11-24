@@ -8,6 +8,11 @@ import {
 import type { PlatformApiAccess } from '../core/platform-access';
 import {
   platformAuditPage,
+  platformDeveloperOfficialActions,
+  platformDeveloperOfficialUpdatesRead,
+  platformDeveloperPage,
+  platformDeveloperRuntimeRead,
+  platformDeveloperUploadActions,
   platformModuleTaskRead,
   platformOperatorCreate,
   platformOperatorRolesReplace,
@@ -28,6 +33,8 @@ import {
   platformPermissionBundleUpdate,
   platformPermissionCatalogRead,
   platformPermissionMenusPage,
+  platformPlanActions,
+  platformPlansPage,
   platformRoleArchive,
   platformRoleCreate,
   platformRolesPage,
@@ -36,6 +43,13 @@ import {
   platformStoragePages,
   platformTenantCreate,
   platformTenantDetail,
+  platformTenantEntitlementsPage,
+  platformTenantEntryBindingActions,
+  platformTenantEntryBindingsPage,
+  platformTenantLicenseUpdate,
+  platformTenantOwnerInvitationActions,
+  platformTenantOwnerInvitationsPage,
+  platformTenantOwnerRead,
   platformTenantsPage,
   platformTenantTransitions,
 } from '../core/platform-shell-definitions';
@@ -913,7 +927,7 @@ export const api = {
   planModules: async (page = 1) =>
     readPlanModules(
       await unwrap<unknown>(
-        client.get('/platformapi/instance-tools/modules', {
+        requestEndpoint(platformDeveloperRuntimeRead.endpoints[0], {
           params: { page, page_size: 100 },
         })
       )
@@ -921,7 +935,7 @@ export const api = {
   plans: async (page = 1) =>
     readPlanPage(
       await unwrap<unknown>(
-        client.get('/platformapi/plans', { params: { page, page_size: 100 } })
+        requestEndpoint(platformPlansPage.endpoints[0], { params: { page, page_size: 100 } })
       )
     ),
   createPlan: async (data: {
@@ -931,7 +945,9 @@ export const api = {
     permission_keys: string[];
     change_reason: string;
   }) =>
-    readPlan(await unwrap<unknown>(client.post('/platformapi/plans', data))),
+    readPlan(await unwrap<unknown>(
+      requestEndpoint(platformPlanActions.create.endpoints[0], { data })
+    )),
   updatePlan: async (data: {
     id: number;
     expected_revision: number;
@@ -940,18 +956,20 @@ export const api = {
     module_keys: string[];
     permission_keys: string[];
     change_reason: string;
-  }) => readPlan(await unwrap<unknown>(client.put('/platformapi/plans', data))),
+  }) => readPlan(await unwrap<unknown>(
+    requestEndpoint(platformPlanActions.update.endpoints[0], { data })
+  )),
   tenantLicense: async (tenantId: number) =>
     readTenantLicense(
       await unwrap<unknown>(
-        client.get('/platformapi/tenants/license', {
+        requestEndpoint(platformTenantEntitlementsPage.endpoints[1], {
           params: { tenant_id: tenantId },
         })
       )
     ),
   saveTenantLicense: async (data: LicenseInput) =>
     readTenantLicense(
-      await unwrap<unknown>(client.put('/platformapi/tenants/license', data))
+      await unwrap<unknown>(requestEndpoint(platformTenantLicenseUpdate.endpoints[0], { data }))
     ),
   permissionMenus: async () =>
     readPermissionPage(
@@ -1086,7 +1104,7 @@ export const api = {
     ),
   tenantOwner: (tenantId: number) =>
     unwrap<TenantOwner>(
-      client.get('/platformapi/tenants/owner', {
+      requestEndpoint(platformTenantOwnerRead.endpoints[0], {
         params: { tenant_id: tenantId },
       })
     ),
@@ -1110,25 +1128,24 @@ export const api = {
     ),
   invitations: (tenantId: number) =>
     unwrap<Page<Invitation>>(
-      client.get('/platformapi/tenants/invitations', {
+      requestEndpoint(platformTenantOwnerInvitationsPage.endpoints[1], {
         params: { tenant_id: tenantId, page: 1, page_size: 100 },
       })
     ),
   inviteOwner: (payload: Record<string, string | number>) =>
     unwrap<Invitation>(
-      client.post('/platformapi/tenants/invitations', payload)
+      requestEndpoint(platformTenantOwnerInvitationActions.create.endpoints[0], { data: payload })
     ),
   resendInvitation: (invitationId: number) =>
     unwrap<Invitation>(
-      client.post('/platformapi/tenants/invitations/resend', {
-        invitation_id: invitationId,
-        expires_in_hours: 72,
+      requestEndpoint(platformTenantOwnerInvitationActions.resend.endpoints[0], {
+        data: { invitation_id: invitationId, expires_in_hours: 72 },
       })
     ),
   revokeInvitation: (invitationId: number) =>
     unwrap(
-      client.post('/platformapi/tenants/invitations/revoke', {
-        invitation_id: invitationId,
+      requestEndpoint(platformTenantOwnerInvitationActions.revoke.endpoints[0], {
+        data: { invitation_id: invitationId },
       })
     ),
   inspectInvitation: (token: string) =>
@@ -1146,24 +1163,23 @@ export const api = {
     ),
   entryBindings: (tenantId?: number) =>
     unwrap<EntryBinding[]>(
-      client.get('/platformapi/tenant-entry-bindings', {
+      requestEndpoint(platformTenantEntryBindingsPage.endpoints[1], {
         params: tenantId ? { tenant_id: tenantId } : {},
       })
     ),
   enableEntryBinding: (payload: Record<string, string | number>) =>
     unwrap<EntryBinding>(
-      client.post('/platformapi/tenant-entry-bindings/enable', payload)
+      requestEndpoint(platformTenantEntryBindingActions.enable.endpoints[0], { data: payload })
     ),
   disableEntryBinding: (bindingId: number, changeReason: string) =>
     unwrap(
-      client.post('/platformapi/tenant-entry-bindings/disable', {
-        binding_id: bindingId,
-        change_reason: changeReason,
+      requestEndpoint(platformTenantEntryBindingActions.disable.endpoints[0], {
+        data: { binding_id: bindingId, change_reason: changeReason },
       })
     ),
   moduleStates: (tenantId: number) =>
     unwrap<Page<ModuleState>>(
-      client.get('/platformapi/tenants/modules', {
+      requestEndpoint(platformTenantEntitlementsPage.endpoints[2], {
         params: { tenant_id: tenantId, page: 1, page_size: 100 },
       })
     ),
@@ -1360,13 +1376,13 @@ export const api = {
     ),
   developerCatalog: (moduleKey = '') =>
     unwrap<DeveloperCenterCatalogSnapshot>(
-      client.get('/platformapi/developer-center/catalog', {
+      requestEndpoint(platformDeveloperPage.endpoints[0], {
         params: moduleKey ? { module_key: moduleKey } : {},
       })
     ),
   officialModuleUpdates: (channel: 'stable' | 'prerelease') =>
     unwrap<OfficialUpdateSnapshot>(
-      client.get('/platformapi/instance-tools/modules/updates', {
+      requestEndpoint(platformDeveloperOfficialUpdatesRead.endpoints[0], {
         params: { channel },
         timeout: OFFICIAL_MODULE_READ_TIMEOUT_MS,
       })
@@ -1376,11 +1392,10 @@ export const api = {
     operation: 'install' | 'update' = 'update'
   ) =>
     unwrap<OfficialUpdatePreview>(
-      client.post(
-        '/platformapi/instance-tools/modules/official-' + operation,
-        { ...selection, dry_run: true },
-        { timeout: OFFICIAL_MODULE_READ_TIMEOUT_MS }
-      ),
+      requestEndpoint(platformDeveloperOfficialActions[operation].endpoints[0], {
+        data: { ...selection, dry_run: true },
+        timeout: OFFICIAL_MODULE_READ_TIMEOUT_MS,
+      }),
       moduleOperationErrors
     ),
   applyOfficialModule: (
@@ -1390,15 +1405,14 @@ export const api = {
     operation: 'install' | 'update' = 'update'
   ) =>
     unwrap<ModuleOperationTask>(
-      client.post(
-        '/platformapi/instance-tools/modules/official-' + operation,
-        {
+      requestEndpoint(platformDeveloperOfficialActions[operation].endpoints[0], {
+        data: {
           ...selection,
           dry_run: false,
           confirm_selection_sha256: selectionSha,
         },
-        { headers: { 'Idempotency-Key': idempotencyKey } }
-      ),
+        headers: { 'Idempotency-Key': idempotencyKey },
+      }),
       moduleOperationErrors
     ),
   submitModulePackage: (
@@ -1407,7 +1421,8 @@ export const api = {
     idempotencyKey: string
   ) =>
     unwrap<ModuleOperationTask>(
-      client.post(`/platformapi/instance-tools/modules/${operation}`, form, {
+      requestEndpoint(platformDeveloperUploadActions[operation].endpoints[0], {
+        data: form,
         headers: { 'Idempotency-Key': idempotencyKey },
       }),
       moduleOperationErrors
@@ -1427,7 +1442,7 @@ export const api = {
     page = 1
   ): Promise<Page<RuntimeModuleStatus>> {
     const result = await unwrap<unknown>(
-      client.get('/platformapi/instance-tools/modules', {
+      requestEndpoint(platformDeveloperRuntimeRead.endpoints[0], {
         params: { module_key: moduleKey, page, page_size: 20 },
       })
     );

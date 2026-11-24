@@ -4,6 +4,8 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
 import axios from 'axios';
+import * as vue from 'vue';
+import { compileScript, parse } from 'vue/compiler-sfc';
 import * as peanutClient from '@peanut-admin/client';
 import * as peanutVue from '@peanut-admin/vue';
 import { transformWithEsbuild } from 'vite';
@@ -12,8 +14,8 @@ const updates = '/platformapi/instance-tools/modules/updates';
 const refresh = '/platformapi/session/refresh';
 const catalog = '/platformapi/developer-center/catalog';
 const transportModules = await Promise.all(
-  ['platform-shell-definitions', 'tenant-license', 'permission-bundles', 'role-authorization-preview', 'platform'].map(async (name) => {
-    const directory = name === 'platform-shell-definitions' ? 'core' : 'api';
+  ['platform-shell-definitions', 'platform-access', 'tenant-license', 'permission-bundles', 'role-authorization-preview', 'platform'].map(async (name) => {
+    const directory = name.startsWith('platform-') ? 'core' : 'api';
     const filename = fileURLToPath(
       new URL(`../src/${directory}/${name}.ts`, import.meta.url)
     );
@@ -32,9 +34,22 @@ const transportModules = await Promise.all(
   })
 );
 
+const developerFilename = fileURLToPath(new URL('../src/components/DeveloperCenterPage.vue', import.meta.url));
+const developer = parse(readFileSync(developerFilename, 'utf8'), { filename: developerFilename });
+assert.deepEqual(developer.errors, []);
+const developerModule = {
+  name: 'developer-panel',
+  filename: developerFilename,
+  code: (await transformWithEsbuild(
+    compileScript(developer.descriptor, { id: 'g18-developer-gates' }).content,
+    developerFilename,
+    { loader: 'ts', format: 'cjs' },
+  )).code,
+};
+
 // Run the platform transport with its real Axios interceptors and Core
 // session code. Only the network adapter and browser storage/lock are fixtures.
-function fixture(t, adapter) {
+function fixture(t, adapter, loadDeveloper = false) {
   const storage = new Map();
   Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,
@@ -60,16 +75,23 @@ function fixture(t, adapter) {
     },
     '@peanut-admin/client': peanutClient,
     '@peanut-admin/vue': peanutVue,
+    vue: { ...vue, onMounted: () => {} },
+    'element-plus': { ElMessageBox: { confirm: async () => 'confirm' } },
+    './StructuredDetails.vue': {},
   };
-  for (const { name, filename, code } of transportModules) {
+  const modules = loadDeveloper ? [...transportModules, developerModule] : transportModules;
+  for (const { name, filename, code } of modules) {
     const module = { exports: {} };
     runInNewContext(
       code,
       {
         module,
+        FormData,
+        crypto,
         require(dependency) {
           if (dependency === '../core/platform-shell-definitions')
             return dependencies['./platform-shell-definitions'];
+          if (dependency === '../api/platform') return dependencies['./platform'];
           assert.ok(Object.hasOwn(dependencies, dependency), dependency);
           return dependencies[dependency];
         },
@@ -78,7 +100,20 @@ function fixture(t, adapter) {
     );
     dependencies[`./${name}`] = module.exports;
   }
-  return dependencies['./platform'].api;
+  const { api } = dependencies['./platform'];
+  if (!loadDeveloper) return api;
+  return {
+    mountDeveloper(access) {
+      const scope = vue.effectScope();
+      t.after(() => scope.stop());
+      return scope.run(() => dependencies['./developer-panel'].default.setup({
+        canReadUpdates: true,
+        canReadRuntime: false,
+        canReadTasks: false,
+        ...dependencies['./platform-access'].platformDeveloperModuleAccess(access),
+      }, { expose: () => {} }));
+    },
+  };
 }
 
 function envelope(config, data, code = 20000, status = 200) {
@@ -278,6 +313,73 @@ test('official install and update preserve dry run, confirmation and task lookup
     url = '/platformapi/instance-tools/modules/tasks/' + task.task_key;
     assert.deepEqual(await api.moduleOperationTask(task.task_key), receipt);
   }
+});
+
+test('the Developer Center independently gates uploaded and official install endpoints', async (t) => {
+  const uploadPath = '/platformapi/instance-tools/modules/install';
+  const officialPath = '/platformapi/instance-tools/modules/official-install';
+  const digest = 'd'.repeat(64);
+  const preview = { dry_run: true, selection_sha256: digest, plan: {} };
+  const task = { task_key: 'job_synthetic', status: 'queued' };
+  const calls = [];
+  const { mountDeveloper } = fixture(t, async (config) => {
+    assert.equal(config.method, 'post');
+    const idempotency = config.headers?.['Idempotency-Key'];
+    if (config.url === uploadPath) {
+      assert.equal(config.data.get('package').name, 'synthetic.tar');
+      assert.equal(config.data.get('expected_sha256'), digest);
+      assert.match(idempotency, /^module-/);
+      calls.push([uploadPath, 'multipart']);
+      return envelope(config, task);
+    }
+    assert.equal(config.url, officialPath);
+    const body = JSON.parse(config.data);
+    assert.deepEqual(body, {
+      ...selection,
+      dry_run: body.dry_run,
+      ...(body.dry_run ? {} : { confirm_selection_sha256: digest }),
+    });
+    if (body.dry_run) {
+      assert.equal(config.timeout, 60_000);
+      assert.equal(idempotency, undefined);
+    } else {
+      assert.match(idempotency, /^official-module-/);
+    }
+    calls.push([officialPath, body.dry_run]);
+    return envelope(config, body.dry_run ? preview : task);
+  }, true);
+  const officialRow = {
+    key: selection.module_key, version: selection.version,
+    sha256: selection.sha256, catalog_tag: selection.catalog_tag,
+    channel: selection.channel, availability: 'available',
+  };
+  const prepareUpload = (panel) => {
+    panel.packageOperation.value = 'install';
+    panel.packageFile.value = new File(['synthetic'], 'synthetic.tar');
+    panel.packageSha.value = digest;
+  };
+
+  const uploadOnly = mountDeveloper([{ method: 'POST', path: uploadPath }]);
+  await uploadOnly.previewCatalog(officialRow);
+  assert.deepEqual(calls, []);
+  uploadOnly.officialOperation.value = 'install';
+  uploadOnly.officialSelection.value = selection;
+  uploadOnly.officialPreview.value = preview;
+  assert.equal(uploadOnly.canSubmitOfficial.value, false);
+  await uploadOnly.applyOfficial();
+  assert.deepEqual(calls, []);
+  prepareUpload(uploadOnly);
+  await uploadOnly.submitPackage();
+  assert.deepEqual(calls, [[uploadPath, 'multipart']]);
+
+  const officialOnly = mountDeveloper([{ method: 'POST', path: officialPath }]);
+  prepareUpload(officialOnly);
+  await officialOnly.submitPackage();
+  assert.deepEqual(calls, [[uploadPath, 'multipart']]);
+  await officialOnly.previewCatalog(officialRow);
+  assert.equal(officialOnly.canSubmitOfficial.value, true);
+  await officialOnly.applyOfficial();
+  assert.deepEqual(calls, [[uploadPath, 'multipart'], [officialPath, true], [officialPath, false]]);
 });
 
 test('official preflight delivers a dependency rejection after the default timeout', async (t) => {

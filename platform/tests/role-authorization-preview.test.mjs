@@ -54,6 +54,14 @@ const tenantsPath = '/platformapi/tenants';
 const tenantProvisionPath = '/platformapi/tenants/provision';
 const tenantDetailPath = '/platformapi/tenants/detail';
 const auditPath = '/platformapi/audit';
+const invitationsPath = tenantsPath + '/invitations';
+const tenantOwnerPath = tenantsPath + '/owner';
+const tenantLicensePath = tenantsPath + '/license';
+const tenantModulesPath = tenantsPath + '/modules';
+const entryBindingsPath = '/platformapi/tenant-entry-bindings';
+const plansPath = '/platformapi/plans';
+const developerCatalogPath = '/platformapi/developer-center/catalog';
+const instanceModulesPath = '/platformapi/instance-tools/modules';
 const storagePath = '/platformapi/infrastructure/storage';
 const fileOwner = 'peanut.file';
 const storageReads = [
@@ -82,6 +90,41 @@ const permissionCatalogPath = '/platformapi/permissions';
 const permissionBundlesPath = '/platformapi/permission/bundles';
 const permissionApisPath = '/platformapi/permission/apis';
 const permissionMenusPath = '/platformapi/permission/menus';
+const ownerInvitationsPage = 'platform.tenant.owner-invitation.list';
+const entryBindingsPage = 'platform.tenant.entry-binding.list';
+const entitlementsPage = 'platform.tenant.entitlements';
+const plansPage = 'platform.plan.list';
+const developerPage = 'platform.developer.catalog';
+const tenancyNodes = [
+  [ownerInvitationsPage, 'platform.tenancy', 'page', [['GET', tenantsPath], ['GET', invitationsPath]]],
+  ['platform.tenant.owner.read', ownerInvitationsPage, 'operation', [['GET', tenantOwnerPath]]],
+  ...['create', 'resend', 'revoke'].map((action) => [
+    'platform.tenant.owner-invitation.' + action, ownerInvitationsPage, 'action',
+    [['POST', action === 'create' ? invitationsPath : invitationsPath + '/' + action]],
+  ]),
+  [entryBindingsPage, 'platform.tenancy', 'page', [['GET', tenantsPath], ['GET', entryBindingsPath]]],
+  ...['enable', 'disable'].map((action) => [
+    'platform.tenant.entry-binding.' + action, entryBindingsPage, 'action',
+    [['POST', entryBindingsPath + '/' + action]],
+  ]),
+  [entitlementsPage, 'platform.tenancy', 'page',
+    [['GET', tenantsPath], ['GET', tenantLicensePath], ['GET', tenantModulesPath]]],
+  ['platform.tenant.license.update', entitlementsPage, 'action', [['PUT', tenantLicensePath], ['GET', plansPath]]],
+  [plansPage, 'platform.tenancy', 'page', [['GET', plansPath]]],
+  ...[['create', 'POST'], ['update', 'PUT']].map(([action, method]) => [
+    'platform.plan.' + action, plansPage, 'action',
+    [[method, plansPath], ['GET', instanceModulesPath], ['GET', permissionBundlesPath]],
+  ]),
+];
+const developerNodes = [
+  [developerPage, 'platform.operations', 'page', [['GET', developerCatalogPath]]],
+  ['platform.developer.runtime.read', developerPage, 'operation', [['GET', instanceModulesPath]]],
+  ['platform.developer.official-updates.read', developerPage, 'operation', [['GET', instanceModulesPath + '/updates']]],
+  ...[['upload-install', 'install'], ['upload-update', 'update'],
+    ['official-install', 'official-install'], ['official-update', 'official-update']].map(([key, path]) => [
+    'platform.developer.module.' + key, developerPage, 'action', [['POST', instanceModulesPath + '/' + path]],
+  ]),
+];
 const updateOperatorPath = '/platformapi/operators/update';
 const replaceOperatorRolesPath = '/platformapi/operators/roles/replace';
 const updateRolePath = '/platformapi/roles/update';
@@ -141,7 +184,7 @@ function nativePlatformApis() {
   const source = process.env.PEANUT_PLATFORM_PREVIEW_API_CATALOG ||
     new URL('../../server/generated/api-catalog.json', import.meta.url);
   const { endpoints } = JSON.parse(readFileSync(source, 'utf8'));
-  return [
+  const references = [
     ['GET', rolesPath],
     ['POST', createRolePath],
     ['GET', moduleTaskPath],
@@ -167,7 +210,9 @@ function nativePlatformApis() {
     ...opsAlternatePages.flatMap(([, , alternatives]) =>
       alternatives.map(([, endpoint]) => ['GET', opsPath + '/' + endpoint])
     ),
-  ]
+    ...[...tenancyNodes, ...developerNodes].flatMap((node) => node[3]),
+  ];
+  return [...new Map(references.map(([method, path]) => [method + ' ' + path, [method, path]])).values()]
     .map(([method, path]) => {
       const matches = endpoints.filter((row) => row.path === path && row.method === method);
       assert.equal(matches.length, 1, method + ' ' + path);
@@ -415,8 +460,15 @@ test('the default preview projects the real Platform Shell branches and a no-men
     ['新建租户', '详情', '启用', '暂停', '关闭']
   );
   assert.ok(tenantsPage.children.every((child) => child.source.endsWith(tenantsPage.label)));
+  assert.deepEqual(plain(tenancy.children.map((child) => child.key)), [
+    'platform.tenant.list', ownerInvitationsPage, entryBindingsPage, entitlementsPage, plansPage,
+  ]);
   assert.equal(operations.label, '运维与审计');
   assert.match(auditPage.source, /#\/audit$/);
+  const developer = operations.children.find((child) => child.key === developerPage);
+  assert.match(developer.source, /#\/developer$/);
+  assert.deepEqual(plain(developer.children.map((child) => child.key)),
+    developerNodes.slice(1).map(([key]) => key));
   const [operatorsNode, pageNode, workbench, bundlesPage, apisPage, menusPage] =
     groupNode.children;
   const [operatorAction] = operatorsNode.children;
@@ -460,6 +512,7 @@ test('the default preview projects the real Platform Shell branches and a no-men
         'action',
         [['POST', tenantsPath + '/' + action]]
       )),
+      ...tenancyNodes.map((definition) => node(...definition)),
       node('platform.governance', null, 'group'),
       node('platform.operator.list', 'platform.governance', 'page', [['GET', operatorsPath]]),
       node('platform.operator.create', 'platform.operator.list', 'action', [['POST', createOperatorPath]]),
@@ -492,6 +545,7 @@ test('the default preview projects the real Platform Shell branches and a no-men
         )),
       ]),
       node('platform.ops.providers', 'platform.operations', 'page', [['GET', opsPath + '/providers']]),
+      ...developerNodes.map((definition) => node(...definition)),
       node('platform.audit.list', 'platform.operations', 'page', [['GET', auditPath]]),
       node('platform.module.operation-task.read', null, 'operation', [['GET', moduleTaskPath]]),
     ],
@@ -656,6 +710,76 @@ test('alternate Ops reads keep each route, request options, and independent tran
     ['get', opsPath + '/logs?source=platform.audit&severity=warn&page_size=20&cursor=progress+7', null, null, signal],
     ['get', opsPath + '/diagnostics', { window_minutes: 360 }, 'arraybuffer', null],
     ['get', opsPath + '/tasks/' + encodeURIComponent(taskKey), null, null, signal],
+  ]);
+});
+
+test('tenant invitations, binding, license, and plan callers preserve their exact request contracts', async (t) => {
+  const calls = [];
+  const tenantId = 5;
+  const plan = {
+    id: 7, code: 'synthetic', name: 'Synthetic', status: 'active', revision: 9,
+    module_keys: ['peanut.synthetic'], permission_keys: ['synthetic.read'],
+  };
+  const { api } = fixture(t, async (config) => {
+    calls.push([
+      config.method, config.url, config.params ? plain(config.params) : null,
+      config.data ? JSON.parse(config.data) : null,
+    ]);
+    if (config.url === tenantLicensePath)
+      return reply(config, { tenant_id: tenantId, license: null });
+    if (config.url === plansPath)
+      return reply(config, config.method === 'get' ? { lists: [plan], count: 1 } : plan);
+    if (config.url === permissionBundlesPath)
+      return reply(config, { items: [], total: 0 });
+    return reply(config, { lists: [], count: 0 });
+  });
+  const invite = { tenant_id: tenantId, owner_email: 'owner@example.test', expires_in_hours: 48 };
+  const enable = { tenant_id: tenantId, host: 'synthetic.example.test', client_key: 'admin-web', change_reason: 'synthetic' };
+  const license = {
+    tenant_id: tenantId, plan_id: 7, status: 'active', effective_at: '2026-11-01T00:00:00Z',
+    expires_at: null, expected_revision: 16, change_reason: 'synthetic',
+  };
+  const planDetails = {
+    name: plan.name, module_keys: plan.module_keys, permission_keys: plan.permission_keys,
+    change_reason: 'synthetic',
+  };
+  const create = { ...planDetails, code: plan.code };
+  const update = { ...planDetails, id: 7, expected_revision: 9, status: 'inactive' };
+  await api.invitations(tenantId);
+  await api.tenantOwner(tenantId);
+  await api.inviteOwner(invite);
+  await api.resendInvitation(8);
+  await api.revokeInvitation(8);
+  await api.entryBindings();
+  await api.entryBindings(tenantId);
+  await api.enableEntryBinding(enable);
+  await api.disableEntryBinding(11, 'synthetic disable');
+  await api.tenantLicense(tenantId);
+  await api.moduleStates(tenantId);
+  await api.saveTenantLicense(license);
+  await api.plans(2);
+  await api.planModules(3);
+  await api.permissionBundles('tenant', 4);
+  await api.createPlan(create);
+  await api.updatePlan(update);
+  assert.deepEqual(calls, [
+    ['get', invitationsPath, { tenant_id: tenantId, page: 1, page_size: 100 }, null],
+    ['get', tenantOwnerPath, { tenant_id: tenantId }, null],
+    ['post', invitationsPath, null, invite],
+    ['post', invitationsPath + '/resend', null, { invitation_id: 8, expires_in_hours: 72 }],
+    ['post', invitationsPath + '/revoke', null, { invitation_id: 8 }],
+    ['get', entryBindingsPath, {}, null],
+    ['get', entryBindingsPath, { tenant_id: tenantId }, null],
+    ['post', entryBindingsPath + '/enable', null, enable],
+    ['post', entryBindingsPath + '/disable', null, { binding_id: 11, change_reason: 'synthetic disable' }],
+    ['get', tenantLicensePath, { tenant_id: tenantId }, null],
+    ['get', tenantModulesPath, { tenant_id: tenantId, page: 1, page_size: 100 }, null],
+    ['put', tenantLicensePath, null, license],
+    ['get', plansPath, { page: 2, page_size: 100 }, null],
+    ['get', instanceModulesPath, { page: 3, page_size: 100 }, null],
+    ['get', permissionBundlesPath, { audience: 'tenant', page_no: 4, page_size: 100 }, null],
+    ['post', plansPath, null, create],
+    ['put', plansPath, null, update],
   ]);
 });
 

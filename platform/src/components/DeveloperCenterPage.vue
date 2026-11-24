@@ -26,7 +26,7 @@
         :loading="runtimeLoading"
         @click="loadRuntime(1)"
       >
-        读取安装与依赖状态
+        {{ platformDeveloperRuntimeRead.label }}
       </el-button>
     </div>
     <el-alert v-if="error" :title="error" type="error" show-icon />
@@ -52,7 +52,7 @@
           :loading="updatesLoading"
           :disabled="officialBusy"
           @click="checkOfficialUpdates"
-          >刷新官方目录</el-button
+          >{{ platformDeveloperOfficialUpdatesRead.label }}</el-button
         >
       </div>
       <el-alert
@@ -109,7 +109,7 @@
           <el-table-column label="操作" min-width="140">
             <template #default="{ row }">
               <el-button
-                v-if="canInstall"
+                v-if="canInstallOfficial"
                 :disabled="row.availability !== 'available'"
                 :loading="officialBusy"
                 @click="previewCatalog(row)"
@@ -451,8 +451,11 @@
     OfficialUpdatePreview,
   } from '../api/platform';
 
+  import { platformDeveloperOfficialUpdatesRead, platformDeveloperRuntimeRead } from '../core/platform-shell-definitions';
+
   const props = defineProps<{
     canReadUpdates: boolean;
+    canInstallOfficial: boolean;
     canUpdateOfficial: boolean;
     canReadRuntime: boolean;
     canInstall: boolean;
@@ -487,7 +490,7 @@
   const officialOperation = ref<'install' | 'update'>('update');
   const canSubmitOfficial = computed(() =>
     officialOperation.value === 'install'
-      ? props.canInstall
+      ? props.canInstallOfficial
       : props.canUpdateOfficial
   );
   const catalogSearch = ref('');
@@ -565,7 +568,7 @@
   async function previewCatalog(
     row: OfficialModuleCatalogEntry
   ): Promise<void> {
-    if (!props.canInstall || row.availability !== 'available') return;
+    if (!props.canInstallOfficial || row.availability !== 'available') return;
     await previewOfficialCandidate(
       {
         module_key: row.key,

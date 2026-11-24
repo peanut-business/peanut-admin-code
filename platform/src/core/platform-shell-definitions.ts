@@ -56,6 +56,99 @@ export const platformTenantTransitions = {
   },
 } as const;
 
+export const platformTenantOwnerInvitationsPage = {
+  key: 'platform.tenant.owner-invitation.list',
+  parentKey: platformTenancyNavigation.key,
+  type: 'page',
+  view: 'owners',
+  label: '租户所有者邀请管理',
+  endpoints: [platformTenantsPage.endpoints[0], ['GET', '/platformapi/tenants/invitations']],
+} as const;
+
+export const platformTenantOwnerRead = {
+  key: 'platform.tenant.owner.read',
+  parentKey: platformTenantOwnerInvitationsPage.key,
+  type: 'operation',
+  label: '读取目标租户所有者',
+  endpoints: [['GET', '/platformapi/tenants/owner']],
+} as const;
+
+export const platformTenantOwnerInvitationActions = {
+  create: {
+    key: 'platform.tenant.owner-invitation.create',
+    parentKey: platformTenantOwnerInvitationsPage.key,
+    type: 'action',
+    label: '发送邀请',
+    endpoints: [['POST', '/platformapi/tenants/invitations']],
+  },
+  resend: {
+    key: 'platform.tenant.owner-invitation.resend',
+    parentKey: platformTenantOwnerInvitationsPage.key,
+    type: 'action',
+    label: '重发',
+    endpoints: [['POST', '/platformapi/tenants/invitations/resend']],
+  },
+  revoke: {
+    key: 'platform.tenant.owner-invitation.revoke',
+    parentKey: platformTenantOwnerInvitationsPage.key,
+    type: 'action',
+    label: '撤销',
+    endpoints: [['POST', '/platformapi/tenants/invitations/revoke']],
+  },
+} as const;
+
+export const platformTenantEntryBindingsPage = {
+  key: 'platform.tenant.entry-binding.list',
+  parentKey: platformTenancyNavigation.key,
+  type: 'page',
+  view: 'endpoints',
+  label: '入口域名与客户端',
+  endpoints: [platformTenantsPage.endpoints[0], ['GET', '/platformapi/tenant-entry-bindings']],
+} as const;
+
+export const platformTenantEntryBindingActions = {
+  enable: {
+    key: 'platform.tenant.entry-binding.enable',
+    parentKey: platformTenantEntryBindingsPage.key,
+    type: 'action',
+    label: '启用绑定',
+    endpoints: [['POST', '/platformapi/tenant-entry-bindings/enable']],
+  },
+  disable: {
+    key: 'platform.tenant.entry-binding.disable',
+    parentKey: platformTenantEntryBindingsPage.key,
+    type: 'action',
+    label: '停用',
+    endpoints: [['POST', '/platformapi/tenant-entry-bindings/disable']],
+  },
+} as const;
+
+export const platformTenantEntitlementsPage = {
+  key: 'platform.tenant.entitlements',
+  parentKey: platformTenancyNavigation.key,
+  type: 'page',
+  view: 'modules',
+  label: '租户许可证与模块权益',
+  endpoints: [platformTenantsPage.endpoints[0], ['GET', '/platformapi/tenants/license'], ['GET', '/platformapi/tenants/modules']],
+} as const;
+
+export const platformPlansPage = {
+  key: 'platform.plan.list',
+  parentKey: platformTenancyNavigation.key,
+  type: 'page',
+  view: 'plans',
+  label: '套餐管理',
+  endpoints: [['GET', '/platformapi/plans']],
+} as const;
+
+export const platformTenantLicenseUpdate = {
+  key: 'platform.tenant.license.update',
+  parentKey: platformTenantEntitlementsPage.key,
+  type: 'action',
+  label: '维护当前许可证',
+  endpoints: [['PUT', '/platformapi/tenants/license'], platformPlansPage.endpoints[0]],
+} as const;
+
 export const organizationAccessNavigation = {
   id: 'organization-access',
   key: 'platform.governance',
@@ -370,6 +463,87 @@ export const platformAuditPage = {
   endpoints: [['GET', '/platformapi/audit']],
 } as const;
 
+export const platformDeveloperPage = {
+  key: 'platform.developer.catalog',
+  parentKey: platformOperationsNavigation.key,
+  type: 'page',
+  view: 'developer',
+  label: '开发者中心',
+  endpoints: [['GET', '/platformapi/developer-center/catalog']],
+} as const;
+
+export const platformDeveloperRuntimeRead = {
+  key: 'platform.developer.runtime.read',
+  parentKey: platformDeveloperPage.key,
+  type: 'operation',
+  label: '读取安装与依赖状态',
+  endpoints: [['GET', '/platformapi/instance-tools/modules']],
+} as const;
+
+export const platformDeveloperOfficialUpdatesRead = {
+  key: 'platform.developer.official-updates.read',
+  parentKey: platformDeveloperPage.key,
+  type: 'operation',
+  label: '刷新官方目录',
+  endpoints: [['GET', '/platformapi/instance-tools/modules/updates']],
+} as const;
+
+export const platformDeveloperUploadActions = {
+  install: {
+    key: 'platform.developer.module.upload-install',
+    parentKey: platformDeveloperPage.key,
+    type: 'action',
+    label: '上传包安装',
+    endpoints: [['POST', '/platformapi/instance-tools/modules/install']],
+  },
+  update: {
+    key: 'platform.developer.module.upload-update',
+    parentKey: platformDeveloperPage.key,
+    type: 'action',
+    label: '上传包升级',
+    endpoints: [['POST', '/platformapi/instance-tools/modules/update']],
+  },
+} as const;
+
+export const platformDeveloperOfficialActions = {
+  install: {
+    key: 'platform.developer.module.official-install',
+    parentKey: platformDeveloperPage.key,
+    type: 'action',
+    label: '官方安装',
+    endpoints: [['POST', '/platformapi/instance-tools/modules/official-install']],
+  },
+  update: {
+    key: 'platform.developer.module.official-update',
+    parentKey: platformDeveloperPage.key,
+    type: 'action',
+    label: '官方升级',
+    endpoints: [['POST', '/platformapi/instance-tools/modules/official-update']],
+  },
+} as const;
+
+export const platformPlanCatalogReads = [
+  platformDeveloperRuntimeRead.endpoints[0],
+  platformPermissionBundlesPage.endpoints[0],
+] as const;
+
+export const platformPlanActions = {
+  create: {
+    key: 'platform.plan.create',
+    parentKey: platformPlansPage.key,
+    type: 'action',
+    label: '新建套餐',
+    endpoints: [['POST', '/platformapi/plans'], ...platformPlanCatalogReads],
+  },
+  update: {
+    key: 'platform.plan.update',
+    parentKey: platformPlansPage.key,
+    type: 'action',
+    label: '编辑',
+    endpoints: [['PUT', '/platformapi/plans'], ...platformPlanCatalogReads],
+  },
+} as const;
+
 export const platformModuleTaskRead = {
   key: 'platform.module.operation-task.read',
   parentKey: null,
@@ -389,6 +563,15 @@ export const platformShellPreviewDefinitions = [
   platformTenantCreate,
   platformTenantDetail,
   ...Object.values(platformTenantTransitions),
+  platformTenantOwnerInvitationsPage,
+  platformTenantOwnerRead,
+  ...Object.values(platformTenantOwnerInvitationActions),
+  platformTenantEntryBindingsPage,
+  ...Object.values(platformTenantEntryBindingActions),
+  platformTenantEntitlementsPage,
+  platformTenantLicenseUpdate,
+  platformPlansPage,
+  ...Object.values(platformPlanActions),
   organizationAccessNavigation,
   platformOperatorsPage,
   platformOperatorCreate,
@@ -416,6 +599,11 @@ export const platformShellPreviewDefinitions = [
   platformOpsDiagnosticsPage,
   ...platformOpsDiagnosticsPage.readAlternatives,
   platformOpsProvidersPage,
+  platformDeveloperPage,
+  platformDeveloperRuntimeRead,
+  platformDeveloperOfficialUpdatesRead,
+  ...Object.values(platformDeveloperUploadActions),
+  ...Object.values(platformDeveloperOfficialActions),
   platformAuditPage,
   platformModuleTaskRead,
 ] as const;
