@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.26",
+    "template_version": "5.1.18-rc.27",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -282,7 +282,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "568792b595ffc5266d51e061aa5ebd4d8b6f27dd3dbcdb370da40d24ba1a7a9d"
+            "source_sha256": "043ccb1888bce76f646b93e1194104d864c8e808e4ee659d4494a6c515305d7d"
         },
         {
             "path": "THIRD_PARTY_NOTICES.md",
@@ -296,7 +296,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3aa5274e5d99a40a9e37bfa2b6c37c89f478659eb0c69a803aee46bba522de55"
+            "source_sha256": "e38826e7468eb4ce1d636ee6158ec4060d59c1b3f57efb368b79a2c8dde9cdb6"
         },
         {
             "path": "compose.yaml",
@@ -1123,7 +1123,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1d15e72b76cb874577babef23785a9f35803780980eb1ccef8245c07d0ecf7cf"
+            "source_sha256": "dd90c196339ef1995dbc28ff975b14835bdf0638bdaf8c9f5b6c1fa9936b3461"
         },
         {
             "path": "docs/public/installation.md",
@@ -1434,7 +1434,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "60530168fb009cd27443e29b6920036401f144f315d42b0764ddfc7f95afd35f"
+            "source_sha256": "1631a32f9e3c27475ab176f2da11d9f97bac5bdff6ed4b34d374e8bcac4bdf56"
         },
         {
             "path": "pc/pages/about.vue",
@@ -1867,7 +1867,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "284d868a8f20e0b83c4bae7ff2265dc8219ca72358d72f87e29f62eb745517ed"
+            "source_sha256": "f53932457090791e1575f763015a2f5b509cd5bb50acc9c1b0bb6d6a593ddce7"
         },
         {
             "path": "platform/pnpm-lock.yaml",
@@ -3219,7 +3219,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "12bdfec7f49b4d80c20a9f1d744ffb4aa203065a2eb7e7dcd400ede89401a221"
+            "source_sha256": "5c5389a9f11ff1a4e19e2c38d6617fb881a5bbbc24bc7f66435f8a306d7c9d73"
         },
         {
             "path": "scripts/tests/ci-change-classifier-test",
@@ -3770,6 +3770,19 @@
         {
             "path": "scripts/tests/standard-remaining-boundaries-test.mjs",
             "target": "scripts/tests/standard-remaining-boundaries-test.mjs",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "scripts/tests/sync-brand-assets.test.mjs",
+            "target": "scripts/tests/sync-brand-assets.test.mjs",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -11196,7 +11209,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3a878a1d0333cabf1ff1bba085f957b720454e5e5ba4215b9592504f162625b0"
+            "source_sha256": "280de1406800db8461d8b55c2c0d0435b796775e7db78c9f8a3b085bf0f1f2c9"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11210,7 +11223,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "27ed17631547e7c2dd99ae757283682cd0d50783d421e79f411c25148f7d31b9"
+            "source_sha256": "8aa1d7348ccd279b6b683b52d2a3e7a9f5687eab4b5b883ef4093b378a11ef0f"
         },
         {
             "path": "server/module",
@@ -15582,7 +15595,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e9437bc561ebc46bc552c730a683e9cbaee8017c23873913e1e9285470e18e06"
+            "source_sha256": "079b0cc4377c43390b533b67baab5417e793ad8fd5ad3475b20e909e676716c7"
         },
         {
             "path": "uniapp/packages/pages/404/404.vue",
@@ -16459,6 +16472,20 @@
             "source_sha256": "93cc8a8b673fb2abbdb66cab95bd7513eefccbd0ca987abe3ead253601da0a48"
         },
         {
+            "path": "web/config/vite-plugin-eslint.d.ts",
+            "target": "web/config/vite-plugin-eslint.d.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ffb5192f60302016dfbcf76d45ffae24b9579a51c84af073675ea8ba25bf5d8d"
+        },
+        {
             "path": "web/index.html",
             "target": "web/index.html",
             "classification": "managed",
@@ -16484,7 +16511,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ef13b731216546d041680a72b845d49eb6343f035a92168c15acdf2f6727c53c"
+            "source_sha256": "b4b210f83b89e5662f854d0a43b27134ab88351326cef804d2c653a4f4e28441"
         },
         {
             "path": "web/pnpm-lock.yaml",
@@ -19794,7 +19821,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "aae61b24b86b229bfa7a321f0acb7839e63e6e58b81ac6b3df744d21a7dc744e"
+            "source_sha256": "ac56a8f3562a4d82705e4634fdcd0d1b2f37ed4efd9b51cdec9e8fe677e6ea6b"
         },
         {
             "path": "web/vitest.optional.config.mjs",
