@@ -784,8 +784,38 @@ client.interceptors.response.use(handleResponse, (error) => {
   return Promise.reject(error);
 });
 
+const moduleOperationErrors = new Map([
+  [
+    'MODULE_RELEASE_WITHDRAWN',
+    '所选模块版本已撤回，请刷新官方目录并选择其他版本。',
+  ],
+  [
+    'MODULE_RELEASE_SELECTION_CHANGED',
+    '所选模块版本或归档已变化，请重新预检。',
+  ],
+  [
+    'MODULE_RELEASE_PRERELEASE_OPT_IN_REQUIRED',
+    '所选版本是预发行版，请切换到允许预发行版的渠道后重新预检。',
+  ],
+  ['MODULE_EDITION_UNSUPPORTED', '所选模块版本不支持当前应用形态。'],
+  [
+    'MODULE_KERNEL_INCOMPATIBLE',
+    '所选模块版本与当前应用的 Kernel 版本不兼容。',
+  ],
+  [
+    'MODULE_PACKAGE_DEPENDENCY_MISSING',
+    '所选模块版本缺少必需的前置模块，请核对模块依赖。',
+  ],
+  [
+    'MODULE_PACKAGE_DEPENDENCY_INCOMPATIBLE',
+    '前置模块的当前版本不满足所选模块版本的要求。',
+  ],
+  ['MODULE_PACKAGE_DEPENDENCY_CYCLE', '所选模块版本的依赖存在循环，无法继续。'],
+]);
+
 async function unwrap<T>(
-  request: Promise<AxiosResponse<Envelope<T>>>
+  request: Promise<AxiosResponse<Envelope<T>>>,
+  operationErrors?: ReadonlyMap<string, string>
 ): Promise<T> {
   const result = await request;
   const snapshot = (result.config as SessionRequestConfig).platformSession;
@@ -817,7 +847,10 @@ async function unwrap<T>(
     };
     throw new Error(
       formatRequestError(
-        localizedErrors[errorCode] || localizedMessages[fallback] || fallback,
+        operationErrors?.get(errorCode) ||
+          localizedErrors[errorCode] ||
+          localizedMessages[fallback] ||
+          fallback,
         result
       )
     );
@@ -1260,7 +1293,8 @@ export const api = {
       client.post('/platformapi/instance-tools/modules/official-' + operation, {
         ...selection,
         dry_run: true,
-      })
+      }),
+      moduleOperationErrors
     ),
   applyOfficialModule: (
     selection: OfficialModuleSelection,
@@ -1277,7 +1311,8 @@ export const api = {
           confirm_selection_sha256: selectionSha,
         },
         { headers: { 'Idempotency-Key': idempotencyKey } }
-      )
+      ),
+      moduleOperationErrors
     ),
   submitModulePackage: (
     operation: 'install' | 'update',
@@ -1287,7 +1322,8 @@ export const api = {
     unwrap<ModuleOperationTask>(
       client.post(`/platformapi/instance-tools/modules/${operation}`, form, {
         headers: { 'Idempotency-Key': idempotencyKey },
-      })
+      }),
+      moduleOperationErrors
     ),
   moduleOperationTask: (taskKey: string) =>
     unwrap<ModuleOperationTask>(

@@ -154,3 +154,125 @@ test('concurrent catalog reads share session refresh and retain their timeout on
     ]);
   }
 });
+
+const selection = {
+  module_key: 'peanut.file',
+  version: '1.0.2',
+  sha256: 'a'.repeat(64),
+  catalog_tag: 'v1.0.2',
+  channel: 'stable',
+};
+
+test('official preflight explains only known module rejection codes', async (t) => {
+  let errorCode;
+  const fallback = 'Module runtime request was rejected.';
+  const api = fixture(t, async (config) => {
+    const response = envelope(config, { error_code: errorCode }, 42200, 422);
+    response.data.msg = fallback;
+    response.headers['X-Trace-Id'] = 'module-preview-trace';
+    throw new axios.AxiosError(
+      'rejected',
+      'ERR_BAD_REQUEST',
+      config,
+      undefined,
+      response
+    );
+  });
+  for (const [code, message] of [
+    [
+      'MODULE_RELEASE_WITHDRAWN',
+      '所选模块版本已撤回，请刷新官方目录并选择其他版本。',
+    ],
+    [
+      'MODULE_KERNEL_INCOMPATIBLE',
+      '所选模块版本与当前应用的 Kernel 版本不兼容。',
+    ],
+    [
+      'MODULE_PACKAGE_DEPENDENCY_MISSING',
+      '所选模块版本缺少必需的前置模块，请核对模块依赖。',
+    ],
+    ['MODULE_FUTURE_REJECTION', fallback],
+  ]) {
+    errorCode = code;
+    await assert.rejects(api.previewOfficialModule(selection, 'install'), {
+      message: message + '（追踪 ID：module-preview-trace）',
+    });
+  }
+  errorCode = 'MODULE_RELEASE_WITHDRAWN';
+  await assert.rejects(api.developerCatalog(), {
+    message: fallback + '（追踪 ID：module-preview-trace）',
+  });
+});
+
+test('module failures with a 5xx status retain the safe message and trace ID', async (t) => {
+  const api = fixture(t, async (config) => {
+    const response = envelope(
+      config,
+      { error_code: 'MODULE_KERNEL_INCOMPATIBLE' },
+      50300,
+      503
+    );
+    response.data.msg = 'Private upstream details';
+    response.headers['X-Trace-Id'] = 'module-service-trace';
+    throw new axios.AxiosError(
+      'unavailable',
+      'ERR_BAD_RESPONSE',
+      config,
+      undefined,
+      response
+    );
+  });
+  await assert.rejects(api.previewOfficialModule(selection), {
+    message: '服务暂时不可用，请稍后重试（追踪 ID：module-service-trace）',
+  });
+});
+
+test('official install and update preserve dry run, confirmation and task lookup', async (t) => {
+  const digest = 'b'.repeat(64);
+  const idempotencyKey = 'test-fixed-intent';
+  const preview = { dry_run: true, selection_sha256: digest, plan: {} };
+  const task = { task_key: 'job_module_update', status: 'queued' };
+  const receipt = {
+    ...task,
+    status: 'succeeded',
+    result: { operation: 'upgraded' },
+  };
+  let url;
+  let applied;
+  const api = fixture(t, async (config) => {
+    assert.equal(config.url, url);
+    if (config.method === 'get') return envelope(config, receipt);
+    assert.equal(config.method, 'post');
+    assert.deepEqual(JSON.parse(config.data), {
+      ...selection,
+      dry_run: !applied,
+      ...(applied ? { confirm_selection_sha256: digest } : {}),
+    });
+    assert.equal(
+      (config.headers || {})['Idempotency-Key'],
+      applied ? idempotencyKey : undefined
+    );
+    return envelope(config, applied ? task : preview);
+  });
+
+  for (const operation of ['install', 'update']) {
+    url = '/platformapi/instance-tools/modules/official-' + operation;
+    applied = false;
+    assert.deepEqual(
+      await api.previewOfficialModule(selection, operation),
+      preview
+    );
+    applied = true;
+    assert.deepEqual(
+      await api.applyOfficialModule(
+        selection,
+        digest,
+        idempotencyKey,
+        operation
+      ),
+      task
+    );
+    url = '/platformapi/instance-tools/modules/tasks/' + task.task_key;
+    assert.deepEqual(await api.moduleOperationTask(task.task_key), receipt);
+  }
+});
