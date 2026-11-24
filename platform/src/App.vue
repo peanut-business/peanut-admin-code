@@ -239,7 +239,7 @@
           ><el-breadcrumb-item>{{ title }}</el-breadcrumb-item></el-breadcrumb
         >
         <el-alert
-          v-if="error && view !== 'audit'"
+          v-if="error && view !== platformAuditPage.view"
           :title="error"
           type="error"
           show-icon
@@ -247,7 +247,7 @@
         />
         <template v-if="view === 'overview'">
           <div class="metric-grid">
-            <el-card v-if="canApi('GET', '/platformapi/tenants')"
+            <el-card v-if="canApi(...platformTenantsPage.endpoints[0])"
               ><span>租户总数</span><strong>{{ tenantTotal }}</strong></el-card
             >
             <el-card v-if="canApi(...platformOperatorsPage.endpoints[0])"
@@ -299,7 +299,7 @@
                 :title="opsErrors.upgrades"
                 type="warning"
                 :closable="false" /><el-card
-                v-if="canApi('GET', '/platformapi/v1/ops/upgrade-readiness')"
+                v-if="canApi(...platformOpsUpgradeReadiness.endpoints[0])"
                 v-loading="upgradeReadinessLoading"
                 class="backup-center-card"
                 ><template #header>升级就绪</template
@@ -382,7 +382,7 @@
                   ></template
                 ><el-empty v-else description="升级就绪投影尚未加载" /></el-card
               ><el-card
-                v-if="canApi('GET', '/platformapi/v1/ops/upgrades')"
+                v-if="canApi(...platformOpsUpgradeHistory.endpoints[0])"
                 v-loading="upgradeCenterLoading"
                 class="backup-center-card"
                 ><template #header
@@ -391,7 +391,7 @@
                     ><el-button
                       v-if="
                         can('platform.ops.upgrade.manage') &&
-                        canApi('GET', '/platformapi/v1/ops/upgrade-readiness')
+                        canApi(...platformOpsUpgradeReadiness.endpoints[0])
                       "
                       type="primary"
                       :loading="upgradeSubmitting"
@@ -614,24 +614,24 @@
             /></template>
             <template #diagnostics
               ><div
-                v-if="canApi('GET', '/platformapi/v1/ops/diagnostics')"
+                v-if="canApi(...platformOpsDiagnosticsDownload.endpoints[0])"
                 class="toolbar"
                 ><el-button
                   :loading="diagnosticLoading"
                   @click="downloadDiagnosticBundle"
-                  >下载脱敏诊断包（最近 1 小时）</el-button
+                  >{{ platformOpsDiagnosticsDownload.label }}（最近 1 小时）</el-button
                 ></div
               ></template
             >
           </ops-console-page>
         </template>
-        <template v-else-if="view === 'tenants'"
+        <template v-else-if="view === platformTenantsPage.view"
           ><div class="toolbar"
             ><el-button
-              v-if="can('platform.tenant.create')"
+              v-if="can(platformTenantCreate.key)"
               type="primary"
               @click="openProvisionDialog"
-              >新建租户</el-button
+              >{{ platformTenantCreate.label }}</el-button
             ></div
           ><el-table
             v-loading="loading"
@@ -654,11 +654,11 @@
             /><el-table-column label="操作" width="300"
               ><template #default="{ row }"
                 ><el-button
-                  v-if="canApi('GET', '/platformapi/tenants/detail')"
+                  v-if="canApi(...platformTenantDetail.endpoints[0])"
                   link
                   type="primary"
                   @click="showTenant(row)"
-                  >详情</el-button
+                  >{{ platformTenantDetail.label }}</el-button
                 ><el-button
                   v-if="canView('modules')"
                   link
@@ -672,30 +672,30 @@
                   v-if="
                     row.status !== 'active' &&
                     row.status !== 'closed' &&
-                    canApi('POST', '/platformapi/tenants/activate')
+                    canApi(...platformTenantTransitions.activate.endpoints[0])
                   "
                   link
                   type="success"
                   @click="changeTenant(row, 'activate')"
-                  >启用</el-button
+                  >{{ platformTenantTransitions.activate.label }}</el-button
                 ><el-button
                   v-if="
                     row.status === 'active' &&
-                    canApi('POST', '/platformapi/tenants/suspend')
+                    canApi(...platformTenantTransitions.suspend.endpoints[0])
                   "
                   link
                   type="warning"
                   @click="changeTenant(row, 'suspend')"
-                  >暂停</el-button
+                  >{{ platformTenantTransitions.suspend.label }}</el-button
                 ><el-button
                   v-if="
                     row.status !== 'closed' &&
-                    canApi('POST', '/platformapi/tenants/close')
+                    canApi(...platformTenantTransitions.close.endpoints[0])
                   "
                   link
                   type="danger"
                   @click="changeTenant(row, 'close')"
-                  >关闭</el-button
+                  >{{ platformTenantTransitions.close.label }}</el-button
                 ></template
               ></el-table-column
             ></el-table
@@ -1292,7 +1292,7 @@
           section="menus"
           :can-api="canApi"
         />
-        <template v-else-if="view === 'audit'"
+        <template v-else-if="view === platformAuditPage.view"
           ><p
             v-if="auditLoadState === 'loading'"
             role="status"
@@ -1589,7 +1589,19 @@
   } from './core/platform-access';
   import {
     organizationAccessNavigation,
+    platformAuditPage,
     platformModuleTaskRead,
+    platformOperationsNavigation,
+    platformOpsBackupsPage,
+    platformOpsDiagnosticsDownload,
+    platformOpsDiagnosticsPage,
+    platformOpsLogs,
+    platformOpsMaintenancePage,
+    platformOpsOverviewPage,
+    platformOpsProvidersPage,
+    platformOpsUpgradeHistory,
+    platformOpsUpgradeReadiness,
+    platformOpsUpgradesPage,
     platformOperatorCreate,
     platformOperatorRolesAssign,
     platformOperatorsPage,
@@ -1603,6 +1615,11 @@
     platformRoleCreate,
     platformRolesPage,
     platformRoleUpdate,
+    platformTenancyNavigation,
+    platformTenantCreate,
+    platformTenantDetail,
+    platformTenantsPage,
+    platformTenantTransitions,
     platformViewHash,
   } from './core/platform-shell-definitions';
   import PlansPanel from './components/PlansPanel.vue';
@@ -1806,29 +1823,29 @@
     canApi('GET', '/platformapi/infrastructure/storage/' + section) ||
     canApi('GET', '/platformapi/infrastructure/storage');
   const opsSections: Record<string, OpsConsoleSection> = {
-    ops: 'overview',
-    maintenance: 'maintenance',
-    backups: 'backups',
-    upgrades: 'upgrades',
-    diagnostics: 'diagnostics',
-    providers: 'providers',
+    [platformOpsOverviewPage.view]: 'overview',
+    [platformOpsMaintenancePage.view]: 'maintenance',
+    [platformOpsBackupsPage.view]: 'backups',
+    [platformOpsUpgradesPage.view]: 'upgrades',
+    [platformOpsDiagnosticsPage.view]: 'diagnostics',
+    [platformOpsProvidersPage.view]: 'providers',
   };
   const viewRequirements: Record<
     string,
     readonly (readonly [string, string])[]
   > = {
     'overview': [],
-    'tenants': [['GET', '/platformapi/tenants']],
+    [platformTenantsPage.view]: platformTenantsPage.endpoints,
     'owners': [
-      ['GET', '/platformapi/tenants'],
+      platformTenantsPage.endpoints[0],
       ['GET', '/platformapi/tenants/invitations'],
     ],
     'endpoints': [
-      ['GET', '/platformapi/tenants'],
+      platformTenantsPage.endpoints[0],
       ['GET', '/platformapi/tenant-entry-bindings'],
     ],
     'modules': [
-      ['GET', '/platformapi/tenants'],
+      platformTenantsPage.endpoints[0],
       ['GET', '/platformapi/tenants/license'],
       ['GET', '/platformapi/tenants/modules'],
     ],
@@ -1839,25 +1856,23 @@
     [platformPermissionBundlesPage.view]: platformPermissionBundlesPage.endpoints,
     [platformPermissionApisPage.view]: platformPermissionApisPage.endpoints,
     [platformPermissionMenusPage.view]: platformPermissionMenusPage.endpoints,
-    'ops': [['GET', '/platformapi/v1/ops/status']],
-    'maintenance': [['GET', '/platformapi/v1/ops/maintenance']],
-    'backups': [['GET', '/platformapi/v1/ops/backups']],
-    'providers': [['GET', '/platformapi/v1/ops/providers']],
+    [platformOpsOverviewPage.view]: platformOpsOverviewPage.endpoints,
+    [platformOpsMaintenancePage.view]: platformOpsMaintenancePage.endpoints,
+    [platformOpsBackupsPage.view]: platformOpsBackupsPage.endpoints,
+    [platformOpsProvidersPage.view]: platformOpsProvidersPage.endpoints,
     'developer': [['GET', '/platformapi/developer-center/catalog']],
-    'audit': [['GET', '/platformapi/audit']],
+    [platformAuditPage.view]: platformAuditPage.endpoints,
   };
   const canView = (name: string) => {
     if (Object.hasOwn(storageSections, name))
       return canReadStorage(storageSections[name]!);
-    if (name === 'upgrades')
-      return (
-        canApi('GET', '/platformapi/v1/ops/upgrade-readiness') ||
-        canApi('GET', '/platformapi/v1/ops/upgrades')
-      );
-    if (name === 'diagnostics')
-      return (
-        canApi('GET', '/platformapi/v1/ops/logs') ||
-        canApi('GET', '/platformapi/v1/ops/diagnostics')
+    const alternateReadPage = [
+      platformOpsUpgradesPage,
+      platformOpsDiagnosticsPage,
+    ].find((page) => page.view === name);
+    if (alternateReadPage)
+      return alternateReadPage.readAlternatives.some(
+        ({ endpoints: [[method, path]] }) => canApi(method, path)
       );
     return (
       Object.hasOwn(viewRequirements, name) &&
@@ -1866,9 +1881,9 @@
   };
   const navigationGroups = [
     {
-      key: 'tenant-operations',
-      title: '租户运营',
-      items: ['tenants', 'owners', 'endpoints', 'modules', 'plans'],
+      key: platformTenancyNavigation.id,
+      title: platformTenancyNavigation.label,
+      items: [platformTenantsPage.view, 'owners', 'endpoints', 'modules', 'plans'],
     },
     {
       key: organizationAccessNavigation.id,
@@ -1888,17 +1903,17 @@
       items: ['storage-accounts', 'storage-spaces', 'storage-routes'],
     },
     {
-      key: 'operations-audit',
-      title: '运维与审计',
+      key: platformOperationsNavigation.id,
+      title: platformOperationsNavigation.label,
       items: [
-        'ops',
-        'maintenance',
-        'backups',
-        'upgrades',
-        'diagnostics',
-        'providers',
+        platformOpsOverviewPage.view,
+        platformOpsMaintenancePage.view,
+        platformOpsBackupsPage.view,
+        platformOpsUpgradesPage.view,
+        platformOpsDiagnosticsPage.view,
+        platformOpsProvidersPage.view,
         'developer',
-        'audit',
+        platformAuditPage.view,
       ],
     },
   ];
@@ -2017,15 +2032,15 @@
     canRestore: () => can('platform.ops.restore.manage'),
     canMaintain: () =>
       can('platform.ops.maintenance.manage') &&
-      canApi('GET', '/platformapi/v1/ops/maintenance'),
-    canReadMaintenance: () => canApi('GET', '/platformapi/v1/ops/maintenance'),
+      canApi(...platformOpsMaintenancePage.endpoints[0]),
+    canReadMaintenance: () => canApi(...platformOpsMaintenancePage.endpoints[0]),
     canCloseMaintenance: () =>
       canApi(
         'POST',
         '/platformapi/v1/ops/maintenance/{maintenance_key}/close'
-      ) && canApi('GET', '/platformapi/v1/ops/maintenance'),
+      ) && canApi(...platformOpsMaintenancePage.endpoints[0]),
     canReadTask: () => canApi('GET', '/platformapi/v1/ops/tasks/{task_key}'),
-    canReadLogs: () => can('platform.ops.logs.read'),
+    canReadLogs: () => can(platformOpsLogs.key),
   });
   provide(opsConsoleRuntimeKey, opsRuntime);
   const credentials = reactive({ email: '', password: '' });
@@ -2105,13 +2120,13 @@
   const roleForm = reactive({ key: '', name: '', description: '' });
   const labels: Record<string, string> = {
     'overview': '概览',
-    'ops': '运维概览',
-    'maintenance': '维护窗口',
-    'backups': '备份与恢复',
-    'upgrades': '应用升级',
-    'diagnostics': '运行诊断',
-    'providers': '服务提供者',
-    'tenants': '租户与生命周期',
+    [platformOpsOverviewPage.view]: platformOpsOverviewPage.label,
+    [platformOpsMaintenancePage.view]: platformOpsMaintenancePage.label,
+    [platformOpsBackupsPage.view]: platformOpsBackupsPage.label,
+    [platformOpsUpgradesPage.view]: platformOpsUpgradesPage.label,
+    [platformOpsDiagnosticsPage.view]: platformOpsDiagnosticsPage.label,
+    [platformOpsProvidersPage.view]: platformOpsProvidersPage.label,
+    [platformTenantsPage.view]: platformTenantsPage.label,
     'owners': '租户所有者邀请管理',
     'endpoints': '入口域名与客户端',
     'modules': '租户许可证与模块权益',
@@ -2126,7 +2141,7 @@
     [platformPermissionBundlesPage.view]: platformPermissionBundlesPage.label,
     [platformPermissionApisPage.view]: platformPermissionApisPage.label,
     [platformPermissionMenusPage.view]: platformPermissionMenusPage.label,
-    'audit': '平台审计',
+    [platformAuditPage.view]: platformAuditPage.label,
   };
   const title = computed(() => labels[view.value]);
   const targetTenant = computed(() =>
@@ -2308,7 +2323,7 @@
     isCurrent: () => boolean = () => true,
     all = true
   ) {
-    if (!canApi('GET', '/platformapi/tenants')) return;
+    if (!canApi(...platformTenantsPage.endpoints[0])) return;
     if (all) {
       const rows = await readSelectionPages((page) => api.tenants(page));
       if (!isCurrent()) return;
@@ -2343,7 +2358,7 @@
     if (!canView(view.value)) view.value = 'overview';
   }
   async function loadBackupCenter(page = 1) {
-    if (!canApi('GET', '/platformapi/v1/ops/backups')) return;
+    if (!canApi(...platformOpsBackupsPage.endpoints[0])) return;
     const current = ++backupCenterRequest;
     backupCenterLoading.value = true;
     opsErrors.value.backups = '';
@@ -2359,7 +2374,7 @@
     }
   }
   async function loadUpgradeReadiness() {
-    if (!canApi('GET', '/platformapi/v1/ops/upgrade-readiness')) return;
+    if (!canApi(...platformOpsUpgradeReadiness.endpoints[0])) return;
     const access = accessRevision.value;
     upgradeReadinessLoading.value = true;
     opsErrors.value.readiness = '';
@@ -2375,7 +2390,7 @@
     }
   }
   async function loadUpgradeCenter() {
-    if (!canApi('GET', '/platformapi/v1/ops/upgrades')) return;
+    if (!canApi(...platformOpsUpgradeHistory.endpoints[0])) return;
     const access = accessRevision.value;
     upgradeCenterLoading.value = true;
     opsErrors.value.upgrades = '';
@@ -2391,7 +2406,7 @@
     }
   }
   async function loadProviderQualifications(page = 1) {
-    if (!canApi('GET', '/platformapi/v1/ops/providers')) return;
+    if (!canApi(...platformOpsProvidersPage.endpoints[0])) return;
     const current = ++providerQualificationsRequest;
     providerQualificationsLoading.value = true;
     opsErrors.value.providers = '';
@@ -2409,17 +2424,20 @@
     }
   }
   async function loadOpsView(section: string) {
-    if (section === 'ops') await opsRuntime.load('overview');
-    else if (section === 'maintenance') await opsRuntime.load('maintenance');
-    else if (section === 'backups') await loadBackupCenter();
-    else if (section === 'upgrades')
+    if (section === platformOpsOverviewPage.view)
+      await opsRuntime.load('overview');
+    else if (section === platformOpsMaintenancePage.view)
+      await opsRuntime.load('maintenance');
+    else if (section === platformOpsBackupsPage.view) await loadBackupCenter();
+    else if (section === platformOpsUpgradesPage.view)
       await Promise.all([loadUpgradeReadiness(), loadUpgradeCenter()]);
     else if (
-      section === 'diagnostics' &&
-      canApi('GET', '/platformapi/v1/ops/logs')
+      section === platformOpsDiagnosticsPage.view &&
+      canApi(...platformOpsLogs.endpoints[0])
     )
       await opsRuntime.loadLogs();
-    else if (section === 'providers') await loadProviderQualifications();
+    else if (section === platformOpsProvidersPage.view)
+      await loadProviderQualifications();
   }
   async function readStorageSection(
     section: StorageSection
@@ -2483,7 +2501,7 @@
     if (requestedView === 'endpoints') {
       bindingLoadState.value = 'loading';
       bindings.value = [];
-    } else if (requestedView === 'audit') {
+    } else if (requestedView === platformAuditPage.view) {
       auditLoadState.value = 'loading';
       audits.value = [];
       auditTotal.value = 0;
@@ -2491,7 +2509,7 @@
     try {
       if (requestedView === 'overview') {
         await Promise.all([
-          canApi('GET', '/platformapi/tenants')
+          canApi(...platformTenantsPage.endpoints[0])
             ? api.tenants(1, 1).then((result) => {
                 if (isCurrentRequest()) tenantTotal.value = result.count;
               })
@@ -2502,7 +2520,7 @@
               })
             : Promise.resolve(),
         ]);
-      } else if (requestedView === 'tenants') {
+      } else if (requestedView === platformTenantsPage.view) {
         await loadTenants(isCurrentRequest, false);
       } else if (requestedView === 'owners') {
         await loadTenants(isCurrentRequest);
@@ -2574,7 +2592,7 @@
         permissionSelection.value = [
           ...(permissionRole.value?.permission_keys || []),
         ];
-      } else if (requestedView === 'audit') {
+      } else if (requestedView === platformAuditPage.view) {
         const requestedPage = auditPage.value;
         const result = await api.audit(requestedPage, auditPageSize);
         if (!isCurrentRequest() || requestedPage !== auditPage.value) return;
@@ -2592,7 +2610,8 @@
       if (isCurrentRequest()) {
         error.value = message(cause);
         if (requestedView === 'endpoints') bindingLoadState.value = 'error';
-        if (requestedView === 'audit') auditLoadState.value = 'error';
+        if (requestedView === platformAuditPage.view)
+          auditLoadState.value = 'error';
         if (!hasPlatformSession()) authenticated.value = false;
       }
     } finally {
@@ -2650,7 +2669,7 @@
   }
   async function downloadDiagnosticBundle() {
     if (
-      !canApi('GET', '/platformapi/v1/ops/diagnostics') ||
+      !canApi(...platformOpsDiagnosticsDownload.endpoints[0]) ||
       diagnosticLoading.value
     )
       return;
@@ -2680,8 +2699,8 @@
   async function executeUpgrade() {
     if (
       !can('platform.ops.upgrade.manage') ||
-      !canApi('GET', '/platformapi/v1/ops/upgrade-readiness') ||
-      !canApi('GET', '/platformapi/v1/ops/upgrades') ||
+      !canApi(...platformOpsUpgradeReadiness.endpoints[0]) ||
+      !canApi(...platformOpsUpgradeHistory.endpoints[0]) ||
       upgradeSubmitting.value ||
       activeUpgrade.value ||
       upgradeReadiness.value?.preflight.state !== 'ready' ||
@@ -2694,13 +2713,16 @@
         '确认执行固定升级',
         { type: 'warning' }
       );
-      if (view.value !== 'upgrades' || !can('platform.ops.upgrade.manage'))
+      if (
+        view.value !== platformOpsUpgradesPage.view ||
+        !can('platform.ops.upgrade.manage')
+      )
         return;
       upgradeSubmitting.value = true;
       error.value = '';
       await api.submitUpgrade();
       ElMessage.success('升级任务已提交，等待登记的 deployment-control worker');
-      await loadOpsView('upgrades');
+      await loadOpsView(platformOpsUpgradesPage.view);
     } catch (cause) {
       if (cause !== 'cancel' && cause !== 'close') error.value = message(cause);
     } finally {
@@ -2714,7 +2736,8 @@
         error.value = '当前账号无权访问此页面';
         return;
       }
-      if (next === 'audit' && view.value !== 'audit') auditPage.value = 1;
+      if (next === platformAuditPage.view && view.value !== platformAuditPage.view)
+        auditPage.value = 1;
       if (view.value !== next) {
         storageOptionsLoading.value = false;
         if (opsSections[view.value] || opsSections[next]) opsRuntime.dispose();
@@ -2813,13 +2836,13 @@
     window.location.replace('/admin/');
   }
   function openProvisionDialog() {
-    if (!can('platform.tenant.create')) return;
+    if (!can(platformTenantCreate.key)) return;
     provisionError.value = '';
     provisionFormRef.value?.clearValidate();
     provisionDialog.value = true;
   }
   async function createTenant() {
-    if (loading.value || !can('platform.tenant.create')) return;
+    if (loading.value || !can(platformTenantCreate.key)) return;
     provisionError.value = '';
     const valid = await provisionFormRef.value?.validate().catch(() => false);
     if (!valid) return;
@@ -2851,16 +2874,14 @@
   }
   async function changeTenant(
     tenant: Tenant,
-    action: 'activate' | 'suspend' | 'close'
+    action: keyof typeof platformTenantTransitions
   ) {
-    if (!canApi('POST', '/platformapi/tenants/' + action) || loading.value)
-      return;
-    const actionLabel = { activate: '启用', suspend: '暂停', close: '关闭' }[
-      action
-    ];
+    const transition = platformTenantTransitions[action];
+    const [method, path] = transition.endpoints[0];
+    if (!canApi(method, path) || loading.value) return;
     try {
       await ElMessageBox.confirm(
-        `确认${actionLabel} ${tenant.display_name}？`,
+        `确认${transition.label} ${tenant.display_name}？`,
         '确认生命周期变更',
         { type: 'warning' }
       );
@@ -2877,7 +2898,7 @@
     }
   }
   async function showTenant(tenant: Tenant) {
-    if (!canApi('GET', '/platformapi/tenants/detail')) return;
+    if (!canApi(...platformTenantDetail.endpoints[0])) return;
     const request = viewRequest;
     error.value = '';
     loading.value = true;
@@ -2886,7 +2907,7 @@
       const detail = await api.tenantDetail(tenant.id);
       if (
         request !== viewRequest ||
-        !canApi('GET', '/platformapi/tenants/detail')
+        !canApi(...platformTenantDetail.endpoints[0])
       )
         return;
       tenantDetail.value = detail;

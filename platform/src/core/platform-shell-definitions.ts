@@ -1,3 +1,61 @@
+export const platformTenancyNavigation = {
+  id: 'tenant-operations',
+  key: 'platform.tenancy',
+  parentKey: null,
+  type: 'group',
+  label: '租户运营',
+  endpoints: [],
+} as const;
+
+export const platformTenantsPage = {
+  key: 'platform.tenant.list',
+  parentKey: platformTenancyNavigation.key,
+  type: 'page',
+  view: 'tenants',
+  label: '租户与生命周期',
+  endpoints: [['GET', '/platformapi/tenants']],
+} as const;
+
+export const platformTenantCreate = {
+  key: 'platform.tenant.create',
+  parentKey: platformTenantsPage.key,
+  type: 'action',
+  label: '新建租户',
+  endpoints: [['POST', '/platformapi/tenants/provision']],
+} as const;
+
+export const platformTenantDetail = {
+  key: 'platform.tenant.detail',
+  parentKey: platformTenantsPage.key,
+  type: 'action',
+  label: '详情',
+  endpoints: [['GET', '/platformapi/tenants/detail']],
+} as const;
+
+export const platformTenantTransitions = {
+  activate: {
+    key: 'platform.tenant.activate',
+    parentKey: platformTenantsPage.key,
+    type: 'action',
+    label: '启用',
+    endpoints: [['POST', '/platformapi/tenants/activate']],
+  },
+  suspend: {
+    key: 'platform.tenant.suspend',
+    parentKey: platformTenantsPage.key,
+    type: 'action',
+    label: '暂停',
+    endpoints: [['POST', '/platformapi/tenants/suspend']],
+  },
+  close: {
+    key: 'platform.tenant.close',
+    parentKey: platformTenantsPage.key,
+    type: 'action',
+    label: '关闭',
+    endpoints: [['POST', '/platformapi/tenants/close']],
+  },
+} as const;
+
 export const organizationAccessNavigation = {
   id: 'organization-access',
   key: 'platform.governance',
@@ -159,6 +217,116 @@ export const platformPermissionMenusPage = {
   endpoints: [['GET', '/platformapi/permission/menus']],
 } as const;
 
+export const platformOperationsNavigation = {
+  id: 'operations-audit',
+  key: 'platform.operations',
+  parentKey: null,
+  type: 'group',
+  label: '运维与审计',
+  endpoints: [],
+} as const;
+
+export const platformOpsOverviewPage = {
+  key: 'platform.ops.console',
+  parentKey: platformOperationsNavigation.key,
+  type: 'page',
+  view: 'ops',
+  label: '运维概览',
+  endpoints: [['GET', '/platformapi/v1/ops/status']],
+} as const;
+
+export const platformOpsMaintenancePage = {
+  key: 'platform.ops.maintenance',
+  parentKey: platformOperationsNavigation.key,
+  type: 'page',
+  view: 'maintenance',
+  label: '维护窗口',
+  endpoints: [['GET', '/platformapi/v1/ops/maintenance']],
+} as const;
+
+export const platformOpsBackupsPage = {
+  key: 'platform.ops.backups',
+  parentKey: platformOperationsNavigation.key,
+  type: 'page',
+  view: 'backups',
+  label: '备份与恢复',
+  endpoints: [['GET', '/platformapi/v1/ops/backups']],
+} as const;
+
+const opsUpgradesPageKey = 'platform.upgrade.status';
+
+export const platformOpsUpgradeReadiness = {
+  key: 'platform.upgrade.readiness.read',
+  parentKey: opsUpgradesPageKey,
+  type: 'operation',
+  label: '读取升级就绪状态',
+  endpoints: [['GET', '/platformapi/v1/ops/upgrade-readiness']],
+} as const;
+
+export const platformOpsUpgradeHistory = {
+  key: 'platform.upgrade.history.read',
+  parentKey: opsUpgradesPageKey,
+  type: 'operation',
+  label: '读取升级任务',
+  endpoints: [['GET', '/platformapi/v1/ops/upgrades']],
+} as const;
+
+export const platformOpsUpgradesPage = {
+  key: opsUpgradesPageKey,
+  parentKey: platformOperationsNavigation.key,
+  type: 'page',
+  view: 'upgrades',
+  label: '应用升级',
+  endpoints: [],
+  readAlternatives: [platformOpsUpgradeReadiness, platformOpsUpgradeHistory],
+} as const;
+
+const opsDiagnosticsPageKey = 'platform.ops.diagnostics';
+
+export const platformOpsLogs = {
+  key: 'platform.ops.logs.read',
+  parentKey: opsDiagnosticsPageKey,
+  type: 'operation',
+  label: '读取运行日志',
+  endpoints: [['GET', '/platformapi/v1/ops/logs']],
+} as const;
+
+export const platformOpsDiagnosticsDownload = {
+  key: 'platform.ops.diagnostics.download',
+  parentKey: opsDiagnosticsPageKey,
+  type: 'operation',
+  label: '下载脱敏诊断包',
+  endpoints: [['GET', '/platformapi/v1/ops/diagnostics']],
+} as const;
+
+export const platformOpsDiagnosticsPage = {
+  key: opsDiagnosticsPageKey,
+  parentKey: platformOperationsNavigation.key,
+  type: 'page',
+  view: 'diagnostics',
+  label: '运行诊断',
+  endpoints: [],
+  readAlternatives: [platformOpsLogs, platformOpsDiagnosticsDownload],
+} as const;
+
+export const platformOpsProvidersPage = {
+  key: 'platform.ops.providers',
+  parentKey: platformOperationsNavigation.key,
+  type: 'page',
+  view: 'providers',
+  label: '服务提供者',
+  endpoints: [['GET', '/platformapi/v1/ops/providers']],
+} as const;
+
+export const platformAuditPage = {
+  key: 'platform.audit.list',
+  parentKey: platformOperationsNavigation.key,
+  type: 'page',
+  view: 'audit',
+  label: '平台审计',
+  endpoints: [['GET', '/platformapi/audit']],
+} as const;
+
 export const platformModuleTaskRead = {
   key: 'platform.module.operation-task.read',
   parentKey: null,
@@ -173,6 +341,11 @@ export function platformViewHash(view: string): string {
 }
 
 export const platformShellPreviewDefinitions = [
+  platformTenancyNavigation,
+  platformTenantsPage,
+  platformTenantCreate,
+  platformTenantDetail,
+  ...Object.values(platformTenantTransitions),
   organizationAccessNavigation,
   platformOperatorsPage,
   platformOperatorCreate,
@@ -189,5 +362,15 @@ export const platformShellPreviewDefinitions = [
   platformPermissionBundleUpdate,
   platformPermissionApisPage,
   platformPermissionMenusPage,
+  platformOperationsNavigation,
+  platformOpsOverviewPage,
+  platformOpsMaintenancePage,
+  platformOpsBackupsPage,
+  platformOpsUpgradesPage,
+  ...platformOpsUpgradesPage.readAlternatives,
+  platformOpsDiagnosticsPage,
+  ...platformOpsDiagnosticsPage.readAlternatives,
+  platformOpsProvidersPage,
+  platformAuditPage,
   platformModuleTaskRead,
 ] as const;

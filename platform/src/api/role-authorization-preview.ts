@@ -198,8 +198,11 @@ export function buildPlatformShellCandidate(apis: readonly PermissionApi[]) {
     return match.id;
   }
   const nodes: CandidateNode[] = platformShellPreviewDefinitions.map(
-    ({ key, parentKey, type, endpoints }) => {
-      if (type !== 'group' && endpoints.length < 1)
+    (definition) => {
+      const { key, parentKey, type, endpoints } = definition;
+      const alternateReadPage =
+        type === 'page' && 'readAlternatives' in definition;
+      if (type !== 'group' && !alternateReadPage && endpoints.length < 1)
         throw new Error(`正式定义的节点 ${key} 未声明 API 关联。`);
       return {
         key,
@@ -215,12 +218,16 @@ export function buildPlatformShellCandidate(apis: readonly PermissionApi[]) {
   const presentation = new Map(
     platformShellPreviewDefinitions.map((definition) => {
       let source: string;
+      const alternateReadPage =
+        definition.type === 'page' && 'readAlternatives' in definition;
       switch (definition.type) {
         case 'group':
           source = 'Platform Shell 侧栏分组';
           break;
         case 'page':
           source = 'Platform Shell 页面 ' + platformViewHash(definition.view);
+          if (alternateReadPage)
+            source += ' · 入口择一，显式选择下方读取能力';
           break;
         case 'action':
           source =
@@ -228,10 +235,21 @@ export function buildPlatformShellCandidate(apis: readonly PermissionApi[]) {
             (labels.get(definition.parentKey) ?? definition.parentKey);
           break;
         case 'operation':
-          source = definition.source;
+          source =
+            'source' in definition
+              ? definition.source
+              : '所属页面 · ' +
+                (labels.get(definition.parentKey) ?? definition.parentKey);
           break;
       }
-      return [definition.key, { label: definition.label, source }];
+      return [
+        definition.key,
+        {
+          label: definition.label,
+          source,
+          disabled: definition.type === 'group' || alternateReadPage,
+        },
+      ];
     })
   );
   return validateCandidateNodes(nodes, presentation);
@@ -239,7 +257,10 @@ export function buildPlatformShellCandidate(apis: readonly PermissionApi[]) {
 
 function validateCandidateNodes(
   draft: unknown,
-  presentation?: ReadonlyMap<string, { label: string; source: string }>
+  presentation?: ReadonlyMap<
+    string,
+    { label: string; source: string; disabled: boolean }
+  >
 ) {
   if (!Array.isArray(draft) || draft.length > 1000)
     throw new Error('候选须为最多 1,000 项的节点数组。');
@@ -290,8 +311,8 @@ function validateCandidateNodes(
       key,
       {
         ...node,
-        ...presentation?.get(key),
         disabled: node.type === 'group',
+        ...presentation?.get(key),
         children: [],
       },
     ])

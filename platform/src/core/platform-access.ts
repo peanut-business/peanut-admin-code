@@ -4,12 +4,16 @@ import {
   platformOperatorRolesReplace,
   platformOperatorsPage,
   platformOperatorUpdate,
+  platformOpsLogs,
+  platformOpsOverviewPage,
   platformPermissionBundleCreate,
   platformPermissionCatalogRead,
   platformRoleArchive,
   platformRoleCreate,
   platformRolesPage,
   platformRoleUpdate,
+  platformTenantCreate,
+  platformTenantsPage,
 } from './platform-shell-definitions';
 
 export interface PlatformApiAccess {
@@ -30,8 +34,8 @@ export function allowsPlatformApi(
 // Existing action names remain presentation labels; only the server's actual API
 // grant projection decides access, including instance-defined permission bundles.
 const actionEndpoints: Record<string, readonly [string, string]> = {
-  'platform.tenant.read': ['GET', '/platformapi/tenants'],
-  'platform.tenant.create': ['POST', '/platformapi/tenants/provision'],
+  'platform.tenant.read': platformTenantsPage.endpoints[0],
+  [platformTenantCreate.key]: platformTenantCreate.endpoints[0],
   'platform.tenant.update': [
     'POST',
     '/platformapi/tenant-entry-bindings/enable',
@@ -62,11 +66,11 @@ const actionEndpoints: Record<string, readonly [string, string]> = {
   'platform.plan.read': ['GET', '/platformapi/plans'],
   'platform.plan.manage': ['PUT', '/platformapi/plans'],
   'platform.module.read': ['GET', '/platformapi/developer-center/catalog'],
-  'platform.ops.read': ['GET', '/platformapi/v1/ops/status'],
+  'platform.ops.read': platformOpsOverviewPage.endpoints[0],
   'platform.ops.backup.manage': ['POST', '/platformapi/v1/ops/tasks/backup'],
   'platform.ops.restore.manage': ['POST', '/platformapi/v1/ops/tasks/restore'],
   'platform.ops.maintenance.manage': ['PUT', '/platformapi/v1/ops/maintenance'],
-  'platform.ops.logs.read': ['GET', '/platformapi/v1/ops/logs'],
+  [platformOpsLogs.key]: platformOpsLogs.endpoints[0],
   'platform.ops.upgrade.manage': ['POST', '/platformapi/v1/ops/tasks/upgrade'],
   'platform.ops.module.manage': ['POST', '/platformapi/v1/ops/tasks/module'],
 };

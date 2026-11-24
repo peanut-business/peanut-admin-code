@@ -50,6 +50,27 @@ const createOperatorPath = '/platformapi/operators/create';
 const rolesPath = '/platformapi/roles';
 const createRolePath = '/platformapi/roles/create';
 const moduleTaskPath = '/platformapi/instance-tools/modules/tasks/{task_key}';
+const tenantsPath = '/platformapi/tenants';
+const tenantProvisionPath = '/platformapi/tenants/provision';
+const tenantDetailPath = '/platformapi/tenants/detail';
+const auditPath = '/platformapi/audit';
+const opsPath = '/platformapi/v1/ops';
+const opsReadPages = [
+  ['platform.ops.console', 'ops', 'status'],
+  ['platform.ops.maintenance', 'maintenance', 'maintenance'],
+  ['platform.ops.backups', 'backups', 'backups'],
+  ['platform.ops.providers', 'providers', 'providers'],
+];
+const opsAlternatePages = [
+  ['platform.upgrade.status', 'upgrades', [
+    ['platform.upgrade.readiness.read', 'upgrade-readiness'],
+    ['platform.upgrade.history.read', 'upgrades'],
+  ]],
+  ['platform.ops.diagnostics', 'diagnostics', [
+    ['platform.ops.logs.read', 'logs'],
+    ['platform.ops.diagnostics.download', 'diagnostics'],
+  ]],
+];
 const permissionCatalogPath = '/platformapi/permissions';
 const permissionBundlesPath = '/platformapi/permission/bundles';
 const permissionApisPath = '/platformapi/permission/apis';
@@ -112,6 +133,15 @@ function nativePlatformApis() {
     ...operatorTransitions.map((action) => ['POST', operatorsPath + '/' + action]),
     ['POST', updateRolePath],
     ['POST', archiveRolePath],
+    ['GET', tenantsPath],
+    ['GET', tenantDetailPath],
+    ['POST', tenantProvisionPath],
+    ...['activate', 'suspend', 'close'].map((action) => ['POST', tenantsPath + '/' + action]),
+    ['GET', auditPath],
+    ...opsReadPages.map(([, , endpoint]) => ['GET', opsPath + '/' + endpoint]),
+    ...opsAlternatePages.flatMap(([, , alternatives]) =>
+      alternatives.map(([, endpoint]) => ['GET', opsPath + '/' + endpoint])
+    ),
   ]
     .map(([method, path]) => {
       const matches = endpoints.filter((row) => row.path === path && row.method === method);
@@ -173,6 +203,10 @@ function fixture(t, adapter) {
     runInNewContext(code, {
       module,
       Error,
+      Headers,
+      TextDecoder,
+      URLSearchParams,
+      crypto,
       require(dependency) {
         if (dependency === '../api/platform') return dependencies['./platform'];
         if (dependency === '../core/platform-shell-definitions')
@@ -192,6 +226,7 @@ function fixture(t, adapter) {
   const canPreview = () => allowed;
   return {
     api: platform.api,
+    createPlatformOpsTransport: platform.createPlatformOpsTransport,
     session: platform.getPlatformSessionSnapshot,
     onSessionChange: platform.onPlatformSessionChange,
     contract,
@@ -313,7 +348,34 @@ test('the default preview projects the real Platform Shell branches and a no-men
   const panel = await mount(true, 'shell');
   assert.equal(panel.candidateMode.value, 'shell');
   assert.equal(panel.candidateText.value, '');
-  const [groupNode, operation] = panel.candidate.value.data.tree;
+  const [tenancy, groupNode, operations, operation] =
+    panel.candidate.value.data.tree;
+  const [tenantsPage] = tenancy.children;
+  for (const [key, view] of opsReadPages) {
+    const opsPage = operations.children.find((child) => child.key === key);
+    assert.ok(opsPage, key);
+    assert.ok(opsPage.source.endsWith('#/' + view));
+  }
+  for (const [key, view, alternatives] of opsAlternatePages) {
+    const opsPage = operations.children.find((child) => child.key === key);
+    assert.ok(opsPage, key);
+    assert.match(opsPage.source, /入口择一，显式选择下方读取能力/);
+    assert.ok(opsPage.source.includes('#/' + view));
+    assert.equal(opsPage.disabled, true);
+    assert.deepEqual(plain(opsPage.api_ids), []);
+    assert.deepEqual(plain(opsPage.children.map((child) => child.key)), alternatives.map(([key]) => key));
+    assert.ok(opsPage.children.every((child) => child.type === 'operation' && !child.disabled));
+  }
+  const auditPage = operations.children.find((child) => child.key === 'platform.audit.list');
+  assert.equal(tenancy.label, '租户运营');
+  assert.match(tenantsPage.source, /#\/tenants$/);
+  assert.deepEqual(
+    plain(tenantsPage.children.map((child) => child.label)),
+    ['新建租户', '详情', '启用', '暂停', '关闭']
+  );
+  assert.ok(tenantsPage.children.every((child) => child.source.endsWith(tenantsPage.label)));
+  assert.equal(operations.label, '运维与审计');
+  assert.match(auditPage.source, /#\/audit$/);
   const [operatorsNode, pageNode, workbench, bundlesPage, apisPage, menusPage] =
     groupNode.children;
   const [operatorAction] = operatorsNode.children;
@@ -347,6 +409,16 @@ test('the default preview projects the real Platform Shell branches and a no-men
   assert.deepEqual(previewCalls, [{
     operator_id: '1',
     nodes: [
+      node('platform.tenancy', null, 'group'),
+      node('platform.tenant.list', 'platform.tenancy', 'page', [['GET', tenantsPath]]),
+      node('platform.tenant.create', 'platform.tenant.list', 'action', [['POST', tenantProvisionPath]]),
+      node('platform.tenant.detail', 'platform.tenant.list', 'action', [['GET', tenantDetailPath]]),
+      ...['activate', 'suspend', 'close'].map((action) => node(
+        'platform.tenant.' + action,
+        'platform.tenant.list',
+        'action',
+        [['POST', tenantsPath + '/' + action]]
+      )),
       node('platform.governance', null, 'group'),
       node('platform.operator.list', 'platform.governance', 'page', [['GET', operatorsPath]]),
       node('platform.operator.create', 'platform.operator.list', 'action', [['POST', createOperatorPath]]),
@@ -368,12 +440,36 @@ test('the default preview projects the real Platform Shell branches and a no-men
       node('platform.permission.bundle.update', 'platform.permission.bundle.list', 'action', [['PUT', permissionBundlesPath]]),
       node('platform.permission.api.list', 'platform.governance', 'page', [['GET', permissionApisPath]]),
       node('platform.permission.menu.list', 'platform.governance', 'page', [['GET', permissionMenusPath]]),
+      node('platform.operations', null, 'group'),
+      ...opsReadPages.slice(0, 3).map(([key, , endpoint]) => node(
+        key, 'platform.operations', 'page', [['GET', opsPath + '/' + endpoint]]
+      )),
+      ...opsAlternatePages.flatMap(([pageKey, , alternatives]) => [
+        node(pageKey, 'platform.operations', 'page'),
+        ...alternatives.map(([key, endpoint]) => node(
+          key, pageKey, 'operation', [['GET', opsPath + '/' + endpoint]]
+        )),
+      ]),
+      node('platform.ops.providers', 'platform.operations', 'page', [['GET', opsPath + '/providers']]),
+      node('platform.audit.list', 'platform.operations', 'page', [['GET', auditPath]]),
       node('platform.module.operation-task.read', null, 'operation', [['GET', moduleTaskPath]]),
     ],
     role_assignments: [{ role_id: '2', node_keys: [] }],
   }]);
   assert.equal(panel.result.value.capability_equal, true);
   assert.equal(panel.result.value.relation_coverage_complete, false);
+  for (const [pageKey, , alternatives] of opsAlternatePages) {
+    for (const [key, endpoint] of alternatives) {
+      panel.changeCheckedNodes({}, { checkedKeys: [key] });
+      await panel.runPreview();
+      const payload = previewCalls.at(-1);
+      assert.deepEqual(payload.role_assignments, [{ role_id: '2', node_keys: [key] }]);
+      assert.deepEqual(
+        payload.nodes.filter((item) => item.key === pageKey || item.key === key),
+        [node(pageKey, 'platform.operations', 'page'), node(key, pageKey, 'operation', [['GET', opsPath + '/' + endpoint]])]
+      );
+    }
+  }
   await api.createRole(roleInput);
   await api.createOperator(operatorInput);
   assert.deepEqual(await api.permissions(2, 20), { lists: [], count: 0 });
@@ -407,6 +503,118 @@ test('existing Platform management actions retain methods, data, and revisions',
     ['post', replaceOperatorRolesPath, { ...operatorChange, role_ids: [41] }],
     ...operatorTransitions.map((action) => ['post', operatorsPath + '/' + action, operatorChange]),
     ['get', permissionMenusPath, null],
+  ]);
+});
+
+test('the tenant lifecycle and audit consumers retain their request contracts', async (t) => {
+  const calls = [];
+  const invitation = { id: 91, status: 'pending' };
+  const { api } = fixture(t, async (config) => {
+    calls.push([
+      config.method,
+      config.url,
+      config.params ? plain(config.params) : null,
+      config.data ? JSON.parse(config.data) : null,
+    ]);
+    return reply(config, config.url === tenantProvisionPath ? invitation : null);
+  });
+  const provision = {
+    tenant_code: 'synthetic',
+    tenant_name: 'Synthetic tenant',
+    owner_email: 'owner@example.test',
+    owner_display_name: 'Synthetic owner',
+    expires_in_hours: 72,
+  };
+  const tenant = { id: 42, revision: 7 };
+  const change = { tenant_id: 42, expected_revision: 7, change_reason: 'synthetic' };
+  await api.tenants(2, 30);
+  await api.tenantDetail(tenant.id);
+  assert.deepEqual(await api.provision(provision), invitation);
+  for (const action of ['activate', 'suspend', 'close'])
+    await api.transition(action, tenant, 'synthetic');
+  await api.audit(3, 20);
+  assert.deepEqual(calls, [
+    ['get', tenantsPath, { page: 2, page_size: 30 }, null],
+    ['get', tenantDetailPath, { id: 42 }, null],
+    ['post', tenantProvisionPath, null, provision],
+    ['post', tenantsPath + '/activate', null, change],
+    ['post', tenantsPath + '/suspend', null, change],
+    ['post', tenantsPath + '/close', null, change],
+    ['get', auditPath, { page: 3, page_size: 20 }, null],
+  ]);
+});
+
+test('the single-read Ops pages preserve host request and response contracts', async (t) => {
+  const calls = [];
+  const { api, createPlatformOpsTransport } = fixture(t, async (config) => {
+    calls.push([
+      config.method,
+      config.url,
+      config.params ? plain(config.params) : null,
+      config.signal ?? null,
+    ]);
+    return {
+      ...reply(config, { source: config.url }),
+      headers: { 'x-request-id': 'synthetic-ops-request' },
+    };
+  });
+  const transport = createPlatformOpsTransport();
+  const { signal } = new AbortController();
+  for (const [read, path] of [
+    [transport.overview, opsPath + '/status'],
+    [transport.maintenance, opsPath + '/maintenance'],
+  ]) {
+    const result = await read(signal);
+    assert.equal(result.status, 200);
+    assert.equal(result.headers.get('x-request-id'), 'synthetic-ops-request');
+    assert.deepEqual(plain(result.body), {
+      data: { source: path },
+      meta: { request_id: 'synthetic-ops-request' },
+    });
+  }
+  assert.deepEqual(await api.backupCenter(3), { source: opsPath + '/backups' });
+  assert.deepEqual(await api.providerQualifications(4), { source: opsPath + '/providers' });
+  assert.deepEqual(calls, [
+    ['get', opsPath + '/status', null, signal],
+    ['get', opsPath + '/maintenance', null, signal],
+    ['get', opsPath + '/backups', { page: 3, page_size: 20 }, null],
+    ['get', opsPath + '/providers', { page: 4, page_size: 20 }, null],
+  ]);
+});
+
+test('alternate Ops reads keep each route, request options, and independent transport behavior', async (t) => {
+  const calls = [];
+  const { api, createPlatformOpsTransport } = fixture(t, async (config) => {
+    calls.push([
+      config.method,
+      config.url,
+      config.params ? plain(config.params) : null,
+      config.responseType ?? null,
+      config.signal ?? null,
+    ]);
+    if (config.url === opsPath + '/diagnostics')
+      return {
+        config,
+        status: 200,
+        headers: {},
+        data: new TextEncoder().encode('{"msg":"synthetic diagnostic refusal"}').buffer,
+      };
+    return reply(config, { route: config.url });
+  });
+  const transport = createPlatformOpsTransport();
+  const { signal } = new AbortController();
+  await api.upgradeReadiness();
+  await api.upgradeCenter();
+  await transport.logs('platform.audit', 'warn', 'progress 7', 20, signal);
+  await assert.rejects(api.downloadDiagnostics(360), /synthetic diagnostic refusal/);
+  const taskKey = 'synthetic/task?x=1';
+  await transport.task(taskKey, signal);
+  assert.deepEqual(calls, [
+    ['get', opsPath + '/upgrade-readiness', null, null, null],
+    ['get', opsPath + '/upgrades', null, null, null],
+    ['get', opsPath + '/logs?source=platform.audit&severity=warn&page_size=20&cursor=progress+7', null, null, signal],
+    ['get', opsPath + '/diagnostics', { window_minutes: 360 }, 'arraybuffer', null],
+    ['get', opsPath + '/tasks/' + encodeURIComponent(taskKey), null, null, signal],
   ]);
 });
 

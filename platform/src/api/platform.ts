@@ -7,12 +7,21 @@ import {
 } from '@peanut-admin/client';
 import type { PlatformApiAccess } from '../core/platform-access';
 import {
+  platformAuditPage,
   platformModuleTaskRead,
   platformOperatorCreate,
   platformOperatorRolesReplace,
   platformOperatorsPage,
   platformOperatorTransitions,
   platformOperatorUpdate,
+  platformOpsBackupsPage,
+  platformOpsDiagnosticsDownload,
+  platformOpsLogs,
+  platformOpsMaintenancePage,
+  platformOpsOverviewPage,
+  platformOpsProvidersPage,
+  platformOpsUpgradeHistory,
+  platformOpsUpgradeReadiness,
   platformPermissionApisPage,
   platformPermissionBundleCreate,
   platformPermissionBundlesPage,
@@ -23,6 +32,10 @@ import {
   platformRoleCreate,
   platformRolesPage,
   platformRoleUpdate,
+  platformTenantCreate,
+  platformTenantDetail,
+  platformTenantsPage,
+  platformTenantTransitions,
 } from '../core/platform-shell-definitions';
 import {
   readPlan,
@@ -1061,13 +1074,13 @@ export const api = {
     ),
   tenants: (page = 1, pageSize = 100) =>
     unwrap<Page<Tenant>>(
-      client.get('/platformapi/tenants', {
+      requestEndpoint(platformTenantsPage.endpoints[0], {
         params: { page, page_size: pageSize },
       })
     ),
   tenantDetail: (id: number) =>
     unwrap<Record<string, unknown>>(
-      client.get('/platformapi/tenants/detail', { params: { id } })
+      requestEndpoint(platformTenantDetail.endpoints[0], { params: { id } })
     ),
   tenantOwner: (tenantId: number) =>
     unwrap<TenantOwner>(
@@ -1076,17 +1089,21 @@ export const api = {
       })
     ),
   provision: (payload: Record<string, string | number>) =>
-    unwrap<Invitation>(client.post('/platformapi/tenants/provision', payload)),
+    unwrap<Invitation>(
+      requestEndpoint(platformTenantCreate.endpoints[0], { data: payload })
+    ),
   transition: (
-    action: 'activate' | 'suspend' | 'close',
+    action: keyof typeof platformTenantTransitions,
     tenant: Tenant,
     changeReason: string
   ) =>
     unwrap(
-      client.post(`/platformapi/tenants/${action}`, {
-        tenant_id: tenant.id,
-        expected_revision: tenant.revision,
-        change_reason: changeReason,
+      requestEndpoint(platformTenantTransitions[action].endpoints[0], {
+        data: {
+          tenant_id: tenant.id,
+          expected_revision: tenant.revision,
+          change_reason: changeReason,
+        },
       })
     ),
   invitations: (tenantId: number) =>
@@ -1300,23 +1317,23 @@ export const api = {
     unwrap(client.post('/platformapi/infrastructure/storage/route', payload)),
   audit: (page = 1, pageSize = 20) =>
     unwrap<Page<AuditEvent>>(
-      client.get('/platformapi/audit', {
+      requestEndpoint(platformAuditPage.endpoints[0], {
         params: { page, page_size: pageSize },
       })
     ),
   backupCenter: (page = 1) =>
     unwrap<OpsBackupCenterSnapshot>(
-      client.get('/platformapi/v1/ops/backups', {
+      requestEndpoint(platformOpsBackupsPage.endpoints[0], {
         params: { page, page_size: 20 },
       })
     ),
   upgradeReadiness: () =>
     unwrap<OpsUpgradeReadinessSnapshot>(
-      client.get('/platformapi/v1/ops/upgrade-readiness')
+      requestEndpoint(platformOpsUpgradeReadiness.endpoints[0])
     ),
   upgradeCenter: () =>
     unwrap<OpsUpgradeCenterSnapshot>(
-      client.get('/platformapi/v1/ops/upgrades')
+      requestEndpoint(platformOpsUpgradeHistory.endpoints[0])
     ),
   submitUpgrade: () =>
     unwrap<OpsUpgradeTask>(
@@ -1335,7 +1352,7 @@ export const api = {
     ),
   providerQualifications: (page = 1) =>
     unwrap<ProviderQualificationSnapshot>(
-      client.get('/platformapi/v1/ops/providers', {
+      requestEndpoint(platformOpsProvidersPage.endpoints[0], {
         params: { page, page_size: 20 },
       })
     ),
@@ -1461,13 +1478,13 @@ export const api = {
   async downloadDiagnostics(
     windowMinutes: 60 | 360 | 1440 = 60
   ): Promise<DiagnosticDownload> {
-    const result = await client.get<ArrayBuffer>(
-      '/platformapi/v1/ops/diagnostics',
-      {
-        params: { window_minutes: windowMinutes },
-        responseType: 'arraybuffer',
-      }
-    );
+    const [method, url] = platformOpsDiagnosticsDownload.endpoints[0];
+    const result = await client.request<ArrayBuffer>({
+      method,
+      url,
+      params: { window_minutes: windowMinutes },
+      responseType: 'arraybuffer',
+    });
     const sha256 = String(result.headers['x-diagnostic-sha256'] || '');
     if (!/^[0-9a-f]{64}$/.test(sha256)) {
       let message = '诊断包生成失败';
@@ -1523,10 +1540,10 @@ function opsRequestId(headers: Record<string, unknown>): string {
 }
 
 async function opsRead(
-  path: string,
+  [method, url]: readonly ['GET', string],
   signal: AbortSignal
 ): Promise<OpsTransportResult> {
-  const result = await client.get<Envelope<unknown>>(path, { signal });
+  const result = await client.request<Envelope<unknown>>({ method, url, signal });
   const requestId = opsRequestId(result.headers as Record<string, unknown>);
   if (result.data.code === 20000) {
     return {
@@ -1687,8 +1704,9 @@ function opsMutationResult(result: {
 /** Platform Ops transport: maintenance state and its control writes share one Host. */
 export function createPlatformOpsTransport(): OpsConsoleTransport {
   return {
-    overview: (signal) => opsRead('/platformapi/v1/ops/status', signal),
-    maintenance: (signal) => opsRead('/platformapi/v1/ops/maintenance', signal),
+    overview: (signal) => opsRead(platformOpsOverviewPage.endpoints[0], signal),
+    maintenance: (signal) =>
+      opsRead(platformOpsMaintenancePage.endpoints[0], signal),
     submitBackup: (providerKey, idempotencyKey, signal) =>
       opsSubmitBackup(providerKey, idempotencyKey, signal),
     submitRestore: (
@@ -1707,7 +1725,7 @@ export function createPlatformOpsTransport(): OpsConsoleTransport {
       ),
     task: (taskKey, signal) =>
       opsRead(
-        `/platformapi/v1/ops/tasks/${encodeURIComponent(taskKey)}`,
+        ['GET', `/platformapi/v1/ops/tasks/${encodeURIComponent(taskKey)}`],
         signal
       ),
     scheduleMaintenance: opsScheduleMaintenance,
@@ -1719,7 +1737,8 @@ export function createPlatformOpsTransport(): OpsConsoleTransport {
         page_size: String(pageSize),
       });
       if (cursor !== null) query.set('cursor', cursor);
-      return opsRead(`/platformapi/v1/ops/logs?${query}`, signal);
+      const [method, path] = platformOpsLogs.endpoints[0];
+      return opsRead([method, `${path}?${query}`], signal);
     },
   };
 }
