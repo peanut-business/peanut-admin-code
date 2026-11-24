@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression for preparation failures after a framework exception handler is installed."""
+"""Native preparation failure propagation and first-install storage ordering."""
 from pathlib import Path
 import json
 import os
@@ -51,10 +51,15 @@ namespace app\common\value\installation {
     }
 }
 namespace app\common\infrastructure\scaffold {
-    class ReleaseDependencyIdentity { public static function verifyArchives(...$args) {} }
+    class ReleaseDependencyIdentity { public static function verifyArchives(...$args) {
+        if (getenv('PREPARE_FAILURE') === 'archive') throw new \RuntimeException('archive rejected');
+    } }
 }
 namespace app\platform\infrastructure\module {
-    class ModuleLockResolver { public function __construct(...$args) {} public function all() { return []; } }
+    class ModuleLockResolver { public function __construct(...$args) {} public function all() {
+        if (getenv('PREPARE_FAILURE') === 'module-lock') throw new \RuntimeException('module lock rejected');
+        return [];
+    } }
 }
 namespace app\common\module {
     class Dependencies {
@@ -108,3 +113,81 @@ namespace app\common\module {
             assert result.returncode == 0, result.stderr
             assert marker.exists() and '[deploy-update] Prepared' in result.stdout
         print(f'{failure or "success"}: passed')
+
+    # First-install also moves legacy storage. Reject every read-only preflight
+    # before that move, then keep preparation and retry on the native path.
+    shutil.copy2(ROOT / 'server/docker/scripts/migrate-storage-layout.py',
+                 root / 'server/docker/scripts/migrate-storage-layout.py')
+    write('fixture-bin/composer', '#!/bin/sh\n'
+          'test "$*" = "run-script post-autoload-dump" || exit 91\n'
+          'printf refreshed > ../composer-marker\n')
+    (root / 'fixture-bin/composer').chmod(0o700)
+    write('scripts/check-installation-contract.php',
+          '<?php file_put_contents("contract-marker", "checked");\n')
+    original_public = b'public fixture content'
+    original_private = b'private fixture content'
+
+    def reset_first_install(failure):
+        for path in ('server/storage', 'server/public/storage', 'server/private/storage'):
+            target = root / path
+            if target.is_symlink():
+                target.unlink()
+            elif target.exists():
+                shutil.rmtree(target)
+        static = root / 'server/public/admin'
+        if static.is_symlink():
+            static.unlink()
+        write('server/public/storage/fixture.txt', original_public.decode())
+        write('server/private/storage/fixture.txt', original_private.decode())
+        package = {'name': 'fixture/example',
+                   'version': '1.0.0' if failure == 'wrong-pin' else '1.0.1',
+                   'dist': {'type': 'path', 'url': module_root}}
+        write('server/composer.lock', json.dumps({'content-hash': '0' * 32, 'packages': [package]}))
+        for path in ('compile-marker', 'prepare-marker', 'composer-marker', 'contract-marker'):
+            (root / path).unlink(missing_ok=True)
+        if failure == 'linked-static':
+            (root / 'outside-static').mkdir(exist_ok=True)
+            static.symlink_to(root / 'outside-static', target_is_directory=True)
+
+    first_env = dict(os.environ, PREPARE_COMPILE_MARKER=str(marker),
+                     PATH=str(root / 'fixture-bin') + os.pathsep + os.environ['PATH'])
+    for failure, expected_error in (
+        ('identity', '[deploy-update] identity rejected'),
+        ('archive', '[deploy-update] archive rejected'),
+        ('module-lock', '[deploy-update] module lock rejected'),
+        ('wrong-pin', lock_error),
+        ('linked-static', 'deploy-update: static destination must not be linked'),
+        ('', ''),
+    ):
+        reset_first_install(failure)
+        result = subprocess.run(['bash', 'scripts/deploy-update.sh', '--prepare-first-install'],
+                                cwd=root, env=dict(first_env, PREPARE_FAILURE=failure),
+                                text=True, capture_output=True, timeout=20)
+        if failure:
+            assert result.returncode != 0, (failure, result.stdout, result.stderr)
+            assert expected_error in result.stderr.splitlines(), result.stderr
+            assert (root / 'server/public/storage').is_dir() and not (root / 'server/public/storage').is_symlink(), (
+                failure, 'preflight rejection must not move legacy public storage')
+            assert (root / 'server/public/storage/fixture.txt').read_bytes() == original_public
+            assert (root / 'server/private/storage/fixture.txt').read_bytes() == original_private
+            assert not (root / 'server/storage').exists(), 'preflight must not create canonical storage'
+            assert not (root / 'prepare-marker').exists()
+            assert not marker.exists()
+        else:
+            assert result.returncode == 0, (result.stdout, result.stderr)
+            assert (root / 'server/public/storage').is_symlink()
+            assert os.readlink(root / 'server/public/storage') == '../storage/public'
+            assert (root / 'server/storage/public/fixture.txt').read_bytes() == original_public
+            assert (root / 'server/storage/private/fixture.txt').read_bytes() == original_private
+            assert not (root / 'server/private/storage').exists()
+            for path in ('prepare-marker', 'compile-marker', 'composer-marker', 'contract-marker'):
+                assert (root / path).is_file(), path
+            # A second preparation sees the already canonical layout and preserves bytes.
+            repeated = subprocess.run(['bash', 'scripts/deploy-update.sh', '--prepare-first-install'],
+                                      cwd=root, env=dict(first_env, PREPARE_FAILURE=''),
+                                      text=True, capture_output=True, timeout=20)
+            assert repeated.returncode == 0, (repeated.stdout, repeated.stderr)
+            assert (root / 'server/storage/public/fixture.txt').read_bytes() == original_public
+            assert (root / 'server/storage/private/fixture.txt').read_bytes() == original_private
+            print('first-install canonical retry: passed')
+        print(f'first-install {failure or "success"}: passed')
