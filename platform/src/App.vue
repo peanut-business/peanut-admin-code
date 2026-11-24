@@ -913,13 +913,13 @@
               prop="disabled_reason"
               label="停用原因" /></el-table
         ></template>
-        <template v-else-if="view.startsWith('storage-')">
+        <template v-else-if="Object.hasOwn(storageSections, view)">
           <el-alert
             title="存储账号、存储空间与上传路由分别管理。调整上传路由只影响新文件，已有文件保持原存储位置。"
             type="info"
             :closable="false"
           />
-          <template v-if="view === 'storage-accounts'">
+          <template v-if="view === platformStoragePages.accounts.view">
             <div class="toolbar"
               ><el-button
                 v-if="
@@ -945,7 +945,7 @@
               >
             </el-table>
           </template>
-          <template v-else-if="view === 'storage-spaces'">
+          <template v-else-if="view === platformStoragePages.spaces.view">
             <div class="toolbar"
               ><el-button
                 v-if="
@@ -1615,6 +1615,9 @@
     platformRoleCreate,
     platformRolesPage,
     platformRoleUpdate,
+    platformStorageLegacyRead,
+    platformStorageNavigation,
+    platformStoragePages,
     platformTenancyNavigation,
     platformTenantCreate,
     platformTenantDetail,
@@ -1713,7 +1716,7 @@
     purposes: [],
   });
   const storageOptionsLoading = ref(false);
-  type StorageSection = 'accounts' | 'spaces' | 'routes';
+  type StorageSection = keyof typeof platformStoragePages;
   const owner = ref<TenantOwner | null>(null);
   const targetTenantId = ref<number | null>(null);
   let viewRequest = 0;
@@ -1815,13 +1818,16 @@
   const can = (permission: string) =>
     allowsPlatformAction(apiAccess.value, permission);
   const storageSections: Record<string, StorageSection> = {
-    'storage-accounts': 'accounts',
-    'storage-spaces': 'spaces',
-    'storage-routes': 'routes',
+    [platformStoragePages.accounts.view]: 'accounts',
+    [platformStoragePages.spaces.view]: 'spaces',
+    [platformStoragePages.routes.view]: 'routes',
+  };
+  const canReadStorageSection = (section: StorageSection) => {
+    const [method, path] = platformStoragePages[section].endpoints[0];
+    return canApi(method, path);
   };
   const canReadStorage = (section: StorageSection) =>
-    canApi('GET', '/platformapi/infrastructure/storage/' + section) ||
-    canApi('GET', '/platformapi/infrastructure/storage');
+    canReadStorageSection(section) || canApi(...platformStorageLegacyRead);
   const opsSections: Record<string, OpsConsoleSection> = {
     [platformOpsOverviewPage.view]: 'overview',
     [platformOpsMaintenancePage.view]: 'maintenance',
@@ -1898,9 +1904,9 @@
       ],
     },
     {
-      key: 'storage',
-      title: '存储管理',
-      items: ['storage-accounts', 'storage-spaces', 'storage-routes'],
+      key: platformStorageNavigation.id,
+      title: platformStorageNavigation.label,
+      items: Object.values(platformStoragePages).map((page) => page.view),
     },
     {
       key: platformOperationsNavigation.id,
@@ -1932,7 +1938,7 @@
       (
         {
           governance: platformRoleAuthorizationPage.view,
-          storage: 'storage-accounts',
+          storage: platformStoragePages.accounts.view,
           upgrade: 'upgrades',
         } as Record<string, string>
       )[name] || name
@@ -2132,9 +2138,9 @@
     'modules': '租户许可证与模块权益',
     'plans': '套餐管理',
     'developer': '开发者中心',
-    'storage-accounts': '存储账号',
-    'storage-spaces': '存储空间',
-    'storage-routes': '上传路由',
+    [platformStoragePages.accounts.view]: platformStoragePages.accounts.label,
+    [platformStoragePages.spaces.view]: platformStoragePages.spaces.label,
+    [platformStoragePages.routes.view]: platformStoragePages.routes.label,
     [platformOperatorsPage.view]: platformOperatorsPage.label,
     [platformRolesPage.view]: platformRolesPage.label,
     [platformRoleAuthorizationPage.view]: platformRoleAuthorizationPage.label,
@@ -2442,12 +2448,12 @@
   async function readStorageSection(
     section: StorageSection
   ): Promise<Partial<StorageSnapshot>> {
-    if (canApi('GET', '/platformapi/infrastructure/storage/' + section)) {
+    if (canReadStorageSection(section)) {
       if (section === 'accounts') return api.storageAccounts();
       if (section === 'spaces') return api.storageSpaces();
       return api.storageRoutes();
     }
-    if (!canApi('GET', '/platformapi/infrastructure/storage'))
+    if (!canApi(...platformStorageLegacyRead))
       throw new Error('缺少读取此存储目录的权限');
     const snapshot = await api.storageSnapshot();
     return { [section]: snapshot[section] };
@@ -2464,7 +2470,7 @@
     storageOptionsLoading.value = true;
     try {
       const result = await readStorageSection('spaces');
-      if (request === viewRequest && view.value === 'storage-routes')
+      if (request === viewRequest && view.value === platformStoragePages.routes.view)
         storage.value.spaces = result.spaces || [];
     } catch (cause) {
       if (request === viewRequest) error.value = message(cause);
@@ -2554,7 +2560,7 @@
           : [];
         if (!isCurrentTenantRequest(tenantId)) return;
         modules.value = moduleData;
-      } else if (requestedView.startsWith('storage-')) {
+      } else if (Object.hasOwn(storageSections, requestedView)) {
         const result = await readStorageSection(
           storageSections[requestedView]!
         );
@@ -3258,7 +3264,7 @@
         '调整上传路由'
       );
       if (
-        view.value !== 'storage-routes' ||
+        view.value !== platformStoragePages.routes.view ||
         !canApi('POST', '/platformapi/infrastructure/storage/route') ||
         !canReadStorage('spaces')
       )

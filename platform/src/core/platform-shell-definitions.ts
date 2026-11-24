@@ -217,6 +217,49 @@ export const platformPermissionMenusPage = {
   endpoints: [['GET', '/platformapi/permission/menus']],
 } as const;
 
+export const platformStorageCatalogOwner = 'peanut.file';
+
+export const platformStorageNavigation = {
+  id: 'storage',
+  key: 'platform.storage',
+  parentKey: null,
+  type: 'group',
+  label: '存储管理',
+  endpoints: [],
+} as const;
+
+export const platformStoragePages = {
+  accounts: {
+    key: 'platform.storage.account.list',
+    parentKey: platformStorageNavigation.key,
+    type: 'page',
+    view: 'storage-accounts',
+    label: '存储账号',
+    endpoints: [['GET', '/platformapi/infrastructure/storage/accounts']],
+  },
+  spaces: {
+    key: 'platform.storage.space.list',
+    parentKey: platformStorageNavigation.key,
+    type: 'page',
+    view: 'storage-spaces',
+    label: '存储空间',
+    endpoints: [['GET', '/platformapi/infrastructure/storage/spaces']],
+  },
+  routes: {
+    key: 'platform.storage.route.list',
+    parentKey: platformStorageNavigation.key,
+    type: 'page',
+    view: 'storage-routes',
+    label: '上传路由',
+    endpoints: [['GET', '/platformapi/infrastructure/storage/routes']],
+  },
+} as const;
+
+export const platformStorageLegacyRead = [
+  'GET',
+  '/platformapi/infrastructure/storage',
+] as const;
+
 export const platformOperationsNavigation = {
   id: 'operations-audit',
   key: 'platform.operations',
@@ -362,6 +405,8 @@ export const platformShellPreviewDefinitions = [
   platformPermissionBundleUpdate,
   platformPermissionApisPage,
   platformPermissionMenusPage,
+  platformStorageNavigation,
+  ...Object.values(platformStoragePages),
   platformOperationsNavigation,
   platformOpsOverviewPage,
   platformOpsMaintenancePage,

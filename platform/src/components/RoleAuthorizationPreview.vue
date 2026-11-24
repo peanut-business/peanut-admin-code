@@ -27,7 +27,7 @@
             </el-radio-group>
             <p v-if="candidateMode === 'shell'" class="preview-help">
               当前覆盖租户与生命周期、组织与权限下的页面和已接入的按钮、运维与审计相关读取，以及开发者中心的模块操作任务读取。
-              节点关联来自已登记的 Platform API 目录。范围外的现有能力可能显示为移除。
+              存储管理仅覆盖已登记的 File 分项读取。节点关联来自已登记的 Platform API 目录。范围外的现有能力可能显示为移除。
             </p>
           </el-form-item>
           <el-form-item v-if="candidateMode === 'manual'" label="自定义候选节点">
@@ -61,6 +61,12 @@
         </el-form>
 
         <el-alert v-if="candidate.error" :title="candidate.error" type="error" :closable="false" />
+        <el-alert
+          v-if="candidate.notice"
+          :title="candidate.notice"
+          type="info"
+          :closable="false"
+        />
 
         <template v-if="selectedOperator">
           <p v-if="!targetRoles.length">当前目录未显示该操作员的角色。</p>
@@ -262,15 +268,15 @@
       !directoryReady.value ||
       (candidateMode.value === 'manual' && !candidateText.value.trim())
     )
-      return { data: null, error: '' };
+      return { data: null, error: '', notice: '' };
     try {
-      const data =
-        candidateMode.value === 'shell'
-          ? buildPlatformShellCandidate(directory.value.apis)
-          : readCandidateNodes(candidateText.value);
-      return { data, error: '' };
+      if (candidateMode.value === 'shell') {
+        const { notice, ...data } = buildPlatformShellCandidate(directory.value.apis);
+        return { data, error: '', notice };
+      }
+      return { data: readCandidateNodes(candidateText.value), error: '', notice: '' };
     } catch (error) {
-      return { data: null, error: message(error) };
+      return { data: null, error: message(error), notice: '' };
     }
   });
 

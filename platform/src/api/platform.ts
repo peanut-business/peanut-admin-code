@@ -32,6 +32,8 @@ import {
   platformRoleCreate,
   platformRolesPage,
   platformRoleUpdate,
+  platformStorageLegacyRead,
+  platformStoragePages,
   platformTenantCreate,
   platformTenantDetail,
   platformTenantsPage,
@@ -1288,18 +1290,18 @@ export const api = {
       })
     ),
   storageSnapshot: () =>
-    unwrap<StorageSnapshot>(client.get('/platformapi/infrastructure/storage')),
+    unwrap<StorageSnapshot>(requestEndpoint(platformStorageLegacyRead)),
   storageAccounts: () =>
     unwrap<{ accounts: StorageAccount[] }>(
-      client.get('/platformapi/infrastructure/storage/accounts')
+      requestEndpoint(platformStoragePages.accounts.endpoints[0])
     ),
   storageSpaces: () =>
     unwrap<{ spaces: StorageSpace[] }>(
-      client.get('/platformapi/infrastructure/storage/spaces')
+      requestEndpoint(platformStoragePages.spaces.endpoints[0])
     ),
   storageRoutes: () =>
     unwrap<{ routes: StorageRoute[] }>(
-      client.get('/platformapi/infrastructure/storage/routes')
+      requestEndpoint(platformStoragePages.routes.endpoints[0])
     ),
   createStorageAccount: (payload: Record<string, unknown>) =>
     unwrap(client.post('/platformapi/infrastructure/storage/account', payload)),

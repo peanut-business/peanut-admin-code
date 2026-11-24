@@ -54,6 +54,13 @@ const tenantsPath = '/platformapi/tenants';
 const tenantProvisionPath = '/platformapi/tenants/provision';
 const tenantDetailPath = '/platformapi/tenants/detail';
 const auditPath = '/platformapi/audit';
+const storagePath = '/platformapi/infrastructure/storage';
+const fileOwner = 'peanut.file';
+const storageReads = [
+  ['platform.storage.account.list', 'accounts'],
+  ['platform.storage.space.list', 'spaces'],
+  ['platform.storage.route.list', 'routes'],
+];
 const opsPath = '/platformapi/v1/ops';
 const opsReadPages = [
   ['platform.ops.console', 'ops', 'status'],
@@ -112,6 +119,24 @@ const result = {
 };
 
 const plain = (data) => JSON.parse(JSON.stringify(data));
+function registeredPlatformApi(row) {
+  assert.equal(row.application, 'platform');
+  assert.equal(row.audience, 'platform');
+  assert.equal(row.auth.mode, 'platform_permission');
+  assert.equal(row.contract_quality, 'complete');
+  return {
+    id: row.api_id,
+    method: row.method,
+    path: row.path,
+    audience: row.audience,
+    module_key: row.owner.key,
+    access_mode: row.auth.mode,
+    status: 'active',
+    default_permission_keys: row.default_permission_keys,
+    prerequisite_permission_keys: row.prerequisite_permission_keys,
+  };
+}
+
 function nativePlatformApis() {
   const source = process.env.PEANUT_PLATFORM_PREVIEW_API_CATALOG ||
     new URL('../../server/generated/api-catalog.json', import.meta.url);
@@ -146,23 +171,38 @@ function nativePlatformApis() {
     .map(([method, path]) => {
       const matches = endpoints.filter((row) => row.path === path && row.method === method);
       assert.equal(matches.length, 1, method + ' ' + path);
-      const [row] = matches;
-      assert.equal(row.application, 'platform');
-      assert.equal(row.audience, 'platform');
-      assert.equal(row.auth.mode, 'platform_permission');
-      assert.equal(row.contract_quality, 'complete');
-      return {
-        id: row.api_id,
-        method,
-        path,
-        audience: row.audience,
-        module_key: row.owner.key,
-        access_mode: row.auth.mode,
-        status: 'active',
-        default_permission_keys: row.default_permission_keys,
-        prerequisite_permission_keys: row.prerequisite_permission_keys,
-      };
+      return registeredPlatformApi(matches[0]);
     });
+}
+
+function fileCatalogApis() {
+  const source = process.env.PEANUT_PLATFORM_PREVIEW_FILE_API_CATALOG;
+  if (source) {
+    const { endpoints } = JSON.parse(readFileSync(source, 'utf8'));
+    return endpoints
+      .filter((row) => row.audience === 'platform' && row.owner.key === fileOwner)
+      .map((row) => {
+        assert.equal(row.owner.type, 'module');
+        return registeredPlatformApi(row);
+      });
+  }
+
+  // A standalone Code checkout can run the behavior checks without an assembled Module catalog.
+  return [
+    ...storageReads.map(([, section]) => ['GET', storagePath + '/' + section]),
+    ['GET', storagePath],
+    ['POST', storagePath + '/account'],
+  ].map(([method, path], index) => ({
+    id: (index + 1).toString(16).padStart(64, '0'),
+    method,
+    path,
+    audience: 'platform',
+    module_key: fileOwner,
+    access_mode: 'platform_permission',
+    status: 'active',
+    default_permission_keys: [],
+    prerequisite_permission_keys: [],
+  }));
 }
 
 const reply = (config, data, code = 20000, status = 200, msg = '') => ({
@@ -348,6 +388,7 @@ test('the default preview projects the real Platform Shell branches and a no-men
   const panel = await mount(true, 'shell');
   assert.equal(panel.candidateMode.value, 'shell');
   assert.equal(panel.candidateText.value, '');
+  assert.match(panel.candidate.value.notice, /当前 Platform API 目录未见 File 分项读取来源/);
   const [tenancy, groupNode, operations, operation] =
     panel.candidate.value.data.tree;
   const [tenantsPage] = tenancy.children;
@@ -615,6 +656,95 @@ test('alternate Ops reads keep each route, request options, and independent tran
     ['get', opsPath + '/logs?source=platform.audit&severity=warn&page_size=20&cursor=progress+7', null, null, signal],
     ['get', opsPath + '/diagnostics', { window_minutes: 360 }, 'arraybuffer', null],
     ['get', opsPath + '/tasks/' + encodeURIComponent(taskKey), null, null, signal],
+  ]);
+});
+
+test('the File catalog contributes only three fine reads and preserves independent legacy transport', async (t) => {
+  const hostApis = nativePlatformApis();
+  const fileApis = fileCatalogApis();
+  const fineApis = storageReads.map(([, section]) => {
+    const matches = fileApis.filter((row) => row.method === 'GET' && row.path === storagePath + '/' + section);
+    assert.equal(matches.length, 1, section);
+    return matches[0];
+  });
+  assert.ok(fileApis.some((row) => row.method === 'GET' && row.path === storagePath));
+  assert.ok(fileApis.some((row) => row.method === 'POST'));
+  const storageCalls = [];
+  const previewCalls = [];
+  let fileRows = fileApis;
+  const { api, contract, mount } = fixture(t, async (config) => {
+    if (config.url === operatorsPath)
+      return reply(config, {
+        count: 1,
+        lists: [{ id: '1', display_name: 'Operator', role_keys: ['editor'] }],
+      });
+    if (config.url === rolesPath)
+      return reply(config, { count: 1, lists: [{ id: '2', key: 'editor', name: 'Editor' }] });
+    if (config.url === permissionApisPath) {
+      const items = [...hostApis, ...fileRows];
+      return reply(config, { items, total: items.length });
+    }
+    if (config.url === previewPath) {
+      assert.equal(config.method, 'post');
+      previewCalls.push(JSON.parse(config.data));
+      return reply(config, result);
+    }
+    assert.ok(config.url.startsWith(storagePath));
+    storageCalls.push([config.method, config.url]);
+    return reply(config, {});
+  });
+  const panel = await mount(true, 'shell');
+  assert.equal(panel.candidate.value.notice, '');
+  const storage = panel.candidate.value.data.tree.find((node) => node.key === 'platform.storage');
+  assert.equal(storage.label, '存储管理');
+  assert.equal(storage.disabled, true);
+  assert.deepEqual(plain(storage.api_ids), []);
+  for (const [index, [key, section]] of storageReads.entries()) {
+    const child = storage.children[index];
+    assert.equal(child.key, key);
+    assert.deepEqual(plain(child.api_ids), [fineApis[index].id]);
+    assert.match(child.source, new RegExp('#/storage-' + section + '.*peanut\\.file'));
+  }
+  panel.operatorId.value = '1';
+  panel.roleId.value = '2';
+  panel.changeCheckedNodes({}, { checkedKeys: [storageReads[0][0]] });
+  await panel.runPreview();
+  assert.deepEqual(previewCalls[0].role_assignments, [{ role_id: '2', node_keys: [storageReads[0][0]] }]);
+  assert.deepEqual(previewCalls[0].nodes.filter((node) => node.parent_key === 'platform.storage'),
+    storageReads.map(([key], index) => ({
+      key, parent_key: 'platform.storage', type: 'page', api_ids: [fineApis[index].id],
+    })));
+  const selectedIds = new Set(previewCalls[0].nodes.flatMap((node) => node.api_ids));
+  for (const row of fileApis)
+    assert.equal(selectedIds.has(row.id), fineApis.includes(row), row.method + ' ' + row.path);
+
+  const [account, space, route] = fineApis;
+  const invalidSources = [
+    [[account, space], /\/storage\/routes：API 未登记/],
+    [[{ ...account, module_key: 'platform' }], /目录来源为 platform，需要 peanut.file/],
+    [[account, { ...space, status: 'retired' }, route], /目录状态为 retired/],
+    [[account, { ...space, audience: 'tenant' }, route], /受众不是 Platform/],
+    [[account, { ...space, access_mode: 'platform_bearer' }, route], /授权模式为 platform_bearer/],
+    [[account, space, route, { ...space, id: apiId }], /存在多个目录条目/],
+  ];
+  for (const [rows, expected] of invalidSources)
+    assert.throws(() => contract.buildPlatformShellCandidate([...hostApis, ...rows]), expected);
+  fileRows = [account, space];
+  await panel.loadDirectory();
+  assert.equal(panel.candidate.value.data, null);
+  assert.match(panel.candidate.value.error, /\/storage\/routes：API 未登记/);
+  await panel.runPreview();
+  assert.equal(previewCalls.length, 1);
+
+  await api.storageAccounts();
+  await api.storageSpaces();
+  await api.storageRoutes();
+  await api.storageSnapshot();
+  assert.deepEqual(storageCalls, [
+    ['get', storagePath + '/accounts'],
+    ['get', storagePath + '/spaces'],
+    ['get', storagePath + '/routes'],
+    ['get', storagePath],
   ]);
 });
 

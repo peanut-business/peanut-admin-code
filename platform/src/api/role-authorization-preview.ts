@@ -4,6 +4,9 @@ import {
   platformPermissionApisPage,
   platformRolesPage,
   platformShellPreviewDefinitions,
+  platformStorageCatalogOwner,
+  platformStorageNavigation,
+  platformStoragePages,
   platformViewHash,
 } from '../core/platform-shell-definitions';
 
@@ -175,7 +178,22 @@ export function readCandidateNodes(source: string) {
 }
 
 export function buildPlatformShellCandidate(apis: readonly PermissionApi[]) {
-  function resolveApi([method, path]: readonly [string, string]): string {
+  const storagePaths = new Set<string>(
+    Object.values(platformStoragePages).map((page) => page.endpoints[0][1])
+  );
+  const hasFileCatalogEvidence = apis.some(
+    (item) => item.module_key === platformStorageCatalogOwner || storagePaths.has(item.path)
+  );
+  const definitions = platformShellPreviewDefinitions.filter(
+    ({ key, parentKey }) =>
+      hasFileCatalogEvidence ||
+      (key !== platformStorageNavigation.key && parentKey !== platformStorageNavigation.key)
+  );
+
+  function resolveApi(
+    [method, path]: readonly [string, string],
+    expectedOwner?: string
+  ): string {
     const reference = `${method} ${path}`;
     const matches = apis.filter(
       (item) => item.method === method && item.path === path
@@ -195,28 +213,36 @@ export function buildPlatformShellCandidate(apis: readonly PermissionApi[]) {
       throw new Error(
         `正式定义的 API ${reference}：授权模式为 ${match.access_mode}，不能作为角色授权项。`
       );
+    if (expectedOwner && match.module_key !== expectedOwner)
+      throw new Error(
+        `正式定义的 API ${reference}：目录来源为 ${match.module_key}，需要 ${expectedOwner}。`
+      );
     return match.id;
   }
-  const nodes: CandidateNode[] = platformShellPreviewDefinitions.map(
+  const nodes: CandidateNode[] = definitions.map(
     (definition) => {
       const { key, parentKey, type, endpoints } = definition;
       const alternateReadPage =
         type === 'page' && 'readAlternatives' in definition;
       if (type !== 'group' && !alternateReadPage && endpoints.length < 1)
         throw new Error(`正式定义的节点 ${key} 未声明 API 关联。`);
+      const expectedOwner =
+        parentKey === platformStorageNavigation.key
+          ? platformStorageCatalogOwner
+          : undefined;
       return {
         key,
         parent_key: parentKey,
         type,
-        api_ids: endpoints.map(resolveApi),
+        api_ids: endpoints.map((endpoint) => resolveApi(endpoint, expectedOwner)),
       };
     }
   );
   const labels = new Map<string, string>(
-    platformShellPreviewDefinitions.map(({ key, label }) => [key, label])
+    definitions.map(({ key, label }) => [key, label])
   );
   const presentation = new Map(
-    platformShellPreviewDefinitions.map((definition) => {
+    definitions.map((definition) => {
       let source: string;
       const alternateReadPage =
         definition.type === 'page' && 'readAlternatives' in definition;
@@ -228,6 +254,8 @@ export function buildPlatformShellCandidate(apis: readonly PermissionApi[]) {
           source = 'Platform Shell 页面 ' + platformViewHash(definition.view);
           if (alternateReadPage)
             source += ' · 入口择一，显式选择下方读取能力';
+          if (definition.parentKey === platformStorageNavigation.key)
+            source += ' · File（peanut.file）分项读取';
           break;
         case 'action':
           source =
@@ -252,7 +280,12 @@ export function buildPlatformShellCandidate(apis: readonly PermissionApi[]) {
       ];
     })
   );
-  return validateCandidateNodes(nodes, presentation);
+  return {
+    ...validateCandidateNodes(nodes, presentation),
+    notice: hasFileCatalogEvidence
+      ? ''
+      : '当前 Platform API 目录未见 File 分项读取来源，存储管理未纳入本次候选。',
+  };
 }
 
 function validateCandidateNodes(

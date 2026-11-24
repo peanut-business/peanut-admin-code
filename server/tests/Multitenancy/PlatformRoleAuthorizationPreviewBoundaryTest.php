@@ -11,6 +11,7 @@ use app\common\execution\ExecutionContextStore;
 use app\common\execution\PlatformExecutionContext;
 use app\common\http\ApiProblem;
 use app\common\services\authorization\EndpointPermissionGrant;
+use app\common\services\authorization\GeneratedApiCatalog;
 use app\platform\context\PlatformOperatorContext;
 use app\platform\controller\PlatformControlPlaneQueryController;
 use app\platform\http\middleware\PlatformPermissionMiddleware;
@@ -57,6 +58,7 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
     private CurrentExecutionContext $current;
     private ModuleAvailability $modules;
     private array $catalogEndpoints;
+    private ?array $fileCatalogEndpoints = null;
     private array $endpoint;
     private int $continuations = 0;
     private ClassLoader $loader;
@@ -93,6 +95,13 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         $catalogPath = getenv('PEANUT_PLATFORM_PREVIEW_API_CATALOG') ?: $root . '/server/generated/api-catalog.json';
         $catalog = json_decode(file_get_contents($catalogPath), true, 512, JSON_THROW_ON_ERROR);
         $this->catalogEndpoints = $catalog['endpoints'];
+        $fileCatalogPath = getenv('PEANUT_PLATFORM_FILE_API_CATALOG');
+        if ($fileCatalogPath !== false && $fileCatalogPath !== '') {
+            self::assertFileExists($fileCatalogPath);
+            $fileCatalog = json_decode(file_get_contents($fileCatalogPath), true, 512, JSON_THROW_ON_ERROR);
+            self::assertNull(GeneratedApiCatalog::freshness($moduleRoot . '/server', $fileCatalog['inputs']));
+            $this->fileCatalogEndpoints = $fileCatalog['endpoints'];
+        }
         $this->endpoint = $this->installPlatformApi('POST', '/platformapi/roles/permissions/preview', 'platform.role.read');
         self::assertSame(['platform.permission.api.read', 'platform.operator.read'], $this->endpoint['prerequisite_permission_keys']);
         self::assertSame(PlatformControlPlaneQueryController::class, $this->endpoint['controller']);
@@ -213,7 +222,7 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
     public function testRegisteredPlatformBranchAndOperationMatchLegacyBindings(): void
     {
         $candidate = $this->platformSourceCandidate();
-        self::assertCount(38, $candidate['nodes']);
+        self::assertCount($this->fileCatalogEndpoints === null ? 38 : 42, $candidate['nodes']);
         $fullCandidate = $candidate;
         $before = $this->snapshot();
         $response = $this->call($candidate);
@@ -263,6 +272,35 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
 
         $this->assertIndependentOpsReads($fullCandidate, $before);
         self::assertSame(5, $this->continuations);
+        if ($this->fileCatalogEndpoints !== null) {
+            $this->assertIndependentFileReads($fullCandidate, $before);
+            self::assertSame(6, $this->continuations);
+        }
+    }
+
+    private function assertIndependentFileReads(array $candidate, array $before): void
+    {
+        $keys = ['platform.storage.space.list', 'platform.storage.route.list'];
+        $apiIdsByNode = array_column($candidate['nodes'], 'api_ids', 'key');
+        self::assertSame([], $apiIdsByNode['platform.storage']);
+        $candidate['role_assignments'][0]['node_keys'] = array_values(array_diff(
+            $candidate['role_assignments'][0]['node_keys'],
+            $keys,
+        ));
+        $candidate['role_assignments'][0]['node_keys'][] = 'platform.storage';
+        $removed = array_map(static fn(string $key): string => $apiIdsByNode[$key][0], $keys);
+        sort($removed, SORT_STRING);
+
+        $response = $this->call($candidate);
+        self::assertSame(200, $response->getCode());
+        $data = $response->getData()['data'];
+        self::assertFalse($data['capability_equal']);
+        self::assertSame([], $data['added']);
+        self::assertSame([], $data['unresolved']);
+        self::assertSame($removed, $data['removed']);
+        self::assertSame($removed, $data['roles'][0]['removed']);
+        self::assertSame($before, $this->snapshot());
+        self::assertTrue($this->store->isEmpty());
     }
 
     private function assertIndependentOpsReads(array $candidate, array $before): void
@@ -301,7 +339,7 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         $candidate = $this->platformSourceCandidate();
         $removed = array_values(array_unique(array_merge(...array_column($candidate['nodes'], 'api_ids'))));
         sort($removed, SORT_STRING);
-        self::assertCount(33, $removed);
+        self::assertCount($this->fileCatalogEndpoints === null ? 33 : 36, $removed);
         $before = $this->snapshot();
 
         $candidate['role_assignments'][0]['node_keys'] = [];
@@ -384,6 +422,22 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             $insertBinding->execute([15, $apiIds[$name]]);
         }
 
+        $storageNodes = [];
+        if ($this->fileCatalogEndpoints !== null) {
+            $storageNodes[] = ['platform.storage', null, 'group', null, []];
+            foreach (['accounts' => 'account', 'spaces' => 'space', 'routes' => 'route'] as $section => $kind) {
+                $endpoint = $this->installPlatformApi(
+                    'GET', '/platformapi/infrastructure/storage/' . $section, 'platform.storage.' . $kind . '.read',
+                    $this->fileCatalogEndpoints, ['type' => 'module', 'key' => 'peanut.file'],
+                );
+                self::assertSame([], $endpoint['prerequisite_permission_keys']);
+                $name = 'storage.' . $section;
+                $apiIds[$name] = $endpoint['api_id'];
+                $insertBinding->execute([15, $apiIds[$name]]);
+                $storageNodes[] = ['platform.storage.' . $kind . '.list', 'platform.storage', 'page', '/platform/#/storage-' . $section, [$name]];
+            }
+        }
+
         $groupKey = 'platform.governance';
         $tenancyKey = 'platform.tenancy';
         $tenantPageKey = 'platform.tenant.list';
@@ -423,6 +477,7 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             ['platform.permission.bundle.update', $bundlePageKey, 'action', null, ['bundles.update']],
             ['platform.permission.api.list', $groupKey, 'page', '/platform/#/permission-apis', ['apis.list']],
             ['platform.permission.menu.list', $groupKey, 'page', '/platform/#/permission-menus', ['menus.list']],
+            ...$storageNodes,
             [$operationsKey, null, 'group', null, []],
             ['platform.audit.list', $operationsKey, 'page', '/platform/#/audit', ['audit.list']],
             ['platform.ops.console', $operationsKey, 'page', '/platform/#/ops', ['ops.status']],
@@ -462,15 +517,20 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         ];
     }
 
-    private function installPlatformApi(string $method, string $path, string $permission): array
-    {
-        $matches = array_values(array_filter($this->catalogEndpoints, static fn(array $endpoint): bool =>
+    private function installPlatformApi(
+        string $method,
+        string $path,
+        string $permission,
+        ?array $catalog = null,
+        array $owner = ['type' => 'application', 'key' => 'platform'],
+    ): array {
+        $matches = array_values(array_filter($catalog ?? $this->catalogEndpoints, static fn(array $endpoint): bool =>
             $endpoint['method'] === $method && $endpoint['path'] === $path));
         self::assertCount(1, $matches, $method . ' ' . $path);
         $endpoint = $matches[0];
         self::assertSame('platform', $endpoint['audience']);
         self::assertSame('platform_permission', $endpoint['auth']['mode']);
-        self::assertSame(['type' => 'application', 'key' => 'platform'], $endpoint['owner']);
+        self::assertSame($owner, $endpoint['owner']);
         self::assertSame('complete', $endpoint['contract_quality']);
         self::assertSame([$permission], $endpoint['default_permission_keys']);
         $this->pdo->prepare('INSERT INTO pa_system_api VALUES (?,?,?,?,?,?,?,?,?)')->execute([
