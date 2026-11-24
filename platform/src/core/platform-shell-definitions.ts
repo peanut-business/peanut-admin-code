@@ -267,6 +267,14 @@ export const platformRoleAuthorizationPage = {
   endpoints: [platformRolesPage.endpoints[0], platformPermissionCatalogRead],
 } as const;
 
+export const platformRolePermissionAssign = {
+  key: 'platform.role.permission.assign',
+  parentKey: platformRoleAuthorizationPage.key,
+  type: 'action',
+  label: '保存角色授权',
+  endpoints: [['POST', '/platformapi/roles/permissions/replace'], platformPermissionCatalogRead],
+} as const;
+
 export const platformPermissionBundlesPage = {
   key: 'platform.permission.bundle.list',
   parentKey: organizationAccessNavigation.key,
@@ -301,6 +309,22 @@ export const platformPermissionApisPage = {
   endpoints: [['GET', '/platformapi/permission/apis']],
 } as const;
 
+export const platformPermissionApiBindingRead = {
+  key: 'platform.permission.api.binding.read',
+  parentKey: platformPermissionApisPage.key,
+  type: 'operation',
+  label: '查看权限包 API 关联',
+  endpoints: [['GET', '/platformapi/permission/apis/bindings'], platformPermissionBundlesPage.endpoints[0]],
+} as const;
+
+export const platformPermissionApiBindingUpdate = {
+  key: 'platform.permission.api.binding.update',
+  parentKey: platformPermissionApisPage.key,
+  type: 'action',
+  label: '保存 API 关联',
+  endpoints: [['PUT', '/platformapi/permission/apis/bindings'], ...platformPermissionApiBindingRead.endpoints],
+} as const;
+
 export const platformPermissionMenusPage = {
   key: 'platform.permission.menu.list',
   parentKey: organizationAccessNavigation.key,
@@ -308,6 +332,23 @@ export const platformPermissionMenusPage = {
   view: 'permission-menus',
   label: '菜单与按钮权限',
   endpoints: [['GET', '/platformapi/permission/menus']],
+} as const;
+
+export const platformPermissionMenuBindingUpdate = {
+  key: 'platform.permission.menu.binding.update',
+  parentKey: platformPermissionMenusPage.key,
+  type: 'action',
+  label: '编辑菜单与按钮引用',
+  endpoints: [['PUT', '/platformapi/permission/menus/binding'], platformPermissionBundlesPage.endpoints[0]],
+} as const;
+
+export const platformRoleAuthorizationPreview = {
+  key: 'platform.role.authorization.preview',
+  parentKey: null,
+  type: 'operation',
+  label: '只读候选预览',
+  source: '平台角色与角色授权 · 只读候选预览',
+  endpoints: [['POST', '/platformapi/roles/permissions/preview'], platformOperatorsPage.endpoints[0], platformRolesPage.endpoints[0], platformPermissionApisPage.endpoints[0]],
 } as const;
 
 export const platformStorageCatalogOwner = 'peanut.file';
@@ -353,6 +394,66 @@ export const platformStorageLegacyRead = [
   '/platformapi/infrastructure/storage',
 ] as const;
 
+export const platformStorageReadAlternatives = {
+  accounts: [platformStoragePages.accounts.endpoints[0], platformStorageLegacyRead],
+  spaces: [platformStoragePages.spaces.endpoints[0], platformStorageLegacyRead],
+  routes: [platformStoragePages.routes.endpoints[0], platformStorageLegacyRead],
+} as const;
+
+export const platformStorageLegacyOperation = {
+  key: 'platform.storage.legacy.read',
+  parentKey: platformStorageNavigation.key,
+  type: 'operation',
+  label: '读取旧聚合存储目录',
+  source: '存储管理 · File 旧聚合兼容入口',
+  endpoints: [platformStorageLegacyRead],
+} as const;
+
+export const platformStorageAccountCreate = {
+  key: 'platform.storage.account.create',
+  parentKey: platformStoragePages.accounts.key,
+  type: 'action',
+  label: '新增存储账号',
+  endpoints: [['POST', '/platformapi/infrastructure/storage/account']],
+} as const;
+
+const platformStorageSpaceCreateEndpoint = ['POST', '/platformapi/infrastructure/storage/space'] as const;
+const platformStorageRouteUpdateEndpoint = ['POST', '/platformapi/infrastructure/storage/route'] as const;
+
+export const platformStorageSpaceCreateActions = {
+  fine: {
+    key: 'platform.storage.space.create.fine',
+    parentKey: platformStoragePages.spaces.key,
+    type: 'action',
+    label: '新增存储空间（分项读取账号）',
+    endpoints: [platformStorageSpaceCreateEndpoint, platformStorageReadAlternatives.accounts[0]],
+  },
+  legacy: {
+    key: 'platform.storage.space.create.legacy',
+    parentKey: platformStoragePages.spaces.key,
+    type: 'action',
+    label: '新增存储空间（旧聚合读取）',
+    endpoints: [platformStorageSpaceCreateEndpoint, platformStorageReadAlternatives.accounts[1]],
+  },
+} as const;
+
+export const platformStorageRouteUpdateActions = {
+  fine: {
+    key: 'platform.storage.route.update.fine',
+    parentKey: platformStoragePages.routes.key,
+    type: 'action',
+    label: '调整上传路由（分项读取空间）',
+    endpoints: [platformStorageRouteUpdateEndpoint, platformStorageReadAlternatives.spaces[0]],
+  },
+  legacy: {
+    key: 'platform.storage.route.update.legacy',
+    parentKey: platformStoragePages.routes.key,
+    type: 'action',
+    label: '调整上传路由（旧聚合读取）',
+    endpoints: [platformStorageRouteUpdateEndpoint, platformStorageReadAlternatives.spaces[1]],
+  },
+} as const;
+
 export const platformOperationsNavigation = {
   id: 'operations-audit',
   key: 'platform.operations',
@@ -380,6 +481,22 @@ export const platformOpsMaintenancePage = {
   endpoints: [['GET', '/platformapi/v1/ops/maintenance']],
 } as const;
 
+export const platformOpsMaintenanceSchedule = {
+  key: 'platform.ops.maintenance.schedule',
+  parentKey: platformOpsMaintenancePage.key,
+  type: 'action',
+  label: '安排或替换维护窗口',
+  endpoints: [['PUT', '/platformapi/v1/ops/maintenance'], platformOpsMaintenancePage.endpoints[0]],
+} as const;
+
+export const platformOpsMaintenanceClose = {
+  key: 'platform.ops.maintenance.close',
+  parentKey: platformOpsMaintenancePage.key,
+  type: 'action',
+  label: '关闭维护窗口',
+  endpoints: [['POST', '/platformapi/v1/ops/maintenance/{maintenance_key}/close'], platformOpsMaintenancePage.endpoints[0]],
+} as const;
+
 export const platformOpsBackupsPage = {
   key: 'platform.ops.backups',
   parentKey: platformOperationsNavigation.key,
@@ -387,6 +504,30 @@ export const platformOpsBackupsPage = {
   view: 'backups',
   label: '备份与恢复',
   endpoints: [['GET', '/platformapi/v1/ops/backups']],
+} as const;
+
+export const platformOpsBackupCreate = {
+  key: 'platform.ops.backup.create',
+  parentKey: platformOpsBackupsPage.key,
+  type: 'action',
+  label: '创建备份',
+  endpoints: [['POST', '/platformapi/v1/ops/tasks/backup']],
+} as const;
+
+export const platformOpsRestoreVerify = {
+  key: 'platform.ops.restore.verify',
+  parentKey: platformOpsBackupsPage.key,
+  type: 'action',
+  label: '恢复并验证',
+  endpoints: [['POST', '/platformapi/v1/ops/tasks/restore']],
+} as const;
+
+export const platformOpsTaskRead = {
+  key: 'platform.ops.task.read',
+  parentKey: platformOpsBackupsPage.key,
+  type: 'operation',
+  label: '刷新运维任务状态',
+  endpoints: [['GET', '/platformapi/v1/ops/tasks/{task_key}']],
 } as const;
 
 const opsUpgradesPageKey = 'platform.upgrade.status';
@@ -415,6 +556,14 @@ export const platformOpsUpgradesPage = {
   label: '应用升级',
   endpoints: [],
   readAlternatives: [platformOpsUpgradeReadiness, platformOpsUpgradeHistory],
+} as const;
+
+export const platformOpsUpgradeExecute = {
+  key: 'platform.ops.upgrade.execute',
+  parentKey: platformOpsUpgradesPage.key,
+  type: 'action',
+  label: '执行固定升级',
+  endpoints: [['POST', '/platformapi/v1/ops/tasks/upgrade'], platformOpsUpgradeReadiness.endpoints[0], platformOpsUpgradeHistory.endpoints[0]],
 } as const;
 
 const opsDiagnosticsPageKey = 'platform.ops.diagnostics';
@@ -583,19 +732,34 @@ export const platformShellPreviewDefinitions = [
   platformRoleUpdate,
   platformRoleArchive,
   platformRoleAuthorizationPage,
+  platformRolePermissionAssign,
   platformPermissionBundlesPage,
   platformPermissionBundleCreate,
   platformPermissionBundleUpdate,
   platformPermissionApisPage,
+  platformPermissionApiBindingRead,
+  platformPermissionApiBindingUpdate,
   platformPermissionMenusPage,
+  platformPermissionMenuBindingUpdate,
+  platformRoleAuthorizationPreview,
   platformStorageNavigation,
   ...Object.values(platformStoragePages),
+  platformStorageAccountCreate,
+  ...Object.values(platformStorageSpaceCreateActions),
+  ...Object.values(platformStorageRouteUpdateActions),
+  platformStorageLegacyOperation,
   platformOperationsNavigation,
   platformOpsOverviewPage,
   platformOpsMaintenancePage,
+  platformOpsMaintenanceSchedule,
+  platformOpsMaintenanceClose,
   platformOpsBackupsPage,
+  platformOpsBackupCreate,
+  platformOpsRestoreVerify,
+  platformOpsTaskRead,
   platformOpsUpgradesPage,
   ...platformOpsUpgradesPage.readAlternatives,
+  platformOpsUpgradeExecute,
   platformOpsDiagnosticsPage,
   ...platformOpsDiagnosticsPage.readAlternatives,
   platformOpsProvidersPage,

@@ -90,6 +90,54 @@ const permissionCatalogPath = '/platformapi/permissions';
 const permissionBundlesPath = '/platformapi/permission/bundles';
 const permissionApisPath = '/platformapi/permission/apis';
 const permissionMenusPath = '/platformapi/permission/menus';
+const permissionApiBindingsPath = permissionApisPath + '/bindings';
+const permissionMenuBindingPath = permissionMenusPath + '/binding';
+const rolePermissionAssignNode = [
+  'platform.role.permission.assign', 'platform.governance.workbench', 'action',
+  [['POST', legacyPath], ['GET', permissionCatalogPath]],
+];
+const permissionApiBindingNodes = [
+  ['platform.permission.api.binding.read', 'platform.permission.api.list', 'operation',
+    [['GET', permissionApiBindingsPath], ['GET', permissionBundlesPath]]],
+  ['platform.permission.api.binding.update', 'platform.permission.api.list', 'action',
+    [['PUT', permissionApiBindingsPath], ['GET', permissionApiBindingsPath], ['GET', permissionBundlesPath]]],
+];
+const permissionMenuBindingNode = [
+  'platform.permission.menu.binding.update', 'platform.permission.menu.list', 'action',
+  [['PUT', permissionMenuBindingPath], ['GET', permissionBundlesPath]],
+];
+const sharedPreviewNode = [
+  'platform.role.authorization.preview', null, 'operation',
+  [['POST', previewPath], ['GET', operatorsPath], ['GET', rolesPath], ['GET', permissionApisPath]],
+];
+const opsMaintenanceActions = [
+  ['platform.ops.maintenance.schedule', 'platform.ops.maintenance', 'action',
+    [['PUT', opsPath + '/maintenance'], ['GET', opsPath + '/maintenance']]],
+  ['platform.ops.maintenance.close', 'platform.ops.maintenance', 'action',
+    [['POST', opsPath + '/maintenance/{maintenance_key}/close'], ['GET', opsPath + '/maintenance']]],
+];
+const opsBackupActions = [
+  ['platform.ops.backup.create', 'platform.ops.backups', 'action', [['POST', opsPath + '/tasks/backup']]],
+  ['platform.ops.restore.verify', 'platform.ops.backups', 'action', [['POST', opsPath + '/tasks/restore']]],
+  ['platform.ops.task.read', 'platform.ops.backups', 'operation', [['GET', opsPath + '/tasks/{task_key}']]],
+];
+const opsUpgradeExecuteNode = [
+  'platform.ops.upgrade.execute', 'platform.upgrade.status', 'action',
+  [['POST', opsPath + '/tasks/upgrade'], ['GET', opsPath + '/upgrade-readiness'], ['GET', opsPath + '/upgrades']],
+];
+const storageActionNodes = [
+  ['platform.storage.account.create', 'platform.storage.account.list', 'action',
+    [['POST', storagePath + '/account']]],
+  ...['fine', 'legacy'].map((variant) => [
+    'platform.storage.space.create.' + variant, 'platform.storage.space.list', 'action',
+    [['POST', storagePath + '/space'], ['GET', variant === 'fine' ? storagePath + '/accounts' : storagePath]],
+  ]),
+  ...['fine', 'legacy'].map((variant) => [
+    'platform.storage.route.update.' + variant, 'platform.storage.route.list', 'action',
+    [['POST', storagePath + '/route'], ['GET', variant === 'fine' ? storagePath + '/spaces' : storagePath]],
+  ]),
+  ['platform.storage.legacy.read', 'platform.storage', 'operation', [['GET', storagePath]]],
+];
 const ownerInvitationsPage = 'platform.tenant.owner-invitation.list';
 const entryBindingsPage = 'platform.tenant.entry-binding.list';
 const entitlementsPage = 'platform.tenant.entitlements';
@@ -211,6 +259,8 @@ function nativePlatformApis() {
       alternatives.map(([, endpoint]) => ['GET', opsPath + '/' + endpoint])
     ),
     ...[...tenancyNodes, ...developerNodes].flatMap((node) => node[3]),
+    ...[rolePermissionAssignNode, ...permissionApiBindingNodes, permissionMenuBindingNode, sharedPreviewNode,
+      ...opsMaintenanceActions, ...opsBackupActions, opsUpgradeExecuteNode].flatMap((node) => node[3]),
   ];
   return [...new Map(references.map(([method, path]) => [method + ' ' + path, [method, path]])).values()]
     .map(([method, path]) => {
@@ -237,6 +287,8 @@ function fileCatalogApis() {
     ...storageReads.map(([, section]) => ['GET', storagePath + '/' + section]),
     ['GET', storagePath],
     ['POST', storagePath + '/account'],
+    ['POST', storagePath + '/space'],
+    ['POST', storagePath + '/route'],
   ].map(([method, path], index) => ({
     id: (index + 1).toString(16).padStart(64, '0'),
     method,
@@ -433,8 +485,8 @@ test('the default preview projects the real Platform Shell branches and a no-men
   const panel = await mount(true, 'shell');
   assert.equal(panel.candidateMode.value, 'shell');
   assert.equal(panel.candidateText.value, '');
-  assert.match(panel.candidate.value.notice, /当前 Platform API 目录未见 File 分项读取来源/);
-  const [tenancy, groupNode, operations, operation] =
+  assert.match(panel.candidate.value.notice, /当前 Platform API 目录未见 File 存储来源/);
+  const [tenancy, groupNode, previewOperation, operations, operation] =
     panel.candidate.value.data.tree;
   const [tenantsPage] = tenancy.children;
   for (const [key, view] of opsReadPages) {
@@ -449,8 +501,9 @@ test('the default preview projects the real Platform Shell branches and a no-men
     assert.ok(opsPage.source.includes('#/' + view));
     assert.equal(opsPage.disabled, true);
     assert.deepEqual(plain(opsPage.api_ids), []);
-    assert.deepEqual(plain(opsPage.children.map((child) => child.key)), alternatives.map(([key]) => key));
-    assert.ok(opsPage.children.every((child) => child.type === 'operation' && !child.disabled));
+    const readOptions = opsPage.children.filter((child) => child.type === 'operation');
+    assert.deepEqual(plain(readOptions.map((child) => child.key)), alternatives.map(([key]) => key));
+    assert.ok(readOptions.every((child) => !child.disabled));
   }
   const auditPage = operations.children.find((child) => child.key === 'platform.audit.list');
   assert.equal(tenancy.label, '租户运营');
@@ -489,7 +542,9 @@ test('the default preview projects the real Platform Shell branches and a no-men
   assert.deepEqual(plain(bundlesPage.children.map((child) => child.label)), ['创建权限包', '编辑']);
   assert.match(apisPage.source, /#\/permission-apis$/);
   assert.match(menusPage.source, /#\/permission-menus$/);
-  assert.equal(menusPage.children.length, 0);
+  assert.deepEqual(plain(menusPage.children.map((child) => child.key)), [permissionMenuBindingNode[0]]);
+  assert.equal(previewOperation.label, '只读候选预览');
+  assert.equal(previewOperation.api_ids.length, 4);
   assert.equal(operation.label, '读取模块操作任务');
   assert.match(operation.source, /开发者中心.*模块任务回执/);
   assert.equal(panel.describeApis(operation.api_ids), 'GET ' + moduleTaskPath);
@@ -529,20 +584,30 @@ test('the default preview projects the real Platform Shell branches and a no-men
       node('platform.role.update', 'platform.role.list', 'action', [['POST', updateRolePath]]),
       node('platform.role.archive', 'platform.role.list', 'action', [['POST', archiveRolePath]]),
       node('platform.governance.workbench', 'platform.governance', 'page', [['GET', rolesPath], ['GET', permissionCatalogPath]]),
+      node(...rolePermissionAssignNode),
       node('platform.permission.bundle.list', 'platform.governance', 'page', [['GET', permissionBundlesPath]]),
       node('platform.permission.bundle.create', 'platform.permission.bundle.list', 'action', [['POST', permissionBundlesPath]]),
       node('platform.permission.bundle.update', 'platform.permission.bundle.list', 'action', [['PUT', permissionBundlesPath]]),
       node('platform.permission.api.list', 'platform.governance', 'page', [['GET', permissionApisPath]]),
+      ...permissionApiBindingNodes.map((definition) => node(...definition)),
       node('platform.permission.menu.list', 'platform.governance', 'page', [['GET', permissionMenusPath]]),
+      node(...permissionMenuBindingNode),
+      node(...sharedPreviewNode),
       node('platform.operations', null, 'group'),
       ...opsReadPages.slice(0, 3).map(([key, , endpoint]) => node(
         key, 'platform.operations', 'page', [['GET', opsPath + '/' + endpoint]]
-      )),
+      )).flatMap((page) => [
+        page,
+        ...[...opsMaintenanceActions, ...opsBackupActions]
+          .filter((definition) => definition[1] === page.key)
+          .map((definition) => node(...definition)),
+      ]),
       ...opsAlternatePages.flatMap(([pageKey, , alternatives]) => [
         node(pageKey, 'platform.operations', 'page'),
         ...alternatives.map(([key, endpoint]) => node(
           key, pageKey, 'operation', [['GET', opsPath + '/' + endpoint]]
         )),
+        ...(pageKey === opsUpgradeExecuteNode[1] ? [node(...opsUpgradeExecuteNode)] : []),
       ]),
       node('platform.ops.providers', 'platform.operations', 'page', [['GET', opsPath + '/providers']]),
       ...developerNodes.map((definition) => node(...definition)),
@@ -783,7 +848,7 @@ test('tenant invitations, binding, license, and plan callers preserve their exac
   ]);
 });
 
-test('the File catalog contributes only three fine reads and preserves independent legacy transport', async (t) => {
+test('the File catalog keeps fine and aggregate action variants independent', async (t) => {
   const hostApis = nativePlatformApis();
   const fileApis = fileCatalogApis();
   const fineApis = storageReads.map(([, section]) => {
@@ -814,7 +879,9 @@ test('the File catalog contributes only three fine reads and preserves independe
       return reply(config, result);
     }
     assert.ok(config.url.startsWith(storagePath));
-    storageCalls.push([config.method, config.url]);
+    storageCalls.push([
+      config.method, config.url, config.data ? JSON.parse(config.data) : null,
+    ]);
     return reply(config, {});
   });
   const panel = await mount(true, 'shell');
@@ -834,13 +901,33 @@ test('the File catalog contributes only three fine reads and preserves independe
   panel.changeCheckedNodes({}, { checkedKeys: [storageReads[0][0]] });
   await panel.runPreview();
   assert.deepEqual(previewCalls[0].role_assignments, [{ role_id: '2', node_keys: [storageReads[0][0]] }]);
-  assert.deepEqual(previewCalls[0].nodes.filter((node) => node.parent_key === 'platform.storage'),
+  assert.deepEqual(previewCalls[0].nodes.filter((node) => node.parent_key === 'platform.storage' && node.type === 'page'),
     storageReads.map(([key], index) => ({
       key, parent_key: 'platform.storage', type: 'page', api_ids: [fineApis[index].id],
     })));
+  for (const [key, parent, type, endpoints] of storageActionNodes) {
+    const expected = endpoints.map(([method, path]) => {
+      const matching = fileApis.filter((row) => row.method === method && row.path === path);
+      assert.equal(matching.length, 1, method + ' ' + path);
+      return matching[0].id;
+    }).sort();
+    assert.deepEqual(previewCalls[0].nodes.find((item) => item.key === key), {
+      key, parent_key: parent, type, api_ids: expected,
+    });
+    if (key.endsWith('.fine') || key.endsWith('.legacy')) {
+      panel.changeCheckedNodes({}, { checkedKeys: [key] });
+      await panel.runPreview();
+      const payload = previewCalls.at(-1);
+      assert.deepEqual(payload.role_assignments, [{ role_id: '2', node_keys: [key] }]);
+      assert.deepEqual(payload.nodes.find((item) => item.key === key).api_ids, expected);
+    }
+  }
   const selectedIds = new Set(previewCalls[0].nodes.flatMap((node) => node.api_ids));
   for (const row of fileApis)
-    assert.equal(selectedIds.has(row.id), fineApis.includes(row), row.method + ' ' + row.path);
+    assert.equal(selectedIds.has(row.id), fineApis.includes(row) ||
+      storageActionNodes.some(([, , , endpoints]) =>
+        endpoints.some(([method, path]) => row.method === method && row.path === path)
+      ), row.method + ' ' + row.path);
 
   const [account, space, route] = fineApis;
   const invalidSources = [
@@ -858,18 +945,106 @@ test('the File catalog contributes only three fine reads and preserves independe
   assert.equal(panel.candidate.value.data, null);
   assert.match(panel.candidate.value.error, /\/storage\/routes：API 未登记/);
   await panel.runPreview();
-  assert.equal(previewCalls.length, 1);
+  assert.equal(previewCalls.length, 5);
 
   await api.storageAccounts();
   await api.storageSpaces();
   await api.storageRoutes();
   await api.storageSnapshot();
+  const accountInput = { account_key: 'synthetic', driver: 'local', name: 'Synthetic', credentials: {} };
+  const spaceInput = { account_id: 17, space_key: 'synthetic', access_type: 'private' };
+  const routeInput = { route_key: 'default', access_type: 'private', space_id: 21 };
+  await api.createStorageAccount(accountInput);
+  await api.createStorageSpace(spaceInput);
+  await api.setStorageRoute(routeInput);
   assert.deepEqual(storageCalls, [
-    ['get', storagePath + '/accounts'],
-    ['get', storagePath + '/spaces'],
-    ['get', storagePath + '/routes'],
-    ['get', storagePath],
+    ['get', storagePath + '/accounts', null],
+    ['get', storagePath + '/spaces', null],
+    ['get', storagePath + '/routes', null],
+    ['get', storagePath, null],
+    ['post', storagePath + '/account', accountInput],
+    ['post', storagePath + '/space', spaceInput],
+    ['post', storagePath + '/route', routeInput],
   ]);
+});
+
+test('governance binding consumers preserve tenant filter, revisions and explicit empty API links', async (t) => {
+  const calls = [];
+  const bundle = {
+    key: 'tenant.synthetic', name: 'Synthetic', module_key: 'synthetic',
+    audience: 'tenant', status: 'active', revision: 'bundle-rev', api_ids: [],
+    configured: true, source: 'custom',
+  };
+  const menu = {
+    menu_key: 'tenant.synthetic', parent_key: null, type: 'A', name: 'Synthetic',
+    page_path: '/synthetic', action_key: 'synthetic.run', permission_key: bundle.key,
+    default_permission_key: bundle.key, revision: 'menu-rev',
+  };
+  const menuChange = {
+    menu_key: menu.menu_key, permission_key: null,
+    action_key: 'synthetic.run', expected_revision: menu.revision,
+  };
+  const { api } = fixture(t, async (config) => {
+    calls.push([
+      config.method, config.url, config.params ? plain(config.params) : null,
+      config.data ? JSON.parse(config.data) : null,
+    ]);
+    if (config.url === permissionBundlesPath)
+      return reply(config, { items: [bundle], total: 1 });
+    return reply(config, config.url === permissionMenuBindingPath ? menu : bundle);
+  });
+  await api.permissionBundles('tenant', 2);
+  await api.permissionBindings(bundle.key);
+  await api.replacePermissionBindings(bundle.key, bundle.revision, []);
+  await api.replacePermissionMenuBinding(menuChange);
+  assert.deepEqual(calls, [
+    ['get', permissionBundlesPath, { audience: 'tenant', page_no: 2, page_size: 100 }, null],
+    ['get', permissionApiBindingsPath, { permission_key: bundle.key }, null],
+    ['put', permissionApiBindingsPath, null, {
+      permission_key: bundle.key, expected_revision: bundle.revision, api_ids: [],
+    }],
+    ['put', permissionMenuBindingPath, null, menuChange],
+  ]);
+});
+
+test('Ops control requests preserve their exact methods, state headers, task identifier and signals', async (t) => {
+  const calls = [];
+  const { api, createPlatformOpsTransport } = fixture(t, async (config) => {
+    calls.push([
+      config.method, config.url, config.data ? JSON.parse(config.data) : null,
+      config.headers?.['If-Match'] ?? null, config.headers?.['Idempotency-Key'] ?? null,
+      config.signal ?? null,
+    ]);
+    return {
+      ...reply(config, { source: config.url }),
+      headers: { 'x-request-id': 'synthetic-ops-control' },
+    };
+  });
+  const transport = createPlatformOpsTransport();
+  const { signal } = new AbortController();
+  await transport.submitBackup('synthetic', 'backup-intent', signal);
+  await transport.submitRestore('synthetic', 'backup-synthetic', 'isolated', 'restore-intent', signal);
+  await transport.task('synthetic/task', signal);
+  await transport.scheduleMaintenance(
+    { reasonKey: 'planned-upgrade', startsAt: '2026-11-01T00:00:00Z', endsAt: '2026-11-01T01:00:00Z' },
+    17, 'schedule-intent', signal
+  );
+  await transport.closeMaintenance('synthetic/window', 18, 'close-intent', signal);
+  await api.submitUpgrade();
+  assert.deepEqual(calls.slice(0, 5), [
+    ['post', opsPath + '/tasks/backup', { provider_key: 'synthetic' }, null, 'backup-intent', signal],
+    ['post', opsPath + '/tasks/restore', {
+      provider_key: 'synthetic', backup_reference_key: 'backup-synthetic', target_key: 'isolated',
+    }, null, 'restore-intent', signal],
+    ['get', opsPath + '/tasks/synthetic%2Ftask', null, null, null, signal],
+    ['put', opsPath + '/maintenance', {
+      reason_key: 'planned-upgrade', starts_at: '2026-11-01T00:00:00Z', ends_at: '2026-11-01T01:00:00Z',
+    }, '"rev-17"', 'schedule-intent', signal],
+    ['post', opsPath + '/maintenance/synthetic%2Fwindow/close', {}, '"rev-18"', 'close-intent', signal],
+  ]);
+  assert.deepEqual(calls[5].slice(0, 4), ['post', opsPath + '/tasks/upgrade', {}, null]);
+  assert.match(calls[5][4], /^platform-upgrade-/);
+  assert.equal(calls[5][5], null);
 });
 
 test('formal candidates stop on missing, inactive, incompatible or ambiguous API rows', async (t) => {

@@ -224,7 +224,7 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
     {
         $this->assertCanonicalPlatformMenuRegistration();
         $candidate = $this->platformSourceCandidate();
-        self::assertCount($this->fileCatalogEndpoints === null ? 58 : 62, $candidate['nodes']);
+        self::assertCount($this->fileCatalogEndpoints === null ? 69 : 79, $candidate['nodes']);
         $fullCandidate = $candidate;
         $before = $this->snapshot();
         $response = $this->call($candidate);
@@ -273,11 +273,19 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         self::assertTrue($this->store->isEmpty());
 
         $this->assertIndependentOpsReads($fullCandidate, $before);
-        self::assertSame(5, $this->continuations);
+        $this->assertPreviewApiIsAnIndependentOperation($fullCandidate, $before);
         if ($this->fileCatalogEndpoints !== null) {
             $this->assertIndependentFileReads($fullCandidate, $before);
-            self::assertSame(6, $this->continuations);
         }
+    }
+
+    private function assertPreviewApiIsAnIndependentOperation(array $candidate, array $before): void
+    {
+        $candidate['role_assignments'][0]['node_keys'] = array_values(array_diff(
+            $candidate['role_assignments'][0]['node_keys'],
+            ['platform.role.authorization.preview'],
+        ));
+        $this->assertOnlyApisRemoved($candidate, [$this->endpoint['api_id']], $before);
     }
 
     private function assertCanonicalPlatformMenuRegistration(): void
@@ -305,17 +313,79 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
 
     private function assertIndependentFileReads(array $candidate, array $before): void
     {
-        $keys = ['platform.storage.space.list', 'platform.storage.route.list'];
         $apiIdsByNode = array_column($candidate['nodes'], 'api_ids', 'key');
         self::assertSame([], $apiIdsByNode['platform.storage']);
+        $storageApiIdsByNode = array_filter($apiIdsByNode, static fn(string $key): bool => str_starts_with($key, 'platform.storage.'), ARRAY_FILTER_USE_KEY);
+        $storageApiIds = array_values(array_unique(array_merge(...array_values($storageApiIdsByNode))));
+        self::assertCount(7, $storageApiIds);
+        $hostSelections = array_values(array_diff($candidate['role_assignments'][0]['node_keys'], array_keys($storageApiIdsByNode)));
+
+        $accountRead = $apiIdsByNode['platform.storage.account.list'][0];
+        $spaceRead = $apiIdsByNode['platform.storage.space.list'][0];
+        $legacyRead = $apiIdsByNode['platform.storage.legacy.read'][0];
+        $spaceFine = 'platform.storage.space.create.fine';
+        $spaceLegacy = 'platform.storage.space.create.legacy';
+        $routeFine = 'platform.storage.route.update.fine';
+        $routeLegacy = 'platform.storage.route.update.legacy';
+        [$spaceWrite] = array_values(array_intersect($apiIdsByNode[$spaceFine], $apiIdsByNode[$spaceLegacy]));
+        [$routeWrite] = array_values(array_intersect($apiIdsByNode[$routeFine], $apiIdsByNode[$routeLegacy]));
+        foreach ([
+            [['platform.storage', 'platform.storage.account.list'], [$accountRead]],
+            [[$spaceFine], [$spaceWrite, $accountRead]],
+            [[$spaceLegacy], [$spaceWrite, $legacyRead]],
+            [[$routeFine], [$routeWrite, $spaceRead]],
+            [[$routeLegacy], [$routeWrite, $legacyRead]],
+            [[$spaceFine, $spaceLegacy, $routeFine, $routeLegacy], [$spaceWrite, $routeWrite, $accountRead, $spaceRead, $legacyRead]],
+        ] as [$selected, $retained]) {
+            $candidate['role_assignments'][0]['node_keys'] = [...$hostSelections, ...$selected];
+            $this->assertOnlyApisRemoved($candidate, array_diff($storageApiIds, $retained), $before);
+        }
+    }
+
+    private function assertIndependentOpsReads(array $candidate, array $before): void
+    {
+        $alternatives = [
+            'platform.upgrade.readiness.read', 'platform.upgrade.history.read',
+            'platform.ops.logs.read', 'platform.ops.diagnostics.download',
+        ];
+        $apiIdsByNode = array_column($candidate['nodes'], 'api_ids', 'key');
+        self::assertSame([], $apiIdsByNode['platform.upgrade.status']);
+        self::assertSame([], $apiIdsByNode['platform.ops.diagnostics']);
+        $upgrade = 'platform.ops.upgrade.execute';
+        $otherSelections = array_values(array_diff($candidate['role_assignments'][0]['node_keys'], [...$alternatives, $upgrade]));
+        $upgradeWrite = array_values(array_diff($apiIdsByNode[$upgrade], $apiIdsByNode[$alternatives[0]], $apiIdsByNode[$alternatives[1]]));
+        self::assertCount(1, $upgradeWrite);
+        $parents = ['platform.upgrade.status', 'platform.ops.diagnostics'];
+        foreach ([[], ['platform.upgrade.readiness.read', 'platform.ops.logs.read']] as $selected) {
+            $candidate['role_assignments'][0]['node_keys'] = [...$otherSelections, ...$parents, ...$selected];
+            $removed = array_map(
+                static fn(string $key): string => $apiIdsByNode[$key][0],
+                array_diff($alternatives, $selected),
+            );
+            $this->assertOnlyApisRemoved($candidate, [...$removed, ...$upgradeWrite], $before);
+        }
+        $candidate['role_assignments'][0]['node_keys'] = [...$otherSelections, ...$parents, $upgrade, $alternatives[2], $alternatives[3]];
+        $response = $this->call($candidate);
+        self::assertSame(200, $response->getCode());
+        $data = $response->getData()['data'];
+        self::assertTrue($data['capability_equal']);
+        self::assertTrue($data['relation_coverage_complete']);
+        self::assertSame([], $data['unresolved']);
+        self::assertSame($before, $this->snapshot());
+        self::assertTrue($this->store->isEmpty());
+
+        $close = 'platform.ops.maintenance.close';
+        $maintenance = 'platform.ops.maintenance';
         $candidate['role_assignments'][0]['node_keys'] = array_values(array_diff(
             $candidate['role_assignments'][0]['node_keys'],
-            $keys,
+            [$close, $maintenance],
         ));
-        $candidate['role_assignments'][0]['node_keys'][] = 'platform.storage';
-        $removed = array_map(static fn(string $key): string => $apiIdsByNode[$key][0], $keys);
-        sort($removed, SORT_STRING);
+        $this->assertOnlyApisRemoved($candidate, array_diff($apiIdsByNode[$close], $apiIdsByNode[$maintenance]), $before);
+    }
 
+    private function assertOnlyApisRemoved(array $candidate, array $removed, array $before): void
+    {
+        sort($removed, SORT_STRING);
         $response = $this->call($candidate);
         self::assertSame(200, $response->getCode());
         $data = $response->getData()['data'];
@@ -328,43 +398,12 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         self::assertTrue($this->store->isEmpty());
     }
 
-    private function assertIndependentOpsReads(array $candidate, array $before): void
-    {
-        $alternatives = [
-            'platform.upgrade.readiness.read', 'platform.upgrade.history.read',
-            'platform.ops.logs.read', 'platform.ops.diagnostics.download',
-        ];
-        $apiIdsByNode = array_column($candidate['nodes'], 'api_ids', 'key');
-        self::assertSame([], $apiIdsByNode['platform.upgrade.status']);
-        self::assertSame([], $apiIdsByNode['platform.ops.diagnostics']);
-        $otherSelections = array_values(array_diff($candidate['role_assignments'][0]['node_keys'], $alternatives));
-        $parents = ['platform.upgrade.status', 'platform.ops.diagnostics'];
-        foreach ([[], ['platform.upgrade.readiness.read', 'platform.ops.logs.read']] as $selected) {
-            $candidate['role_assignments'][0]['node_keys'] = [...$otherSelections, ...$parents, ...$selected];
-            $removed = array_map(
-                static fn(string $key): string => $apiIdsByNode[$key][0],
-                array_diff($alternatives, $selected),
-            );
-            sort($removed, SORT_STRING);
-            $response = $this->call($candidate);
-            self::assertSame(200, $response->getCode());
-            $data = $response->getData()['data'];
-            self::assertFalse($data['capability_equal']);
-            self::assertSame([], $data['added']);
-            self::assertSame([], $data['unresolved']);
-            self::assertSame($removed, $data['removed']);
-            self::assertSame($removed, $data['roles'][0]['removed']);
-            self::assertSame($before, $this->snapshot());
-            self::assertTrue($this->store->isEmpty());
-        }
-    }
-
     public function testExplicitEmptyPlatformSelectionReportsRemovedApisAndOmissionIsDiagnosed(): void
     {
         $candidate = $this->platformSourceCandidate();
         $removed = array_values(array_unique(array_merge(...array_column($candidate['nodes'], 'api_ids'))));
         sort($removed, SORT_STRING);
-        self::assertCount($this->fileCatalogEndpoints === null ? 54 : 57, $removed);
+        self::assertCount($this->fileCatalogEndpoints === null ? 65 : 72, $removed);
         $before = $this->snapshot();
 
         $candidate['role_assignments'][0]['node_keys'] = [];
@@ -398,13 +437,17 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         $this->pdo->exec("INSERT INTO pa_platform_role (id,\"key\",status) VALUES (501,'platform.fixture.production-reader','active')");
         $this->pdo->exec('INSERT INTO pa_platform_operator_role VALUES (55,501)');
         $this->pdo->exec("INSERT INTO pa_permission VALUES (15,'platform.custom.fixture-platform-apis','active',1)");
-        $this->pdo->exec('INSERT INTO pa_platform_role_permission VALUES (501,15)');
+        // Keep the real preview grants on the target role without the unrelated fixture endpoint.
+        $this->pdo->exec("DELETE FROM pa_permission_api WHERE api_id IN (SELECT id FROM pa_system_api WHERE path='/platformapi/fixture/owner')");
+        $this->pdo->exec("DELETE FROM pa_system_api WHERE path='/platformapi/fixture/owner'");
+        $this->pdo->exec('INSERT INTO pa_platform_role_permission VALUES (501,15),(501,1),(501,2),(501,3)');
         // The old role keeps the prerequisite shared by logs and diagnostic downloads.
         $this->pdo->exec("INSERT INTO pa_permission VALUES (16,'platform.ops.read','active',1)");
         $this->pdo->exec('INSERT INTO pa_platform_role_permission VALUES (501,16)');
 
         $insertBinding = $this->pdo->prepare('INSERT INTO pa_permission_api (permission_id,api_id) VALUES (?,?)');
-        $apiIds = [];
+        $apiIds = ['roles.preview' => $this->endpoint['api_id']];
+        $insertBinding->execute([15, $apiIds['roles.preview']]);
         foreach ([
             'tenants.list' => ['GET', 'tenants', 'platform.tenant.read'],
             'tenants.create' => ['POST', 'tenants/provision', 'platform.tenant.create'],
@@ -437,12 +480,16 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             'roles.create' => ['POST', 'roles/create', 'platform.role.create'],
             'roles.update' => ['POST', 'roles/update', 'platform.role.update'],
             'roles.archive' => ['POST', 'roles/archive', 'platform.role.archive'],
+            'roles.permissions.replace' => ['POST', 'roles/permissions/replace', 'platform.role.permission.assign'],
             'permissions.list' => ['GET', 'permissions', 'platform.permission.read'],
             'bundles.list' => ['GET', 'permission/bundles', 'platform.permission.read'],
             'bundles.create' => ['POST', 'permission/bundles', 'platform.permission.bundle.manage'],
             'bundles.update' => ['PUT', 'permission/bundles', 'platform.permission.bundle.manage'],
             'apis.list' => ['GET', 'permission/apis', 'platform.permission.api.read'],
+            'apis.bindings.read' => ['GET', 'permission/apis/bindings', 'platform.permission.api.read'],
+            'apis.bindings.update' => ['PUT', 'permission/apis/bindings', 'platform.permission.api.manage'],
             'menus.list' => ['GET', 'permission/menus', 'platform.permission.menu.read'],
+            'menus.bindings.update' => ['PUT', 'permission/menus/binding', 'platform.permission.menu.manage'],
             'audit.list' => ['GET', 'audit', 'platform.audit.read'],
             'ops.status' => ['GET', 'v1/ops/status', 'platform.ops.read'],
             'ops.maintenance' => ['GET', 'v1/ops/maintenance', 'platform.ops.read'],
@@ -452,6 +499,12 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             'ops.upgrades' => ['GET', 'v1/ops/upgrades', 'platform.ops.read'],
             'ops.logs' => ['GET', 'v1/ops/logs', 'platform.ops.logs.read'],
             'ops.diagnostics' => ['GET', 'v1/ops/diagnostics', 'platform.ops.logs.read'],
+            'ops.backup' => ['POST', 'v1/ops/tasks/backup', 'platform.ops.backup.manage'],
+            'ops.restore' => ['POST', 'v1/ops/tasks/restore', 'platform.ops.restore.manage'],
+            'ops.task' => ['GET', 'v1/ops/tasks/{task_key}', 'platform.ops.read'],
+            'ops.maintenance.schedule' => ['PUT', 'v1/ops/maintenance', 'platform.ops.maintenance.manage'],
+            'ops.maintenance.close' => ['POST', 'v1/ops/maintenance/{maintenance_key}/close', 'platform.ops.maintenance.manage'],
+            'ops.upgrade.execute' => ['POST', 'v1/ops/tasks/upgrade', 'platform.ops.upgrade.manage'],
             'developer.catalog' => ['GET', 'developer-center/catalog', 'platform.module.read'],
             'developer.runtime' => ['GET', 'instance-tools/modules', 'platform.module.read'],
             'developer.updates' => ['GET', 'instance-tools/modules/updates', 'platform.module.read'],
@@ -462,10 +515,16 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             'module.task' => ['GET', 'instance-tools/modules/tasks/{task_key}', 'platform.module.read'],
         ] as $name => [$method, $path, $permission]) {
             $endpoint = $this->installPlatformApi($method, '/platformapi/' . $path, $permission);
-            $prerequisites = $permission === 'platform.ops.logs.read' ? ['platform.ops.read'] : [];
+            $prerequisites = in_array($permission, ['platform.ops.logs.read', 'platform.ops.upgrade.manage'], true)
+                ? ['platform.ops.read'] : [];
             self::assertSame($prerequisites, $endpoint['prerequisite_permission_keys']);
             $apiIds[$name] = $endpoint['api_id'];
             $insertBinding->execute([15, $apiIds[$name]]);
+            // These source-default associations are materialized alongside the custom bundle.
+            $sourceBundle = ['platform.role.read' => 1, 'platform.permission.api.read' => 2, 'platform.operator.read' => 3][$permission] ?? null;
+            if ($sourceBundle !== null) {
+                $insertBinding->execute([$sourceBundle, $apiIds[$name]]);
+            }
         }
 
         $storageNodes = [];
@@ -482,6 +541,29 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
                 $insertBinding->execute([15, $apiIds[$name]]);
                 $storageNodes[] = ['platform.storage.' . $kind . '.list', 'platform.storage', 'page', '/platform/#/storage-' . $section, [$name]];
             }
+            foreach ([
+                'storage.legacy' => ['GET', '', 'platform.storage.legacy.read'],
+                'storage.account.create' => ['POST', '/account', 'platform.ops.maintenance.manage'],
+                'storage.space.create' => ['POST', '/space', 'platform.ops.maintenance.manage'],
+                'storage.route.update' => ['POST', '/route', 'platform.ops.maintenance.manage'],
+            ] as $name => [$method, $suffix, $permission]) {
+                $endpoint = $this->installPlatformApi(
+                    $method, '/platformapi/infrastructure/storage' . $suffix, $permission,
+                    $this->fileCatalogEndpoints, ['type' => 'module', 'key' => 'peanut.file'],
+                );
+                self::assertSame([], $endpoint['prerequisite_permission_keys']);
+                $apiIds[$name] = $endpoint['api_id'];
+                $insertBinding->execute([15, $apiIds[$name]]);
+            }
+            $storageNodes = [
+                ...$storageNodes,
+                ['platform.storage.legacy.read', 'platform.storage', 'operation', null, ['storage.legacy']],
+                ['platform.storage.account.create', 'platform.storage.account.list', 'action', null, ['storage.account.create']],
+                ['platform.storage.space.create.fine', 'platform.storage.space.list', 'action', null, ['storage.space.create', 'storage.accounts']],
+                ['platform.storage.space.create.legacy', 'platform.storage.space.list', 'action', null, ['storage.space.create', 'storage.legacy']],
+                ['platform.storage.route.update.fine', 'platform.storage.route.list', 'action', null, ['storage.route.update', 'storage.spaces']],
+                ['platform.storage.route.update.legacy', 'platform.storage.route.list', 'action', null, ['storage.route.update', 'storage.legacy']],
+            ];
         }
 
         $groupKey = 'platform.governance';
@@ -536,21 +618,31 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             ['platform.role.update', $rolePageKey, 'action', null, ['roles.update']],
             ['platform.role.archive', $rolePageKey, 'action', null, ['roles.archive']],
             ['platform.governance.workbench', $groupKey, 'page', '/platform/#/role-permissions', ['roles.list', 'permissions.list']],
+            ['platform.role.permission.assign', 'platform.governance.workbench', 'action', null, ['roles.permissions.replace', 'permissions.list']],
             [$bundlePageKey, $groupKey, 'page', '/platform/#/permission-bundles', ['bundles.list']],
             ['platform.permission.bundle.create', $bundlePageKey, 'action', null, ['bundles.create']],
             ['platform.permission.bundle.update', $bundlePageKey, 'action', null, ['bundles.update']],
             ['platform.permission.api.list', $groupKey, 'page', '/platform/#/permission-apis', ['apis.list']],
+            ['platform.permission.api.binding.read', 'platform.permission.api.list', 'operation', null, ['apis.bindings.read', 'bundles.list']],
+            ['platform.permission.api.binding.update', 'platform.permission.api.list', 'action', null, ['apis.bindings.read', 'bundles.list', 'apis.bindings.update']],
             ['platform.permission.menu.list', $groupKey, 'page', '/platform/#/permission-menus', ['menus.list']],
+            ['platform.permission.menu.binding.update', 'platform.permission.menu.list', 'action', null, ['menus.bindings.update', 'bundles.list']],
             ...$storageNodes,
             [$operationsKey, null, 'group', null, []],
             ['platform.audit.list', $operationsKey, 'page', '/platform/#/audit', ['audit.list']],
             ['platform.ops.console', $operationsKey, 'page', '/platform/#/ops', ['ops.status']],
             ['platform.ops.maintenance', $operationsKey, 'page', '/platform/#/maintenance', ['ops.maintenance']],
+            ['platform.ops.maintenance.schedule', 'platform.ops.maintenance', 'action', null, ['ops.maintenance.schedule', 'ops.maintenance']],
+            ['platform.ops.maintenance.close', 'platform.ops.maintenance', 'action', null, ['ops.maintenance.close', 'ops.maintenance']],
             ['platform.ops.backups', $operationsKey, 'page', '/platform/#/backups', ['ops.backups']],
+            ['platform.ops.backup.create', 'platform.ops.backups', 'action', null, ['ops.backup']],
+            ['platform.ops.restore.verify', 'platform.ops.backups', 'action', null, ['ops.restore']],
+            ['platform.ops.task.read', 'platform.ops.backups', 'operation', null, ['ops.task']],
             ['platform.ops.providers', $operationsKey, 'page', '/platform/#/providers', ['ops.providers']],
             [$upgradesKey, $operationsKey, 'page', '/platform/#/upgrades', []],
             ['platform.upgrade.readiness.read', $upgradesKey, 'operation', null, ['ops.upgrade-readiness']],
             ['platform.upgrade.history.read', $upgradesKey, 'operation', null, ['ops.upgrades']],
+            ['platform.ops.upgrade.execute', $upgradesKey, 'action', null, ['ops.upgrade.execute', 'ops.upgrade-readiness', 'ops.upgrades']],
             [$diagnosticsKey, $operationsKey, 'page', '/platform/#/diagnostics', []],
             ['platform.ops.logs.read', $diagnosticsKey, 'operation', null, ['ops.logs']],
             ['platform.ops.diagnostics.download', $diagnosticsKey, 'operation', null, ['ops.diagnostics']],
@@ -562,6 +654,7 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             ['platform.developer.module.official-install', $developerPageKey, 'action', null, ['developer.official-install']],
             ['platform.developer.module.official-update', $developerPageKey, 'action', null, ['developer.official-update']],
             ['platform.module.operation-task.read', null, 'operation', null, ['module.task']],
+            ['platform.role.authorization.preview', null, 'operation', null, ['roles.preview', 'operators.list', 'roles.list', 'apis.list']],
         ] as [$key, $parent, $type, $routePath, $endpoints]) {
             if ($type === 'group' || $type === 'page') {
                 self::assertArrayHasKey($key, $menus);

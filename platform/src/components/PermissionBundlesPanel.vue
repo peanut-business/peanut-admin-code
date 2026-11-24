@@ -397,10 +397,13 @@
   } from '../api/permission-bundles';
   import {
     platformPermissionApisPage,
+    platformPermissionApiBindingRead,
+    platformPermissionApiBindingUpdate,
     platformPermissionBundleCreate,
     platformPermissionBundlesPage,
     platformPermissionBundleUpdate,
     platformPermissionMenusPage,
+    platformPermissionMenuBindingUpdate,
   } from '../core/platform-shell-definitions';
 
   const props = defineProps<{
@@ -429,12 +432,12 @@
     props.canApi(...platformPermissionBundlesPage.endpoints[0])
   );
   const canReadBindings = computed(() =>
-    props.canApi('GET', '/platformapi/permission/apis/bindings')
+    props.canApi(...platformPermissionApiBindingRead.endpoints[0])
   );
   const canManage = computed(() =>
     props.section === 'menus'
-      ? props.canApi('PUT', '/platformapi/permission/menus/binding')
-      : props.canApi('PUT', '/platformapi/permission/apis/bindings')
+      ? props.canApi(...platformPermissionMenuBindingUpdate.endpoints[0])
+      : props.canApi(...platformPermissionApiBindingUpdate.endpoints[0])
   );
   const accessModeLabel = (mode: string) =>
     ((

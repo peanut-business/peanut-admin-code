@@ -389,10 +389,7 @@
                   ><div class="card-header"
                     ><span>应用升级执行</span
                     ><el-button
-                      v-if="
-                        can('platform.ops.upgrade.manage') &&
-                        canApi(...platformOpsUpgradeReadiness.endpoints[0])
-                      "
+                      v-if="canUseEndpoints(platformOpsUpgradeExecute.endpoints)"
                       type="primary"
                       :loading="upgradeSubmitting"
                       :disabled="
@@ -401,7 +398,7 @@
                         !!activeUpgrade
                       "
                       @click="executeUpgrade"
-                      >执行固定升级</el-button
+                      >{{ platformOpsUpgradeExecute.label }}</el-button
                     ></div
                   ></template
                 ><el-alert
@@ -919,12 +916,10 @@
           <template v-if="view === platformStoragePages.accounts.view">
             <div class="toolbar"
               ><el-button
-                v-if="
-                  canApi('POST', '/platformapi/infrastructure/storage/account')
-                "
+                v-if="canApi(...platformStorageAccountCreate.endpoints[0])"
                 type="primary"
                 @click="createStorageAccount"
-                >新增存储账号</el-button
+                >{{ platformStorageAccountCreate.label }}</el-button
               ></div
             >
             <el-table
@@ -945,10 +940,7 @@
           <template v-else-if="view === platformStoragePages.spaces.view">
             <div class="toolbar"
               ><el-button
-                v-if="
-                  canApi('POST', '/platformapi/infrastructure/storage/space') &&
-                  canReadStorage('accounts')
-                "
+                v-if="canCreateStorageSpace()"
                 :loading="storageOptionsLoading"
                 type="primary"
                 @click="createStorageSpace"
@@ -995,10 +987,7 @@
             <el-table-column prop="space_name" label="目标存储空间" />
             <el-table-column prop="driver" label="供应商" />
             <el-table-column
-              v-if="
-                canApi('POST', '/platformapi/infrastructure/storage/route') &&
-                canReadStorage('spaces')
-              "
+              v-if="canChangeStorageRoute()"
               label="调整存储空间"
               min-width="220"
             >
@@ -1262,12 +1251,12 @@
               </el-checkbox>
             </el-checkbox-group>
             <el-button
-              v-if="can('platform.role.permission.assign')"
+              v-if="canApi(...platformRolePermissionAssign.endpoints[0])"
               type="primary"
               :disabled="!canEditPermissions || permissionSubmitting"
               :loading="permissionSubmitting"
               @click="savePermissions"
-              >保存角色授权</el-button
+              >{{ platformRolePermissionAssign.label }}</el-button
             >
           </el-card>
         </template>
@@ -1579,12 +1568,18 @@
     platformModuleTaskRead,
     platformOperationsNavigation,
     platformOpsBackupsPage,
+    platformOpsBackupCreate,
     platformOpsDiagnosticsDownload,
     platformOpsDiagnosticsPage,
     platformOpsLogs,
     platformOpsMaintenancePage,
+    platformOpsMaintenanceClose,
+    platformOpsMaintenanceSchedule,
     platformOpsOverviewPage,
     platformOpsProvidersPage,
+    platformOpsRestoreVerify,
+    platformOpsTaskRead,
+    platformOpsUpgradeExecute,
     platformOpsUpgradeHistory,
     platformOpsUpgradeReadiness,
     platformOpsUpgradesPage,
@@ -1600,11 +1595,15 @@
     platformRoleArchive,
     platformRoleAuthorizationPage,
     platformRoleCreate,
+    platformRolePermissionAssign,
     platformRolesPage,
     platformRoleUpdate,
-    platformStorageLegacyRead,
+    platformStorageAccountCreate,
     platformStorageNavigation,
     platformStoragePages,
+    platformStorageReadAlternatives,
+    platformStorageRouteUpdateActions,
+    platformStorageSpaceCreateActions,
     platformTenancyNavigation,
     platformTenantCreate,
     platformTenantDetail,
@@ -1820,11 +1819,15 @@
     [platformStoragePages.routes.view]: 'routes',
   };
   const canReadStorageSection = (section: StorageSection) => {
-    const [method, path] = platformStoragePages[section].endpoints[0];
+    const [method, path] = platformStorageReadAlternatives[section][0];
     return canApi(method, path);
   };
   const canReadStorage = (section: StorageSection) =>
-    canReadStorageSection(section) || canApi(...platformStorageLegacyRead);
+    platformStorageReadAlternatives[section].some(([method, path]) => canApi(method, path));
+  const canCreateStorageSpace = () =>
+    Object.values(platformStorageSpaceCreateActions).some(({ endpoints }) => canUseEndpoints(endpoints));
+  const canChangeStorageRoute = () =>
+    Object.values(platformStorageRouteUpdateActions).some(({ endpoints }) => canUseEndpoints(endpoints));
   const opsSections: Record<string, OpsConsoleSection> = {
     [platformOpsOverviewPage.view]: 'overview',
     [platformOpsMaintenancePage.view]: 'maintenance',
@@ -1982,7 +1985,7 @@
   const permissionEditingBlockedReason = computed(() => {
     if (!can('platform.permission.read'))
       return '缺少读取权限目录的权限，无法安全编辑。';
-    if (!can('platform.role.permission.assign'))
+    if (!canApi(...platformRolePermissionAssign.endpoints[0]))
       return '缺少分配角色权限的权限，无法保存。';
     if (permissionCatalogState.value === 'loading')
       return '权限目录正在加载，暂不能编辑或保存。';
@@ -2027,18 +2030,12 @@
     ],
     logSources: ['platform.audit'],
     canRead: () => can('platform.ops.read'),
-    canBackup: () => can('platform.ops.backup.manage'),
-    canRestore: () => can('platform.ops.restore.manage'),
-    canMaintain: () =>
-      can('platform.ops.maintenance.manage') &&
-      canApi(...platformOpsMaintenancePage.endpoints[0]),
+    canBackup: () => canApi(...platformOpsBackupCreate.endpoints[0]),
+    canRestore: () => canApi(...platformOpsRestoreVerify.endpoints[0]),
+    canMaintain: () => canUseEndpoints(platformOpsMaintenanceSchedule.endpoints),
     canReadMaintenance: () => canApi(...platformOpsMaintenancePage.endpoints[0]),
-    canCloseMaintenance: () =>
-      canApi(
-        'POST',
-        '/platformapi/v1/ops/maintenance/{maintenance_key}/close'
-      ) && canApi(...platformOpsMaintenancePage.endpoints[0]),
-    canReadTask: () => canApi('GET', '/platformapi/v1/ops/tasks/{task_key}'),
+    canCloseMaintenance: () => canUseEndpoints(platformOpsMaintenanceClose.endpoints),
+    canReadTask: () => canApi(...platformOpsTaskRead.endpoints[0]),
     canReadLogs: () => can(platformOpsLogs.key),
   });
   provide(opsConsoleRuntimeKey, opsRuntime);
@@ -2446,7 +2443,7 @@
       if (section === 'spaces') return api.storageSpaces();
       return api.storageRoutes();
     }
-    if (!canApi(...platformStorageLegacyRead))
+    if (!canApi(...platformStorageReadAlternatives[section][1]))
       throw new Error('缺少读取此存储目录的权限');
     const snapshot = await api.storageSnapshot();
     return { [section]: snapshot[section] };
@@ -2455,8 +2452,7 @@
     if (
       !visible ||
       storageOptionsLoading.value ||
-      !canReadStorage('spaces') ||
-      !canApi('POST', '/platformapi/infrastructure/storage/route')
+      !canChangeStorageRoute()
     )
       return;
     const request = viewRequest;
@@ -2698,9 +2694,7 @@
   }
   async function executeUpgrade() {
     if (
-      !can('platform.ops.upgrade.manage') ||
-      !canApi(...platformOpsUpgradeReadiness.endpoints[0]) ||
-      !canApi(...platformOpsUpgradeHistory.endpoints[0]) ||
+      !canUseEndpoints(platformOpsUpgradeExecute.endpoints) ||
       upgradeSubmitting.value ||
       activeUpgrade.value ||
       upgradeReadiness.value?.preflight.state !== 'ready' ||
@@ -2715,7 +2709,7 @@
       );
       if (
         view.value !== platformOpsUpgradesPage.view ||
-        !can('platform.ops.upgrade.manage')
+        !canApi(...platformOpsUpgradeExecute.endpoints[0])
       )
         return;
       upgradeSubmitting.value = true;
@@ -3076,7 +3070,7 @@
   }
   async function createStorageAccount() {
     if (
-      !canApi('POST', '/platformapi/infrastructure/storage/account') ||
+      !canApi(...platformStorageAccountCreate.endpoints[0]) ||
       loading.value
     )
       return;
@@ -3134,8 +3128,7 @@
   }
   async function createStorageSpace() {
     if (
-      !canApi('POST', '/platformapi/infrastructure/storage/space') ||
-      !canReadStorage('accounts') ||
+      !canCreateStorageSpace() ||
       loading.value ||
       storageOptionsLoading.value
     )
@@ -3208,8 +3201,7 @@
       );
       if (
         request !== viewRequest ||
-        !canApi('POST', '/platformapi/infrastructure/storage/space') ||
-        !canReadStorage('accounts')
+        !canCreateStorageSpace()
       )
         return;
       await run(
@@ -3235,8 +3227,7 @@
   }
   async function changeStorageRoute(route: StorageRoute, spaceId: number) {
     if (
-      !canApi('POST', '/platformapi/infrastructure/storage/route') ||
-      !canReadStorage('spaces') ||
+      !canChangeStorageRoute() ||
       loading.value ||
       storageOptionsLoading.value
     )
@@ -3259,8 +3250,7 @@
       );
       if (
         view.value !== platformStoragePages.routes.view ||
-        !canApi('POST', '/platformapi/infrastructure/storage/route') ||
-        !canReadStorage('spaces')
+        !canChangeStorageRoute()
       )
         return;
       await run(

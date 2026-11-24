@@ -27,7 +27,7 @@
             </el-radio-group>
             <p v-if="candidateMode === 'shell'" class="preview-help">
               候选显示 Platform Shell 授权页面和已接入的操作。概览沿用当前会话入口。
-              存储管理仅覆盖已登记的 File 分项读取。节点关联来自已登记的 Platform API 目录。范围外的现有能力可能显示为移除。
+              存储空间与上传路由的两种操作分别使用分项读取或旧聚合读取。节点关联来自已登记的 Platform API 目录。范围外的现有能力可能显示为移除。
             </p>
           </el-form-item>
           <el-form-item v-if="candidateMode === 'manual'" label="自定义候选节点">

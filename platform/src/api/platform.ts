@@ -20,27 +20,41 @@ import {
   platformOperatorTransitions,
   platformOperatorUpdate,
   platformOpsBackupsPage,
+  platformOpsBackupCreate,
   platformOpsDiagnosticsDownload,
   platformOpsLogs,
   platformOpsMaintenancePage,
+  platformOpsMaintenanceClose,
+  platformOpsMaintenanceSchedule,
   platformOpsOverviewPage,
   platformOpsProvidersPage,
+  platformOpsRestoreVerify,
+  platformOpsTaskRead,
+  platformOpsUpgradeExecute,
   platformOpsUpgradeHistory,
   platformOpsUpgradeReadiness,
   platformPermissionApisPage,
+  platformPermissionApiBindingRead,
+  platformPermissionApiBindingUpdate,
   platformPermissionBundleCreate,
   platformPermissionBundlesPage,
   platformPermissionBundleUpdate,
   platformPermissionCatalogRead,
   platformPermissionMenusPage,
+  platformPermissionMenuBindingUpdate,
   platformPlanActions,
   platformPlansPage,
   platformRoleArchive,
+  platformRoleAuthorizationPreview,
   platformRoleCreate,
+  platformRolePermissionAssign,
   platformRolesPage,
   platformRoleUpdate,
   platformStorageLegacyRead,
+  platformStorageAccountCreate,
   platformStoragePages,
+  platformStorageRouteUpdateActions,
+  platformStorageSpaceCreateActions,
   platformTenantCreate,
   platformTenantDetail,
   platformTenantEntitlementsPage,
@@ -71,7 +85,6 @@ import {
 import type { AxiosRequestConfig, AxiosResponse } from 'axios';
 import {
   readRoleAuthorizationPreview,
-  roleAuthorizationPreviewPath,
   type RoleAuthorizationCandidate,
 } from './role-authorization-preview';
 import type {
@@ -986,7 +999,7 @@ export const api = {
   }) =>
     readPermissionMenuBinding(
       await unwrap<unknown>(
-        client.put('/platformapi/permission/menus/binding', data)
+        requestEndpoint(platformPermissionMenuBindingUpdate.endpoints[0], { data })
       )
     ),
   createPermissionBundle: async (data: {
@@ -1036,7 +1049,7 @@ export const api = {
   permissionBindings: async (permissionKey: string) =>
     readPermissionBundle(
       await unwrap<unknown>(
-        client.get('/platformapi/permission/apis/bindings', {
+        requestEndpoint(platformPermissionApiBindingRead.endpoints[0], {
           params: { permission_key: permissionKey },
         })
       )
@@ -1048,10 +1061,12 @@ export const api = {
   ) =>
     readPermissionBundle(
       await unwrap<unknown>(
-        client.put('/platformapi/permission/apis/bindings', {
-          permission_key: permissionKey,
-          expected_revision: revision,
-          api_ids: apiIds,
+        requestEndpoint(platformPermissionApiBindingUpdate.endpoints[0], {
+          data: {
+            permission_key: permissionKey,
+            expected_revision: revision,
+            api_ids: apiIds,
+          },
         })
       )
     ),
@@ -1284,7 +1299,8 @@ export const api = {
   ) =>
     readRoleAuthorizationPreview(
       await unwrap<unknown>(
-        client.post(roleAuthorizationPreviewPath, candidate, {
+        requestEndpoint(platformRoleAuthorizationPreview.endpoints[0], {
+          data: candidate,
           signal,
           // This preview runs once per explicit action, including on 401.
           platformSkipSessionRecovery: true,
@@ -1298,11 +1314,13 @@ export const api = {
     changeReason: string
   ) =>
     unwrap(
-      client.post('/platformapi/roles/permissions/replace', {
-        role_id: role.id,
-        permission_keys: permissionKeys,
-        expected_revision: role.revision,
-        change_reason: changeReason,
+      requestEndpoint(platformRolePermissionAssign.endpoints[0], {
+        data: {
+          role_id: role.id,
+          permission_keys: permissionKeys,
+          expected_revision: role.revision,
+          change_reason: changeReason,
+        },
       })
     ),
   storageSnapshot: () =>
@@ -1320,19 +1338,19 @@ export const api = {
       requestEndpoint(platformStoragePages.routes.endpoints[0])
     ),
   createStorageAccount: (payload: Record<string, unknown>) =>
-    unwrap(client.post('/platformapi/infrastructure/storage/account', payload)),
+    unwrap(requestEndpoint(platformStorageAccountCreate.endpoints[0], { data: payload })),
   updateStorageAccount: (payload: Record<string, unknown>) =>
     unwrap(
       client.post('/platformapi/infrastructure/storage/account/update', payload)
     ),
   createStorageSpace: (payload: Record<string, unknown>) =>
-    unwrap(client.post('/platformapi/infrastructure/storage/space', payload)),
+    unwrap(requestEndpoint(platformStorageSpaceCreateActions.fine.endpoints[0], { data: payload })),
   updateStorageSpace: (payload: Record<string, unknown>) =>
     unwrap(
       client.post('/platformapi/infrastructure/storage/space/update', payload)
     ),
   setStorageRoute: (payload: Record<string, unknown>) =>
-    unwrap(client.post('/platformapi/infrastructure/storage/route', payload)),
+    unwrap(requestEndpoint(platformStorageRouteUpdateActions.fine.endpoints[0], { data: payload })),
   audit: (page = 1, pageSize = 20) =>
     unwrap<Page<AuditEvent>>(
       requestEndpoint(platformAuditPage.endpoints[0], {
@@ -1355,18 +1373,15 @@ export const api = {
     ),
   submitUpgrade: () =>
     unwrap<OpsUpgradeTask>(
-      client.post(
-        '/platformapi/v1/ops/tasks/upgrade',
-        {},
-        {
+      requestEndpoint(platformOpsUpgradeExecute.endpoints[0], {
+          data: {},
           headers: {
             'Idempotency-Key': `platform-upgrade-${Array.from(
               crypto.getRandomValues(new Uint32Array(4)),
               (value) => value.toString(16)
             ).join('-')}`,
           },
-        }
-      )
+      })
     ),
   providerQualifications: (page = 1) =>
     unwrap<ProviderQualificationSnapshot>(
@@ -1586,11 +1601,14 @@ async function opsSubmitBackup(
   idempotencyKey: string,
   signal: AbortSignal
 ): Promise<OpsTransportResult> {
-  const result = await client.post<Envelope<unknown>>(
-    '/platformapi/v1/ops/tasks/backup',
-    { provider_key: providerKey },
-    { headers: { 'Idempotency-Key': idempotencyKey }, signal }
-  );
+  const [method, url] = platformOpsBackupCreate.endpoints[0];
+  const result = await client.request<Envelope<unknown>>({
+    method,
+    url,
+    data: { provider_key: providerKey },
+    headers: { 'Idempotency-Key': idempotencyKey },
+    signal,
+  });
   const requestId = opsRequestId(result.headers as Record<string, unknown>);
   if (result.data.code === 20000) {
     return {
@@ -1618,15 +1636,18 @@ async function opsSubmitRestore(
   idempotencyKey: string,
   signal: AbortSignal
 ): Promise<OpsTransportResult> {
-  const result = await client.post<Envelope<unknown>>(
-    '/platformapi/v1/ops/tasks/restore',
-    {
+  const [method, url] = platformOpsRestoreVerify.endpoints[0];
+  const result = await client.request<Envelope<unknown>>({
+    method,
+    url,
+    data: {
       provider_key: providerKey,
       backup_reference_key: backupReferenceKey,
       target_key: targetKey,
     },
-    { headers: { 'Idempotency-Key': idempotencyKey }, signal }
-  );
+    headers: { 'Idempotency-Key': idempotencyKey },
+    signal,
+  });
   const requestId = opsRequestId(result.headers as Record<string, unknown>);
   if (result.data.code === 20000) {
     return {
@@ -1653,21 +1674,21 @@ async function opsScheduleMaintenance(
   idempotencyKey: string,
   signal: AbortSignal
 ): Promise<OpsTransportResult> {
-  const result = await client.put<Envelope<unknown>>(
-    '/platformapi/v1/ops/maintenance',
-    {
+  const [method, url] = platformOpsMaintenanceSchedule.endpoints[0];
+  const result = await client.request<Envelope<unknown>>({
+    method,
+    url,
+    data: {
       reason_key: input.reasonKey,
       starts_at: input.startsAt,
       ends_at: input.endsAt,
     },
-    {
-      headers: {
-        'If-Match': `"rev-${expectedRevision}"`,
-        'Idempotency-Key': idempotencyKey,
-      },
-      signal,
-    }
-  );
+    headers: {
+      'If-Match': `"rev-${expectedRevision}"`,
+      'Idempotency-Key': idempotencyKey,
+    },
+    signal,
+  });
   return opsMutationResult(result);
 }
 
@@ -1677,19 +1698,17 @@ async function opsCloseMaintenance(
   idempotencyKey: string,
   signal: AbortSignal
 ): Promise<OpsTransportResult> {
-  const result = await client.post<Envelope<unknown>>(
-    `/platformapi/v1/ops/maintenance/${encodeURIComponent(
-      maintenanceKey
-    )}/close`,
-    {},
-    {
-      headers: {
-        'If-Match': `"rev-${expectedRevision}"`,
-        'Idempotency-Key': idempotencyKey,
-      },
-      signal,
-    }
-  );
+  const [method, path] = platformOpsMaintenanceClose.endpoints[0];
+  const result = await client.request<Envelope<unknown>>({
+    method,
+    url: path.replace('{maintenance_key}', encodeURIComponent(maintenanceKey)),
+    data: {},
+    headers: {
+      'If-Match': `"rev-${expectedRevision}"`,
+      'Idempotency-Key': idempotencyKey,
+    },
+    signal,
+  });
   return opsMutationResult(result);
 }
 
@@ -1740,11 +1759,13 @@ export function createPlatformOpsTransport(): OpsConsoleTransport {
         idempotencyKey,
         signal
       ),
-    task: (taskKey, signal) =>
-      opsRead(
-        ['GET', `/platformapi/v1/ops/tasks/${encodeURIComponent(taskKey)}`],
+    task: (taskKey, signal) => {
+      const [method, path] = platformOpsTaskRead.endpoints[0];
+      return opsRead(
+        [method, path.replace('{task_key}', encodeURIComponent(taskKey))],
         signal
-      ),
+      );
+    },
     scheduleMaintenance: opsScheduleMaintenance,
     closeMaintenance: opsCloseMaintenance,
     logs: (sourceKey, severity, cursor, pageSize, signal) => {

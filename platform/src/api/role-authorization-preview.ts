@@ -1,8 +1,6 @@
 import type { PermissionApi } from './permission-bundles';
 import {
-  platformOperatorsPage,
-  platformPermissionApisPage,
-  platformRolesPage,
+  platformRoleAuthorizationPreview,
   platformShellPreviewDefinitions,
   platformStorageCatalogOwner,
   platformStorageNavigation,
@@ -11,16 +9,13 @@ import {
 } from '../core/platform-shell-definitions';
 
 export const roleAuthorizationPreviewPath =
-  '/platformapi/roles/permissions/preview';
+  platformRoleAuthorizationPreview.endpoints[0][1];
 
 export function allowsRoleAuthorizationPreview(
   canApi: (method: string, path: string) => boolean
 ): boolean {
-  return (
-    canApi('POST', roleAuthorizationPreviewPath) &&
-    canApi(...platformOperatorsPage.endpoints[0]) &&
-    canApi(...platformRolesPage.endpoints[0]) &&
-    canApi(...platformPermissionApisPage.endpoints[0])
+  return platformRoleAuthorizationPreview.endpoints.every(
+    ([method, path]) => canApi(method, path)
   );
 }
 
@@ -178,16 +173,24 @@ export function readCandidateNodes(source: string) {
 }
 
 export function buildPlatformShellCandidate(apis: readonly PermissionApi[]) {
+  const storageParents = new Set<string>([
+    platformStorageNavigation.key,
+    ...Object.values(platformStoragePages).map((page) => page.key),
+  ]);
+  const storageDefinitions = platformShellPreviewDefinitions.filter(
+    ({ key, parentKey }) =>
+      key === platformStorageNavigation.key ||
+      (parentKey !== null && storageParents.has(parentKey))
+  );
+  const storageKeys = new Set<string>(storageDefinitions.map(({ key }) => key));
   const storagePaths = new Set<string>(
-    Object.values(platformStoragePages).map((page) => page.endpoints[0][1])
+    storageDefinitions.flatMap(({ endpoints }) => endpoints.map(([, path]) => path))
   );
   const hasFileCatalogEvidence = apis.some(
     (item) => item.module_key === platformStorageCatalogOwner || storagePaths.has(item.path)
   );
   const definitions = platformShellPreviewDefinitions.filter(
-    ({ key, parentKey }) =>
-      hasFileCatalogEvidence ||
-      (key !== platformStorageNavigation.key && parentKey !== platformStorageNavigation.key)
+    ({ key }) => hasFileCatalogEvidence || !storageKeys.has(key)
   );
 
   function resolveApi(
@@ -227,7 +230,7 @@ export function buildPlatformShellCandidate(apis: readonly PermissionApi[]) {
       if (type !== 'group' && !alternateReadPage && endpoints.length < 1)
         throw new Error(`正式定义的节点 ${key} 未声明 API 关联。`);
       const expectedOwner =
-        parentKey === platformStorageNavigation.key
+        storageKeys.has(key)
           ? platformStorageCatalogOwner
           : undefined;
       return {
@@ -284,7 +287,7 @@ export function buildPlatformShellCandidate(apis: readonly PermissionApi[]) {
     ...validateCandidateNodes(nodes, presentation),
     notice: hasFileCatalogEvidence
       ? ''
-      : '当前 Platform API 目录未见 File 分项读取来源，存储管理未纳入本次候选。',
+      : '当前 Platform API 目录未见 File 存储来源，存储管理未纳入本次候选。',
   };
 }
 
