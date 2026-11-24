@@ -276,3 +276,53 @@ test('official install and update preserve dry run, confirmation and task lookup
     assert.deepEqual(await api.moduleOperationTask(task.task_key), receipt);
   }
 });
+
+test('official preflight delivers a dependency rejection after the default timeout', async (t) => {
+  const rejectionAtMs = 29_000;
+  const requests = [];
+  const api = fixture(t, async (config) => {
+    const { dry_run: dryRun } = JSON.parse(config.data);
+    requests.push([config.url, dryRun, config.timeout]);
+    if (!dryRun) return envelope(config, { task_key: 'job_module_update' });
+
+    // Model the XHR deadline without waiting or sending a network request.
+    if (config.timeout > 0 && config.timeout <= rejectionAtMs) {
+      throw new axios.AxiosError('timeout', 'ECONNABORTED', config);
+    }
+    const response = envelope(
+      config,
+      { error_code: 'MODULE_PACKAGE_DEPENDENCY_INCOMPATIBLE' },
+      42200,
+      422
+    );
+    response.headers['X-Trace-Id'] = 'preflight-trace';
+    throw new axios.AxiosError(
+      'rejected',
+      'ERR_BAD_REQUEST',
+      config,
+      undefined,
+      response
+    );
+  });
+
+  for (const operation of ['install', 'update']) {
+    await assert.rejects(api.previewOfficialModule(selection, operation), {
+      message:
+        '前置模块的当前版本不满足所选模块版本的要求。（追踪 ID：preflight-trace）',
+    });
+    await api.applyOfficialModule(
+      selection,
+      'b'.repeat(64),
+      'fixed-intent',
+      operation
+    );
+  }
+
+  const route = '/platformapi/instance-tools/modules/official-';
+  assert.deepEqual(requests, [
+    [route + 'install', true, 60_000],
+    [route + 'install', false, 15_000],
+    [route + 'update', true, 60_000],
+    [route + 'update', false, 15_000],
+  ]);
+});

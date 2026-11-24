@@ -659,8 +659,8 @@ export function onPlatformSessionChange(
   return () => platformSessionListeners.delete(listener);
 }
 
-// Allow time for upstream release discovery on each catalog request attempt.
-const OFFICIAL_MODULE_UPDATES_TIMEOUT_MS = 60_000;
+// Allow time for upstream discovery and verification on each read-only request.
+const OFFICIAL_MODULE_READ_TIMEOUT_MS = 60_000;
 
 const client = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || undefined,
@@ -1282,7 +1282,7 @@ export const api = {
     unwrap<OfficialUpdateSnapshot>(
       client.get('/platformapi/instance-tools/modules/updates', {
         params: { channel },
-        timeout: OFFICIAL_MODULE_UPDATES_TIMEOUT_MS,
+        timeout: OFFICIAL_MODULE_READ_TIMEOUT_MS,
       })
     ),
   previewOfficialModule: (
@@ -1290,10 +1290,11 @@ export const api = {
     operation: 'install' | 'update' = 'update'
   ) =>
     unwrap<OfficialUpdatePreview>(
-      client.post('/platformapi/instance-tools/modules/official-' + operation, {
-        ...selection,
-        dry_run: true,
-      }),
+      client.post(
+        '/platformapi/instance-tools/modules/official-' + operation,
+        { ...selection, dry_run: true },
+        { timeout: OFFICIAL_MODULE_READ_TIMEOUT_MS }
+      ),
       moduleOperationErrors
     ),
   applyOfficialModule: (
