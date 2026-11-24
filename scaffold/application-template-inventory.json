@@ -3857,7 +3857,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "006022f68a72351ed3ec09f0a74338ea0b2a81a1911ac2ee8b0b218792af146e"
+            "source_sha256": "049bd248ab62255ea104f0f943e032da8f85bc2331db513840cc65cc94d0e6b8"
         },
         {
             "path": "server/.gitignore",
@@ -5467,7 +5467,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0babdb303d371338fceebc60631e20ba4334d3382638c5e04b90726c24bd3687"
+            "source_sha256": "2d6ed30e241b1cf18c84da930b44e85daa822be4de573070eb484c40406bcc89"
         },
         {
             "path": "server/app/command/ModuleUpgrade.php",
@@ -7247,7 +7247,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0db6010d5b71b981d1f36dda0584f8ceea5bf7d21ecbbc836e2448df88831c5c"
+            "source_sha256": "77762c6544892b52b909406c0b6cade2d586aab811de2bb78d1831cc65fb3c63"
         },
         {
             "path": "server/app/common/module/ModuleMigrationRun.php",
@@ -8761,7 +8761,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "25a88cc9709b07368f1c968c73fa95cb5fc04480d74c0afc25afcdb04f571155"
+            "source_sha256": "6d057c69a16838f516fad5395494e793e6f30f73b585dc69607f57ec839a6cf4"
         },
         {
             "path": "server/app/platform/infrastructure/module/ModulePackageSourcePromoter.php",
@@ -9027,7 +9027,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8ab7f4268e375238adef3ac7c7e3272f4ee9acfb06d2d542450d2f9ccfebb209"
+            "source_sha256": "1b92869946c7b33661e538f4b2a4f9863bd8eabf27cc1f5b8182037443b4f5d2"
         },
         {
             "path": "server/app/platform/services/module/ModulePackageAdoptionService.php",

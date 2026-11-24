@@ -198,6 +198,14 @@ $expect($pdo->query("SELECT * FROM pa_module_installation WHERE id={$id}")->fetc
 $result = $service->upgrade('acme.lifecycle', false);
 $expect($result['operation'] === 'upgraded', 'Explicit upgrade did not activate the selected Module');
 $expect((int) $pdo->query('SELECT upgraded FROM pa_acceptance_lifecycle WHERE id=81')->fetchColumn() === 7, 'Native pending migration did not execute');
+$installedReceipt = $pdo->query("SELECT * FROM pa_module_installation WHERE id={$id}")->fetch(PDO::FETCH_ASSOC);
+$unchanged = $service->upgrade('acme.lifecycle', false);
+$expect($unchanged['operation'] === 'unchanged'
+    && $unchanged['version'] === $installedReceipt['installed_version']
+    && $unchanged['artifact_sha256'] === $installedReceipt['artifact_sha256'],
+    'Same identity upgrade omitted the installed identity required by task smoke validation');
+$expect($pdo->query("SELECT * FROM pa_module_installation WHERE id={$id}")->fetch(PDO::FETCH_ASSOC) === $installedReceipt,
+    'Same identity upgrade changed the existing installation receipt');
 $catalogs->disableActivePackageModules(['acme.lifecycle']);
 $expect($service->install('acme.lifecycle')['operation'] === 'reactivated', 'Existing explicit reactivation contract was lost');
 $result = $service->uninstall('acme.lifecycle');
@@ -257,6 +265,8 @@ $governance->uninstall('acme.lifecycle', false, $preview['confirm_plan'], $previ
 $expect($pdo->query('SELECT value FROM pa_acceptance_lifecycle WHERE id=81')->fetchColumn() === 'original-fictional-record', 'Native source retirement removed business data');
 archiveReinstall:
 (new ModulePackageInstaller($server, $config, [], $catalogs))->install($state . '/lifecycle.tar', $archive['sha256'], null);
+$httpRegistry = (new ModuleDefinitionRegistryFactory($server))->fromCompiled($config);
+$expect(in_array('acme.lifecycle', $httpRegistry->moduleKeys(), true), 'Archive install returned before publishing the current HTTP Module registry');
 $expect((int) $pdo->query("SELECT id FROM pa_module_installation WHERE module_key='acme.lifecycle'")->fetchColumn() === $id, 'Archive reinstallation changed the preserved identity');
 // ModuleCatalogApplier scopes the menu revision to the selected manifest digests.
 // This activation selected just the case Module; read it before retirement removes its source.

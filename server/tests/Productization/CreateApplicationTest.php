@@ -585,6 +585,27 @@ try {
             && str_contains((string) file_get_contents($first . '/server/.env.example'), 'DEPLOYMENT_MODE=multi-tenant'),
         'Edition route and environment composition changed outside the selected profile',
     );
+    foreach ([$standalone => 'standalone', $first => 'multi-tenant'] as $applicationPath => $edition) {
+        foreach ([true, false] as $processSections) {
+            $environment = parse_ini_file($applicationPath . '/server/.env.example', $processSections, INI_SCANNER_RAW);
+            createApplicationExpect(
+                is_array($environment) && ($environment['DEPLOYMENT_MODE'] ?? null) === $edition,
+                'Generated backend configuration must parse with the native PHP INI reader for ' . $edition,
+            );
+            foreach (['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASS'] as $key) {
+                createApplicationExpect(array_key_exists($key, $environment), 'Generated backend configuration omitted ' . $key);
+            }
+            foreach (array_keys($environment) as $key) {
+                createApplicationExpect(
+                    preg_match('/^[A-Z][A-Z0-9_]*$/D', $key) === 1,
+                    'Generated backend comments must not become configuration keys',
+                );
+            }
+            foreach (['DB_DRIVER', 'DB_TYPE', 'DB_CHARSET', 'DB_CONNECT_TIMEOUT_SECONDS', 'ASYNC_WORKER_LIMIT'] as $key) {
+                createApplicationExpect(!array_key_exists($key, $environment), 'Commented optional configuration became active: ' . $key);
+            }
+        }
+    }
     $standaloneSchema = (string) file_get_contents($standalone . '/server/database/schema/baseline-schema.sql');
     $multiTenantSchema = (string) file_get_contents($first . '/server/database/schema/baseline-schema.sql');
     createApplicationExpect(
