@@ -263,6 +263,13 @@ Route::post('roles/update', [PlatformAccessController::class, 'updateRole'])
 Route::post('roles/archive', [PlatformAccessController::class, 'archiveRole'])
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.role.archive');
+Route::post('roles/permissions/preview', [PlatformControlPlaneQueryController::class, 'previewRolePermissions'])
+    ->completeMatch()
+    ->option(['peanut_permission' => 'platform.role.read'])
+    ->middleware(PlatformLoginMiddleware::class)
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.api.read')
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.operator.read')
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.role.read');
 Route::post('roles/permissions/replace', [PlatformAccessController::class, 'replaceRolePermissions'])
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.role.permission.assign');

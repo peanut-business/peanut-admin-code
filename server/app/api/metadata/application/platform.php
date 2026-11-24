@@ -579,6 +579,87 @@ foreach ($roleRequests as $route => $definition) {
     ));
 }
 
+// A candidate is a read-only direct API graph, never a replacement grant request.
+$previewId = ['oneOf' => [$positiveId, ['type' => 'string', 'pattern' => '^[1-9][0-9]*$']]];
+$previewNodeKey = ['type' => 'string', 'maxLength' => 160, 'pattern' => '^platform\\.[a-z0-9][a-z0-9_-]*(?:\\.[a-z0-9][a-z0-9_-]*)*$'];
+$previewApiId = ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$'];
+$previewApiIds = ['type' => 'array', 'items' => $previewApiId];
+$schemas['PlatformRoleAuthorizationCandidate'] = [
+    'type' => 'object', 'additionalProperties' => false,
+    'required' => ['operator_id', 'nodes', 'role_assignments'],
+    'properties' => [
+        'operator_id' => $previewId,
+        'nodes' => [
+            'type' => 'array', 'maxItems' => 1000,
+            'items' => [
+                'type' => 'object', 'additionalProperties' => false,
+                'required' => ['key', 'parent_key', 'type', 'api_ids'],
+                'properties' => [
+                    'key' => $previewNodeKey,
+                    'parent_key' => $previewNodeKey + ['nullable' => true],
+                    'type' => ['type' => 'string', 'enum' => ['group', 'page', 'action', 'operation']],
+                    'api_ids' => $previewApiIds + ['maxItems' => 2000],
+                ],
+            ],
+        ],
+        'role_assignments' => [
+            'type' => 'array', 'maxItems' => 200,
+            'items' => [
+                'type' => 'object', 'additionalProperties' => false,
+                'required' => ['role_id', 'node_keys'],
+                'properties' => [
+                    'role_id' => $previewId,
+                    'node_keys' => ['type' => 'array', 'maxItems' => 1000, 'items' => $previewNodeKey],
+                ],
+            ],
+        ],
+    ],
+];
+$schemas['PlatformRoleAuthorizationPreview'] = [
+    'type' => 'object', 'additionalProperties' => false,
+    'required' => ['operator_id', 'capability_equal', 'relation_coverage_complete', 'owner_dynamic', 'added', 'removed', 'non_http_permission_keys', 'roles', 'unresolved'],
+    'properties' => [
+        'operator_id' => ['type' => 'string', 'pattern' => '^[1-9][0-9]*$'],
+        'capability_equal' => ['type' => 'boolean'],
+        'relation_coverage_complete' => ['type' => 'boolean'],
+        'owner_dynamic' => ['type' => 'boolean'],
+        'added' => $previewApiIds,
+        'removed' => $previewApiIds,
+        'non_http_permission_keys' => $stringList,
+        'roles' => [
+            'type' => 'array',
+            'items' => [
+                'type' => 'object', 'additionalProperties' => false,
+                'required' => ['role_id', 'relation_equal', 'owner_dynamic', 'added', 'removed'],
+                'properties' => [
+                    'role_id' => ['type' => 'string', 'pattern' => '^[1-9][0-9]*$'],
+                    'relation_equal' => ['type' => 'boolean'], 'owner_dynamic' => ['type' => 'boolean'],
+                    'added' => $previewApiIds, 'removed' => $previewApiIds,
+                ],
+            ],
+        ],
+        'unresolved' => [
+            'type' => 'array',
+            'items' => [
+                'type' => 'object', 'additionalProperties' => false, 'required' => ['code'],
+                'properties' => [
+                    'code' => ['type' => 'string'],
+                    'role_id' => ['type' => 'string'],
+                    'node_key' => ['type' => 'string'],
+                    'api_id' => ['type' => 'string'],
+                    'permission_key' => ['type' => 'string'],
+                ],
+            ],
+        ],
+    ],
+];
+$add($paths, 'POST', '/platformapi/roles/permissions/preview', $operation(
+    'previewPlatformRoleAuthorization',
+    'PlatformAccess',
+    $responses('PlatformRoleAuthorizationPreview') + ['404' => $error],
+    requestBody: $jsonBody($ref('PlatformRoleAuthorizationCandidate')),
+));
+
 // Tenant owner 邀请、入口域名与 TenantModule。
 $invitationIssue = static fn(bool $withTenant): array => [
     'type' => 'object', 'additionalProperties' => false,

@@ -10,6 +10,8 @@ use app\common\http\PageResult;
 use app\platform\query\PlatformControlPlaneQueryService;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
+use PeanutAdmin\Kernel\Module\ModuleAvailability;
+use PeanutAdmin\Modules\Identity\Contract\PlatformRoleAuthorizationPreview;
 
 final class PlatformControlPlaneQueryController extends BasePlatformController
 {
@@ -25,6 +27,17 @@ final class PlatformControlPlaneQueryController extends BasePlatformController
     public function roles()
     {
         return $this->listQuery('roles');
+    }
+
+    /** Read-only candidate evaluation; no role grants or catalogue changes are applied. */
+    public function previewRolePermissions(
+        PlatformRoleAuthorizationPreview $preview,
+        ModuleAvailability $modules,
+    ): \think\response\Json {
+        if ($this->platformContext === null) {
+            throw \app\common\http\ApiProblem::fromEnvelope('Platform authentication is required.', null, 40100);
+        }
+        return $this->data($preview->preview($this->platformContext->core, $this->request->post(), $modules));
     }
 
     public function permissions()

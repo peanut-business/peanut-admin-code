@@ -2247,6 +2247,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platformapi/roles/permissions/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["previewPlatformRoleAuthorization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platformapi/tenants/provision": {
         parameters: {
             query?: never;
@@ -4520,6 +4536,43 @@ export interface components {
             selection_sha256: string;
         };
         PlatformOfficialPackageResult: components["schemas"]["PlatformOfficialPackagePreview"] | components["schemas"]["PlatformOpsTask"];
+        PlatformRoleAuthorizationCandidate: {
+            operator_id: number | string;
+            nodes: {
+                key: string;
+                parent_key: string | null;
+                /** @enum {string} */
+                type: "group" | "page" | "action" | "operation";
+                api_ids: string[];
+            }[];
+            role_assignments: {
+                role_id: number | string;
+                node_keys: string[];
+            }[];
+        };
+        PlatformRoleAuthorizationPreview: {
+            operator_id: string;
+            capability_equal: boolean;
+            relation_coverage_complete: boolean;
+            owner_dynamic: boolean;
+            added: string[];
+            removed: string[];
+            non_http_permission_keys: string[];
+            roles: {
+                role_id: string;
+                relation_equal: boolean;
+                owner_dynamic: boolean;
+                added: string[];
+                removed: string[];
+            }[];
+            unresolved: {
+                code: string;
+                role_id?: string;
+                node_key?: string;
+                api_id?: string;
+                permission_key?: string;
+            }[];
+        };
         TenantPlan: {
             id: number;
             code: string;
@@ -9489,6 +9542,39 @@ export interface operations {
             };
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    previewPlatformRoleAuthorization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformRoleAuthorizationCandidate"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformRoleAuthorizationPreview"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };

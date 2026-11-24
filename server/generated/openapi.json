@@ -13871,13 +13871,109 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 266
+                        "line": 273
                     }
                 },
                 "x-peanut-permissions": [
                     {
                         "kind": "platform_action",
                         "key": "platform.role.permission.assign"
+                    }
+                ]
+            }
+        },
+        "/platformapi/roles/permissions/preview": {
+            "post": {
+                "tags": [
+                    "PlatformAccess"
+                ],
+                "operationId": "previewPlatformRoleAuthorization",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/PlatformRoleAuthorizationPreview"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PlatformRoleAuthorizationCandidate"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "platform",
+                    "owner": {
+                        "type": "application",
+                        "key": "platform"
+                    },
+                    "controller": "app\\platform\\controller\\PlatformControlPlaneQueryController",
+                    "action": "previewRolePermissions",
+                    "permission": "platform.role.read",
+                    "source": {
+                        "file": "server/route/platform.php",
+                        "line": 266
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.permission.api.read"
+                    },
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.operator.read"
+                    },
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.role.read"
                     }
                 ]
             }
@@ -25626,6 +25722,225 @@
                         "$ref": "#/components/schemas/PlatformOpsTask"
                     }
                 ]
+            },
+            "PlatformRoleAuthorizationCandidate": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "operator_id",
+                    "nodes",
+                    "role_assignments"
+                ],
+                "properties": {
+                    "operator_id": {
+                        "oneOf": [
+                            {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                            }
+                        ]
+                    },
+                    "nodes": {
+                        "type": "array",
+                        "maxItems": 1000,
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                                "key",
+                                "parent_key",
+                                "type",
+                                "api_ids"
+                            ],
+                            "properties": {
+                                "key": {
+                                    "type": "string",
+                                    "maxLength": 160,
+                                    "pattern": "^platform\\.[a-z0-9][a-z0-9_-]*(?:\\.[a-z0-9][a-z0-9_-]*)*$"
+                                },
+                                "parent_key": {
+                                    "type": "string",
+                                    "maxLength": 160,
+                                    "pattern": "^platform\\.[a-z0-9][a-z0-9_-]*(?:\\.[a-z0-9][a-z0-9_-]*)*$",
+                                    "nullable": true
+                                },
+                                "type": {
+                                    "type": "string",
+                                    "enum": [
+                                        "group",
+                                        "page",
+                                        "action",
+                                        "operation"
+                                    ]
+                                },
+                                "api_ids": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "pattern": "^[a-f0-9]{64}$"
+                                    },
+                                    "maxItems": 2000
+                                }
+                            }
+                        }
+                    },
+                    "role_assignments": {
+                        "type": "array",
+                        "maxItems": 200,
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                                "role_id",
+                                "node_keys"
+                            ],
+                            "properties": {
+                                "role_id": {
+                                    "oneOf": [
+                                        {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        },
+                                        {
+                                            "type": "string",
+                                            "pattern": "^[1-9][0-9]*$"
+                                        }
+                                    ]
+                                },
+                                "node_keys": {
+                                    "type": "array",
+                                    "maxItems": 1000,
+                                    "items": {
+                                        "type": "string",
+                                        "maxLength": 160,
+                                        "pattern": "^platform\\.[a-z0-9][a-z0-9_-]*(?:\\.[a-z0-9][a-z0-9_-]*)*$"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "PlatformRoleAuthorizationPreview": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "operator_id",
+                    "capability_equal",
+                    "relation_coverage_complete",
+                    "owner_dynamic",
+                    "added",
+                    "removed",
+                    "non_http_permission_keys",
+                    "roles",
+                    "unresolved"
+                ],
+                "properties": {
+                    "operator_id": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$"
+                    },
+                    "capability_equal": {
+                        "type": "boolean"
+                    },
+                    "relation_coverage_complete": {
+                        "type": "boolean"
+                    },
+                    "owner_dynamic": {
+                        "type": "boolean"
+                    },
+                    "added": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                        }
+                    },
+                    "removed": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                        }
+                    },
+                    "non_http_permission_keys": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "roles": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                                "role_id",
+                                "relation_equal",
+                                "owner_dynamic",
+                                "added",
+                                "removed"
+                            ],
+                            "properties": {
+                                "role_id": {
+                                    "type": "string",
+                                    "pattern": "^[1-9][0-9]*$"
+                                },
+                                "relation_equal": {
+                                    "type": "boolean"
+                                },
+                                "owner_dynamic": {
+                                    "type": "boolean"
+                                },
+                                "added": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "pattern": "^[a-f0-9]{64}$"
+                                    }
+                                },
+                                "removed": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "pattern": "^[a-f0-9]{64}$"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "unresolved": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                                "code"
+                            ],
+                            "properties": {
+                                "code": {
+                                    "type": "string"
+                                },
+                                "role_id": {
+                                    "type": "string"
+                                },
+                                "node_key": {
+                                    "type": "string"
+                                },
+                                "api_id": {
+                                    "type": "string"
+                                },
+                                "permission_key": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
             },
             "TenantPlan": {
                 "type": "object",

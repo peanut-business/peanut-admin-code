@@ -28,6 +28,14 @@
 
 平台角色资料、角色授权、权限包、API目录与关联、菜单与按钮引用各有独立页面。角色读取、分配继续使用 `platform.role.read`、`platform.role.permission.assign`；权限包目录读取使用 `platform.permission.read`，自建定义维护使用 `platform.permission.bundle.manage`；API目录与关联读取使用 `platform.permission.api.read`，关联保存使用 `platform.permission.api.manage`；菜单与按钮引用读取/保存分别使用 `platform.permission.menu.read`、`platform.permission.menu.manage`。页面、读取动作和写入动作分别授权，不因进入角色页面获得其他管理能力。
 
+平台直接 API 关联目前提供只读迁移预览入口 `POST /platformapi/roles/permissions/preview`。调用者须同时拥有 `platform.role.read`、`platform.permission.api.read` 和 `platform.operator.read`；Identity 服务再次按真实角色权限复核，不能用本次 API 的自定义主要关联代替这些读取权限。请求中的 `operator_id` 仅指定被核对的操作员，调用者身份仍来自已验证的平台会话。
+
+候选由 `nodes` 和 `role_assignments` 组成。节点使用平台稳定 key，类型为 group/page/action/operation；page 表示菜单、action 表示按钮、operation 表示不进入导航的操作。节点直接引用已登记 API ID，候选不经权限包转授；group 只组织结构，不自动授予后代。每个节点必须显式给出 `api_ids`，每个角色必须显式给出 `node_keys`，空数组与缺字段分别处理。单列表内重复关系按集合去重；同一节点或角色重复出现时，只有规范化后完整定义相同才可去重，空/非空或其他冲突定义返回422，不能合并后吞掉清空意图。一个请求最多1000个节点、200个角色、2000条直接API关系和2000个角色节点选择；跨域、缺父、环、退役和悬空关联均须解释，不静默丢弃。API ID、方法、路径、前置权限和模块状态以服务端目录为准。
+
+预览分别返回 `capability_equal`（操作员当前有效API能力）与 `relation_coverage_complete`（逐角色关系覆盖），以及 `added`、`removed`、`unresolved`。多角色覆盖相同API不能掩盖遗漏某个角色的关系；显式空的旧实例关联不从源码默认补回。内置Bootstrap Owner动态能力、非HTTP动作、独立前置权限、模块可用性及演示账号约束保留现行语义。本次覆盖所选操作员的全部当前角色关系；省略其中一个角色会报告未覆盖，不把没有关联到该操作员的角色算作已迁移。结果只说明当次候选与当前授权的比较，不是保存请求、迁移许可或后续请求的授权凭据。
+
+该入口由Scaffold负责路由及响应装配，Identity负责关系、授权和比较。当前没有应用候选的写入口，菜单树界面和运行期直接授权切换尚未采用；既有角色写入、权限包消费者及租户套餐合同继续生效。新增API须随相容的Identity候选采用并由原生目录流程登记后才能在实例调用，开发源码验证不等于实例已完成升级。
+
 运维按运行状态、维护窗口、备份与恢复、版本与升级、日志与诊断、供应商资格分为独立页面，继续复用各自已有 API。每个页面只读取自己获准的接口；只有升级历史读取权限的账号不额外请求运行状态或升级就绪检查。日志与诊断仍要求源码规定的全部前置权限。源菜单使用 hash 入口，原 `platform.upgrade.status` 稳定 key 保留，默认引用改为其实际读取 API 使用的 `platform.ops.read`；这不是角色补权，实例已定制菜单引用仍保留。
 
 存储账号、存储空间、上传路由分别使用 `platform.storage.account.read`、`platform.storage.space.read`、`platform.storage.route.read` 读取独立列表。既有聚合读取 API 保留身份与显式实例关联，源码默认改为独立 `platform.storage.legacy.read`，该包只登记、不自动授予旧角色。未定制 `platform.ops.read` 默认包的已有角色通过同一迁移继承三个细读子能力；分别撤销后，不再因持有原运维读取包而从聚合入口取回数据。已明确配置的包不自动补权，界面只有在确实获准旧聚合 API 时使用兼容读取。空间创建另外需要账号目录，调整路由另外需要空间目录；没有相应目录读取能力时不加载、不提供依赖它的编辑入口。
