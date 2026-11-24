@@ -7,6 +7,7 @@ use app\platform\exception\module\ModulePackageException;
 use app\platform\infrastructure\module\DeterministicTarArchive;
 use app\platform\infrastructure\module\ModuleArtifactWriter;
 use app\platform\infrastructure\module\ModuleLockResolver;
+use app\platform\infrastructure\module\ModulePackageSourcePromoter;
 use app\platform\services\module\ModulePackageAdoptionService;
 use app\platform\services\module\ModulePackageArchiveService;
 use app\common\module\PackageCheck as ModulePackagePreflight;
@@ -158,6 +159,24 @@ try {
     modulePackageExpect($verified->packageKey === 'acme.delivery-record', 'verified package identity changed');
     modulePackageExpect($verified->dependencyOrder === ['acme.delivery-record'], 'single-Module dependency order changed');
     $service->cleanup($verified);
+
+    modulePackageCopyTree(dirname(__DIR__, 3) . '/server/fixtures/modules/delivery_record', $authorRoot . '/server/app/modules/fixture/delivery_record');
+    modulePackageCopyTree(dirname(__DIR__, 3) . '/web/tests/fixtures/modules/fixture-delivery-record', $authorRoot . '/web/src/modules/fixture-delivery-record');
+    $defaultLock = (new ModuleArtifactWriter($authorRoot . '/server'))->lock();
+    modulePackageExpect(array_column($defaultLock['modules'], 'key') === ['acme.delivery-record'], 'default lock admitted an unselected fixture');
+    $fixtureArchive = $temporary . '/explicit-fixture.tar';
+    $fixturePin = $service->packModule('fixture.delivery-record', $fixtureArchive)['sha256'];
+    $fixture = $service->verify($fixtureArchive, $fixturePin, [], null, []);
+    $mergedLock = ModulePackageSourcePromoter::lockWithPackage($fixture, $defaultLock['contents']);
+    $lockedModules = array_column(json_decode($mergedLock, true, 512, JSON_THROW_ON_ERROR)['modules'], null, 'key');
+    modulePackageExpect($lockedModules['acme.delivery-record'] === $defaultLock['modules'][0], 'explicit fixture changed the unrelated lock entry');
+    modulePackageExpect(
+        $lockedModules['fixture.delivery-record']['source'] === $fixture->descriptor->source
+        && $lockedModules['fixture.delivery-record']['manifest_sha256'] === $fixture->descriptor->manifestDigest,
+        'explicit fixture lock did not preserve the verified package identity',
+    );
+    modulePackageExpect(ModulePackageSourcePromoter::lockWithPackage($fixture, $mergedLock) === $mergedLock, 'verified fixture lock merge was not idempotent');
+    $service->cleanup($fixture);
 
     modulePackageRejects(
         static fn() => $service->verify($first, str_repeat('0', 64), [], null, []),

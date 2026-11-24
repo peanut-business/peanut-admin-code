@@ -3,7 +3,7 @@
   "key": "fixture.workflow-business",
   "name": "Workflow business samples (development only)",
   "description": "Optional synthetic application, purchase and receipt scenarios for Workflow integration acceptance; excluded from runtime product.",
-  "version": "1.0.10",
+  "version": "1.0.11-rc.1",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/fixture-workflow-business",
@@ -28,6 +28,7 @@
   ],
   "backend": {
     "provider": "PeanutAdmin\\Fixtures\\WorkflowBusiness\\ModuleProvider",
+    "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
     "protected_resources": "resources/protected-resources.json"

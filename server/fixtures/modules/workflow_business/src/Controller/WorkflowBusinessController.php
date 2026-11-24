@@ -8,21 +8,24 @@ use app\adminapi\controller\BaseAdminController;
 use PeanutAdmin\DataPermission\Exception\DataAuthorizationException;
 use PeanutAdmin\Fixtures\WorkflowBusiness\Package;
 use PeanutAdmin\Fixtures\WorkflowBusiness\Service\WorkflowBusinessService;
+use PeanutAdmin\Fixtures\WorkflowBusiness\Service\WorkflowCollaborationService;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 use PeanutAdmin\Kernel\Context\AuthorizationDecision;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use PeanutAdmin\Modules\ArtifactRevision\Application\ArtifactRevisionException;
+use think\App;
 use think\response\Json;
 
-/**
- * @property-read WorkflowBusinessService $business
- * @property-read \PeanutAdmin\Fixtures\WorkflowBusiness\Service\WorkflowCollaborationService $collaboration
- */
 final class WorkflowBusinessController extends BaseAdminController
 {
-    protected string $businessClass = WorkflowBusinessService::class;
-    protected string $collaborationClass = \PeanutAdmin\Fixtures\WorkflowBusiness\Service\WorkflowCollaborationService::class;
+    public function __construct(
+        App $app,
+        private readonly WorkflowBusinessService $business,
+        private readonly WorkflowCollaborationService $collaboration,
+    ) {
+        parent::__construct($app);
+    }
 
     public function index(string $scene): Json
     {
