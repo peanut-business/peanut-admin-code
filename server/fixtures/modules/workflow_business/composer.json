@@ -2,7 +2,7 @@
   "name": "peanut-business/fixture-workflow-business",
   "description": "Optional development Workflow business sample",
   "type": "peanut-admin-module",
-  "version": "1.0.0",
+  "version": "1.0.10",
   "license": "Apache-2.0",
   "require": {
     "php": "^8.3",
