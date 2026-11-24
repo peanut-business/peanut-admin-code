@@ -1127,6 +1127,11 @@
           <div class="toolbar">
             <p>维护平台角色的基本信息。权限分配在独立的角色授权页面进行。</p>
             <el-button
+              v-if="canPreviewRoleAuthorization()"
+              :disabled="loading"
+              @click="roleAuthorizationPreviewOpen = true"
+            >只读候选预览</el-button>
+            <el-button
               v-if="can('platform.role.create')"
               type="primary"
               @click="roleDialog = true"
@@ -1222,6 +1227,11 @@
               placeholder="搜索权限名称或标识"
               style="max-width: 340px"
             />
+            <el-button
+              v-if="canPreviewRoleAuthorization()"
+              :disabled="loading"
+              @click="roleAuthorizationPreviewOpen = true"
+            >只读候选预览</el-button>
           </div>
           <el-card>
             <template #header>{{
@@ -1354,6 +1364,12 @@
     ></el-container>
   </component>
   <TenantDetailsDialog v-model="tenantDetailVisible" :detail="tenantDetail" />
+  <RoleAuthorizationPreview
+    v-if="roleAuthorizationPreviewOpen && canPreviewRoleAuthorization()"
+    :can-preview="canPreviewRoleAuthorization"
+    :load-directory="loadRoleAuthorizationPreviewDirectory"
+    @close="roleAuthorizationPreviewOpen = false"
+  />
   <el-dialog
     v-model="roleDialog"
     title="创建平台角色"
@@ -1517,6 +1533,7 @@
     provide,
     reactive,
     ref,
+    watch,
   } from 'vue';
   import {
     ElMessage,
@@ -1567,6 +1584,11 @@
   import ProviderQualificationCard from './components/ProviderQualificationCard.vue';
   import DeveloperCenterPage from './components/DeveloperCenterPage.vue';
   import PermissionBundlesPanel from './components/PermissionBundlesPanel.vue';
+  import RoleAuthorizationPreview from './components/RoleAuthorizationPreview.vue';
+  import {
+    allowsRoleAuthorizationPreview,
+    readRoleAuthorizationPreviewDirectory,
+  } from './api/role-authorization-preview';
   import TenantDetailsDialog from './components/TenantDetailsDialog.vue';
   import {
     allowsPlatformAction,
@@ -1680,6 +1702,7 @@
   );
   const permissionRole = ref<PlatformRole | null>(null);
   const permissionSubmitting = ref(false);
+  const roleAuthorizationPreviewOpen = ref(false);
   const platformPermissions = ref<string[]>([]);
   const apiAccess = ref<PlatformApiAccess[]>([]);
   const accessRevision = ref(0);
@@ -1751,6 +1774,12 @@
   });
   const canApi = (method: string, path: string) =>
     allowsPlatformApi(apiAccess.value, method, path);
+  const canPreviewRoleAuthorization = () =>
+    (view.value === 'roles' || view.value === 'role-permissions') &&
+    allowsRoleAuthorizationPreview(canApi);
+  watch([view, canPreviewRoleAuthorization], () => {
+    roleAuthorizationPreviewOpen.value = false;
+  });
   const can = (permission: string) =>
     allowsPlatformAction(apiAccess.value, permission);
   const storageSections: Record<string, StorageSection> = {
@@ -1897,6 +1926,7 @@
     tenantDetailVisible.value = false;
     permissionRole.value = null;
     permissionSelection.value = [];
+    roleAuthorizationPreviewOpen.value = false;
     permissionCatalogState.value = 'idle';
     provisionDialog.value = false;
     roleDialog.value = false;
@@ -2257,6 +2287,8 @@
       throw new Error('目录未完整加载，已停止编辑');
     return items;
   }
+  const loadRoleAuthorizationPreviewDirectory = (signal: AbortSignal) =>
+    readRoleAuthorizationPreviewDirectory(api, canPreviewRoleAuthorization, signal);
   async function loadTenants(
     isCurrent: () => boolean = () => true,
     all = true

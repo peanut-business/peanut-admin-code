@@ -12,7 +12,7 @@ const updates = '/platformapi/instance-tools/modules/updates';
 const refresh = '/platformapi/session/refresh';
 const catalog = '/platformapi/developer-center/catalog';
 const transportModules = await Promise.all(
-  ['tenant-license', 'permission-bundles', 'platform'].map(async (name) => {
+  ['tenant-license', 'permission-bundles', 'role-authorization-preview', 'platform'].map(async (name) => {
     const filename = fileURLToPath(
       new URL(`../src/api/${name}.ts`, import.meta.url)
     );

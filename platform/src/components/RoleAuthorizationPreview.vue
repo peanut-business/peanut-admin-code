@@ -1,0 +1,384 @@
+<template>
+  <el-dialog
+    :model-value="true"
+    title="角色授权候选预览"
+    width="min(880px, 94vw)"
+    @update:model-value="onDialogChange"
+  >
+    <div v-loading="directoryLoading" class="preview-workspace">
+      <el-alert v-if="directoryError" :title="directoryError" type="error" :closable="false" />
+      <el-button v-if="directoryError" @click="loadDirectory">重新读取目录</el-button>
+      <template v-if="directoryReady">
+        <el-form label-position="top" @submit.prevent>
+          <el-form-item label="操作员">
+            <el-select v-model="operatorId" filterable placeholder="选择操作员">
+              <el-option
+                v-for="operator in directory.operators"
+                :key="operator.id"
+                :label="operator.display_name + '（' + operator.id + '）'"
+                :value="operator.id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="候选节点">
+            <el-input
+              v-model="candidateText"
+              type="textarea"
+              :rows="5"
+              placeholder='[{"key":"platform.example","parent_key":null,"type":"page","api_ids":[]}]'
+            />
+            <p class="preview-help">
+              输入候选 JSON，显式填写每个节点的 key、parent_key、type 和 api_ids。
+              明确空关联填 []。候选只用于比较，不保存角色授权。
+            </p>
+          </el-form-item>
+          <el-form-item label="查阅可关联的 Platform API ID">
+            <el-select
+              v-model="lookupApiId"
+              filterable
+              clearable
+              placeholder="按方法或路径查找"
+            >
+              <el-option
+                v-for="item in assignableApis"
+                :key="item.id"
+                :label="item.method + ' ' + item.path"
+                :value="item.id"
+              />
+            </el-select>
+            <p v-if="lookupApiId" class="preview-help"><code>{{ lookupApiId }}</code></p>
+          </el-form-item>
+        </el-form>
+
+        <el-alert v-if="candidate.error" :title="candidate.error" type="error" :closable="false" />
+
+        <template v-if="selectedOperator">
+          <p v-if="!targetRoles.length">当前目录未显示该操作员的角色。</p>
+          <el-alert
+            v-if="unlistedRoleKeys.length"
+            :title="'目录中缺少角色：' + unlistedRoleKeys.join('、')"
+            type="warning"
+            :closable="false"
+          />
+          <el-form v-if="targetRoles.length" label-position="top" @submit.prevent>
+            <el-form-item label="选择要编辑的候选角色关系">
+              <el-select v-model="roleId" placeholder="选择角色">
+                <el-option
+                  v-for="role in targetRoles"
+                  :key="role.id"
+                  :label="role.name + ' · ' + selectionLabel(role.id)"
+                  :value="role.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-form>
+          <div v-if="roleId !== undefined && candidate.data">
+            <div class="preview-actions">
+              <span>{{ selectionLabel(roleId) }}</span>
+              <el-button @click="setRoleSelection(undefined)">不提供此角色选择</el-button>
+              <el-button @click="setRoleSelection([])">明确清空此角色选择</el-button>
+            </div>
+            <el-tree
+              :key="treeRevision + ':' + roleId"
+              :data="candidate.data.tree"
+              :default-checked-keys="selections.get(roleId) ?? []"
+              node-key="key"
+              show-checkbox
+              check-strictly
+              default-expand-all
+              :expand-on-click-node="false"
+              @check="changeCheckedNodes"
+            >
+              <template #default="{ data }">
+                <span class="preview-tree-node">
+                  <span>{{ nodeTypeLabel[data.type as NodeType] }} · {{ data.key }}</span>
+                  <small v-if="data.api_ids.length">{{ describeApis(data.api_ids) }}</small>
+                  <small v-else>明确空关联</small>
+                </span>
+              </template>
+            </el-tree>
+          </div>
+        </template>
+
+        <div class="preview-actions">
+          <el-button
+            type="primary"
+            :disabled="!selectedOperator || !candidate.data || previewLoading"
+            :loading="previewLoading"
+            @click="runPreview"
+          >预览候选差异</el-button>
+        </div>
+        <el-alert v-if="previewError" :title="previewError" type="error" :closable="false" />
+        <section v-if="result" class="preview-result" aria-live="polite">
+          <h3>预览差异</h3>
+          <p>操作员有效能力：{{ result.capability_equal ? '相等' : '有差异' }}</p>
+          <p>逐角色关系覆盖：{{ result.relation_coverage_complete ? '完整' : '未完整' }}</p>
+          <p>新增 API：{{ describeApis(result.added) }}</p>
+          <p>移除 API：{{ describeApis(result.removed) }}</p>
+          <p v-if="result.owner_dynamic">此操作员包含动态 Owner 能力，继续按现有规则评估。</p>
+          <p>保留的非 HTTP 权限：{{ result.non_http_permission_keys.join('、') || '无' }}</p>
+          <el-table v-if="result.roles.length" :data="result.roles">
+            <el-table-column label="角色" min-width="135">
+              <template #default="{ row }">
+                {{ roleName(row.role_id) }}
+                <small v-if="row.owner_dynamic"> · 动态 Owner</small>
+              </template>
+            </el-table-column>
+            <el-table-column label="关系" min-width="78">
+              <template #default="{ row }">{{ row.relation_equal ? '相等' : '有差异' }}</template>
+            </el-table-column>
+            <el-table-column label="新增 API" min-width="120">
+              <template #default="{ row }">{{ describeApis(row.added) }}</template>
+            </el-table-column>
+            <el-table-column label="移除 API" min-width="120">
+              <template #default="{ row }">{{ describeApis(row.removed) }}</template>
+            </el-table-column>
+          </el-table>
+          <template v-if="result.unresolved.length">
+            <h4>未解决项</h4>
+            <ul>
+              <li v-for="(item, index) in result.unresolved" :key="index">
+                {{ unresolvedLabel[item.code] ?? item.code }}
+                <span v-if="item.role_id"> · {{ roleName(item.role_id) }}</span>
+                <span v-if="item.node_key"> · {{ item.node_key }}</span>
+                <span v-if="item.api_id !== undefined"> · {{ item.api_id }}</span>
+                <span v-if="item.permission_key"> · {{ item.permission_key }}</span>
+              </li>
+            </ul>
+          </template>
+        </section>
+      </template>
+    </div>
+    <template #footer>
+      <el-button @click="close">关闭</el-button>
+    </template>
+  </el-dialog>
+</template>
+
+<script setup lang="ts">
+  import { computed, onMounted, ref, watch } from 'vue';
+  import { useAsyncAction } from '@peanut-admin/vue';
+  import { api } from '../api/platform';
+  import {
+    buildRoleAuthorizationCandidate,
+    readCandidateNodes,
+    type RoleAuthorizationPreview,
+    type RoleAuthorizationPreviewDirectory,
+  } from '../api/role-authorization-preview';
+
+  const props = defineProps<{
+    canPreview: () => boolean;
+    loadDirectory: (signal: AbortSignal) => Promise<RoleAuthorizationPreviewDirectory>;
+  }>();
+  const emit = defineEmits<{ close: [] }>();
+  const directory = ref<RoleAuthorizationPreviewDirectory>({
+    operators: [],
+    roles: [],
+    apis: [],
+  });
+  const directoryReady = ref(false);
+  const operatorId = ref<string>();
+  const roleId = ref<string>();
+  const candidateText = ref('');
+  const lookupApiId = ref('');
+  const selections = ref(new Map<string, string[]>());
+  const treeRevision = ref(0);
+  const result = ref<RoleAuthorizationPreview>();
+  let previewRevision = 0;
+  const message = (error: unknown) =>
+    error instanceof Error ? error.message : '请求失败，请稍后重试。';
+  const {
+    loading: directoryLoading,
+    error: directoryError,
+    run: runDirectory,
+    cancel: cancelDirectory,
+  } = useAsyncAction(message);
+  const {
+    loading: previewLoading,
+    error: previewError,
+    run: requestPreview,
+    cancel: cancelPreview,
+  } = useAsyncAction(message);
+
+  const nodeTypeLabel = {
+    group: '分组',
+    page: '菜单',
+    action: '按钮',
+    operation: '无菜单操作',
+  };
+  type NodeType = keyof typeof nodeTypeLabel;
+  const unresolvedLabel: Record<string, string> = {
+    operator_inactive: '操作员未启用',
+    role_not_assigned_to_operator: '该角色未分配给操作员',
+    role_assignment_missing: '该角色未提供候选选择',
+    role_missing: '现有角色不存在',
+    role_inactive: '现有角色未启用',
+    legacy_role_grant_not_active_platform: '现有授权并非有效 Platform 授权',
+    role_node_not_assignable: '角色选中的节点不可分配',
+    legacy_api_not_active_platform: '现有关联的 API 不是有效 Platform API',
+    legacy_default_not_materialized: '现有默认关联未登记',
+    registered_node_not_assignable: '已登记的节点不可分配',
+    node_parent_invalid: '候选节点的父级无效',
+    group_cannot_grant_api: '分组不能授予 API',
+    api_not_active_platform: '候选 API 不是有效 Platform API',
+  };
+  const selectedOperator = computed(() =>
+    directory.value.operators.find((operator) => operator.id === operatorId.value)
+  );
+  const targetRoles = computed(() =>
+    directory.value.roles.filter((role) => selectedOperator.value?.role_keys.includes(role.key))
+  );
+  const unlistedRoleKeys = computed(() =>
+    (selectedOperator.value?.role_keys ?? []).filter(
+      (key) => !targetRoles.value.some((role) => role.key === key)
+    )
+  );
+  const assignableApis = computed(() =>
+    directory.value.apis.filter(
+      (item) =>
+        item.audience === 'platform' &&
+        item.status === 'active' &&
+        item.access_mode === 'platform_permission'
+    )
+  );
+  const apiLabels = computed(
+    () => new Map(directory.value.apis.map((item) => [item.id, item.method + ' ' + item.path]))
+  );
+  const candidate = computed(() => {
+    if (!candidateText.value.trim()) return { data: null, error: '' };
+    try {
+      return { data: readCandidateNodes(candidateText.value), error: '' };
+    } catch (error) {
+      return { data: null, error: message(error) };
+    }
+  });
+
+  function invalidate() {
+    previewRevision += 1;
+    cancelPreview();
+    result.value = undefined;
+  }
+  function close() {
+    cancelDirectory();
+    invalidate();
+    emit('close');
+  }
+  function onDialogChange(open: boolean) {
+    if (!open) close();
+  }
+  watch(roleId, invalidate, { flush: 'sync' });
+  watch(
+    operatorId,
+    () => {
+      roleId.value = undefined;
+      selections.value.clear();
+      invalidate();
+    },
+    { flush: 'sync' }
+  );
+  watch(
+    candidateText,
+    () => {
+      selections.value.clear();
+      invalidate();
+    },
+    { flush: 'sync' }
+  );
+  async function loadDirectory() {
+    if (!props.canPreview()) return;
+    const outcome = await runDirectory(({ signal }) => props.loadDirectory(signal));
+    if (outcome.status === 'completed' && props.canPreview()) {
+      directory.value = outcome.data;
+      directoryReady.value = true;
+    }
+  }
+  onMounted(loadDirectory);
+
+  function selectionLabel(id: string) {
+    const count = selections.value.get(id)?.length;
+    if (count === undefined) return '未提供选择';
+    return count === 0 ? '明确空选择' : `已选 ${count} 项`;
+  }
+  function updateSelection(keys: string[] | undefined) {
+    const id = roleId.value;
+    if (id === undefined) return;
+    if (keys === undefined) selections.value.delete(id);
+    else selections.value.set(id, keys);
+    invalidate();
+  }
+  function setRoleSelection(keys: string[] | undefined) {
+    updateSelection(keys);
+    treeRevision.value += 1;
+  }
+  function changeCheckedNodes(
+    _node: unknown,
+    state: { checkedKeys: (string | number)[] }
+  ) {
+    updateSelection(
+      state.checkedKeys.filter((key): key is string => typeof key === 'string')
+    );
+  }
+  function describeApis(ids: string[]) {
+    return ids.map((id) => apiLabels.value.get(id) ?? id).join('、') || '无';
+  }
+  function roleName(id: string) {
+    return directory.value.roles.find((role) => role.id === id)?.name ?? id;
+  }
+  async function runPreview() {
+    const operator = selectedOperator.value;
+    const draft = candidate.value.data;
+    if (!props.canPreview() || !operator || !draft || previewLoading.value) return;
+    result.value = undefined;
+    const revision = previewRevision;
+    const outcome = await requestPreview(({ signal }) => {
+      const input = buildRoleAuthorizationCandidate(
+        operator.id,
+        draft.nodes,
+        targetRoles.value.map((role) => role.id),
+        selections.value
+      );
+      return api.previewRoleAuthorization(input, signal);
+    });
+    if (
+      outcome.status === 'completed' &&
+      revision === previewRevision &&
+      props.canPreview()
+    )
+      result.value = outcome.data;
+  }
+</script>
+
+<style scoped>
+  .preview-workspace {
+    min-height: 4rem;
+    display: grid;
+    gap: 12px;
+  }
+  .preview-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-block: 8px;
+  }
+  .preview-help,
+  .preview-tree-node,
+  .preview-result {
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+  .preview-tree-node {
+    display: grid;
+    min-width: 0;
+    padding-block: 4px;
+    white-space: normal;
+  }
+  .preview-tree-node small,
+  .preview-help {
+    color: var(--el-text-color-secondary);
+  }
+  .preview-workspace :deep(.el-tree-node__content) {
+    height: auto;
+    min-height: 26px;
+  }
+</style>

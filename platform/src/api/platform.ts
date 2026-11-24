@@ -22,6 +22,11 @@ import {
   type PermissionAudience,
 } from './permission-bundles';
 import type { AxiosRequestConfig, AxiosResponse } from 'axios';
+import {
+  readRoleAuthorizationPreview,
+  roleAuthorizationPreviewPath,
+  type RoleAuthorizationCandidate,
+} from './role-authorization-preview';
 import type {
   MaintenanceScheduleInput,
   OpsConsoleTransport,
@@ -670,6 +675,7 @@ const client = axios.create({
 
 type SessionRequestConfig = AxiosRequestConfig & {
   platformRefreshRetried?: boolean;
+  platformSkipSessionRecovery?: boolean;
   platformSession?: PlatformSessionSnapshot;
 };
 const platformRefreshCoordinator = createMemoryRefreshCoordinator();
@@ -696,11 +702,12 @@ const handleResponse = async (response: AxiosResponse<Envelope<unknown>>) => {
     '/platformapi/session/refresh',
     '/platformapi/session/logout',
   ].includes(config.url || '');
-  const canRefresh =
+  const recoverableUnauthorized =
     envelope?.code === 40100 &&
     snapshot.token !== null &&
-    !config.platformRefreshRetried &&
+    !config.platformSkipSessionRecovery &&
     !sessionEndpoint;
+  const canRefresh = recoverableUnauthorized && !config.platformRefreshRetried;
   if (
     !isPlatformIdentityCurrent(snapshot) ||
     (!canRefresh && !isPlatformSessionCurrent(snapshot))
@@ -752,7 +759,7 @@ const handleResponse = async (response: AxiosResponse<Envelope<unknown>>) => {
     config.headers.Authorization = `Bearer ${refreshedToken}`;
     return client.request(config);
   }
-  if (envelope?.code === 40100 && snapshot.token !== null && !sessionEndpoint) {
+  if (recoverableUnauthorized) {
     await queueSessionCookieRequest(async () => {
       if (!isPlatformSessionCurrent(snapshot))
         throw new Error('The platform session has changed.');
@@ -950,11 +957,16 @@ export const api = {
       ),
       readPermissionBundle
     ),
-  permissionApis: async (audience: PermissionAudience, page: number) =>
+  permissionApis: async (
+    audience: PermissionAudience,
+    page: number,
+    signal?: AbortSignal
+  ) =>
     readPermissionPage(
       await unwrap<unknown>(
         client.get('/platformapi/permission/apis', {
           params: { audience, page_no: page, page_size: 100 },
+          signal,
         })
       ),
       readPermissionApi
@@ -1107,10 +1119,11 @@ export const api = {
         params: { tenant_id: tenantId, page: 1, page_size: 100 },
       })
     ),
-  operators: (page = 1, pageSize = 100) =>
+  operators: (page = 1, pageSize = 100, signal?: AbortSignal) =>
     unwrap<Page<Operator>>(
       client.get('/platformapi/operators', {
         params: { page, page_size: pageSize },
+        signal,
       })
     ),
   createOperator: (payload: Record<string, string>) =>
@@ -1153,10 +1166,11 @@ export const api = {
         change_reason: changeReason,
       })
     ),
-  roles: (page = 1, pageSize = 100) =>
+  roles: (page = 1, pageSize = 100, signal?: AbortSignal) =>
     unwrap<Page<PlatformRole>>(
       client.get('/platformapi/roles', {
         params: { page, page_size: pageSize },
+        signal,
       })
     ),
   permissions: (page = 1, pageSize = 100) =>
@@ -1189,6 +1203,20 @@ export const api = {
         expected_revision: role.revision,
         change_reason: changeReason,
       })
+    ),
+  previewRoleAuthorization: async (
+    candidate: RoleAuthorizationCandidate,
+    signal: AbortSignal
+  ) =>
+    readRoleAuthorizationPreview(
+      await unwrap<unknown>(
+        client.post(roleAuthorizationPreviewPath, candidate, {
+          signal,
+          // This preview runs once per explicit action, including on 401.
+          platformSkipSessionRecovery: true,
+        } as SessionRequestConfig)
+      ),
+      candidate.operator_id
     ),
   replaceRolePermissions: (
     role: PlatformRole,
