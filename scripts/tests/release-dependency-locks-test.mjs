@@ -343,7 +343,7 @@ function installedFixture(operation) {
         ],
         { encoding: 'utf8', timeout: 10000 }
       );
-    const doctor = () => {
+    const doctor = (registry = undefined) => {
       write('resources/project-resources.json', { stable_resource_id: 'synthetic-doctor' });
       write('.peanut/application-manifest.json', {
         protocol: 'peanut.application-scaffold.v2', application: { profile: 'standard' },
@@ -354,8 +354,11 @@ function installedFixture(operation) {
       chmodSync(join(app, 'scripts/project-composer'), 0o755);
       for (const name of ['scaffold-doctor', 'release-dependency-locks.mjs'])
         copyFileSync(join(root, 'scripts', name), join(app, 'scripts', name));
+      const env = { ...process.env };
+      delete env.PEANUT_RESOURCE_REGISTRY;
+      if (registry !== undefined) env.PEANUT_RESOURCE_REGISTRY = registry;
       return spawnSync('bash', [join(app, 'scripts/scaffold-doctor'),
-        '--resource-id', 'synthetic-doctor'], { encoding: 'utf8', timeout: 10000 });
+        '--resource-id', 'synthetic-doctor'], { encoding: 'utf8', timeout: 10000, env });
     };
     operation({
       app,
@@ -383,6 +386,31 @@ test('installed fixed identities accept contained native package layout', () =>
     const diagnosed = doctor();
     assert.equal(diagnosed.status, 0, diagnosed.stderr);
     assert.match(diagnosed.stdout, /scaffold-doctor: OK/);
+  }));
+
+test('scaffold doctor defaults to application registry and validates explicit registry paths', () =>
+  installedFixture(({ app, doctor, write }) => {
+    const local = doctor();
+    assert.equal(local.status, 0, local.stderr);
+    const explicit = join(app, 'resources/maintainer-synthetic.json');
+    write('resources/maintainer-synthetic.json', { stable_resource_id: 'synthetic-doctor' });
+    const selected = doctor(explicit);
+    assert.equal(selected.status, 0, selected.stderr);
+    write('resources/maintainer-synthetic.json', { stable_resource_id: 'other-resource' });
+    const wrong = doctor(explicit);
+    assert.notEqual(wrong.status, 0);
+    assert.match(wrong.stderr, /resource is not registered/);
+    const relative = doctor('resources/maintainer-synthetic.json');
+    assert.notEqual(relative.status, 0);
+    assert.match(relative.stderr, /absolute, non-symlink/);
+    const missing = doctor(join(app, 'resources/absent.json'));
+    assert.notEqual(missing.status, 0);
+    assert.match(missing.stderr, /missing or unreadable/);
+    const linked = join(app, 'resources/linked-registry.json');
+    symlinkSync(explicit, linked);
+    const symlinked = doctor(linked);
+    assert.notEqual(symlinked.status, 0);
+    assert.match(symlinked.stderr, /absolute, non-symlink/);
   }));
 test('installed check rejects missing PHP dependencies rather than only reading web versions', () =>
   installedFixture(({ app, check }) => {
