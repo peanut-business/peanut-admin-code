@@ -57,7 +57,6 @@ interface ApiChanges {
 
 export interface RoleAuthorizationCatalogCandidate {
   role_ids: string[];
-  nodes: CandidateNode[];
   role_assignments: { role_id: string; expected_revision: string; node_keys: string[] }[];
 }
 
@@ -447,7 +446,6 @@ export function buildRoleAuthorizationCandidate(
 /** Build explicit, bounded native catalog-audit batches without introducing another authorization evaluator. */
 export function buildRoleCatalogAuditBatches(
   roles: RoleAuthorizationPreviewDirectory['roles'],
-  nodes: CandidateNode[],
   selections: ReadonlyMap<string, string[]>
 ): RoleAuthorizationCatalogCandidate[] {
   if (!roles.length) throw new Error('角色目录为空，不能审计。');
@@ -455,11 +453,11 @@ export function buildRoleCatalogAuditBatches(
   if (rolesById.size !== roles.length || [...selections.keys()].some((id) => !rolesById.has(id)))
     throw new Error('角色目录和候选选择不一致，请重新读取。');
   const batches: RoleAuthorizationCatalogCandidate[] = [];
-  let batch: RoleAuthorizationCatalogCandidate = { role_ids: [], nodes, role_assignments: [] };
+  let batch: RoleAuthorizationCatalogCandidate = { role_ids: [], role_assignments: [] };
   let selectedCount = 0;
   function append() {
     if (batch.role_ids.length) batches.push(batch);
-    batch = { role_ids: [], nodes, role_assignments: [] };
+    batch = { role_ids: [], role_assignments: [] };
     selectedCount = 0;
   }
   for (const role of roles) {
@@ -483,12 +481,11 @@ export function buildRoleCatalogAuditBatches(
 /** Every batch runs through Identity auditCatalog; the combined read is not a migration snapshot. */
 export async function auditCompleteRoleCatalog(
   directory: RoleAuthorizationPreviewDirectory,
-  nodes: CandidateNode[],
   selections: ReadonlyMap<string, string[]>,
   submit: (candidate: RoleAuthorizationCatalogCandidate, signal: AbortSignal) => Promise<RoleAuthorizationCatalogAudit>,
   signal: AbortSignal
 ): Promise<RoleAuthorizationCatalogAudit> {
-  const batches = buildRoleCatalogAuditBatches(directory.roles, nodes, selections);
+  const batches = buildRoleCatalogAuditBatches(directory.roles, selections);
   const reports: RoleAuthorizationCatalogAudit['roles'] = [];
   const unresolved: RoleAuthorizationCatalogAudit['unresolved'] = [];
   const rolesById = new Map(directory.roles.map((role) => [role.id, role]));

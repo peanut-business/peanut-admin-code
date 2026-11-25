@@ -663,10 +663,9 @@ $add($paths, 'POST', '/platformapi/roles/permissions/preview', $operation(
 // Reuse the same native node contract for a bounded audit of roles independent of membership.
 $schemas['PlatformRoleAuthorizationCatalogCandidate'] = [
     'type' => 'object', 'additionalProperties' => false,
-    'required' => ['role_ids', 'nodes', 'role_assignments'],
+    'required' => ['role_ids', 'role_assignments'],
     'properties' => [
         'role_ids' => ['type' => 'array', 'minItems' => 1, 'maxItems' => 200, 'items' => $previewId],
-        'nodes' => $schemas['PlatformRoleAuthorizationCandidate']['properties']['nodes'],
         'role_assignments' => [
             'type' => 'array', 'maxItems' => 200,
             'items' => [

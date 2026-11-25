@@ -28,7 +28,7 @@
         },
         {
             "path": "server/app/api/metadata/application/platform.php",
-            "sha256": "66fd165a8e1e82a1ec541fd33b10faa6ac64f22e8d74f8d7e93a14c8102f9560"
+            "sha256": "642bd617ae1b550c2fe7aa757b1458378a94226a2af980790dce1c7da8d37d3f"
         },
         {
             "path": "server/app/api/metadata/application/shared.php",
@@ -41,6 +41,10 @@
         {
             "path": "server/config/admin_api_access.php",
             "sha256": "845edf9ee948592ed86226799354292ab79238b7c772a80dfddfb479e9ded487"
+        },
+        {
+            "path": "server/generated/platform-role-source.json",
+            "sha256": "0b988d3f755ef7b6b91b6029bb1e167421895ffca386c1f76e84b38a65dc88af"
         },
         {
             "path": "server/route/admin.php",

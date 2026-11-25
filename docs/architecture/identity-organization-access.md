@@ -48,6 +48,12 @@ Platform 的“平台角色”和“角色授权”页在当前会话具备预�
 
 该入口由Scaffold负责路由及响应装配，Identity负责关系、授权和比较。候选应用写入口、角色授权树保存和运行期直接授权切换尚未交付。既有角色写入、权限包消费者及租户套餐合同继续生效。新增API须随相容的Identity候选采用并由原生目录流程登记后才能在实例调用，开发源码验证不等于实例已完成升级。
 
+全角色只读审计 `POST /platformapi/roles/permissions/catalog-audit` 只接受 `role_ids` 和 `role_assignments(role_id, expected_revision, node_keys)`，不接受客户端 `nodes` 或 `api_ids`。明确 `[]` 与未提交选择不同；角色无成员也可以审计。沿用 `platform.role.read`、`platform.permission.api.read` 和 `platform.operator.read` 三项读取权限。
+
+正式节点没有第二份手工目录：原生 `scripts/generate-api-contracts.php` 从现有 `platform/src/core/platform-shell-definitions.ts` 生成 `server/generated/platform-role-source.json`。`PlatformRoleNodeSource` 验证 Shell 源摘要，且生成节点制品的字节 SHA-256 也被原生 API 目录的 `inputs` 绑定并由 `GeneratedApiCatalog::load` 检查，核节点引用的 method/path/API ID、归属、受众、默认和前置权限与当前登记 `system_api` 一致；group/page 另核 `system_menu` 登记的来源、父子、route、scope、客户端及有效状态。按钮和无菜单操作来自 Shell 原正式声明，不伪称已额外写入菜单表。File 可选分支只在实际目录存在时纳入，缺少或漂移即拒绝。
+
+服务端向 Identity `auditCatalog` 传入重新生成的权威节点关系，客户端只能引用已知且可选的 node key；伪造节点、API 映射及未知 key 被拒绝。解析和等价比较位于同一只读事务，但**不构成迁移许可**。当前真实角色保存仍由 `PlatformAccessAdminService::replaceRolePermissions` 写 `platform_role_permission`，运行权限仍由 `ThinkPhpPlatformAuthorizationRepository` 从旧权限包投影；没有安全的直接关系生产写入/鉴权消费者，本包不增直接授权生产表、双写或切换，固定旧版包也不自动包含新源码。
+
 运维按运行状态、维护窗口、备份与恢复、版本与升级、日志与诊断、供应商资格分为独立页面，继续复用各自已有 API。每个页面只读取自己获准的接口；只有升级历史读取权限的账号不额外请求运行状态或升级就绪检查。日志与诊断仍要求源码规定的全部前置权限。源菜单使用 hash 入口，原 `platform.upgrade.status` 稳定 key 保留，默认引用改为其实际读取 API 使用的 `platform.ops.read`；这不是角色补权，实例已定制菜单引用仍保留。
 
 存储账号、存储空间、上传路由分别使用 `platform.storage.account.read`、`platform.storage.space.read`、`platform.storage.route.read` 读取独立列表。既有聚合读取 API 保留身份与显式实例关联，源码默认改为独立 `platform.storage.legacy.read`，该包只登记、不自动授予旧角色。未定制 `platform.ops.read` 默认包的已有角色通过同一迁移继承三个细读子能力；分别撤销后，不再因持有原运维读取包而从聚合入口取回数据。已明确配置的包不自动补权，界面只有在确实获准旧聚合 API 时使用兼容读取。空间创建另外需要账号目录，调整路由另外需要空间目录；没有相应目录读取能力时不加载、不提供依赖它的编辑入口。

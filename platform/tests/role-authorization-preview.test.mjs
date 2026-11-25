@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -1391,7 +1392,7 @@ test('catalog audit uses the formal graph, includes a memberless role, and disti
     assert.deepEqual(candidate.role_assignments, [
       { role_id: '2', expected_revision: '7', node_keys: [] },
     ]);
-    assert.ok(candidate.nodes.some((node) => node.key === 'platform.role.authorization.catalog-audit'));
+    assert.equal(Object.hasOwn(candidate, 'nodes'), false, 'The audit never accepts a client-owned API graph');
     const removed = [apis.find((row) => row.method === 'POST' && row.path === catalogAuditPath).id];
     return reply(config, {
       catalog_total: 2, scope_covers_catalog: true, equivalent: false,
@@ -1443,7 +1444,7 @@ test('catalog audit covers more than 200 roles by bounded native batches and rej
   }));
   const directory = { roles, operators: [], apis: [] };
   const selections = new Map([['1', []], ['201', ['platform.candidate.page']]]);
-  const batches = contract.buildRoleCatalogAuditBatches(roles, [group, page], selections);
+  const batches = contract.buildRoleCatalogAuditBatches(roles, selections);
   assert.deepEqual(plain(batches.map((row) => row.role_ids.length)), [200, 1]);
   assert.deepEqual(plain(batches[0].role_assignments), [
     { role_id: '1', expected_revision: '1', node_keys: [] },
@@ -1471,7 +1472,7 @@ test('catalog audit covers more than 200 roles by bounded native batches and rej
     };
   };
   const result = await contract.auditCompleteRoleCatalog(
-    directory, [group, page], selections, responder, new AbortController().signal
+    directory, selections, responder, new AbortController().signal
   );
   assert.equal(calls, 2);
   assert.equal(result.scope_covers_catalog, true);
@@ -1485,7 +1486,42 @@ test('catalog audit covers more than 200 roles by bounded native batches and rej
     return response;
   };
   await assert.rejects(
-    contract.auditCompleteRoleCatalog(directory, [group, page], selections, stale, new AbortController().signal),
+    contract.auditCompleteRoleCatalog(directory, selections, stale, new AbortController().signal),
     /角色内容或修订发生变化/
   );
+});
+
+test('native Platform role-node source is bound to the Shell definition and current generated API catalog', () => {
+  const manifest = JSON.parse(readFileSync(new URL('../../server/generated/platform-role-source.json', import.meta.url), 'utf8'));
+  const source = readFileSync(new URL('../src/core/platform-shell-definitions.ts', import.meta.url), 'utf8');
+  const catalog = JSON.parse(readFileSync(new URL('../../server/generated/api-catalog.json', import.meta.url), 'utf8'));
+  const manifestHash = createHash('sha256').update(
+    readFileSync(new URL('../../server/generated/platform-role-source.json', import.meta.url))
+  ).digest('hex');
+  assert.equal(catalog.inputs.find((entry) =>
+    entry.path === 'server/generated/platform-role-source.json')?.sha256, manifestHash);
+  assert.equal(manifest.schema_version, 1);
+  assert.equal(manifest.source_path, 'platform/src/core/platform-shell-definitions.ts');
+  assert.equal(manifest.source_sha256, createHash('sha256').update(source).digest('hex'));
+  assert.equal(manifest.nodes.length, 80);
+  assert.equal(new Set(manifest.nodes.map((node) => node.key)).size, manifest.nodes.length);
+  const byKey = Object.fromEntries(manifest.nodes.map((node) => [node.key, node]));
+  for (const [key, type, path, parent] of [
+    ['platform.role.list', 'page', '/platformapi/roles', 'platform.governance'],
+    ['platform.role.create', 'action', '/platformapi/roles/create', 'platform.role.list'],
+    ['platform.role.authorization.catalog-audit', 'operation', '/platformapi/roles/permissions/catalog-audit', null],
+  ]) {
+    const node = byKey[key];
+    assert.ok(node, key);
+    assert.equal(node.type, type);
+    assert.equal(node.parent_key, parent);
+    const links = node.api_endpoints.filter(([method, endpoint]) => endpoint === path);
+    assert.equal(links.length, 1, key);
+    const matches = catalog.endpoints.filter((api) => api.method === links[0][0] && api.path === path);
+    assert.equal(matches.length, 1, key + ' must have one current generated route');
+    assert.equal(matches[0].audience, 'platform');
+    assert.equal(matches[0].auth.mode, 'platform_permission');
+    assert.equal(matches[0].contract_quality, 'complete');
+    assert.deepEqual(matches[0].owner, { type: 'application', key: 'platform' });
+  }
 });

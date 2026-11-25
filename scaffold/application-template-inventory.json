@@ -751,7 +751,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4d15d76683e1a119c77590bdad89a7123b0fd2206dba3f859208918f954b517b"
+            "source_sha256": "ae8ee2c3c90871d607619d5148c512ffc93450a7985c059487e7c959e9288bac"
         },
         {
             "path": "docs/architecture/module-composition.md",
@@ -1965,7 +1965,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ed0a6d0160bf9eed5e197531d47f317d6d2627a236a999dd1162294b1080582d"
+            "source_sha256": "628b0fac4038d3e27b3b2e2526a286ae6495efc07336ab683755176dec8d5864"
         },
         {
             "path": "platform/src/api/tenant-license.ts",
@@ -2049,7 +2049,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b72ac0ca0c59d171faefe6438bda5e200e725adb35196a6d9618e1dc1d0b56c5"
+            "source_sha256": "da46b5efb1012839658a10cfc2be701eabed5e81af9e24735f556bd7014996a5"
         },
         {
             "path": "platform/src/components/StructuredDetails.vue",
@@ -2245,7 +2245,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8137def24975eb11e462ac543a7223af2a22056954bd92cf17f39d5795c98725"
+            "source_sha256": "3a0f71d5d16be4c03675188b91c5bf932ad7a3fce4f2f3f39dc44782549150e5"
         },
         {
             "path": "platform/tsconfig.json",
@@ -2450,7 +2450,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0a096fc1d91a2d671cbe0c244a658fedb981f10c7d428761a016b6682e3e87fe"
+            "source_sha256": "52b1ce402103dc1a008251e45555f547ce44cd1afebe2520a900742e88425a3a"
         },
         {
             "path": "scripts/check-public-docs",
@@ -2729,7 +2729,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "22e1fa4e5ed733ede177e653422f96e3f5be29371edee4f2601fd1c938b708a3"
+            "source_sha256": "2772b631cb25f350e6c9ffba2f1785cffe311c0df411738338411e96e21f82a8"
+        },
+        {
+            "path": "scripts/generate-platform-role-source.mjs",
+            "target": "scripts/generate-platform-role-source.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "de0d39672bcad5fc7397fad840b609ca50b7c51be1e5e7632946ed442d661fb7"
         },
         {
             "path": "scripts/generate-release-legal.mjs",
@@ -5046,7 +5060,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "66fd165a8e1e82a1ec541fd33b10faa6ac64f22e8d74f8d7e93a14c8102f9560"
+            "source_sha256": "642bd617ae1b550c2fe7aa757b1458378a94226a2af980790dce1c7da8d37d3f"
         },
         {
             "path": "server/app/api/metadata/application/shared.php",
@@ -8424,7 +8438,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e3ddd648825bbfd46b181e9bce66a417c7b596a0e0cf386589e1b787e1e3bff5"
+            "source_sha256": "8111a8b9a9210bc66ed473420c59271dda3ccfe39217607b0d70e503d252a589"
         },
         {
             "path": "server/app/platform/controller/PlatformDeveloperCenterController.php",
@@ -8943,6 +8957,20 @@
                 "full"
             ],
             "source_sha256": "e410ad1a986f8491ee7b94537f983ff85282aca791a243e1aa562b836d486642"
+        },
+        {
+            "path": "server/app/platform/query/PlatformRoleNodeSource.php",
+            "target": "server/app/platform/query/PlatformRoleNodeSource.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "6a101d6206cfd2041b78c3481c38aede64c9449f37392cb8b3b5f13013288f8c"
         },
         {
             "path": "server/app/platform/route/app.php",
@@ -11278,7 +11306,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fcd4b783f9611dd74c0e73dfe0415ef39ea3e3b964c1261b75f0c177b5fa38d8"
+            "source_sha256": "a59ca3dccb7f8ce2d48b389788c50fc3c8669392e4f14648706573b10f07f6f8"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11292,7 +11320,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "59627f2663355fe811f5847e39b046805c5313ae3ab4eba72fb2228248df9e03"
+            "source_sha256": "e2531a65fa9c8298f04ca1336b55cd51f4fd25a83fc64f09e4765137b52610cc"
+        },
+        {
+            "path": "server/generated/platform-role-source.json",
+            "target": "server/generated/platform-role-source.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0b988d3f755ef7b6b91b6029bb1e167421895ffca386c1f76e84b38a65dc88af"
         },
         {
             "path": "server/module",
@@ -17770,7 +17812,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "943b2bf00489a5c13511bf5826a5b65eda4dfd8f14ab8d90604b220ec38bd160"
+            "source_sha256": "06441aeb1afa42e3772c78c21f37e8f59e551f86cfa7d3fc0a038b20309d2284"
         },
         {
             "path": "web/src/hooks/loading.ts",

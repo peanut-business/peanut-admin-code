@@ -4591,13 +4591,6 @@ export interface components {
         };
         PlatformRoleAuthorizationCatalogCandidate: {
             role_ids: (number | string)[];
-            nodes: {
-                key: string;
-                parent_key: string | null;
-                /** @enum {string} */
-                type: "group" | "page" | "action" | "operation";
-                api_ids: string[];
-            }[];
             role_assignments: {
                 role_id: number | string;
                 expected_revision: number | string;

@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace app\platform\controller;
 
 use think\App;
+use think\facade\Db;
 
 use app\common\http\PageResult;
 use app\platform\query\PlatformControlPlaneQueryService;
+use app\platform\query\PlatformRoleNodeSource;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 use PeanutAdmin\Kernel\Module\ModuleAvailability;
@@ -44,11 +46,20 @@ final class PlatformControlPlaneQueryController extends BasePlatformController
     public function auditRoleCatalog(
         PlatformRoleAuthorizationPreview $preview,
         ModuleAvailability $modules,
+        PlatformRoleNodeSource $source,
     ): \think\response\Json {
         if ($this->platformContext === null) {
             throw \app\common\http\ApiProblem::fromEnvelope('Platform authentication is required.', null, 40100);
         }
-        return $this->data($preview->auditCatalog($this->platformContext->core, $this->request->post(), $modules));
+        // The client chooses only registered node keys. It never owns the
+        // canonical Platform node/API graph or its generated-source version.
+        // Keep the registered-source reads and Identity's existing equivalence
+        // calculation in the same database read snapshot. This is not a writer
+        // lock or a permission to migrate.
+        return $this->data(Db::transaction(function () use ($source, $preview, $modules): array {
+            $candidate = $source->authoritativeCandidate($this->request->post());
+            return $preview->auditCatalog($this->platformContext->core, $candidate, $modules);
+        }));
     }
 
     public function permissions()

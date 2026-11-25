@@ -94,6 +94,16 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         $this->pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         \ThinkPhpTestConnection::fromPdo($this->pdo);
         \PlatformRoleAuthorizationPreviewFixture::install($this->pdo);
+        // The original test fixture keeps minimal menu columns. The trusted
+        // resolver reads the real registration fields; only extend this SQLite
+        // fixture, not Identity production schema or the shared database.
+        $this->pdo->exec(<<<'SQL'
+            ALTER TABLE pa_system_menu ADD COLUMN source TEXT DEFAULT 'module';
+            ALTER TABLE pa_system_menu ADD COLUMN module_key TEXT DEFAULT 'platform';
+            ALTER TABLE pa_system_menu ADD COLUMN parent_key TEXT;
+            ALTER TABLE pa_system_menu ADD COLUMN route_path TEXT;
+            ALTER TABLE pa_system_menu ADD COLUMN client_keys_json TEXT DEFAULT '["platform-web"]';
+            SQL);
         $catalogPath = getenv('PEANUT_PLATFORM_PREVIEW_API_CATALOG') ?: $root . '/server/generated/api-catalog.json';
         $catalog = json_decode(file_get_contents($catalogPath), true, 512, JSON_THROW_ON_ERROR);
         $this->catalogEndpoints = $catalog['endpoints'];
@@ -155,17 +165,17 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
 
     public function testCatalogAuditsMemberlessRoleAndReportsIncompleteWholeCatalogWithoutWrites(): void
     {
+        $this->platformSourceCandidate(); // Register the existing Shell's real menu and API consumers.
         $this->pdo->exec("INSERT INTO pa_platform_role (id,\"key\",status,revision) VALUES (601,'platform.fixture.future','active',4)");
-        $base = \PlatformRoleAuthorizationPreviewFixture::exactCandidate();
         $candidate = [
-            'role_ids' => ['601'], 'nodes' => $base['nodes'],
+            'role_ids' => ['601'],
             'role_assignments' => [['role_id' => '601', 'expected_revision' => '4', 'node_keys' => []]],
         ];
         $before = $this->snapshot();
         $response = $this->call($candidate, catalogAudit: true);
         self::assertSame(200, $response->getCode());
         $data = $response->getData()['data'];
-        self::assertSame(6, $data['catalog_total']);
+        self::assertSame(7, $data['catalog_total']);
         self::assertFalse($data['scope_covers_catalog']);
         self::assertTrue($data['equivalent']);
         self::assertSame('601', $data['roles'][0]['role_id']);
@@ -182,14 +192,95 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         self::assertContains(['code' => 'role_revision_mismatch', 'role_id' => '601'], $stale['unresolved']);
         self::assertSame($before, $this->snapshot());
 
-        $candidate['role_ids'] = ['101', '201', '202', '301', '401', '601'];
+        $candidate['role_ids'] = ['101', '201', '202', '301', '401', '501', '601'];
         $candidate['role_assignments'] = [];
         $all = $this->call($candidate, catalogAudit: true)->getData()['data'];
         self::assertTrue($all['scope_covers_catalog']);
         self::assertFalse($all['equivalent']);
-        self::assertCount(6, $all['roles']);
-        self::assertCount(6, array_filter($all['unresolved'], fn(array $row): bool => $row['code'] === 'role_assignment_missing'));
+        self::assertCount(7, $all['roles']);
+        self::assertCount(7, array_filter($all['unresolved'], fn(array $row): bool => $row['code'] === 'role_assignment_missing'));
         self::assertSame($before, $this->snapshot());
+        self::assertTrue($this->store->isEmpty());
+    }
+
+
+    public function testCanonicalCatalogAuditUsesOnlyRegisteredPlatformNodesAndCurrentApiRows(): void
+    {
+        $source = $this->platformSourceCandidate();
+        $candidate = [
+            'role_ids' => ['501'],
+            'role_assignments' => [
+                ['role_id' => '501', 'expected_revision' => '1',
+                    'node_keys' => $source['role_assignments'][0]['node_keys']],
+            ],
+        ];
+        $before = $this->snapshot();
+        $response = $this->call($candidate, catalogAudit: true);
+        self::assertSame(200, $response->getCode());
+        $data = $response->getData()['data'];
+        self::assertSame(6, $data['catalog_total']);
+        self::assertFalse($data['scope_covers_catalog']);
+        self::assertTrue($data['equivalent']);
+        self::assertSame([], $data['unresolved']);
+        self::assertSame([['role_id' => '501', 'relation_equal' => true]],
+            array_map(static fn(array $row): array => [
+                'role_id' => $row['role_id'], 'relation_equal' => $row['relation_equal'],
+            ], $data['roles']));
+        self::assertSame($before, $this->snapshot());
+        self::assertTrue($this->store->isEmpty());
+    }
+
+    public function testCatalogAuditRejectsForgedNodesAndStaleRegisteredSourcesWithoutWrites(): void
+    {
+        $source = $this->platformSourceCandidate();
+        $candidate = [
+            'role_ids' => ['501'],
+            'role_assignments' => [
+                ['role_id' => '501', 'expected_revision' => '1',
+                    'node_keys' => $source['role_assignments'][0]['node_keys']],
+            ],
+        ];
+        $before = $this->snapshot();
+        $forged = $candidate;
+        $forged['nodes'] = $source['nodes'];
+        $this->assertCatalogRejected('PLATFORM_ROLE_CANDIDATE_INVALID', $forged);
+        $forged = $candidate;
+        $forged['role_assignments'][0]['node_keys'][] = 'platform.fixture.forced-api';
+        $this->assertCatalogRejected('PLATFORM_ROLE_NODE_NOT_REGISTERED', $forged);
+        self::assertSame($before, $this->snapshot());
+
+        // The role revision stays unchanged while a current API or registered
+        // menu diverges from the generated native source.
+        $id = $this->auditEndpoint['api_id'];
+        $this->pdo->prepare("UPDATE pa_system_api SET module_key='tenant' WHERE id=?")->execute([$id]);
+        $drift = $this->snapshot();
+        $this->assertCatalogRejected('PLATFORM_ROLE_API_CATALOG_DRIFT', $candidate);
+        self::assertSame($drift, $this->snapshot());
+        $this->pdo->prepare("UPDATE pa_system_api SET module_key='platform' WHERE id=?")->execute([$id]);
+        // Retire a genuine candidate API, not the catalog-audit endpoint itself:
+        // endpoint retirement is correctly denied by middleware before source resolution.
+        $roleCreateApi = $this->pdo->query("SELECT id FROM pa_system_api WHERE path='/platformapi/roles/create'")->fetchColumn();
+        self::assertIsString($roleCreateApi);
+        $this->pdo->prepare("UPDATE pa_system_api SET status='retired' WHERE id=?")->execute([$roleCreateApi]);
+        $retired = $this->snapshot();
+        $this->assertCatalogRejected('PLATFORM_ROLE_API_CATALOG_DRIFT', $candidate);
+        self::assertSame($retired, $this->snapshot());
+        $this->pdo->prepare("UPDATE pa_system_api SET status='active' WHERE id=?")->execute([$roleCreateApi]);
+
+        $this->pdo->exec("UPDATE pa_system_menu SET scope='tenant' WHERE \"key\"='platform.role.list'");
+        $menuDrift = $this->snapshot();
+        $this->assertCatalogRejected('PLATFORM_ROLE_MENU_CATALOG_DRIFT', $candidate);
+        self::assertSame($menuDrift, $this->snapshot());
+    }
+
+    private function assertCatalogRejected(string $errorCode, array $candidate): void
+    {
+        try {
+            $this->call($candidate, catalogAudit: true);
+            self::fail('The native catalog audit accepted an unregistered source.');
+        } catch (AdminAccessException $exception) {
+            self::assertSame($errorCode, $exception->errorCode);
+        }
         self::assertTrue($this->store->isEmpty());
     }
 
@@ -202,15 +293,13 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
     public function testCatalogAuditRequiresEachNativeReadPermission(int $permissionId): void
     {
         $this->pdo->exec('DELETE FROM pa_platform_role_permission WHERE platform_role_id=101 AND permission_id=' . $permissionId);
-        $base = \PlatformRoleAuthorizationPreviewFixture::exactCandidate();
-        $candidate = ['role_ids' => ['101'], 'nodes' => $base['nodes'], 'role_assignments' => []];
+        $candidate = ['role_ids' => ['101'], 'role_assignments' => []];
         $this->assertDenied(403, candidate: $candidate, catalog: true);
     }
 
     public function testCatalogAuditRejectsTenantAndMissingIdentityBeforeController(): void
     {
-        $base = \PlatformRoleAuthorizationPreviewFixture::exactCandidate();
-        $candidate = ['role_ids' => ['101'], 'nodes' => $base['nodes'], 'role_assignments' => []];
+        $candidate = ['role_ids' => ['101'], 'role_assignments' => []];
         $before = $this->snapshot();
         foreach (['none', 'tenant'] as $identity) {
             try {
@@ -658,7 +747,7 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         $rolePageKey = 'platform.role.list';
         $bundlePageKey = 'platform.permission.bundle.list';
         $menus = array_column(CoreMenuCatalog::definitions(), null, 'key');
-        $insertMenu = $this->pdo->prepare('INSERT INTO pa_system_menu ("key",scope,type,status) VALUES (?,?,?,?)');
+        $insertMenu = $this->pdo->prepare('INSERT INTO pa_system_menu ("key",scope,type,status,parent_key,route_path) VALUES (?,?,?,?,?,?)');
         $nodes = [];
         $selected = [];
         foreach ([
@@ -739,7 +828,7 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
                 $menu = $menus[$key];
                 self::assertSame([$parent, $type, $routePath, 'platform', ['platform-web']],
                     [$menu->parentKey, $menu->type, $menu->routePath, $menu->scope, $menu->clientKeys]);
-                $insertMenu->execute([$menu->key, $menu->scope, $menu->type, 'active']);
+                $insertMenu->execute([$menu->key, $menu->scope, $menu->type, 'active', $menu->parentKey, $menu->routePath]);
             } elseif ($type === 'operation') {
                 self::assertArrayNotHasKey($key, $menus);
             }

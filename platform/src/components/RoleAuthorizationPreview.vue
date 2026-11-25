@@ -440,7 +440,7 @@
     catalogResult.value = undefined;
     const revision = previewRevision;
     const outcome = await requestCatalog(({ signal }) =>
-      auditCompleteRoleCatalog(directory.value, draft.nodes, selections.value, api.auditRoleAuthorizationCatalog, signal)
+      auditCompleteRoleCatalog(directory.value, selections.value, api.auditRoleAuthorizationCatalog, signal)
     );
     if (outcome.status === 'completed' && revision === previewRevision && props.canPreview() && props.canCatalogAudit())
       catalogResult.value = outcome.data;
