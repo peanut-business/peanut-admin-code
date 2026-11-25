@@ -74,6 +74,20 @@
           </el-button>
         </el-col>
       </el-row>
+      <div v-if="listError && !loading" role="alert" style="margin-bottom: 16px">
+        <el-alert
+          :title="
+            renderData.length
+              ? $t('systemDict.list.loadFailedRetained')
+              : $t('systemDict.list.loadFailed')
+          "
+          :type="renderData.length ? 'warning' : 'error'"
+          :closable="false"
+        />
+        <el-button type="primary" @click="retryList">
+          {{ $t('systemDict.list.retry') }}
+        </el-button>
+      </div>
       <el-table row-key="id" :loading="loading" :data="renderData" border>
         <el-table-column
           prop="id"
@@ -198,7 +212,7 @@
 </template>
 
 <script lang="ts" setup>
-  import { computed, ref, reactive } from 'vue';
+  import { computed, ref, reactive, onBeforeUnmount } from 'vue';
   import { useI18n } from 'vue-i18n';
   import { useRoute } from 'vue-router';
   import { hasPermission } from '@/hooks/permission';
@@ -223,6 +237,9 @@
   const canManageDict = () => hasPermission('peanut.reference-codes.manage', route.path);
   const { loading, setLoading } = useLoading(true);
   const renderData = ref<DictTypeRecord[]>([]);
+  const listError = ref(false);
+  const failedQuery = ref<DictTypeListParams | null>(null);
+  let requestSequence = 0;
 
   const generateFormModel = () => ({
     name: '',
@@ -243,22 +260,41 @@
     { label: t('systemDict.status.disabled'), value: 1 },
   ]);
 
-  const fetchData = async (page = 1) => {
+  const fetchData = async (page = 1, retryQuery?: DictTypeListParams) => {
+    const sequence = ++requestSequence;
+    const params: DictTypeListParams = retryQuery
+      ? { ...retryQuery }
+      : {
+          ...formModel.value,
+          page_no: page,
+          page_size: pagination.pageSize,
+        };
     setLoading(true);
+    listError.value = false;
     try {
-      const params: DictTypeListParams = {
-        ...formModel.value,
-        page_no: page,
-        page_size: pagination.pageSize,
-      };
       const { data } = await getDictTypeList(params);
+      if (sequence !== requestSequence) return;
       renderData.value = data.lists;
       pagination.current = data.pageNo;
       pagination.total = data.count;
+      failedQuery.value = null;
+    } catch {
+      if (sequence === requestSequence) {
+        failedQuery.value = params;
+        listError.value = true;
+      }
     } finally {
-      setLoading(false);
+      if (sequence === requestSequence) setLoading(false);
     }
   };
+  const retryList = () => {
+    if (failedQuery.value) {
+      void fetchData(failedQuery.value.page_no ?? 1, failedQuery.value);
+    }
+  };
+  onBeforeUnmount(() => {
+    requestSequence++;
+  });
   fetchData();
 
   const search = () => fetchData(1);

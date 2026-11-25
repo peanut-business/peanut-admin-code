@@ -14,6 +14,9 @@ export default {
   'systemDict.form.status.placeholder': 'Select status',
   'systemDict.form.search': 'Search',
   'systemDict.form.reset': 'Reset',
+  'systemDict.list.loadFailed': 'Failed to load dictionary types. Please retry.',
+  'systemDict.list.loadFailedRetained': 'Failed to load dictionary types. Showing previous results.',
+  'systemDict.list.retry': 'Retry',
 
   'systemDict.status.enabled': 'Enabled',
   'systemDict.status.disabled': 'Disabled',

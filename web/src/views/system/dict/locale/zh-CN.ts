@@ -14,6 +14,9 @@ export default {
   'systemDict.form.status.placeholder': '选择状态',
   'systemDict.form.search': '查询',
   'systemDict.form.reset': '重置',
+  'systemDict.list.loadFailed': '字典类型加载失败，请重试',
+  'systemDict.list.loadFailedRetained': '字典类型加载失败，当前仍显示上次结果',
+  'systemDict.list.retry': '重试',
 
   'systemDict.status.enabled': '启用',
   'systemDict.status.disabled': '禁用',
