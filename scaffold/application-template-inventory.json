@@ -19184,7 +19184,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "758751a90f27245ea90ca936018ea6fdf2f7d43ef6ad54d04cd125350269f12c"
+            "source_sha256": "87e7e640b348affb6b6bbab64c8d998a425adb4fe897e1b7481e4bf7a32ea275"
         },
         {
             "path": "web/src/views/system/dict/locale/en-US.ts",
@@ -19605,6 +19605,20 @@
                 "full"
             ],
             "source_sha256": "0e37b44b48856287b5df5a64b4530c91f62e43a3cf1f31059d3ea4614d8128d3"
+        },
+        {
+            "path": "web/tests/Productization/dict-readonly-status.test.mjs",
+            "target": "web/tests/Productization/dict-readonly-status.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "bed72c9460043d220413113b380de712720cce274d316ee0f2b1d88e70e99c46"
         },
         {
             "path": "web/tests/Productization/entry-browser.test.mjs",
