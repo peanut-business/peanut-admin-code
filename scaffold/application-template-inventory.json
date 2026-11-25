@@ -2743,7 +2743,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "de0d39672bcad5fc7397fad840b609ca50b7c51be1e5e7632946ed442d661fb7"
+            "source_sha256": "701789b388ee819722d12f7424ec75646f3ab7297716cdec56854edffffff683"
         },
         {
             "path": "scripts/generate-release-legal.mjs",

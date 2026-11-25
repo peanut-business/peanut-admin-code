@@ -10,7 +10,9 @@ import vm from 'node:vm';
 const root = resolve(process.argv[2] ?? '.');
 const relative = 'platform/src/core/platform-shell-definitions.ts';
 const source = readFileSync(join(root, relative), 'utf8');
-const require = createRequire(join(root, 'web/package.json'));
+// The inspected application is not dependency-installed during scaffold creation.
+// TypeScript belongs to the already validated API generator toolchain, not the APP.
+const require = createRequire(new URL('../web/package.json', import.meta.url));
 const ts = require('typescript');
 const js = ts.transpileModule(source, {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
