@@ -1330,6 +1330,7 @@
   <RoleAuthorizationPreview
     v-if="roleAuthorizationPreviewOpen && canPreviewRoleAuthorization()"
     :can-preview="canPreviewRoleAuthorization"
+    :can-catalog-audit="canAuditRoleAuthorizationCatalog"
     :load-directory="loadRoleAuthorizationPreviewDirectory"
     @close="roleAuthorizationPreviewOpen = false"
   />
@@ -1550,6 +1551,7 @@
   import RoleAuthorizationPreview from './components/RoleAuthorizationPreview.vue';
   import {
     allowsRoleAuthorizationPreview,
+    allowsRoleAuthorizationCatalogAudit,
     readRoleAuthorizationPreviewDirectory,
   } from './api/role-authorization-preview';
   import TenantDetailsDialog from './components/TenantDetailsDialog.vue';
@@ -1805,6 +1807,8 @@
     (view.value === platformRolesPage.view ||
       view.value === platformRoleAuthorizationPage.view) &&
     allowsRoleAuthorizationPreview(canApi);
+  const canAuditRoleAuthorizationCatalog = () =>
+    canPreviewRoleAuthorization() && allowsRoleAuthorizationCatalogAudit(canApi);
   watch([view, canPreviewRoleAuthorization], () => {
     roleAuthorizationPreviewOpen.value = false;
   });

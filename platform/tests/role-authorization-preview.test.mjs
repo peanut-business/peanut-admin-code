@@ -44,6 +44,7 @@ const transpiled = await Promise.all(
 );
 
 const previewPath = '/platformapi/roles/permissions/preview';
+const catalogAuditPath = '/platformapi/roles/permissions/catalog-audit';
 const legacyPath = '/platformapi/roles/permissions/replace';
 const operatorsPath = '/platformapi/operators';
 const createOperatorPath = '/platformapi/operators/create';
@@ -109,6 +110,10 @@ const permissionMenuBindingNode = [
 const sharedPreviewNode = [
   'platform.role.authorization.preview', null, 'operation',
   [['POST', previewPath], ['GET', operatorsPath], ['GET', rolesPath], ['GET', permissionApisPath]],
+];
+const sharedCatalogNode = [
+  'platform.role.authorization.catalog-audit', null, 'operation',
+  [['POST', catalogAuditPath], ['GET', operatorsPath], ['GET', rolesPath], ['GET', permissionApisPath]],
 ];
 const opsMaintenanceActions = [
   ['platform.ops.maintenance.schedule', 'platform.ops.maintenance', 'action',
@@ -259,7 +264,7 @@ function nativePlatformApis() {
       alternatives.map(([, endpoint]) => ['GET', opsPath + '/' + endpoint])
     ),
     ...[...tenancyNodes, ...developerNodes].flatMap((node) => node[3]),
-    ...[rolePermissionAssignNode, ...permissionApiBindingNodes, permissionMenuBindingNode, sharedPreviewNode,
+    ...[rolePermissionAssignNode, ...permissionApiBindingNodes, permissionMenuBindingNode, sharedPreviewNode, sharedCatalogNode,
       ...opsMaintenanceActions, ...opsBackupActions, opsUpgradeExecuteNode].flatMap((node) => node[3]),
   ];
   return [...new Map(references.map(([method, path]) => [method + ' ' + path, [method, path]])).values()]
@@ -373,6 +378,7 @@ function fixture(t, adapter) {
       const state = scope.run(() =>
         dependencies['./preview-panel'].default.setup({
           canPreview,
+          canCatalogAudit: () => allowed,
           loadDirectory: useOfficialDirectory
             ? (signal) => contract.readRoleAuthorizationPreviewDirectory(platform.api, canPreview, signal)
             : async () => ({
@@ -381,8 +387,8 @@ function fixture(t, adapter) {
               { id: '4', role_keys: ['reviewer'] },
             ],
             roles: [
-              { id: '2', key: 'editor', name: 'Editor' },
-              { id: '3', key: 'reviewer', name: 'Reviewer' },
+              { id: '2', key: 'editor', name: 'Editor', revision: 1, status: 'active' },
+              { id: '3', key: 'reviewer', name: 'Reviewer', revision: 3, status: 'active' },
             ],
             apis: [],
           }),
@@ -447,8 +453,8 @@ test('the default preview projects the real Platform Shell branches and a no-men
         return reply(config, {
           count: 2,
           lists: [
-            { id: '2', key: 'editor', name: 'Editor' },
-            { id: '3', key: 'reviewer', name: 'Reviewer' },
+            { id: '2', key: 'editor', name: 'Editor', revision: 1, status: 'active' },
+            { id: '3', key: 'reviewer', name: 'Reviewer', revision: 3, status: 'active' },
           ],
         });
       if (config.url === taskUrl) return reply(config, { task_key: taskKey });
@@ -486,7 +492,7 @@ test('the default preview projects the real Platform Shell branches and a no-men
   assert.equal(panel.candidateMode.value, 'shell');
   assert.equal(panel.candidateText.value, '');
   assert.match(panel.candidate.value.notice, /当前 Platform API 目录未见 File 存储来源/);
-  const [tenancy, groupNode, previewOperation, operations, operation] =
+  const [tenancy, groupNode, previewOperation, catalogAuditOperation, operations, operation] =
     panel.candidate.value.data.tree;
   const [tenantsPage] = tenancy.children;
   for (const [key, view] of opsReadPages) {
@@ -545,6 +551,8 @@ test('the default preview projects the real Platform Shell branches and a no-men
   assert.deepEqual(plain(menusPage.children.map((child) => child.key)), [permissionMenuBindingNode[0]]);
   assert.equal(previewOperation.label, '只读候选预览');
   assert.equal(previewOperation.api_ids.length, 4);
+  assert.equal(catalogAuditOperation.label, '全角色目录只读审计');
+  assert.equal(catalogAuditOperation.api_ids.length, 4);
   assert.equal(operation.label, '读取模块操作任务');
   assert.match(operation.source, /开发者中心.*模块任务回执/);
   assert.equal(panel.describeApis(operation.api_ids), 'GET ' + moduleTaskPath);
@@ -593,6 +601,7 @@ test('the default preview projects the real Platform Shell branches and a no-men
       node('platform.permission.menu.list', 'platform.governance', 'page', [['GET', permissionMenusPath]]),
       node(...permissionMenuBindingNode),
       node(...sharedPreviewNode),
+      node(...sharedCatalogNode),
       node('platform.operations', null, 'group'),
       ...opsReadPages.slice(0, 3).map(([key, , endpoint]) => node(
         key, 'platform.operations', 'page', [['GET', opsPath + '/' + endpoint]]
@@ -868,7 +877,7 @@ test('the File catalog keeps fine and aggregate action variants independent', as
         lists: [{ id: '1', display_name: 'Operator', role_keys: ['editor'] }],
       });
     if (config.url === rolesPath)
-      return reply(config, { count: 1, lists: [{ id: '2', key: 'editor', name: 'Editor' }] });
+      return reply(config, { count: 1, lists: [{ id: '2', key: 'editor', name: 'Editor', revision: 1, status: 'active' }] });
     if (config.url === permissionApisPath) {
       const items = [...hostApis, ...fileRows];
       return reply(config, { items, total: items.length });
@@ -1148,13 +1157,13 @@ test('reopening reloads all paginated directories and preserves large textual ID
     }
     if (url === '/platformapi/roles') {
       const filler = Array.from({ length: 99 }, (_, index) => ({
-        id: index + 10, key: 'other-' + index, name: 'Other ' + index,
+        id: index + 10, key: 'other-' + index, name: 'Other ' + index, revision: 1, status: 'active',
       }));
       return reply(config, {
         count: 101,
         lists: params.page === 1
-          ? [{ id: editorId, key: 'editor', name: 'Editor' }, ...filler]
-          : [{ id: reviewerId, key: 'reviewer', name: 'Reviewer' }],
+          ? [{ id: editorId, key: 'editor', name: 'Editor', revision: 1, status: 'active' }, ...filler]
+          : [{ id: reviewerId, key: 'reviewer', name: 'Reviewer', revision: 3, status: 'active' }],
       });
     }
     if (url === '/platformapi/permission/apis')
@@ -1357,4 +1366,126 @@ test('existing role save uses its original independent contract', async (t) => {
     expected_revision: 7,
     change_reason: 'synthetic',
   }]);
+});
+
+test('catalog audit uses the formal graph, includes a memberless role, and distinguishes empty from missing', async (t) => {
+  const apis = nativePlatformApis();
+  const roles = [
+    { id: '2', key: 'platform.fixture.reader', name: 'Reader', revision: 7, status: 'active' },
+    { id: '6', key: 'platform.fixture.future', name: 'Future without members', revision: 2, status: 'active' },
+  ];
+  const requests = [];
+  const { mount, contract } = fixture(t, async (config) => {
+    if (config.method === 'get') {
+      if (config.url === operatorsPath)
+        return reply(config, { count: 1, lists: [{ id: '3', display_name: 'Reader', role_keys: [roles[0].key] }] });
+      if (config.url === rolesPath) return reply(config, { count: roles.length, lists: roles });
+      assert.equal(config.url, permissionApisPath);
+      return reply(config, { total: apis.length, items: apis });
+    }
+    assert.equal(config.method, 'post');
+    assert.equal(config.url, catalogAuditPath);
+    const candidate = JSON.parse(config.data);
+    requests.push(candidate);
+    assert.deepEqual(candidate.role_ids, ['2', '6']);
+    assert.deepEqual(candidate.role_assignments, [
+      { role_id: '2', expected_revision: '7', node_keys: [] },
+    ]);
+    assert.ok(candidate.nodes.some((node) => node.key === 'platform.role.authorization.catalog-audit'));
+    const removed = [apis.find((row) => row.method === 'POST' && row.path === catalogAuditPath).id];
+    return reply(config, {
+      catalog_total: 2, scope_covers_catalog: true, equivalent: false,
+      roles: [
+        {
+          role_id: '2', role_key: roles[0].key, status: 'active', member_count: 1,
+          expected_revision: 7, observed_revision: 7, relation_equal: false,
+          capability_equal: false, relation: { added: [], removed },
+          capability: { added: [], removed }, owner_dynamic: false,
+          non_http_permission_keys: [], prerequisite_permission_keys: ['platform.role.read'],
+        },
+        {
+          role_id: '6', role_key: roles[1].key, status: 'active', member_count: 0,
+          expected_revision: null, observed_revision: 2, relation_equal: false,
+          capability_equal: false, relation: { added: [], removed: [] },
+          capability: { added: [], removed: [] }, owner_dynamic: false,
+          non_http_permission_keys: [], prerequisite_permission_keys: [],
+        },
+      ],
+      unresolved: [{ code: 'role_assignment_missing', role_id: '6' }],
+    });
+  });
+  assert.equal(contract.allowsRoleAuthorizationCatalogAudit(
+    (method, path) => !(method === 'POST' && path === catalogAuditPath)
+  ), false);
+  assert.equal(contract.allowsRoleAuthorizationCatalogAudit(() => true), true);
+  const panel = await mount(true, 'shell');
+  panel.targetMode.value = 'catalog';
+  assert.deepEqual(plain(panel.targetRoles.value.map((role) => role.id)), ['2', '6']);
+  assert.equal(panel.selectionLabel('6'), '未提供选择');
+  panel.roleId.value = '2';
+  panel.setRoleSelection([]);
+  assert.equal(panel.selectionLabel('2'), '明确空选择');
+  await panel.runCatalogAudit();
+  assert.equal(requests.length, 1);
+  assert.equal(panel.catalogResult.value.scope_covers_catalog, true);
+  assert.equal(panel.catalogResult.value.equivalent, false);
+  assert.equal(panel.catalogResult.value.roles[1].member_count, 0);
+  assert.deepEqual(plain(panel.catalogResult.value.unresolved),
+    [{ code: 'role_assignment_missing', role_id: '6' }]);
+  assert.equal(panel.result.value, undefined);
+});
+
+test('catalog audit covers more than 200 roles by bounded native batches and rejects stale directory facts', async (t) => {
+  const { contract } = fixture(t, async () => { throw new Error('No HTTP needed for the pure batch contract.'); });
+  const roles = Array.from({ length: 201 }, (_, index) => ({
+    id: String(index + 1), key: 'platform.fixture.' + (index + 1),
+    name: 'Role ' + (index + 1), revision: '1', status: 'active',
+  }));
+  const directory = { roles, operators: [], apis: [] };
+  const selections = new Map([['1', []], ['201', ['platform.candidate.page']]]);
+  const batches = contract.buildRoleCatalogAuditBatches(roles, [group, page], selections);
+  assert.deepEqual(plain(batches.map((row) => row.role_ids.length)), [200, 1]);
+  assert.deepEqual(plain(batches[0].role_assignments), [
+    { role_id: '1', expected_revision: '1', node_keys: [] },
+  ]);
+  assert.deepEqual(plain(batches[1].role_assignments), [
+    { role_id: '201', expected_revision: '1', node_keys: ['platform.candidate.page'] },
+  ]);
+  let calls = 0;
+  const responder = async (batch) => {
+    calls += 1;
+    return {
+      catalog_total: 201, scope_covers_catalog: false, equivalent: false,
+      roles: batch.role_ids.map((role_id) => ({
+        role_id, role_key: 'platform.fixture.' + role_id, status: 'active',
+        member_count: role_id === '201' ? 0 : 1,
+        observed_revision: 1,
+        expected_revision: selections.has(role_id) ? 1 : null,
+        relation_equal: selections.has(role_id),
+        capability_equal: selections.has(role_id),
+        relation: { added: [], removed: [] }, capability: { added: [], removed: [] },
+        owner_dynamic: false, non_http_permission_keys: [], prerequisite_permission_keys: [],
+      })),
+      unresolved: batch.role_ids.filter((id) => !selections.has(id))
+        .map((role_id) => ({ code: 'role_assignment_missing', role_id })),
+    };
+  };
+  const result = await contract.auditCompleteRoleCatalog(
+    directory, [group, page], selections, responder, new AbortController().signal
+  );
+  assert.equal(calls, 2);
+  assert.equal(result.scope_covers_catalog, true);
+  assert.equal(result.atomic_snapshot, false);
+  assert.equal(result.roles.length, 201);
+  assert.equal(result.unresolved.length, 199);
+  assert.equal(result.equivalent, false);
+  const stale = async (batch) => {
+    const response = await responder(batch);
+    response.roles[0].observed_revision = 2;
+    return response;
+  };
+  await assert.rejects(
+    contract.auditCompleteRoleCatalog(directory, [group, page], selections, stale, new AbortController().signal),
+    /角色内容或修订发生变化/
+  );
 });

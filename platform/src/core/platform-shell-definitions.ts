@@ -351,6 +351,15 @@ export const platformRoleAuthorizationPreview = {
   endpoints: [['POST', '/platformapi/roles/permissions/preview'], platformOperatorsPage.endpoints[0], platformRolesPage.endpoints[0], platformPermissionApisPage.endpoints[0]],
 } as const;
 
+export const platformRoleAuthorizationCatalogAudit = {
+  key: 'platform.role.authorization.catalog-audit',
+  parentKey: null,
+  type: 'operation',
+  label: '全角色目录只读审计',
+  source: '平台角色与角色授权 · 包含无成员角色的原生目录审计',
+  endpoints: [['POST', '/platformapi/roles/permissions/catalog-audit'], platformOperatorsPage.endpoints[0], platformRolesPage.endpoints[0], platformPermissionApisPage.endpoints[0]],
+} as const;
+
 export const platformStorageCatalogOwner = 'peanut.file';
 
 export const platformStorageNavigation = {
@@ -742,6 +751,7 @@ export const platformShellPreviewDefinitions = [
   platformPermissionMenusPage,
   platformPermissionMenuBindingUpdate,
   platformRoleAuthorizationPreview,
+  platformRoleAuthorizationCatalogAudit,
   platformStorageNavigation,
   ...Object.values(platformStoragePages),
   platformStorageAccountCreate,

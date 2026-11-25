@@ -2263,6 +2263,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platformapi/roles/permissions/catalog-audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["auditPlatformRoleAuthorizationCatalog"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platformapi/tenants/provision": {
         parameters: {
             query?: never;
@@ -4564,6 +4580,54 @@ export interface components {
                 owner_dynamic: boolean;
                 added: string[];
                 removed: string[];
+            }[];
+            unresolved: {
+                code: string;
+                role_id?: string;
+                node_key?: string;
+                api_id?: string;
+                permission_key?: string;
+            }[];
+        };
+        PlatformRoleAuthorizationCatalogCandidate: {
+            role_ids: (number | string)[];
+            nodes: {
+                key: string;
+                parent_key: string | null;
+                /** @enum {string} */
+                type: "group" | "page" | "action" | "operation";
+                api_ids: string[];
+            }[];
+            role_assignments: {
+                role_id: number | string;
+                expected_revision: number | string;
+                node_keys: string[];
+            }[];
+        };
+        PlatformRoleAuthorizationCatalogAudit: {
+            catalog_total: number;
+            scope_covers_catalog: boolean;
+            equivalent: boolean;
+            roles: {
+                role_id: string;
+                role_key: string | null;
+                status: string | null;
+                member_count: number | null;
+                expected_revision: number | null;
+                observed_revision: number | null;
+                relation_equal: boolean;
+                capability_equal: boolean;
+                relation: {
+                    added: string[];
+                    removed: string[];
+                };
+                capability: {
+                    added: string[];
+                    removed: string[];
+                };
+                owner_dynamic: boolean;
+                non_http_permission_keys: string[];
+                prerequisite_permission_keys: string[];
             }[];
             unresolved: {
                 code: string;
@@ -9569,6 +9633,39 @@ export interface operations {
                         code: 20000;
                         msg: string;
                         data: components["schemas"]["PlatformRoleAuthorizationPreview"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    auditPlatformRoleAuthorizationCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformRoleAuthorizationCatalogCandidate"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformRoleAuthorizationCatalogAudit"];
                     };
                 };
             };

@@ -660,6 +660,71 @@ $add($paths, 'POST', '/platformapi/roles/permissions/preview', $operation(
     requestBody: $jsonBody($ref('PlatformRoleAuthorizationCandidate')),
 ));
 
+// Reuse the same native node contract for a bounded audit of roles independent of membership.
+$schemas['PlatformRoleAuthorizationCatalogCandidate'] = [
+    'type' => 'object', 'additionalProperties' => false,
+    'required' => ['role_ids', 'nodes', 'role_assignments'],
+    'properties' => [
+        'role_ids' => ['type' => 'array', 'minItems' => 1, 'maxItems' => 200, 'items' => $previewId],
+        'nodes' => $schemas['PlatformRoleAuthorizationCandidate']['properties']['nodes'],
+        'role_assignments' => [
+            'type' => 'array', 'maxItems' => 200,
+            'items' => [
+                'type' => 'object', 'additionalProperties' => false,
+                'required' => ['role_id', 'expected_revision', 'node_keys'],
+                'properties' => [
+                    'role_id' => $previewId, 'expected_revision' => $previewId,
+                    'node_keys' => ['type' => 'array', 'maxItems' => 1000, 'items' => $previewNodeKey],
+                ],
+            ],
+        ],
+    ],
+];
+$schemas['PlatformRoleAuthorizationCatalogAudit'] = [
+    'type' => 'object', 'additionalProperties' => false,
+    'required' => ['catalog_total', 'scope_covers_catalog', 'equivalent', 'roles', 'unresolved'],
+    'properties' => [
+        'catalog_total' => ['type' => 'integer', 'minimum' => 0],
+        'scope_covers_catalog' => ['type' => 'boolean'], 'equivalent' => ['type' => 'boolean'],
+        'roles' => [
+            'type' => 'array',
+            'items' => [
+                'type' => 'object', 'additionalProperties' => false,
+                'required' => ['role_id', 'role_key', 'status', 'member_count', 'expected_revision', 'observed_revision',
+                    'relation_equal', 'capability_equal', 'relation', 'capability', 'owner_dynamic',
+                    'non_http_permission_keys', 'prerequisite_permission_keys'],
+                'properties' => [
+                    'role_id' => ['type' => 'string', 'pattern' => '^[1-9][0-9]*$'],
+                    'role_key' => $nullableString, 'status' => $nullableString,
+                    'member_count' => $nullableInteger, 'expected_revision' => $nullableInteger,
+                    'observed_revision' => $nullableInteger,
+                    'relation_equal' => ['type' => 'boolean'], 'capability_equal' => ['type' => 'boolean'],
+                    'relation' => [
+                        'type' => 'object', 'additionalProperties' => false,
+                        'required' => ['added', 'removed'],
+                        'properties' => ['added' => $previewApiIds, 'removed' => $previewApiIds],
+                    ],
+                    'capability' => [
+                        'type' => 'object', 'additionalProperties' => false,
+                        'required' => ['added', 'removed'],
+                        'properties' => ['added' => $previewApiIds, 'removed' => $previewApiIds],
+                    ],
+                    'owner_dynamic' => ['type' => 'boolean'],
+                    'non_http_permission_keys' => $stringList,
+                    'prerequisite_permission_keys' => $stringList,
+                ],
+            ],
+        ],
+        'unresolved' => $schemas['PlatformRoleAuthorizationPreview']['properties']['unresolved'],
+    ],
+];
+$add($paths, 'POST', '/platformapi/roles/permissions/catalog-audit', $operation(
+    'auditPlatformRoleAuthorizationCatalog',
+    'PlatformAccess',
+    $responses('PlatformRoleAuthorizationCatalogAudit') + ['404' => $error],
+    requestBody: $jsonBody($ref('PlatformRoleAuthorizationCatalogCandidate')),
+));
+
 // Tenant owner 邀请、入口域名与 TenantModule。
 $invitationIssue = static fn(bool $withTenant): array => [
     'type' => 'object', 'additionalProperties' => false,

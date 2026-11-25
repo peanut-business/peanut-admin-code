@@ -1,6 +1,7 @@
 import type { PermissionApi } from './permission-bundles';
 import {
   platformRoleAuthorizationPreview,
+  platformRoleAuthorizationCatalogAudit,
   platformShellPreviewDefinitions,
   platformStorageCatalogOwner,
   platformStorageNavigation,
@@ -10,11 +11,21 @@ import {
 
 export const roleAuthorizationPreviewPath =
   platformRoleAuthorizationPreview.endpoints[0][1];
+export const roleAuthorizationCatalogAuditPath =
+  platformRoleAuthorizationCatalogAudit.endpoints[0][1];
 
 export function allowsRoleAuthorizationPreview(
   canApi: (method: string, path: string) => boolean
 ): boolean {
   return platformRoleAuthorizationPreview.endpoints.every(
+    ([method, path]) => canApi(method, path)
+  );
+}
+
+export function allowsRoleAuthorizationCatalogAudit(
+  canApi: (method: string, path: string) => boolean
+): boolean {
+  return platformRoleAuthorizationCatalogAudit.endpoints.every(
     ([method, path]) => canApi(method, path)
   );
 }
@@ -42,6 +53,35 @@ export interface RoleAuthorizationCandidate {
 interface ApiChanges {
   added: string[];
   removed: string[];
+}
+
+export interface RoleAuthorizationCatalogCandidate {
+  role_ids: string[];
+  nodes: CandidateNode[];
+  role_assignments: { role_id: string; expected_revision: string; node_keys: string[] }[];
+}
+
+export interface RoleAuthorizationCatalogAudit {
+  catalog_total: number;
+  scope_covers_catalog: boolean;
+  equivalent: boolean;
+  roles: {
+    role_id: string;
+    role_key: string | null;
+    status: string | null;
+    member_count: number | null;
+    expected_revision: number | null;
+    observed_revision: number | null;
+    relation_equal: boolean;
+    capability_equal: boolean;
+    relation: ApiChanges;
+    capability: ApiChanges;
+    owner_dynamic: boolean;
+    non_http_permission_keys: string[];
+    prerequisite_permission_keys: string[];
+  }[];
+  unresolved: { code: string; role_id?: string; node_key?: string; api_id?: string; permission_key?: string }[];
+  atomic_snapshot?: boolean;
 }
 
 export interface RoleAuthorizationPreview extends ApiChanges {
@@ -76,6 +116,8 @@ interface DirectoryOperator {
 interface DirectoryRole {
   key: string;
   name: string;
+  revision: number | string;
+  status?: string;
 }
 
 export interface RoleAuthorizationPreviewDirectory {
@@ -147,7 +189,7 @@ export async function readRoleAuthorizationPreviewDirectory(
   requireAccess();
   const normalized = {
     operators: operators.map((row) => ({ ...row, id: directoryId(row.id) })),
-    roles: roles.map((row) => ({ ...row, id: directoryId(row.id) })),
+    roles: roles.map((row) => ({ ...row, id: directoryId(row.id), revision: directoryId(row.revision) })),
     apis,
   };
   for (const rows of [normalized.operators, normalized.roles, apis])
@@ -402,6 +444,85 @@ export function buildRoleAuthorizationCandidate(
   return { operator_id: operatorId, nodes, role_assignments };
 }
 
+/** Build explicit, bounded native catalog-audit batches without introducing another authorization evaluator. */
+export function buildRoleCatalogAuditBatches(
+  roles: RoleAuthorizationPreviewDirectory['roles'],
+  nodes: CandidateNode[],
+  selections: ReadonlyMap<string, string[]>
+): RoleAuthorizationCatalogCandidate[] {
+  if (!roles.length) throw new Error('角色目录为空，不能审计。');
+  const rolesById = new Set(roles.map((role) => role.id));
+  if (rolesById.size !== roles.length || [...selections.keys()].some((id) => !rolesById.has(id)))
+    throw new Error('角色目录和候选选择不一致，请重新读取。');
+  const batches: RoleAuthorizationCatalogCandidate[] = [];
+  let batch: RoleAuthorizationCatalogCandidate = { role_ids: [], nodes, role_assignments: [] };
+  let selectedCount = 0;
+  function append() {
+    if (batch.role_ids.length) batches.push(batch);
+    batch = { role_ids: [], nodes, role_assignments: [] };
+    selectedCount = 0;
+  }
+  for (const role of roles) {
+    if (!positiveId.test(role.id) || !positiveId.test(String(role.revision)))
+      throw new Error('角色目录包含无效的标识或修订。');
+    const selection = selections.get(role.id);
+    if (selection && (selection.length > 1000 || !selection.every((key) => nodeKey.test(key))))
+      throw new Error('角色候选超过原生选择限制或包含无效节点。');
+    if (batch.role_ids.length === 200 || selectedCount + (selection?.length ?? 0) > 2000)
+      append();
+    batch.role_ids.push(role.id);
+    if (selection !== undefined) {
+      batch.role_assignments.push({ role_id: role.id, expected_revision: String(role.revision), node_keys: [...selection] });
+      selectedCount += selection.length;
+    }
+  }
+  append();
+  return batches;
+}
+
+/** Every batch runs through Identity auditCatalog; the combined read is not a migration snapshot. */
+export async function auditCompleteRoleCatalog(
+  directory: RoleAuthorizationPreviewDirectory,
+  nodes: CandidateNode[],
+  selections: ReadonlyMap<string, string[]>,
+  submit: (candidate: RoleAuthorizationCatalogCandidate, signal: AbortSignal) => Promise<RoleAuthorizationCatalogAudit>,
+  signal: AbortSignal
+): Promise<RoleAuthorizationCatalogAudit> {
+  const batches = buildRoleCatalogAuditBatches(directory.roles, nodes, selections);
+  const reports: RoleAuthorizationCatalogAudit['roles'] = [];
+  const unresolved: RoleAuthorizationCatalogAudit['unresolved'] = [];
+  const rolesById = new Map(directory.roles.map((role) => [role.id, role]));
+  const seen = new Set<string>();
+  for (const batch of batches) {
+    signal.throwIfAborted();
+    const result = await submit(batch, signal);
+    signal.throwIfAborted();
+    if (result.catalog_total !== directory.roles.length || result.roles.length !== batch.role_ids.length)
+      throw new Error('审计期间角色目录发生变化，请重新读取。');
+    const requested = new Set(batch.role_ids);
+    for (const role of result.roles) {
+      const source = rolesById.get(role.role_id);
+      if (!source || !requested.has(role.role_id) || seen.has(role.role_id) ||
+          source.key !== role.role_key || source.status !== role.status ||
+          String(source.revision) !== String(role.observed_revision))
+        throw new Error('审计期间角色内容或修订发生变化，请重新读取。');
+      seen.add(role.role_id);
+      reports.push(role);
+    }
+    unresolved.push(...result.unresolved);
+  }
+  if (seen.size !== directory.roles.length)
+    throw new Error('角色目录没有完整审计，请重新读取。');
+  return {
+    catalog_total: directory.roles.length,
+    scope_covers_catalog: true,
+    equivalent: unresolved.length === 0 && reports.every((role) => role.relation_equal && role.capability_equal),
+    roles: reports,
+    unresolved,
+    atomic_snapshot: batches.length === 1,
+  };
+}
+
 const responseError = '候选预览响应格式异常。';
 function flag(value: unknown): boolean {
   if (typeof value !== 'boolean') throw new Error(responseError);
@@ -420,6 +541,60 @@ function changes(row: Record<string, unknown>): ApiChanges {
   return {
     added: list(row.added, (id) => string(id, apiId)),
     removed: list(row.removed, (id) => string(id, apiId)),
+  };
+}
+
+function optionalString(value: unknown): string | null {
+  return value === null ? null : string(value);
+}
+function optionalCount(value: unknown): number | null {
+  if (value === null) return null;
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0)
+    throw new Error(responseError);
+  return value;
+}
+function requiredCount(value: unknown): number {
+  const count = optionalCount(value);
+  if (count === null) throw new Error(responseError);
+  return count;
+}
+function unresolvedItem(value: unknown): RoleAuthorizationCatalogAudit['unresolved'][number] {
+  const row = record(value, responseError);
+  return {
+    code: string(row.code),
+    role_id: row.role_id === undefined ? undefined : string(row.role_id),
+    node_key: row.node_key === undefined ? undefined : string(row.node_key),
+    api_id: row.api_id === undefined ? undefined : string(row.api_id),
+    permission_key: row.permission_key === undefined ? undefined : string(row.permission_key),
+  };
+}
+
+/** Decode Identity's existing read-only catalog response, without interpreting its authorization rules. */
+export function readRoleAuthorizationCatalogAudit(value: unknown): RoleAuthorizationCatalogAudit {
+  const row = record(value, responseError);
+  return {
+    catalog_total: requiredCount(row.catalog_total),
+    scope_covers_catalog: flag(row.scope_covers_catalog),
+    equivalent: flag(row.equivalent),
+    roles: list(row.roles, (value) => {
+      const role = record(value, responseError);
+      return {
+        role_id: string(role.role_id, positiveId),
+        role_key: optionalString(role.role_key),
+        status: optionalString(role.status),
+        member_count: optionalCount(role.member_count),
+        expected_revision: optionalCount(role.expected_revision),
+        observed_revision: optionalCount(role.observed_revision),
+        relation_equal: flag(role.relation_equal),
+        capability_equal: flag(role.capability_equal),
+        relation: changes(record(role.relation, responseError)),
+        capability: changes(record(role.capability, responseError)),
+        owner_dynamic: flag(role.owner_dynamic),
+        non_http_permission_keys: list(role.non_http_permission_keys, (key) => string(key)),
+        prerequisite_permission_keys: list(role.prerequisite_permission_keys, (key) => string(key)),
+      };
+    }),
+    unresolved: list(row.unresolved, unresolvedItem),
   };
 }
 

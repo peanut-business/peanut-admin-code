@@ -270,6 +270,13 @@ Route::post('roles/permissions/preview', [PlatformControlPlaneQueryController::c
     ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.api.read')
     ->middleware(PlatformPermissionMiddleware::class, 'platform.operator.read')
     ->middleware(PlatformPermissionMiddleware::class, 'platform.role.read');
+Route::post('roles/permissions/catalog-audit', [PlatformControlPlaneQueryController::class, 'auditRoleCatalog'])
+    ->completeMatch()
+    ->option(['peanut_permission' => 'platform.role.read'])
+    ->middleware(PlatformLoginMiddleware::class)
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.api.read')
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.operator.read')
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.role.read');
 Route::post('roles/permissions/replace', [PlatformAccessController::class, 'replaceRolePermissions'])
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.role.permission.assign');

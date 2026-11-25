@@ -10,7 +10,13 @@
       <el-button v-if="directoryError" @click="loadDirectory">重新读取目录</el-button>
       <template v-if="directoryReady">
         <el-form label-position="top" @submit.prevent>
-          <el-form-item label="操作员">
+          <el-form-item label="只读范围">
+            <el-radio-group v-model="targetMode">
+              <el-radio value="operator">当前操作员的角色</el-radio>
+              <el-radio v-if="canCatalogAudit()" value="catalog">完整 Platform 角色目录（含无成员角色）</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item v-if="targetMode === 'operator'" label="操作员">
             <el-select v-model="operatorId" filterable placeholder="选择操作员">
               <el-option
                 v-for="operator in directory.operators"
@@ -68,8 +74,20 @@
           :closable="false"
         />
 
-        <template v-if="selectedOperator">
-          <p v-if="!targetRoles.length">当前目录未显示该操作员的角色。</p>
+        <template v-if="targetMode === 'catalog' || selectedOperator">
+          <template v-if="targetMode === 'catalog'">
+            <p>角色目录共 {{ directory.roles.length }} 项；已提供 {{ selections.size }} 项选择，
+              其中明确清空 {{ [...selections.values()].filter((keys) => keys.length === 0).length }} 项。
+              未提供 {{ directory.roles.length - selections.size }} 项。目录核对不会修改角色或授权。</p>
+            <el-table :data="directory.roles" max-height="230" size="small">
+              <el-table-column prop="name" label="角色" min-width="150" />
+              <el-table-column prop="revision" label="当前修订" width="100" />
+              <el-table-column label="选择状态" min-width="125">
+                <template #default="{ row }">{{ selectionLabel(row.id) }}</template>
+              </el-table-column>
+            </el-table>
+          </template>
+          <p v-if="targetMode === 'operator' && !targetRoles.length">当前目录未显示该操作员的角色。</p>
           <el-alert
             v-if="unlistedRoleKeys.length"
             :title="'目录中缺少角色：' + unlistedRoleKeys.join('、')"
@@ -78,7 +96,7 @@
           />
           <el-form v-if="targetRoles.length" label-position="top" @submit.prevent>
             <el-form-item label="选择要编辑的候选角色关系">
-              <el-select v-model="roleId" placeholder="选择角色">
+              <el-select v-model="roleId" filterable placeholder="选择角色">
                 <el-option
                   v-for="role in targetRoles"
                   :key="role.id"
@@ -120,16 +138,54 @@
         <div class="preview-actions">
           <el-button
             type="primary"
-            :disabled="!selectedOperator || !candidate.data || previewLoading"
-            :loading="previewLoading"
-            @click="runPreview"
-          >预览候选差异</el-button>
+            :disabled="!candidate.data || (targetMode === 'operator' ? !selectedOperator || previewLoading : !canCatalogAudit() || catalogLoading)"
+            :loading="previewLoading || catalogLoading"
+            @click="targetMode === 'catalog' ? runCatalogAudit() : runPreview()"
+          >{{ targetMode === 'catalog' ? '审计完整角色目录' : '预览候选差异' }}</el-button>
         </div>
         <el-alert v-if="previewError" :title="previewError" type="error" :closable="false" />
+        <el-alert v-if="catalogError" :title="catalogError" type="error" :closable="false" />
+        <section v-if="catalogResult" class="preview-result" aria-live="polite">
+          <h3>全目录逐角色只读审计</h3>
+          <p>角色目录覆盖：{{ catalogResult.scope_covers_catalog ? '本次读取全部 ' + catalogResult.catalog_total + ' 项' : '不完整' }}</p>
+          <p>当次等价：{{ catalogResult.equivalent ? '等价' : '不等价或有未解决项' }}</p>
+          <p v-if="!catalogResult.atomic_snapshot">多批次读取不构成同一事务快照；任何正式迁移前必须重新校验目录与角色修订。</p>
+          <p v-else>本次仅作只读比较，不允许直接用于迁移提交。</p>
+          <el-table :data="catalogResult.roles" max-height="340" size="small">
+            <el-table-column label="角色" min-width="135">
+              <template #default="{ row }">{{ roleName(row.role_id) }} <small v-if="row.owner_dynamic">· 动态 Owner</small></template>
+            </el-table-column>
+            <el-table-column label="成员" width="65" prop="member_count" />
+            <el-table-column label="修订（候选/当前）" min-width="125">
+              <template #default="{ row }">{{ row.expected_revision ?? '未提供' }} / {{ row.observed_revision ?? '不存在' }}</template>
+            </el-table-column>
+            <el-table-column label="关系／能力" min-width="115">
+              <template #default="{ row }">{{ row.relation_equal ? '相等' : '有差异' }} / {{ row.capability_equal ? '相等' : '有差异' }}</template>
+            </el-table-column>
+            <el-table-column label="关系 API 差异" min-width="160">
+              <template #default="{ row }">新增：{{ describeApis(row.relation.added) }}；移除：{{ describeApis(row.relation.removed) }}</template>
+            </el-table-column>
+            <el-table-column label="有效能力差异" min-width="160">
+              <template #default="{ row }">新增：{{ describeApis(row.capability.added) }}；移除：{{ describeApis(row.capability.removed) }}</template>
+            </el-table-column>
+            <el-table-column label="独立约束" min-width="150">
+              <template #default="{ row }">{{ [...row.non_http_permission_keys, ...row.prerequisite_permission_keys].join('、') || '无' }}</template>
+            </el-table-column>
+          </el-table>
+          <h4 v-if="catalogResult.unresolved.length">未解决项（{{ catalogResult.unresolved.length }}）</h4>
+          <ul v-if="catalogResult.unresolved.length">
+            <li v-for="(item, index) in catalogResult.unresolved" :key="index">
+              {{ unresolvedLabel[item.code] ?? item.code }}
+              <span v-if="item.role_id"> · {{ roleName(item.role_id) }}</span>
+              <span v-if="item.node_key"> · {{ item.node_key }}</span>
+              <span v-if="item.api_id"> · {{ item.api_id }}</span>
+            </li>
+          </ul>
+        </section>
         <section v-if="result" class="preview-result" aria-live="polite">
           <h3>预览差异</h3>
           <p>操作员有效能力：{{ result.capability_equal ? '相等' : '有差异' }}</p>
-          <p>逐角色关系覆盖：{{ result.relation_coverage_complete ? '完整' : '未完整' }}</p>
+          <p>逐角色关系：{{ result.relation_coverage_complete ? '相等且候选完整' : '关系有差异或候选未提供（详见下方）' }}</p>
           <p>新增 API：{{ describeApis(result.added) }}</p>
           <p>移除 API：{{ describeApis(result.removed) }}</p>
           <p v-if="result.owner_dynamic">此操作员包含动态 Owner 能力，继续按现有规则评估。</p>
@@ -177,15 +233,18 @@
   import { useAsyncAction } from '@peanut-admin/vue';
   import { api } from '../api/platform';
   import {
+    auditCompleteRoleCatalog,
     buildPlatformShellCandidate,
     buildRoleAuthorizationCandidate,
     readCandidateNodes,
     type RoleAuthorizationPreview,
     type RoleAuthorizationPreviewDirectory,
+    type RoleAuthorizationCatalogAudit,
   } from '../api/role-authorization-preview';
 
   const props = defineProps<{
     canPreview: () => boolean;
+    canCatalogAudit: () => boolean;
     loadDirectory: (signal: AbortSignal) => Promise<RoleAuthorizationPreviewDirectory>;
   }>();
   const emit = defineEmits<{ close: [] }>();
@@ -195,6 +254,7 @@
     apis: [],
   });
   const directoryReady = ref(false);
+  const targetMode = ref<'operator' | 'catalog'>('operator');
   const operatorId = ref<string>();
   const roleId = ref<string>();
   const candidateMode = ref<'shell' | 'manual'>('shell');
@@ -203,6 +263,7 @@
   const selections = ref(new Map<string, string[]>());
   const treeRevision = ref(0);
   const result = ref<RoleAuthorizationPreview>();
+  const catalogResult = ref<RoleAuthorizationCatalogAudit>();
   let previewRevision = 0;
   const message = (error: unknown) =>
     error instanceof Error ? error.message : '请求失败，请稍后重试。';
@@ -218,6 +279,12 @@
     run: requestPreview,
     cancel: cancelPreview,
   } = useAsyncAction(message);
+  const {
+    loading: catalogLoading,
+    error: catalogError,
+    run: requestCatalog,
+    cancel: cancelCatalog,
+  } = useAsyncAction(message);
 
   const nodeTypeLabel = {
     group: '分组',
@@ -230,6 +297,8 @@
     operator_inactive: '操作员未启用',
     role_not_assigned_to_operator: '该角色未分配给操作员',
     role_assignment_missing: '该角色未提供候选选择',
+    role_revision_mismatch: '角色修订已变化，请重新读取',
+    role_assignment_outside_scope: '选择超出本次角色范围',
     role_missing: '现有角色不存在',
     role_inactive: '现有角色未启用',
     legacy_role_grant_not_active_platform: '现有授权并非有效 Platform 授权',
@@ -245,6 +314,7 @@
     directory.value.operators.find((operator) => operator.id === operatorId.value)
   );
   const targetRoles = computed(() =>
+    targetMode.value === 'catalog' ? directory.value.roles :
     directory.value.roles.filter((role) => selectedOperator.value?.role_keys.includes(role.key))
   );
   const unlistedRoleKeys = computed(() =>
@@ -283,7 +353,9 @@
   function invalidate() {
     previewRevision += 1;
     cancelPreview();
+    cancelCatalog();
     result.value = undefined;
+    catalogResult.value = undefined;
   }
   function close() {
     cancelDirectory();
@@ -294,6 +366,12 @@
     if (!open) close();
   }
   watch(roleId, invalidate, { flush: 'sync' });
+  watch(targetMode, () => {
+    roleId.value = undefined;
+    selections.value = new Map();
+    treeRevision.value += 1;
+    invalidate();
+  }, { flush: 'sync' });
   watch(
     operatorId,
     () => {
@@ -355,6 +433,17 @@
   }
   function roleName(id: string) {
     return directory.value.roles.find((role) => role.id === id)?.name ?? id;
+  }
+  async function runCatalogAudit() {
+    const draft = candidate.value.data;
+    if (!props.canPreview() || !props.canCatalogAudit() || !draft || catalogLoading.value) return;
+    catalogResult.value = undefined;
+    const revision = previewRevision;
+    const outcome = await requestCatalog(({ signal }) =>
+      auditCompleteRoleCatalog(directory.value, draft.nodes, selections.value, api.auditRoleAuthorizationCatalog, signal)
+    );
+    if (outcome.status === 'completed' && revision === previewRevision && props.canPreview() && props.canCatalogAudit())
+      catalogResult.value = outcome.data;
   }
   async function runPreview() {
     const operator = selectedOperator.value;

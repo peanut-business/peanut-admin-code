@@ -40,6 +40,17 @@ final class PlatformControlPlaneQueryController extends BasePlatformController
         return $this->data($preview->preview($this->platformContext->core, $this->request->post(), $modules));
     }
 
+    /** Audits explicitly selected Platform roles, including roles with no current operator. */
+    public function auditRoleCatalog(
+        PlatformRoleAuthorizationPreview $preview,
+        ModuleAvailability $modules,
+    ): \think\response\Json {
+        if ($this->platformContext === null) {
+            throw \app\common\http\ApiProblem::fromEnvelope('Platform authentication is required.', null, 40100);
+        }
+        return $this->data($preview->auditCatalog($this->platformContext->core, $this->request->post(), $modules));
+    }
+
     public function permissions()
     {
         return $this->listQuery('permissions');

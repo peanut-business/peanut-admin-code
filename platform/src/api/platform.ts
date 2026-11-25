@@ -46,6 +46,7 @@ import {
   platformPlansPage,
   platformRoleArchive,
   platformRoleAuthorizationPreview,
+  platformRoleAuthorizationCatalogAudit,
   platformRoleCreate,
   platformRolePermissionAssign,
   platformRolesPage,
@@ -85,6 +86,8 @@ import {
 import type { AxiosRequestConfig, AxiosResponse } from 'axios';
 import {
   readRoleAuthorizationPreview,
+  readRoleAuthorizationCatalogAudit,
+  type RoleAuthorizationCatalogCandidate,
   type RoleAuthorizationCandidate,
 } from './role-authorization-preview';
 import type {
@@ -1307,6 +1310,19 @@ export const api = {
         } as SessionRequestConfig)
       ),
       candidate.operator_id
+    ),
+  auditRoleAuthorizationCatalog: async (
+    candidate: RoleAuthorizationCatalogCandidate,
+    signal: AbortSignal
+  ) =>
+    readRoleAuthorizationCatalogAudit(
+      await unwrap<unknown>(
+        requestEndpoint(platformRoleAuthorizationCatalogAudit.endpoints[0], {
+          data: candidate,
+          signal,
+          platformSkipSessionRecovery: true,
+        } as SessionRequestConfig)
+      )
     ),
   replaceRolePermissions: (
     role: PlatformRole,

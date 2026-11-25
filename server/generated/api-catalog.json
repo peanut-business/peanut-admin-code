@@ -28,7 +28,7 @@
         },
         {
             "path": "server/app/api/metadata/application/platform.php",
-            "sha256": "18a4aa4bb956a14e9f0806320a6d1b0d02cc79d1e25738d5186e5461df5784bf"
+            "sha256": "66fd165a8e1e82a1ec541fd33b10faa6ac64f22e8d74f8d7e93a14c8102f9560"
         },
         {
             "path": "server/app/api/metadata/application/shared.php",
@@ -52,7 +52,7 @@
         },
         {
             "path": "server/route/platform.php",
-            "sha256": "fbaf41fb513c28846d323dbeb950fafe0b156c210257eb7dad808dd053a90ea5"
+            "sha256": "63b411fe31f95c138935bc630d8ba39fc51b5b32b3f58656f7ce1c0f4ff07af5"
         },
         {
             "path": "server/route/public_api.php",
@@ -76,35 +76,35 @@
         ]
     },
     "summary": {
-        "route_count": 204,
-        "generated_api_operations": 190,
+        "route_count": 205,
+        "generated_api_operations": 191,
         "route_only_operations": 14,
-        "complete_operations": 190,
+        "complete_operations": 191,
         "partial_operations": 0,
-        "runtime_routes": 204,
-        "documented_operations": 190,
+        "runtime_routes": 205,
+        "documented_operations": 191,
         "undocumented_routes": 14,
-        "automatic_route_metadata": 204,
+        "automatic_route_metadata": 205,
         "requires_owner_contract": 14,
         "owners": 4,
         "runtime_inventory": {
-            "total": 204,
+            "total": 205,
             "methods": {
                 "GET": 100,
-                "POST": 96,
+                "POST": 97,
                 "PUT": 8
             },
             "applications": {
                 "adminapi": 112,
                 "api": 7,
                 "installation": 9,
-                "platform": 76
+                "platform": 77
             },
             "owners": {
                 "application:adminapi": 112,
                 "application:api": 7,
                 "application:installation": 9,
-                "application:platform": 76
+                "application:platform": 77
             },
             "duplicates": []
         }
@@ -113,7 +113,7 @@
         "application:adminapi": 112,
         "application:api": 7,
         "application:installation": 9,
-        "application:platform": 76
+        "application:platform": 77
     },
     "documentation_gaps": [
         {
@@ -12173,6 +12173,98 @@
             }
         },
         {
+            "api_id": "e99865ee437e01421f4f1f6fce75c10b29eb8d6989274864c9602f4d4d0f818a",
+            "method": "POST",
+            "path": "/platformapi/roles/permissions/catalog-audit",
+            "runtime_path": "/platformapi/roles/permissions/catalog-audit",
+            "application": "platform",
+            "audience": "platform",
+            "owner": {
+                "type": "application",
+                "key": "platform"
+            },
+            "controller": "app\\platform\\controller\\PlatformControlPlaneQueryController",
+            "action": "auditRoleCatalog",
+            "auth": {
+                "mode": "platform_permission",
+                "exception_registration": null
+            },
+            "default_permission_keys": [
+                "platform.role.read"
+            ],
+            "prerequisite_permission_keys": [
+                "platform.permission.api.read",
+                "platform.operator.read"
+            ],
+            "permissions": [
+                {
+                    "kind": "platform_action",
+                    "key": "platform.permission.api.read"
+                },
+                {
+                    "kind": "platform_action",
+                    "key": "platform.operator.read"
+                },
+                {
+                    "kind": "platform_action",
+                    "key": "platform.role.read"
+                }
+            ],
+            "errors": [
+                401,
+                403,
+                404,
+                422
+            ],
+            "middleware": [
+                {
+                    "class": "app\\platform\\http\\middleware\\PlatformLoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\platform\\http\\middleware\\PlatformPermissionMiddleware",
+                    "arguments": [
+                        "platform.permission.api.read"
+                    ]
+                },
+                {
+                    "class": "app\\platform\\http\\middleware\\PlatformPermissionMiddleware",
+                    "arguments": [
+                        "platform.operator.read"
+                    ]
+                },
+                {
+                    "class": "app\\platform\\http\\middleware\\PlatformPermissionMiddleware",
+                    "arguments": [
+                        "platform.role.read"
+                    ]
+                }
+            ],
+            "source": {
+                "file": "server/route/platform.php",
+                "line": 273
+            },
+            "documented": true,
+            "openapi_operation_id": "auditPlatformRoleAuthorizationCatalog",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
             "api_id": "82b682a8afec05c8cd6736c7709e0bd17f8cf024867b1b753bf774c2cf7765b2",
             "method": "POST",
             "path": "/platformapi/roles/permissions/preview",
@@ -12310,7 +12402,7 @@
             ],
             "source": {
                 "file": "server/route/platform.php",
-                "line": 273
+                "line": 280
             },
             "documented": true,
             "openapi_operation_id": "replacePlatformRolePermissions",

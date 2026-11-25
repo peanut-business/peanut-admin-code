@@ -1909,7 +1909,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "221338bbe76552d63271be4dac700f4a45f2604da5ed8b5af442ee8adb21be00"
+            "source_sha256": "25c7cf9e76ee53867bcf4dca0a8d7d2ac825fc06e6a4ebd0d987c14566fc332d"
         },
         {
             "path": "platform/src/api/password-policy.ts",
@@ -1951,7 +1951,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "64dfb080308d242d543e9c7726c32c31759408676b52cfcae820c041dfe56303"
+            "source_sha256": "0edc951398e36d6844d7ef8246ea2e9750187be4f6e974fae3fbacf29f409de7"
         },
         {
             "path": "platform/src/api/role-authorization-preview.ts",
@@ -1965,7 +1965,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e1745e60d383adc2d5958de05251ea29362f71e0cf57f2cfdc0affb0c544a0b2"
+            "source_sha256": "ed0a6d0160bf9eed5e197531d47f317d6d2627a236a999dd1162294b1080582d"
         },
         {
             "path": "platform/src/api/tenant-license.ts",
@@ -2049,7 +2049,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "946e434f006228eec041f0084cfd559942827746dde9f172399537e19ec4948a"
+            "source_sha256": "b72ac0ca0c59d171faefe6438bda5e200e725adb35196a6d9618e1dc1d0b56c5"
         },
         {
             "path": "platform/src/components/StructuredDetails.vue",
@@ -2119,7 +2119,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "29c78a497c01abbb07d0736c1327f6a4e45018ee7f0ebb8a15a9a10af7935901"
+            "source_sha256": "57e30e18f260babc06f6aea678d2fc5141d440543bb73b6c9003d5f924397e1b"
         },
         {
             "path": "platform/src/core/presentation.ts",
@@ -2245,7 +2245,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a1e144fbeb6882c19f332d2ed6a28f99a191532eac15be7f0d2898dcef2c40f1"
+            "source_sha256": "8137def24975eb11e462ac543a7223af2a22056954bd92cf17f39d5795c98725"
         },
         {
             "path": "platform/tsconfig.json",
@@ -5046,7 +5046,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "18a4aa4bb956a14e9f0806320a6d1b0d02cc79d1e25738d5186e5461df5784bf"
+            "source_sha256": "66fd165a8e1e82a1ec541fd33b10faa6ac64f22e8d74f8d7e93a14c8102f9560"
         },
         {
             "path": "server/app/api/metadata/application/shared.php",
@@ -8424,7 +8424,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "db9ea47781f6f6a5105c163a7cd6f79e745cf5608e6a10a854c2175ba5e9f238"
+            "source_sha256": "e3ddd648825bbfd46b181e9bce66a417c7b596a0e0cf386589e1b787e1e3bff5"
         },
         {
             "path": "server/app/platform/controller/PlatformDeveloperCenterController.php",
@@ -11278,7 +11278,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "27d53746043b9179f18d5e81d5c1bb03f2ef0224a39b3799511b3cd839378c79"
+            "source_sha256": "fcd4b783f9611dd74c0e73dfe0415ef39ea3e3b964c1261b75f0c177b5fa38d8"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11292,7 +11292,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "727130cf98cb1622d8f69346d63676b9251b7ce7caa163e8849b774a79b33c21"
+            "source_sha256": "59627f2663355fe811f5847e39b046805c5313ae3ab4eba72fb2228248df9e03"
         },
         {
             "path": "server/module",
@@ -11824,7 +11824,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fbaf41fb513c28846d323dbeb950fafe0b156c210257eb7dad808dd053a90ea5"
+            "source_sha256": "63b411fe31f95c138935bc630d8ba39fc51b5b32b3f58656f7ce1c0f4ff07af5"
         },
         {
             "path": "server/route/public_api.php",
@@ -17770,7 +17770,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d33140c95d7475ba9369855a1c83d7d14d23869c4cb73161c7295778b6be9717"
+            "source_sha256": "943b2bf00489a5c13511bf5826a5b65eda4dfd8f14ab8d90604b220ec38bd160"
         },
         {
             "path": "web/src/hooks/loading.ts",

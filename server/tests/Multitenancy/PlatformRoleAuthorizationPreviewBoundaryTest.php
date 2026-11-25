@@ -61,6 +61,7 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
     private array $catalogEndpoints;
     private ?array $fileCatalogEndpoints = null;
     private array $endpoint;
+    private array $auditEndpoint;
     private int $continuations = 0;
     private ClassLoader $loader;
     private string $caseRoot;
@@ -108,6 +109,11 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         self::assertSame(PlatformControlPlaneQueryController::class, $this->endpoint['controller']);
         self::assertSame('previewRolePermissions', $this->endpoint['action']);
         $this->pdo->prepare('INSERT INTO pa_permission_api (permission_id,api_id) VALUES (?,?)')->execute([1, $this->endpoint['api_id']]);
+        $this->auditEndpoint = $this->installPlatformApi('POST', '/platformapi/roles/permissions/catalog-audit', 'platform.role.read');
+        self::assertSame(['platform.permission.api.read', 'platform.operator.read'], $this->auditEndpoint['prerequisite_permission_keys']);
+        self::assertSame(PlatformControlPlaneQueryController::class, $this->auditEndpoint['controller']);
+        self::assertSame('auditRoleCatalog', $this->auditEndpoint['action']);
+        $this->pdo->prepare('INSERT INTO pa_permission_api (permission_id,api_id) VALUES (?,?)')->execute([1, $this->auditEndpoint['api_id']]);
         $this->store = new ExecutionContextStore();
         $this->current = new CurrentExecutionContext($this->store);
         $this->app->instance(CurrentExecutionContext::class, $this->current);
@@ -145,6 +151,76 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         self::assertSame(1, $this->continuations);
         self::assertSame($before, $this->snapshot());
         self::assertTrue($this->store->isEmpty());
+    }
+
+    public function testCatalogAuditsMemberlessRoleAndReportsIncompleteWholeCatalogWithoutWrites(): void
+    {
+        $this->pdo->exec("INSERT INTO pa_platform_role (id,\"key\",status,revision) VALUES (601,'platform.fixture.future','active',4)");
+        $base = \PlatformRoleAuthorizationPreviewFixture::exactCandidate();
+        $candidate = [
+            'role_ids' => ['601'], 'nodes' => $base['nodes'],
+            'role_assignments' => [['role_id' => '601', 'expected_revision' => '4', 'node_keys' => []]],
+        ];
+        $before = $this->snapshot();
+        $response = $this->call($candidate, catalogAudit: true);
+        self::assertSame(200, $response->getCode());
+        $data = $response->getData()['data'];
+        self::assertSame(6, $data['catalog_total']);
+        self::assertFalse($data['scope_covers_catalog']);
+        self::assertTrue($data['equivalent']);
+        self::assertSame('601', $data['roles'][0]['role_id']);
+        self::assertSame(0, $data['roles'][0]['member_count']);
+        self::assertSame(4, $data['roles'][0]['observed_revision']);
+        self::assertTrue($data['roles'][0]['relation_equal']);
+        self::assertSame([], $data['unresolved']);
+        self::assertSame($before, $this->snapshot());
+
+        $candidate['role_assignments'][0]['expected_revision'] = '3';
+        $stale = $this->call($candidate, catalogAudit: true)->getData()['data'];
+        self::assertFalse($stale['equivalent']);
+        self::assertFalse($stale['roles'][0]['relation_equal']);
+        self::assertContains(['code' => 'role_revision_mismatch', 'role_id' => '601'], $stale['unresolved']);
+        self::assertSame($before, $this->snapshot());
+
+        $candidate['role_ids'] = ['101', '201', '202', '301', '401', '601'];
+        $candidate['role_assignments'] = [];
+        $all = $this->call($candidate, catalogAudit: true)->getData()['data'];
+        self::assertTrue($all['scope_covers_catalog']);
+        self::assertFalse($all['equivalent']);
+        self::assertCount(6, $all['roles']);
+        self::assertCount(6, array_filter($all['unresolved'], fn(array $row): bool => $row['code'] === 'role_assignment_missing'));
+        self::assertSame($before, $this->snapshot());
+        self::assertTrue($this->store->isEmpty());
+    }
+
+    public static function catalogReadGrants(): array
+    {
+        return ['role' => [1], 'api' => [2], 'operator' => [3]];
+    }
+
+    #[DataProvider('catalogReadGrants')]
+    public function testCatalogAuditRequiresEachNativeReadPermission(int $permissionId): void
+    {
+        $this->pdo->exec('DELETE FROM pa_platform_role_permission WHERE platform_role_id=101 AND permission_id=' . $permissionId);
+        $base = \PlatformRoleAuthorizationPreviewFixture::exactCandidate();
+        $candidate = ['role_ids' => ['101'], 'nodes' => $base['nodes'], 'role_assignments' => []];
+        $this->assertDenied(403, candidate: $candidate, catalog: true);
+    }
+
+    public function testCatalogAuditRejectsTenantAndMissingIdentityBeforeController(): void
+    {
+        $base = \PlatformRoleAuthorizationPreviewFixture::exactCandidate();
+        $candidate = ['role_ids' => ['101'], 'nodes' => $base['nodes'], 'role_assignments' => []];
+        $before = $this->snapshot();
+        foreach (['none', 'tenant'] as $identity) {
+            try {
+                $this->call($candidate, $identity, catalogAudit: true);
+                self::fail('A Platform session is required for the catalog audit.');
+            } catch (ApiProblem $problem) {
+                self::assertSame(401, $problem->httpStatus);
+            }
+        }
+        self::assertSame($before, $this->snapshot());
     }
 
     public static function readGrants(): array
@@ -224,7 +300,7 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
     {
         $this->assertCanonicalPlatformMenuRegistration();
         $candidate = $this->platformSourceCandidate();
-        self::assertCount($this->fileCatalogEndpoints === null ? 69 : 79, $candidate['nodes']);
+        self::assertCount($this->fileCatalogEndpoints === null ? 70 : 80, $candidate['nodes']);
         $fullCandidate = $candidate;
         $before = $this->snapshot();
         $response = $this->call($candidate);
@@ -403,7 +479,7 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         $candidate = $this->platformSourceCandidate();
         $removed = array_values(array_unique(array_merge(...array_column($candidate['nodes'], 'api_ids'))));
         sort($removed, SORT_STRING);
-        self::assertCount($this->fileCatalogEndpoints === null ? 65 : 72, $removed);
+        self::assertCount($this->fileCatalogEndpoints === null ? 66 : 73, $removed);
         $before = $this->snapshot();
 
         $candidate['role_assignments'][0]['node_keys'] = [];
@@ -446,8 +522,9 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         $this->pdo->exec('INSERT INTO pa_platform_role_permission VALUES (501,16)');
 
         $insertBinding = $this->pdo->prepare('INSERT INTO pa_permission_api (permission_id,api_id) VALUES (?,?)');
-        $apiIds = ['roles.preview' => $this->endpoint['api_id']];
+        $apiIds = ['roles.preview' => $this->endpoint['api_id'], 'roles.catalog-audit' => $this->auditEndpoint['api_id']];
         $insertBinding->execute([15, $apiIds['roles.preview']]);
+        $insertBinding->execute([15, $apiIds['roles.catalog-audit']]);
         foreach ([
             'tenants.list' => ['GET', 'tenants', 'platform.tenant.read'],
             'tenants.create' => ['POST', 'tenants/provision', 'platform.tenant.create'],
@@ -655,6 +732,7 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             ['platform.developer.module.official-update', $developerPageKey, 'action', null, ['developer.official-update']],
             ['platform.module.operation-task.read', null, 'operation', null, ['module.task']],
             ['platform.role.authorization.preview', null, 'operation', null, ['roles.preview', 'operators.list', 'roles.list', 'apis.list']],
+            ['platform.role.authorization.catalog-audit', null, 'operation', null, ['roles.catalog-audit', 'operators.list', 'roles.list', 'apis.list']],
         ] as [$key, $parent, $type, $routePath, $endpoints]) {
             if ($type === 'group' || $type === 'page') {
                 self::assertArrayHasKey($key, $menus);
@@ -705,11 +783,11 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         return $endpoint;
     }
 
-    private function assertDenied(int $status, ?DemoAccountPolicy $demo = null, ?array $candidate = null): void
+    private function assertDenied(int $status, ?DemoAccountPolicy $demo = null, ?array $candidate = null, bool $catalog = false): void
     {
         $before = $this->snapshot();
         try {
-            $this->call($candidate ?? \PlatformRoleAuthorizationPreviewFixture::exactCandidate(), 'platform', $demo);
+            $this->call($candidate ?? \PlatformRoleAuthorizationPreviewFixture::exactCandidate(), 'platform', $demo, $catalog);
             self::fail('The native request must be denied.');
         } catch (ApiProblem $problem) {
             self::assertSame($status, $problem->httpStatus);
@@ -719,11 +797,13 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         self::assertTrue($this->store->isEmpty());
     }
 
-    private function call(array $candidate, string $identity = 'platform', ?DemoAccountPolicy $demo = null): \think\response\Json
+    private function call(array $candidate, string $identity = 'platform', ?DemoAccountPolicy $demo = null, bool $catalogAudit = false): \think\response\Json
     {
+        $path = $catalogAudit ? 'roles/permissions/catalog-audit' : 'roles/permissions/preview';
+        $endpoint = $catalogAudit ? $this->auditEndpoint : $this->endpoint;
         $request = (new Request())->withServer(['REQUEST_METHOD' => 'POST'])->withPost($candidate);
-        $request->setPathinfo('roles/permissions/preview');
-        $request->setRule((new Route($this->app))->rule('roles/permissions/preview', static fn() => null, 'POST'));
+        $request->setPathinfo($path);
+        $request->setRule((new Route($this->app))->rule($path, static fn() => null, 'POST'));
         $this->app->instance('request', $request);
         $this->app->instance(Request::class, $request);
         $repository = new ThinkPhpPlatformAuthorizationRepository();
@@ -746,12 +826,12 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         $this->app->instance(PlatformRoleAuthorizationPreview::class, $preview);
         $this->app->instance(ModuleAvailability::class, $this->modules);
         $middleware = new PlatformPermissionMiddleware($this->current, $sessions, $demo, $catalog, $grant, $this->modules);
-        $next = function (Request $request) use ($queries): \think\response\Json {
+        $next = function (Request $request) use ($queries, $catalogAudit): \think\response\Json {
             ++$this->continuations;
             $controller = new PlatformControlPlaneQueryController($this->app, $queries);
-            return $this->app->invokeMethod([$controller, 'previewRolePermissions']);
+            return $this->app->invokeMethod([$controller, $catalogAudit ? 'auditRoleCatalog' : 'previewRolePermissions']);
         };
-        foreach (array_reverse($this->endpoint['middleware']) as $entry) {
+        foreach (array_reverse($endpoint['middleware']) as $entry) {
             if ($entry['class'] !== PlatformPermissionMiddleware::class) {
                 continue; // Login is represented by a validated synthetic session, never bypassed in production.
             }
