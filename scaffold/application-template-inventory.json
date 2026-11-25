@@ -19226,7 +19226,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bd1dbb0e2330b18ad428520bce954b88a782c74bc28a07b3d91a8261579538fe"
+            "source_sha256": "4afd9bf4bf66cd98303773f5eb5a4d0d16ddbe5eb63d08dc4479d858d43824a2"
         },
         {
             "path": "web/src/views/system/jobs/locale/en-US.ts",
@@ -19352,7 +19352,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2aa71f84c73ddc08580150e222d36197dc675d9b72261dfeb4fd40bba365ca58"
+            "source_sha256": "9c544ba3098a8ba03d40c674540983498ebeff18db941f1fc0e7d96ab2005f0b"
         },
         {
             "path": "web/src/views/system/menu/locale/en-US.ts",
@@ -19366,7 +19366,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "502329f8a12e913236857540950d99ed1ac4a851f24d6cd4b8d994659f7ba8b1"
+            "source_sha256": "a151a68be70699011caccfdea6cebc62bad6f9fd18e328db4245bb7b30a8ca85"
         },
         {
             "path": "web/src/views/system/menu/locale/zh-CN.ts",
@@ -19380,7 +19380,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0f878328167058e16cc1fa9edbf0649f0a1025dc4a97bb0c86f8d21e98deb13c"
+            "source_sha256": "9a64f1e4e3cec31b17e27b4081cf7afe41887cd5fe51e267407c45e58c05493d"
         },
         {
             "path": "web/src/views/system/role/RoleDataPolicyDialog.vue",
@@ -19661,6 +19661,34 @@
                 "full"
             ],
             "source_sha256": "b68eec27a90304d5172d28e181edeec13adb7322dcc49868dba6c446971a12ca"
+        },
+        {
+            "path": "web/tests/Productization/jobs-readonly-status.test.mjs",
+            "target": "web/tests/Productization/jobs-readonly-status.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "914a13e7594b79d550020f2e12e7f1ec26584f6d06f6fecdf08e5066eb145271"
+        },
+        {
+            "path": "web/tests/Productization/menu-readonly-status.test.mjs",
+            "target": "web/tests/Productization/menu-readonly-status.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "1de14bbad11f18b5c6525c1d70a3f9b151de10ebfe3f3b732ebe50c4397c8e29"
         },
         {
             "path": "web/tests/Productization/module-contribution.test.ts",
