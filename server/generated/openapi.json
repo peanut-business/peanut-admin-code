@@ -22609,14 +22609,36 @@
                 "additionalProperties": false,
                 "required": [
                     "path",
-                    "content"
+                    "language",
+                    "content",
+                    "operation"
                 ],
                 "properties": {
                     "path": {
                         "type": "string"
                     },
+                    "language": {
+                        "type": "string"
+                    },
                     "content": {
                         "type": "string"
+                    },
+                    "operation": {
+                        "type": "string",
+                        "enum": [
+                            "create",
+                            "merge",
+                            "unchanged",
+                            "conflict"
+                        ]
+                    },
+                    "base_sha256": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "proposed_sha256": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
                     }
                 }
             },

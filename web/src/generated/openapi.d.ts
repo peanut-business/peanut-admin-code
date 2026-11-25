@@ -3788,7 +3788,12 @@ export interface components {
         };
         GeneratorPreviewFile: {
             path: string;
+            language: string;
             content: string;
+            /** @enum {string} */
+            operation: "create" | "merge" | "unchanged" | "conflict";
+            base_sha256?: string;
+            proposed_sha256?: string;
         };
         GeneratorDownload: {
             download_token: string;
