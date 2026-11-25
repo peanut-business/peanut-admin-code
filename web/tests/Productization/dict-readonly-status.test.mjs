@@ -81,3 +81,42 @@ test('ReferenceCodes data drawer also keeps status visible without manage permis
   assert.match(await view(true,0),/data-test="dict-change"/);
   assert.match(drawerSource,/hasPermission\('peanut.reference-codes.manage', route.path\)/);
 });
+
+test('ReferenceCodes data drawer makes list failures visible and retryable without losing prior rows',async()=>{
+  const file=readFileSync(root+'src/views/system/dict/components/DataDrawer.vue','utf8');
+  const sfc=parse(file,{filename:'src/views/system/dict/components/DataDrawer.vue'});
+  assert.deepEqual(sfc.errors,[]);
+  const alert=find(sfc.descriptor.template.ast,n=>n.tag==='div'&&n.props.some(p=>p.type===6&&p.name==='role'&&p.value?.content==='alert'))[0];
+  assert.ok(alert,'list loading failure needs an accessible alert');
+  assert.match(expression(alert,'if'),/listError && !loading/);
+  const button=find(alert,n=>n.tag==='el-button')[0];
+  assert.match(expression(button,'on','click'),/fetchData\(pagination.current\)/);
+  const render=compile('<div>'+alert.loc.source+'</div>');
+  async function view(failed,loading,rows){
+    const app=createSSRApp({setup:()=>({
+      listError:failed,loading,renderData:rows,pagination:{current:2},
+      fetchData:()=>{throw Error('SSR retry must never make a request')},
+    }),render});
+    app.config.globalProperties.$t=k=>({
+      'systemDict.data.loadFailed':'加载失败，请重试',
+      'systemDict.data.loadFailedRetained':'加载失败，当前仍显示上次结果',
+      'systemDict.data.retry':'重试',
+    }[k]??k);
+    app.component('el-alert',{props:['title'],setup(p){return()=>h('p',{'data-test':'load-error'},p.title)}});
+    app.component('el-button',{setup(_,ctx){return()=>h('button',{'data-test':'retry'},ctx.slots.default?.())}});
+    return renderToString(app);
+  }
+  assert.match(await view(true,false,[]),/加载失败，请重试/);
+  assert.match(await view(true,false,[{id:1}]),/加载失败，当前仍显示上次结果/);
+  assert.doesNotMatch(await view(true,true,[]),/data-test="retry"/);
+  assert.doesNotMatch(await view(false,false,[]),/data-test="load-error"/);
+  assert.match(file,/catch\s*\{\s*if \(sequence === requestSequence\) listError\.value = true/);
+  assert.match(file,/if \(sequence !== requestSequence\) return/);
+  assert.match(file,/previous\[1\] !== typeId/);
+  for(const name of ['zh-CN','en-US']){
+    const locale=readFileSync(root+'src/views/system/dict/locale/'+name+'.ts','utf8');
+    for(const key of ['loadFailed','loadFailedRetained','retry']){
+      assert.ok(locale.includes("'systemDict.data."+key+"'"),name+' missing '+key);
+    }
+  }
+});
