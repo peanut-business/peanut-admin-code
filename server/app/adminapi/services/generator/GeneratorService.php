@@ -21,7 +21,7 @@ class GeneratorService
     ) {}
 
     /** Render a source table directly without persisting a generator draft. */
-    public function renderSource(string $module, string $tableName, string $edition, string $root): array
+    public function renderSource(string $module, string $tableName, string $edition, string $root, bool $reviewExisting = false): array
     {
         GeneratorRenderService::assertRegisteredModule($module, $root);
         $definition = $this->metadata->definitions([$tableName])[$tableName];
@@ -31,7 +31,7 @@ class GeneratorService
             'entity_name' => $this->entityName($tableName),
             'data_owner' => 'tenant-orm',
             'target_edition' => $edition,
-        ], $root);
+        ], $root, $reviewExisting);
     }
 
     public function sourceTables(array $params): PageResult

@@ -78,6 +78,41 @@ final class ModuleGenerateCrudTest extends TestCase
         $api = file_get_contents($path . '/api.ts');
         self::assertMatchesRegularExpression('/interface NoteUpdateInput \{\s+id: number;\s+title\?: string;\s+category\?: string;/', $api);
 
+        // Daily G03 re-review must remain available after first generation and
+        // must never rewrite hand-authored extensions or edited generated files.
+        $ownedExtension = $fixture->root . '/web/src/modules/fixture-delivery-record/handwritten-extension.ts';
+        $handwritten = '// handwritten; do not overwrite';
+        self::assertSame(strlen($handwritten), file_put_contents($ownedExtension, $handwritten));
+        $firstModel = file_get_contents($model);
+        $firstView = file_get_contents($path . '/index.vue');
+        $review = new Output('buffer');
+        self::assertSame(0, $command->run(new Input($args), $review));
+        $reviewPlan = trim($review->fetch());
+        self::assertStringContainsString('unchanged ' . substr($model, strlen($fixture->root) + 1), $reviewPlan);
+        self::assertStringNotContainsString('conflict ', $reviewPlan);
+        self::assertSame($firstModel, file_get_contents($model));
+        self::assertSame($firstView, file_get_contents($path . '/index.vue'));
+        $retryWrite = new Output('buffer');
+        self::assertSame(0, $command->run(new Input([...$args, '--write']), $retryWrite));
+        self::assertSame($firstModel, file_get_contents($model));
+        self::assertSame($firstView, file_get_contents($path . '/index.vue'));
+
+        file_put_contents($path . '/index.vue', "\n<!-- handwritten customization -->\n", FILE_APPEND);
+        $changedView = file_get_contents($path . '/index.vue');
+        $conflictPlan = new Output('buffer');
+        self::assertSame(0, $command->run(new Input($args), $conflictPlan));
+        self::assertStringContainsString('conflict web/src/modules/fixture-delivery-record/generated/note/index.vue current=', $conflictPlan->fetch());
+        self::assertSame($changedView, file_get_contents($path . '/index.vue'));
+        try {
+            $command->run(new Input([...$args, '--write']), new Output('buffer'));
+            self::fail('A handwritten generated-file conflict must stop before any write.');
+        } catch (\RuntimeException $exception) {
+            self::assertStringContainsString('CRUD_CREATE_TARGET_CONFLICT', $exception->getMessage());
+        }
+        self::assertSame($changedView, file_get_contents($path . '/index.vue'));
+        self::assertSame($firstModel, file_get_contents($model));
+        self::assertSame($handwritten, file_get_contents($ownedExtension));
+
         require $fixture->root . '/server/app/modules/fixture/delivery_record/src/Validation/NoteValidate.php';
         $type = \PeanutAdmin\Fixtures\DeliveryRecord\Validation\NoteValidate::class;
         self::assertTrue((new $type())->scene('edit')->check(['id' => 1, 'title' => 'Only this field']));
