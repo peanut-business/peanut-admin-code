@@ -53,3 +53,31 @@ test('ReferenceCodes read route and manage mutation remain independently guarded
   assert.match(locale,/'systemDict.status.enabled': '启用'/);
   assert.match(locale,/'systemDict.status.disabled': '禁用'/);
 });
+
+test('ReferenceCodes data drawer also keeps status visible without manage permission',async()=>{
+  const drawerSource=readFileSync(root+'src/views/system/dict/components/DataDrawer.vue','utf8');
+  const drawer=parse(drawerSource,{filename:'src/views/system/dict/components/DataDrawer.vue'});
+  assert.deepEqual(drawer.errors,[]);
+  const cell=find(drawer.descriptor.template.ast,n=>
+    n.tag==='el-table-column'&&expression(n,'bind','label')?.includes('systemDict.data.columns.status'))[0];
+  assert.ok(cell);
+  const event='(v: string | number | boolean) => handleStatus(row, v as boolean)';
+  assert.ok(cell.loc.source.includes(event));
+  const render=compile('<div>'+cell.loc.source.replace(event,'(v) => handleStatus(row,v)')+'</div>');
+  async function view(manage,disabled){
+    const app=createSSRApp({setup:()=>({
+      canManageDict:()=>manage,
+      handleStatus:()=>{throw Error('SSR cannot mutate')}
+    }),render});
+    app.config.globalProperties.$t=k=>({'systemDict.status.enabled':'启用','systemDict.status.disabled':'禁用','systemDict.data.columns.status':'状态'}[k]??k);
+    app.component('el-table-column',{setup(_,ctx){return()=>h('div',{},ctx.slots.default?.({row:{id:4,is_disable:disabled}}))}});
+    app.component('el-switch',{setup(){return()=>h('button',{'data-test':'dict-change'},'edit')}});
+    app.component('el-tag',{setup(_,ctx){return()=>h('span',{'data-test':'dict-data-readonly'},ctx.slots.default?.())}});
+    return renderToString(app);
+  }
+  assert.match(await view(false,0),/启用/);
+  assert.match(await view(false,1),/禁用/);
+  assert.doesNotMatch(await view(false,1),/data-test="dict-change"/);
+  assert.match(await view(true,0),/data-test="dict-change"/);
+  assert.match(drawerSource,/hasPermission\('peanut.reference-codes.manage', route.path\)/);
+});

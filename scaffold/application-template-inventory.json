@@ -19170,7 +19170,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4221c2217de7e401ec320f677a47d998cc8ca2c0cc3811173ae921639c76195c"
+            "source_sha256": "5457c600cd57f82ee7dec619d1c7830189a05d8a179701460d53b5157e1bb9ba"
         },
         {
             "path": "web/src/views/system/dict/index.vue",
@@ -19618,7 +19618,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bed72c9460043d220413113b380de712720cce274d316ee0f2b1d88e70e99c46"
+            "source_sha256": "1f4dc6d01ea92328ed4818922367a29f9877c1db0a740bab52a534f770cf988b"
         },
         {
             "path": "web/tests/Productization/entry-browser.test.mjs",

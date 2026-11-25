@@ -42,9 +42,14 @@
       <el-table-column :label="$t('systemDict.data.columns.status')" width="80"
         ><template #default="{ row }"
           ><el-switch
-            v-permission="['peanut.reference-codes.manage']"
+            v-if="canManageDict()"
             :model-value="row.is_disable === 0"
-            @change="(v: string | number | boolean) => handleStatus(row, v as boolean)" /></template
+            @change="(v: string | number | boolean) => handleStatus(row, v as boolean)" />
+          <el-tag v-else :type="row.is_disable === 0 ? 'success' : 'info'">{{
+            row.is_disable === 0
+              ? $t('systemDict.status.enabled')
+              : $t('systemDict.status.disabled')
+          }}</el-tag></template
       ></el-table-column>
       <el-table-column
         :label="$t('systemDict.data.columns.operations')"
@@ -134,6 +139,8 @@
 <script lang="ts" setup>
   import { computed, ref, reactive, watch } from 'vue';
   import { useI18n } from 'vue-i18n';
+  import { useRoute } from 'vue-router';
+  import { hasPermission } from '@/hooks/permission';
   import { ElMessage } from 'element-plus';
   import type { FormInstance } from 'element-plus';
   import { Plus } from '@element-plus/icons-vue';
@@ -161,6 +168,8 @@
   });
 
   const { t } = useI18n();
+  const route = useRoute();
+  const canManageDict = () => hasPermission('peanut.reference-codes.manage', route.path);
   const { loading, setLoading } = useLoading(false);
   const renderData = ref<DictDataRecord[]>([]);
   const keyword = ref('');
