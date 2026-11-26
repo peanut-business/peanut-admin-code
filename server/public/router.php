@@ -88,7 +88,34 @@ if ($requestPath === $moduleAssetsPrefix || str_starts_with($requestPath, $modul
         http_response_code(404);
         return true;
     }
-    return false;
+    // PHP's built-in server discards router headers when returning false.
+    // Serve the original bytes here so stable Module URLs keep no-store.
+    $type = match (strtolower(pathinfo($file, PATHINFO_EXTENSION))) {
+        'avif' => 'image/avif',
+        'css' => 'text/css',
+        'gif' => 'image/gif',
+        'html' => 'text/html',
+        'ico' => 'image/x-icon',
+        'jpeg', 'jpg' => 'image/jpeg',
+        'js', 'mjs' => 'text/javascript',
+        'json' => 'application/json',
+        'png' => 'image/png',
+        'svg' => 'image/svg+xml',
+        'ttf' => 'font/ttf',
+        'txt' => 'text/plain',
+        'wasm' => 'application/wasm',
+        'webp' => 'image/webp',
+        'woff' => 'font/woff',
+        'woff2' => 'font/woff2',
+        'xml' => 'application/xml',
+        default => 'application/octet-stream',
+    };
+    header('Content-Type: ' . $type);
+    header('Content-Length: ' . filesize($file));
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
+        readfile($file);
+    }
+    return true;
 }
 
 if (str_starts_with($requestPath, '/admin/')) {

@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.31",
+    "template_version": "5.1.18-rc.32",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -11319,7 +11319,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "50167f6bc81c377b817826ff35df804a6f899eb039b29de4626c70d6a9fd88db"
+            "source_sha256": "d770686432779a27c6cf99efefc13aaaf278294b992d7dc7afd9000d901907e4"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11333,7 +11333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3af8ac03d21d944280202b8d0ac6aeade05dd9056808ff52ef49e84d3ff8a008"
+            "source_sha256": "3a2513a72da64583692f9da54e51496d929c108c68c9c857f75b68c68169ca64"
         },
         {
             "path": "server/generated/platform-role-source.json",
@@ -11641,7 +11641,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4e431b974399812facc2ed9a81f127606e8a5db66003e8cabb270e031cd9763c"
+            "source_sha256": "5de0a0cf01d8020b36d948fed58f5d131696edbd6128eca2d2741ef94ac2f868"
         },
         {
             "path": "server/public/static/.gitignore",
