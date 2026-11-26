@@ -2,9 +2,9 @@
   "schema_version": 3,
   "protocol": "peanut.release-metadata.v3",
   "product": "Peanut Admin",
-  "source_product_version": "5.1.18-rc.30",
+  "source_product_version": "5.1.18-rc.31",
   "instance_version": null,
-  "expected_tag": "v5.1.18-rc.30",
+  "expected_tag": "v5.1.18-rc.31",
   "release_date": "2026-11-25",
   "repository": "https://github.com/peanut-business/peanut-admin-code",
   "license": {
@@ -88,7 +88,7 @@
     "RELEASE_SBOM.spdx.json": "a2eb555d4c18579a44ad1a75fdfafcd3013520b13e796dbd03749dc6deae6405"
   },
   "technical_qualification": {
-    "phase": "5.1.18-rc.30-prerelease-candidate",
+    "phase": "5.1.18-rc.31-prerelease-candidate",
     "result": "pending",
     "final_candidate_commit": null,
     "final_candidate_tree": null,
@@ -96,10 +96,10 @@
     "groups_passed": 0,
     "summary_sha256": null,
     "cleanup_residual_count": null,
-    "scaffold_version": "5.1.18-rc.30",
+    "scaffold_version": "5.1.18-rc.31",
     "application_initial_version": "0.1.0",
     "evidence": "Product prerelease development identity uses frozen Core archives; qualification remains pending.",
-    "release_delta": "Uses the fixed local PHP Core and Web Core development archives identified in public_runtime_dependencies, preserves customer-owned instance identity, and prepares deterministic Standalone and Multi-tenant scaffold inputs from one source. Public publication and full qualification remain pending."
+    "release_delta": "Local development candidate for the PHP Admin module-assets 404/no-store ingress alignment with the already tested Vite and Nginx G15 contract. Core and other application behavior are unchanged; public publication and full qualification remain pending."
   },
   "self_reference_policy": "This file intentionally omits its own commit SHA and archive digest. RELEASE_MANIFEST.json is generated from the immutable tag and carries those values."
 }
