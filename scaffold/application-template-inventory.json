@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.36",
+    "template_version": "5.1.18-rc.37",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "82a2e10fc43024b37d5bcb1724d06b2f83caa12286ff51a0a7cd00ac3f6fb0ee"
+            "source_sha256": "fa02dcb57bfb2bc66cd00bb12b4617a5923958f475ebaf0547738768696de430"
         },
         {
             "path": "docs/development/menu-navigation.md",
@@ -1951,7 +1951,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0edc951398e36d6844d7ef8246ea2e9750187be4f6e974fae3fbacf29f409de7"
+            "source_sha256": "69c295e08ff62cc0e7e46f6761f81fc5e10174739176a4f42fcecd8b392a8562"
         },
         {
             "path": "platform/src/api/role-authorization-preview.ts",
@@ -1979,7 +1979,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c3917663d1d16c5c303353cb098ca67d44c3f8394f0922848e431fb487282405"
+            "source_sha256": "47fc401ead6f0358032733dea92560f945b382c54066dbcfd1890db931d80b88"
         },
         {
             "path": "platform/src/components/DeveloperCenterPage.vue",
@@ -1993,7 +1993,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "53c3b941ff67f0435a166a9dca2e6e6bce22acf7989735339cfa84b553fa6d5a"
+            "source_sha256": "31f3252f79dc651c65da0208f0bc3043c048dbfdc3e6169514dd93cc1bd499eb"
         },
         {
             "path": "platform/src/components/PermissionBundlesPanel.vue",
@@ -2021,7 +2021,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8f44c94558c57ff6ea920aead1ed12abd20a5191477d7a92577f9625b1ad96ff"
+            "source_sha256": "011bc70b3576ffdd15c448db0043a7178084329c86050c76bb00e0b01412a347"
         },
         {
             "path": "platform/src/components/ProviderQualificationCard.vue",
@@ -2231,7 +2231,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d334b6a32b050b77c211847c6875aeac63488662592969dc93e3558aff6ec880"
+            "source_sha256": "c9d397526960724985c64a9dc222c1c20d181ae3e82a27d4eb35289add38a71f"
         },
         {
             "path": "platform/tests/role-authorization-preview.test.mjs",
@@ -2245,7 +2245,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3a0f71d5d16be4c03675188b91c5bf932ad7a3fce4f2f3f39dc44782549150e5"
+            "source_sha256": "e457caeb52a83c3d49dd36323dbb0ed87e3c809715bcbb800f91b898a6e8a107"
         },
         {
             "path": "platform/tsconfig.json",
@@ -11319,7 +11319,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a698d4ded9ff27ced78ce158662d0da10146f2c66a246d5251d2c0a77e7cf9a1"
+            "source_sha256": "f01dc186ea735eee7db845de269663d2132ac554f3e4bedffaf8c7f21603836a"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11333,7 +11333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3a0b36da901e97a64548927bf8a8bf340db2b6dce6f4ab885b9b3055d3a7f0a5"
+            "source_sha256": "44cf5fe8d9bcc2256f93f287eb1a722425771b80b3e376ae3fc2134cc2167c8e"
         },
         {
             "path": "server/generated/platform-role-source.json",
