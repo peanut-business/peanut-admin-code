@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.42",
+    "template_version": "5.1.18-rc.43",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "88cdddc16e5fdc7a2ed5ff9cc645ff394dad42290c2b820bc495724ee91654da"
+            "source_sha256": "cb44fd92d7cf7964c09ce9d3b025eda96ae2b058c34ca80a7f1796ed379719e5"
         },
         {
             "path": "docs/development/menu-navigation.md",
@@ -11389,7 +11389,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "04108d97604b96030dce3305c1f1b3094dd4fb4fba3fd01449509736fcc70eff"
+            "source_sha256": "6939200053a4a36a233f2e7ce988e55134b912a9502fe469bb8ac9365f396db9"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11403,7 +11403,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e694d4d761756b2b93cccb23b073b765a1acad4f04cc7f3447aa779f31b99c33"
+            "source_sha256": "6ac90f4940ce7611e5b2cf2765708d772ac8be499ce7b9b1d78199d9cb30e27b"
         },
         {
             "path": "server/generated/platform-role-source.json",
@@ -19010,7 +19010,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "41fd5835267910b569c8edb137352b11ba2d94363b7e3fd1638a8bded178a8ab"
+            "source_sha256": "5741bdba352a8f12ec3bad51271d136386bebf778746b80291b7ca0ac7aec3dd"
         },
         {
             "path": "web/src/views/dev-tools/modules/index.vue",
@@ -19837,6 +19837,20 @@
                 "full"
             ],
             "source_sha256": "9084c175bdb5d24975c1704a6ba6b5d009f3d14f27177b0205d708f3c5799ece"
+        },
+        {
+            "path": "web/tests/Productization/generator-preview-latest-request.test.mjs",
+            "target": "web/tests/Productization/generator-preview-latest-request.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "57cfa06e1c7623155bcc5cf3e6f6439f64edb6ffd019d24cb9cd475b652e2af6"
         },
         {
             "path": "web/tests/Productization/instance-tool-build-boundary.test.mjs",

@@ -2,9 +2,9 @@
   "schema_version": 3,
   "protocol": "peanut.release-metadata.v3",
   "product": "Peanut Admin",
-  "source_product_version": "5.1.18-rc.42",
+  "source_product_version": "5.1.18-rc.43",
   "instance_version": null,
-  "expected_tag": "v5.1.18-rc.42",
+  "expected_tag": "v5.1.18-rc.43",
   "release_date": "2026-11-25",
   "repository": "https://github.com/peanut-business/peanut-admin-code",
   "license": {

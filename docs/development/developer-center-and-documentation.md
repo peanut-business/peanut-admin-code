@@ -40,6 +40,10 @@ Provider目录复用当前App由ModuleComposition保存的同一实例，支持�
 
 租户自助管理沿现有 Admin 客户端/正式租户菜单和对应 tenant-permission / 模块权益过滤，**不等于**实例模块安装权或 Platform Session。原代码生成器涉及当前数据库结构，只在 standalone development 的独立本地实例工具路由存在；在 MT 租户中不开放该跨表浏览/写入入口，未完成租户安全隔离审计前禁止放宽。生产构建中也不编译本地实例工具。角色、套餐或模块安装时不得因导航可见而自动授予跨租户操作权限。
 
+### G03 Standalone 生成器最新预览与回执合同
+
+`web/src/views/dev-tools/code/index.vue` 使用正式 `POST /adminapi/generator/preview` 与 `GeneratorController::preview`。先显示加载态，只允许最后一次预览响应覆盖内容；弹窗关闭、卸载后晚到的请求不得恢复旧数据，失败与成功无文件分开，并允许对同一数据表重试。原PHP生成器 `GeneratorService` 与安全的ZIP冲突审阅、一次性下载合同不改，原 `core.generator.read` 权限不改。该开发工具仅属于Standalone实例，不能因源测试通过就声称MT5020已运行。
+
 ### 平台与租户菜单权限树的迁移门禁（G18）
 
 目录、菜单、按钮必须沿现有正式 `system_menu` 源构建真实可展开树，不允许只在前端凭空合成目录。平台 `permission-menus` 读接口追加原生 tenant-scope 目录节点（type M，不可被旧菜单编辑写入）；菜单和按钮来源保持 Core/Identity 作者的 C/A 原行、修订及动作约束。搜索须保留父节点，重复、环及按钮挂子菜单应拒绝；实际 API 方法/路径只从当前有权读取的正式 API 目录和现有生效关联批量投影，不能发 N+1 请求或用源码默认替代实例明确配置。

@@ -428,9 +428,21 @@
       >
     </el-dialog>
 
-    <el-dialog v-model="previewVisible" title="代码预览" width="1080px">
+    <el-dialog v-model="previewVisible" title="代码预览" width="1080px" @close="closePreview">
+      <el-skeleton v-if="previewLoading" :rows="6" animated />
+      <el-alert
+        v-else-if="previewError"
+        :title="previewError"
+        type="error"
+        :closable="false"
+        show-icon
+      >
+        <template #default>
+          <el-button type="primary" @click="retryPreview">重试本次预览</el-button>
+        </template>
+      </el-alert>
       <el-tabs
-        v-if="previewFiles.length"
+        v-else-if="previewFiles.length"
         v-model="previewActiveKey"
         type="card"
       >
@@ -481,7 +493,7 @@
 </template>
 
 <script lang="ts" setup>
-  import { computed, reactive, ref } from 'vue';
+  import { computed, onBeforeUnmount, reactive, ref } from 'vue';
   import { ElMessage } from 'element-plus';
   import type { FormInstance } from 'element-plus';
   import { Plus } from '@element-plus/icons-vue';
@@ -758,16 +770,40 @@
   const previewVisible = ref(false);
   const previewFiles = ref<GeneratorPreviewFile[]>([]);
   const previewActiveKey = ref('');
+  const previewLoading = ref(false);
+  const previewError = ref('');
+  const previewRecord = ref<GeneratorRecord | null>(null);
+  let previewEpoch = 0;
+  const closePreview = () => {
+    previewEpoch += 1;
+    previewLoading.value = false;
+    previewRecord.value = null;
+  };
+  onBeforeUnmount(closePreview);
   const openPreview = async (record: GeneratorRecord) => {
+    const request = ++previewEpoch;
+    previewRecord.value = record;
+    previewVisible.value = true;
+    previewLoading.value = true;
+    previewError.value = '';
+    previewFiles.value = [];
+    previewActiveKey.value = '';
     try {
       const { data } = await previewGenerator(record.id);
+      if (request !== previewEpoch || !previewVisible.value) return;
       previewFiles.value = data;
       previewActiveKey.value = data[0]?.path || '';
-      previewVisible.value = true;
     } catch {
-      previewFiles.value = [];
-      previewActiveKey.value = '';
+      if (request !== previewEpoch || !previewVisible.value) return;
+      previewError.value = '代码预览读取失败；未生成任何文件。请检查权限或请求回执后重试。';
+    } finally {
+      if (request === previewEpoch && previewVisible.value)
+        previewLoading.value = false;
     }
+  };
+  const retryPreview = () => {
+    if (previewRecord.value && !previewLoading.value)
+      void openPreview(previewRecord.value);
   };
   const copyPreview = async (content: string) => {
     await navigator.clipboard.writeText(content);
