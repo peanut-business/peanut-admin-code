@@ -88,7 +88,9 @@
           :data="visibleOfficialCatalog"
           empty-text="当前渠道没有匹配模块"
         >
-          <el-table-column label="模块名称 / 标识" min-width="260">\n            <template #default="{ row }">{{ moduleLabel(row.key) }}</template>\n          </el-table-column>
+          <el-table-column label="模块名称 / 标识" min-width="260">
+            <template #default="{ row }">{{ moduleLabel(row.key) }}</template>
+          </el-table-column>
           <el-table-column prop="version" label="发行版本" min-width="140" />
           <el-table-column label="本地源码" min-width="150">
             <template #default="{ row }">{{
@@ -120,7 +122,9 @@
         </el-table>
         <h3>已采用模块的更新</h3>
         <el-table :data="officialUpdates.modules">
-          <el-table-column label="模块名称 / 标识" min-width="260">\n            <template #default="{ row }">{{ moduleLabel(row.key) }}</template>\n          </el-table-column>
+          <el-table-column label="模块名称 / 标识" min-width="260">
+            <template #default="{ row }">{{ moduleLabel(row.key) }}</template>
+          </el-table-column>
           <el-table-column
             prop="source_version"
             label="当前源码锁版本"
