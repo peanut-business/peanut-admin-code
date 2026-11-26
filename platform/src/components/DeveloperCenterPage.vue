@@ -545,6 +545,9 @@
   // touches multiple trusted release endpoints; duplicate clicks must not
   // multiply that outbound fan-out. Epochs fence stale section/channel data.
   let officialUpdatesGeneration = 0;
+  let officialIntentGeneration = 0;
+  let officialPreviewPending = false;
+  let officialConfirmationPending = false;
   const updateLabels: Record<string, string> = {
     update_available: '有更新，需原生预检',
     current: '源码版本已最新',
@@ -554,7 +557,12 @@
 
   function resetOfficialSelection(): void {
     officialUpdatesGeneration += 1;
+    officialIntentGeneration += 1;
     updatesLoading.value = false;
+    if (officialPreviewPending) {
+      officialPreviewPending = false;
+      officialBusy.value = false;
+    }
     officialUpdates.value = null;
     officialSelection.value = null;
     officialPreview.value = null;
@@ -640,23 +648,35 @@
     operation: 'install' | 'update'
   ): Promise<void> {
     if (props.section !== 'official' || officialBusy.value || updatesLoading.value) return;
+    const generation = ++officialIntentGeneration;
+    const channel = releaseChannel.value;
     officialOperation.value = operation;
     officialBusy.value = true;
+    officialPreviewPending = true;
     updatesError.value = '';
     officialPreview.value = null;
     officialIdempotency = '';
-    officialSelection.value = selection;
+    officialSelection.value = { ...selection };
     try {
-      officialPreview.value = await api.previewOfficialModule(
-        selection,
-        operation
-      );
-      if (props.section === 'official') emit('open-operations');
+      const reviewed = await api.previewOfficialModule(selection, operation);
+      // The response is a fixed package intent. A changed channel/section
+      // invalidates it before any user can submit a real install task.
+      if (generation !== officialIntentGeneration ||
+        props.section !== 'official' || releaseChannel.value !== channel)
+        return;
+      officialPreview.value = reviewed;
+      officialPreviewPending = false;
+      emit('open-operations');
     } catch (cause) {
-      updatesError.value =
-        cause instanceof Error ? cause.message : '模块预检未通过';
+      if (generation === officialIntentGeneration &&
+        props.section === 'official' && releaseChannel.value === channel)
+        updatesError.value =
+          cause instanceof Error ? cause.message : '模块预检未通过';
     } finally {
-      officialBusy.value = false;
+      if (generation === officialIntentGeneration) {
+        officialPreviewPending = false;
+        officialBusy.value = false;
+      }
     }
   }
 
@@ -672,10 +692,13 @@
       return;
     const selection = { ...officialSelection.value };
     const operation = officialOperation.value;
+    const review = officialPreview.value;
+    const generation = officialIntentGeneration;
     const action = operation === 'install' ? '安装' : '升级';
-    const digest = officialPreview.value.selection_sha256;
+    const digest = review.selection_sha256;
     officialBusy.value = true;
     try {
+      officialConfirmationPending = true;
       const confirmed = await ElMessageBox.confirm(
         '将' +
           action +
@@ -687,7 +710,21 @@
         '确认模块' + action,
         { type: 'warning' }
       ).catch(() => false);
+      officialConfirmationPending = false;
       if (!confirmed) return;
+      const current = officialSelection.value;
+      if (props.section !== 'operations' ||
+        generation !== officialIntentGeneration ||
+        officialOperation.value !== operation ||
+        !canSubmitOfficial.value ||
+        officialPreview.value !== review ||
+        !current ||
+        current.module_key !== selection.module_key ||
+        current.version !== selection.version ||
+        current.sha256 !== selection.sha256 ||
+        current.catalog_tag !== selection.catalog_tag ||
+        current.channel !== selection.channel)
+        return;
       updatesError.value = '';
       officialIdempotency ||=
         'official-module-' +
@@ -706,6 +743,7 @@
       updatesError.value =
         cause instanceof Error ? cause.message : '模块任务提交失败';
     } finally {
+      officialConfirmationPending = false;
       officialBusy.value = false;
     }
   }
@@ -909,6 +947,16 @@
   }
 
   function activateSection(section: DeveloperSection) {
+    if (section !== 'official' && officialPreviewPending) {
+      officialIntentGeneration += 1;
+      officialPreviewPending = false;
+      officialBusy.value = false;
+      officialSelection.value = null;
+      officialPreview.value = null;
+      officialIdempotency = '';
+    }
+    if (section !== 'operations' && officialConfirmationPending)
+      officialIntentGeneration += 1;
     if (section !== 'official' && updatesLoading.value) {
       // Keep already chosen official operation previews for the operations
       // page, but do not let a late discovery result re-enter that page.
@@ -926,7 +974,10 @@
   }
   onMounted(() => activateSection(props.section));
   watch(() => props.section, (section) => activateSection(section));
-  onScopeDispose(() => { officialUpdatesGeneration += 1; });
+  onScopeDispose(() => {
+    officialUpdatesGeneration += 1;
+    officialIntentGeneration += 1;
+  });
 </script>
 
 <style scoped>

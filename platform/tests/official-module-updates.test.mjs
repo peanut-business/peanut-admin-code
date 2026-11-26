@@ -49,7 +49,7 @@ const developerModule = {
 
 // Run the platform transport with its real Axios interceptors and Core
 // session code. Only the network adapter and browser storage/lock are fixtures.
-function fixture(t, adapter, loadDeveloper = false) {
+function fixture(t, adapter, loadDeveloper = false, confirmation = async () => 'confirm') {
   const storage = new Map();
   Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,
@@ -76,7 +76,7 @@ function fixture(t, adapter, loadDeveloper = false) {
     '@peanut-admin/client': peanutClient,
     '@peanut-admin/vue': peanutVue,
     vue: { ...vue, onMounted: () => {} },
-    'element-plus': { ElMessageBox: { confirm: async () => 'confirm' } },
+    'element-plus': { ElMessageBox: { confirm: confirmation } },
     './StructuredDetails.vue': {},
   };
   const modules = loadDeveloper ? [...transportModules, developerModule] : transportModules;
@@ -649,4 +649,113 @@ test('changing channels invalidates pending official result and stale failures c
   assert.equal(panel.officialUpdates.value.channel, 'prerelease');
   assert.equal(panel.updatesError.value, '');
   assert.equal(panel.updatesLoading.value, false);
+});
+
+function deferredIntent() {
+  let resolve;
+  let reject;
+  const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+}
+
+test('old official preflight cannot reappear after a channel reset during its network request', async (t) => {
+  const pending = [];
+  const endpoint = '/platformapi/instance-tools/modules/official-update';
+  const { mountDeveloper } = fixture(t, (config) => {
+    const call = deferredIntent();
+    pending.push({ config, ...call });
+    return call.promise;
+  }, true);
+  const panel = mountDeveloper([{ method: 'POST', path: endpoint }], 'official');
+  const preflight = panel.previewOfficialCandidate(selection, 'update');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(pending.length, 1);
+  panel.releaseChannel.value = 'prerelease';
+  panel.resetOfficialSelection();
+  pending[0].resolve(envelope(pending[0].config, {
+    dry_run: true, selection_sha256: 'b'.repeat(64), plan: {},
+  }));
+  await preflight;
+  assert.equal(panel.officialSelection.value, null);
+  assert.equal(panel.officialPreview.value, null);
+  assert.equal(panel.officialBusy.value, false);
+});
+
+test('navigating away before official preflight response discards its action intent', async (t) => {
+  const pending = [];
+  const endpoint = '/platformapi/instance-tools/modules/official-update';
+  const { mountDeveloper } = fixture(t, (config) => {
+    const call = deferredIntent();
+    pending.push({ config, ...call });
+    return call.promise;
+  }, true);
+  const panel = mountDeveloper([{ method: 'POST', path: endpoint }], 'official');
+  const preflight = panel.previewOfficialCandidate(selection, 'update');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(pending.length, 1);
+  panel.setSection('operations');
+  panel.activateSection('operations');
+  pending[0].resolve(envelope(pending[0].config, {
+    dry_run: true, selection_sha256: 'b'.repeat(64), plan: {},
+  }));
+  await preflight;
+  assert.equal(panel.officialSelection.value, null);
+  assert.equal(panel.officialPreview.value, null);
+  assert.equal(panel.officialBusy.value, false);
+});
+
+test('confirming an old official operation after leaving and returning never submits a task', async (t) => {
+  const endpoint = '/platformapi/instance-tools/modules/official-update';
+  let submissions = 0;
+  const confirmation = deferredIntent();
+  const { mountDeveloper } = fixture(t, async (config) => {
+    submissions += 1;
+    return envelope(config, { task_key: 'unexpected', status: 'queued' });
+  }, true, () => confirmation.promise);
+  const panel = mountDeveloper([{ method: 'POST', path: endpoint }], 'operations');
+  panel.officialSelection.value = { ...selection };
+  panel.officialOperation.value = 'update';
+  panel.officialPreview.value = {
+    dry_run: true, selection_sha256: 'b'.repeat(64), plan: {},
+  };
+  const pending = panel.applyOfficial();
+  assert.equal(panel.officialBusy.value, true);
+  panel.setSection('modules');
+  panel.activateSection('modules');
+  panel.setSection('operations');
+  panel.activateSection('operations');
+  confirmation.resolve('confirm');
+  await pending;
+  assert.equal(submissions, 0);
+  assert.equal(panel.officialBusy.value, false);
+  assert.equal(panel.packageTask.value, null);
+});
+
+test('valid preflight and unchanged confirmation still deliver one exact native task submission', async (t) => {
+  const endpoint = '/platformapi/instance-tools/modules/official-update';
+  const posted = [];
+  const { mountDeveloper } = fixture(t, async (config) => {
+    posted.push({ url: config.url, payload: JSON.parse(config.data) });
+    assert.equal(config.url, endpoint);
+    return envelope(config, posted.length === 1
+      ? { dry_run: true, selection_sha256: 'b'.repeat(64), plan: {} }
+      : { task_key: 'job_valid_official_update', status: 'queued' });
+  }, true);
+  const panel = mountDeveloper([{ method: 'POST', path: endpoint }], 'official');
+  await panel.previewOfficialCandidate(selection, 'update');
+  assert.equal(panel.officialPreview.value.selection_sha256, 'b'.repeat(64));
+  assert.equal(panel.officialBusy.value, false);
+  await panel.applyOfficial();
+  assert.equal(posted.length, 2);
+  assert.equal(posted[0].payload.dry_run, true);
+  assert.equal(posted[1].payload.dry_run, false);
+  assert.equal(posted[1].payload.confirm_selection_sha256, 'b'.repeat(64));
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(posted[1].payload).filter(([key]) =>
+      ['module_key', 'version', 'sha256', 'catalog_tag', 'channel'].includes(key))),
+    selection
+  );
+  assert.equal(panel.packageTask.value.task_key, 'job_valid_official_update');
+  assert.equal(panel.officialSelection.value, null);
+  assert.equal(panel.officialPreview.value, null);
 });
