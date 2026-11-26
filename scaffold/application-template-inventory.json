@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.39",
+    "template_version": "5.1.18-rc.40",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dd625462c60f858c5a68381f2a3b56ad60baa502101966e7743e1daf88be9014"
+            "source_sha256": "d0cd172c6220fe223fec33827502f30629565c5a89365225d27ed271159678b6"
         },
         {
             "path": "docs/development/menu-navigation.md",
@@ -1937,7 +1937,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fcca3c6dad4f42b5886c67d16cff736f325d8c0e21c214e582f2892ee951720b"
+            "source_sha256": "7996a6b99da959365b3a8ab73ea801077eb07211bba1317e0ecd93707a909914"
         },
         {
             "path": "platform/src/api/platform.ts",
@@ -2007,7 +2007,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "96b4c511bf4a5492eb880517e93c946fc0e5846acd26a0b6f0f952b5afcea03f"
+            "source_sha256": "214e5ddb19c7b4336bfa366b09803565d5b83e632f17bb1e99bfbcdb06ac9551"
         },
         {
             "path": "platform/src/components/PlansPanel.vue",
@@ -2092,6 +2092,20 @@
                 "full"
             ],
             "source_sha256": "6601e2bc1c82497ae1be5aca274e53d28da209478cdd3ee0ad222b47837d8fde"
+        },
+        {
+            "path": "platform/src/core/permission-menu-tree.ts",
+            "target": "platform/src/core/permission-menu-tree.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "be47ad08a12dd024586c0b2dd6a6fd47765c3fef2bd966d35205f78b1d27962a"
         },
         {
             "path": "platform/src/core/platform-access.ts",
@@ -2231,7 +2245,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "886acd3f2f64c430b52a1d1d3b5fbe959795e54ed01184c5790ffc541a1c9b83"
+            "source_sha256": "134bfd6cc1ab714b98ce617cde2430dc06ee8210b25a793d1bf3ba837f1d9ac5"
         },
         {
             "path": "platform/tests/official-module-updates.test.mjs",
@@ -2246,6 +2260,20 @@
                 "full"
             ],
             "source_sha256": "a2edc09e7dff39e37c9465219937fcf62d929557483bb0d37f66286d674e76e7"
+        },
+        {
+            "path": "platform/tests/permission-menu-tree.test.mjs",
+            "target": "platform/tests/permission-menu-tree.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e4849a5c5c3299d3c9759e6c73ef4b3714a7d5a42736f0098ebe80e9238cda18"
         },
         {
             "path": "platform/tests/role-authorization-preview.test.mjs",
@@ -8423,7 +8451,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fcc30f4acb55c5b4a3bfdcd7c1705279a5b7cf467ce19a5f59082ae77d204680"
+            "source_sha256": "db1d135358587b07d64547b979b8af500b9671bb681d7b66956787a4efb40cad"
         },
         {
             "path": "server/app/platform/controller/PlanLicenseController.php",
@@ -11333,7 +11361,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a96b1bfd2fce008d1274f462da524c2e6650c01510e86a85f51af59b0e0144e2"
+            "source_sha256": "689ceb6053c57b13ee9fb46f3b7f72a9df3ba657b624d89deee2466bc1bbbd18"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11347,7 +11375,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "87b9286c1d31c5fdf1f16c1615b539ddc1d7d73d4b33fec55ac670f9d81b29ed"
+            "source_sha256": "b8c2077dfcbd1e36e5bd120a3420b84224510f33cbd7f4bf6966cb2e93ef61f3"
         },
         {
             "path": "server/generated/platform-role-source.json",
