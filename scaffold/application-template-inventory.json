@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.30",
+    "template_version": "5.1.18-rc.31",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -3580,6 +3580,19 @@
         {
             "path": "scripts/tests/menu-grouping-navigation-test.mjs",
             "target": "scripts/tests/menu-grouping-navigation-test.mjs",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "scripts/tests/module-public-php-router-test.py",
+            "target": "scripts/tests/module-public-php-router-test.py",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -11306,7 +11319,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5fdd43f458c6974098e522f3da50e6559d348510fb2264e56e8e30beb2c0a9d6"
+            "source_sha256": "50167f6bc81c377b817826ff35df804a6f899eb039b29de4626c70d6a9fd88db"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11320,7 +11333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5a8972256585e04f35e7984cdec843be4e838efc9ac52512dcaa7a1887637091"
+            "source_sha256": "3af8ac03d21d944280202b8d0ac6aeade05dd9056808ff52ef49e84d3ff8a008"
         },
         {
             "path": "server/generated/platform-role-source.json",
@@ -11628,7 +11641,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7dc2b56cfeb7f98b00ad7782ddb8c8c6d8de0e0fd8bf82b016127fbd06981401"
+            "source_sha256": "4e431b974399812facc2ed9a81f127606e8a5db66003e8cabb270e031cd9763c"
         },
         {
             "path": "server/public/static/.gitignore",
