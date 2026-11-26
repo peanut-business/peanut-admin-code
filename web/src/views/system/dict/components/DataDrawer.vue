@@ -35,7 +35,7 @@
         :type="renderData.length ? 'warning' : 'error'"
         :closable="false"
       />
-      <el-button type="primary" @click="fetchData(pagination.current)">
+      <el-button type="primary" @click="retryList">
         {{ $t('systemDict.data.retry') }}
       </el-button>
     </div>
@@ -151,7 +151,7 @@
 </template>
 
 <script lang="ts" setup>
-  import { computed, ref, reactive, watch } from 'vue';
+  import { computed, onBeforeUnmount, ref, reactive, watch } from 'vue';
   import { useI18n } from 'vue-i18n';
   import { useRoute } from 'vue-router';
   import { hasPermission } from '@/hooks/permission';
@@ -187,6 +187,7 @@
   const { loading, setLoading } = useLoading(false);
   const renderData = ref<DictDataRecord[]>([]);
   const listError = ref(false);
+  const failedQuery = ref<DictDataListParams | null>(null);
   const keyword = ref('');
   let requestSequence = 0;
 
@@ -197,50 +198,63 @@
     showTotal: true,
   });
 
-  const fetchData = async (page = 1) => {
-    if (!props.typeId) return;
+  const fetchData = async (page = 1, retryQuery?: DictDataListParams) => {
+    if (!props.visible || !props.typeId) return;
     const sequence = ++requestSequence;
+    const params: DictDataListParams = retryQuery
+      ? { ...retryQuery }
+      : {
+          type_id: props.typeId,
+          name: keyword.value,
+          page_no: page,
+          page_size: pagination.pageSize,
+        };
+    // A failed read may be retried only in its original tenant/type scope.
+    if (params.type_id !== props.typeId) return;
     setLoading(true);
     listError.value = false;
     try {
-      const params: DictDataListParams = {
-        type_id: props.typeId,
-        name: keyword.value,
-        page_no: page,
-        page_size: pagination.pageSize,
-      };
       const { data } = await getDictDataList(params);
-      if (sequence !== requestSequence) return;
+      if (sequence !== requestSequence || !props.visible) return;
       renderData.value = data.lists;
       pagination.current = data.pageNo;
       pagination.total = data.count;
+      failedQuery.value = null;
     } catch {
-      if (sequence === requestSequence) listError.value = true;
+      if (sequence === requestSequence && props.visible) {
+        failedQuery.value = params;
+        listError.value = true;
+      }
     } finally {
-      if (sequence === requestSequence) setLoading(false);
+      if (sequence === requestSequence && props.visible) setLoading(false);
     }
   };
-
+  const retryList = () => {
+    if (failedQuery.value && failedQuery.value.type_id === props.typeId)
+      void fetchData(failedQuery.value.page_no ?? 1, failedQuery.value);
+  };
   const onPageChange = (current: number) => fetchData(current);
 
   // 抽屉打开或切换类型时刷新
   watch(
     () => [props.visible, props.typeId],
     ([vis, typeId], previous) => {
-      if (previous && previous[1] !== typeId) {
+      if (!vis || (previous && previous[1] !== typeId)) {
         requestSequence++;
         renderData.value = [];
         pagination.total = 0;
         listError.value = false;
+        failedQuery.value = null;
         setLoading(false);
       }
       if (vis) {
         keyword.value = '';
         pagination.current = 1;
-        fetchData(1);
+        void fetchData(1);
       }
     }
   );
+  onBeforeUnmount(() => { requestSequence++; });
 
   // ---- 弹窗 & 表单 ----
   const modalVisible = ref(false);

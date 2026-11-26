@@ -40,6 +40,10 @@ Provider目录复用当前App由ModuleComposition保存的同一实例，支持�
 
 租户自助管理沿现有 Admin 客户端/正式租户菜单和对应 tenant-permission / 模块权益过滤，**不等于**实例模块安装权或 Platform Session。原代码生成器涉及当前数据库结构，只在 standalone development 的独立本地实例工具路由存在；在 MT 租户中不开放该跨表浏览/写入入口，未完成租户安全隔离审计前禁止放宽。生产构建中也不编译本地实例工具。角色、套餐或模块安装时不得因导航可见而自动授予跨租户操作权限。
 
+### G02 字典类型与数据抽屉错误恢复
+
+现有字典类型主页已实现序列屏蔽、失败时保留旧行及按原请求参数重试，本轮不重构；独立的 `web/src/views/system/dict/components/DataDrawer.vue` 也必须保持同一合同。列表失败记录当时的 `type_id/name/page_no/page_size`，用户改动未搜索的输入时重试仍按原失败请求，不跨类型。关闭、切换类型、卸载均使请求代次失效，迟到的HTTP响应不覆盖新字典数据；成功空列表与错误要区分。仍通过正式 `getDictDataList` 和 `peanut.reference-codes.read`，不改变任何字典写权限或数据库结构。
+
 ### G03 Standalone 生成器最新预览与回执合同
 
 `web/src/views/dev-tools/code/index.vue` 使用正式 `POST /adminapi/generator/preview` 与 `GeneratorController::preview`。先显示加载态，只允许最后一次预览响应覆盖内容；弹窗关闭、卸载后晚到的请求不得恢复旧数据，失败与成功无文件分开，并允许对同一数据表重试。原PHP生成器 `GeneratorService` 与安全的ZIP冲突审阅、一次性下载合同不改，原 `core.generator.read` 权限不改。该开发工具仅属于Standalone实例，不能因源测试通过就声称MT5020已运行。

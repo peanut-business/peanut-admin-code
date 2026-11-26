@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.43",
+    "template_version": "5.1.18-rc.44",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cb44fd92d7cf7964c09ce9d3b025eda96ae2b058c34ca80a7f1796ed379719e5"
+            "source_sha256": "ccedf18849c41d5dc4d22187727386fc2b2b08794dd6000c29ea56ddb7dfc9f8"
         },
         {
             "path": "docs/development/menu-navigation.md",
@@ -11389,7 +11389,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6939200053a4a36a233f2e7ce988e55134b912a9502fe469bb8ac9365f396db9"
+            "source_sha256": "d64d88f6e36189f2a092cde060764f4d0e531bb6ad89d8c217edc95854debdd4"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11403,7 +11403,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6ac90f4940ce7611e5b2cf2765708d772ac8be499ce7b9b1d78199d9cb30e27b"
+            "source_sha256": "eef3528b104f8e765a69f36fb0d98bf12a41e782015e8eb4c7fdae1715b92135"
         },
         {
             "path": "server/generated/platform-role-source.json",
@@ -19318,7 +19318,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6d3d2cf6ed64c5308cd439ab8ec937fdef2c1edf6bc7ccfeb8c2077fdd279568"
+            "source_sha256": "f078d93a7062a1d853f365dc657c171972edc339e65daac5355b7a35aeae478c"
         },
         {
             "path": "web/src/views/system/dict/index.vue",
@@ -19767,6 +19767,20 @@
                 "full"
             ],
             "source_sha256": "0e37b44b48856287b5df5a64b4530c91f62e43a3cf1f31059d3ea4614d8128d3"
+        },
+        {
+            "path": "web/tests/Productization/dict-data-drawer-retry.test.mjs",
+            "target": "web/tests/Productization/dict-data-drawer-retry.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "90d51e4729190fac220175a3186cf4a64fb0a0326eb89c876622a8a4ddb4b03d"
         },
         {
             "path": "web/tests/Productization/dict-readonly-status.test.mjs",
