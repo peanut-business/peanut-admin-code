@@ -267,6 +267,22 @@ export const platformRoleAuthorizationPage = {
   endpoints: [platformRolesPage.endpoints[0], platformPermissionCatalogRead],
 } as const;
 
+export const platformRoleNodePrepare = {
+  key: 'platform.role.nodes.prepare',
+  parentKey: platformRoleAuthorizationPage.key,
+  type: 'operation',
+  label: '准备角色直接节点',
+  endpoints: [['POST', '/platformapi/roles/nodes/prepare']],
+} as const;
+
+export const platformRoleNodeSave = {
+  key: 'platform.role.nodes.save',
+  parentKey: platformRoleAuthorizationPage.key,
+  type: 'action',
+  label: '保存角色直接节点',
+  endpoints: [['POST', '/platformapi/roles/nodes/save']],
+} as const;
+
 export const platformRolePermissionAssign = {
   key: 'platform.role.permission.assign',
   parentKey: platformRoleAuthorizationPage.key,
@@ -792,6 +808,8 @@ export const platformShellPreviewDefinitions = [
   platformRoleUpdate,
   platformRoleArchive,
   platformRoleAuthorizationPage,
+  platformRoleNodePrepare,
+  platformRoleNodeSave,
   platformRolePermissionAssign,
   platformPermissionBundlesPage,
   platformPermissionBundleCreate,

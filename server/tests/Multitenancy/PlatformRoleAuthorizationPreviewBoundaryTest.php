@@ -389,7 +389,7 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
     {
         $this->assertCanonicalPlatformMenuRegistration();
         $candidate = $this->platformSourceCandidate();
-        self::assertCount($this->fileCatalogEndpoints === null ? 70 : 80, $candidate['nodes']);
+        self::assertCount($this->fileCatalogEndpoints === null ? 77 : 87, $candidate['nodes']);
         $fullCandidate = $candidate;
         $before = $this->snapshot();
         $response = $this->call($candidate);
@@ -568,7 +568,7 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         $candidate = $this->platformSourceCandidate();
         $removed = array_values(array_unique(array_merge(...array_column($candidate['nodes'], 'api_ids'))));
         sort($removed, SORT_STRING);
-        self::assertCount($this->fileCatalogEndpoints === null ? 66 : 73, $removed);
+        self::assertCount($this->fileCatalogEndpoints === null ? 68 : 75, $removed);
         $before = $this->snapshot();
 
         $candidate['role_assignments'][0]['node_keys'] = [];
@@ -647,6 +647,8 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             'roles.update' => ['POST', 'roles/update', 'platform.role.update'],
             'roles.archive' => ['POST', 'roles/archive', 'platform.role.archive'],
             'roles.permissions.replace' => ['POST', 'roles/permissions/replace', 'platform.role.permission.assign'],
+            'roles.nodes.prepare' => ['POST', 'roles/nodes/prepare', 'platform.role.read'],
+            'roles.nodes.save' => ['POST', 'roles/nodes/save', 'platform.role.permission.assign'],
             'permissions.list' => ['GET', 'permissions', 'platform.permission.read'],
             'bundles.list' => ['GET', 'permission/bundles', 'platform.permission.read'],
             'bundles.create' => ['POST', 'permission/bundles', 'platform.permission.bundle.manage'],
@@ -681,8 +683,12 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             'module.task' => ['GET', 'instance-tools/modules/tasks/{task_key}', 'platform.module.read'],
         ] as $name => [$method, $path, $permission]) {
             $endpoint = $this->installPlatformApi($method, '/platformapi/' . $path, $permission);
-            $prerequisites = in_array($permission, ['platform.ops.logs.read', 'platform.ops.upgrade.manage'], true)
-                ? ['platform.ops.read'] : [];
+            $prerequisites = match ($name) {
+                'roles.nodes.prepare' => ['platform.permission.api.read', 'platform.operator.read'],
+                'roles.nodes.save' => ['platform.permission.api.read', 'platform.operator.read', 'platform.role.read'],
+                default => in_array($permission, ['platform.ops.logs.read', 'platform.ops.upgrade.manage'], true)
+                    ? ['platform.ops.read'] : [],
+            };
             self::assertSame($prerequisites, $endpoint['prerequisite_permission_keys']);
             $apiIds[$name] = $endpoint['api_id'];
             $insertBinding->execute([15, $apiIds[$name]]);
@@ -741,6 +747,11 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         $planPageKey = 'platform.plan.list';
         $operationsKey = 'platform.operations';
         $developerPageKey = 'platform.developer.catalog';
+        $developerRoot = 'platform.developer.tools';
+        $developerInstall = 'platform.developer.installations';
+        $developerOfficial = 'platform.developer.official';
+        $developerOps = 'platform.developer.operations';
+        $developerDiagnostics = 'platform.developer.diagnostics';
         $upgradesKey = 'platform.upgrade.status';
         $diagnosticsKey = 'platform.ops.diagnostics';
         $operatorPageKey = 'platform.operator.list';
@@ -784,6 +795,8 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             ['platform.role.update', $rolePageKey, 'action', null, ['roles.update']],
             ['platform.role.archive', $rolePageKey, 'action', null, ['roles.archive']],
             ['platform.governance.workbench', $groupKey, 'page', '/platform/#/role-permissions', ['roles.list', 'permissions.list']],
+            ['platform.role.nodes.prepare', 'platform.governance.workbench', 'operation', null, ['roles.nodes.prepare']],
+            ['platform.role.nodes.save', 'platform.governance.workbench', 'action', null, ['roles.nodes.save']],
             ['platform.role.permission.assign', 'platform.governance.workbench', 'action', null, ['roles.permissions.replace', 'permissions.list']],
             [$bundlePageKey, $groupKey, 'page', '/platform/#/permission-bundles', ['bundles.list']],
             ['platform.permission.bundle.create', $bundlePageKey, 'action', null, ['bundles.create']],
@@ -812,14 +825,19 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             [$diagnosticsKey, $operationsKey, 'page', '/platform/#/diagnostics', []],
             ['platform.ops.logs.read', $diagnosticsKey, 'operation', null, ['ops.logs']],
             ['platform.ops.diagnostics.download', $diagnosticsKey, 'operation', null, ['ops.diagnostics']],
-            [$developerPageKey, $operationsKey, 'page', '/platform/#/developer', ['developer.catalog']],
-            ['platform.developer.runtime.read', $developerPageKey, 'operation', null, ['developer.runtime']],
-            ['platform.developer.official-updates.read', $developerPageKey, 'operation', null, ['developer.updates']],
-            ['platform.developer.module.upload-install', $developerPageKey, 'action', null, ['developer.upload-install']],
-            ['platform.developer.module.upload-update', $developerPageKey, 'action', null, ['developer.upload-update']],
-            ['platform.developer.module.official-install', $developerPageKey, 'action', null, ['developer.official-install']],
-            ['platform.developer.module.official-update', $developerPageKey, 'action', null, ['developer.official-update']],
-            ['platform.module.operation-task.read', null, 'operation', null, ['module.task']],
+            [$developerRoot, null, 'group', null, []],
+            [$developerPageKey, $developerRoot, 'page', '/platform/#/developer/modules', ['developer.catalog']],
+            [$developerInstall, $developerRoot, 'page', '/platform/#/developer/installations', ['developer.runtime']],
+            [$developerOfficial, $developerRoot, 'page', '/platform/#/developer/official', ['developer.updates']],
+            [$developerOps, $developerRoot, 'page', '/platform/#/developer/operations', ['module.task']],
+            [$developerDiagnostics, $developerRoot, 'page', '/platform/#/developer/diagnostics', ['developer.catalog']],
+            ['platform.developer.runtime.read', $developerInstall, 'operation', null, ['developer.runtime']],
+            ['platform.developer.official-updates.read', $developerOfficial, 'operation', null, ['developer.updates']],
+            ['platform.developer.module.upload-install', $developerOps, 'action', null, ['developer.upload-install']],
+            ['platform.developer.module.upload-update', $developerOps, 'action', null, ['developer.upload-update']],
+            ['platform.developer.module.official-install', $developerOps, 'action', null, ['developer.official-install']],
+            ['platform.developer.module.official-update', $developerOps, 'action', null, ['developer.official-update']],
+            ['platform.module.operation-task.read', $developerOps, 'operation', null, ['module.task']],
             ['platform.role.authorization.preview', null, 'operation', null, ['roles.preview', 'operators.list', 'roles.list', 'apis.list']],
             ['platform.role.authorization.catalog-audit', null, 'operation', null, ['roles.catalog-audit', 'operators.list', 'roles.list', 'apis.list']],
         ] as [$key, $parent, $type, $routePath, $endpoints]) {

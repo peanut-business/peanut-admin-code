@@ -6,7 +6,7 @@
     },
     "info": {
         "title": "Peanut Admin HTTP API",
-        "version": "5.1.18-rc.40",
+        "version": "5.1.18-rc.41",
         "description": "Application HTTP contract for the identity, Tenant, article, file and notification entry points. Runtime authorization and Tenant binding remain enforced by the server middleware.",
         "x-peanut-contract-generator": {
             "name": "scripts/generate-api-contracts.php",
@@ -436,7 +436,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 202
+                        "line": 203
                     }
                 },
                 "x-peanut-permissions": [
@@ -514,7 +514,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 155
+                        "line": 156
                     }
                 },
                 "x-peanut-permissions": [
@@ -592,7 +592,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 199
+                        "line": 200
                     }
                 },
                 "x-peanut-permissions": [
@@ -670,7 +670,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 196
+                        "line": 197
                     }
                 },
                 "x-peanut-permissions": [
@@ -774,7 +774,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 158
+                        "line": 159
                     }
                 },
                 "x-peanut-permissions": [
@@ -852,7 +852,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 161
+                        "line": 162
                     }
                 },
                 "x-peanut-permissions": [
@@ -964,7 +964,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 169
+                        "line": 170
                     }
                 },
                 "x-peanut-permissions": [
@@ -1070,7 +1070,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 172
+                        "line": 173
                     }
                 },
                 "x-peanut-permissions": [
@@ -1171,7 +1171,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 180
+                        "line": 181
                     }
                 },
                 "x-peanut-permissions": [
@@ -1283,7 +1283,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 183
+                        "line": 184
                     }
                 },
                 "x-peanut-permissions": [
@@ -1377,7 +1377,7 @@
                     "permission": "platform.ops.upgrade.manage",
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 186
+                        "line": 187
                     }
                 },
                 "x-peanut-permissions": [
@@ -1482,7 +1482,7 @@
                     "permission": "platform.ops.module.manage",
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 191
+                        "line": 192
                     }
                 },
                 "x-peanut-permissions": [
@@ -1574,7 +1574,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 205
+                        "line": 206
                     }
                 },
                 "x-peanut-permissions": [
@@ -11411,7 +11411,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 51
+                        "line": 52
                     }
                 },
                 "x-peanut-permissions": []
@@ -11482,7 +11482,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 53
+                        "line": 54
                     }
                 },
                 "x-peanut-permissions": []
@@ -11553,7 +11553,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 55
+                        "line": 56
                     }
                 },
                 "x-peanut-permissions": []
@@ -11623,7 +11623,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 57
+                        "line": 58
                     }
                 },
                 "x-peanut-permissions": []
@@ -11693,7 +11693,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 59
+                        "line": 60
                     }
                 },
                 "x-peanut-permissions": [
@@ -11802,7 +11802,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 236
+                        "line": 237
                     }
                 },
                 "x-peanut-permissions": [
@@ -11887,7 +11887,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 62
+                        "line": 63
                     }
                 },
                 "x-peanut-permissions": [
@@ -11975,7 +11975,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 211
+                        "line": 212
                     }
                 },
                 "x-peanut-permissions": [
@@ -12063,7 +12063,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 214
+                        "line": 215
                     }
                 },
                 "x-peanut-permissions": [
@@ -12151,7 +12151,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 217
+                        "line": 218
                     }
                 },
                 "x-peanut-permissions": [
@@ -12260,7 +12260,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 84
+                        "line": 85
                     }
                 },
                 "x-peanut-permissions": [
@@ -12369,7 +12369,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 87
+                        "line": 88
                     }
                 },
                 "x-peanut-permissions": [
@@ -12478,7 +12478,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 90
+                        "line": 91
                     }
                 },
                 "x-peanut-permissions": [
@@ -12587,7 +12587,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 93
+                        "line": 94
                     }
                 },
                 "x-peanut-permissions": [
@@ -12705,7 +12705,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 96
+                        "line": 97
                     }
                 },
                 "x-peanut-permissions": [
@@ -12790,7 +12790,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 81
+                        "line": 82
                     }
                 },
                 "x-peanut-permissions": [
@@ -12895,7 +12895,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 239
+                        "line": 240
                     }
                 },
                 "x-peanut-permissions": [
@@ -13005,7 +13005,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 242
+                        "line": 243
                     }
                 },
                 "x-peanut-permissions": [
@@ -13119,7 +13119,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 245
+                        "line": 246
                     }
                 },
                 "x-peanut-permissions": [
@@ -13224,7 +13224,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 248
+                        "line": 249
                     }
                 },
                 "x-peanut-permissions": [
@@ -13329,7 +13329,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 251
+                        "line": 252
                     }
                 },
                 "x-peanut-permissions": [
@@ -13434,7 +13434,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 254
+                        "line": 255
                     }
                 },
                 "x-peanut-permissions": [
@@ -13539,7 +13539,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 257
+                        "line": 258
                     }
                 },
                 "x-peanut-permissions": [
@@ -13653,7 +13653,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 260
+                        "line": 261
                     }
                 },
                 "x-peanut-permissions": [
@@ -13758,7 +13758,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 263
+                        "line": 264
                     }
                 },
                 "x-peanut-permissions": [
@@ -13871,10 +13871,212 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 280
+                        "line": 284
                     }
                 },
                 "x-peanut-permissions": [
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.role.permission.assign"
+                    }
+                ]
+            }
+        },
+        "/platformapi/roles/nodes/prepare": {
+            "post": {
+                "tags": [
+                    "PlatformAccess"
+                ],
+                "operationId": "preparePlatformRoleNodes",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/PlatformRoleNodePrepared"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PlatformRoleNodePrepareRequest"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "platform",
+                    "owner": {
+                        "type": "application",
+                        "key": "platform"
+                    },
+                    "controller": "app\\platform\\controller\\PlatformRoleNodeWriteController",
+                    "action": "prepare",
+                    "permission": "platform.role.read",
+                    "source": {
+                        "file": "server/route/platform.php",
+                        "line": 290
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.permission.api.read"
+                    },
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.operator.read"
+                    },
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.role.read"
+                    }
+                ]
+            }
+        },
+        "/platformapi/roles/nodes/save": {
+            "post": {
+                "tags": [
+                    "PlatformAccess"
+                ],
+                "operationId": "savePlatformRoleNodes",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/PlatformRoleNodeSaved"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PlatformRoleNodeSaveRequest"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "platform",
+                    "owner": {
+                        "type": "application",
+                        "key": "platform"
+                    },
+                    "controller": "app\\platform\\controller\\PlatformRoleNodeWriteController",
+                    "action": "save",
+                    "permission": "platform.role.permission.assign",
+                    "source": {
+                        "file": "server/route/platform.php",
+                        "line": 297
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.permission.api.read"
+                    },
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.operator.read"
+                    },
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.role.read"
+                    },
                     {
                         "kind": "platform_action",
                         "key": "platform.role.permission.assign"
@@ -13959,7 +14161,7 @@
                     "permission": "platform.role.read",
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 266
+                        "line": 267
                     }
                 },
                 "x-peanut-permissions": [
@@ -14055,7 +14257,7 @@
                     "permission": "platform.role.read",
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 273
+                        "line": 274
                     }
                 },
                 "x-peanut-permissions": [
@@ -14181,7 +14383,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 65
+                        "line": 66
                     }
                 },
                 "x-peanut-permissions": [
@@ -14293,7 +14495,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 75
+                        "line": 76
                     }
                 },
                 "x-peanut-permissions": [
@@ -14409,7 +14611,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 78
+                        "line": 79
                     }
                 },
                 "x-peanut-permissions": [
@@ -14510,7 +14712,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 68
+                        "line": 69
                     }
                 },
                 "x-peanut-permissions": [
@@ -14605,7 +14807,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 71
+                        "line": 72
                     }
                 },
                 "x-peanut-permissions": [
@@ -14693,7 +14895,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 146
+                        "line": 147
                     }
                 },
                 "x-peanut-permissions": [
@@ -14813,7 +15015,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 149
+                        "line": 150
                     }
                 },
                 "x-peanut-permissions": [
@@ -14918,7 +15120,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 208
+                        "line": 209
                     }
                 },
                 "x-peanut-permissions": [
@@ -15019,7 +15221,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 107
+                        "line": 108
                     }
                 },
                 "x-peanut-permissions": [
@@ -15144,7 +15346,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 111
+                        "line": 112
                     }
                 },
                 "x-peanut-permissions": [
@@ -15269,7 +15471,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 115
+                        "line": 116
                     }
                 },
                 "x-peanut-permissions": [
@@ -15387,7 +15589,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 99
+                        "line": 100
                     }
                 },
                 "x-peanut-permissions": [
@@ -15493,7 +15695,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 123
+                        "line": 124
                     }
                 },
                 "x-peanut-permissions": [
@@ -15612,7 +15814,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 127
+                        "line": 128
                     }
                 },
                 "x-peanut-permissions": [
@@ -15700,7 +15902,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 131
+                        "line": 132
                     }
                 },
                 "x-peanut-permissions": [
@@ -15810,7 +16012,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 119
+                        "line": 120
                     }
                 },
                 "x-peanut-permissions": [
@@ -15911,7 +16113,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 138
+                        "line": 139
                     }
                 },
                 "x-peanut-permissions": [
@@ -16003,7 +16205,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 142
+                        "line": 143
                     }
                 },
                 "x-peanut-permissions": [
@@ -16176,7 +16378,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 134
+                        "line": 135
                     }
                 },
                 "x-peanut-permissions": [
@@ -16261,7 +16463,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 104
+                        "line": 105
                     }
                 },
                 "x-peanut-permissions": [
@@ -16339,7 +16541,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 152
+                        "line": 153
                     }
                 },
                 "x-peanut-permissions": [
@@ -16470,7 +16672,7 @@
                     "permission": "platform.ops.logs.read",
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 164
+                        "line": 165
                     }
                 },
                 "x-peanut-permissions": [
@@ -16570,7 +16772,7 @@
                     "permission": "platform.ops.logs.read",
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 175
+                        "line": 176
                     }
                 },
                 "x-peanut-permissions": [
@@ -16688,7 +16890,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 221
+                        "line": 222
                     }
                 },
                 "x-peanut-permissions": [
@@ -16777,7 +16979,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 224
+                        "line": 225
                     }
                 },
                 "x-peanut-permissions": [
@@ -16866,7 +17068,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 227
+                        "line": 228
                     }
                 },
                 "x-peanut-permissions": [
@@ -16957,7 +17159,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 230
+                        "line": 231
                     }
                 },
                 "x-peanut-permissions": [
@@ -17046,7 +17248,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 233
+                        "line": 234
                     }
                 },
                 "x-peanut-permissions": [
@@ -17189,7 +17391,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 32
+                        "line": 33
                     }
                 },
                 "x-peanut-permissions": [
@@ -17303,7 +17505,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 35
+                        "line": 36
                     }
                 },
                 "x-peanut-permissions": [
@@ -17436,7 +17638,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 38
+                        "line": 39
                     }
                 },
                 "x-peanut-permissions": [
@@ -17578,7 +17780,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 26
+                        "line": 27
                     }
                 },
                 "x-peanut-permissions": [
@@ -17751,7 +17953,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 29
+                        "line": 30
                     }
                 },
                 "x-peanut-permissions": [
@@ -17906,7 +18108,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 47
+                        "line": 48
                     }
                 },
                 "x-peanut-permissions": [
@@ -17995,7 +18197,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 41
+                        "line": 42
                     }
                 },
                 "x-peanut-permissions": [
@@ -18129,7 +18331,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/platform.php",
-                        "line": 44
+                        "line": 45
                     }
                 },
                 "x-peanut-permissions": [
@@ -25840,6 +26042,229 @@
                         "$ref": "#/components/schemas/PlatformOpsTask"
                     }
                 ]
+            },
+            "PlatformRoleNodePrepareRequest": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "role_id",
+                    "node_keys"
+                ],
+                "properties": {
+                    "role_id": {
+                        "oneOf": [
+                            {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                            }
+                        ]
+                    },
+                    "node_keys": {
+                        "type": "array",
+                        "maxItems": 200,
+                        "items": {
+                            "type": "string",
+                            "pattern": "^platform\\.[a-z0-9][a-z0-9_-]*(?:\\.[a-z0-9][a-z0-9_-]*)*$",
+                            "maxLength": 160
+                        }
+                    }
+                }
+            },
+            "PlatformRoleNodeSaveRequest": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "role_id",
+                    "node_keys",
+                    "expected_revision",
+                    "expected_catalog_sha256",
+                    "change_reason"
+                ],
+                "properties": {
+                    "role_id": {
+                        "oneOf": [
+                            {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                            }
+                        ]
+                    },
+                    "node_keys": {
+                        "type": "array",
+                        "maxItems": 200,
+                        "items": {
+                            "type": "string",
+                            "pattern": "^platform\\.[a-z0-9][a-z0-9_-]*(?:\\.[a-z0-9][a-z0-9_-]*)*$",
+                            "maxLength": 160
+                        }
+                    },
+                    "expected_revision": {
+                        "oneOf": [
+                            {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]*$"
+                            }
+                        ]
+                    },
+                    "expected_catalog_sha256": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "change_reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                    }
+                }
+            },
+            "PlatformRoleNodePrepared": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "role_id",
+                    "expected_revision",
+                    "node_keys",
+                    "expected_catalog_sha256",
+                    "source_mode"
+                ],
+                "properties": {
+                    "role_id": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$"
+                    },
+                    "expected_revision": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$"
+                    },
+                    "node_keys": {
+                        "type": "array",
+                        "maxItems": 200,
+                        "items": {
+                            "type": "string",
+                            "pattern": "^platform\\.[a-z0-9][a-z0-9_-]*(?:\\.[a-z0-9][a-z0-9_-]*)*$",
+                            "maxLength": 160
+                        }
+                    },
+                    "expected_catalog_sha256": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "source_mode": {
+                        "type": "string",
+                        "enum": [
+                            "legacy",
+                            "direct"
+                        ]
+                    }
+                }
+            },
+            "PlatformRoleNodeSaved": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "id",
+                    "key",
+                    "name",
+                    "description",
+                    "is_builtin",
+                    "status",
+                    "revision",
+                    "created_at",
+                    "updated_at",
+                    "permission_keys",
+                    "node_keys",
+                    "catalog_sha256"
+                ],
+                "properties": {
+                    "id": {
+                        "oneOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "key": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "is_builtin": {
+                        "oneOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "boolean"
+                            }
+                        ]
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "revision": {
+                        "oneOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "archived_at": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    },
+                    "permission_count": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "permission_keys": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "node_keys": {
+                        "type": "array",
+                        "maxItems": 200,
+                        "items": {
+                            "type": "string",
+                            "pattern": "^platform\\.[a-z0-9][a-z0-9_-]*(?:\\.[a-z0-9][a-z0-9_-]*)*$",
+                            "maxLength": 160
+                        }
+                    },
+                    "catalog_sha256": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                    }
+                }
             },
             "PlatformRoleAuthorizationCandidate": {
                 "type": "object",

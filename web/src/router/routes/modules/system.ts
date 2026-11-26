@@ -20,6 +20,9 @@ const SYSTEM: AppRouteRecordRaw = {
         locale: 'menu.system.menu',
         requiresAuth: true,
         requiredPermissions: ['core.menu.read'],
+        // Native MenuController CRUD is restricted to standalone instances.
+        // Do not register this private management page in MT tenant routing.
+        instanceTool: true,
       },
     },
     {

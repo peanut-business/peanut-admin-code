@@ -1,3 +1,9 @@
+import type { components as GeneratedPlatformSchemas } from '../../../web/src/generated/openapi';
+
+// Direct node-role read/save types are derived from the native OpenAPI generator.
+export type RoleNodePrepared = GeneratedPlatformSchemas['schemas']['PlatformRoleNodePrepared'];
+export type RoleNodeSaved = GeneratedPlatformSchemas['schemas']['PlatformRoleNodeSaved'];
+
 import axios from 'axios';
 import { createMemoryRefreshCoordinator } from '@peanut-admin/vue';
 import { formatRequestError } from '@peanut-admin/client';
@@ -47,6 +53,8 @@ import {
   platformRoleArchive,
   platformRoleAuthorizationPreview,
   platformRoleAuthorizationCatalogAudit,
+  platformRoleNodePrepare,
+  platformRoleNodeSave,
   platformRoleCreate,
   platformRolePermissionAssign,
   platformRolesPage,
@@ -1311,6 +1319,26 @@ export const api = {
         } as SessionRequestConfig)
       ),
       candidate.operator_id
+    ),
+  prepareRoleNodes: (roleId: string, nodeKeys: string[]) =>
+    unwrap<RoleNodePrepared>(
+      requestEndpoint(platformRoleNodePrepare.endpoints[0], {
+        data: { role_id: roleId, node_keys: nodeKeys },
+        platformSkipSessionRecovery: true,
+      } as SessionRequestConfig)
+    ),
+  saveRoleNodes: (prepared: RoleNodePrepared, reason: string) =>
+    unwrap<RoleNodeSaved>(
+      requestEndpoint(platformRoleNodeSave.endpoints[0], {
+        data: {
+          role_id: prepared.role_id,
+          node_keys: prepared.node_keys,
+          expected_revision: prepared.expected_revision,
+          expected_catalog_sha256: prepared.expected_catalog_sha256,
+          change_reason: reason,
+        },
+        platformSkipSessionRecovery: true,
+      } as SessionRequestConfig)
     ),
   auditRoleAuthorizationCatalog: async (
     candidate: RoleAuthorizationCatalogCandidate,

@@ -94,6 +94,12 @@ const permissionApisPath = '/platformapi/permission/apis';
 const permissionMenusPath = '/platformapi/permission/menus';
 const permissionApiBindingsPath = permissionApisPath + '/bindings';
 const permissionMenuBindingPath = permissionMenusPath + '/binding';
+const roleDirectNodes = [
+  ['platform.role.nodes.prepare', 'platform.governance.workbench', 'operation',
+    [['POST', '/platformapi/roles/nodes/prepare']]],
+  ['platform.role.nodes.save', 'platform.governance.workbench', 'action',
+    [['POST', '/platformapi/roles/nodes/save']]],
+];
 const rolePermissionAssignNode = [
   'platform.role.permission.assign', 'platform.governance.workbench', 'action',
   [['POST', legacyPath], ['GET', permissionCatalogPath]],
@@ -270,7 +276,7 @@ function nativePlatformApis() {
       alternatives.map(([, endpoint]) => ['GET', opsPath + '/' + endpoint])
     ),
     ...[...tenancyNodes, ...developerNodes].flatMap((node) => node[3]),
-    ...[rolePermissionAssignNode, ...permissionApiBindingNodes, permissionMenuBindingNode, sharedPreviewNode, sharedCatalogNode,
+    ...[rolePermissionAssignNode, ...roleDirectNodes, ...permissionApiBindingNodes, permissionMenuBindingNode, sharedPreviewNode, sharedCatalogNode,
       ...opsMaintenanceActions, ...opsBackupActions, opsUpgradeExecuteNode].flatMap((node) => node[3]),
   ];
   return [...new Map(references.map(([method, path]) => [method + ' ' + path, [method, path]])).values()]
@@ -345,6 +351,10 @@ function fixture(t, adapter) {
     vue: { ...vue, onMounted: (callback) => { start = callback; } },
     '@peanut-admin/client': peanutClient,
     '@peanut-admin/vue': peanutVue,
+    'element-plus': {
+      ElMessage: { success: () => {} },
+      ElMessageBox: { prompt: async () => ({ value: 'Synthetic direct-role change' }) },
+    },
   };
   for (const [name, code, filename] of transpiled) {
     const module = { exports: {} };
@@ -385,6 +395,8 @@ function fixture(t, adapter) {
         dependencies['./preview-panel'].default.setup({
           canPreview,
           canCatalogAudit: () => allowed,
+          canDirectPrepare: () => allowed,
+          canDirectSave: () => allowed,
           loadDirectory: useOfficialDirectory
             ? (signal) => contract.readRoleAuthorizationPreviewDirectory(platform.api, canPreview, signal)
             : async () => ({
@@ -621,6 +633,7 @@ test('the default preview projects the real Platform Shell branches and a no-men
       node('platform.role.update', 'platform.role.list', 'action', [['POST', updateRolePath]]),
       node('platform.role.archive', 'platform.role.list', 'action', [['POST', archiveRolePath]]),
       node('platform.governance.workbench', 'platform.governance', 'page', [['GET', rolesPath], ['GET', permissionCatalogPath]]),
+      ...roleDirectNodes.map((definition) => node(...definition)),
       node(...rolePermissionAssignNode),
       node('platform.permission.bundle.list', 'platform.governance', 'page', [['GET', permissionBundlesPath]]),
       node('platform.permission.bundle.create', 'platform.permission.bundle.list', 'action', [['POST', permissionBundlesPath]]),
@@ -1531,7 +1544,7 @@ test('native Platform role-node source is bound to the Shell definition and curr
   assert.equal(manifest.schema_version, 1);
   assert.equal(manifest.source_path, 'platform/src/core/platform-shell-definitions.ts');
   assert.equal(manifest.source_sha256, createHash('sha256').update(source).digest('hex'));
-  assert.equal(manifest.nodes.length, 85);
+  assert.equal(manifest.nodes.length, 87);
   const developerGroup = manifest.nodes.find((node) => node.key === 'platform.developer.tools');
   assert.equal(developerGroup?.type, 'group');
   assert.equal(developerGroup?.parent_key, null);
@@ -1570,4 +1583,71 @@ test('native Platform role-node source is bound to the Shell definition and curr
     assert.equal(matches[0].contract_quality, 'complete');
     assert.deepEqual(matches[0].owner, { type: 'application', key: 'platform' });
   }
+});
+
+test('direct-node API uses native endpoint paths and strict prepare/save payloads', async (t) => {
+  const requests = [];
+  const { api } = fixture(t, async (config) => {
+    requests.push({ path: config.url, method: config.method, data: JSON.parse(config.data),
+      skipRecovery: config.platformSkipSessionRecovery });
+    if (config.url === '/platformapi/roles/nodes/prepare') {
+      return reply(config, {
+        role_id: '2', expected_revision: '7', node_keys: [], source_mode: 'legacy',
+        expected_catalog_sha256: 'a'.repeat(64),
+      });
+    }
+    if (config.url === '/platformapi/roles/nodes/save') {
+      return reply(config, { revision: '8', node_keys: [], catalog_sha256: 'a'.repeat(64) });
+    }
+    throw new Error('unexpected endpoint ' + config.url);
+  });
+  const prepared = await api.prepareRoleNodes('2', []);
+  await api.saveRoleNodes(prepared, 'synthetic change');
+  assert.deepEqual(plain(requests), [
+    { path: '/platformapi/roles/nodes/prepare', method: 'post', data: { role_id: '2', node_keys: [] }, skipRecovery: true },
+    { path: '/platformapi/roles/nodes/save', method: 'post', data: {
+      role_id: '2', node_keys: [], expected_revision: '7',
+      expected_catalog_sha256: 'a'.repeat(64), change_reason: 'synthetic change',
+    }, skipRecovery: true },
+  ]);
+});
+
+test('direct-node panel distinguishes omitted selection from explicit empty and invalidates stale stage', async (t) => {
+  const requests = [];
+  const { mount } = fixture(t, async (config) => {
+    requests.push([config.url, JSON.parse(config.data)]);
+    if (config.url === '/platformapi/roles/nodes/prepare') {
+      return reply(config, {
+        role_id: '2', expected_revision: '1', node_keys: [],
+        expected_catalog_sha256: 'b'.repeat(64), source_mode: 'legacy',
+      });
+    }
+    if (config.url === '/platformapi/roles/nodes/save') {
+      return reply(config, { revision: '2', node_keys: [], catalog_sha256: 'b'.repeat(64) });
+    }
+    throw new Error('unexpected endpoint: ' + config.url);
+  });
+  const panel = await mount(false, 'shell');
+  panel.targetMode.value = 'catalog';
+  panel.roleId.value = '2';
+  await panel.prepareNodes();
+  assert.equal(requests.length, 0, 'unprovided selection must not become an implicit empty mutation');
+  panel.setRoleSelection([]);
+  assert.equal(panel.selectionLabel('2'), '明确空选择');
+  await panel.prepareNodes();
+  assert.equal(requests.length, 1);
+  assert.deepEqual(plain(requests[0][1]), { role_id: '2', node_keys: [] });
+  assert.equal(panel.preparedNodes.value.expected_revision, '1');
+  panel.setRoleSelection(['platform.tenant.list']);
+  assert.equal(panel.preparedNodes.value, undefined, 'editing a staged selection must invalidate it');
+  await panel.saveNodes();
+  assert.equal(requests.length, 1, 'no stale stage may be committed');
+  panel.setRoleSelection([]);
+  await panel.prepareNodes();
+  assert.equal(requests.length, 2);
+  await panel.saveNodes();
+  assert.equal(requests.length, 3);
+  assert.equal(requests[2][0], '/platformapi/roles/nodes/save');
+  assert.deepEqual(plain(requests[2][1].node_keys), []);
+  assert.equal(panel.preparedNodes.value, undefined, 'successful save must discard prepared state');
 });

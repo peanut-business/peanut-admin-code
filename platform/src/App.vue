@@ -1334,6 +1334,8 @@
     v-if="roleAuthorizationPreviewOpen && canPreviewRoleAuthorization()"
     :can-preview="canPreviewRoleAuthorization"
     :can-catalog-audit="canAuditRoleAuthorizationCatalog"
+    :can-direct-prepare="() => canApi(...platformRoleNodePrepare.endpoints[0])"
+    :can-direct-save="() => canApi(...platformRoleNodeSave.endpoints[0])"
     :load-directory="loadRoleAuthorizationPreviewDirectory"
     @close="roleAuthorizationPreviewOpen = false"
   />
@@ -1603,6 +1605,8 @@
     platformRoleAuthorizationPage,
     platformRoleCreate,
     platformRolePermissionAssign,
+    platformRoleNodePrepare,
+    platformRoleNodeSave,
     platformRolesPage,
     platformRoleUpdate,
     platformStorageAccountCreate,

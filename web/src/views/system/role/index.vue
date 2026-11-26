@@ -168,6 +168,37 @@
       align-center
     >
       <div v-loading="authLoading" style="width: 100%">
+        <h4>角色权限（当前兼容授权）</h4>
+        <el-alert
+          title="当前角色保存仍采用正式 permission_keys。下方菜单树只读展示现有效权限关联；直接 API 授权必须完成 G18 服务端单源迁移后启用。"
+          type="info"
+          :closable="false"
+          show-icon
+        />
+        <section v-if="tenantMenuTree.length" aria-label="正式租户菜单角色权限只读树">
+          <h4>目录 → 菜单 → 按钮（只读授权投影）</h4>
+          <el-tree
+            :data="tenantMenuTree"
+            node-key="menu_key"
+            default-expand-all
+            :props="{ label: 'name', children: 'children' }"
+            :expand-on-click-node="false"
+          >
+            <template #default="{ data }">
+              <span>
+                {{ data.type === 'M' ? '目录' : data.type === 'A' ? '按钮' : '菜单' }}
+                · {{ data.name }}
+                <small v-if="data.perms">
+                  · {{ data.perms }}
+                  {{ authForm.permission_keys.includes(data.perms) ? '（本角色持有）' : '（未直接持有）' }}
+                </small>
+              </span>
+            </template>
+          </el-tree>
+        </section>
+        <p v-else-if="tenantMenuError" role="status">
+          {{ tenantMenuError }}；保留原有角色授权读写，不通过其它身份取得菜单目录。
+        </p>
         <h4>{{ $t('systemRole.auth.bundles') }}</h4>
         <p>{{ $t('systemRole.auth.bundleHint') }}</p>
         <el-alert
@@ -243,6 +274,9 @@
   import type { FormInstance } from 'element-plus';
   import { Plus, Refresh } from '@element-plus/icons-vue';
   import useLoading from '@/hooks/loading';
+  import { useUserStore } from '@/store';
+  import { hasPermission } from '@/hooks/permission';
+  import { getMenuAll, type MenuRecord } from '@/api/system/menu';
   import {
     addRole,
     deleteRole,
@@ -385,6 +419,13 @@
   const authRoleKey = ref('');
   const permissionCatalog = ref<RolePermissionOption[]>([]);
   const permissionSearch = ref('');
+  const tenantMenuTree = ref<MenuRecord[]>([]);
+  const tenantMenuError = ref('');
+  const userStore = useUserStore();
+  // This is an additional tenant-scoped, authorized read only. The role
+  // editor itself must remain usable for actors without core.menu.read.
+  const canReadTenantMenuTree = () =>
+    hasPermission('core.menu.read', undefined, userStore.permissions);
   let authGeneration = 0;
 
   watch(
@@ -452,16 +493,33 @@
     });
     authRoleKey.value = '';
     permissionCatalog.value = [];
+    tenantMenuTree.value = [];
+    tenantMenuError.value = '';
     const isCurrent = () => generation === authGeneration && authVisible.value;
     try {
-      const [{ data }, catalog] = await Promise.all([
+      const menuRead = canReadTenantMenuTree()
+        ? getMenuAll()
+            .then(({ data }) => ({ data, error: '' }))
+            .catch(() => ({
+              data: [] as MenuRecord[],
+              error: '当前账号不能读取正式菜单目录',
+            }))
+        : Promise.resolve({
+            data: [] as MenuRecord[],
+            error: '没有 core.menu.read 目录读取权限',
+          });
+      const [{ data }, catalog, menus] = await Promise.all([
         getRolePermissions(record.id),
         loadPermissionCatalog(),
+        menuRead,
       ]);
       if (!isCurrent()) return;
       if (String(data.role_id) !== String(record.id))
         throw new Error('Role permission response target changed');
       permissionCatalog.value = catalog;
+      if (!Array.isArray(menus.data)) throw new Error('Invalid native tenant menu tree');
+      tenantMenuTree.value = menus.data;
+      tenantMenuError.value = menus.error;
       Object.assign(authForm, {
         role_id: data.role_id,
         expected_revision: data.revision,

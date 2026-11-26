@@ -579,6 +579,58 @@ foreach ($roleRequests as $route => $definition) {
     ));
 }
 
+// Identity owns the direct role-node/API contract. A live host without its
+// independent migration must reject direct writes and keep legacy grants.
+$schemas['PlatformRoleNodePrepareRequest'] = [
+    'type' => 'object', 'additionalProperties' => false,
+    'required' => ['role_id', 'node_keys'],
+    'properties' => [
+        'role_id' => ['oneOf' => [$positiveId, ['type' => 'string', 'pattern' => '^[1-9][0-9]*$']]],
+        'node_keys' => ['type' => 'array', 'maxItems' => 200,
+            'items' => ['type' => 'string', 'pattern' => '^platform\\.[a-z0-9][a-z0-9_-]*(?:\\.[a-z0-9][a-z0-9_-]*)*$', 'maxLength' => 160]],
+    ],
+];
+$schemas['PlatformRoleNodeSaveRequest'] = [
+    'type' => 'object', 'additionalProperties' => false,
+    'required' => ['role_id', 'node_keys', 'expected_revision', 'expected_catalog_sha256', 'change_reason'],
+    'properties' => $schemas['PlatformRoleNodePrepareRequest']['properties'] + [
+        'expected_revision' => ['oneOf' => [$positiveId, ['type' => 'string', 'pattern' => '^[1-9][0-9]*$']]],
+        'expected_catalog_sha256' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$'],
+        'change_reason' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 500],
+    ],
+];
+$schemas['PlatformRoleNodePrepared'] = [
+    'type' => 'object', 'additionalProperties' => false,
+    'required' => ['role_id', 'expected_revision', 'node_keys', 'expected_catalog_sha256', 'source_mode'],
+    'properties' => [
+        'role_id' => ['type' => 'string', 'pattern' => '^[1-9][0-9]*$'],
+        'expected_revision' => ['type' => 'string', 'pattern' => '^[1-9][0-9]*$'],
+        'node_keys' => $schemas['PlatformRoleNodePrepareRequest']['properties']['node_keys'],
+        'expected_catalog_sha256' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$'],
+        'source_mode' => ['type' => 'string', 'enum' => ['legacy', 'direct']],
+    ],
+];
+// The Identity writer returns the standard PlatformRole projection PLUS
+// direct-node evidence. Keep the native role schema as the single producer.
+$schemas['PlatformRoleNodeSaved'] = $schemas['PlatformRole'];
+$schemas['PlatformRoleNodeSaved']['required'] = [
+    ...$schemas['PlatformRole']['required'], 'node_keys', 'catalog_sha256',
+];
+$schemas['PlatformRoleNodeSaved']['properties'] += [
+    'node_keys' => $schemas['PlatformRoleNodePrepareRequest']['properties']['node_keys'],
+    'catalog_sha256' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$'],
+];
+$add($paths, 'POST', '/platformapi/roles/nodes/prepare', $operation(
+    'preparePlatformRoleNodes', 'PlatformAccess',
+    $responses('PlatformRoleNodePrepared') + ['400' => $error, '401' => $error, '403' => $error, '409' => $error],
+    requestBody: $jsonBody($ref('PlatformRoleNodePrepareRequest')),
+));
+$add($paths, 'POST', '/platformapi/roles/nodes/save', $operation(
+    'savePlatformRoleNodes', 'PlatformAccess',
+    $responses('PlatformRoleNodeSaved') + ['400' => $error, '401' => $error, '403' => $error, '409' => $error],
+    requestBody: $jsonBody($ref('PlatformRoleNodeSaveRequest')),
+));
+
 // A candidate is a read-only direct API graph, never a replacement grant request.
 $previewId = ['oneOf' => [$positiveId, ['type' => 'string', 'pattern' => '^[1-9][0-9]*$']]];
 $previewNodeKey = ['type' => 'string', 'maxLength' => 160, 'pattern' => '^platform\\.[a-z0-9][a-z0-9_-]*(?:\\.[a-z0-9][a-z0-9_-]*)*$'];

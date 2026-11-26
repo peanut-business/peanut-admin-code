@@ -60,8 +60,9 @@ test('real Admin Menu status cell shows read-only active, disabled and retired w
 test('real Menu page keeps native read/write permission and status API separate',()=>{
   const router=readFileSync(root+'src/router/routes/modules/system.ts','utf8');
   const routes=readFileSync(root+'../server/route/admin.php','utf8');
-  assert.match(router,/name: 'SystemMenu'/);
+  assert.match(router,/name: 'SystemMenu'[\s\S]*?instanceTool: true/);
   assert.match(router,/requiredPermissions: \['core.menu.read'\]/);
+  assert.match(router,/instanceTool: true/);
   assert.match(routes,/Route::get\('menu.lists',[^\n]*'peanut_permission' => 'core.menu.read'/);
   assert.match(routes,/Route::post\('menu.status',[^\n]*'peanut_permission' => 'core.menu.manage'/);
   assert.match(source,/hasPermission\('core.menu.manage', route.path\)/);

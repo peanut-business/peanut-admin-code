@@ -2247,6 +2247,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platformapi/roles/nodes/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["preparePlatformRoleNodes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/roles/nodes/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["savePlatformRoleNodes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platformapi/roles/permissions/preview": {
         parameters: {
             query?: never;
@@ -4557,6 +4589,41 @@ export interface components {
             selection_sha256: string;
         };
         PlatformOfficialPackageResult: components["schemas"]["PlatformOfficialPackagePreview"] | components["schemas"]["PlatformOpsTask"];
+        PlatformRoleNodePrepareRequest: {
+            role_id: number | string;
+            node_keys: string[];
+        };
+        PlatformRoleNodeSaveRequest: {
+            role_id: number | string;
+            node_keys: string[];
+            expected_revision: number | string;
+            expected_catalog_sha256: string;
+            change_reason: string;
+        };
+        PlatformRoleNodePrepared: {
+            role_id: string;
+            expected_revision: string;
+            node_keys: string[];
+            expected_catalog_sha256: string;
+            /** @enum {string} */
+            source_mode: "legacy" | "direct";
+        };
+        PlatformRoleNodeSaved: {
+            id: number | string;
+            key: string;
+            name: string;
+            description: string | null;
+            is_builtin: number | boolean;
+            status: string;
+            revision: number | string;
+            archived_at?: string | null;
+            created_at: string;
+            updated_at: string;
+            permission_count?: number;
+            permission_keys: string[];
+            node_keys: string[];
+            catalog_sha256: string;
+        };
         PlatformRoleAuthorizationCandidate: {
             operator_id: number | string;
             nodes: {
@@ -9604,6 +9671,74 @@ export interface operations {
             };
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    preparePlatformRoleNodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformRoleNodePrepareRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformRoleNodePrepared"];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    savePlatformRoleNodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformRoleNodeSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformRoleNodeSaved"];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };

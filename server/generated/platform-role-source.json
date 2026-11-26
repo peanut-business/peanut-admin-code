@@ -1,7 +1,7 @@
 {
     "schema_version": 1,
     "source_path": "platform/src/core/platform-shell-definitions.ts",
-    "source_sha256": "a4070c3f57b5a81d21d31427ee76e135f6033ff8214b09602bea9511fd4e7d46",
+    "source_sha256": "447bc6b5289634b3f739dad516dfce86335f9e0206c3302b18cb9d92edd3fb57",
     "nodes": [
         {
             "key": "platform.tenancy",
@@ -462,6 +462,32 @@
                 [
                     "GET",
                     "/platformapi/permissions"
+                ]
+            ],
+            "api_owner": "platform"
+        },
+        {
+            "key": "platform.role.nodes.prepare",
+            "parent_key": "platform.governance.workbench",
+            "type": "operation",
+            "route_path": null,
+            "api_endpoints": [
+                [
+                    "POST",
+                    "/platformapi/roles/nodes/prepare"
+                ]
+            ],
+            "api_owner": "platform"
+        },
+        {
+            "key": "platform.role.nodes.save",
+            "parent_key": "platform.governance.workbench",
+            "type": "action",
+            "route_path": null,
+            "api_endpoints": [
+                [
+                    "POST",
+                    "/platformapi/roles/nodes/save"
                 ]
             ],
             "api_owner": "platform"

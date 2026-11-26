@@ -48,6 +48,14 @@ Provider目录复用当前App由ModuleComposition保存的同一实例，支持�
 
 Admin `system/menu` 编辑原生入口还受 standalone InstanceToolAccessGuard 限制；MT 不能为实现租户树授权而放宽实例菜单管理写权限。Admin租户角色授权与 Platform 实例角色属于不同scope，不可复用或跨租户套用同一角色API身份。
 
+### G18 直接角色授权源码与当前上线范围
+
+Platform 的直接角色节点保存已经在 Scaffold 原生权限路由增加受控的 `POST /platformapi/roles/nodes/prepare` 与 `/save`：只接受原生登记节点的 key，不接受前端自带的 API/菜单事实；强制独立 Platform 操作员/权限API目录可读能力、严格的变更者写权限；写入由 Identity 的 `PlatformRoleNodeWriteContract` 委托 `PlatformAccessAdminService::replaceRoleNodes`，事务中重新比较角色 CAS revision 与完整节点/API/实例目录摘要，并记录审计。Platform 角色候选树可准备、确认和读回，后端的 `ThinkPhpPlatformAuthorizationRepository` 仅在一次性全角色等价迁移后由全局 `PlatformRoleDirectGrantStore` 单源读取；撤权、未授权直调、最后控制管理员、旧角色恢复均有源测试。
+
+**禁止混淆源码与运行：** Identity 模块已包含四个直接关系表的迁移定义，但必须先取得独立可回收的合法 MySQL 目标并完成全角色等价、备份、切换回滚验收。当前 5020 主开发数据库未应用直接关系 DDL，运行来源明确为 `legacy`：原 `permission_keys` 仍为有效单一授权源，新直接写入合同检查缺表即拒绝，不自动运行迁移或改变现有角色。前端当前旧角色编辑仍须标明兼容窗口；不能以按钮能点击或 HTTP 合同存在证明直接授权已投产。
+
+Tenant/Admin 范围与 Platform 不同：多租户 `/admin/system/menu` 的单独菜单管理属 standalone 实例工具，`MenuController::assertInstanceToolAccess` 在 MT 明确拒绝；正式租户角色入口为 `/admin/app/roles`。其弹窗可以在本租户有 `core.menu.read` 时展示本租户许可证过滤后的正式菜单树（只读），原 `RoleAdminService::replacePermissions`、Owner 固定角色与租户权限上限不变。**Tenant 的直接 menu→API 保存、tenant role→node/API 写入、服务端同源鉴权切换仍未实现**，不能拿 Platform 的 G18 关系表或已退役测试宿主替代，也不能使用现有非隔离业务库试迁移。
+
 ### 模块列表必须呈现作者中文名称与稳定标识
 
 平台开发者目录的正式 Module Manifest name 是显示名唯一来源；Platform 实例安装状态接口已经返回 name，页面不能在类型解码时丢弃。模块下拉、安装列表、已采用模块更新、官方目录及套餐模块选择均优先显示“中文名称（module.key）”，代码、依赖、安装版本、权限和租户权益始终使用稳定 key，**不得以中文名作为变更/授权标识**。官方目录尚未存在本地作者声明的模块仅显示原始 key，不臆造中文翻译。

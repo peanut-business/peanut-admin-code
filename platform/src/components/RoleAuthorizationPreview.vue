@@ -135,6 +135,36 @@
           </div>
         </template>
 
+        <div v-if="targetMode === 'catalog' && candidateMode === 'shell' && roleId !== undefined" class="preview-actions">
+          <el-alert
+            v-if="!selections.has(roleId)"
+            title="未提供角色选择；不会将遗漏解释为清空。"
+            type="info"
+            :closable="false"
+          />
+          <template v-else>
+            <el-button
+              v-if="canDirectPrepare()"
+              :disabled="directLoading"
+              :loading="directLoading"
+              @click="prepareNodes"
+            >准备当前角色节点选择</el-button>
+            <el-button
+              v-if="canDirectSave()"
+              type="primary"
+              :disabled="!preparedNodes || directLoading"
+              :loading="directLoading"
+              @click="saveNodes"
+            >确认保存已准备的直接节点</el-button>
+          </template>
+        </div>
+        <el-alert v-if="directError" :title="directError" type="error" :closable="false" />
+        <el-alert
+          v-if="preparedNodes"
+          :title="'已准备角色 ' + preparedNodes.role_id + '，revision ' + preparedNodes.expected_revision + '，来源 ' + preparedNodes.source_mode"
+          type="info"
+          :closable="false"
+        />
         <div class="preview-actions">
           <el-button
             type="primary"
@@ -230,6 +260,8 @@
 
 <script setup lang="ts">
   import { computed, onMounted, ref, watch } from 'vue';
+  import { ElMessage, ElMessageBox } from 'element-plus';
+  import type { RoleNodePrepared } from '../api/platform';
   import { useAsyncAction } from '@peanut-admin/vue';
   import { api } from '../api/platform';
   import {
@@ -245,6 +277,8 @@
   const props = defineProps<{
     canPreview: () => boolean;
     canCatalogAudit: () => boolean;
+    canDirectPrepare: () => boolean;
+    canDirectSave: () => boolean;
     loadDirectory: (signal: AbortSignal) => Promise<RoleAuthorizationPreviewDirectory>;
   }>();
   const emit = defineEmits<{ close: [] }>();
@@ -265,6 +299,15 @@
   const result = ref<RoleAuthorizationPreview>();
   const catalogResult = ref<RoleAuthorizationCatalogAudit>();
   let previewRevision = 0;
+  const preparedNodes = ref<RoleNodePrepared>();
+  const directError = ref('');
+  const directLoading = ref(false);
+  let directVersion = 0;
+  const invalidateDirect = () => {
+    directVersion++;
+    preparedNodes.value = undefined;
+    directError.value = '';
+  };
   const message = (error: unknown) =>
     error instanceof Error ? error.message : '请求失败，请稍后重试。';
   const {
@@ -350,7 +393,55 @@
     }
   });
 
+  async function prepareNodes() {
+    const id = roleId.value;
+    // Missing selection is not the same as an explicitly empty selection.
+    if (targetMode.value !== 'catalog' || candidateMode.value !== 'shell' ||
+        !id || !selections.value.has(id) || !props.canDirectPrepare() || directLoading.value) return;
+    const keys = [...(selections.value.get(id) ?? [])];
+    const version = ++directVersion;
+    directLoading.value = true;
+    directError.value = '';
+    preparedNodes.value = undefined;
+    try {
+      const result = await api.prepareRoleNodes(id, keys);
+      if (version === directVersion && roleId.value === id &&
+          props.canDirectPrepare() && targetMode.value === 'catalog') preparedNodes.value = result;
+    } catch (error) {
+      if (version === directVersion) directError.value = message(error);
+    } finally {
+      directLoading.value = false;
+    }
+  }
+  async function saveNodes() {
+    const prepared = preparedNodes.value;
+    if (!prepared || !props.canDirectSave() || directLoading.value ||
+        !selections.value.has(prepared.role_id) ||
+        roleId.value !== prepared.role_id ||
+        JSON.stringify(selections.value.get(prepared.role_id)) !== JSON.stringify(prepared.node_keys)) return;
+    const version = directVersion;
+    const reason = await ElMessageBox.prompt('变更原因', '保存直接节点授权', {
+      inputPattern: /\S+/, inputErrorMessage: '必须填写原因',
+    }).then(result => result.value, () => null);
+    if (!reason || version !== directVersion || !props.canDirectSave() ||
+        preparedNodes.value !== prepared) return;
+    directLoading.value = true;
+    try {
+      await api.saveRoleNodes(prepared, reason);
+      if (version === directVersion) {
+        preparedNodes.value = undefined;
+        ElMessage.success('角色直接节点已保存，请重新读取目录确认。');
+        await loadDirectory();
+      }
+    } catch (error) {
+      if (version === directVersion) directError.value = message(error);
+    } finally {
+      directLoading.value = false;
+    }
+  }
+
   function invalidate() {
+    invalidateDirect();
     previewRevision += 1;
     cancelPreview();
     cancelCatalog();

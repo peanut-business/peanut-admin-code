@@ -7,6 +7,7 @@ use app\platform\controller\PlatformAccessController;
 use app\platform\controller\PlatformTenantBoundaryController;
 use app\platform\controller\PlatformTenantController;
 use app\platform\controller\PlatformControlPlaneQueryController;
+use app\platform\controller\PlatformRoleNodeWriteController;
 use app\platform\controller\PlatformOpsController;
 use app\platform\controller\PlatformTenantInvitationController;
 use app\platform\controller\PlatformTenantEntryBindingController;
@@ -277,6 +278,27 @@ Route::post('roles/permissions/catalog-audit', [PlatformControlPlaneQueryControl
     ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.api.read')
     ->middleware(PlatformPermissionMiddleware::class, 'platform.operator.read')
     ->middleware(PlatformPermissionMiddleware::class, 'platform.role.read');
+// The old writer remains authoritative until the separately approved
+// isolated direct-role migration and full-role equivalence checks pass.
+// Identity disallows this old endpoint after the atomic source cutover.
 Route::post('roles/permissions/replace', [PlatformAccessController::class, 'replaceRolePermissions'])
     ->middleware(PlatformLoginMiddleware::class)
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.role.permission.assign');
+// Source-only native direct role writer: the Identity contract checks the
+// complete direct schema before touching any role, and legacy remains active
+// on an unmigrated application. These routes grant no permissions themselves.
+Route::post('roles/nodes/prepare', [PlatformRoleNodeWriteController::class, 'prepare'])
+    ->completeMatch()
+    ->option(['peanut_permission' => 'platform.role.read'])
+    ->middleware(PlatformLoginMiddleware::class)
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.api.read')
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.operator.read')
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.role.read');
+Route::post('roles/nodes/save', [PlatformRoleNodeWriteController::class, 'save'])
+    ->completeMatch()
+    ->option(['peanut_permission' => 'platform.role.permission.assign'])
+    ->middleware(PlatformLoginMiddleware::class)
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.api.read')
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.operator.read')
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.role.read')
     ->middleware(PlatformPermissionMiddleware::class, 'platform.role.permission.assign');
