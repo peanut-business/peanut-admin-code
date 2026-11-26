@@ -19,17 +19,19 @@ test('tenant role management is the registered /app/roles route; Instance menu p
   assert.match(route, /name: 'SystemMenu'[\s\S]*?instanceTool: true/);
 });
 
-test('tenant role dialog reads licensed official menu tree only with native core.menu.read', () => {
+test('tenant role tree authorizes exclusive native keys and reads only with tenant core.menu.read', () => {
   assert.match(source, /getMenuAll\(\)/);
   assert.match(source, /hasPermission\('core\.menu\.read', undefined, userStore\.permissions\)/);
   assert.match(source, /node-key="menu_key"/);
-  assert.match(source, /:data="tenantMenuTree"/);
-  assert.match(source, /:props="\{ label: 'name', children: 'children' \}"/);
+  assert.match(source, /:data="tenantAssignableMenuTree"/);
+  assert.match(source, /:props="\{ label: 'name', children: 'children', disabled: 'disabled' \}"/);
   assert.match(source, /菜单角色权限只读树/);
-  assert.doesNotMatch(source, /<el-tree[\s\S]*?show-checkbox[\s\S]*?<\/el-tree>/);
+  assert.match(source, /show-checkbox[\s\S]*?check-strictly/);
+  assert.match(source, /@check="checkNativeMenuPermission"/);
+  assert.match(source, /toggleNativeRoleMenuPermission\(/);
 });
 
-test('read-only tree does not alter current role permissions CAS or bypass owner/entitlement checks', () => {
+test('native editable tree retains role CAS and entitlement checks from original Identity service', () => {
   assert.match(source, /getRolePermissions\(record\.id\)/);
   assert.match(source, /getRolePermissionCatalog/);
   assert.match(source, /generation === authGeneration && authVisible\.value/);

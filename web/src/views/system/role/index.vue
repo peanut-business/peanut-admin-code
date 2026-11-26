@@ -177,12 +177,22 @@
         />
         <section v-if="tenantMenuTree.length" aria-label="正式租户菜单角色权限只读树">
           <h4>目录 → 菜单 → 按钮（只读授权投影）</h4>
+          <el-alert
+            title="只允许对当前租户可分配、独占的原生权限进行树授权。共享权限在下方统一维护，目录勾选不继承任何子按钮。"
+            type="info"
+            :closable="false"
+          />
           <el-tree
-            :data="tenantMenuTree"
+            :key="authForm.role_id + ':' + tenantTreeRevision"
+            :data="tenantAssignableMenuTree"
             node-key="menu_key"
             default-expand-all
-            :props="{ label: 'name', children: 'children' }"
+            show-checkbox
+            check-strictly
+            :default-checked-keys="tenantMenuCheckedKeys"
+            :props="{ label: 'name', children: 'children', disabled: 'disabled' }"
             :expand-on-click-node="false"
+            @check="checkNativeMenuPermission"
           >
             <template #default="{ data }">
               <span>
@@ -191,6 +201,7 @@
                 <small v-if="data.perms">
                   · {{ data.perms }}
                   {{ authForm.permission_keys.includes(data.perms) ? '（本角色持有）' : '（未直接持有）' }}
+                  {{ data.sharedCount > 1 ? ' · 共享权限（' + data.sharedCount + '个节点，须统一授权）' : '' }}
                 </small>
               </span>
             </template>
@@ -277,6 +288,10 @@
   import { useUserStore } from '@/store';
   import { hasPermission } from '@/hooks/permission';
   import { getMenuAll, type MenuRecord } from '@/api/system/menu';
+  import {
+    buildNativeRoleMenuTree, checkedNativeRoleMenuKeys,
+    toggleNativeRoleMenuPermission, type RoleMenuPermissionNode,
+  } from './native-role-menu-tree';
   import {
     addRole,
     deleteRole,
@@ -421,6 +436,30 @@
   const permissionSearch = ref('');
   const tenantMenuTree = ref<MenuRecord[]>([]);
   const tenantMenuError = ref('');
+  const tenantTreeRevision = ref(0);
+  const tenantAssignableMenuTree = computed(() =>
+    buildNativeRoleMenuTree(
+      tenantMenuTree.value,
+      new Set(permissionCatalog.value.map((item) => item.key)),
+      authLoading.value || authSubmitLoading.value || authRoleKey.value === 'core.tenant-owner',
+    )
+  );
+  const tenantMenuCheckedKeys = computed(() =>
+    checkedNativeRoleMenuKeys(
+      tenantAssignableMenuTree.value, new Set(authForm.permission_keys)
+    )
+  );
+  function checkNativeMenuPermission(
+    data: RoleMenuPermissionNode,
+    state: { checkedKeys: string[] }
+  ): void {
+    if (authLoading.value || authSubmitLoading.value || authRoleKey.value === 'core.tenant-owner')
+      return;
+    authForm.permission_keys = toggleNativeRoleMenuPermission(
+      authForm.permission_keys, data, state.checkedKeys.includes(data.menu_key)
+    );
+  }
+  watch(() => [...authForm.permission_keys], () => { tenantTreeRevision.value += 1; });
   const userStore = useUserStore();
   // This is an additional tenant-scoped, authorized read only. The role
   // editor itself must remain usable for actors without core.menu.read.

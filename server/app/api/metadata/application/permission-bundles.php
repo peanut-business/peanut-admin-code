@@ -49,7 +49,7 @@ $paths = [];
 $menuBinding = ['type' => 'object', 'additionalProperties' => false,
     'required' => ['menu_key', 'parent_key', 'type', 'name', 'page_path', 'action_key', 'permission_key', 'default_permission_key', 'revision'],
     'properties' => ['menu_key' => ['type' => 'string'], 'parent_key' => ['type' => 'string', 'nullable' => true],
-        'type' => ['type' => 'string', 'enum' => ['C', 'A']], 'name' => ['type' => 'string'],
+        'type' => ['type' => 'string', 'enum' => ['M', 'C', 'A']], 'name' => ['type' => 'string'],
         'page_path' => ['type' => 'string'], 'action_key' => ['type' => 'string'], 'permission_key' => ['type' => 'string'],
         'default_permission_key' => ['type' => 'string', 'nullable' => true], 'revision' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$']]];
 $add = static function (array &$paths, string $method, string $path, array $operation): void {
@@ -63,6 +63,27 @@ $add($paths, 'PUT', '/platformapi/permission/menus/binding', $operation('replace
         'properties' => ['menu_key' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 160],
             'permission_key' => ['type' => 'string', 'nullable' => true, 'maxLength' => 160], 'action_key' => ['type' => 'string', 'nullable' => true, 'maxLength' => 200],
             'expected_revision' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$']]])));
+$add($paths, 'PUT', '/platformapi/permission/menus/apis', $operation(
+    'replaceNativeMenuApiBindings', 'PermissionBundles',
+    $responses(['type' => 'object', 'additionalProperties' => false,
+        'required' => ['menu_key', 'permission'],
+        'properties' => ['menu_key' => ['type' => 'string'], 'permission' => $ref('PermissionBundle')]])
+        + ['409' => $error, '412' => $error, '428' => $error],
+    requestBody: $jsonBody(['type' => 'object', 'additionalProperties' => false,
+        'required' => ['menu_key', 'expected_menu_revision', 'expected_permission_revision', 'api_ids', 'change_reason'],
+        'properties' => [
+            'menu_key' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 160],
+            'expected_menu_revision' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$'],
+            'expected_permission_revision' => ['oneOf' => [
+                ['type' => 'integer', 'minimum' => 1],
+                ['type' => 'string', 'pattern' => '^[1-9][0-9]{0,17}$']]],
+            'api_ids' => ['type' => 'array', 'maxItems' => 200, 'uniqueItems' => true,
+                'items' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$']],
+            'change_reason' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 500],
+        ]]),
+    errors: ['MENU_API_SHARED_PERMISSION', 'MENU_API_PERMISSION_NOT_ASSIGNABLE',
+        'MENU_API_BINDING_INVALID', 'API_NOT_BINDABLE', 'API_MANAGEMENT_RECOVERY_REQUIRED']
+));
 $nameSchema = ['type' => 'string', 'minLength' => 1, 'maxLength' => 160];
 $keySchema = ['type' => 'string', 'minLength' => 1, 'maxLength' => 100];
 $revisionSchema = ['oneOf' => [['type' => 'integer', 'minimum' => 1], ['type' => 'string', 'pattern' => '^[1-9][0-9]{0,17}$']]];

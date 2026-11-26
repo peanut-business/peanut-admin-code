@@ -358,6 +358,16 @@ export const platformPermissionMenuBindingUpdate = {
   endpoints: [['PUT', '/platformapi/permission/menus/binding'], platformPermissionBundlesPage.endpoints[0]],
 } as const;
 
+export const platformPermissionMenuApiBindingUpdate = {
+  key: 'platform.permission.menu.apis.update',
+  parentKey: platformPermissionMenusPage.key,
+  type: 'action',
+  label: '为独占原生权限的菜单或按钮关联正式 API',
+  endpoints: [['PUT', '/platformapi/permission/menus/apis'],
+    platformPermissionMenusPage.endpoints[0], platformPermissionApisPage.endpoints[0],
+    ...platformPermissionApiBindingRead.endpoints],
+} as const;
+
 export const platformRoleAuthorizationPreview = {
   key: 'platform.role.authorization.preview',
   parentKey: null,
@@ -819,6 +829,7 @@ export const platformShellPreviewDefinitions = [
   platformPermissionApiBindingUpdate,
   platformPermissionMenusPage,
   platformPermissionMenuBindingUpdate,
+  platformPermissionMenuApiBindingUpdate,
   platformRoleAuthorizationPreview,
   platformRoleAuthorizationCatalogAudit,
   platformStorageNavigation,

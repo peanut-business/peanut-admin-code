@@ -92,6 +92,18 @@ export function readPermissionApi(value: unknown): PermissionApi {
   };
 }
 
+/** Existing native grant is the same source consumed by HTTP authorization. */
+export function readNativeMenuApiBindingResult(value: unknown): {
+  menu_key: string;
+  permission: PermissionBundle;
+} {
+  const row = record(value);
+  return {
+    menu_key: string(row.menu_key),
+    permission: readPermissionBundle(row.permission),
+  };
+}
+
 export function readPermissionMenuBinding(
   value: unknown
 ): PermissionMenuBinding {

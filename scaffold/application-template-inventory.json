@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.41",
+    "template_version": "5.1.18-rc.42",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "35197081edf7e9bfda70966aef72c336a3d1acff842e53933607bb48f38d8072"
+            "source_sha256": "88cdddc16e5fdc7a2ed5ff9cc645ff394dad42290c2b820bc495724ee91654da"
         },
         {
             "path": "docs/development/menu-navigation.md",
@@ -1937,7 +1937,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7996a6b99da959365b3a8ab73ea801077eb07211bba1317e0ecd93707a909914"
+            "source_sha256": "da1b6ddf4ef7d9400f24526be83c2d45a09aa7007908768c1e442bcf00cbe380"
         },
         {
             "path": "platform/src/api/platform.ts",
@@ -1951,7 +1951,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4bc016734540424fb2d6ab32cc90b4438111dbdbc9a2fd72d11e58904b9af650"
+            "source_sha256": "e43dce29160ed7e0191f7274c896e02e4b6c736d2f5dd1ba61ed11ce61b1fd8a"
         },
         {
             "path": "platform/src/api/role-authorization-preview.ts",
@@ -2007,7 +2007,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "214e5ddb19c7b4336bfa366b09803565d5b83e632f17bb1e99bfbcdb06ac9551"
+            "source_sha256": "8ddbf5f2cebe2f671979db7528a92d216c68dbcd5eb8163e6d8a464262f66220"
         },
         {
             "path": "platform/src/components/PlansPanel.vue",
@@ -2133,7 +2133,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "447bc6b5289634b3f739dad516dfce86335f9e0206c3302b18cb9d92edd3fb57"
+            "source_sha256": "196f5c4d283f566e0190b0ef7468f9d839b23e2cdcb579df0ba16ab26dc7b314"
         },
         {
             "path": "platform/src/core/presentation.ts",
@@ -2287,7 +2287,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ba6b9fdaf4dbc90f5173a58f8eb415bebdc164c6b3f62e43a36ee4b253a17068"
+            "source_sha256": "3cfe53a7f55116ab9563f349d8decde36ecc7f2e74640ee76fa021b712f0bbb3"
         },
         {
             "path": "platform/tsconfig.json",
@@ -5101,7 +5101,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d1a61e75353a18d607506df06e26468fa8f8795b798c63e80f24983eabb6d793"
+            "source_sha256": "9eedadafdcfeea5a052110c971ec89a2ca1fc6a83fa80e94d3501c114444782f"
         },
         {
             "path": "server/app/api/metadata/application/platform.php",
@@ -8451,7 +8451,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "db1d135358587b07d64547b979b8af500b9671bb681d7b66956787a4efb40cad"
+            "source_sha256": "24e776d76b7d4bdcb4fa01bfc8d2aeaf7f3320a4fbf86cca82c1be206814dc78"
         },
         {
             "path": "server/app/platform/controller/PlanLicenseController.php",
@@ -8998,6 +8998,20 @@
                 "full"
             ],
             "source_sha256": "69576dfbcce2d7802065c4e83cd2d5f21e68c762e1596f8b3de0eb939c40623b"
+        },
+        {
+            "path": "server/app/platform/policy/NativeMenuApiBindingScope.php",
+            "target": "server/app/platform/policy/NativeMenuApiBindingScope.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9b259bfb72c8f9320b87271f8d488cf32db5b8bf61c20fa37a466fb347f1643a"
         },
         {
             "path": "server/app/platform/policy/module/ModuleLifecyclePolicy.php",
@@ -11375,7 +11389,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "31b5f563bea0d1d73c4a36da895945bdc529b01bc7a5efc1c98e4e52a7e7d2a5"
+            "source_sha256": "04108d97604b96030dce3305c1f1b3094dd4fb4fba3fd01449509736fcc70eff"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11389,7 +11403,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6cf6d3e86be060610d36625357513247ebf57800551e4bed31db7beae39250e1"
+            "source_sha256": "e694d4d761756b2b93cccb23b073b765a1acad4f04cc7f3447aa779f31b99c33"
         },
         {
             "path": "server/generated/platform-role-source.json",
@@ -11403,7 +11417,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "65bd8cead35185edf96e02b857ddfe91d922dfa8419da28ab57aaad20ae87411"
+            "source_sha256": "5f1caa00b9076943a7311b9c91347d7590335b38b2daa21d4725552cc74d6c8b"
         },
         {
             "path": "server/module",
@@ -11935,7 +11949,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "51ac3026038e8cc68e4be16fadcfd63223348870375b108eb5063101fcad3422"
+            "source_sha256": "db68999fe3d9cb846e5f3f0f3a33f16f6cc08c71248f7e511fc325fe703f16a5"
         },
         {
             "path": "server/route/public_api.php",
@@ -14780,6 +14794,19 @@
         {
             "path": "server/tests/Unit/NativeExtensionBehaviorTest.php",
             "target": "server/tests/Unit/NativeExtensionBehaviorTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/NativeMenuApiBindingScopeTest.php",
+            "target": "server/tests/Unit/NativeMenuApiBindingScopeTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -17933,7 +17960,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7e7ea1cdc7a12095ab75e3723a28c5658f2cb39bb6c020a0c600ce33057d1d51"
+            "source_sha256": "6750ba65f554e48c14bd864e489961f44d95299972fa8d64e11a9d133b776191"
         },
         {
             "path": "web/src/hooks/loading.ts",
@@ -19529,7 +19556,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0e8f8b4dec3aa7e587989c469ccc8ae76dd3d6bd98888be37f4e1847b05bf94a"
+            "source_sha256": "9091f2a43e4f1d6657cfb0ba5c29e9dd95cc4fd4b31c8d557a80743b1509c23c"
         },
         {
             "path": "web/src/views/system/role/locale/en-US.ts",
@@ -19558,6 +19585,20 @@
                 "full"
             ],
             "source_sha256": "ff1da19651ca5d126a8e3997628d4b45b1100aaa0881672c75e3b98e9f7c1d43"
+        },
+        {
+            "path": "web/src/views/system/role/native-role-menu-tree.ts",
+            "target": "web/src/views/system/role/native-role-menu-tree.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "7f9bf278ef5197ca90ebb58e53abe708be2981abbf496cb2dd4375f865a5a663"
         },
         {
             "path": "web/src/views/user/setting/index.vue",
@@ -19965,6 +20006,20 @@
             "source_sha256": "78f581fbb4a9e1f5d87450d9fddfd82e50e0197586024c63c1bac2591856048e"
         },
         {
+            "path": "web/tests/Productization/tenant-native-role-menu-grants.test.mjs",
+            "target": "web/tests/Productization/tenant-native-role-menu-grants.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "a4c6860c2f9b0accb9a88be58916727755ec613f9623531d2348117a0181e632"
+        },
+        {
             "path": "web/tests/Productization/tenant-role-native-tree.test.mjs",
             "target": "web/tests/Productization/tenant-role-native-tree.test.mjs",
             "classification": "managed",
@@ -19976,7 +20031,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6082a45f6b55a6c7ed133a26cbd39e4b5b427eb6a51d97cfd03e728c6c985eb2"
+            "source_sha256": "2e64527b4688524a99bc27bce51898e54c07107313dcb1e5db56e48ab3730fbe"
         },
         {
             "path": "web/tests/Productization/vite-allowed-hosts.test.mjs",

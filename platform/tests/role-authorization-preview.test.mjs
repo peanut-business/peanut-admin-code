@@ -110,6 +110,12 @@ const permissionApiBindingNodes = [
   ['platform.permission.api.binding.update', 'platform.permission.api.list', 'action',
     [['PUT', permissionApiBindingsPath], ['GET', permissionApiBindingsPath], ['GET', permissionBundlesPath]]],
 ];
+const permissionMenuApiBindingNode = [
+  'platform.permission.menu.apis.update', 'platform.permission.menu.list', 'action',
+  [['PUT', permissionMenusPath + '/apis'], ['GET', permissionMenusPath],
+    ['GET', permissionApisPath], ['GET', permissionApiBindingsPath],
+    ['GET', permissionBundlesPath]],
+];
 const permissionMenuBindingNode = [
   'platform.permission.menu.binding.update', 'platform.permission.menu.list', 'action',
   [['PUT', permissionMenuBindingPath], ['GET', permissionBundlesPath]],
@@ -276,7 +282,7 @@ function nativePlatformApis() {
       alternatives.map(([, endpoint]) => ['GET', opsPath + '/' + endpoint])
     ),
     ...[...tenancyNodes, ...developerNodes].flatMap((node) => node[3]),
-    ...[rolePermissionAssignNode, ...roleDirectNodes, ...permissionApiBindingNodes, permissionMenuBindingNode, sharedPreviewNode, sharedCatalogNode,
+    ...[rolePermissionAssignNode, ...roleDirectNodes, ...permissionApiBindingNodes, permissionMenuBindingNode, permissionMenuApiBindingNode, sharedPreviewNode, sharedCatalogNode,
       ...opsMaintenanceActions, ...opsBackupActions, opsUpgradeExecuteNode].flatMap((node) => node[3]),
   ];
   return [...new Map(references.map(([method, path]) => [method + ' ' + path, [method, path]])).values()]
@@ -588,7 +594,7 @@ test('the default preview projects the real Platform Shell branches and a no-men
   assert.deepEqual(plain(bundlesPage.children.map((child) => child.label)), ['创建权限包', '编辑']);
   assert.match(apisPage.source, /#\/permission-apis$/);
   assert.match(menusPage.source, /#\/permission-menus$/);
-  assert.deepEqual(plain(menusPage.children.map((child) => child.key)), [permissionMenuBindingNode[0]]);
+  assert.deepEqual(plain(menusPage.children.map((child) => child.key)), [permissionMenuBindingNode[0], permissionMenuApiBindingNode[0]]);
   assert.equal(previewOperation.label, '只读候选预览');
   assert.equal(previewOperation.api_ids.length, 4);
   assert.equal(catalogAuditOperation.label, '全角色目录只读审计');
@@ -642,6 +648,7 @@ test('the default preview projects the real Platform Shell branches and a no-men
       ...permissionApiBindingNodes.map((definition) => node(...definition)),
       node('platform.permission.menu.list', 'platform.governance', 'page', [['GET', permissionMenusPath]]),
       node(...permissionMenuBindingNode),
+      node(...permissionMenuApiBindingNode),
       node(...sharedPreviewNode),
       node(...sharedCatalogNode),
       node('platform.operations', null, 'group'),
@@ -1544,7 +1551,7 @@ test('native Platform role-node source is bound to the Shell definition and curr
   assert.equal(manifest.schema_version, 1);
   assert.equal(manifest.source_path, 'platform/src/core/platform-shell-definitions.ts');
   assert.equal(manifest.source_sha256, createHash('sha256').update(source).digest('hex'));
-  assert.equal(manifest.nodes.length, 87);
+  assert.equal(manifest.nodes.length, 88);
   const developerGroup = manifest.nodes.find((node) => node.key === 'platform.developer.tools');
   assert.equal(developerGroup?.type, 'group');
   assert.equal(developerGroup?.parent_key, null);
@@ -1650,4 +1657,34 @@ test('direct-node panel distinguishes omitted selection from explicit empty and 
   assert.equal(requests[2][0], '/platformapi/roles/nodes/save');
   assert.deepEqual(plain(requests[2][1].node_keys), []);
   assert.equal(panel.preparedNodes.value, undefined, 'successful save must discard prepared state');
+});
+
+test('native menu API editing uses one official PUT, distinct API IDs, CAS and reason without any role grant', async (t) => {
+  const calls = [];
+  const native = {
+    key: 'core.role.read', name: 'Role read', module_key: 'core',
+    audience: 'tenant', status: 'active', revision: '13',
+    api_ids: ['a'.repeat(64), 'b'.repeat(64)], configured: true, source: 'system',
+  };
+  const { api } = fixture(t, async (config) => {
+    calls.push({
+      method: config.method, path: config.url, body: plain(JSON.parse(config.data)),
+      skipRecovery: config.platformSkipSessionRecovery,
+    });
+    if (config.url !== '/platformapi/permission/menus/apis')
+      throw new Error('Native role/menu editing must not issue a second management endpoint');
+    return reply(config, { menu_key: 'core.role.list', permission: native });
+  });
+  const request = {
+    menu_key: 'core.role.list', expected_menu_revision: 'c'.repeat(64),
+    expected_permission_revision: '12', api_ids: ['a'.repeat(64), 'b'.repeat(64)],
+    change_reason: 'Authorized synthetic menu API replacement',
+  };
+  const result = await api.replaceNativeMenuApiBindings(request);
+  assert.equal(result.menu_key, 'core.role.list');
+  assert.deepEqual(plain(result.permission), native);
+  assert.deepEqual(calls, [{
+    method: 'put', path: '/platformapi/permission/menus/apis',
+    body: request, skipRecovery: true,
+  }]);
 });

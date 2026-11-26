@@ -175,15 +175,39 @@
     </el-dialog>
     <el-dialog
       v-model="visible"
-      title="权限包关联 API"
+      :title="selectedMenuApi ? '菜单或按钮的正式 API 关联' : '权限包关联 API'"
       width="min(850px, 94vw)"
       :close-on-click-modal="false"
       :close-on-press-escape="!saving"
       :show-close="!saving"
     >
       <div v-loading="detailLoading">
-        <p>{{ selected?.name }} · {{ selected?.key }}</p>
-        <p>同一 API 可被多个权限包引用。公共与上下文接口仅供查阅，不能绑定。</p>
+        <p v-if="selectedMenuApi">
+          {{ selectedMenuApi.name }} · {{ selectedMenuApi.menu_key }} ·
+          原生权限 {{ selectedMenuApi.permission_key }}
+        </p>
+        <p v-else>{{ selected?.name }} · {{ selected?.key }}</p>
+        <p>同一 API 可关联多个独立的原生权限节点；公共/上下文接口不可绑定。</p>
+        <el-alert
+          v-if="selectedMenuApi"
+          title="此操作使用当前原生权限与 API 的唯一正式关联。它会影响所有持有该原生权限的角色，不新增角色授权，也不撤销租户套餐或接口前置条件。共享权限节点禁止在此修改。"
+          type="warning"
+          :closable="false"
+          show-icon
+        />
+        <template v-if="selectedMenuApi">
+          <el-input
+            v-model="menuApiChangeReason"
+            type="textarea"
+            :rows="2"
+            maxlength="500"
+            show-word-limit
+            placeholder="填写本次 API 权限变更原因（必填）"
+          />
+          <el-checkbox v-model="menuApiImpactAccepted">
+            我确认该 API 变更将影响所有已获得该原生权限的角色
+          </el-checkbox>
+        </template>
         <el-input
           v-model="apiSearch"
           placeholder="搜索 API 方法、路径或模块"
@@ -192,7 +216,7 @@
         <el-checkbox-group
           v-model="selection"
           :disabled="
-            !canManage ||
+            !canManageDetail ||
             saving ||
             detailLoading ||
             selected?.status !== 'active'
@@ -227,10 +251,12 @@
       <template #footer>
         <el-button :disabled="saving" @click="visible = false">关闭</el-button>
         <el-button
-          v-if="canManage"
+          v-if="canManageDetail"
           type="primary"
           :disabled="
-            detailLoading || !!detailError || selected?.status !== 'active'
+            detailLoading || !!detailError || selected?.status !== 'active' ||
+            (selectedMenuApi !== null &&
+              (!menuApiImpactAccepted || !menuApiChangeReason.trim()))
           "
           :loading="saving"
           @click="save"
@@ -241,9 +267,10 @@
     <section v-if="section === 'menus'">
       <el-divider />
       <h3>租户目录 → 菜单 → 按钮</h3>
-      <p>目录层级以正式实例菜单登记为准，按节点展开。当前版本保留既有
-        permission_key/权限包授权和原角色权限，不把这张树表当作已完成的直接 API 保存。
-        后续 G18 单源切换必须先验证现有角色、租户许可和服务端 API 拒绝边界。</p>
+      <p>目录来自正式菜单登记。未共享、已声明原生权限的菜单/按钮可直接选择多条正式 API：
+        服务端仍使用唯一权限标识及同一 API 关联源进行鉴权，无需先手工创建权限包。
+        多节点共用的权限必须先在模块作者源头明确拆分，不能单点修改以免影响其他菜单。
+        角色授权、套餐权益与 G18 尚未切换的直接节点存储保持原合同。</p>
       <el-space wrap>
         <el-input
           v-model="menuSearch"
@@ -295,22 +322,22 @@
             </template>
           </template>
         </el-table-column>
-        <el-table-column
-          v-if="canManage && canReadBundles"
-          label="兼容维护"
-          width="120"
-          ><template #default="{ row }"
-            ><el-button
-              v-if="row.type !== 'M'"
-              link
-              :disabled="
-                saving || loading || menuLoading || !!error || !!menuError
-              "
-              @click="openMenuBinding(row)"
-              >旧权限引用</el-button
-            ></template
-          ></el-table-column
-        >
+        <el-table-column v-if="canOpenMenuApis || (canManage && canReadBundles)"
+          label="授权维护" min-width="180">
+          <template #default="{ row }">
+            <template v-if="row.type !== 'M'">
+              <el-button v-if="canOpenMenuApis" link
+                :disabled="saving || loading || menuLoading || !!error || !!menuError || !!menuApiBlocker(row)"
+                :title="menuApiBlocker(row) || '选择正式 API 方法与路径'"
+                @click="openMenuApis(row)"
+              >{{ menuApiBlocker(row) ? '关联受限' : '关联 API' }}</el-button>
+              <el-button v-if="canManage && canReadBundles" link
+                :disabled="saving || loading || menuLoading || !!error || !!menuError"
+                @click="openMenuBinding(row)"
+              >旧权限引用</el-button>
+            </template>
+          </template>
+        </el-table-column>
       </el-table>
     </section>
     <el-dialog
@@ -421,6 +448,7 @@
     platformPermissionBundleUpdate,
     platformPermissionMenusPage,
     platformPermissionMenuBindingUpdate,
+    platformPermissionMenuApiBindingUpdate,
   } from '../core/platform-shell-definitions';
 
   const props = defineProps<{
@@ -459,6 +487,15 @@
       ? props.canApi(...platformPermissionMenuBindingUpdate.endpoints[0])
       : props.canApi(...platformPermissionApiBindingUpdate.endpoints[0])
   );
+  const canOpenMenuApis = computed(() =>
+    props.section === 'menus' &&
+    platformPermissionMenuApiBindingUpdate.endpoints.every(
+      ([method, path]) => props.canApi(method, path)
+    )
+  );
+  const canManageDetail = computed(() =>
+    selectedMenuApi.value ? canOpenMenuApis.value : canManage.value
+  );
   const accessModeLabel = (mode: string) =>
     ((
       {
@@ -480,6 +517,9 @@
   const apiSearch = ref('');
   const visible = ref(false);
   const selected = ref<PermissionBundle | null>(null);
+  const selectedMenuApi = ref<PermissionMenuBinding | null>(null);
+  const menuApiImpactAccepted = ref(false);
+  const menuApiChangeReason = ref('');
   const editing = ref(false);
   const editingBundle = ref<PermissionBundle | null>(null);
   const definition = ref({
@@ -539,6 +579,18 @@
   });
   const effectiveMenuApis = (row: PermissionMenuBinding): PermissionApi[] =>
     row.type === 'M' ? [] : (effectiveApiIndex.value.get(row.permission_key) ?? []);
+  const menuApiBlocker = (row: PermissionMenuBinding): string => {
+    if (row.type === 'M') return '目录本身不是 API 权限节点';
+    if (!row.permission_key) return '未声明可授予的原生权限';
+    if (menuBindings.value.filter((item) =>
+      item.type !== 'M' && item.permission_key === row.permission_key).length !== 1)
+      return '多个菜单共用此原生权限，禁止单节点修改以免扩权';
+    const native = activeTenantBundles.value.find((item) => item.key === row.permission_key);
+    if (!native || native.source === 'custom')
+      return '必须是已登记有效、非手工临时创建的原生租户权限';
+    if (!apis.value.length) return '正式 API 目录未完整加载';
+    return '';
+  };
   const canSaveMenuBinding = computed(() => {
     const row = selectedMenu.value;
     return (
@@ -763,11 +815,24 @@
     if (result.status === 'failed') definitionError.value = result.error;
   }
 
-  async function open(bundle: PermissionBundle) {
-    if (!canReadBindings.value || props.section !== 'apis') return;
+  async function openMenuApis(row: PermissionMenuBinding) {
+    if (!canOpenMenuApis.value || menuApiBlocker(row)) return;
+    const native = bundles.value.find((item) =>
+      item.key === row.permission_key && item.audience === 'tenant');
+    if (!native) return;
+    await open(native, row);
+  }
+
+  async function open(bundle: PermissionBundle, menu?: PermissionMenuBinding) {
+    if (!canReadBindings.value ||
+        (menu ? !canOpenMenuApis.value || !!menuApiBlocker(menu) :
+          props.section !== 'apis')) return;
     const request = ++detailGeneration;
     visible.value = true;
     cancelDetail();
+    selectedMenuApi.value = menu ?? null;
+    menuApiImpactAccepted.value = false;
+    menuApiChangeReason.value = '';
     selected.value = null;
     selection.value = [];
     apiSearch.value = '';
@@ -785,7 +850,10 @@
 
   async function save() {
     if (
-      !canManage.value ||
+      !canManageDetail.value ||
+      (selectedMenuApi.value !== null &&
+        (!menuApiImpactAccepted.value || !menuApiChangeReason.value.trim() ||
+          !!menuApiBlocker(selectedMenuApi.value))) ||
       selected.value?.status !== 'active' ||
       !selected.value ||
       saving.value ||
@@ -795,10 +863,20 @@
       return;
     const bundle = selected.value;
     const result = await runSave(async () => {
-      const row = await api.replacePermissionBindings(
-        bundle.key,
-        bundle.revision,
-        [...selection.value]
+      const menu = selectedMenuApi.value;
+      const result = menu
+        ? await api.replaceNativeMenuApiBindings({
+            menu_key: menu.menu_key,
+            expected_menu_revision: menu.revision,
+            expected_permission_revision: bundle.revision,
+            api_ids: [...selection.value],
+            change_reason: menuApiChangeReason.value.trim(),
+          })
+        : null;
+      if (menu && result?.menu_key !== menu.menu_key)
+        throw new Error('正式菜单 API 关联返回目标不一致');
+      const row = menu ? result!.permission : await api.replacePermissionBindings(
+        bundle.key, bundle.revision, [...selection.value]
       );
       if (row.key !== bundle.key || row.audience !== audience.value)
         throw new Error('权限包响应目标不一致');
@@ -806,7 +884,7 @@
       bundles.value = bundles.value.map((item) =>
         item.key === row.key ? row : item
       );
-      ElMessage.success('API 关联已保存');
+      ElMessage.success(menu ? '菜单原生权限 API 关联已保存' : 'API 关联已保存');
       visible.value = false;
     });
     if (result.status === 'failed') ElMessage.error(result.error);
@@ -816,6 +894,9 @@
     if (!value) {
       detailGeneration += 1;
       cancelDetail();
+      selectedMenuApi.value = null;
+      menuApiImpactAccepted.value = false;
+      menuApiChangeReason.value = '';
     }
   });
   onBeforeUnmount(() => {

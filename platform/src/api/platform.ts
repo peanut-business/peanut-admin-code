@@ -48,6 +48,7 @@ import {
   platformPermissionCatalogRead,
   platformPermissionMenusPage,
   platformPermissionMenuBindingUpdate,
+  platformPermissionMenuApiBindingUpdate,
   platformPlanActions,
   platformPlansPage,
   platformRoleArchive,
@@ -88,6 +89,7 @@ import {
   readPermissionApi,
   readPermissionBundle,
   readPermissionMenuBinding,
+  readNativeMenuApiBindingResult,
   readPermissionPage,
   type PermissionAudience,
 } from './permission-bundles';
@@ -1012,6 +1014,21 @@ export const api = {
     readPermissionMenuBinding(
       await unwrap<unknown>(
         requestEndpoint(platformPermissionMenuBindingUpdate.endpoints[0], { data })
+      )
+    ),
+  replaceNativeMenuApiBindings: async (data: {
+    menu_key: string;
+    expected_menu_revision: string;
+    expected_permission_revision: string;
+    api_ids: string[];
+    change_reason: string;
+  }) =>
+    readNativeMenuApiBindingResult(
+      await unwrap<unknown>(
+        requestEndpoint(platformPermissionMenuApiBindingUpdate.endpoints[0], {
+          data,
+          platformSkipSessionRecovery: true,
+        } as SessionRequestConfig)
       )
     ),
   createPermissionBundle: async (data: {

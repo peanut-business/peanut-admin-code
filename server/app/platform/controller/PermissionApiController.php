@@ -11,6 +11,7 @@ use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Modules\Identity\Menu\MenuAdministrationService;
+use app\platform\policy\NativeMenuApiBindingScope;
 use think\facade\Db;
 
 final class PermissionApiController extends BasePlatformController
@@ -71,6 +72,60 @@ final class PermissionApiController extends BasePlatformController
             $this->audit->platform($context->operatorId, $context->accountId, $context->requestId,
                 'permission.menu.replaced', 'platform.permission.menu.manage', targetType: 'menu', targetId: $input['menu_key'], before: $result['before'], after: $result['after']);
             return $result['after'];
+        }));
+    }
+
+    /**
+     * Bind a page/button to multiple registered APIs through its existing,
+     * uniquely owned native permission key. This is NOT a new role-grant
+     * source: ApiPermissionCatalog::replace is the same transaction writer
+     * already consumed by the server endpoint authorization middleware.
+     *
+     * Shared permission codes are deliberately rejected: editing one menu
+     * must not silently expand access through another menu or role.
+     */
+    public function replaceMenuApis()
+    {
+        $input = $this->fields($this->request->put(), [
+            'menu_key', 'expected_menu_revision', 'expected_permission_revision', 'api_ids', 'change_reason',
+        ]);
+        if (!isset($input['expected_menu_revision'], $input['expected_permission_revision'])) {
+            throw AdminAccessException::preconditionRequired();
+        }
+        $key = $input['menu_key'] ?? null;
+        $menuRevision = $input['expected_menu_revision'];
+        $reason = $input['change_reason'] ?? null;
+        $ids = $input['api_ids'] ?? null;
+        if (!is_string($key) || trim($key) !== $key || $key === '' || strlen($key) > 160
+            || !is_string($menuRevision) || preg_match('/^[a-f0-9]{64}$/D', $menuRevision) !== 1
+            || !is_string($reason) || trim($reason) === '' || trim($reason) !== $reason || mb_strlen($reason) > 500
+            || !is_array($ids) || !array_is_list($ids) || count($ids) > 200
+            || array_filter($ids, static fn($id): bool => !is_string($id) || preg_match('/^[a-f0-9]{64}$/D', $id) !== 1)
+            || count(array_unique($ids)) !== count($ids)) {
+            throw AdminAccessException::invalid('MENU_API_BINDING_INVALID', 'A menu, revisions, distinct official API IDs and reason are required.');
+        }
+        $revision = $this->positive($input['expected_permission_revision']);
+        $context = $this->platformContext->core ?? throw new \DomainException('PLATFORM_CONTEXT_REQUIRED');
+        return $this->data(Db::transaction(function () use ($key, $menuRevision, $revision, $ids, $reason, $context): array {
+            $bindings = $this->menus->permissionBindings(true);
+            $permission = NativeMenuApiBindingScope::permissionKey($bindings, $key, $menuRevision);
+            NativeMenuApiBindingScope::assertWholeSourceExclusive(
+                $this->menus->records('tenant', true), $permission, $key,
+            );
+            $before = $this->catalog->bundle($permission);
+            if ($before['audience'] !== 'tenant' || $before['status'] !== 'active'
+                || $before['source'] === 'custom' || (int) $before['revision'] !== $revision) {
+                throw AdminAccessException::conflict('MENU_API_PERMISSION_NOT_ASSIGNABLE', 'Only one active native tenant permission may own this menu.');
+            }
+            $after = $this->catalog->replace(
+                $permission, $revision, $ids,
+                app(\PeanutAdmin\Kernel\Module\ModuleAvailability::class),
+            );
+            $this->audit->platform($context->operatorId, $context->accountId, $context->requestId,
+                'permission.menu.apis-replaced', 'platform.permission.api.manage',
+                targetType: 'menu', targetId: $key, before: $before, after: $after,
+                metadata: ['change_reason' => $reason]);
+            return ['menu_key' => $key, 'permission' => $after];
         }));
     }
 

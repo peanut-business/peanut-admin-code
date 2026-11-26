@@ -389,7 +389,7 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
     {
         $this->assertCanonicalPlatformMenuRegistration();
         $candidate = $this->platformSourceCandidate();
-        self::assertCount($this->fileCatalogEndpoints === null ? 77 : 87, $candidate['nodes']);
+        self::assertCount($this->fileCatalogEndpoints === null ? 78 : 88, $candidate['nodes']);
         $fullCandidate = $candidate;
         $before = $this->snapshot();
         $response = $this->call($candidate);
@@ -568,7 +568,7 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         $candidate = $this->platformSourceCandidate();
         $removed = array_values(array_unique(array_merge(...array_column($candidate['nodes'], 'api_ids'))));
         sort($removed, SORT_STRING);
-        self::assertCount($this->fileCatalogEndpoints === null ? 68 : 75, $removed);
+        self::assertCount($this->fileCatalogEndpoints === null ? 69 : 76, $removed);
         $before = $this->snapshot();
 
         $candidate['role_assignments'][0]['node_keys'] = [];
@@ -605,7 +605,12 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
         // Keep the real preview grants on the target role without the unrelated fixture endpoint.
         $this->pdo->exec("DELETE FROM pa_permission_api WHERE api_id IN (SELECT id FROM pa_system_api WHERE path='/platformapi/fixture/owner')");
         $this->pdo->exec("DELETE FROM pa_system_api WHERE path='/platformapi/fixture/owner'");
-        $this->pdo->exec('INSERT INTO pa_platform_role_permission VALUES (501,15),(501,1),(501,2),(501,3)');
+        // The new menu API writer requires BOTH menu read and menu manage in
+        // addition to the API read primary rights. Synthetic role equivalence
+        // must account for these independent prerequisite grants explicitly.
+        $this->pdo->exec("INSERT INTO pa_permission VALUES (17,'platform.permission.menu.read','active',0),
+            (18,'platform.permission.menu.manage','active',0)");
+        $this->pdo->exec('INSERT INTO pa_platform_role_permission VALUES (501,15),(501,1),(501,2),(501,3),(501,17),(501,18)');
         // The old role keeps the prerequisite shared by logs and diagnostic downloads.
         $this->pdo->exec("INSERT INTO pa_permission VALUES (16,'platform.ops.read','active',1)");
         $this->pdo->exec('INSERT INTO pa_platform_role_permission VALUES (501,16)');
@@ -658,6 +663,7 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             'apis.bindings.update' => ['PUT', 'permission/apis/bindings', 'platform.permission.api.manage'],
             'menus.list' => ['GET', 'permission/menus', 'platform.permission.menu.read'],
             'menus.bindings.update' => ['PUT', 'permission/menus/binding', 'platform.permission.menu.manage'],
+            'menus.apis.update' => ['PUT', 'permission/menus/apis', 'platform.permission.api.manage'],
             'audit.list' => ['GET', 'audit', 'platform.audit.read'],
             'ops.status' => ['GET', 'v1/ops/status', 'platform.ops.read'],
             'ops.maintenance' => ['GET', 'v1/ops/maintenance', 'platform.ops.read'],
@@ -686,6 +692,7 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             $prerequisites = match ($name) {
                 'roles.nodes.prepare' => ['platform.permission.api.read', 'platform.operator.read'],
                 'roles.nodes.save' => ['platform.permission.api.read', 'platform.operator.read', 'platform.role.read'],
+                'menus.apis.update' => ['platform.permission.menu.read', 'platform.permission.api.read', 'platform.permission.menu.manage'],
                 default => in_array($permission, ['platform.ops.logs.read', 'platform.ops.upgrade.manage'], true)
                     ? ['platform.ops.read'] : [],
             };
@@ -693,7 +700,13 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             $apiIds[$name] = $endpoint['api_id'];
             $insertBinding->execute([15, $apiIds[$name]]);
             // These source-default associations are materialized alongside the custom bundle.
-            $sourceBundle = ['platform.role.read' => 1, 'platform.permission.api.read' => 2, 'platform.operator.read' => 3][$permission] ?? null;
+            $sourceBundle = [
+                'platform.role.read' => 1,
+                'platform.permission.api.read' => 2,
+                'platform.operator.read' => 3,
+                'platform.permission.menu.read' => 17,
+                'platform.permission.menu.manage' => 18,
+            ][$permission] ?? null;
             if ($sourceBundle !== null) {
                 $insertBinding->execute([$sourceBundle, $apiIds[$name]]);
             }
@@ -806,6 +819,8 @@ final class PlatformRoleAuthorizationPreviewBoundaryTest extends TestCase
             ['platform.permission.api.binding.update', 'platform.permission.api.list', 'action', null, ['apis.bindings.read', 'bundles.list', 'apis.bindings.update']],
             ['platform.permission.menu.list', $groupKey, 'page', '/platform/#/permission-menus', ['menus.list']],
             ['platform.permission.menu.binding.update', 'platform.permission.menu.list', 'action', null, ['menus.bindings.update', 'bundles.list']],
+            ['platform.permission.menu.apis.update', 'platform.permission.menu.list', 'action', null,
+                ['menus.apis.update', 'menus.list', 'apis.list', 'apis.bindings.read', 'bundles.list']],
             ...$storageNodes,
             [$operationsKey, null, 'group', null, []],
             ['platform.audit.list', $operationsKey, 'page', '/platform/#/audit', ['audit.list']],

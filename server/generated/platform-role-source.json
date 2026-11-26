@@ -1,7 +1,7 @@
 {
     "schema_version": 1,
     "source_path": "platform/src/core/platform-shell-definitions.ts",
-    "source_sha256": "447bc6b5289634b3f739dad516dfce86335f9e0206c3302b18cb9d92edd3fb57",
+    "source_sha256": "196f5c4d283f566e0190b0ef7468f9d839b23e2cdcb579df0ba16ab26dc7b314",
     "nodes": [
         {
             "key": "platform.tenancy",
@@ -621,6 +621,35 @@
                 [
                     "PUT",
                     "/platformapi/permission/menus/binding"
+                ],
+                [
+                    "GET",
+                    "/platformapi/permission/bundles"
+                ]
+            ],
+            "api_owner": "platform"
+        },
+        {
+            "key": "platform.permission.menu.apis.update",
+            "parent_key": "platform.permission.menu.list",
+            "type": "action",
+            "route_path": null,
+            "api_endpoints": [
+                [
+                    "PUT",
+                    "/platformapi/permission/menus/apis"
+                ],
+                [
+                    "GET",
+                    "/platformapi/permission/menus"
+                ],
+                [
+                    "GET",
+                    "/platformapi/permission/apis"
+                ],
+                [
+                    "GET",
+                    "/platformapi/permission/apis/bindings"
                 ],
                 [
                     "GET",

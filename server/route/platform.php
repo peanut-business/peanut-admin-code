@@ -30,6 +30,13 @@ Route::get('permission/menus', [\app\platform\controller\PermissionApiController
 Route::put('permission/menus/binding', [\app\platform\controller\PermissionApiController::class, 'replaceMenuBinding'])
     ->completeMatch()->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.menu.manage');
+Route::put('permission/menus/apis', [\app\platform\controller\PermissionApiController::class, 'replaceMenuApis'])
+    ->completeMatch()->option(['peanut_permission' => 'platform.permission.api.manage'])
+    ->middleware(PlatformLoginMiddleware::class)
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.menu.read')
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.api.read')
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.menu.manage')
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.api.manage');
 Route::get('permission/bundles', [\app\platform\controller\PermissionApiController::class, 'bundles'])
     ->completeMatch()->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.permission.read');
