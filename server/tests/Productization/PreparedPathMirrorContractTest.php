@@ -9,7 +9,9 @@ require_once dirname(__DIR__, 2) . '/app/platform/exception/module/ModulePackage
 require_once dirname(__DIR__, 2) . '/app/common/module/Dependencies.php';
 
 /** Isolated fake Composer path mirror: checks real code rather than a lock/version snapshot. */
-$root = sys_get_temp_dir() . '/peanut-prepared-path-mirror-' . bin2hex(random_bytes(9));
+$temporaryRoot = realpath(sys_get_temp_dir());
+if ($temporaryRoot === false) { throw new RuntimeException('MIRROR_TEST_TEMP_ROOT_INVALID'); }
+$root = $temporaryRoot . '/peanut-prepared-path-mirror-' . bin2hex(random_bytes(9));
 $server = $root . '/server';
 $source = $server . '/app/modules/acme/demo';
 $target = $server . '/vendor/acme/demo';

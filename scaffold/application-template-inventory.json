@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.33",
+    "template_version": "5.1.18-rc.34",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -11319,7 +11319,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0d193fe4ea494449517fb3ecaad453cbbff01d497b52e47180c5360adad74004"
+            "source_sha256": "808bf515c382c10694ebe947d52380b50e6e6ccf7e1e29d67a5c8033eb017d92"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11333,7 +11333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1e4d14df7b09c116ff32d2a78d9bf6435a6edab8ced9cc37bce6df02a3954dcf"
+            "source_sha256": "a42cf8ce16811f967ebd4bcc516928312b5df64eb5a7a59f445a123a5ad4ea68"
         },
         {
             "path": "server/generated/platform-role-source.json",
