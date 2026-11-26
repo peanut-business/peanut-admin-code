@@ -571,3 +571,82 @@ test('the developer page opens only when its declared read or write capability i
   assert.equal(panel.canSubmitOfficial.value, false);
   assert.ok(catalog && runtime);
 });
+
+function officialResult(config, version = '5.1.18-rc.40', channel = 'stable') {
+  return envelope(config, {
+    schema_version: 1,
+    channel,
+    edition: 'multi-tenant',
+    modules: [],
+    catalog: [],
+    withdrawal_policy: 'verified-current',
+    scaffold: { current_version: version, available_version: null },
+  });
+}
+
+test('official release refresh uses one outbound discovery for repeated clicks while pending', async (t) => {
+  const pending = [];
+  const endpoint = '/platformapi/instance-tools/modules/updates';
+  const { mountDeveloper } = fixture(t, async (config) => {
+    assert.equal(config.url, endpoint);
+    return new Promise((resolve) => pending.push({ resolve, config }));
+  }, true);
+  const panel = mountDeveloper([{ method: 'GET', path: endpoint }], 'official');
+  const first = panel.checkOfficialUpdates();
+  await panel.checkOfficialUpdates();
+  await panel.checkOfficialUpdates();
+  assert.equal(pending.length, 1, 'A second click must not spawn another GitHub listing chain');
+  assert.equal(panel.updatesLoading.value, true);
+  pending[0].resolve(officialResult(pending[0].config));
+  await first;
+  assert.equal(panel.updatesLoading.value, false);
+  assert.equal(panel.officialUpdates.value.scaffold.current_version, '5.1.18-rc.40');
+});
+
+test('old official release response cannot overwrite a newer view after leaving and returning', async (t) => {
+  const pending = [];
+  const endpoint = '/platformapi/instance-tools/modules/updates';
+  const { mountDeveloper } = fixture(t, async (config) =>
+    new Promise((resolve) => pending.push({ resolve, config })),
+  true);
+  const panel = mountDeveloper([{ method: 'GET', path: endpoint }], 'official');
+  const first = panel.checkOfficialUpdates();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(pending.length, 1);
+  panel.setSection('operations');
+  panel.activateSection('operations');
+  assert.equal(panel.updatesLoading.value, false);
+  panel.setSection('official');
+  const next = panel.checkOfficialUpdates();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(pending.length, 2);
+  pending[1].resolve(officialResult(pending[1].config, '5.1.18-rc.44'));
+  await next;
+  pending[0].resolve(officialResult(pending[0].config, '5.1.18-rc.18'));
+  await first;
+  assert.equal(panel.officialUpdates.value.scaffold.current_version, '5.1.18-rc.44');
+  assert.equal(panel.updatesLoading.value, false);
+});
+
+test('changing channels invalidates pending official result and stale failures cannot hide new channel', async (t) => {
+  const pending = [];
+  const endpoint = '/platformapi/instance-tools/modules/updates';
+  const { mountDeveloper } = fixture(t, async (config) =>
+    new Promise((resolve, reject) => pending.push({ resolve, reject, config })),
+  true);
+  const panel = mountDeveloper([{ method: 'GET', path: endpoint }], 'official');
+  const first = panel.checkOfficialUpdates();
+  await new Promise((resolve) => setImmediate(resolve));
+  panel.releaseChannel.value = 'prerelease';
+  panel.resetOfficialSelection();
+  const latest = panel.checkOfficialUpdates();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(pending.length, 2);
+  pending[1].resolve(officialResult(pending[1].config, '5.1.18-rc.44', 'prerelease'));
+  await latest;
+  pending[0].reject(new Error('stale official listing failed'));
+  await first;
+  assert.equal(panel.officialUpdates.value.channel, 'prerelease');
+  assert.equal(panel.updatesError.value, '');
+  assert.equal(panel.updatesLoading.value, false);
+});

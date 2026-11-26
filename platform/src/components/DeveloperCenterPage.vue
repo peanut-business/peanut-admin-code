@@ -48,7 +48,7 @@
         </el-select>
         <el-button
           :loading="updatesLoading"
-          :disabled="officialBusy"
+          :disabled="officialBusy || updatesLoading"
           @click="checkOfficialUpdates"
           >{{ platformDeveloperOfficialUpdatesRead.label }}</el-button
         >
@@ -470,7 +470,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, onMounted, ref, watch } from 'vue';
+  import { computed, onMounted, onScopeDispose, ref, watch } from 'vue';
   import { ElMessageBox } from 'element-plus';
   import { api } from '../api/platform';
   import StructuredDetails from './StructuredDetails.vue';
@@ -541,6 +541,10 @@
     )
   );
   let officialIdempotency = '';
+  // One official-list request per active official view. GitHub discovery
+  // touches multiple trusted release endpoints; duplicate clicks must not
+  // multiply that outbound fan-out. Epochs fence stale section/channel data.
+  let officialUpdatesGeneration = 0;
   const updateLabels: Record<string, string> = {
     update_available: '有更新，需原生预检',
     current: '源码版本已最新',
@@ -549,6 +553,8 @@
   };
 
   function resetOfficialSelection(): void {
+    officialUpdatesGeneration += 1;
+    updatesLoading.value = false;
     officialUpdates.value = null;
     officialSelection.value = null;
     officialPreview.value = null;
@@ -557,18 +563,25 @@
   }
 
   async function checkOfficialUpdates(): Promise<void> {
-    if (props.section !== 'official' || !props.canReadUpdates) return;
+    if (props.section !== 'official' || !props.canReadUpdates ||
+      officialBusy.value || updatesLoading.value) return;
     resetOfficialSelection();
+    const generation = officialUpdatesGeneration;
+    const channel = releaseChannel.value;
     updatesLoading.value = true;
     try {
-      const results = await api.officialModuleUpdates(releaseChannel.value);
-      if (props.section !== 'official') return;
+      const results = await api.officialModuleUpdates(channel);
+      if (generation !== officialUpdatesGeneration ||
+        props.section !== 'official' || releaseChannel.value !== channel)
+        return;
       officialUpdates.value = results;
     } catch (cause) {
-      if (props.section === 'official')
+      if (generation === officialUpdatesGeneration &&
+        props.section === 'official' && releaseChannel.value === channel)
         updatesError.value = cause instanceof Error ? cause.message : '官方更新查询失败';
     } finally {
-      updatesLoading.value = false;
+      if (generation === officialUpdatesGeneration)
+        updatesLoading.value = false;
     }
   }
 
@@ -896,6 +909,12 @@
   }
 
   function activateSection(section: DeveloperSection) {
+    if (section !== 'official' && updatesLoading.value) {
+      // Keep already chosen official operation previews for the operations
+      // page, but do not let a late discovery result re-enter that page.
+      officialUpdatesGeneration += 1;
+      updatesLoading.value = false;
+    }
     selected.value = '';
     if (section === 'modules' || section === 'diagnostics') void load();
     else if (section === 'installations') void loadRuntime(1);
@@ -907,6 +926,7 @@
   }
   onMounted(() => activateSection(props.section));
   watch(() => props.section, (section) => activateSection(section));
+  onScopeDispose(() => { officialUpdatesGeneration += 1; });
 </script>
 
 <style scoped>
