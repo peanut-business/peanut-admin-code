@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.45",
+    "template_version": "5.1.18-rc.46",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7190e04e5bffe68331bf5992e2f3355324310cc622c7d579deff3d11951fe454"
+            "source_sha256": "d4a13ab0d2b89abf32c8515bff53ff2024eaab2d308f1f7912b79820657e6a20"
         },
         {
             "path": "docs/development/menu-navigation.md",
@@ -1993,7 +1993,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b464118d9f2af9f1bd93497fc6eb37182e6136fa322a0ae238d92ca32b5e822b"
+            "source_sha256": "a7d2db5af0b146a607d10a2bcb33a75306073ab2447aaa82414d308f635817e7"
         },
         {
             "path": "platform/src/components/PermissionBundlesPanel.vue",
@@ -2259,7 +2259,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "845d57c2dd8d03fb9aa8bd25031fc57299ed9c9a59da96c24493dcb46fd3802d"
+            "source_sha256": "74985d2772b6daf4c951ff9f2925973b6e662b937a87e999d7cbcdf57364f67d"
         },
         {
             "path": "platform/tests/permission-menu-tree.test.mjs",
@@ -11389,7 +11389,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3edd24007af6b6a90b385c26acf7baca3c779f55fc3b98b8cfa06c752e52f330"
+            "source_sha256": "415b15ffe770748f81344f4f3be20cf7aa47229f4d968b39e23ccf2bd10b8d4e"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11403,7 +11403,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5ceac7ab0739b5baf73071e1b20ff86a8ad3799a8c20197e3367458ec3455353"
+            "source_sha256": "a844087d2c9fa3d45a51389d135925a931f7530d953778abe92a90da713adf95"
         },
         {
             "path": "server/generated/platform-role-source.json",

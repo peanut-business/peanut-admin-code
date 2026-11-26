@@ -759,3 +759,83 @@ test('valid preflight and unchanged confirmation still deliver one exact native 
   assert.equal(panel.officialSelection.value, null);
   assert.equal(panel.officialPreview.value, null);
 });
+
+const installedRow = (key = 'peanut.task') => ({
+  module_key: key, name: key === 'peanut.task' ? '任务调度' : '业务文档',
+  version: '1.0.36-rc.8', status: 'active', tenant_enabled_count: 1,
+  dependencies: [], optional_dependencies: [], pending_actions: [],
+});
+
+test('installation list coalesces the same pending filter/page and keeps the successful row on a later 503', async (t) => {
+  const endpoint = '/platformapi/instance-tools/modules';
+  const calls = [];
+  const { mountDeveloper } = fixture(t, (config) => {
+    const deferred = deferredIntent();
+    calls.push({ config, ...deferred });
+    return deferred.promise;
+  }, true);
+  const panel = mountDeveloper([{ method: 'GET', path: endpoint }], 'installations');
+  const load = panel.loadRuntime(1);
+  await panel.loadRuntime(1);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls.length, 1);
+  calls[0].resolve(envelope(calls[0].config, { lists: [installedRow()], count: 1 }));
+  await load;
+  assert.equal(panel.runtimeRows.value[0].name, '任务调度');
+  assert.equal(panel.runtimeLoaded.value, true);
+  const refresh = panel.loadRuntime(1);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls.length, 2);
+  calls[1].resolve(envelope(calls[1].config, { code: 50300, msg: 'Unavailable', data: {} }));
+  await refresh;
+  assert.equal(panel.runtimeRows.value[0].name, '任务调度');
+  assert.equal(panel.runtimeTotal.value, 1);
+  assert.equal(panel.runtimeLoaded.value, true);
+  assert.ok(panel.runtimeError.value);
+});
+
+test('newest page/filter result wins over a late older installation list', async (t) => {
+  const endpoint = '/platformapi/instance-tools/modules';
+  const calls = [];
+  const { mountDeveloper } = fixture(t, (config) => {
+    const deferred = deferredIntent();
+    calls.push({ config, ...deferred });
+    return deferred.promise;
+  }, true);
+  const panel = mountDeveloper([{ method: 'GET', path: endpoint }], 'installations');
+  const old = panel.loadRuntime(1);
+  panel.selected.value = 'peanut.document';
+  const current = panel.loadRuntime(2);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls.length, 2);
+  calls[1].resolve(envelope(calls[1].config, {
+    lists: [installedRow('peanut.document')], count: 21,
+  }));
+  await current;
+  calls[0].resolve(envelope(calls[0].config, { lists: [installedRow()], count: 1 }));
+  await old;
+  assert.equal(panel.runtimeRows.value[0].module_key, 'peanut.document');
+  assert.equal(panel.runtimePage.value, 2);
+  assert.equal(panel.runtimeTotal.value, 21);
+  assert.equal(panel.runtimeLoading.value, false);
+});
+
+test('installation result arriving after leaving section never restores old module list', async (t) => {
+  const endpoint = '/platformapi/instance-tools/modules';
+  const calls = [];
+  const { mountDeveloper } = fixture(t, (config) => {
+    const deferred = deferredIntent();
+    calls.push({ config, ...deferred });
+    return deferred.promise;
+  }, true);
+  const panel = mountDeveloper([{ method: 'GET', path: endpoint }], 'installations');
+  const old = panel.loadRuntime();
+  await new Promise((resolve) => setImmediate(resolve));
+  panel.setSection('operations');
+  panel.activateSection('operations');
+  calls[0].resolve(envelope(calls[0].config, { lists: [installedRow()], count: 1 }));
+  await old;
+  assert.equal(panel.runtimeLoaded.value, false);
+  assert.equal(panel.runtimeRows.value.length, 0);
+  assert.equal(panel.runtimeLoading.value, false);
+});

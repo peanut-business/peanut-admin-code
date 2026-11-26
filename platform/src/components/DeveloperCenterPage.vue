@@ -33,7 +33,9 @@
       <el-button :loading="runtimeLoading" @click="loadRuntime(1)">刷新安装状态</el-button>
     </div>
     <el-alert v-if="(section === 'modules' || section === 'diagnostics') && error" :title="error" type="error" show-icon />
-    <el-alert v-if="section === 'installations' && runtimeError" :title="runtimeError" type="error" show-icon />
+    <el-alert v-if="section === 'installations' && runtimeError"
+      :title="runtimeLoaded ? '安装状态刷新失败，当前仍显示上次成功读取的结果：' + runtimeError : runtimeError"
+      :type="runtimeLoaded ? 'warning' : 'error'" show-icon :closable="false" />
     <el-card v-if="section === 'official' && canReadUpdates" class="backup-center-card">
       <template #header>官方模块目录与更新（开发者）</template>
       <div class="toolbar developer-toolbar">
@@ -509,6 +511,8 @@
   const runtimeRows = ref<RuntimeModuleStatus[]>([]);
   const runtimePage = ref(1);
   const runtimeTotal = ref(0);
+  let runtimeGeneration = 0;
+  let runtimeRequestScope = '';
   const packageOperation = ref<'install' | 'update'>(
     props.canInstall ? 'install' : 'update'
   );
@@ -797,24 +801,36 @@
 
   async function loadRuntime(page = 1): Promise<void> {
     if (props.section !== 'installations' || !props.canReadRuntime) return;
+    const moduleKey = selected.value;
+    const scope = moduleKey + ':' + page;
+    if (runtimeLoading.value && runtimeRequestScope === scope) return;
+    const generation = ++runtimeGeneration;
+    runtimeRequestScope = scope;
     runtimeLoading.value = true;
     runtimeError.value = '';
+    const stillCurrent = () =>
+      generation === runtimeGeneration &&
+      props.section === 'installations' && props.canReadRuntime &&
+      selected.value === moduleKey;
     try {
-      const result = await api.runtimeModules(selected.value, page);
-      if (props.section !== 'installations') return;
+      const result = await api.runtimeModules(moduleKey, page);
+      if (!stillCurrent()) return;
       runtimeRows.value = result.lists;
       runtimeTotal.value = result.count;
       runtimePage.value = page;
       runtimeLoaded.value = true;
     } catch (cause) {
-      if (props.section === 'installations') {
-        runtimeRows.value = [];
-        runtimeLoaded.value = false;
+      if (stillCurrent()) {
+        // A transient refresh failure is not an empty installation inventory.
+        // Keep the confirmed rows and the page/counter until a good response.
         runtimeError.value =
           cause instanceof Error ? cause.message : '安装状态读取失败';
       }
     } finally {
-      runtimeLoading.value = false;
+      if (generation === runtimeGeneration) {
+        runtimeLoading.value = false;
+        runtimeRequestScope = '';
+      }
     }
   }
 
@@ -947,6 +963,15 @@
   }
 
   function activateSection(section: DeveloperSection) {
+    if (section !== 'installations') {
+      runtimeGeneration += 1;
+      runtimeRequestScope = '';
+      runtimeLoading.value = false;
+      runtimeRows.value = [];
+      runtimeTotal.value = 0;
+      runtimeLoaded.value = false;
+      runtimeError.value = '';
+    }
     if (section !== 'official' && officialPreviewPending) {
       officialIntentGeneration += 1;
       officialPreviewPending = false;
@@ -977,6 +1002,7 @@
   onScopeDispose(() => {
     officialUpdatesGeneration += 1;
     officialIntentGeneration += 1;
+    runtimeGeneration += 1;
   });
 </script>
 
