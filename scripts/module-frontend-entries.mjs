@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 const clientRoots = {
@@ -25,7 +25,28 @@ export function moduleFrontendEntries(projectRoot, clientKey, development) {
         }
       }
     };
-    visit(resolve(projectRoot, 'server/app/modules'));
+    const sourceRoot = resolve(projectRoot, 'server/app/modules');
+    const sourceStatus = lstatSync(sourceRoot, { throwIfNoEntry: false });
+    if (sourceStatus) {
+      if (!sourceStatus.isDirectory() || sourceStatus.isSymbolicLink())
+        throw new Error('Module source root must be a real directory: ' + sourceRoot);
+      visit(sourceRoot);
+    } else {
+      // The upstream industrial Scaffold source has an empty modules.lock and
+      // intentionally does not vendor Module business source. Do not make
+      // the standalone Nuxt or UniApp development server depend on a
+      // non-existent directory; still fail closed for a consumer whose lock
+      // declares real frontend contributions.
+      const lockPath = resolve(projectRoot, 'modules.lock');
+      if (!existsSync(lockPath))
+        throw new Error('modules.lock is required without a Module source root');
+      const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
+      if (lock.schema_version !== 1 || !Array.isArray(lock.modules))
+        throw new Error('modules.lock is invalid');
+      if (lock.modules.some((module) =>
+        module.frontend?.some((frontend) => frontend.client_key === clientKey)))
+        throw new Error('Module source root is unavailable for ' + clientKey + ': ' + sourceRoot);
+    }
   } else {
     const lock = JSON.parse(
       readFileSync(resolve(projectRoot, 'modules.lock'), 'utf8')

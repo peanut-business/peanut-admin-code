@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.46",
+    "template_version": "5.1.18-rc.47",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -918,7 +918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d4a13ab0d2b89abf32c8515bff53ff2024eaab2d308f1f7912b79820657e6a20"
+            "source_sha256": "ad24cee7d8c9b30be747697828a46682845b201c749637f11e354c7a00c09183"
         },
         {
             "path": "docs/development/menu-navigation.md",
@@ -1708,6 +1708,19 @@
                 "full"
             ],
             "source_sha256": "a648a5ca835a6490e20f2c44ff23fa03fe49d51631fe3d97674243f6845a82b8"
+        },
+        {
+            "path": "pc/tests/Productization/module-frontend-source-root.test.mjs",
+            "target": "pc/tests/Productization/module-frontend-source-root.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "standard",
+                "full"
+            ],
+            "source_sha256": "1df2130d49a8dfc3f9ad67a123324e69b9a44cc23cce1f2cd1f25e97edd87243"
         },
         {
             "path": "pc/tests/Productization/public-rendering.test.mjs",
@@ -2840,7 +2853,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "27868c604a3004a3ef1360696138b2158cc7e43e90c04c9c512f89e64d11a2c0"
+            "source_sha256": "aec0e87468b6a5a55d717f92d7c6b396261db28a9d032a675c35086629362d89"
         },
         {
             "path": "scripts/ops-backup-worker",
@@ -11389,7 +11402,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "415b15ffe770748f81344f4f3be20cf7aa47229f4d968b39e23ccf2bd10b8d4e"
+            "source_sha256": "8494aa3ce22c8d8346923e6b9df88831f8daaecbf55418f29c886278caaf6da9"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11403,7 +11416,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a844087d2c9fa3d45a51389d135925a931f7530d953778abe92a90da713adf95"
+            "source_sha256": "02d6d91f946e3b908c2a18e3ff30f3a526112cf59ec71e75f8cd7fb97e012ac7"
         },
         {
             "path": "server/generated/platform-role-source.json",

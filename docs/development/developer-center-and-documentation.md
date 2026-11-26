@@ -40,6 +40,26 @@ Provider目录复用当前App由ModuleComposition保存的同一实例，支持�
 
 租户自助管理沿现有 Admin 客户端/正式租户菜单和对应 tenant-permission / 模块权益过滤，**不等于**实例模块安装权或 Platform Session。原代码生成器涉及当前数据库结构，只在 standalone development 的独立本地实例工具路由存在；在 MT 租户中不开放该跨表浏览/写入入口，未完成租户安全隔离审计前禁止放宽。生产构建中也不编译本地实例工具。角色、套餐或模块安装时不得因导航可见而自动授予跨租户操作权限。
 
+### PC / H5 源码宿主的原生 Module 入口发现
+
+工业脚手架源码仓自身允许没有 `server/app/modules`：当 `modules.lock` 是正式的零模块清单时，
+Nuxt PC (`pc/nuxt.config.ts`) 与 UniApp (`uniapp/scripts/module-pages.mjs`) 共用
+`scripts/module-frontend-entries.mjs` 返回空的模块贡献，不需要造空目录或将Module源码
+复制到脚手架。本地正式Module作者应用拥有此目录时仍递归按Module声明加载；
+根目录或子节点为符号链接、正式锁声明了前端模块但没有作者源码、
+已声明前端contribution不在约定位置都继续fail-closed。
+
+实际来源核对：原生Service Manager登记的Code PC `20185`、H5 `20182`
+在缺少目录时报 `ENOENT scandir server/app/modules` 并以退出码1停止。
+调整共用入口后PC Nuxt与H5 UniApp均成功启动；H5 HTTP200。
+PC Nuxt独立启动成功但页面HTTP503：
+下游当前登记Code PHP `20180` 的 `/api/index/config` 和 `/api/pc/config`
+对登记前端域名返回HTTP500，因此不得以默认Brand覆盖错误后宣称Tenant内容验收成功。
+公开配置需合法租户Host/数据库/权限源校验，前端不得绕过。
+本阶段只验证原现有宿主；无新模块安装/身份/租户配置写入，
+临时启动的PC/H5在复核后恢复为不监听状态。旧ST/MT永久测试APP的版本仍是各自固定来源，
+不可替代当前Scaffold源码候选的业务验收。
+
 ### G02 字典类型与数据抽屉错误恢复
 
 现有字典类型主页已实现序列屏蔽、失败时保留旧行及按原请求参数重试，本轮不重构；独立的 `web/src/views/system/dict/components/DataDrawer.vue` 也必须保持同一合同。列表失败记录当时的 `type_id/name/page_no/page_size`，用户改动未搜索的输入时重试仍按原失败请求，不跨类型。关闭、切换类型、卸载均使请求代次失效，迟到的HTTP响应不覆盖新字典数据；成功空列表与错误要区分。仍通过正式 `getDictDataList` 和 `peanut.reference-codes.read`，不改变任何字典写权限或数据库结构。
