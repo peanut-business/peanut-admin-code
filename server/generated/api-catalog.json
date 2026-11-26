@@ -8,7 +8,7 @@
         },
         {
             "path": "release-versions.json",
-            "sha256": "4d970768ae61afdc3ecdddaf7149cb5fa3b1df658ab8c54b0bdafdb5c2834d94"
+            "sha256": "891f0f67b69420181709bdf17aee175a5fe7abe70708b38b823553d8b69e3a45"
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
@@ -44,7 +44,7 @@
         },
         {
             "path": "server/generated/platform-role-source.json",
-            "sha256": "a74bd12095cdd908340f7511eebd72413683483109b2d06ca7f3ee2c86e35a8c"
+            "sha256": "f4dc8921f01d6f601c26ca8f68432c58c309543a3b3ccf2ebd95fe3354346950"
         },
         {
             "path": "server/route/admin.php",
