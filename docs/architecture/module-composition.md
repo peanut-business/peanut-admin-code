@@ -67,6 +67,22 @@ CLI create 的 ST/MT staged/approval 流程复用以下原生源码计划/准备
 
 本批定向测试入口为 `PEANUT_TEST_MODULE_AUTHOR_ROOT=/absolute/path/to/peanut-module-code python3 scripts/project-env exec -- php server/tests/Productization/ModuleSourceCompositionTest.php`：官方 Module 作者源码从独立 Module 应用读取，Code 只提供 Host 测试和原生打包/组合入口，不再假定 Code 自身携带官方模块源码。测试覆盖本地 canonical TAR、无官方 Module 源码的临时宿主、AppService/业务 Module/DB 加载拒绝陷阱、全图一次 journal、重复/冲突/保留与恢复；不是公开 RC 渠道、真实 DB、登录或 HTTP 正向验收。未显式提供有效 Module 作者应用时直接拒绝，而不是让空源码导致后续打包失败。
 
+### 源码仓与已安装运行实例不能混用
+
+上游Code的零模块作者清单与不携带官方Module源是设计成立的**源码状态**，不是可供真实租户访问的运行时安装。
+已登记的原开发数据库存在安装历史，或历史私有installed标记存在，均不能替代当前实例的Module源码、
+Composer autoload、已编译Module registry、合法租户Host绑定和tenant Module许可。
+多租户公开 `GET /api/index/config`、`GET /api/pc/config` 必须先加载Identity正式的TenantEntryBindingLookup，
+不能把MT未获准Host fallback到Standalone默认租户，也不能在Scaffold作者仓内复制Identity私有数据库适配器。
+缺Identity源码时以 `INSTALL_MODULE_SOURCE_MISSING`/HTTP503明确拒绝，不返回不可解释的通用500；
+成功恢复SSR的门禁必须是原生准备完整Module闭包的**独立应用消费者**，同一实例正式Host、
+`member-api` client绑定与对应Module授权均验证后才可称业务入口就绪。
+
+真实PC/Nuxt前端仅在同一个已登记合法安装实例上消费其公开API，
+不能为页面变绿跨业务应用借用另一实例的PHP/数据库/Session。
+未知Host、禁用Host及无member-api授权仍按正式TenantEntryBindingResolver拒绝，
+**不得**以匿名公开接口无登录为由绕过域名绑定。
+
 ## 模板退出与后续升级
 
 发行 inventory 排除官方后端和各端作者源码，升级工具自身也使用投影后的应用 Composer 清单与锁，不夹带作者包。Code 的开发依赖和作者目录保留；它们不进入创建的应用。模板直接以 `server/composer.json` 与原生 `server/composer.lock` 为唯一依赖来源，由现有应用生成器移除仓库测试开发声明、测试 autoload 与 lock 中的开发包，并按投影后的 Composer 清单重算 content-hash；运行依赖版本、来源与摘要原样保留，不维护第二份模板 Composer 清单或锁。创建只生成空 `modules.lock`；完整锁和源码由 CLI 调用原生 adopt 后接收。客户端 workspace 保留通用扩展入口，API 只投影实际模块，宿主公共类型仍由现有 metadata 生成。

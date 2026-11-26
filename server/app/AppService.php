@@ -455,9 +455,25 @@ class AppService extends Service
             if (!$mode instanceof DeploymentMode) {
                 throw new \RuntimeException('DEPLOYMENT_MODE_UNCONFIGURED');
             }
+            $identitySource = $mode === DeploymentMode::Standalone
+                ? \PeanutAdmin\Modules\Identity\Tenancy\DefaultTenantContextResolver::class
+                : \PeanutAdmin\Modules\Identity\Tenancy\Infrastructure\ThinkPhpTenantEntryBindingLookup::class;
+            if (!class_exists($identitySource)) {
+                // A thin Scaffold source checkout has no Module author code.
+                // Its old installed.json/database marker must never turn an
+                // absent Identity source into an unexpected HTTP 500, nor
+                // fall back from a Host-bound MT tenant to the ST default.
+                throw new \app\common\exception\installation\InstallationExecutionException(
+                    'INSTALL_MODULE_SOURCE_MISSING',
+                    '身份模块源码未就绪；请通过原生应用 Module 采用流程准备必需模块。',
+                    503,
+                    null,
+                    ['module' => 'peanut.identity', 'state' => 'source_unavailable'],
+                );
+            }
             $lookup = $mode === DeploymentMode::Standalone
                 ? $this->app->make(DefaultTenantEntryBindingLookup::class)
-                : $this->app->make(\PeanutAdmin\Modules\Identity\Tenancy\Infrastructure\ThinkPhpTenantEntryBindingLookup::class);
+                : $this->app->make($identitySource);
             return new TenantEntryBindingResolver(
                 null,
                 true,

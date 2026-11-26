@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.47",
+    "template_version": "5.1.18-rc.48",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -765,7 +765,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5269b4e1f3c01cf0d71f0286d542bbf3e09def71d74411529893a41e5f1ea0d0"
+            "source_sha256": "c8e78d038288922542d1c1095df2a88519a856fbab0bf975b9c1acefd87993e4"
         },
         {
             "path": "docs/architecture/module-development-delivery.md",
@@ -4092,7 +4092,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2e224b47f0c160d74e6db8ec15aed44d93baab263270fcaf1cc28e6c6f40d031"
+            "source_sha256": "50b6d487a1b0429be9cbaa80c1fa518016f6c9848750cf8b52a4f8e27da28ff5"
         },
         {
             "path": "server/app/BaseController.php",
@@ -11402,7 +11402,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8494aa3ce22c8d8346923e6b9df88831f8daaecbf55418f29c886278caaf6da9"
+            "source_sha256": "637cf6f55dea0b8976d7dbd7cdf6bc50f1021aaed2bf688a9804063d853a4b54"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11416,7 +11416,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "02d6d91f946e3b908c2a18e3ff30f3a526112cf59ec71e75f8cd7fb97e012ac7"
+            "source_sha256": "ec1a9708e5cd5a562afe27843363c7e5dee1acd1a8ec2ce2317663280363ed9f"
         },
         {
             "path": "server/generated/platform-role-source.json",
@@ -15301,6 +15301,19 @@
         {
             "path": "server/tests/Unit/TenantSettingsTransferBoundaryTest.php",
             "target": "server/tests/Unit/TenantSettingsTransferBoundaryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/ThinSourceTenantEntryReadinessTest.php",
+            "target": "server/tests/Unit/ThinSourceTenantEntryReadinessTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
