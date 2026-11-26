@@ -2,9 +2,9 @@
   "schema_version": 3,
   "protocol": "peanut.release-metadata.v3",
   "product": "Peanut Admin",
-  "source_product_version": "5.1.18-rc.32",
+  "source_product_version": "5.1.18-rc.33",
   "instance_version": null,
-  "expected_tag": "v5.1.18-rc.32",
+  "expected_tag": "v5.1.18-rc.33",
   "release_date": "2026-11-25",
   "repository": "https://github.com/peanut-business/peanut-admin-code",
   "license": {
@@ -88,7 +88,7 @@
     "RELEASE_SBOM.spdx.json": "a2eb555d4c18579a44ad1a75fdfafcd3013520b13e796dbd03749dc6deae6405"
   },
   "technical_qualification": {
-    "phase": "5.1.18-rc.32-prerelease-candidate",
+    "phase": "5.1.18-rc.33-prerelease-candidate",
     "result": "pending",
     "final_candidate_commit": null,
     "final_candidate_tree": null,
@@ -96,10 +96,10 @@
     "groups_passed": 0,
     "summary_sha256": null,
     "cleanup_residual_count": null,
-    "scaffold_version": "5.1.18-rc.32",
+    "scaffold_version": "5.1.18-rc.33",
     "application_initial_version": "0.1.0",
     "evidence": "Product prerelease development identity uses frozen Core archives; qualification remains pending.",
-    "release_delta": "G15 PHP development server now serves successful locked Admin Module stable asset requests with explicit original bytes, MIME, Content-Length, GET/HEAD semantics and no-store; preserves rc.31 missing-resource 404 and safe SPA fallback. Other modules and Core unchanged; public publication and full qualification remain pending."
+    "release_delta": "Local-only scaffold candidate: verify real Composer path-module source-to-vendor mirror in native preflight; fail closed malformed Admin route metadata and require both route and server menu permissions; update stale Tenant brand/demo test against live services. Proven with Module 19 non-business native verification plus source isolation. Core fixed inputs unchanged; public release and full browser qualification remain pending."
   },
   "self_reference_policy": "This file intentionally omits its own commit SHA and archive digest. RELEASE_MANIFEST.json is generated from the immutable tag and carries those values."
 }

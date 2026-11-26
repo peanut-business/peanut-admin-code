@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.32",
+    "template_version": "5.1.18-rc.33",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -7343,7 +7343,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "77762c6544892b52b909406c0b6cade2d586aab811de2bb78d1831cc65fb3c63"
+            "source_sha256": "bd00de602dd6fff9d4016a2f8c3fce32b69f0067a3d9a1d6d477617135ff309d"
         },
         {
             "path": "server/app/common/module/ModuleMigrationRun.php",
@@ -11319,7 +11319,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d770686432779a27c6cf99efefc13aaaf278294b992d7dc7afd9000d901907e4"
+            "source_sha256": "0d193fe4ea494449517fb3ecaad453cbbff01d497b52e47180c5360adad74004"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11333,7 +11333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3a2513a72da64583692f9da54e51496d929c108c68c9c857f75b68c68169ca64"
+            "source_sha256": "1e4d14df7b09c116ff32d2a78d9bf6435a6edab8ced9cc37bce6df02a3954dcf"
         },
         {
             "path": "server/generated/platform-role-source.json",
@@ -13736,6 +13736,19 @@
         {
             "path": "server/tests/Productization/PortableReleaseDependencyTest.php",
             "target": "server/tests/Productization/PortableReleaseDependencyTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/PreparedPathMirrorContractTest.php",
+            "target": "server/tests/Productization/PreparedPathMirrorContractTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -17893,7 +17906,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3db4c19a8e6539fbdfc2ddaf0ef24dc800ec1691695397247d3d01b932d34737"
+            "source_sha256": "d2bd07f53c23c790439c9ef37f2de896fbd0cd12e8780e9c4adf0e84e88438aa"
         },
         {
             "path": "web/src/hooks/public-image-references.ts",
@@ -19615,7 +19628,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fc621f40633c0d97435436b16ecf72937833f5eebddbf3d6c4036059182e4f71"
+            "source_sha256": "ad6437771084650526290c40c9d19251d188bfbd9f44a483508e7b505ffa576d"
         },
         {
             "path": "web/tests/Productization/client-session-identity.test.mjs",
