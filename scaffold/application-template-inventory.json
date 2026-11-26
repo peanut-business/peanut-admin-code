@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.34",
+    "template_version": "5.1.18-rc.35",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -5479,7 +5479,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "60aaa3acb021b761d60544786e5a2e57f6b796a31f290df9aca47d1eb92d53af"
+            "source_sha256": "2be65c81de7bbc958cc4298ad6c23e822c902a0933b1c59639f008723b5ade31"
         },
         {
             "path": "server/app/command/ModuleReleaseComposition.php",
@@ -11319,7 +11319,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "808bf515c382c10694ebe947d52380b50e6e6ccf7e1e29d67a5c8033eb017d92"
+            "source_sha256": "eafd68f4f7741888ded47c1e9c7fa43a4f1215ef6325ef6ea62ee1a7a9ab2d0c"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11333,7 +11333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a42cf8ce16811f967ebd4bcc516928312b5df64eb5a7a59f445a123a5ad4ea68"
+            "source_sha256": "f7dd29276ea070bfc69861a74a002eeb8ca28070bdec7d918d7c1c789d49a6a1"
         },
         {
             "path": "server/generated/platform-role-source.json",
@@ -13515,6 +13515,19 @@
         {
             "path": "server/tests/Productization/ModulePackageArchiveTest.php",
             "target": "server/tests/Productization/ModulePackageArchiveTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/ModuleReconcileApiCatalogPreflightTest.php",
+            "target": "server/tests/Productization/ModuleReconcileApiCatalogPreflightTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
