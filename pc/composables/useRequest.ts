@@ -66,13 +66,26 @@ export function useRequest(options: { redirectOnUnauthorized?: boolean } = {}) {
       .map((host) => host.trim())
       .filter(Boolean);
     baseUrl = String(runtimeConfig.upstreamOrigin || '');
-    forwardHeaders = createNuxtSsrForwardHeaders({
-      requestHost: requestHeaders.host || '',
-      cookie: undefined,
-      forwardedProto:
-        runtimeConfig.forwardedProto === 'https' ? 'https' : 'http',
-      trustedHosts,
-    });
+    try {
+      forwardHeaders = createNuxtSsrForwardHeaders({
+        requestHost: requestHeaders.host || '',
+        cookie: undefined,
+        forwardedProto:
+          runtimeConfig.forwardedProto === 'https' ? 'https' : 'http',
+        trustedHosts,
+      });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === 'NUXT_SSR_FORWARD_CONTEXT_INVALID'
+      ) {
+        throw createError({
+          statusCode: 421,
+          statusMessage: 'TENANT_HOST_NOT_TRUSTED',
+        });
+      }
+      throw error;
+    }
   } else {
     baseUrl = configuredBaseUrl || window.location.origin;
   }

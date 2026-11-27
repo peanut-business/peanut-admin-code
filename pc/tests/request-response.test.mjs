@@ -69,6 +69,8 @@ function request(fetch, server = false, options = {}, host = 'site.test') {
       if (name === 'vue') return vue;
       throw new Error('Unexpected dependency: ' + name);
     },
+    createError: ({ statusCode, statusMessage }) =>
+      Object.assign(new Error(statusMessage), { statusCode, statusMessage }),
     useRuntimeConfig: () => ({
       public: { apiBase: 'https://site.test' },
       upstreamOrigin: 'https://upstream.test',
@@ -221,7 +223,7 @@ test('SSR rejects an untrusted host before making an upstream request', () => {
   assert.throws(
     () =>
       request(() => assert.fail('unexpected fetch'), true, {}, 'other.test'),
-    /NUXT_SSR_FORWARD_CONTEXT_INVALID/
+    { statusCode: 421, message: 'TENANT_HOST_NOT_TRUSTED' }
   );
 });
 
