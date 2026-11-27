@@ -213,7 +213,10 @@ final class PlatformRoleNodeSource
         }
         foreach ($rows as $menu) {
             $source = $definitions[$menu['key']] ?? null;
-            if ($source === null || $menu['source'] !== 'module' ||
+            // Official Platform menus include both Identity's built-in
+            // "system" entries and module-catalog "module" entries. Their
+            // ownership, route, parent, audience and activation must still match.
+            if ($source === null || !in_array($menu['source'], ['system', 'module'], true) ||
                 $menu['module_key'] !== 'platform' || $menu['scope'] !== 'platform' ||
                 $menu['type'] !== $source['type'] || $menu['parent_key'] !== $source['parent_key'] ||
                 $menu['route_path'] !== $source['route_path'] || $menu['status'] !== 'active' ||

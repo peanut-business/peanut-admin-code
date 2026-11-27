@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.49",
+    "template_version": "5.1.18-rc.50",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -282,7 +282,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8a9966a6c5ab27b6db8bc217b2ea51b98665c4c735ca377c8d83ee098b531c91"
+            "source_sha256": "a43a7e5da21864011e6bc65c750d25d33117e0c44f3642330f8bab95656c2d96"
         },
         {
             "path": "THIRD_PARTY_NOTICES.md",
@@ -296,7 +296,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3e3cf6286fc7c003c2f9621bd767316661af04a5aaca61490d6cf2ef4f1420e8"
+            "source_sha256": "a19c83029ea8e7d0ec910464d6142359305ffd3b46d081ba0e46265211b2c427"
         },
         {
             "path": "compose.yaml",
@@ -9066,7 +9066,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b608a5206d7d1f928a80237dd5ea0b2f1507a4f0ad3c88876aef24baf86249dc"
+            "source_sha256": "a9cafab5299b7c253826de87d1fd96c83e7d69482c5a377eb1cbf09918a2c495"
         },
         {
             "path": "server/app/platform/route/app.php",
@@ -11402,7 +11402,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7040005c453c4e5e019cfab8856a57a73465902c507070f3bf8641116a8b7933"
+            "source_sha256": "039101718305a1e7c43ba72559926598c6a122d9e6c0655f6a40d791cc80c9f7"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11416,7 +11416,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "97a60766c9e13a4a9ae7d897889af9572adbc410437d33b40ca5c1387c9c3d4a"
+            "source_sha256": "6e67f71b148c5632d1674290e97db13e80e8806a82d5a8535ad707eab8973134"
         },
         {
             "path": "server/generated/platform-role-source.json",
