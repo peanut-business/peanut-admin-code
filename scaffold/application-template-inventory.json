@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.1.18-rc.48",
+    "template_version": "5.1.18-rc.49",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -282,7 +282,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a2eb555d4c18579a44ad1a75fdfafcd3013520b13e796dbd03749dc6deae6405"
+            "source_sha256": "8a9966a6c5ab27b6db8bc217b2ea51b98665c4c735ca377c8d83ee098b531c91"
         },
         {
             "path": "THIRD_PARTY_NOTICES.md",
@@ -296,7 +296,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bc47146ce61f80f6d46d61ef5a7c1fd0edae7b33c228fdd3851ccf101067acf9"
+            "source_sha256": "3e3cf6286fc7c003c2f9621bd767316661af04a5aaca61490d6cf2ef4f1420e8"
         },
         {
             "path": "compose.yaml",
@@ -1978,7 +1978,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "628b0fac4038d3e27b3b2e2526a286ae6495efc07336ab683755176dec8d5864"
+            "source_sha256": "320e0752ac69d3f326eec8a47ae5f545ae7090e69592ddf1ec17c7fc35ea1eeb"
         },
         {
             "path": "platform/src/api/tenant-license.ts",
@@ -2146,7 +2146,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "196f5c4d283f566e0190b0ef7468f9d839b23e2cdcb579df0ba16ab26dc7b314"
+            "source_sha256": "47a50b775ba118bb32bae1f62ad02504127550ad4725897cf6e8c1f713e87e65"
         },
         {
             "path": "platform/src/core/presentation.ts",
@@ -2300,7 +2300,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3cfe53a7f55116ab9563f349d8decde36ecc7f2e74640ee76fa021b712f0bbb3"
+            "source_sha256": "4d34ad3b9f70816769c341e0e70056a5b2dc3bed23094b19f915a176b3ae4c0b"
         },
         {
             "path": "platform/tsconfig.json",
@@ -2798,7 +2798,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "701789b388ee819722d12f7424ec75646f3ab7297716cdec56854edffffff683"
+            "source_sha256": "3e83d5b1d0fd72a9befb8d955b46895dd2b3b0599e9760496b7f848e3b853f87"
         },
         {
             "path": "scripts/generate-release-legal.mjs",
@@ -9066,7 +9066,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6a101d6206cfd2041b78c3481c38aede64c9449f37392cb8b3b5f13013288f8c"
+            "source_sha256": "b608a5206d7d1f928a80237dd5ea0b2f1507a4f0ad3c88876aef24baf86249dc"
         },
         {
             "path": "server/app/platform/route/app.php",
@@ -11402,7 +11402,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "637cf6f55dea0b8976d7dbd7cdf6bc50f1021aaed2bf688a9804063d853a4b54"
+            "source_sha256": "7040005c453c4e5e019cfab8856a57a73465902c507070f3bf8641116a8b7933"
         },
         {
             "path": "server/generated/openapi.json",
@@ -11416,7 +11416,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ec1a9708e5cd5a562afe27843363c7e5dee1acd1a8ec2ce2317663280363ed9f"
+            "source_sha256": "97a60766c9e13a4a9ae7d897889af9572adbc410437d33b40ca5c1387c9c3d4a"
         },
         {
             "path": "server/generated/platform-role-source.json",
@@ -11430,7 +11430,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5f1caa00b9076943a7311b9c91347d7590335b38b2daa21d4725552cc74d6c8b"
+            "source_sha256": "a1d82bd476fb5aedd19ec9a5605180c6438d8db96b2f55441b64abbbb5e08cd8"
         },
         {
             "path": "server/module",

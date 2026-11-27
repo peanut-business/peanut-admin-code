@@ -113,6 +113,10 @@ final class PlatformRoleNodeSource
             }
         }
 
+        // The bundled source may describe an optional Module, but only its
+        // actual active installation can contribute a direct-role node.
+        $referenceCodesActive = Db::name('module_installation')
+            ->where('module_key', 'peanut.reference-codes')->where('status', 'active')->count() > 0;
         $nodes = [];
         $expectedApis = [];
         $menus = [];
@@ -120,6 +124,9 @@ final class PlatformRoleNodeSource
             $key = $definition['key'];
             // File is an optional Module contribution, never a synthetic fallback.
             if (!$hasFile && ($key === 'platform.storage' || str_starts_with($key, 'platform.storage.'))) {
+                continue;
+            }
+            if ($key === 'platform.tenant.dictionary-catalog.read' && !$referenceCodesActive) {
                 continue;
             }
             if (!in_array($definition['type'] ?? null, ['group', 'page', 'action', 'operation'], true) ||

@@ -29,12 +29,14 @@ const nodes = [];
 const keys = new Set();
 let links = 0;
 for (const definition of definitions) {
-  const { key, parentKey, type, endpoints } = definition;
+  const { key, parentKey, type, endpoints, apiOwner } = definition;
   if (typeof key !== 'string' || !keyPattern.test(key) || key.length > 160 ||
       keys.has(key) || (parentKey !== null && !keyPattern.test(parentKey)) ||
       !['group', 'page', 'action', 'operation'].includes(type) ||
       !Array.isArray(endpoints) || (type === 'group' && endpoints.length) ||
-      (type === 'page' && typeof definition.view !== 'string'))
+      (type === 'page' && typeof definition.view !== 'string') ||
+      (apiOwner !== undefined && (type !== 'operation' ||
+        typeof apiOwner !== 'string' || !/^peanut\.[a-z][a-z0-9-]*$/.test(apiOwner))))
     throw new Error('PLATFORM_ROLE_SOURCE_INVALID: ' + String(key));
   const refs = endpoints.map((ref) => {
     if (!Array.isArray(ref) || ref.length !== 2 ||
@@ -52,7 +54,7 @@ for (const definition of definitions) {
     type,
     route_path: type === 'page' ? '/platform/#/' + definition.view : null,
     api_endpoints: refs,
-    api_owner: key.startsWith('platform.storage.') && type !== 'group' ? 'peanut.file' : 'platform',
+    api_owner: apiOwner ?? (key.startsWith('platform.storage.') && type !== 'group' ? 'peanut.file' : 'platform'),
   });
 }
 for (const node of nodes) {

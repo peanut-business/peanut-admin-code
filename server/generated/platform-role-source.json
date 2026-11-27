@@ -1,7 +1,7 @@
 {
     "schema_version": 1,
     "source_path": "platform/src/core/platform-shell-definitions.ts",
-    "source_sha256": "196f5c4d283f566e0190b0ef7468f9d839b23e2cdcb579df0ba16ab26dc7b314",
+    "source_sha256": "47a50b775ba118bb32bae1f62ad02504127550ad4725897cf6e8c1f713e87e65",
     "nodes": [
         {
             "key": "platform.tenancy",
@@ -49,6 +49,32 @@
                 ]
             ],
             "api_owner": "platform"
+        },
+        {
+            "key": "platform.tenant.capabilities.read",
+            "parent_key": "platform.tenant.list",
+            "type": "operation",
+            "route_path": null,
+            "api_endpoints": [
+                [
+                    "GET",
+                    "/platformapi/tenants/capabilities"
+                ]
+            ],
+            "api_owner": "platform"
+        },
+        {
+            "key": "platform.tenant.dictionary-catalog.read",
+            "parent_key": "platform.tenant.list",
+            "type": "operation",
+            "route_path": null,
+            "api_endpoints": [
+                [
+                    "GET",
+                    "/platformapi/api/v1/dictionary-catalog"
+                ]
+            ],
+            "api_owner": "peanut.reference-codes"
         },
         {
             "key": "platform.tenant.activate",

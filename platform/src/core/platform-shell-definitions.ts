@@ -32,6 +32,27 @@ export const platformTenantDetail = {
   endpoints: [['GET', '/platformapi/tenants/detail']],
 } as const;
 
+// Platform-owned read used by the tenant detail and permission-aware capability contract.
+export const platformTenantCapabilitiesRead = {
+  key: 'platform.tenant.capabilities.read',
+  parentKey: platformTenantsPage.key,
+  type: 'operation',
+  label: '读取租户能力',
+  source: '租户与生命周期 · 正式平台能力接口',
+  endpoints: [['GET', '/platformapi/tenants/capabilities']],
+} as const;
+
+// Optional ReferenceCodes-owned Platform endpoint: no synthetic Host permission or menu.
+export const platformReferenceCodesDictionaryRead = {
+  key: 'platform.tenant.dictionary-catalog.read',
+  parentKey: platformTenantsPage.key,
+  type: 'operation',
+  label: '读取平台字典目录',
+  source: 'ReferenceCodes · 平台字典目录',
+  apiOwner: 'peanut.reference-codes',
+  endpoints: [['GET', '/platformapi/api/v1/dictionary-catalog']],
+} as const;
+
 export const platformTenantTransitions = {
   activate: {
     key: 'platform.tenant.activate',
@@ -797,6 +818,8 @@ export const platformShellPreviewDefinitions = [
   platformTenantsPage,
   platformTenantCreate,
   platformTenantDetail,
+  platformTenantCapabilitiesRead,
+  platformReferenceCodesDictionaryRead,
   ...Object.values(platformTenantTransitions),
   platformTenantOwnerInvitationsPage,
   platformTenantOwnerRead,

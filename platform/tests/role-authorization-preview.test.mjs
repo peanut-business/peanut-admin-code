@@ -274,6 +274,7 @@ function nativePlatformApis() {
     ['POST', archiveRolePath],
     ['GET', tenantsPath],
     ['GET', tenantDetailPath],
+    ['GET', tenantsPath + '/capabilities'],
     ['POST', tenantProvisionPath],
     ...['activate', 'suspend', 'close'].map((action) => ['POST', tenantsPath + '/' + action]),
     ['GET', auditPath],
@@ -540,9 +541,11 @@ test('the default preview projects the real Platform Shell branches and a no-men
   assert.match(tenantsPage.source, /#\/tenants$/);
   assert.deepEqual(
     plain(tenantsPage.children.map((child) => child.label)),
-    ['新建租户', '详情', '启用', '暂停', '关闭']
+    ['新建租户', '详情', '读取租户能力', '启用', '暂停', '关闭']
   );
-  assert.ok(tenantsPage.children.every((child) => child.source.endsWith(tenantsPage.label)));
+  assert.ok(tenantsPage.children.filter((child) => child.type === 'action')
+    .every((child) => child.source.endsWith(tenantsPage.label)));
+  assert.equal(tenantsPage.children.find((child) => child.key === 'platform.tenant.capabilities.read')?.type, 'operation');
   assert.deepEqual(plain(tenancy.children.map((child) => child.key)), [
     'platform.tenant.list', ownerInvitationsPage, entryBindingsPage, entitlementsPage, plansPage,
   ]);
@@ -616,6 +619,7 @@ test('the default preview projects the real Platform Shell branches and a no-men
       node('platform.tenant.list', 'platform.tenancy', 'page', [['GET', tenantsPath]]),
       node('platform.tenant.create', 'platform.tenant.list', 'action', [['POST', tenantProvisionPath]]),
       node('platform.tenant.detail', 'platform.tenant.list', 'action', [['GET', tenantDetailPath]]),
+      node('platform.tenant.capabilities.read', 'platform.tenant.list', 'operation', [['GET', tenantsPath + '/capabilities']]),
       ...['activate', 'suspend', 'close'].map((action) => node(
         'platform.tenant.' + action,
         'platform.tenant.list',
@@ -1551,7 +1555,7 @@ test('native Platform role-node source is bound to the Shell definition and curr
   assert.equal(manifest.schema_version, 1);
   assert.equal(manifest.source_path, 'platform/src/core/platform-shell-definitions.ts');
   assert.equal(manifest.source_sha256, createHash('sha256').update(source).digest('hex'));
-  assert.equal(manifest.nodes.length, 88);
+  assert.equal(manifest.nodes.length, 90);
   const developerGroup = manifest.nodes.find((node) => node.key === 'platform.developer.tools');
   assert.equal(developerGroup?.type, 'group');
   assert.equal(developerGroup?.parent_key, null);
@@ -1576,6 +1580,7 @@ test('native Platform role-node source is bound to the Shell definition and curr
     ['platform.role.list', 'page', '/platformapi/roles', 'platform.governance'],
     ['platform.role.create', 'action', '/platformapi/roles/create', 'platform.role.list'],
     ['platform.role.authorization.catalog-audit', 'operation', '/platformapi/roles/permissions/catalog-audit', null],
+    ['platform.tenant.capabilities.read', 'operation', '/platformapi/tenants/capabilities', 'platform.tenant.list'],
   ]) {
     const node = byKey[key];
     assert.ok(node, key);
@@ -1590,6 +1595,33 @@ test('native Platform role-node source is bound to the Shell definition and curr
     assert.equal(matches[0].contract_quality, 'complete');
     assert.deepEqual(matches[0].owner, { type: 'application', key: 'platform' });
   }
+});
+
+test('optional ReferenceCodes node is owner-bound and excluded when its Module is absent', (t) => {
+  const { contract } = fixture(t, () => assert.fail('unexpected request'));
+  const host = nativePlatformApis();
+  const absent = contract.buildPlatformShellCandidate(host);
+  assert.equal(absent.nodes.some((node) => node.key === 'platform.tenant.dictionary-catalog.read'), false);
+  assert.equal(absent.nodes.some((node) => node.key === 'platform.tenant.capabilities.read'), true);
+
+  // Match the official Module's platform route, not a fabricated Platform-owned API.
+  const dictionary = {
+    id: 'e'.repeat(64),
+    method: 'GET', path: '/platformapi/api/v1/dictionary-catalog',
+    audience: 'platform', module_key: 'peanut.reference-codes',
+    access_mode: 'platform_permission', status: 'active',
+    default_permission_keys: [], prerequisite_permission_keys: [],
+  };
+  const installed = contract.buildPlatformShellCandidate([...host, dictionary]);
+  const node = installed.nodes.find((row) => row.key === 'platform.tenant.dictionary-catalog.read');
+  assert.deepEqual(plain(node?.api_ids), [dictionary.id]);
+  assert.equal(node?.parent_key, 'platform.tenant.list');
+  assert.throws(
+    () => contract.buildPlatformShellCandidate([...host, { ...dictionary, module_key: 'platform' }]),
+    /需要 peanut.reference-codes/
+  );
+  const disabled = contract.buildPlatformShellCandidate([...host, { ...dictionary, status: 'retired' }]);
+  assert.equal(disabled.nodes.some((row) => row.key === node.key), false);
 });
 
 test('direct-node API uses native endpoint paths and strict prepare/save payloads', async (t) => {

@@ -3,6 +3,7 @@ import {
   platformRoleAuthorizationPreview,
   platformRoleAuthorizationCatalogAudit,
   platformShellPreviewDefinitions,
+  platformReferenceCodesDictionaryRead,
   platformStorageCatalogOwner,
   platformStorageNavigation,
   platformStoragePages,
@@ -230,8 +231,15 @@ export function buildPlatformShellCandidate(apis: readonly PermissionApi[]) {
   const hasFileCatalogEvidence = apis.some(
     (item) => item.module_key === platformStorageCatalogOwner || storagePaths.has(item.path)
   );
+  const dictionaryApi = platformReferenceCodesDictionaryRead.endpoints[0];
+  const hasDictionaryCatalogEvidence = apis.some(
+    (item) => item.method === dictionaryApi[0] && item.path === dictionaryApi[1] &&
+      item.status === 'active'
+  );
   const definitions = platformShellPreviewDefinitions.filter(
-    ({ key }) => hasFileCatalogEvidence || !storageKeys.has(key)
+    ({ key }) =>
+      (hasFileCatalogEvidence || !storageKeys.has(key)) &&
+      (hasDictionaryCatalogEvidence || key !== platformReferenceCodesDictionaryRead.key)
   );
 
   function resolveApi(
@@ -271,9 +279,11 @@ export function buildPlatformShellCandidate(apis: readonly PermissionApi[]) {
       if (type !== 'group' && !alternateReadPage && endpoints.length < 1)
         throw new Error(`正式定义的节点 ${key} 未声明 API 关联。`);
       const expectedOwner =
-        storageKeys.has(key)
-          ? platformStorageCatalogOwner
-          : undefined;
+        'apiOwner' in definition
+          ? definition.apiOwner
+          : storageKeys.has(key)
+            ? platformStorageCatalogOwner
+            : undefined;
       return {
         key,
         parent_key: parentKey,
