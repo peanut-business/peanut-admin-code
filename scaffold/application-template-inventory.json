@@ -1369,7 +1369,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e0f27de0f77eb23027c1916a47b8041bfaef48c68ad0b21c8287c179bab102f0"
+            "source_sha256": "112eeee92c9a87bd9ee0ae4b469d461f47ad4a51ae9299a47bfa6eed2f903262"
         },
         {
             "path": "pc/generated/brand.json",
@@ -1759,7 +1759,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "653dadf3b0636fcdb6246fcedf9fc418ef02d911708dfcec78397c53e1a2096d"
+            "source_sha256": "08507cc7e567a21bb8cf7b03d4df615c604f2bf2eed62267b5fa3559f6d519b8"
         },
         {
             "path": "pc/tsconfig.json",
