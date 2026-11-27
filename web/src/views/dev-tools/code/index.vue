@@ -112,7 +112,7 @@
       />
     </el-card>
 
-    <el-dialog v-model="sourceVisible" title="导入数据表" width="760px">
+    <el-dialog v-model="sourceVisible" title="导入数据表" width="760px" @close="closeSourceTables">
       <el-input
         v-model="sourceKeyword"
         clearable
@@ -153,7 +153,7 @@
         @current-change="fetchSourceTables"
       />
       <template #footer
-        ><el-button @click="sourceVisible = false">取消</el-button
+        ><el-button @click="closeSourceTables">取消</el-button
         ><el-button
           v-permission="['core.generator.manage']"
           type="primary"
@@ -532,7 +532,9 @@
     showTotal: true,
   });
 
+  let listRequestEpoch = 0;
   const fetchData = async (page = 1) => {
+    const request = ++listRequestEpoch;
     setLoading(true);
     try {
       const { data } = await getGeneratorList({
@@ -540,6 +542,7 @@
         page_no: page,
         page_size: pagination.pageSize,
       });
+      if (request !== listRequestEpoch) return;
       renderData.value = data.lists;
       pagination.current = data.pageNo;
       pagination.total = data.count;
@@ -549,7 +552,7 @@
     } catch {
       // The shared API interceptor already reports the request failure.
     } finally {
-      setLoading(false);
+      if (request === listRequestEpoch) setLoading(false);
     }
   };
   fetchData();
@@ -570,7 +573,9 @@
     total: 0,
     showTotal: true,
   });
+  let sourceRequestEpoch = 0;
   const fetchSourceTables = async (page = 1) => {
+    const request = ++sourceRequestEpoch;
     sourceLoading.value = true;
     try {
       const { data } = await getGeneratorSourceTables({
@@ -578,15 +583,29 @@
         page_no: page,
         page_size: sourcePagination.pageSize,
       });
+      if (request !== sourceRequestEpoch || !sourceVisible.value) return;
       sourceTables.value = data.lists;
       sourcePagination.current = data.pageNo;
       sourcePagination.total = data.count;
     } catch {
       // The shared API interceptor already reports the request failure.
     } finally {
-      sourceLoading.value = false;
+      if (request === sourceRequestEpoch) sourceLoading.value = false;
     }
   };
+  const closeSourceTables = () => {
+    ++sourceRequestEpoch;
+    sourceVisible.value = false;
+    sourceLoading.value = false;
+    sourceTables.value = [];
+    sourceSelectedKeys.value = [];
+    sourcePagination.current = 1;
+    sourcePagination.total = 0;
+  };
+  onBeforeUnmount(() => {
+    ++listRequestEpoch;
+    ++sourceRequestEpoch;
+  });
   const onSourceSelectionChange = (rows: GeneratorSourceTable[]) => {
     sourceSelectedKeys.value = rows.map((row) => row.table_name);
   };
