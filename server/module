@@ -57,12 +57,15 @@ require __DIR__ . '/vendor/autoload.php';
 
 try {
     $app = new App(__DIR__);
-    // Source creation/adoption precedes runtime composition. The verified,
-    // development-only source transaction must also work before its first
-    // required Module exists; installed operations retain normal admission.
+    // Source creation/adoption and development lock writing precede runtime
+    // composition. A legal changed module.json cannot first pass validation
+    // against the previous lock that this command is responsible for writing.
+    // --check and all installed/lifecycle operations retain normal admission.
+    $authoringLockWrite = $request['operation'] === 'lock'
+        && in_array('--write', $request['arguments'], true);
     $minimalSourceBoot = $request['operation'] === 'create'
-        || $request['operation'] === 'adopt';
-    if ($request['operation'] === 'adopt' && $minimalSourceBoot) {
+        || $request['operation'] === 'adopt' || $authoringLockWrite;
+    if (($request['operation'] === 'adopt' || $authoringLockWrite) && $minimalSourceBoot) {
         // Load the same server-local environment as the native application, without
         // booting a broken Module graph. Recovery requires an explicit development file.
         $name = $app->env->get('env_name', '');
@@ -76,9 +79,17 @@ try {
         $app->env->set('APP_ENV', 'production');
         $app->loadEnv($name);
         require_once __DIR__ . '/vendor/topthink/framework/src/helper.php';
+        // The source-only console deliberately skips App::initialize(). The
+        // authoring gate still needs the real APP_DEBUG value from the
+        // validated server-local environment; do not assume debug mode.
+        $app->debug($app->env->get('app_debug') ? true : false);
         $app->config->set(require __DIR__ . '/config/peanut.php', 'peanut');
         $app->config->set(require __DIR__ . '/config/module_packages.php', 'module_packages');
         $app->config->set(require __DIR__ . '/config/deployment.php', 'deployment');
+        // ModuleLock::handle compiles the registry using the resolved lock
+        // path immediately after writeLock(). Missing this config would turn
+        // a valid source update into a late failure after changing the lock.
+        $app->config->set(require __DIR__ . '/config/modules.php', 'modules');
     }
     $console = new class ($app, $class, $minimalSourceBoot) extends Console {
         public function __construct(App $app, private string $commandClass, private bool $sourceOnly)
@@ -96,7 +107,9 @@ try {
 
         protected function loadCommands(): void
         {
-            if ($this->sourceOnly && $this->commandClass === \app\command\ModuleAdoptPackage::class) {
+            if ($this->sourceOnly && in_array($this->commandClass, [
+                \app\command\ModuleAdoptPackage::class, \app\command\ModuleLock::class,
+            ], true)) {
                 // Source transactions keep the ordinary CLI execution context
                 // without constructing runtime Module or database services.
                 $store = new \app\common\execution\ExecutionContextStore();
