@@ -1,8 +1,12 @@
 # Agent working agreement
 
+**最高研发基准条款：Core 提供底层依赖、Scaffold 提供通用底座、Module 应用开发并发行共用能力、业务应用基于脚手架安装模块后实现业务。**
+
+该条款优先于本模板之后的应用开发约定：Core 提供技术内核，Scaffold 提供可升级宿主，Module 作者单独维护并发行共用能力；业务应用使用固定模板创建自己的源码，按需安装对应 Module，并将行业业务留在应用自有模块中。Module-only 更新不强制 Core/Scaffold 改版或全应用发版；本条不改变安全、审批与数据保护边界。
+
 ## Execution discipline
 
-- For cross-layer development, consume fixed local Core packages, then a fixed Scaffold template, then versioned Module packages through the native dependency and upgrade entries. Batch related changes before packaging; reuse unchanged packages and valid checks. Explicit source linking is a development aid and does not prove package adoption. Never overwrite a version with different contents.
+- For cross-layer changes, follow dependency order only for layers that actually changed: Core technology packages, the corresponding Scaffold host if needed, independently versioned reusable Modules, then the consuming business application. A Module-only feature or fix must not require republishing unchanged Core/Scaffold. Use fixed native source and dependency entries, batch actual related changes, reuse unchanged packages and checks. Explicit source linking is development-only and never proves package adoption; do not overwrite immutable version contents.
 
 - ST and MT templates contain Host source and a bootstrap Composer lock. Bind the exact selected Edition across template, staged APP, native source plan and each Module's declared Composer editions; reject incompatible modules. Use CLI create's fixed release composition and reviewed staged adopt before running the native pre-install `scripts/deploy-update.sh --prepare-first-install` (no Git required) for final Module dependencies, API, clients and registry. Missing required Module source is an uninstalled prerequisite; do not copy author trees or vendor from another application. Database installation and runtime acceptance remain separate.
 

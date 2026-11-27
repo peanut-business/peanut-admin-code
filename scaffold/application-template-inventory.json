@@ -779,7 +779,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "287ca9368930fbe8b114d9803035299e907bd66d22b21ea00cc7da970cccbd84"
+            "source_sha256": "107349d04f2141c697853c932bbe6cddb0f9860eb214e873d49b7fae94d45bfb"
         },
         {
             "path": "docs/architecture/overview.md",
@@ -835,7 +835,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8489d57e7f0144e6d4f65ca0060da2514a61738e7bc3c82a1304056671483057"
+            "source_sha256": "0ca15fd212cab9e148b639d045fb3a53b15a7d607cdbad9a42795676f542810d"
         },
         {
             "path": "docs/development/application-conventions.md",
@@ -988,7 +988,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c7c041f8c8923cf5ce8b9a35cf7e2defacb2d40d70a281bf6694209213798a76"
+            "source_sha256": "b912917d3af7674b1140532ed0b8c7b21950cd0c7e3536c30c4fcf66583f01d5"
         },
         {
             "path": "docs/development/ui-guidelines.md",
@@ -1095,7 +1095,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "869e0e2880a8d2d47d7a0386c41ba42c4c08a830bb89011c5d5960b327d934b7"
+            "source_sha256": "1feac695024e637f2a4bd3d73de329c4a32a08744112961d4560589fd0d39d49"
         },
         {
             "path": "docs/public/api-and-sdk.md",
@@ -1151,7 +1151,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5e15de6f96e64255acd2c6863d36312991f3da07a2b146c6255983658700d1e5"
+            "source_sha256": "747c015edaffa408f2f5962d4ba682d418cf2ad4daae9f8638fb3b0e86ad09e8"
         },
         {
             "path": "docs/public/release-channels.md",
@@ -11878,7 +11878,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b72d321e77b15ffb30af915851c427ff7f378735e23fdb45165fddb508c63e7c"
+            "source_sha256": "ea01da094c95c5caac3daa3c138131e2d64c9e3f0b763d45470fd2a8e50a7995"
         },
         {
             "path": "server/resources/scaffold-application/SECURITY.md.stub",
@@ -19036,7 +19036,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5741bdba352a8f12ec3bad51271d136386bebf778746b80291b7ca0ac7aec3dd"
+            "source_sha256": "ba0da92dcea2ac1b49eaf0baf534037b399bc03b47110f9d67312093c810b231"
         },
         {
             "path": "web/src/views/dev-tools/modules/index.vue",
@@ -19877,6 +19877,20 @@
                 "full"
             ],
             "source_sha256": "9084c175bdb5d24975c1704a6ba6b5d009f3d14f27177b0205d708f3c5799ece"
+        },
+        {
+            "path": "web/tests/Productization/generator-list-latest-response.test.mjs",
+            "target": "web/tests/Productization/generator-list-latest-response.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "81b5ae8f624e231050b0c4c7c3ce65e4a8c133c93ba86fa5de622fb5a0c5ea5e"
         },
         {
             "path": "web/tests/Productization/generator-preview-latest-request.test.mjs",

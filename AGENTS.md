@@ -1,5 +1,9 @@
 # peanut-admin-code
 
+**最高研发基准条款：Core 提供底层依赖、Scaffold 提供通用底座、Module 应用开发并发行共用能力、业务应用基于脚手架安装模块后实现业务。**
+
+所有下位脚手架规则必须服从本条：Code 只实现通用宿主与应用创建、装配、安装、升级及公共壳；官方共用业务能力的正式作者源码、组件、数据和独立版本归 `peanut-module-code`；业务应用在固定 Scaffold 上按需安装模块并实现领域功能。仅在实际改变 Scaffold 时才发新版模板，不因一个 Module 改动重发 Core/Scaffold。安全、数据保护及公开发行权限仍依各自正式合同。
+
 Peanut Admin Host composition, client delivery and runtime acceptance; official Module author source belongs to the dedicated Module development application, not this Code repository. No private Project dependencies or duplicate kernel.
 
 ## Execution discipline
@@ -25,7 +29,7 @@ For an authorized Peanut maintainer task, locate the private peanut-admin-projec
 
 After context compression/summary, model or executor switch, Session recovery, `history_lost`, or loss of certainty about the current task/candidate/write set/loaded routes, reload Project `AGENTS.md` → core → current task route before the next rule-dependent write or expensive validation. Use `tools/quality/README.md` and each affected project's native commands for checks; report the actual source, dependency and validation scope. When reading Code public rule bodies through Project, pass this explicit Code checkout and verified commit with `--application-root` and `--application-ref`; `--content` must return real source text, not a pointer. Do not load entire handbook/API/migration data by default or file self-certified reading receipts. Uncertain rule semantics require evidence and the user's decision; do not weaken security or tests to obtain a pass.
 
-Isolated worktrees; preserve concurrent work; normal validated integration/push to dev, verify remote refs; never force/rewrite history. main, formal publication/deployment, real customer/financial data, paid plans, visibility and license changes require applicable authorization. No private rules, credentials or customer data in public repos.
+Default to the existing dev worktree for ordinary serial changes; use an isolated worktree only for a demonstrated concurrent write conflict or native qualification that actually requires isolation. Preserve concurrent work; normal validated integration/push to dev, verify remote refs; never force/rewrite history. main, formal publication/deployment, real customer/financial data, paid plans, visibility and license changes require applicable authorization. No private rules, credentials or customer data in public repos.
 
 Absorb useful rules/open issues before deleting confirmed duplicates or unused one-time tools; no archive/redirect stubs. Preserve live tests, migrations, licenses and others' resources. Docs-only changes neither prove runtime acceptance nor require repinning packages or unrelated product tests.
 

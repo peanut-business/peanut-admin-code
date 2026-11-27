@@ -1,11 +1,11 @@
 # Peanut Admin Code
 
-Peanut Admin产品源码：应用装配、官方业务模块、管理端/平台端/网站/移动端，以及创建、构建、安装和升级工具。PHP Core和Web Core只提供技术内核与公共设施。
+Peanut Admin Code 是 Scaffold 通用底座的作者源码：应用装配、通用管理端/平台端/网站/移动端壳、创建/构建/安装/升级工具。PHP Core/Web Core 独立提供底层依赖；官方共用业务 Module 的唯一作者源码、业务页面与组件、迁移、公开合同及独立发行属于 `peanut-module-code`。
 
 ## 使用和开发
 
 - 部署者与APP开发者从[产品使用资料](docs/public/README.md)开始；APP自行维护Git源码、业务版本和资源，不依赖维护者私有Project。
-- 二开开发者从[开发文档](docs/README.md)和[开发规范](docs/development/standard.md)进入；模块合同、源码、路由和生成API在本仓共同版本化。
+- 二开开发者从[开发文档](docs/README.md)和[开发规范](docs/development/standard.md)进入；本仓维护宿主所需的模块装配、路由/API 生成与安装/升级机制，官方模块业务源码和模块自身接口/权限定义须进入 [Module 作者应用](https://github.com/peanut-opensource/peanut-module-code/blob/dev/docs/project-rules.md)，不是在本仓另行开发。
 - AI执行入口保留在`AGENTS.md`，工具与源码邻近的README保留在其所属目录。维护者源级工具说明见`docs/maintenance/`，不作为普通APP的安装前置。
 
 脚手架经已配置的 `peanut release` 生成 ST/MT 模板，供 `create` / `upgrade` 使用。产品在自己的 Git `dev` 开发，审核定版后由生产采用固定 `main` 提交；首次安装与既有实例原目录更新分开。生产 Git 协调尚未完整接通，保护边界与真实缺口见[产品 Git 交付](docs/public/application-release.md)。
